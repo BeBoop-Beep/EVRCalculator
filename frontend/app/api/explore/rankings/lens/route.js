@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
-import { getOverallProductRankings } from "@/lib/explore/overallProductRankingsServer";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import { projectRankingsTargets } from "@/lib/explore/rankingsClientProjection.mjs";
+import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 export const dynamic = "force-dynamic";
 
@@ -29,15 +28,23 @@ function rankTargets(targets) {
   });
 }
 
-async function canonicalTargetsPayload() {
-  return getRipStatisticsTargets({ limit: 60 }).catch(() => null);
+async function preparedLensPayload(lens) {
+  const url = new URL(`${getBackendApiBaseUrl()}/explore/rankings/lens/${encodeURIComponent(lens)}`);
+  url.searchParams.set("limit", "60");
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 60, tags: [`pokemon-rankings-lens:${lens}`] },
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload) return null;
+  return payload;
 }
 
 export async function GET(request) {
   const lens = String(request.nextUrl.searchParams.get("lens") || "").trim().toLowerCase();
 
   if (lens === "sets") {
-    const payload = await canonicalTargetsPayload();
+    const payload = await preparedLensPayload("sets");
     if (!payload || payload?.meta?.requestFailed) {
       return NextResponse.json(
         { status: "unavailable", targets: [], marketDate: marketDate(payload) },
@@ -57,7 +64,7 @@ export async function GET(request) {
   }
 
   if (lens === "eras") {
-    const payload = await canonicalTargetsPayload();
+    const payload = await preparedLensPayload("eras");
     if (!payload || payload?.meta?.requestFailed) {
       return NextResponse.json(
         { status: "unavailable", eraSetStrength: null, marketDate: marketDate(payload) },
@@ -75,10 +82,10 @@ export async function GET(request) {
   }
 
   if (lens === "products") {
-    const [payload, overallProductRankings] = await Promise.all([
-      canonicalTargetsPayload(),
-      getOverallProductRankings("full_market"),
-    ]);
+    const payload = await preparedLensPayload("products");
+    const overallProductRankings = payload?.overallProductRankings || {
+      status: "unavailable", reason: "publication_unavailable", data: null,
+    };
     if (!payload || payload?.meta?.requestFailed) {
       return NextResponse.json(
         {

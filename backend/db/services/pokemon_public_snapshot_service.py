@@ -20,7 +20,7 @@ from backend.db.services.public_rip_publication_contract import (
     payload_guarantees_canonical_set_value,
 )
 from backend.db.services.set_rip_service import attach_set_rip_to_targets, build_set_rip
-from backend.db.services.era_set_strength_service import attach_era_set_strength
+from backend.db.services.era_set_strength_service import attach_era_set_strength, build_era_set_strength
 from backend.desirability.card_appeal import (
     calculate_adjusted_card_appeal,
     calculate_scarcity_score,
@@ -1619,6 +1619,9 @@ _SHELL_SNAPSHOT_COLUMNS = (
     "set_id,set_identity_json,title_card_json,rip_summary_json,"
     "market_summary_json,risk_summary_json,concentration_json,"
     "desirability_summary_json,set_intelligence_json,as_of,source_updated_at,updated_at,"
+    "canonicalOverall:rip_bootstrap_json->canonicalRip->overall,"
+    "rankingMarketDate:rip_bootstrap_json->marketDate,"
+    "rankingCalculationRunId:rip_bootstrap_json->calculationRunId,"
     + ",".join(
         f"{_TRACKED_LENS_PAYLOAD_PREFIX}{field}:payload_json->summary->{field}"
         for field in _TRACKED_LENS_SUMMARY_FIELDS
@@ -1678,6 +1681,8 @@ def _build_shell_payload_from_row(
     interpretation = (
         row.get("set_intelligence_json") if isinstance(row.get("set_intelligence_json"), dict) else {}
     )
+    canonical_overall = row.get("canonicalOverall") if isinstance(row.get("canonicalOverall"), dict) else {}
+    public_rip_contract = {"overallRip": canonical_overall} if canonical_overall else {}
     summary = {
         **concentration,
         **risk_summary,
@@ -1685,6 +1690,7 @@ def _build_shell_payload_from_row(
         **rip_summary,
         **tracked_lens_summary,
         **title_card,
+        **({"publicRipContractV10": public_rip_contract} if public_rip_contract else {}),
     }
     histories_by_scope = set_value_histories_by_scope if isinstance(set_value_histories_by_scope, dict) else {}
 
@@ -1692,6 +1698,7 @@ def _build_shell_payload_from_row(
         "set": _normalize_set_identity(set_identity),
         "summary": summary,
         "interpretation": interpretation,
+        "publicRipContractV10": public_rip_contract,
         "setValueHistoriesByScope": histories_by_scope,
         "meta": {},
     }
@@ -1789,6 +1796,12 @@ def get_pokemon_set_shell_snapshot_payload(set_id: str) -> Dict[str, Any]:
         meta = dict(payload.get("meta") or {})
         snapshot_meta = _snapshot_meta(row, "pokemon_set_page_snapshot_latest")
         meta["snapshot"] = {"source": snapshot_meta["source"], **snapshot_meta["snapshot"]}
+        if row.get("rankingMarketDate") or row.get("rankingCalculationRunId"):
+            meta["rankingPublication"] = {
+                "marketDate": _to_optional_str(row.get("rankingMarketDate")),
+                "calculationRunId": _to_optional_str(row.get("rankingCalculationRunId")),
+                "source": "pokemon_set_page_snapshot_latest.rip_bootstrap_json",
+            }
         payload["meta"] = meta
         timings = dict((payload.get("meta") or {}).get("timings") or {})
         if set_resolve_ms is not None:
@@ -1828,6 +1841,97 @@ def _load_pokemon_explore_rankings_snapshot_row(client: Any) -> Optional[Dict[st
         .execute()
     )
     return _first_row(result)
+
+
+_RANKINGS_LENS_SELECTS = {
+    "sets": (
+        "targets:ranking_payload_json->targets,meta:ranking_payload_json->meta,"
+        "default_target_json,updated_at"
+    ),
+    "eras": "targets:ranking_payload_json->targets,meta:ranking_payload_json->meta,updated_at",
+    "products": (
+        "productFamilyRankings:ranking_payload_json->productFamilyRankings,"
+        "meta:ranking_payload_json->meta,updated_at"
+    ),
+}
+
+
+def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
+    """Read one bounded Rankings lens from the persisted publication.
+
+    PostgREST projects only the requested JSON paths, so selecting Eras, Sets,
+    or Products no longer transfers/deserializes the complete Rankings mega-
+    contract or runs the request-time checklist enrichment used by the legacy
+    all-lenses reader.
+    """
+    resolved_lens = str(lens or "").strip().lower()
+    select_clause = _RANKINGS_LENS_SELECTS.get(resolved_lens)
+    if not select_clause:
+        raise ExploreRipStatisticsTargetsError(400, "Unsupported Rankings lens", "RANKINGS_LENS_UNSUPPORTED")
+    clamped_limit = _sanitize_limit(limit, default=DEFAULT_RANKINGS_LIMIT, max_value=MAX_RANKINGS_LIMIT)
+
+    def load(client: Any):
+        return _first_row(
+            client.table("pokemon_explore_rankings_snapshot_latest")
+            .select(select_clause)
+            .eq("tcg", "pokemon")
+            .eq("scope", DEFAULT_RANKINGS_SCOPE)
+            .limit(1)
+            .execute()
+        )
+
+    try:
+        row = run_public_read_with_retry(
+            load,
+            operation_name=f"pokemon_explore_rankings_lens_{resolved_lens}",
+            initial_client=service_read_client,
+            client_factory=create_short_timeout_service_client,
+        )
+    except Exception as exc:
+        raise ExploreRipStatisticsTargetsError(
+            503,
+            f"{resolved_lens.title()} Rankings are temporarily unavailable",
+            "RANKINGS_LENS_TEMPORARILY_UNAVAILABLE",
+            retry_after_seconds=15,
+        ) from exc
+    if not isinstance(row, dict):
+        raise ExploreRipStatisticsTargetsError(
+            503, f"{resolved_lens.title()} Rankings publication is unavailable", "RANKINGS_LENS_UNAVAILABLE"
+        )
+
+    meta = row.get("meta") if isinstance(row.get("meta"), dict) else {}
+    identity_payload = {"meta": meta}
+    if _rankings_publication_identity_mismatches(identity_payload):
+        raise ExploreRipStatisticsTargetsError(
+            503, "Rankings are being republished", "RANKINGS_LENS_PUBLICATION_SUPERSEDED", retry_after_seconds=60
+        )
+    snapshot = dict(meta.get("snapshot") or {})
+    snapshot.update({
+        "source": "pokemon_explore_rankings_snapshot_latest",
+        "updatedAt": _to_optional_str(row.get("updated_at")),
+        "publicationIdentity": "current",
+    })
+    meta = {**meta, "snapshot": snapshot}
+
+    if resolved_lens == "products":
+        families = row.get("productFamilyRankings")
+        if not isinstance(families, dict):
+            raise ExploreRipStatisticsTargetsError(503, "Product Rankings publication is incomplete", "PRODUCT_RANKINGS_LENS_INCOMPLETE")
+        return {"productFamilyRankings": families, "meta": meta}
+
+    targets = [
+        target for target in list(row.get("targets") or [])
+        if isinstance(target, dict) and is_opening_set_row(target)
+    ][:clamped_limit]
+    if not targets:
+        raise ExploreRipStatisticsTargetsError(503, f"{resolved_lens.title()} Rankings publication is incomplete", "RANKINGS_LENS_INCOMPLETE")
+    if resolved_lens == "eras":
+        return {"eraSetStrengthV1": build_era_set_strength(targets), "meta": meta}
+    return {
+        "targets": targets,
+        "default_target": row.get("default_target_json") or None,
+        "meta": {**meta, "request": {**(meta.get("request") or {}), "limit": clamped_limit}},
+    }
 
 
 def _read_rankings_publication_identity(payload: Dict[str, Any]) -> Dict[str, Optional[str]]:
@@ -5898,11 +6002,57 @@ def get_pokemon_set_market_movers_snapshot_payload(
             return payload
 
         if set_page_absolute_percent:
-            raise PokemonSetMarketError(
-                503,
-                "Set-page absolute-percent movers snapshot is incomplete; retry after publication",
-                "POKEMON_SET_PAGE_MARKET_MOVERS_SNAPSHOT_INCOMPLETE",
+            logger.warning(
+                "[pokemon-snapshot] set-page absolute-percent projection missing; adapting compatible legacy movers "
+                "set_id=%s window=%s",
+                resolved_set_id,
+                resolved_window,
             )
+            fallback = _legacy_market_movers_snapshot_payload(
+                resolved_set_id=resolved_set_id,
+                set_row=set_row,
+                resolved_window=resolved_window,
+                window_days=window_days,
+                limit_value=max(limit_value, SET_PAGE_MARKET_MOVERS_LIMIT),
+                started=started,
+            )
+            market_movers = fallback.get("marketMovers") if isinstance(fallback.get("marketMovers"), dict) else {}
+            compatible = [card for card in market_movers.get("all", []) if isinstance(card, dict)]
+            compatible.sort(
+                key=lambda card: (
+                    -abs(_cards_page_movement_values(card, "7d")[1] or 0.0),
+                    -abs(_cards_page_movement_values(card, "7d")[0] or 0.0),
+                    _to_optional_str(card.get("canonicalCardId") or card.get("id")) or "",
+                )
+            )
+            served = compatible[:limit_value]
+            market_movers.update({
+                "all": served,
+                "heatingUp": [card for card in served if _cards_page_movement_direction(card, "7D") > 0],
+                "coolingOff": [card for card in served if _cards_page_movement_direction(card, "7D") < 0],
+            })
+            meta = fallback.get("meta") if isinstance(fallback.get("meta"), dict) else {}
+            warnings = list(meta.get("warnings") or [])
+            warnings.append(
+                "Set-page absolute-percent projection was unavailable; served compatible published 7D movers sorted by absolute percent."
+            )
+            fallback["marketMovers"] = market_movers
+            fallback["meta"] = {
+                **meta,
+                "warnings": warnings,
+                "query": {
+                    "section": "market-movers", "window": resolved_window, "movement": "all",
+                    "sort": "largest-absolute-percent", "limit": limit_value,
+                    "surface": "set-page", "metric": "absolute-percent",
+                },
+                "snapshot": {
+                    **(meta.get("snapshot") or {}),
+                    "source": "compatible_legacy_movers_absolute_percent_fallback",
+                    "usedLegacyMoverList": True,
+                    "requestedProjectionAvailable": False,
+                },
+            }
+            return fallback
 
         logger.warning(
             "[pokemon-snapshot] market movers cards snapshot missing; falling back to legacy mover list set_id=%s window=%s",

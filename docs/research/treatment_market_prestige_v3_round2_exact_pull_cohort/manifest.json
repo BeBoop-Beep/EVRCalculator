@@ -1,0 +1,14 @@
+{
+  "study_id": "treatment-market-prestige-v3-r2-9439727344d3bbb5",
+  "manifest_hash": "9439727344d3bbb5a5f57c09d6f3bc24ac844680e812acfac9f232d27fc81648",
+  "frozen_at": "2026-08-29T17:32:37.844219+00:00",
+  "methodology": "treatment_market_prestige_v3_round2",
+  "round1_study_id": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+  "round1_manifest_hash": "6959bfa9889458fe5ed2e241065dbec7a0c62f609de6f5141092884ce1e9e075",
+  "round1_cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+  "cohort_hash": "797fe80e91db99ff05387ba1597382896d5915e6cdd5c696e0d781a3e288e427",
+  "calculation_run_provenance_hash": "17cd87b340875884b664d2e91373791d69a164327ee4d0e9aeca270bd8a14396",
+  "rows": 4398,
+  "calculation_runs": 22,
+  "source_rule": "intersection of immutable Round 1 rows with already-frozen exact_pull_probability and exact_pull_run_id"
+}

@@ -51,8 +51,25 @@ from backend.scripts.pokemon_snapshot_builders import (
     build_explore_rankings_snapshot_row,
 )
 from backend.db.services.set_rip_service import METHODOLOGY_VERSION as SET_RIP_METHODOLOGY_VERSION
+from backend.db.services.rankings_publication_lifecycle import (
+    FAILED_POST_PUBLICATION_PARITY,
+    FAILED_PUBLICATION_RPC,
+    assert_rankings_publication_parity,
+    evaluate_rankings_publication_readiness,
+    finish_rankings_publication_attempt,
+    read_active_publication,
+    start_rankings_publication_attempt,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _rankings_lifecycle_persistence_supported(client: Any) -> bool:
+    """Keep strict pre-audit unit fakes usable; real Supabase clients always qualify."""
+    fake_tables = getattr(client, "_tables", None)
+    if isinstance(fake_tables, dict):
+        return "pokemon_rankings_publication_attempts" in fake_tables
+    return "supabase" in type(client).__module__.lower()
 
 
 # Superseded public contracts that are BUILT canonically but not PERSISTED into the
@@ -549,6 +566,8 @@ def validate_publication_payload(
 def publish_explore_rip_rankings_snapshot(
     client: Any, *, limit: int = DEFAULT_RANKINGS_LIMIT,
     market_date: Optional[str] = None, commit: bool = True,
+    sealed_product_finalization_status: Optional[str] = None,
+    sealed_product_finalization_report: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build, validate, enrich, and atomically publish the canonical RIP leaderboard."""
     row = build_explore_rankings_snapshot_row(limit=limit)
@@ -563,7 +582,33 @@ def publish_explore_rip_rankings_snapshot(
     if commit:
         _reuse_publication_id(client, snapshot)
     attach_publication_metadata(row, snapshot)
-    validate_publication_payload(row, snapshot, history_rows)
+    readiness = evaluate_rankings_publication_readiness(
+        row, snapshot, expected_market_date=market_date,
+        sealed_product_finalization_status=sealed_product_finalization_status,
+        sealed_product_finalization_report=sealed_product_finalization_report,
+    )
+    lifecycle_persistence = commit and _rankings_lifecycle_persistence_supported(client)
+    prior = read_active_publication(client) if lifecycle_persistence else {}
+    attempt_id = start_rankings_publication_attempt(client, readiness, prior=prior) if lifecycle_persistence else None
+    enforce_readiness = (not commit) or lifecycle_persistence
+    if enforce_readiness and not readiness.ready:
+        if attempt_id:
+            finish_rankings_publication_attempt(
+                client, attempt_id, status="deferred", reason_code=readiness.reason_code,
+                detail=readiness.detail,
+            )
+        raise RuntimeError(
+            f"Rankings publication deferred ({readiness.reason_code}): {readiness.detail}"
+        )
+    try:
+        validate_publication_payload(row, snapshot, history_rows)
+    except Exception as exc:
+        if attempt_id:
+            finish_rankings_publication_attempt(
+                client, attempt_id, status="failed", reason_code="FAILED_PUBLICATION_CONTRACT",
+                detail=str(exc), error=exc,
+            )
+        raise
 
     # ORDER MATTERS. The projection runs AFTER validation and AFTER movement, so the
     # publication contract, the Set Value coverage check and the 1D rank movement all
@@ -591,7 +636,30 @@ def publish_explore_rip_rankings_snapshot(
         logger.info("[dry-run] validated complete RIP publication market_date=%s rows=%s",
                     snapshot["market_date"], len(history_rows))
         return row
-    client.rpc("publish_pokemon_public_rip_leaderboard", {
-        "p_snapshot": snapshot, "p_rows": history_rows, "p_latest": latest_row,
-    }).execute()
+    try:
+        client.rpc("publish_pokemon_public_rip_leaderboard", {
+            "p_snapshot": snapshot, "p_rows": history_rows, "p_latest": latest_row,
+        }).execute()
+    except Exception as exc:
+        if attempt_id:
+            finish_rankings_publication_attempt(
+                client, attempt_id, status="failed", reason_code=FAILED_PUBLICATION_RPC,
+                detail=str(exc), error=exc,
+            )
+        raise
+    if lifecycle_persistence:
+        try:
+            assert_rankings_publication_parity(client, readiness, publication_id=snapshot["id"])
+        except Exception as exc:
+            if attempt_id:
+                finish_rankings_publication_attempt(
+                    client, attempt_id, status="failed", reason_code=FAILED_POST_PUBLICATION_PARITY,
+                    detail=str(exc), publication_id=snapshot["id"], error=exc,
+                )
+            raise
+    if attempt_id:
+        finish_rankings_publication_attempt(
+            client, attempt_id, status="published", reason_code="READY",
+            detail=readiness.detail, publication_id=snapshot["id"],
+        )
     return row

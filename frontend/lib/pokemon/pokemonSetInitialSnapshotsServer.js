@@ -6,6 +6,7 @@ import {
   normalizeMarketDashboardWindow,
   normalizeMarketMoversPayload,
   normalizeOverviewPayload,
+  normalizeTopChasePayload,
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 import { normalizePokemonSetSimulationEvidence } from "@/lib/pokemon/pokemonSetSimulationEvidence.mjs";
@@ -220,6 +221,23 @@ export async function getPokemonSetMarketMoversInitialSnapshot(setId) {
   });
 }
 
+export async function getPokemonSetTopChaseInitialSnapshot(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) return { ...EMPTY_INITIAL_SNAPSHOT, error: { message: "Set id is required", code: "SET_ID_REQUIRED" } };
+  const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/top-chase`);
+  url.searchParams.set("window", "30d");
+  url.searchParams.set("limit", "10");
+  return loadInitialSnapshot(url, {
+    moduleName: "market top chase",
+    normalizePayload: normalizeTopChasePayload,
+    nextCacheOptions: {
+      revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S,
+      tags: [`pokemon-set-market-top-chase:${resolvedSetId}:30d:10`],
+    },
+    timeoutMs: getOverviewTimeoutMs(),
+  });
+}
+
 export async function getPokemonSetCardsInitialSnapshot(setId) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -337,7 +355,7 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   const [shell, cards, marketDashboard, overview, marketMovers, ripBootstrap] = await Promise.all([
     getPokemonSetShellInitialSnapshot(setId),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
-    Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    wantsMarketSeed ? getPokemonSetTopChaseInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     wantsMarketSeed ? getPokemonSetMarketBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     wantsMarketSeed ? getPokemonSetMarketMoversInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     wantsRipBootstrap ? getPokemonSetRipBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),

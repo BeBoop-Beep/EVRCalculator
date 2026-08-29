@@ -43,11 +43,21 @@ from backend.db.services.frontend_proxy_service import (
 )
 from backend.domain.access.index_plan_access import (
     FEATURE_CARD_CHASE_EFFICIENCY,
+    FEATURE_MARKET_BREADTH,
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    FEATURE_PRODUCT_RIP,
+    FEATURE_SET_RIP_ANALYTICS,
     filter_set_market_signal_access,
     has_index_plus_access,
     has_index_feature_access,
     has_index_premium_access,
+    project_card_detail_response,
+    project_insights_critical_response,
+    project_product_rankings_response,
+    project_rankings_response,
+    project_sealed_market_response,
+    project_sealed_product_detail_response,
+    project_set_page_response,
 )
 from backend.db.services.chase_efficiency_query_service import (
     get_card_chase_efficiency as read_card_chase_efficiency,
@@ -75,6 +85,7 @@ from backend.db.services.pokemon_set_market_service import (
 )
 from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_explore_rankings_snapshot_payload,
+    get_pokemon_explore_rankings_lens_payload,
     get_pokemon_set_card_validation_snapshot_payload,
     get_pokemon_set_cards_page_snapshot_payload,
     get_pokemon_set_cards_snapshot_payload,
@@ -146,6 +157,18 @@ _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES = 128
 _market_explorer_query_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
 
 _DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000"]
+
+
+@app.middleware("http")
+async def authenticated_response_cache_boundary(request: Request, call_next):
+    """Never place an identity/entitlement-sensitive response in a public cache."""
+    response = await call_next(request)
+    if request.headers.get("authorization") or request.cookies.get("token"):
+        response.headers["Cache-Control"] = "no-store"
+        vary = {item.strip() for item in response.headers.get("Vary", "").split(",") if item.strip()}
+        vary.update({"Cookie", "Authorization"})
+        response.headers["Vary"] = ", ".join(sorted(vary))
+    return response
 
 
 def _looks_like_uuid(value: str) -> bool:
@@ -279,6 +302,28 @@ def _require_card_chase_efficiency(
             },
         )
     return user_id
+
+
+def _require_index_feature(
+    *, feature: str, code: str, message: str,
+    authorization: Optional[str], token_cookie: Optional[str],
+) -> Optional[str]:
+    """Authenticate first, then resolve a capability from the canonical profile."""
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    plan = _resolve_index_plan(authorization, token_cookie)
+    if not has_index_feature_access(plan, feature):
+        raise HTTPException(
+            status_code=403,
+            detail={"message": message, "code": code, "requiredFeature": feature},
+        )
+    return plan
+
+
+def _tiered_response(content: Dict[str, Any]) -> JSONResponse:
+    return JSONResponse(
+        content=content,
+        headers={"Cache-Control": "no-store", "Vary": "Cookie, Authorization"},
+    )
 
 
 def _require_authenticated_user_id(
@@ -533,7 +578,14 @@ def health_check():
 def get_latest_evr_run(
     target_type: str = Query(...),
     target_id: str = Query(...),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
+    _require_index_feature(
+        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+        message="Detailed EVR runs require Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     snapshot = get_latest_evr_run_snapshot(target_type=target_type, target_id=target_id)
     if snapshot is None:
         raise HTTPException(status_code=404, detail="No EVR run snapshot found")
@@ -546,18 +598,28 @@ def get_explore_page(
     target_id: str = Query(...),
     limit_distribution_bins: Optional[str] = Query(default=None),
     limit_top_hits: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     """Return complete Explore page payload for a target (set, edition, pack, etc.)."""
     try:
         if str(target_type or "").strip().lower() == "set":
-            return get_pokemon_set_page_snapshot_payload(set_id=target_id)
+            return _tiered_response(project_set_page_response(
+                get_pokemon_set_page_snapshot_payload(set_id=target_id),
+                _resolve_index_plan(authorization, token_cookie),
+            ))
+        plan = _require_index_feature(
+            feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+            message="Detailed Explore analytics require Index Plus.",
+            authorization=authorization, token_cookie=token_cookie,
+        )
         payload = get_explore_page_payload(
             target_type=target_type,
             target_id=target_id,
             limit_distribution_bins=limit_distribution_bins,
             limit_top_hits=limit_top_hits,
         )
-        return payload
+        return _tiered_response(project_set_page_response(payload, plan))
     except ExplorePageError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -578,10 +640,15 @@ def get_explore_page(
 @app.get("/explore/rip-statistics/targets")
 def get_explore_rip_statistics_targets(
     limit: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     """Return available RIP Statistics targets plus the best default target."""
     try:
-        return get_pokemon_explore_rankings_snapshot_payload(limit=limit)
+        return _tiered_response(project_rankings_response(
+            get_pokemon_explore_rankings_snapshot_payload(limit=limit),
+            _resolve_index_plan(authorization, token_cookie),
+        ))
     except ExploreRipStatisticsTargetsError as exc:
         headers = (
             {"Retry-After": str(exc.retry_after_seconds)}
@@ -601,14 +668,49 @@ def get_explore_rip_statistics_targets(
         )
 
 
+@app.get("/explore/rankings/lens/{lens}")
+def get_explore_rankings_lens(lens: str, limit: Optional[str] = Query(default=None)):
+    """One narrow prepared Rankings publication; no full-cohort enrichment."""
+    try:
+        payload = get_pokemon_explore_rankings_lens_payload(lens=lens, limit=limit)
+        if str(lens or "").strip().lower() == "products":
+            payload = {
+                **payload,
+                "overallProductRankings": read_public_overall_product_rankings(
+                    "full_market", product_family_rankings=payload.get("productFamilyRankings") or {}
+                ),
+            }
+        return payload
+    except ExploreRipStatisticsTargetsError as exc:
+        headers = {"Retry-After": str(exc.retry_after_seconds)} if exc.retry_after_seconds else None
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code, "retryable": exc.status_code >= 500},
+            status_code=exc.status_code,
+            headers=headers,
+        )
+    except Exception:
+        logger.exception("/explore/rankings/lens/%s unexpected error", lens)
+        return JSONResponse(
+            content={"message": "Unable to load Rankings lens", "code": "RANKINGS_LENS_FAILED"},
+            status_code=500,
+        )
+
+
 @app.get("/explore/product-rankings/overall")
-def get_overall_product_rankings(budget: str = Query(default="full_market")):
+def get_overall_product_rankings(
+    budget: str = Query(default="full_market"),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
     """Return one allowlisted budget cohort; analytical tables remain private."""
     try:
-        rankings = get_pokemon_explore_rankings_snapshot_payload(limit=200)
-        return read_public_overall_product_rankings(
+        rankings = get_pokemon_explore_rankings_lens_payload(lens="products", limit=200)
+        payload = read_public_overall_product_rankings(
             budget, product_family_rankings=rankings.get("productFamilyRankings") or {}
         )
+        return _tiered_response(project_product_rankings_response(
+            payload, _resolve_index_plan(authorization, token_cookie)
+        ))
     except Exception:
         logger.exception("/explore/product-rankings/overall unexpected error budget=%s", budget)
         return JSONResponse(content={"available": False, "reason": "backend_error", "rows": []}, status_code=503)
@@ -627,11 +729,11 @@ def get_card_chase_efficiency_rankings(
     # Gate before touching the latest pointer: row ordering is Premium data.
     _require_card_chase_efficiency(authorization=authorization, token_cookie=token_cookie)
     try:
-        return query_chase_efficiency(
+        return _tiered_response(query_chase_efficiency(
             service_read_client, page=page, page_size=page_size, search=search, era=era,
             set_id=set_id, rarity=rarity, min_price=min_price, max_price=max_price,
             sort=sort, direction=direction,
-        )
+        ))
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "CARD_CHASE_EFFICIENCY_QUERY_INVALID"}, status_code=400)
     except Exception:
@@ -722,7 +824,7 @@ def get_market_explorer_query_options(
         authorization=authorization, token_cookie=token_cookie
     )
     try:
-        return build_market_explorer_filter_options(service_read_client)
+        return _tiered_response(build_market_explorer_filter_options(service_read_client))
     except MarketExplorerQueryUnavailable as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
     except Exception:
@@ -761,7 +863,7 @@ def post_market_explorer_query(
         cache_key = f"{query_fingerprint(normalized)}:{today}"
         cached = _market_explorer_query_cache.get(cache_key)
         if cached and cached[0] > time.monotonic():
-            return cached[1]
+            return _tiered_response(cached[1])
         runner = (
             run_sealed_market_explorer_query if payload.asset == ASSET_SEALED
             else run_market_explorer_query
@@ -782,7 +884,7 @@ def post_market_explorer_query(
         )
         while len(_market_explorer_query_cache) > _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES:
             _market_explorer_query_cache.pop(next(iter(_market_explorer_query_cache)), None)
-        return result
+        return _tiered_response(result)
     except MarketExplorerQueryError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     except (MarketExplorerQueryUnavailable, SealedMarketExplorerQueryUnavailable) as exc:
@@ -1031,6 +1133,8 @@ def get_pokemon_set_cards_validation(
     set_id: str,
     max_cards: Optional[str] = Query(default=None),
     include_plot_rows: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     """Return the slim Insights card-validation snapshot (validation-ready
     card rows + cardAppealMarketPriceCorrelation) for a Pokemon set."""
@@ -1058,12 +1162,17 @@ def get_pokemon_card_detail(
     set_id: str,
     card_id: str,
     variant_id: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     """Return one canonical card and variant-aware Chase economics."""
     try:
-        return get_pokemon_card_detail_payload(
-            set_id=set_id, card_id=card_id, variant_id=variant_id
-        )
+        return _tiered_response(project_card_detail_response(
+            get_pokemon_card_detail_payload(
+                set_id=set_id, card_id=card_id, variant_id=variant_id
+            ),
+            _resolve_index_plan(authorization, token_cookie),
+        ))
     except PokemonCardDetailError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -1086,21 +1195,36 @@ def get_pokemon_card_chase_efficiency(
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     _require_card_chase_efficiency(authorization=authorization, token_cookie=token_cookie)
+    _require_index_feature(
+        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+        message="Card validation analytics require Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     try:
         result = read_card_chase_efficiency(
             service_read_client, set_id=set_id, card_id=card_id, variant_id=variant_id
         )
-        return result if result.get("available") else JSONResponse(content=result, status_code=404)
+        return _tiered_response(result) if result.get("available") else JSONResponse(
+            content=result, status_code=404,
+            headers={"Cache-Control": "no-store", "Vary": "Cookie, Authorization"},
+        )
     except Exception:
         logger.exception("card Chase Efficiency failed set=%s card=%s", set_id, card_id)
         return JSONResponse(content={"message": "Unable to load card Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
 
 
 @app.get("/tcgs/pokemon/sealed-products/{product_id}")
-def get_pokemon_sealed_product_detail(product_id: str):
+def get_pokemon_sealed_product_detail(
+    product_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
     """Return one real sealed-product identity, market history, and published RIP contract."""
     try:
-        return get_pokemon_sealed_product_detail_payload(product_id)
+        return _tiered_response(project_sealed_product_detail_response(
+            get_pokemon_sealed_product_detail_payload(product_id),
+            _resolve_index_plan(authorization, token_cookie),
+        ))
     except PokemonSealedProductDetailError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -1133,7 +1257,16 @@ def get_pokemon_set_pull_rates(set_id: str):
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/simulation-evidence")
-def get_pokemon_set_simulation_evidence(set_id: str):
+def get_pokemon_set_simulation_evidence(
+    set_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _require_index_feature(
+        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+        message="Simulation evidence requires Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     try:
         return get_pokemon_set_simulation_evidence_snapshot_payload(set_id=set_id)
     except (PokemonSetMarketError, ExploreRipStatisticsTargetsError) as exc:
@@ -1162,17 +1295,44 @@ def get_pokemon_set_rip_bootstrap(set_id: str):
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/rip/simulation-evidence")
-def get_pokemon_set_rip_simulation_evidence(set_id: str):
+def get_pokemon_set_rip_simulation_evidence(
+    set_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _require_index_feature(
+        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+        message="RIP simulation evidence requires Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     return _set_rip_response(get_pokemon_set_rip_simulation_evidence_snapshot_payload, set_id)
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/rip/advanced")
-def get_pokemon_set_rip_advanced(set_id: str):
+def get_pokemon_set_rip_advanced(
+    set_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _require_index_feature(
+        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+        message="Advanced RIP analytics require Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     return _set_rip_response(get_pokemon_set_rip_advanced_snapshot_payload, set_id)
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/rip/global-context")
-def get_pokemon_set_rip_global_context(set_id: str, expected_calculation_run_id: str | None = None):
+def get_pokemon_set_rip_global_context(
+    set_id: str, expected_calculation_run_id: str | None = None,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _require_index_feature(
+        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+        message="Global RIP context requires Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     return _set_rip_response(
         get_pokemon_set_rip_global_context_payload, set_id,
         expected_calculation_run_id=expected_calculation_run_id,
@@ -1180,12 +1340,30 @@ def get_pokemon_set_rip_global_context(set_id: str, expected_calculation_run_id:
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/rip/rank-context")
-def get_pokemon_set_rip_rank_context(set_id: str):
+def get_pokemon_set_rip_rank_context(
+    set_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _require_index_feature(
+        feature=FEATURE_PRODUCT_RIP, code="INDEX_PLUS_REQUIRED",
+        message="Product Family Rankings require Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     return _set_rip_response(get_pokemon_set_rip_rank_context_payload, set_id)
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/insights")
-def get_pokemon_set_insights(set_id: str):
+def get_pokemon_set_insights(
+    set_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _require_index_feature(
+        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+        message="Detailed Set Insights require Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     """Return the slim Insights-tab snapshot (RIP breakdown inputs, outcome
     distribution, simulation drivers, value/rarity contribution, and
     desirability proof) for a Pokemon set."""
@@ -1205,12 +1383,19 @@ def get_pokemon_set_insights(set_id: str):
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/insights/critical")
-def get_pokemon_set_insights_critical(set_id: str):
+def get_pokemon_set_insights_critical(
+    set_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
     """Priority 1-3 slice of the Insights tab: RIP Score hero, pillar cards
     (interpretation), and the recommendation copy. Small, fast payload meant
     to render before /insights/secondary's charts/diagnostics arrive."""
     try:
-        return get_pokemon_set_insights_critical_snapshot_payload(set_id=set_id)
+        return _tiered_response(project_insights_critical_response(
+            get_pokemon_set_insights_critical_snapshot_payload(set_id=set_id),
+            _resolve_index_plan(authorization, token_cookie),
+        ))
     except (PokemonSetMarketError, ExploreRipStatisticsTargetsError) as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -1225,7 +1410,16 @@ def get_pokemon_set_insights_critical(set_id: str):
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/insights/secondary")
-def get_pokemon_set_insights_secondary(set_id: str):
+def get_pokemon_set_insights_secondary(
+    set_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _require_index_feature(
+        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+        message="Detailed Set Insights require Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     """Priority 4-5 slice of the Insights tab: outcome distribution,
     simulation drivers, rarity contribution, history trend, and desirability
     diagnostics. Fetched independently of /insights/critical so a slow or
@@ -1271,10 +1465,10 @@ def get_pokemon_set_page(
 ):
     """Return page-ready public Pokemon set analytics snapshot."""
     try:
-        return filter_set_market_signal_access(
+        return _tiered_response(project_set_page_response(
             get_pokemon_set_page_snapshot_payload(set_id=set_id),
             _resolve_index_plan(authorization, token_cookie),
-        )
+        ))
     except ExplorePageError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -1379,13 +1573,11 @@ def get_pokemon_set_market_signals(
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     """Tiny authenticated Plus/Premium projection of prepared Market Breadth."""
-    plan = _resolve_index_plan(authorization, token_cookie)
-    if not has_index_plus_access(plan):
-        return JSONResponse(
-            content={"message": "Index Plus is required", "code": "INDEX_PLUS_REQUIRED"},
-            status_code=403,
-            headers={"Cache-Control": "no-store"},
-        )
+    _require_index_feature(
+        feature=FEATURE_MARKET_BREADTH, code="INDEX_PLUS_REQUIRED",
+        message="Market Breadth requires Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     try:
         payload = get_pokemon_set_market_signals_snapshot_payload(set_id=set_id, window=window or "365d")
         return JSONResponse(
@@ -1433,7 +1625,11 @@ def get_pokemon_set_top_chase(
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/market/sealed")
-def get_pokemon_set_sealed_market(set_id: str):
+def get_pokemon_set_sealed_market(
+    set_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
     """Read the prepared sealed-market snapshot; never aggregates observations."""
     try:
         # Use the SHARED resolver, exactly like page/shell/cards/market-dashboard/
@@ -1460,7 +1656,9 @@ def get_pokemon_set_sealed_market(set_id: str):
                 content={"message": "Sealed market history is not available", "code": "POKEMON_SET_SEALED_MARKET_UNAVAILABLE"},
                 status_code=404,
             )
-        return payload
+        return _tiered_response(project_sealed_market_response(
+            payload, _resolve_index_plan(authorization, token_cookie)
+        ))
     except Exception:
         logger.exception("/tcgs/pokemon/sets/%s/market/sealed unexpected error", set_id)
         return JSONResponse(

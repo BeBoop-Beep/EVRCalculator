@@ -672,7 +672,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
           </div>
         </div>
         <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]"><span className="text-[var(--text-primary)]">{activeSortLabel}</span><span aria-hidden="true" className="px-2">•</span><span className="tabular-nums">{displayedTargets.length}</span> shown · {canonicalTargets.length} ranked</p>
-        {marketDate ? <p className="mt-1 text-[11px] tabular-nums text-[var(--text-secondary)]">As of {marketDate}</p> : null}
+        {marketDate ? <p className="mt-1 text-[11px] tabular-nums text-[var(--text-secondary)]">Rankings data as of {marketDate}</p> : null}
         <TableSearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." ariaLabel="Search sets" containerClassName="mt-3" />
       </div>
       {/* One compact control row: title menu, definition, hint, cohort size. */}
@@ -817,7 +817,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
           <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
             <span className="tabular-nums text-[var(--text-primary)]">{displayedTargets.length}</span> shown · {canonicalTargets.length} ranked
           </span>
-          {marketDate ? <span className="whitespace-nowrap text-[11px] tabular-nums text-[var(--text-secondary)]">As of {marketDate}</span> : null}
+          {marketDate ? <span className="whitespace-nowrap text-[11px] tabular-nums text-[var(--text-secondary)]">Rankings data as of {marketDate}</span> : null}
         </div>
       </div>
 

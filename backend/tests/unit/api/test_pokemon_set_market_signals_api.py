@@ -1,22 +1,25 @@
 import json
 
 import pytest
+from fastapi import HTTPException
 
 from backend.api import main
 from backend.db.services.pokemon_set_market_service import PokemonSetMarketError
 
 
 def test_basic_is_denied_before_market_signals_database_read(monkeypatch):
+    monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **_kwargs: "base-user")
     monkeypatch.setattr(main, "_resolve_index_plan", lambda *_args: None)
     monkeypatch.setattr(main, "get_pokemon_set_market_signals_snapshot_payload", lambda **_kwargs: pytest.fail("DB reader must not run"))
-    response = main.get_pokemon_set_market_signals("set-id")
-    assert response.status_code == 403
-    assert json.loads(response.body)["code"] == "INDEX_PLUS_REQUIRED"
-    assert response.headers["cache-control"] == "no-store"
+    with pytest.raises(HTTPException) as caught:
+        main.get_pokemon_set_market_signals("set-id")
+    assert caught.value.status_code == 403
+    assert caught.value.detail["code"] == "INDEX_PLUS_REQUIRED"
 
 
 @pytest.mark.parametrize("plan", ["plus", "premium"])
 def test_paid_plans_receive_compact_signals(monkeypatch, plan):
+    monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **_kwargs: "paid-user")
     payload = {"set": {"id": "set-id"}, "window": "365d", "marketBreadth": {"7D": {"available": True}}}
     monkeypatch.setattr(main, "_resolve_index_plan", lambda *_args: plan)
     monkeypatch.setattr(main, "get_pokemon_set_market_signals_snapshot_payload", lambda **_kwargs: payload)
@@ -28,6 +31,7 @@ def test_paid_plans_receive_compact_signals(monkeypatch, plan):
 
 
 def test_incomplete_signals_publication_is_retryable_503(monkeypatch):
+    monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **_kwargs: "paid-user")
     monkeypatch.setattr(main, "_resolve_index_plan", lambda *_args: "plus")
     def fail(**_kwargs):
         raise PokemonSetMarketError(503, "incomplete", "POKEMON_SET_MARKET_SIGNALS_SNAPSHOT_INCOMPLETE")

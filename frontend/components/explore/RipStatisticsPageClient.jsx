@@ -8952,6 +8952,12 @@ export default function RipStatisticsPageClient({
     if (!initialMarketMoversPayload || !setIdentityMatchesTarget(initialMarketMoversPayload.set, resolvedSetResourceId)) return null;
     return initialMarketMoversPayload.window === MOVERS_TICKER_WINDOW ? initialMarketMoversPayload : null;
   }, [initialMarketMoversPayload, resolvedSetResourceId]);
+  const seededTopChasePayload = useMemo(() => {
+    if (!initialMarketDashboardPayload || !setIdentityMatchesTarget(initialMarketDashboardPayload.set, resolvedSetResourceId)) return null;
+    return Array.isArray(initialMarketDashboardPayload.topChaseCards) && initialMarketDashboardPayload.topChaseCards.length
+      ? initialMarketDashboardPayload
+      : null;
+  }, [initialMarketDashboardPayload, resolvedSetResourceId]);
   const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation;
   const initialCardAppealRows = useMemo(() => {
     const rows = Array.isArray(initialCardAppealMarketPriceCorrelation?.plotRows)
@@ -9270,9 +9276,9 @@ export default function RipStatisticsPageClient({
   const [topChaseState, dispatchTopChase] = useReducer(
     marketDashboardReducer,
     {
-      status: "idle",
+      status: seededTopChasePayload ? "success" : "idle",
       setId: resolvedSetResourceId,
-      payload: null,
+      payload: seededTopChasePayload,
       sourceWindow: DEFAULT_TOP_CHASE_MARKET_WINDOW,
     },
     createMarketDashboardState
@@ -13307,6 +13313,7 @@ export default function RipStatisticsPageClient({
     }
 
     const setId = resolvedSetResourceId;
+    if (seededTopChasePayload && topChaseRetryNonce === 0) return undefined;
     const topChaseSourceWindow = DEFAULT_TOP_CHASE_MARKET_WINDOW;
     if (!setId) {
       dispatchTopChase({ type: "reset", status: "empty", sourceWindow: topChaseSourceWindow });
@@ -13406,6 +13413,7 @@ export default function RipStatisticsPageClient({
     activeMarketMoversState.status,
     // Section-local Retry: re-runs this effect only (see retryTopChaseModule).
     topChaseRetryNonce,
+    seededTopChasePayload,
   ]);
 
   // Slim /market/movers fetch for the selected 1D/7D/30D window — Market
