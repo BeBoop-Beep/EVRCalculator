@@ -21,6 +21,23 @@ async function getCookiesStore() {
   }
 }
 
+/** Credentials for a caller-scoped backend read. Authorization remains backend-owned. */
+export async function getBackendRequestAuthHeaders(request = null) {
+  const result = { Accept: "application/json" };
+  const incoming = request?.headers || await getRequestHeadersStore();
+  const authorization = incoming?.get?.("authorization");
+  const cookieHeader = incoming?.get?.("cookie");
+  if (authorization) result.Authorization = authorization;
+  if (cookieHeader) result.Cookie = cookieHeader;
+
+  if (!result.Authorization) {
+    const cookieStore = await getCookiesStore();
+    const token = cookieStore?.get?.("token")?.value;
+    if (token) result.Authorization = `Bearer ${token}`;
+  }
+  return result;
+}
+
 const getRequestMeta = cache(async function getRequestMeta() {
   let correlationId = "";
   let incomingHeaderCorrelationId = null;

@@ -18,11 +18,53 @@ from backend.domain.pokemon.market_explorer_query import (
     MarketExplorerQueryError,
     build_chain_linked_history_from_cohorts,
     build_query_observations,
+    filter_point_in_time_rows,
+    active_filter_axes,
     normalize_query_spec,
     query_fingerprint,
     query_key,
     rank_chase_constituents,
+    price_segment_for,
+    release_age_cohort_for,
 )
+
+
+def test_pass3_axes_normalize_deduplicate_and_fingerprint_deterministically():
+    a = normalize_query_spec(mode=MODE_ALL, pokemon_ids=["149", "149"], price_segment_ids=["premium"], release_age_cohort_ids=["new"])
+    b = normalize_query_spec(mode=MODE_ALL, pokemon_ids=["149"], price_segment_ids=["premium"], release_age_cohort_ids=["new"])
+    assert a["pokemonIds"] == ("149",)
+    assert active_filter_axes(a) == ("pokemon", "priceSegment", "releaseAge")
+    assert query_fingerprint(a) == query_fingerprint(b)
+
+
+@pytest.mark.parametrize("field,value", [("price_segment_ids", ["luxury"]), ("release_age_cohort_ids", ["ancient"])])
+def test_unknown_pass3_taxonomy_ids_fail(field, value):
+    with pytest.raises(MarketExplorerQueryError):
+        normalize_query_spec(mode=MODE_ALL, **{field: value})
+
+
+def test_sealed_rejects_pokemon_axis():
+    with pytest.raises(MarketExplorerQueryError):
+        normalize_query_spec(mode=MODE_ALL, asset="sealed", pokemon_ids=["149"])
+
+
+def test_price_segment_membership_is_point_in_time_and_precedes_ranking():
+    rows = [
+        {"marketDate": "2026-01-01", "canonicalCardId": "dragonite", "marketPrice": 9},
+        {"marketDate": "2026-04-01", "canonicalCardId": "dragonite", "marketPrice": 50},
+        {"marketDate": "2026-08-01", "canonicalCardId": "dragonite", "marketPrice": 150},
+    ]
+    assert [row["marketDate"] for row in filter_point_in_time_rows(rows, asset="cards", price_segment_ids=["obtainable"])] == ["2026-01-01"]
+    assert [row["marketDate"] for row in filter_point_in_time_rows(rows, asset="cards", price_segment_ids=["intermediate"])] == ["2026-04-01"]
+    assert [row["marketDate"] for row in filter_point_in_time_rows(rows, asset="cards", price_segment_ids=["premium"])] == ["2026-08-01"]
+    assert price_segment_for("sealed", 499.99) == "intermediate"
+
+
+def test_release_age_membership_transitions_by_observation_date():
+    assert release_age_cohort_for("2025-01-01", "2025-03-01") == "new"
+    assert release_age_cohort_for("2025-01-01", "2026-01-02") == "recent"
+    assert release_age_cohort_for("2025-01-01", "2028-01-02") == "established"
+    assert release_age_cohort_for("2025-01-01", "2031-01-02") == "legacy"
 
 
 def _c(card_id: str, price: float) -> dict:
@@ -55,6 +97,16 @@ def test_multi_select_ids_are_sorted_and_deduplicated():
     assert spec["segmentIds"] == ("illustrationRare", "ultraRare")
 
 
+def test_era_and_set_are_one_logical_scope_axis():
+    spec = normalize_query_spec(mode=MODE_ALL, era_ids=["sv"], set_ids=["tef"])
+    assert active_filter_axes(spec) == ("scope",)
+
+
+def test_scope_and_segment_are_two_independent_axes():
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["tef"], segment_ids=["specialIllustrationRare"])
+    assert active_filter_axes(spec) == ("scope", "segment")
+
+
 def test_equivalent_selections_share_one_fingerprint():
     a = normalize_query_spec(mode=MODE_CHASE, era_ids=["sv", "swsh"], segment_ids=["specialIllustrationRare"])
     b = normalize_query_spec(mode=MODE_CHASE, era_ids=["swsh", "sv"], segment_ids=["specialIllustrationRare"])
@@ -71,7 +123,7 @@ def test_differing_selections_do_not_collide():
 def test_query_key_is_human_readable_and_stable():
     spec = normalize_query_spec(mode=MODE_CHASE, segment_ids=["specialIllustrationRare"])
     assert query_key(spec) == (
-        "cards|era=all|set=all|segment=specialIllustrationRare|mode=chase|topN=10"
+        "cards|era=all|set=all|segment=specialIllustrationRare|pokemon=all|priceSegment=all|releaseAge=all|mode=chase|topN=10"
     )
 
 

@@ -53,6 +53,7 @@ import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSigna
 
 export default function SetMarketMobile({
   setId,
+  setSlug,
   sectionIds,
   movers,
   setValue,
@@ -87,7 +88,7 @@ export default function SetMarketMobile({
       </SectionErrorBoundary>
 
       <SectionErrorBoundary sectionName="market-mobile-top-chase" resetKeys={[setId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
-        <SetMarketMobileTopChase id={sectionIds.topChase} setId={setId} sealedState={sealedProductsState} {...topChase} />
+        <SetMarketMobileTopChase id={sectionIds.topChase} setId={setId} setSlug={setSlug} sealedState={sealedProductsState} {...topChase} />
       </SectionErrorBoundary>
     </section>
   );

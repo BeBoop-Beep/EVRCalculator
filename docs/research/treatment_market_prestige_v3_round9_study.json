@@ -1,0 +1,1223 @@
+{
+  "study_id": "treatment-market-prestige-v3-r9-b6e465c2012a6636",
+  "built_at": "2026-08-29T21:33:00.122907+00:00",
+  "frozenRound8Denominator": 19847,
+  "currentAuthoritativeDenominator": 19847,
+  "currentlyCoveredCards": 5059,
+  "currentCoverage": 0.2548999848843654,
+  "uncoveredCards": 14788,
+  "catalogProductCoverageTarget": 0.7,
+  "productStatus": "CATALOG_COVERAGE_BELOW_PRODUCT_THRESHOLD",
+  "primaryFailureCategories": {
+    "INSUFFICIENT_HISTORY": 45,
+    "INSUFFICIENT_UNIVERSE_SUPPORT": 387,
+    "MISSING_CANONICAL_MAPPING": 3561,
+    "MODEL_INSTABILITY": 1717,
+    "TAXONOMY_UNMAPPED": 818,
+    "UNSUPPORTED_ERA": 5486,
+    "UNSUPPORTED_TREATMENT": 2774
+  },
+  "primaryFailurePercentages": {
+    "INSUFFICIENT_HISTORY": 0.002267345190708923,
+    "INSUFFICIENT_UNIVERSE_SUPPORT": 0.01949916864009674,
+    "MISSING_CANONICAL_MAPPING": 0.17942258275809947,
+    "MODEL_INSTABILITY": 0.08651181538771603,
+    "TAXONOMY_UNMAPPED": 0.04121529702221998,
+    "UNSUPPORTED_ERA": 0.27641457147175896,
+    "UNSUPPORTED_TREATMENT": 0.13976923464503452
+  },
+  "secondaryFailureCategories": {
+    "INSUFFICIENT_UNIVERSE_SUPPORT": 4125,
+    "MISSING_CANONICAL_MAPPING": 44
+  },
+  "similarityAudit": {
+    "preregisteredContract": {
+      "scoreDistanceMargin": 0.5,
+      "requirements": [
+        "both treatment magnitude estimates pass every individual gate",
+        "absolute score distance <= margin",
+        "propagated score intervals may overlap",
+        "prediction widths pass heterogeneity gates",
+        "temporal status is MARKET_MOVEMENT"
+      ],
+      "pairwiseOrderingProbabilityAloneIsDispositive": false
+    },
+    "existingRule": {
+      "minimum_eligible_treatments": 2,
+      "minimum_sets": 3,
+      "unique_ordering_required": false
+    },
+    "ruleAudit": "SIMILARITY_AWARE_UNIVERSE_RULE_ALREADY_CORRECT",
+    "equivalentPairs": [
+      {
+        "universeId": "Scarlet and Violet",
+        "left": "common",
+        "right": "illustration_rare",
+        "scoreDistance": 0.3842801004334193,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      },
+      {
+        "universeId": "Scarlet and Violet",
+        "left": "common",
+        "right": "uncommon",
+        "scoreDistance": 0.03913124414660363,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      },
+      {
+        "universeId": "Scarlet and Violet",
+        "left": "illustration_rare",
+        "right": "uncommon",
+        "scoreDistance": 0.42341134458002294,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      },
+      {
+        "universeId": "XY",
+        "left": "rare",
+        "right": "rare_holo",
+        "scoreDistance": 0.26070604121812213,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      },
+      {
+        "universeId": "XY",
+        "left": "rare",
+        "right": "uncommon",
+        "scoreDistance": 0.40833131031858994,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      },
+      {
+        "universeId": "XY",
+        "left": "rare_break",
+        "right": "uncommon",
+        "scoreDistance": 0.2070184840651974,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      },
+      {
+        "universeId": "sun_and_moon_r1",
+        "left": "common",
+        "right": "uncommon",
+        "scoreDistance": 0.31718201729201123,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      },
+      {
+        "universeId": "sun_and_moon_r1",
+        "left": "rare",
+        "right": "uncommon",
+        "scoreDistance": 0.4448635557361085,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      },
+      {
+        "universeId": "sun_and_moon_r1",
+        "left": "rare_holo",
+        "right": "rare_rainbow",
+        "scoreDistance": 0.14355591004688328,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      },
+      {
+        "universeId": "sword_and_shield_r1",
+        "left": "rare_holo_vmax",
+        "right": "rare_ultra",
+        "scoreDistance": 0.16391161856613579,
+        "classification": "PRACTICALLY_EQUIVALENT_PRESTIGE"
+      }
+    ],
+    "cardsRecoverable": 0,
+    "conclusion": "Round 6 never required unique ordering; failed universes lack two individually eligible treatments."
+  },
+  "universeGapDecomposition": [
+    {
+      "universeId": "sword_and_shield_r1",
+      "era": "Sword and Shield",
+      "cards": 987,
+      "coveredCards": 163,
+      "uncoveredCards": 824,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 185,
+        "MODEL_INSTABILITY": 595,
+        "UNSUPPORTED_TREATMENT": 44
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "common",
+          "cardCount": 243,
+          "setCount": 6,
+          "speciesCount": 177,
+          "researchScore": 4.601663321005628,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "rare",
+          "cardCount": 137,
+          "setCount": 5,
+          "speciesCount": 117,
+          "researchScore": 4.73728048601537,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "rare_holo",
+          "cardCount": 83,
+          "setCount": 6,
+          "speciesCount": 71,
+          "researchScore": 2.8040640504747905,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "rare_holo_v",
+          "cardCount": 77,
+          "setCount": 6,
+          "speciesCount": 70,
+          "researchScore": 2.9939959967887146,
+          "scoreInterval": [
+            2.967892530119726,
+            3.0233686338882935
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_holo_vmax",
+          "cardCount": 33,
+          "setCount": 6,
+          "speciesCount": 31,
+          "researchScore": 3.5928664719919174,
+          "scoreInterval": [
+            3.5019873598451268,
+            3.7250434792642086
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_ultra",
+          "cardCount": 53,
+          "setCount": 6,
+          "speciesCount": 53,
+          "researchScore": 3.7567780905580532,
+          "scoreInterval": [
+            3.7007949675330702,
+            3.8035836442018445
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "uncommon",
+          "cardCount": 132,
+          "setCount": 6,
+          "speciesCount": 116,
+          "researchScore": 4.364000818799961,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        }
+      ],
+      "publicationStatus": "AVAILABLE"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "era": "Sword and Shield",
+      "cards": 775,
+      "coveredCards": 0,
+      "uncoveredCards": 775,
+      "primaryBlockers": {
+        "UNSUPPORTED_TREATMENT": 539,
+        "MODEL_INSTABILITY": 90,
+        "MISSING_CANONICAL_MAPPING": 146
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "rare_holo_v",
+          "cardCount": 54,
+          "setCount": 4,
+          "speciesCount": 52,
+          "researchScore": 9.0,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "rare_holo_vmax",
+          "cardCount": 36,
+          "setCount": 4,
+          "speciesCount": 34,
+          "researchScore": 9.0,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        }
+      ],
+      "publicationStatus": "INSUFFICIENT_REGIME_SUPPORT"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "era": "Sword and Shield",
+      "cards": 583,
+      "coveredCards": 0,
+      "uncoveredCards": 583,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 92,
+        "UNSUPPORTED_TREATMENT": 433,
+        "INSUFFICIENT_UNIVERSE_SUPPORT": 58
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "rare_holo_v",
+          "cardCount": 58,
+          "setCount": 5,
+          "speciesCount": 48,
+          "researchScore": 2.504484285227715,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "INSUFFICIENT_REGIME_SUPPORT"
+        }
+      ],
+      "publicationStatus": "INSUFFICIENT_REGIME_SUPPORT"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "era": "Sword and Shield",
+      "cards": 526,
+      "coveredCards": 0,
+      "uncoveredCards": 526,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 108,
+        "UNSUPPORTED_TREATMENT": 418
+      },
+      "treatmentEvidence": [],
+      "publicationStatus": "INSUFFICIENT_REGIME_SUPPORT"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "era": "Sword and Shield",
+      "cards": 506,
+      "coveredCards": 0,
+      "uncoveredCards": 506,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 98,
+        "UNSUPPORTED_TREATMENT": 353,
+        "INSUFFICIENT_UNIVERSE_SUPPORT": 55
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "rare_holo_v",
+          "cardCount": 55,
+          "setCount": 5,
+          "speciesCount": 50,
+          "researchScore": 3.71816114756977,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "INSUFFICIENT_REGIME_SUPPORT"
+        }
+      ],
+      "publicationStatus": "INSUFFICIENT_REGIME_SUPPORT"
+    },
+    {
+      "universeId": "sun_and_moon_r1",
+      "era": "Sun and Moon",
+      "cards": 2025,
+      "coveredCards": 1341,
+      "uncoveredCards": 684,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 477,
+        "TAXONOMY_UNMAPPED": 181,
+        "UNSUPPORTED_TREATMENT": 26
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "common",
+          "cardCount": 422,
+          "setCount": 11,
+          "speciesCount": 247,
+          "researchScore": 5.036824169355605,
+          "scoreInterval": [
+            5.012526038124808,
+            5.058946683986483
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare",
+          "cardCount": 220,
+          "setCount": 9,
+          "speciesCount": 166,
+          "researchScore": 5.798869742383725,
+          "scoreInterval": [
+            5.7679419409461685,
+            5.841747878669194
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_holo",
+          "cardCount": 155,
+          "setCount": 11,
+          "speciesCount": 136,
+          "researchScore": 3.9303640102475708,
+          "scoreInterval": [
+            3.810526419111599,
+            4.043164160770173
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_holo_gx",
+          "cardCount": 98,
+          "setCount": 11,
+          "speciesCount": 88,
+          "researchScore": 2.886186492127025,
+          "scoreInterval": [
+            2.85277674105245,
+            2.927241792696437
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_rainbow",
+          "cardCount": 96,
+          "setCount": 11,
+          "speciesCount": 88,
+          "researchScore": 4.073919920294454,
+          "scoreInterval": [
+            3.9779999031083,
+            4.1450142930836265
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_ultra",
+          "cardCount": 91,
+          "setCount": 11,
+          "speciesCount": 84,
+          "researchScore": 3.4253173082258934,
+          "scoreInterval": [
+            3.382522523145712,
+            3.4838563002951863
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "uncommon",
+          "cardCount": 259,
+          "setCount": 11,
+          "speciesCount": 206,
+          "researchScore": 5.3540061866476165,
+          "scoreInterval": [
+            5.3121922929345375,
+            5.387412298663397
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        }
+      ],
+      "publicationStatus": "AVAILABLE"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "era": "Sun and Moon",
+      "cards": 510,
+      "coveredCards": 0,
+      "uncoveredCards": 510,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 124,
+        "UNSUPPORTED_TREATMENT": 386
+      },
+      "treatmentEvidence": [],
+      "publicationStatus": "INSUFFICIENT_REGIME_SUPPORT"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "era": "Sun and Moon",
+      "cards": 434,
+      "coveredCards": 0,
+      "uncoveredCards": 434,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 102,
+        "UNSUPPORTED_TREATMENT": 332
+      },
+      "treatmentEvidence": [],
+      "publicationStatus": "INSUFFICIENT_REGIME_SUPPORT"
+    },
+    {
+      "universeId": "XY",
+      "era": "XY",
+      "cards": 1930,
+      "coveredCards": 897,
+      "uncoveredCards": 1033,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 367,
+        "TAXONOMY_UNMAPPED": 212,
+        "MODEL_INSTABILITY": 433,
+        "UNSUPPORTED_TREATMENT": 21
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "common",
+          "cardCount": 433,
+          "setCount": 15,
+          "speciesCount": 249,
+          "researchScore": 4.998512512880448,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "rare",
+          "cardCount": 241,
+          "setCount": 13,
+          "speciesCount": 192,
+          "researchScore": 5.703140745899459,
+          "scoreInterval": [
+            5.648952373509402,
+            5.722452462914378
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_break",
+          "cardCount": 27,
+          "setCount": 5,
+          "speciesCount": 27,
+          "researchScore": 5.087790951515672,
+          "scoreInterval": [
+            4.916575978801813,
+            5.194733609712452
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_holo",
+          "cardCount": 143,
+          "setCount": 14,
+          "speciesCount": 116,
+          "researchScore": 5.963846787117581,
+          "scoreInterval": [
+            5.861325488290157,
+            6.08395474709312
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_holo_ex",
+          "cardCount": 129,
+          "setCount": 14,
+          "speciesCount": 78,
+          "researchScore": 3.362333301668031,
+          "scoreInterval": [
+            3.325152484348341,
+            3.4029375216719355
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare_ultra",
+          "cardCount": 94,
+          "setCount": 14,
+          "speciesCount": 62,
+          "researchScore": 4.50309530126623,
+          "scoreInterval": [
+            4.36588154277701,
+            4.6535108937311715
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "uncommon",
+          "cardCount": 263,
+          "setCount": 14,
+          "speciesCount": 202,
+          "researchScore": 5.294809435580869,
+          "scoreInterval": [
+            5.252683816739388,
+            5.323127157705131
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        }
+      ],
+      "publicationStatus": "AVAILABLE"
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "era": "Scarlet and Violet",
+      "cards": 3434,
+      "coveredCards": 2658,
+      "uncoveredCards": 776,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 610,
+        "UNSUPPORTED_TREATMENT": 166
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "common",
+          "cardCount": 1038,
+          "setCount": 16,
+          "speciesCount": 501,
+          "researchScore": 5.012027261014038,
+          "scoreInterval": [
+            4.981787511903742,
+            5.040544636370481
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "double_rare",
+          "cardCount": 211,
+          "setCount": 16,
+          "speciesCount": 172,
+          "researchScore": 3.7087790709314636,
+          "scoreInterval": [
+            3.6717930458742534,
+            3.754697793481283
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "illustration_rare",
+          "cardCount": 384,
+          "setCount": 15,
+          "speciesCount": 356,
+          "researchScore": 5.396307361447457,
+          "scoreInterval": [
+            5.295221599788409,
+            5.49752999254117
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "rare",
+          "cardCount": 250,
+          "setCount": 16,
+          "speciesCount": 201,
+          "researchScore": 2.839503513843664,
+          "scoreInterval": [
+            2.7999198330974457,
+            2.8750809605755885
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "special_illustration_rare",
+          "cardCount": 95,
+          "setCount": 15,
+          "speciesCount": 85,
+          "researchScore": 6.1432587159898455,
+          "scoreInterval": [
+            6.00724787702952,
+            6.266331694595652
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "ultra_rare",
+          "cardCount": 141,
+          "setCount": 14,
+          "speciesCount": 135,
+          "researchScore": 4.37380775907147,
+          "scoreInterval": [
+            4.278846512857866,
+            4.471222393718373
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        },
+        {
+          "treatmentKey": "uncommon",
+          "cardCount": 539,
+          "setCount": 16,
+          "speciesCount": 361,
+          "researchScore": 4.972896016867434,
+          "scoreInterval": [
+            4.939617166834516,
+            5.001863204280736
+          ],
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "AVAILABLE"
+        }
+      ],
+      "publicationStatus": "AVAILABLE"
+    },
+    {
+      "universeId": "Mega Evolution",
+      "era": "Mega Evolution",
+      "cards": 992,
+      "coveredCards": 0,
+      "uncoveredCards": 992,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 204,
+        "MODEL_INSTABILITY": 599,
+        "INSUFFICIENT_UNIVERSE_SUPPORT": 88,
+        "INSUFFICIENT_HISTORY": 45,
+        "UNSUPPORTED_TREATMENT": 56
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "common",
+          "cardCount": 288,
+          "setCount": 6,
+          "speciesCount": 250,
+          "researchScore": 4.997539801214917,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "double_rare",
+          "cardCount": 88,
+          "setCount": 6,
+          "speciesCount": 83,
+          "researchScore": 2.86662482489956,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "INSUFFICIENT_ERA_SUPPORT"
+        },
+        {
+          "treatmentKey": "illustration_rare",
+          "cardCount": 101,
+          "setCount": 6,
+          "speciesCount": 100,
+          "researchScore": 7.331355374980519,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "rare",
+          "cardCount": 72,
+          "setCount": 6,
+          "speciesCount": 68,
+          "researchScore": 5.493771971010635,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "ultra_rare",
+          "cardCount": 45,
+          "setCount": 6,
+          "speciesCount": 45,
+          "researchScore": 3.7944007503093737,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "INSUFFICIENT_HISTORY",
+          "evidenceStatus": "INSUFFICIENT_HISTORY",
+          "finalAvailabilityStatus": "INSUFFICIENT_HISTORY"
+        },
+        {
+          "treatmentKey": "uncommon",
+          "cardCount": 138,
+          "setCount": 6,
+          "speciesCount": 122,
+          "researchScore": 4.989059358763905,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        }
+      ],
+      "publicationStatus": "INSUFFICIENT_ERA_SUPPORT"
+    }
+  ],
+  "olderEraAudit": [
+    {
+      "era": "Base/WOTC",
+      "pricedCanonicalCards": 441,
+      "sets": 5,
+      "species": 150,
+      "mappedTreatmentCards": 429,
+      "treatments": [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_secret",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_HISTORY",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "Black and White",
+      "pricedCanonicalCards": 1447,
+      "sets": 14,
+      "species": 487,
+      "mappedTreatmentCards": 1444,
+      "treatments": [
+        "common",
+        "promo",
+        "rare",
+        "rare_ace",
+        "rare_holo",
+        "rare_holo_ex",
+        "rare_secret",
+        "rare_ultra",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_HISTORY",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "Diamond and Pearl",
+      "pricedCanonicalCards": 844,
+      "sets": 7,
+      "species": 490,
+      "mappedTreatmentCards": 844,
+      "treatments": [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_holo_lv_x",
+        "rare_secret",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_HISTORY",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "E-Card",
+      "pricedCanonicalCards": 519,
+      "sets": 3,
+      "species": 246,
+      "mappedTreatmentCards": 513,
+      "treatments": [
+        "common",
+        "holo_rare",
+        "rare",
+        "rare_holo",
+        "rare_secret",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_HISTORY",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "EX",
+      "pricedCanonicalCards": 1701,
+      "sets": 16,
+      "species": 384,
+      "mappedTreatmentCards": 1701,
+      "treatments": [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_holo_ex",
+        "rare_holo_star",
+        "rare_secret",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_HISTORY",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "Gym",
+      "pricedCanonicalCards": 265,
+      "sets": 2,
+      "species": 124,
+      "mappedTreatmentCards": 253,
+      "treatments": [
+        "common",
+        "rare",
+        "rare_holo",
+        "ultra_rare",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_DATA",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "HeartGold and SoulSilver",
+      "pricedCanonicalCards": 549,
+      "sets": 6,
+      "species": 306,
+      "mappedTreatmentCards": 549,
+      "treatments": [
+        "common",
+        "legend",
+        "promo",
+        "rare",
+        "rare_holo",
+        "rare_prime",
+        "rare_secret",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_HISTORY",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "NP",
+      "pricedCanonicalCards": 74,
+      "sets": 1,
+      "species": 21,
+      "mappedTreatmentCards": 74,
+      "treatments": [
+        "promo"
+      ],
+      "supportStatus": "INSUFFICIENT_DATA",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "Neo",
+      "pricedCanonicalCards": 364,
+      "sets": 4,
+      "species": 175,
+      "mappedTreatmentCards": 358,
+      "treatments": [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_shining",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_HISTORY",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "Other",
+      "pricedCanonicalCards": 271,
+      "sets": 13,
+      "species": 191,
+      "mappedTreatmentCards": 111,
+      "treatments": [
+        "common",
+        "rare",
+        "rare_holo",
+        "uncommon"
+      ],
+      "supportStatus": "TAXONOMY_REPAIR_REQUIRED",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "NEW_TAXONOMY_RESEARCH_REQUIRED"
+    },
+    {
+      "era": "POP",
+      "pricedCanonicalCards": 153,
+      "sets": 9,
+      "species": 107,
+      "mappedTreatmentCards": 153,
+      "treatments": [
+        "common",
+        "rare",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_HISTORY",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    },
+    {
+      "era": "Platinum",
+      "pricedCanonicalCards": 517,
+      "sets": 4,
+      "species": 309,
+      "mappedTreatmentCards": 517,
+      "treatments": [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_holo_lv_x",
+        "rare_secret",
+        "uncommon"
+      ],
+      "supportStatus": "INSUFFICIENT_HISTORY",
+      "temporalCheckpointDepth": 0,
+      "earliestUsableDate": null,
+      "recommendedStructure": "ONTOLOGY_RESEARCH_REQUIRED_BEFORE_ERA_VS_REGIME_DECISION",
+      "dataRequirement": "EXTERNAL_HISTORICAL_DATA_REQUIRED"
+    }
+  ],
+  "coverageOpportunityTable": [
+    {
+      "project": "Resolve UNSUPPORTED_ERA",
+      "currentlyUncoveredCards": 5486,
+      "percentagePointGain": 27.641457147175895,
+      "theoreticalCumulativeCoverage": 0.5313145563561243,
+      "primaryBlocker": "UNSUPPORTED_ERA",
+      "workType": "taxonomy+data+research",
+      "externalDataRequired": true,
+      "scientificRisk": "high",
+      "implementationComplexity": "high",
+      "gainIsValidated": false
+    },
+    {
+      "project": "Resolve MISSING_CANONICAL_MAPPING",
+      "currentlyUncoveredCards": 3561,
+      "percentagePointGain": 17.942258275809944,
+      "theoreticalCumulativeCoverage": 0.7107371391142238,
+      "primaryBlocker": "MISSING_CANONICAL_MAPPING",
+      "workType": "canonical mapping",
+      "externalDataRequired": false,
+      "scientificRisk": "medium",
+      "implementationComplexity": "medium",
+      "gainIsValidated": false
+    },
+    {
+      "project": "Resolve UNSUPPORTED_TREATMENT",
+      "currentlyUncoveredCards": 2774,
+      "percentagePointGain": 13.976923464503452,
+      "theoreticalCumulativeCoverage": 0.8505063737592583,
+      "primaryBlocker": "UNSUPPORTED_TREATMENT",
+      "workType": "taxonomy+research",
+      "externalDataRequired": false,
+      "scientificRisk": "medium",
+      "implementationComplexity": "medium",
+      "gainIsValidated": false
+    },
+    {
+      "project": "Resolve MODEL_INSTABILITY",
+      "currentlyUncoveredCards": 1717,
+      "percentagePointGain": 8.651181538771603,
+      "theoreticalCumulativeCoverage": 0.9370181891469743,
+      "primaryBlocker": "MODEL_INSTABILITY",
+      "workType": "research",
+      "externalDataRequired": false,
+      "scientificRisk": "high",
+      "implementationComplexity": "high",
+      "gainIsValidated": false
+    },
+    {
+      "project": "Resolve TAXONOMY_UNMAPPED",
+      "currentlyUncoveredCards": 818,
+      "percentagePointGain": 4.1215297022219985,
+      "theoreticalCumulativeCoverage": 0.9782334861691944,
+      "primaryBlocker": "TAXONOMY_UNMAPPED",
+      "workType": "taxonomy",
+      "externalDataRequired": false,
+      "scientificRisk": "medium",
+      "implementationComplexity": "medium",
+      "gainIsValidated": false
+    },
+    {
+      "project": "Resolve INSUFFICIENT_UNIVERSE_SUPPORT",
+      "currentlyUncoveredCards": 387,
+      "percentagePointGain": 1.949916864009674,
+      "theoreticalCumulativeCoverage": 0.9977326548092911,
+      "primaryBlocker": "INSUFFICIENT_UNIVERSE_SUPPORT",
+      "workType": "research",
+      "externalDataRequired": false,
+      "scientificRisk": "high",
+      "implementationComplexity": "high",
+      "gainIsValidated": false
+    },
+    {
+      "project": "Resolve INSUFFICIENT_HISTORY",
+      "currentlyUncoveredCards": 45,
+      "percentagePointGain": 0.22673451907089232,
+      "theoreticalCumulativeCoverage": 1.0,
+      "primaryBlocker": "INSUFFICIENT_HISTORY",
+      "workType": "data",
+      "externalDataRequired": true,
+      "scientificRisk": "medium",
+      "implementationComplexity": "medium",
+      "gainIsValidated": false
+    }
+  ],
+  "blockerDataRequirements": {
+    "INSUFFICIENT_HISTORY": "EXTERNAL_HISTORICAL_DATA_REQUIRED",
+    "INSUFFICIENT_UNIVERSE_SUPPORT": "INTERNAL_PIPELINE_REPAIR_REQUIRED",
+    "MISSING_CANONICAL_MAPPING": "NEW_CANONICAL_MAPPING_REQUIRED",
+    "MODEL_INSTABILITY": "INTERNAL_DATA_ALREADY_EXISTS",
+    "TAXONOMY_UNMAPPED": "NEW_TAXONOMY_RESEARCH_REQUIRED",
+    "UNSUPPORTED_ERA": "EXTERNAL_HISTORICAL_DATA_REQUIRED",
+    "UNSUPPORTED_TREATMENT": "NEW_TAXONOMY_RESEARCH_REQUIRED"
+  },
+  "scenarios": {
+    "internalOnly": {
+      "validatedFloor": 5059,
+      "maximumPlausible": 5059,
+      "note": "No failed project has yet passed the frozen evidence gates."
+    },
+    "internalHistoricalBackfill": {
+      "validatedFloor": 5059,
+      "maximumPlausible": 5104,
+      "unproven": true
+    },
+    "verifiedExternalHistory": {
+      "validatedFloor": 5059,
+      "maximumPlausible": 15468,
+      "unproven": true
+    },
+    "fullOlderEraResearch": {
+      "validatedFloor": 5059,
+      "theoreticalCeiling": 19847,
+      "unproven": true
+    }
+  },
+  "thresholdPaths": {
+    "50Percent": {
+      "status": "PLAUSIBLE_BUT_UNPROVEN",
+      "minimumValidatedProjects": null,
+      "reason": "No unresolved project has passed the unchanged evidence gates."
+    },
+    "60Percent": {
+      "status": "PLAUSIBLE_BUT_UNPROVEN",
+      "minimumValidatedProjects": null
+    },
+    "70Percent": {
+      "status": "PLAUSIBLE_BUT_UNPROVEN",
+      "minimumValidatedProjects": null
+    },
+    "80Percent": {
+      "status": "PLAUSIBLE_BUT_UNPROVEN",
+      "minimumValidatedProjects": null
+    }
+  },
+  "coverageDiagnosis": "COVERAGE_GAP_MIXED",
+  "similarityRuleStatus": "SIMILARITY_AWARE_UNIVERSE_RULE_ALREADY_CORRECT",
+  "seventyPercentPathStatus": "70_PERCENT_COVERAGE_PATH_PLAUSIBLE_BUT_UNPROVEN",
+  "productionImplementationPaused": true,
+  "rowsPersisted": 0,
+  "productionBehavior": "Unchanged; research artifacts only. No migration applied, candidate approved, reader activated, UI/frontend/RIP/V1/V2/ranking behavior changed.",
+  "preservedImplementationScaffolding": [
+    "supabase/migrations/20260830020000_create_treatment_market_prestige_v3_publication.sql",
+    "backend/db/services/treatment_market_prestige_v3_service.py",
+    "backend/scripts/build_treatment_market_prestige_v3_candidate.py",
+    "backend/scripts/approve_treatment_market_prestige_v3_candidate.py",
+    "backend/scripts/verify_treatment_market_prestige_v3_production.py"
+  ],
+  "cardResultsFile": "docs\\research\\treatment_market_prestige_v3_round9_coverage\\card_coverage.json",
+  "filesChanged": [
+    "docs\\research\\treatment_market_prestige_v3_round9_coverage\\card_coverage.json",
+    "docs\\research\\treatment_market_prestige_v3_round9_coverage\\manifest.json",
+    "docs\\research\\treatment_market_prestige_v3_round9_study.json",
+    "docs\\research\\TREATMENT_MARKET_PRESTIGE_V3_ROUND9_RESULTS.md",
+    "backend/scripts/build_treatment_market_prestige_v3_round9.py",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round9.py"
+  ],
+  "testsExecuted": [
+    "Round 9 exhaustive card accounting",
+    "similarity semantics",
+    "70% fail-closed product gate"
+  ],
+  "remainingLimitations": [
+    "Older eras have no frozen four-checkpoint temporal evidence",
+    "opportunity counts are not eligibility claims",
+    "no new external data was introduced"
+  ],
+  "recommendedTasks": [
+    "Backfill and validate existing failed modern regimes by coverage gain",
+    "Research older-era structural ontologies",
+    "Acquire and freeze authoritative older-era history",
+    "Rerun the unchanged individual evidence gates"
+  ]
+}

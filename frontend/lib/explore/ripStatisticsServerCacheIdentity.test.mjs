@@ -11,15 +11,9 @@ const source = readFileSync(SOURCE_PATH, "utf8").replace(/\r\n/g, "\n");
 // cache key buys nothing but costs a second ~1.6s cold backend computation
 // whenever a caller asking for 60 is followed by a caller asking for 150 —
 // which is exactly the Rankings -> Set navigation.
-test("every cohort caller shares one cache identity regardless of requested limit", () => {
-  assert.ok(
-    /function toCacheKey\(\)\s*\{\s*return\s*"rip-statistics-targets"/.test(source),
-    "cache key must not be parameterised by limit"
-  );
-  assert.ok(
-    !/toCacheKey\(limit\)/.test(source),
-    "no caller may derive a cache key from a requested limit"
-  );
+test("entitlement-sensitive cohorts have no cross-request process cache", () => {
+  assert.doesNotMatch(source, /targetsCache|inflightRequests|rip-statistics-targets/);
+  assert.match(source, /getBackendRequestAuthHeaders\(request\)/);
 });
 
 test("the single upstream fetch always requests the canonical full cohort", () => {
@@ -40,9 +34,7 @@ test("callers still receive at most the number of targets they asked for", () =>
   );
 });
 
-test("slicing never mutates the shared cached cohort", () => {
-  // `.slice` returns a new array and the payload is rebuilt with spread, so the
-  // object handed to one caller can never be the object held in the cache.
+test("slicing never mutates the caller-scoped cohort", () => {
   const start = source.indexOf("export async function getRipStatisticsTargets");
   const body = source.slice(start);
   assert.ok(body.includes("...cohort"), "must return a fresh payload object per caller");

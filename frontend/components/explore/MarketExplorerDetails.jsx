@@ -50,14 +50,38 @@ function ChangeValue({ change, marketLabel, windowLabel }) {
   );
 }
 
-export default function MarketExplorerDetails({ series = [], activeSeriesId = null, onInspect }) {
+const numericChange = (change) => {
+  const value = Number(change?.percent ?? change?.changePercent);
+  return Number.isFinite(value) ? value : null;
+};
+
+function definitionChips(entry) {
+  const spec = entry?.spec;
+  if (!spec) return [];
+  return [
+    spec.asset === "sealed" ? "Sealed" : "Cards",
+    ...(spec.eraIds || []), ...(spec.setIds || []), ...(spec.segmentIds || []),
+    ...(spec.pokemonIds || []), ...(spec.priceSegmentIds || []), ...(spec.releaseAgeCohortIds || []),
+    spec.mode === "chase" ? `Top ${spec.topN || 10}` : "All",
+  ];
+}
+
+const constituentCount = (entry) => entry?.reconciliation?.actualConstituentCount
+  ?? entry?.currentConstituents?.constituentCount ?? entry?.productCount ?? entry?.constituentCount ?? null;
+
+export default function MarketExplorerDetails({ series = [], activeSeriesId = null, onInspect, timeframe = "7D" }) {
   const active = series.filter((entry) => entry.available !== false);
+  const comparable = active.map((entry) => ({ entry, value: numericChange(getPricePerformanceChange(entry, timeframe)) }))
+    .filter((row) => row.value !== null).sort((a, b) => b.value - a.value || String(a.entry.key).localeCompare(String(b.entry.key)));
+  const leader = comparable[0];
+  const laggard = comparable.at(-1);
+  const spread = comparable.length > 1 ? leader.value - laggard.value : null;
 
   return (
     <section data-market-explorer-details className="flex min-w-0 flex-col" aria-labelledby="market-explorer-details-heading">
       <div className={`${styles.divider} flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-3 sm:px-4`}>
         <h2 id="market-explorer-details-heading" className="text-[16px] font-semibold text-[var(--text-primary)]">
-          Selected Market Detail
+          Market Comparison Analysis
         </h2>
         <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
           Tracked Value<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValue} />
@@ -73,6 +97,12 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
         </p>
       ) : (
         <>
+          {spread !== null ? (
+            <p data-market-relative-performance className="border-b border-[var(--border-subtle)] px-3 py-2 text-[11px] text-[var(--text-secondary)] sm:px-4">
+              <span className="font-semibold text-[var(--text-primary)]">Relative Performance · {timeframe}:</span>{" "}
+              {leader.entry.label} leads {laggard.entry.label} by {spread.toFixed(1)} percentage points.
+            </p>
+          ) : null}
           <div data-market-explorer-details-table className="hidden overflow-x-auto desk:block">
             <table className={styles.marketOverviewTable}>
               <caption className="sr-only">
@@ -83,12 +113,16 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
                   <th scope="col">Market</th>
                   <th scope="col">Tracked Value</th>
                   <th scope="col">Market Index</th>
+                  <th scope="col">Tracking Start</th>
+                  <th scope="col">Constituents</th>
                   {MARKET_EXPLORER_DETAIL_WINDOWS.map((window) => (
                     <th
                       key={window.key}
                       scope="col"
                       data-market-explorer-detail-heading={window.key}
                       data-market-explorer-detail-dimension={window.dimension}
+                      data-active-timeframe={window.key === timeframe ? "true" : "false"}
+                      className={window.key === timeframe ? "bg-[rgba(45,212,191,0.08)]" : ""}
                     >
                       <div className="flex flex-wrap items-center justify-end gap-x-1.5">
                         {window.label}
@@ -136,11 +170,14 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
                           </button>
                         ) : null}
                       </span>
+                      {definitionChips(entry).length ? <span className="mt-1 flex max-w-[22rem] flex-wrap gap-1">{definitionChips(entry).map((chip) => <span key={chip} className="rounded border border-[var(--border-subtle)] px-1 py-0.5 text-[8px] font-medium text-[var(--text-secondary)]">{chip}</span>)}</span> : null}
                     </th>
                     <td data-market-explorer-detail-metric="trackedValue">{formatBasketValue(entry.basketValue)}</td>
                     <td data-market-explorer-detail-metric="index" className={styles.marketOverviewIndex}>{formatIndexValue(entry.indexValue)}</td>
+                    <td data-market-explorer-detail-metric="trackingStart">{entry.historyStartDate ? formatMarketDate(entry.historyStartDate) : "—"}</td>
+                    <td data-market-explorer-detail-metric="constituents">{constituentCount(entry) ?? "—"}</td>
                     {MARKET_EXPLORER_DETAIL_WINDOWS.map((window) => (
-                      <td key={window.key} data-market-explorer-detail-change={window.key}>
+                      <td key={window.key} data-market-explorer-detail-change={window.key} className={window.key === timeframe ? "bg-[rgba(45,212,191,0.08)]" : ""}>
                         <ChangeValue
                           change={changeFor(entry, window)}
                           marketLabel={entry.label}
@@ -163,6 +200,7 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
                   <span className="text-[var(--text-primary)]">{entry.label}</span>
                   {entry.productCount ? <span className="ml-auto normal-case tracking-normal">{entry.productCount} products</span> : null}
                 </span>
+                {definitionChips(entry).length ? <div className="mt-1 flex flex-wrap gap-1">{definitionChips(entry).map((chip) => <span key={chip} className="rounded border border-[var(--border-subtle)] px-1 py-0.5 text-[8px] font-medium normal-case tracking-normal text-[var(--text-secondary)]">{chip}</span>)}</div> : null}
                 <div className="mt-1.5 grid grid-cols-2 gap-x-3">
                   <div>
                     <div className="text-[9px] font-medium uppercase tracking-[0.07em] text-[var(--text-secondary)]">Tracked Value</div>

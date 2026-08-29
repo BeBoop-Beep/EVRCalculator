@@ -351,6 +351,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=600.0,
         help="Delay between bounded gate re-evaluations (default 600s)",
     )
+    parser.add_argument(
+        "--skip-explore-rankings",
+        action="store_true",
+        help="Refresh independent market surfaces but explicitly defer the Rankings branch.",
+    )
     return parser
 
 
@@ -2437,12 +2442,15 @@ def main() -> None:
     if rankings_needed:
         summary.stale_snapshot_families.add("explore_rankings")
     rankings_reason = rankings.reason
-    _maybe_rebuild_rankings(
-        client,
-        FreshnessResult("explore_rankings", rankings_needed, rankings_reason),
-        commit=commit,
-        summary=summary,
-    )
+    if args.skip_explore_rankings:
+        summary.global_skipped.append("explore_rankings: explicitly deferred by coordinated opening publication")
+    else:
+        _maybe_rebuild_rankings(
+            client,
+            FreshnessResult("explore_rankings", rankings_needed, rankings_reason),
+            commit=commit,
+            summary=summary,
+        )
 
     rankings_row_after_rebuild = _read_snapshot_row(
         client,

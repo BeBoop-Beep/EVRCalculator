@@ -5,6 +5,12 @@ const assert = require("node:assert/strict");
 
 const componentPath = path.resolve(__dirname, "ExploreTableClient.jsx");
 
+test("rankings freshness label names the publication semantics", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.match(source, /Rankings data as of \{marketDate\}/);
+  assert.doesNotMatch(source, />As of \{marketDate\}</);
+});
+
 // Phase 5.5 (Gate 3): the empty-targets branch previously always rendered
 // "Ranking snapshots are still loading...", even when the targets fetch had
 // actually failed (backend down/errored) rather than the rankings snapshot

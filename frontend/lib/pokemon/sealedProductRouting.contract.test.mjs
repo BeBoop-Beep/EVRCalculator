@@ -26,8 +26,8 @@ test("desktop and mobile Set Market use the exact published sealed product id", 
   const desktop = read("../../components/explore/RipStatisticsPageClient.jsx");
   const mobile = read("../../components/pokemon/set-page/Market/SetMarketMobileTopChase.jsx");
   assert.match(desktop, /buildSealedProductHref\(selectedCard\.sealedProductId\)/);
-  assert.match(mobile, /buildSealedProductHref\(row\.sealedProductId\)/);
-  assert.match(mobile, /buildSealedProductHref\(model\.featured\?\.sealedProductId\)/);
+  assert.match(mobile, /buildSealedProductHref\(row\)/);
+  assert.match(mobile, /buildSealedProductHref\(model\.featured\)/);
   assert.doesNotMatch(desktop, /buildSealedProductHref\(selectedCard\.name\)/);
   assert.doesNotMatch(mobile, /buildSealedProductHref\(row\.name\)/);
 });
@@ -37,5 +37,7 @@ test("canonical page and loaders use only real backend data", () => {
   const server = read("./sealedProductDetailServer.js");
   assert.match(page, /getSealedProductDetailServer/);
   assert.doesNotMatch(page, /marketDataLoader|MarketModule/);
+  assert.match(server, /getBackendRequestAuthHeaders/);
   assert.match(server, /cache: "no-store"/);
+  assert.doesNotMatch(server, /revalidate:/);
 });

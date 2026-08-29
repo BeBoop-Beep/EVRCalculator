@@ -21,7 +21,7 @@ test("RIP dead requests retain dedicated tab owners", () => {
 });
 
 test("bootstrap owns RIP score, decision and calculation run", () => {
-  assert.match(client, /resolveCanonicalRipV7\(ripBootstrap\?\.canonicalSource, explorePayload/);
+  assert.match(client, /resolveCanonicalRipV7\(ripBootstrap\?\.canonicalSource, explorePayload, effectiveShellPayload/);
   assert.match(client, /ripBootstrap\?\.ripDecision \?\? explorePayload\?\.ripDecision/);
   assert.match(client, /ripBootstrap\?\.calculationRunId \?\? activeTarget/);
   assert.match(client, /compatibleRipGlobalContext\?\.productFamilyRankings/);

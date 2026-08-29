@@ -1,0 +1,13 @@
+{
+  "checkpoint_id": "tmp-v3-r3-2026-05-31-55e6bec5d99c",
+  "manifest_hash": "55e6bec5d99cf2c1417926273899d8af8fa570c1f348dd6c864c035c539bbce5",
+  "reference_date": "2026-05-31",
+  "pricing_semantics": "latest observed positive USD Near Mint price on/before checkpoint within fixed 7-day lookback; no interpolation",
+  "near_mint_condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+  "taxonomy_version": "pokemon_card_treatment_taxonomy_v3_decomposed",
+  "demand_snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+  "canonical_mapping_authority": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+  "exact_pull_authority": "treatment-market-prestige-v3-r2-9439727344d3bbb5",
+  "cohort_hash": "b950fb5a5ae3010ef883258a52cf90ce583e9eda8fd8fc1f4a2646ca7ddfb7b0",
+  "rows": 4152
+}

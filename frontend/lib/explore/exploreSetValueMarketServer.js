@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const processCache = new Map();
@@ -13,18 +14,32 @@ const unavailable = (stale = null) => stale
   : { marketOverview: null, sets: [], meta: { requestFailed: true, warnings: ["Global Set Value snapshot unavailable"] } };
 
 export const getExploreSetValueMarket = cache(async function getExploreSetValueMarket() {
-  const cached = processCache.get("market");
-  if (cached?.expiresAt > Date.now()) return cached.data;
   try {
-    const response = await fetch(`${getBackendApiBaseUrl()}/explore/set-value-market`, { cache: "no-store" });
+    const cookieHeader = (await cookies()).toString();
+    const preparedResponse = await fetch(`${getBackendApiBaseUrl()}/market/explorer/snapshot`, {
+      cache: "no-store",
+      headers: cookieHeader ? { Cookie: cookieHeader } : {},
+    });
+    // The backend has independently authenticated and authorized this exact
+    // request. Never process-cache this paid payload across users.
+    const response = preparedResponse.ok
+      ? preparedResponse
+      : await fetch(`${getBackendApiBaseUrl()}/explore/set-value-market`, { cache: "no-store" });
+    const cached = processCache.get("public-market");
     if (!response.ok) return unavailable(cached?.data);
     const payload = await response.json();
     const data = {
       marketOverview: payload?.marketOverview && typeof payload.marketOverview === "object" ? payload.marketOverview : null,
       sets: Array.isArray(payload?.sets) ? payload.sets : [],
+      initialSelectedSetMovers:
+        payload?.initialSelectedSetMovers && typeof payload.initialSelectedSetMovers === "object"
+          ? payload.initialSelectedSetMovers
+          : null,
       meta: payload?.meta || {},
     };
-    processCache.set("market", { data, expiresAt: Date.now() + TTL });
+    if (!preparedResponse.ok) {
+      processCache.set("public-market", { data, expiresAt: Date.now() + TTL });
+    }
     return data;
   } catch {
     return unavailable(cached?.data);

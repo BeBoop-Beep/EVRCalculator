@@ -8,6 +8,15 @@ export function resolveRankingsAccess(user) {
 }
 
 export function useRankingsAccess() {
+  // Presentation only. Backend/Next projections must already have removed any
+  // value this browser is not entitled to receive.
   const auth = useAuth();
-  return resolveRankingsAccess(auth?.user);
+  const access = resolveRankingsAccess(auth?.user);
+  const identity = String(auth?.user?.id || auth?.user?.user_id || auth?.user?.email || "anonymous");
+  return {
+    ...access,
+    authStatus: auth?.authStatus || "resolved",
+    authRevision: auth?.authRevision || 0,
+    requestKey: `${identity}:${access.accessMode}`,
+  };
 }

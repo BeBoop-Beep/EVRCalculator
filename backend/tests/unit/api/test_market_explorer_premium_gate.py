@@ -34,17 +34,16 @@ def _function_source(name):
     return rest
 
 
-def test_the_gate_helper_exists_and_names_the_capability_not_the_plan():
-    gate = _function_source("_require_market_explorer_custom_markets")
-    assert "has_index_premium_access" in gate
-    assert "MARKET_EXPLORER_PREMIUM_REQUIRED" in gate
-    assert "FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS" in gate
+def test_query_gate_delegates_to_the_canonical_spec_evaluator():
+    gate = _function_source("_require_market_explorer_query_access")
+    assert "evaluate_market_query_access" in gate
+    assert "MARKET_EXPLORER_PLAN_REQUIRED" in gate
     assert "status_code=403" in gate
 
 
 def test_the_gate_authenticates_first_then_checks_entitlement():
-    gate = _function_source("_require_market_explorer_custom_markets")
-    assert gate.index("_require_authenticated_user_id") < gate.index("has_index_premium_access"), (
+    gate = _function_source("_require_market_explorer_query_access")
+    assert gate.index("_require_authenticated_user_id") < gate.index("evaluate_market_query_access"), (
         "an anonymous caller must get 401, not 403"
     )
 
@@ -52,7 +51,7 @@ def test_the_gate_authenticates_first_then_checks_entitlement():
 def test_a_client_supplied_plan_is_never_accepted():
     # The helper takes no plan argument at all: there is nothing for a caller
     # to spoof, which is stronger than validating a value it was handed.
-    gate = _function_source("_require_market_explorer_custom_markets")
+    gate = _function_source("_require_market_explorer_query_access")
     signature = gate[: gate.index(")")]
     assert "plan" not in signature
     assert "authorization" in signature and "token_cookie" in signature
@@ -69,8 +68,9 @@ def test_the_plan_is_read_from_the_canonical_profile_projection():
 
 def test_the_gate_runs_before_the_cache_and_before_the_engine():
     query = _function_source("post_market_explorer_query")
-    gate = query.index("_require_market_explorer_custom_markets")
-    for behind in ("_market_explorer_query_cache", "normalize_query_spec", "runner("):
+    gate = query.index("_require_market_explorer_query_access")
+    assert query.index("normalize_query_spec") < gate, "access must evaluate the normalized definition"
+    for behind in ("_market_explorer_query_cache", "runner("):
         assert gate < query.index(behind), f"{behind} must sit behind the entitlement gate"
 
 
@@ -79,7 +79,22 @@ def test_the_builder_options_endpoint_carries_the_same_gate():
     # endpoint for no other purpose — so a weaker gate there would hand an
     # unentitled caller everything they need to drive the builder.
     options = _function_source("get_market_explorer_query_options")
-    assert "_require_market_explorer_custom_markets" in options
+    assert "has_index_plus_access" in options
+
+
+def test_public_taxonomy_cache_sits_behind_access_and_never_contains_query_results():
+    options = _function_source("get_market_explorer_query_options")
+    assert options.index("has_index_plus_access") < options.index("_market_explorer_options_cache")
+    assert "build_market_explorer_filter_options" in options
+    assert "run_market_explorer_query" not in options
+    assert "_market_explorer_query_cache" not in options
+
+
+def test_full_prepared_snapshot_is_server_gated_to_plus_and_never_public():
+    snapshot = _function_source("get_market_explorer_snapshot")
+    assert snapshot.index("_require_authenticated_user_id") < snapshot.index("read_market_explorer_snapshot")
+    assert snapshot.index("has_index_plus_access") < snapshot.index("read_market_explorer_snapshot")
+    assert "status_code=403" in snapshot
 
 
 @pytest.mark.parametrize("route", [
@@ -90,5 +105,7 @@ def test_no_custom_market_route_settles_for_bare_authentication(route):
     source = _function_source(route)
     # `_require_authenticated_user_id` alone would let every signed-in account
     # through, which is exactly the boundary this phase moved.
-    assert "_require_market_explorer_custom_markets" in source
-    assert "_require_authenticated_user_id(" not in source
+    if route == "post_market_explorer_query":
+        assert "_require_market_explorer_query_access" in source
+    else:
+        assert "_require_authenticated_user_id(" in source

@@ -25,7 +25,7 @@
 
 import { colorForSeriesFingerprint, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
 
-export const MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1";
+export const MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v2";
 
 export const QUERY_ASSET_CARDS = "cards";
 export const QUERY_ASSET_SEALED = "sealed";
@@ -104,6 +104,9 @@ export function normalizeQuerySpec({
   eraIds = [],
   setIds = [],
   segmentIds = [],
+  pokemonIds = [],
+  priceSegmentIds = [],
+  releaseAgeCohortIds = [],
   topN = null,
 } = {}) {
   const resolvedMode = mode === QUERY_MODE_CHASE ? QUERY_MODE_CHASE : QUERY_MODE_ALL;
@@ -113,6 +116,9 @@ export function normalizeQuerySpec({
     eraIds: cleanIds(eraIds),
     setIds: cleanIds(setIds),
     segmentIds: cleanIds(segmentIds),
+    pokemonIds: cleanIds(pokemonIds),
+    priceSegmentIds: cleanIds(priceSegmentIds),
+    releaseAgeCohortIds: cleanIds(releaseAgeCohortIds),
     mode: resolvedMode,
     // topN is not part of an "all constituents" market's identity; carrying a
     // stray value would fingerprint two identical markets apart.
@@ -174,6 +180,9 @@ export function buildQueryKey(spec) {
     keyPart("era", normalized.eraIds),
     keyPart("set", normalized.setIds),
     keyPart("segment", normalized.segmentIds),
+    keyPart("pokemon", normalized.pokemonIds),
+    keyPart("priceSegment", normalized.priceSegmentIds),
+    keyPart("releaseAge", normalized.releaseAgeCohortIds),
     `mode=${normalized.mode}`,
     `topN=${normalized.topN ?? "na"}`,
   ].join("|");
@@ -191,7 +200,7 @@ function nameFor(lookup, id) {
  * the chip too long to scan at the exact moment it is being compared with five
  * others.
  */
-export function buildQueryLabel(spec, { eraNames, setNames, segmentNames } = {}) {
+export function buildQueryLabel(spec, { eraNames, setNames, segmentNames, pokemonNames, priceSegmentNames, releaseAgeNames } = {}) {
   const normalized = normalizeQuerySpec(spec);
   let scope = "Global";
   if (normalized.setIds.length) {
@@ -206,7 +215,12 @@ export function buildQueryLabel(spec, { eraNames, setNames, segmentNames } = {})
     ? normalized.segmentIds.map((id) => nameFor(segmentNames, id)).join(", ")
     : allSegments;
   const mode = normalized.mode === QUERY_MODE_CHASE ? `Top ${normalized.topN}` : "All";
-  return `${scope} · ${segment} · ${mode}`;
+  const dimensions = [scope, segment];
+  if (normalized.pokemonIds.length) dimensions.push(normalized.pokemonIds.map((id) => nameFor(pokemonNames, id)).join(", "));
+  if (normalized.priceSegmentIds.length) dimensions.push(normalized.priceSegmentIds.map((id) => nameFor(priceSegmentNames, id)).join(", "));
+  if (normalized.releaseAgeCohortIds.length) dimensions.push(normalized.releaseAgeCohortIds.map((id) => nameFor(releaseAgeNames, id)).join(", "));
+  dimensions.push(mode);
+  return dimensions.join(" · ");
 }
 
 /**
@@ -248,6 +262,9 @@ export function buildQuerySeries(spec, labels) {
       segmentIds: normalized.segmentIds,
       isAllRarities: !normalized.segmentIds.length,
     },
+    pokemonIds: normalized.pokemonIds,
+    priceSegmentIds: normalized.priceSegmentIds,
+    releaseAgeCohortIds: normalized.releaseAgeCohortIds,
     mode: normalized.mode,
     topN: normalized.topN,
     spec: normalized,

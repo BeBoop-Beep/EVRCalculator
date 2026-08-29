@@ -19,9 +19,9 @@ SWSH_ERA = "era-swsh"
 
 # Two sets in Scarlet & Violet, one in Sword & Shield.
 SETS = [
-    {"id": "set-ah", "era_id": SV_ERA, "name": "Ascended Heroes"},
-    {"id": "set-pe", "era_id": SV_ERA, "name": "Prismatic Evolutions"},
-    {"id": "set-ev", "era_id": SWSH_ERA, "name": "Evolving Skies"},
+    {"id": "set-ah", "era_id": SV_ERA, "name": "Ascended Heroes", "release_date": "2025-12-01"},
+    {"id": "set-pe", "era_id": SV_ERA, "name": "Prismatic Evolutions", "release_date": "2025-01-01"},
+    {"id": "set-ev", "era_id": SWSH_ERA, "name": "Evolving Skies", "release_date": "2021-08-27"},
 ]
 
 
@@ -143,6 +143,31 @@ class FakeClient:
         if name == "get_pokemon_cards_daily_constituents":
             return _RpcResult(rows)
 
+        if name == svc.FILTERED_COHORT_RPC:
+            price_segments = set(payload.get("p_price_segment_ids") or [])
+            release_cohorts = set(payload.get("p_release_age_cohort_ids") or [])
+            releases = {row["id"]: row["release_date"] for row in SETS}
+            normalized = []
+            for row in rows:
+                price = float(row["market_price"])
+                price_segment = "obtainable" if price < 10 else "intermediate" if price < 100 else "premium"
+                age = (__import__("datetime").date.fromisoformat(row["market_date"]) - __import__("datetime").date.fromisoformat(releases[row["set_id"]])).days
+                release = "new" if age <= 180 else "recent" if age <= 730 else "established" if age <= 1825 else "legacy"
+                if (not price_segments or price_segment in price_segments) and (not release_cohorts or release in release_cohorts):
+                    normalized.append(row)
+            by_date = {}
+            for row in normalized:
+                by_date.setdefault(row["market_date"], []).append(row)
+            output, previous = [], None
+            for market_date in sorted(by_date):
+                universe = sorted(by_date[market_date], key=lambda row: (-float(row["market_price"]), row["canonical_card_id"]))
+                selected = universe[:payload["p_top_n"]] if payload.get("p_top_n") else universe
+                current = {row["canonical_card_id"]: float(row["market_price"]) for row in selected}
+                common = set() if previous is None else previous.keys() & current.keys()
+                output.append({"market_date": market_date, "constituent_count": len(current), "eligible_universe_count": len(universe), "basket_value": sum(current.values()), "common_count": len(common), "common_current_value": sum(current[key] for key in common), "common_previous_value": sum(previous[key] for key in common) if previous else 0, "current_constituents": [{"canonical_card_id": row["canonical_card_id"], "set_id": row["set_id"], "market_date": market_date, "market_price": row["market_price"], "rank": rank} for rank, row in enumerate(selected, 1)]})
+                previous = current
+            return _RpcResult(output)
+
         assert name == "get_pokemon_market_explorer_daily_cohort", name
         top_n = payload.get("p_top_n")
         by_date = {}
@@ -216,6 +241,17 @@ def _run(**kwargs):
 
 def _ids(result):
     return [row["canonicalCardId"] for row in result["currentConstituents"]]
+
+
+def test_unknown_pokemon_id_fails_before_any_market_history_is_loaded():
+    class PokemonClient(FakeClient):
+        def table(self, name):
+            if name == "pokemon_reference":
+                return _Query([{"id": "149", "display_name": "Dragonite"}])
+            return super().table(name)
+
+    with pytest.raises(svc.MarketExplorerQueryError, match="unknown Pokemon id"):
+        svc.resolve_pokemon_card_ids(PokemonClient(), ["9999"])
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +420,30 @@ def test_served_and_reference_paths_agree():
             == reference["reconciliation"]["actualConstituentCount"])
 
 
+@pytest.mark.parametrize(
+    "query,reference_sets",
+    [
+        ({"price_segment_ids": ["premium"]}, [row["id"] for row in SETS]),
+        ({"release_age_cohort_ids": ["recent"]}, ["set-pe"]),
+        ({"price_segment_ids": ["premium"], "segment_ids": ["specialIllustrationRare"]}, [row["id"] for row in SETS]),
+        ({"release_age_cohort_ids": ["new"], "segment_ids": ["specialIllustrationRare"]}, ["set-ah"]),
+    ],
+)
+def test_filtered_database_cohort_matches_legacy_row_path(query, reference_sets):
+    """Pass 4 parity: SQL-side dynamic filtering changes cost, never math."""
+    served = _run(mode=MODE_CHASE, top_n=5, **query)
+    segment_ids = query.get("segment_ids")
+    card_ids = [card["id"] for card in CARDS if card["set_id"] in reference_sets and (
+        not segment_ids or card["rarity"] == "Special Illustration Rare"
+    )]
+    reference = _reference_series(PRICES, set_ids=reference_sets, card_ids=card_ids,
+                                  mode=MODE_CHASE, top_n=5)
+    assert served["trackedValue"] == pytest.approx(reference["trackedValue"])
+    assert served["indexValue"] == pytest.approx(reference["indexValue"])
+    assert [point[1] for point in served["trend"]] == pytest.approx([point[1] for point in reference["trend"]])
+    assert _ids(served) == [row["canonicalCardId"] for row in reference["currentConstituents"]]
+
+
 def _ids_by_day(result):
     """Constituent ids per day, from the engine's published membership history."""
     return [entry["constituentIds"] for entry in result["membershipByDate"]]
@@ -396,7 +456,8 @@ def _ids_by_day(result):
 def test_query_identity_is_published_and_stable():
     result = _run(mode=MODE_CHASE, era_ids=[SV_ERA], segment_ids=["specialIllustrationRare"])
     assert result["queryKey"] == (
-        f"cards|era={SV_ERA}|set=all|segment=specialIllustrationRare|mode=chase|topN=10"
+        f"cards|era={SV_ERA}|set=all|segment=specialIllustrationRare|pokemon=all|"
+        "priceSegment=all|releaseAge=all|mode=chase|topN=10"
     )
     assert len(result["queryFingerprint"]) == 64
     again = _run(mode=MODE_CHASE, era_ids=[SV_ERA], segment_ids=["specialIllustrationRare"])

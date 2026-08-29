@@ -24,7 +24,7 @@ test("empty selections mean ALL, never an empty universe", () => {
   const spec = normalizeQuerySpec({ mode: QUERY_MODE_ALL });
   assert.deepEqual(spec.eraIds, []);
   assert.deepEqual(spec.segmentIds, []);
-  assert.equal(buildQueryKey(spec), "cards|era=all|set=all|segment=all|mode=all|topN=na");
+  assert.equal(buildQueryKey(spec), "cards|era=all|set=all|segment=all|pokemon=all|priceSegment=all|releaseAge=all|mode=all|topN=na");
 });
 
 test("chase defaults to the published Top 10 cutoff", () => {
@@ -56,8 +56,21 @@ test("differing markets do not collide", () => {
 test("the query key matches the backend contract string exactly", () => {
   assert.equal(
     buildQueryKey({ mode: QUERY_MODE_CHASE, eraIds: ["era-sv"], segmentIds: ["specialIllustrationRare"] }),
-    "cards|era=era-sv|set=all|segment=specialIllustrationRare|mode=chase|topN=10",
+    "cards|era=era-sv|set=all|segment=specialIllustrationRare|pokemon=all|priceSegment=all|releaseAge=all|mode=chase|topN=10",
   );
+});
+
+test("Pass 3 axes normalize exactly like the backend contract", () => {
+  const spec = normalizeQuerySpec({
+    pokemonIds: ["149", "149"],
+    priceSegmentIds: ["premium"],
+    releaseAgeCohortIds: ["new"],
+    mode: QUERY_MODE_ALL,
+  });
+  assert.deepEqual(spec.pokemonIds, ["149"]);
+  assert.deepEqual(spec.priceSegmentIds, ["premium"]);
+  assert.deepEqual(spec.releaseAgeCohortIds, ["new"]);
+  assert.equal(buildQueryKey(spec), "cards|era=all|set=all|segment=all|pokemon=149|priceSegment=premium|releaseAge=new|mode=all|topN=na");
 });
 
 test("labels read as the market the user selected", () => {

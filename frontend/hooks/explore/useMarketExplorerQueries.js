@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { queryResultToSeries, resolveBenchmarkSpec } from "@/lib/explore/marketExplorerQuery.mjs";
+import { buildQueryKey, queryResultToSeries, resolveBenchmarkSpec } from "@/lib/explore/marketExplorerQuery.mjs";
 
 async function executeQuery(spec) {
   const response = await fetch("/api/market/explorer/query", {
@@ -27,6 +27,8 @@ async function executeQuery(spec) {
 export default function useMarketExplorerQueries() {
   const [querySeries, setQuerySeries] = useState([]);
   const addQuery = useCallback(async (spec) => {
+    const requestedKey = buildQueryKey(spec);
+    if (querySeries.some((entry) => entry.spec && buildQueryKey(entry.spec) === requestedKey)) return "duplicate";
     const result = await executeQuery(spec);
     if (querySeries.some((entry) => entry.queryFingerprint === result.queryFingerprint)) return "duplicate";
     const benchmarkSpec = resolveBenchmarkSpec(spec);

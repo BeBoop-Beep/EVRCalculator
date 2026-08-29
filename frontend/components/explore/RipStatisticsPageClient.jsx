@@ -3,7 +3,7 @@
 import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { buildPokemonCardHref } from "@/lib/pokemon/pokemonCardDetailClient";
+import { buildPokemonCardHref, resolvePokemonPublicSetSlug } from "@/lib/pokemon/pokemonCardDetailClient";
 import { buildSealedProductHref } from "@/components/explore/setProductComparison.mjs";
 import { adaptCriticalInsightsToExplorePayload } from "@/lib/pokemon/pokemonSetInsightsCriticalExploreAdapter.mjs";
 
@@ -3332,6 +3332,7 @@ function InlinePanelSkeleton({ rows = 3, className = "" }) {
 }
 
 function TopMarketCardsContent({
+  setSlug,
   cards,
   status,
   error,
@@ -3339,7 +3340,6 @@ function TopMarketCardsContent({
   selectedWindowKey: controlledSelectedWindowKey = null,
   onWindowChange = null,
   marketAsOfDate = null,
-  rowHref = null,
   onRetry = null,
   mobileExpanded = true,
 }) {
@@ -3433,7 +3433,7 @@ function TopMarketCardsContent({
                 index={index}
                 selectedWindowKey={effectiveWindowKey}
                 marketAsOfDate={marketAsOfDate}
-                href={rowHref}
+                href={buildPokemonCardHref(setSlug, card)}
               />
             </div>
           ))}
@@ -3494,7 +3494,7 @@ function getTopCardPriceHistory(card, selectedWindowKey, marketAsOfDate = null) 
   });
 }
 
-function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey, onWindowChange, marketAsOfDate = null, rowHref = null, onRetry = null }) {
+function TopChaseCardsModule({ setSlug, cards, status, error, infoText, selectedWindowKey, onWindowChange, marketAsOfDate = null, onRetry = null }) {
   // Default to a 5-row preview so the compact mobile feed stays scannable;
   // "View all chase cards" expands in place to the full fetched list (10 —
   // see the /market/top-chase fetch's limit), reusing the View-all-movers
@@ -3516,6 +3516,7 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
   return (
     <SectionCard title="Top Chase Cards" titleInfoText={infoText}>
       <TopMarketCardsContent
+        setSlug={setSlug}
         cards={cards}
         status={status}
         error={error}
@@ -3524,7 +3525,6 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         selectedWindowKey={selectedWindowKey}
         onWindowChange={onWindowChange}
         marketAsOfDate={marketAsOfDate}
-        rowHref={rowHref}
         onRetry={onRetry}
       />
       {totalRows > TOP_CHASE_MOBILE_PREVIEW_LIMIT ? (
@@ -8952,6 +8952,12 @@ export default function RipStatisticsPageClient({
     if (!initialMarketMoversPayload || !setIdentityMatchesTarget(initialMarketMoversPayload.set, resolvedSetResourceId)) return null;
     return initialMarketMoversPayload.window === MOVERS_TICKER_WINDOW ? initialMarketMoversPayload : null;
   }, [initialMarketMoversPayload, resolvedSetResourceId]);
+  const seededTopChasePayload = useMemo(() => {
+    if (!initialMarketDashboardPayload || !setIdentityMatchesTarget(initialMarketDashboardPayload.set, resolvedSetResourceId)) return null;
+    return Array.isArray(initialMarketDashboardPayload.topChaseCards) && initialMarketDashboardPayload.topChaseCards.length
+      ? initialMarketDashboardPayload
+      : null;
+  }, [initialMarketDashboardPayload, resolvedSetResourceId]);
   const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation;
   const initialCardAppealRows = useMemo(() => {
     const rows = Array.isArray(initialCardAppealMarketPriceCorrelation?.plotRows)
@@ -9270,9 +9276,9 @@ export default function RipStatisticsPageClient({
   const [topChaseState, dispatchTopChase] = useReducer(
     marketDashboardReducer,
     {
-      status: "idle",
+      status: seededTopChasePayload ? "success" : "idle",
       setId: resolvedSetResourceId,
-      payload: null,
+      payload: seededTopChasePayload,
       sourceWindow: DEFAULT_TOP_CHASE_MARKET_WINDOW,
     },
     createMarketDashboardState
@@ -10480,8 +10486,8 @@ export default function RipStatisticsPageClient({
   // label. The legacy `rip` / `ripCore` / V5 / V6 objects are still served in
   // the payload for audit consumers and are read by no public surface here.
   const canonicalRip = useMemo(
-    () => resolveCanonicalRipV7(ripBootstrap?.canonicalSource, explorePayload, selectedTarget, summary),
-    [ripBootstrap?.canonicalSource, explorePayload, selectedTarget, summary]
+    () => resolveCanonicalRipV7(ripBootstrap?.canonicalSource, explorePayload, effectiveShellPayload, selectedTarget, summary),
+    [ripBootstrap?.canonicalSource, explorePayload, effectiveShellPayload, selectedTarget, summary]
   );
 
   const heroScoreSelection = selectRipHeroScoreMode({ canonical: canonicalRip });
@@ -11057,10 +11063,8 @@ export default function RipStatisticsPageClient({
     [activeSetValueContract, setValueTrendScope]
   );
   const snapshotIdentityForDebug = getSetSnapshotIdentity(explorePayload);
-  const activeSetSlug =
-    toStableIdentifier(selectedTarget?.slug ?? selectedTarget?.canonical_key) ||
-    toStableIdentifier(snapshotIdentityForDebug?.slug ?? snapshotIdentityForDebug?.canonical_key) ||
-    null;
+  const activeSetSlug = resolvePokemonPublicSetSlug(selectedTarget) ||
+    resolvePokemonPublicSetSlug(snapshotIdentityForDebug);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -13309,6 +13313,7 @@ export default function RipStatisticsPageClient({
     }
 
     const setId = resolvedSetResourceId;
+    if (seededTopChasePayload && topChaseRetryNonce === 0) return undefined;
     const topChaseSourceWindow = DEFAULT_TOP_CHASE_MARKET_WINDOW;
     if (!setId) {
       dispatchTopChase({ type: "reset", status: "empty", sourceWindow: topChaseSourceWindow });
@@ -13408,6 +13413,7 @@ export default function RipStatisticsPageClient({
     activeMarketMoversState.status,
     // Section-local Retry: re-runs this effect only (see retryTopChaseModule).
     topChaseRetryNonce,
+    seededTopChasePayload,
   ]);
 
   // Slim /market/movers fetch for the selected 1D/7D/30D window — Market
@@ -14160,6 +14166,7 @@ export default function RipStatisticsPageClient({
                   isDesktopHeroComposition ? null : (
                   <SetMarketMobile
                     setId={resolvedSetResourceId}
+                    setSlug={activeSetSlug}
                     sectionIds={{
                       root: "set-detail-market",
                       movers: "set-detail-market-movers",
@@ -14192,7 +14199,6 @@ export default function RipStatisticsPageClient({
                       selectedWindowKey: topMarketCardsWindowKey,
                       onWindowChange: setTopMarketCardsWindowKey,
                       marketAsOfDate,
-                      rowHref: topChaseRowHref,
                       viewAllHref: topChaseRowHref,
                       onRetry: retryTopChaseModule,
                     }}
@@ -14466,6 +14472,7 @@ export default function RipStatisticsPageClient({
                           {/* Top Chase Cards — self-renders loading/error. */}
                           <SectionErrorBoundary sectionName="overview-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
                             <TopChaseCardsModule
+                              setSlug={activeSetSlug}
                               cards={topPricedCards}
                               status={topPricedCardsStatus}
                               error={activeTopMarketCardsState.error}
@@ -14473,7 +14480,6 @@ export default function RipStatisticsPageClient({
                               selectedWindowKey={topMarketCardsWindowKey}
                               onWindowChange={setTopMarketCardsWindowKey}
                               marketAsOfDate={marketAsOfDate}
-                              rowHref={topChaseRowHref}
                               onRetry={retryTopChaseModule}
                             />
                           </SectionErrorBoundary>

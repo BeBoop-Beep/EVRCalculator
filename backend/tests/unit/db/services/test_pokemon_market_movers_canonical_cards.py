@@ -667,7 +667,7 @@ def test_set_page_movers_projection_caps_ten_and_endpoint_reads_only_compact_pat
     assert "cards_json" not in query.select_fields
 
 
-def test_set_page_absolute_percent_request_fails_closed_when_projection_missing(monkeypatch):
+def test_set_page_absolute_percent_request_adapts_compatible_fallback_when_projection_missing(monkeypatch):
     def missing_projection(query):
         return [{"set_id": _TEST_UUID, "canonical_movers": None, "card_count": 1,
                  "updated_at": "2026-07-14T02:00:00+00:00", "snapshot_meta": dict(_CARDS_MOVEMENT_METADATA)}]
@@ -681,13 +681,19 @@ def test_set_page_absolute_percent_request_fails_closed_when_projection_missing(
     )
     monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
-    with pytest.raises(pokemon_public_snapshot_service.PokemonSetMarketError) as raised:
-        pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
-            _TEST_UUID, window="7D", limit=10, surface="set-page", metric="absolute-percent"
-        )
-    assert raised.value.status_code == 503
-    assert raised.value.code == "POKEMON_SET_PAGE_MARKET_MOVERS_SNAPSHOT_INCOMPLETE"
-    assert not any(query.table_name == "pokemon_set_market_dashboard_snapshot_latest" for query in client.queries)
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
+        _TEST_UUID, window="7D", limit=10, surface="set-page", metric="absolute-percent"
+    )
+
+    assert payload["marketMovers"]["all"]
+    assert payload["meta"]["query"]["window"] == "7D"
+    assert payload["meta"]["query"]["surface"] == "set-page"
+    assert payload["meta"]["query"]["metric"] == "absolute-percent"
+    assert payload["meta"]["query"]["sort"] == "largest-absolute-percent"
+    assert payload["meta"]["snapshot"]["source"] == "compatible_legacy_movers_absolute_percent_fallback"
+    assert payload["meta"]["snapshot"]["usedLegacyMoverList"] is True
+    assert payload["meta"]["snapshot"]["requestedProjectionAvailable"] is False
+    assert any(query.table_name == "pokemon_set_market_dashboard_snapshot_latest" for query in client.queries)
 
 
 def test_set_page_absolute_percent_source_metadata_is_explicit(monkeypatch):

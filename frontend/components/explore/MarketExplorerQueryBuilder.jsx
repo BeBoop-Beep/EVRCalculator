@@ -1,289 +1,82 @@
 "use client";
-
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import useMarketExplorerFilterOptions, {
-  OPTIONS_STATUS,
-  backendMessage,
-  resolveOptionsStatus,
-} from "@/hooks/explore/useMarketExplorerFilterOptions";
+import { useMemo, useState } from "react";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
 import DarkSelect from "@/components/ui/DarkSelect";
-import {
-  QUERY_ASSET_CARDS,
-  QUERY_ASSET_SEALED,
-  QUERY_MODE_ALL,
-  QUERY_MODE_CHASE,
-  buildQueryLabel,
-  marketModeOptions,
-  normalizeQuerySpec,
-  presentationFor,
-  sortEraOptions,
-  sortSetOptions,
-} from "@/lib/explore/marketExplorerQuery.mjs";
-
-// The dynamic market builder — Cards AND Sealed Products.
-//
-// ONE BUILDER, ONE STATE MODEL. The asset selects which segment vocabulary and
-// which mode wording apply; it does NOT select a different component. Era, Set,
-// Market Mode and the preview are literally the same controls for both assets,
-// so the two workflows cannot drift apart. Changing asset resets only the
-// segment selection, because a card rarity is not a sealed family and carrying
-// one across would describe no market at all.
-//
-// EVERY CONTROL IS AN inDex CONTROL. There is no `<select multiple>` here: the
-// filter axes are one shared MultiSelectFilter configured per axis.
-//
-// NO OPTION AUTHORITY LIVES HERE. Eras, sets, rarities and product families are
-// whatever the authenticated options payload carried. This file only orders
-// them canonically and narrows sets to the selected eras and asset.
-
-// The option-loading vocabulary now lives with the shared hook, because Era &
-// Sets loads the SAME payload and both surfaces must classify a 401 the same
-// way. Re-exported here so the existing contract tests and any other importer
-// keep their import site.
+import ExplorerDisclosure from "./ExplorerDisclosure";
+import ExplorerMarketOption from "./ExplorerMarketOption";
+import ExplorerPlanLockPanel from "./ExplorerPlanLockPanel";
+import useMarketExplorerBuilderDraft from "@/hooks/explore/useMarketExplorerBuilderDraft";
+import { QUERY_ASSET_CARDS, QUERY_ASSET_SEALED, QUERY_MODE_ALL, QUERY_MODE_CHASE, marketModeOptions, presentationFor } from "@/lib/explore/marketExplorerQuery.mjs";
+import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
+import { OPTIONS_STATUS, backendMessage, resolveOptionsStatus } from "@/hooks/explore/useMarketExplorerFilterOptions";
+import useMarketExplorerFilterOptions from "@/hooks/explore/useMarketExplorerFilterOptions";
+import { MARKET_EXPLORER_SCREENS, canUseScreen, draftForScreenResult, resolveScreenResults } from "@/lib/explore/marketExplorerScreens.mjs";
 export { OPTIONS_STATUS, backendMessage, resolveOptionsStatus };
 
-function OptionsState({ status, message }) {
-  if (status === OPTIONS_STATUS.signedOut) {
-    return (
-      <div data-market-query-options-state="signedOut" className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3">
-        {/* This is the SIGNED-OUT state, not the entitlement state: the plan
-            gate is handled by the caller, which does not render the builder at
-            all without Index Premium. The copy therefore names the account
-            step only, and never claims that signing in unlocks the builder. */}
-        <p className="text-xs text-[var(--text-primary)]">Sign in to continue.</p>
-        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-          Building custom markets requires an account on Index Premium.
-        </p>
-        <Link
-          href="/login"
-          data-market-query-sign-in
-          className="mt-2 inline-flex min-h-11 items-center rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] px-3 py-2 text-xs font-semibold desk:min-h-0"
-        >
-          Sign in
-        </Link>
-      </div>
-    );
-  }
-  if (status === OPTIONS_STATUS.offline || status === OPTIONS_STATUS.unavailable) {
-    return (
-      <p role="status" data-market-query-options-state={status} className="mt-3 text-xs text-[var(--text-secondary)]">
-        The market query service is temporarily unavailable.{message ? ` ${message}` : ""}
-      </p>
-    );
-  }
-  return (
-    <p role="status" data-market-query-options-state="loading" className="mt-3 text-xs text-[var(--text-secondary)]">
-      Loading canonical filters…
-    </p>
-  );
+function PreparedOptionList({ entries, onToggle, selectedSeriesCount }) {
+  const isLocked = (entry) => entry.selected && selectedSeriesCount <= 1;
+  return <ul className="mt-1 space-y-1">{entries.map((entry) => <li key={entry.key}><ExplorerMarketOption entry={entry} onToggle={onToggle} isLocked={isLocked(entry)} lockReason={isLocked(entry) ? "Only market" : null} /></li>)}</ul>;
 }
 
-export default function MarketExplorerQueryBuilder({ onAddQuery, scopeHandoff = null }) {
-  // ONE canonical options request for the page: Era & Sets reads the same
-  // payload through the same hook, so the two surfaces can never disagree
-  // about which eras and sets exist.
-  const { status: optionsStatus, options, message: optionsMessage } = useMarketExplorerFilterOptions();
-  const [asset, setAsset] = useState(QUERY_ASSET_CARDS);
-  const [eraIds, setEraIds] = useState([]);
-  const [setIds, setSetIds] = useState([]);
-  const [segmentIds, setSegmentIds] = useState([]);
-  const [mode, setMode] = useState(QUERY_MODE_ALL);
+export default function MarketExplorerQueryBuilder({ options = null, optionsStatus = "loading", optionsMessage = "", currentPlan = null, isAuthenticated = false, preparedSeries = [], activeSeries = [], benchmarkEntries = [], selectedSeriesCount = 0, onAddQuery, onAddPrepared, onToggleBenchmark }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  // WHY A STATUS AND NOT ONE MESSAGE STRING. Every cause used to collapse into
-  // "Unable to load query filters": FastAPI answers 401 with `detail`, not
-  // `message`, so a signed-out user — the overwhelmingly common case — was told
-  // the filters were broken. The cause is carried explicitly, because "sign in"
-  // and "the service is down" call for different actions.
-
-  // The Era & Sets hand-off. It fires ONLY when the user pressed "Use in Build
-  // a Market"; the two controls are otherwise independent, and neither rewrites
-  // the other's state on its own. `token` changes per press, so asking twice
-  // re-applies rather than being swallowed as an unchanged value.
-  useEffect(() => {
-    if (!scopeHandoff) return;
-    setEraIds(scopeHandoff.eraIds || []);
-    setSetIds(scopeHandoff.setIds || []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeHandoff?.token]);
-
-  const presentation = presentationFor(asset);
-
-  // Canonical order, applied once. Rendering order is then a pure function of
-  // the payload rather than of the order rows happened to arrive in.
-  const eraOptions = useMemo(() => sortEraOptions(options?.eras), [options]);
-  // A set with no prepared sealed snapshot has no sealed market to offer. The
-  // backend states which assets each set supports; a set that predates the flag
-  // is assumed to support cards, which is the historical contract.
-  const allSetOptions = useMemo(() => sortSetOptions(options?.sets).filter(
-    (entry) => (Array.isArray(entry.assets) ? entry.assets.includes(asset) : asset === QUERY_ASSET_CARDS)
-  ), [options, asset]);
-  const availableSets = useMemo(
-    () => (eraIds.length ? allSetOptions.filter((entry) => eraIds.includes(entry.eraId)) : allSetOptions),
-    [allSetOptions, eraIds]
-  );
-  // An era or asset change can strand a set the user can no longer see.
-  // Reconciliation drops it rather than leaving an impossible hidden selection.
-  useEffect(() => setSetIds((current) => {
-    const next = current.filter((id) => availableSets.some((entry) => entry.id === id));
-    return next.length === current.length ? current : next;
-  }), [availableSets]);
-
-  // Each asset reads its OWN vocabulary. `segments` remains the card taxonomy's
-  // published key for backward compatibility with the existing contract.
-  const segments = useMemo(() => {
-    if (asset === QUERY_ASSET_SEALED) {
-      return Array.isArray(options?.sealedProductFamilies?.segments)
-        ? options.sealedProductFamilies.segments : [];
-    }
-    const cards = options?.cardSegments?.segments || options?.segments?.segments;
-    return Array.isArray(cards) ? cards : [];
-  }, [options, asset]);
-  const segmentOptions = useMemo(
-    () => segments.map((entry) => ({
-      id: entry.key,
-      label: entry.label,
-      shortLabel: entry.shortLabel || entry.label,
-      description: entry.definition || undefined,
-      disabled: entry.available === false,
-    })),
-    [segments]
-  );
-  // A card rarity is not a sealed family. Switching asset must clear the
-  // segment selection rather than carry a key the new asset would reject.
-  useEffect(() => setSegmentIds([]), [asset]);
-
-  const modeOptions = useMemo(() => marketModeOptions(asset), [asset]);
-  const spec = normalizeQuerySpec({ asset, eraIds, setIds, segmentIds, mode, topN: mode === QUERY_MODE_CHASE ? 10 : null });
-  const labels = {
-    eraNames: Object.fromEntries(eraOptions.map((entry) => [entry.id, entry.label])),
-    setNames: Object.fromEntries(allSetOptions.map((entry) => [entry.id, entry.label])),
-    segmentNames: Object.fromEntries(segments.map((entry) => [entry.key, entry.label])),
+  const [selectedScreenId, setSelectedScreenId] = useState(null);
+  const loadedOptions = useMarketExplorerFilterOptions();
+  const canonicalOptions = options || loadedOptions.options;
+  const canonicalStatus = options ? optionsStatus : loadedOptions.status;
+  const canonicalMessage = options ? optionsMessage : loadedOptions.message;
+  const builder = useMarketExplorerBuilderDraft({ options: canonicalOptions, currentPlan, preparedSeries, activeSeries });
+  const { draft, spec, access, prepared, alreadyActive } = builder;
+  const paid = currentPlan === "plus" || currentPlan === "premium";
+  const segmentOptions = builder.segments.map((entry) => ({ id: entry.key, label: entry.label, shortLabel: entry.shortLabel || entry.label, description: entry.definition, disabled: entry.available === false }));
+  const pokemonOptions = builder.pokemonOptions.map((entry) => ({ id: entry.id, label: entry.label, shortLabel: entry.label }));
+  const priceOptions = builder.priceSegments.map((entry) => ({ id: entry.id, label: entry.label, description: entry.description }));
+  const releaseOptions = builder.releaseAgeCohorts.map((entry) => ({ id: entry.id, label: entry.label, description: entry.description }));
+  const selectedScreen = MARKET_EXPLORER_SCREENS.find((entry) => entry.id === selectedScreenId) || null;
+  const screenResults = useMemo(() => selectedScreen ? resolveScreenResults(selectedScreen, preparedSeries) : [], [selectedScreen, preparedSeries]);
+  const chooseAll = (asset) => { builder.replace({ asset, eraIds: [], setIds: [], segmentIds: [], pokemonIds: [], priceSegmentIds: [], releaseAgeCohortIds: [], mode: QUERY_MODE_ALL, topN: null }); setMessage(""); };
+  const build = async () => {
+    if (alreadyActive) return;
+    if (!prepared && !access.allowed) { setMessage(`This market requires Index ${access.requiredPlan === "premium" ? "Premium" : "Plus"}.`); return; }
+    setLoading(true); setMessage("");
+    try { const outcome = prepared ? onAddPrepared?.(prepared.key) : await onAddQuery?.(spec); setMessage(outcome === "duplicate" ? "Already active." : "Added to comparison."); }
+    catch (error) { setMessage(error?.message || "The market query service is temporarily unavailable."); }
+    finally { setLoading(false); }
   };
-  const preview = buildQueryLabel(spec, labels);
-
-  const add = async () => {
-    setLoading(true);
-    setMessage("");
-    try {
-      const outcome = await onAddQuery?.(spec);
-      setMessage(outcome === "duplicate" ? "That market is already active." : "Added to comparison.");
-    } catch (error) {
-      setMessage(error?.message || "Unable to add this market.");
-    } finally {
-      setLoading(false);
-    }
+  const accessPanel = (description) => <ExplorerPlanLockPanel requiredPlan={INDEX_PLAN_PLUS} isAuthenticated={isAuthenticated} currentPlan={currentPlan} description={description} />;
+  const assetControls = (asset) => {
+    if (!paid) return accessPanel(asset === QUERY_ASSET_CARDS ? "Build card markets by Era, Set and Rarity with Index Plus." : "Build sealed markets by Era, Set and Product Family with Index Plus.");
+    if (!canonicalOptions) return <p role="status" className="mt-2 text-[11px] text-[var(--text-secondary)]">{canonicalStatus === "loading" ? "Loading canonical filters…" : canonicalMessage || "The canonical market filters are temporarily unavailable."}</p>;
+    if (draft.asset !== asset) return <button type="button" onClick={() => builder.setAsset(asset)} className="mt-2 min-h-11 w-full rounded-md border border-[var(--border-subtle)] px-3 text-left text-xs text-[var(--text-primary)] desk:min-h-0">Edit this asset</button>;
+    const presentation = presentationFor(asset);
+    return <div className="mt-2 space-y-2">
+      <ExplorerDisclosure id={`${asset}EraSets`} title="Era & Set" summary={draft.eraIds.length || draft.setIds.length ? `${draft.eraIds.length + draft.setIds.length} selected` : "All"}><div className="space-y-2">
+        <MultiSelectFilter label="Era" name={`${asset}-era`} options={builder.eraOptions} selectedIds={draft.eraIds} onChange={builder.setEraIds} allLabel="All Eras" summaryNoun="Eras" searchable={false} emptyMessage="No tracked eras." />
+        <MultiSelectFilter label="Set" name={`${asset}-set`} options={builder.visibleSets} selectedIds={draft.setIds} onChange={builder.setSetIds} allLabel="All Sets" summaryNoun="Sets" searchable searchPlaceholder="Search sets…" emptyMessage="No supported sets in the selected eras." />
+      </div></ExplorerDisclosure>
+      <ExplorerDisclosure id={`${asset}Segments`} title={asset === QUERY_ASSET_CARDS ? "Rarity" : "Product Family"} summary={draft.segmentIds.length ? `${draft.segmentIds.length} selected` : "All"}>
+        <MultiSelectFilter key={asset} label={presentation.segmentLabel} name={`${asset}-segment`} options={segmentOptions} selectedIds={draft.segmentIds} onChange={builder.setSegmentIds} allLabel={presentation.allSegmentsLabel} summaryNoun={presentation.segmentSummaryNoun} searchable={false} emptyMessage="No published segment options." />
+      </ExplorerDisclosure>
+      {asset === QUERY_ASSET_CARDS ? <ExplorerDisclosure id="cardsPokemon" title="Pokémon" badge="Premium"><MultiSelectFilter label="Pokémon" name="pokemon" options={pokemonOptions} selectedIds={draft.pokemonIds} onChange={builder.setPokemonIds} allLabel="All Pokémon" summaryNoun="Pokémon" searchable searchPlaceholder="Search Pokémon…" emptyMessage="No canonical Pokémon subjects." /></ExplorerDisclosure> : null}
+      <ExplorerDisclosure id={`${asset}PriceSegments`} title="Price Segment" summary={draft.priceSegmentIds.length ? `${draft.priceSegmentIds.length} selected` : "All"}><MultiSelectFilter label="Price Segment" name={`${asset}-price-segment`} options={priceOptions} selectedIds={draft.priceSegmentIds} onChange={builder.setPriceSegmentIds} allLabel="All Prices" summaryNoun="Price Segments" searchable={false} emptyMessage="No published price segments." /></ExplorerDisclosure>
+      <ExplorerDisclosure id={`${asset}ReleaseAge`} title="Release Age" summary={draft.releaseAgeCohortIds.length ? `${draft.releaseAgeCohortIds.length} selected` : "All"}><MultiSelectFilter label="Release Age" name={`${asset}-release-age`} options={releaseOptions} selectedIds={draft.releaseAgeCohortIds} onChange={builder.setReleaseAgeCohortIds} allLabel="All Release Ages" summaryNoun="Release Cohorts" searchable={false} emptyMessage="No published release cohorts." /></ExplorerDisclosure>
+    </div>;
   };
-
-  return (
-    <section data-market-query-builder className="pt-1" aria-labelledby="market-query-builder-heading">
-      {/* The heading names the ADVANCED LANE, and the copy states how it
-          differs from Explore Segments: prepared vs custom. */}
-      <h3 id="market-query-builder-heading" className="text-sm font-semibold text-[var(--text-primary)]">Build a Market</h3>
-      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-        Create a custom filtered market. Choose an asset, narrow the eligible universe by era, set and segment, then
-        rank it. A Top 10 market is charted alongside the same filtered universe in All mode, because that is the only
-        benchmark that can interpret it.
-      </p>
-      {!options ? <OptionsState status={optionsStatus} message={optionsMessage} /> : (
-        <>
-          <div className="mt-3 grid grid-cols-1 gap-3 tab:grid-cols-2">
-            {/* Asset first: it decides the segment vocabulary and the mode
-                wording for every control below it. */}
-            <div className="min-w-0">
-              <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Asset</span>
-              <div className="mt-1 flex" data-market-query-control="asset" data-market-query-asset={asset}>
-                <DarkSelect
-                  ariaLabel="Asset"
-                  value={asset}
-                  onChange={setAsset}
-                  options={[
-                    { value: QUERY_ASSET_CARDS, label: "Cards" },
-                    { value: QUERY_ASSET_SEALED, label: "Sealed Products" },
-                  ]}
-                />
-              </div>
-            </div>
-
-            {/* Era: a short, ordered list. Search would be pure furniture. */}
-            <MultiSelectFilter
-              label="Era"
-              name="era"
-              options={eraOptions}
-              selectedIds={eraIds}
-              onChange={setEraIds}
-              allLabel="All Eras"
-              summaryNoun="Eras"
-              searchable={false}
-              emptyMessage="No tracked eras."
-            />
-
-            {/* Set: the long axis, so it searches — client-side, over the
-                canonical list already loaded. No request per keystroke. */}
-            <MultiSelectFilter
-              label="Set"
-              name="set"
-              options={availableSets}
-              selectedIds={setIds}
-              onChange={setSetIds}
-              allLabel="All Sets"
-              summaryNoun="Sets"
-              searchable
-              searchPlaceholder="Search sets…"
-              emptyMessage="No tracked sets in the selected eras."
-            />
-
-            {/* ONE control, named by the asset. `key` forces a fresh control
-                per asset so no popover state survives a vocabulary change. */}
-            <MultiSelectFilter
-              key={`segment-${asset}`}
-              label={presentation.segmentLabel}
-              name="segment"
-              options={segmentOptions}
-              selectedIds={segmentIds}
-              onChange={setSegmentIds}
-              allLabel={presentation.allSegmentsLabel}
-              summaryNoun={presentation.segmentSummaryNoun}
-              searchable={false}
-              emptyMessage={asset === QUERY_ASSET_SEALED
-                ? "No published sealed product families."
-                : "No published card segments."}
-            />
-
-            <div className="min-w-0">
-              <span id="market-query-mode-label" className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Market Mode</span>
-              <div className="mt-1 flex" data-market-query-control="mode" data-market-query-mode={mode}>
-                <DarkSelect
-                  ariaLabel="Market Mode"
-                  value={mode}
-                  onChange={setMode}
-                  options={modeOptions.map((entry) => ({ value: entry.id, label: entry.label }))}
-                />
-              </div>
-            </div>
-
-            {mode === QUERY_MODE_CHASE ? (
-              <div data-market-query-top-n className="min-w-0">
-                <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                  {asset === QUERY_ASSET_SEALED ? "Basket Size" : "Chase Size"}
-                </span>
-                <p className="mt-1 flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5 text-xs text-[var(--text-primary)] desk:min-h-0">Top 10</p>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/25 px-3 py-2">
-            <div className="min-w-0 flex-1">
-              <span className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Query preview</span>
-              <p data-market-query-preview className="truncate text-xs font-semibold text-[var(--text-primary)]">{preview}</p>
-            </div>
-            <button type="button" data-market-query-add disabled={loading} onClick={add} className="min-h-11 rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] px-3 py-2 text-xs font-semibold disabled:opacity-50 desk:min-h-0">{loading ? "Adding…" : "Add to Comparison"}</button>
-          </div>
-          {message ? <p role="status" className="mt-2 text-[11px] text-[var(--text-secondary)]">{message}</p> : null}
-        </>
-      )}
-    </section>
-  );
+  const body = <div className="flex min-h-0 flex-1 flex-col">
+    <div data-market-builder-scroll-region className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 sm:px-4">
+      <ExplorerDisclosure id="rawCardsBuilder" title="Raw Cards" defaultOpen><button type="button" data-builder-all-raw-cards onClick={() => chooseAll(QUERY_ASSET_CARDS)} className="min-h-11 w-full rounded-md border border-[var(--border-subtle)] px-3 text-left text-xs font-semibold text-[var(--text-primary)] desk:min-h-0">All Raw Cards</button>{assetControls(QUERY_ASSET_CARDS)}</ExplorerDisclosure>
+      <ExplorerDisclosure id="sealedBuilder" title="Sealed"><button type="button" data-builder-all-sealed onClick={() => chooseAll(QUERY_ASSET_SEALED)} className="min-h-11 w-full rounded-md border border-[var(--border-subtle)] px-3 text-left text-xs font-semibold text-[var(--text-primary)] desk:min-h-0">All Sealed</button>{assetControls(QUERY_ASSET_SEALED)}</ExplorerDisclosure>
+      <ExplorerDisclosure id="gradedBuilder" title="Graded" badge="Unavailable"><p className="text-[11px] text-[var(--text-secondary)]">No authoritative graded market is published.</p></ExplorerDisclosure>
+      <ExplorerDisclosure id="screens" title="Screens"><div className="space-y-1">{MARKET_EXPLORER_SCREENS.map((screen) => { const unlocked = canUseScreen(screen, currentPlan); return <button type="button" key={screen.id} data-market-screen={screen.id} data-market-screen-locked={unlocked ? "false" : "true"} onClick={() => unlocked ? setSelectedScreenId(screen.id) : setMessage(`This Screen requires Index ${screen.requiredPlan === "premium" ? "Premium" : "Plus"}.`)} className="min-h-11 w-full rounded-md border border-[var(--border-subtle)] px-3 text-left desk:min-h-0"><span className="block text-xs font-semibold text-[var(--text-primary)]">{screen.label}{unlocked ? "" : " 🔒"}</span><span className="block text-[10px] text-[var(--text-secondary)]">{screen.description}</span></button>; })}</div>{selectedScreen && canUseScreen(selectedScreen, currentPlan) ? <div data-market-screen-results className="mt-2 space-y-1">{screenResults.length ? screenResults.map((result, index) => <button type="button" key={result.series.key} onClick={() => { builder.replace(draftForScreenResult(selectedScreen, result, draft)); onAddPrepared?.(result.series.key); }} className="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-left text-[11px] text-[var(--text-primary)]">{index + 1}. {result.series.shortLabel || result.series.label} <span className="text-[var(--text-secondary)]">{result.value.toFixed(1)}%</span></button>) : <button type="button" onClick={() => builder.replace(draftForScreenResult(selectedScreen, null, draft))} className="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-left text-[11px] text-[var(--text-primary)]">Use in Market Builder</button>}</div> : null}</ExplorerDisclosure>
+      <ExplorerDisclosure id="benchmarks" title="Benchmarks">{paid ? <PreparedOptionList entries={benchmarkEntries} onToggle={onToggleBenchmark} selectedSeriesCount={selectedSeriesCount} /> : accessPanel("Add prepared comparison benchmarks with Index Plus.")}</ExplorerDisclosure>
+      {paid ? <ExplorerDisclosure id="marketComposition" title="Composition" summary={draft.mode === QUERY_MODE_CHASE ? "Top 10" : "All"}><DarkSelect ariaLabel="Market Mode" value={draft.mode} onChange={builder.setMode} options={marketModeOptions(draft.asset).map((entry) => ({ value: entry.id, label: entry.label }))} />{draft.mode === QUERY_MODE_CHASE ? <p className="mt-2 text-[11px] text-[var(--text-secondary)]">Top 10 composition is an Index Premium capability.</p> : null}</ExplorerDisclosure> : null}
+    </div>
+    <div data-current-market className="sticky bottom-0 border-t border-[var(--border-subtle)] bg-[var(--surface-page)]/95 px-3 py-3 backdrop-blur sm:px-4"><p className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Current Market</p><p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{draft.asset === QUERY_ASSET_SEALED ? "Sealed" : "Raw Cards"}</p><p data-current-market-preview className="mt-0.5 text-[11px] leading-snug text-[var(--text-secondary)]">{builder.preview}</p>
+      {!prepared && !access.allowed ? <p data-current-market-lock className="mt-2 text-[11px] text-amber-300">Premium Market — combining dimensions or custom ranking requires Index Premium.</p> : null}
+      <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" data-market-builder-clear onClick={() => { builder.clear(); setMessage(""); }} className="min-h-11 rounded-md border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-secondary)] desk:min-h-0">Clear</button><button type="button" data-market-builder-build onClick={build} disabled={loading || alreadyActive || (!prepared && !access.allowed)} className="min-h-11 rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-3 text-xs font-semibold text-[rgb(45,212,191)] disabled:opacity-50 desk:min-h-0">{alreadyActive ? "Already Active" : loading ? "Building…" : !prepared && !access.allowed ? "Build Market 🔒" : "Build Market"}</button></div>{message ? <p role="status" className="mt-2 text-[11px] text-[var(--text-secondary)]">{message}</p> : null}
+    </div>
+  </div>;
+  return <section data-market-explorer-filters data-market-builder-asset={draft.asset} className="flex min-w-0 flex-col desk:max-h-[42rem]" aria-labelledby="market-builder-heading"><div className="flex items-center gap-2 px-3 py-3 sm:px-4"><div><h2 id="market-builder-heading" className="text-[16px] font-semibold text-[var(--text-primary)]">Market Builder</h2><p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">Define a market, preview it, then build.</p></div><button type="button" data-market-builder-mobile-toggle aria-expanded={mobileOpen} onClick={() => setMobileOpen((value) => !value)} className="ml-auto rounded-md border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--text-secondary)] desk:hidden">{mobileOpen ? "Hide" : "Build"}</button></div><div className={mobileOpen ? "flex min-h-0 flex-1 flex-col" : "hidden min-h-0 flex-1 flex-col desk:flex"}>{body}</div></section>;
 }

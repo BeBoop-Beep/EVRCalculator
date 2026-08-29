@@ -255,7 +255,7 @@ def build_global_set_value_row(
     return {"tcg": "pokemon", "scope": "market", "payload_json": payload, "market_date": target_market_date, "set_count": len(published), "source_generation_fingerprint": fingerprint, "payload_size_bytes": len(json.dumps(payload, separators=(",", ":")).encode()), "_diagnostics": diagnostics}
 
 
-def read_explore_set_value_snapshot(*, client: Any = None) -> Dict[str, Any]:
+def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segments: bool = False) -> Dict[str, Any]:
     active = client or service_read_client
     started = time.perf_counter()
     rows = list((active.table(TABLE).select("payload_json,market_date,updated_at,payload_size_bytes").eq("tcg", "pokemon").eq("scope", "market").limit(1).execute()).data or [])
@@ -264,7 +264,7 @@ def read_explore_set_value_snapshot(*, client: Any = None) -> Dict[str, Any]:
         raise ExploreSetValueUnavailable("global Market Set Value snapshot is unavailable")
     payload = dict(rows[0].get("payload_json") or {})
     overview = payload.get("marketOverview")
-    if isinstance(overview, Mapping):
+    if isinstance(overview, Mapping) and not include_explorer_segments:
         # The persisted publication also contains deep card/sealed segment
         # explorer data. /Market renders only the three parent families; do not
         # materialize those unused nested structures into the HTTP response.
@@ -274,6 +274,11 @@ def read_explore_set_value_snapshot(*, client: Any = None) -> Dict[str, Any]:
     payload["meta"] = {**(payload.get("meta") or {}), "source": TABLE, "payloadSizeBytes": rows[0].get("payload_size_bytes")}
     logger.info("market_read route=/explore/set-value-market dbDurationMs=%s majorReads=1 payloadBytes=%s", db_ms, rows[0].get("payload_size_bytes"))
     return payload
+
+
+def read_market_explorer_snapshot(*, client: Any = None) -> Dict[str, Any]:
+    """Read the authoritative publication without the /Market payload slimming."""
+    return read_explore_set_value_snapshot(client=client, include_explorer_segments=True)
 
 
 def upsert_explore_set_value_snapshot(row: Mapping[str, Any], *, client: Any) -> None:

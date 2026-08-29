@@ -1,0 +1,33 @@
+{
+  "checkpoint_id": "tmp-v3-r7-sun_and_moon_r1-2026-05-31-12e0341fe8",
+  "manifest_hash": "12e0341fe832e785d5619ce5f06c9266722fb26da045f466c3d9df6818aedec3",
+  "reference_date": "2026-05-31",
+  "universe_id": "sun_and_moon_r1",
+  "era": "Sun and Moon",
+  "comparison_universe_type": "TREATMENT_REGIME_RELATIVE",
+  "set_ids": [
+    "0a49ab45-80d7-47e3-be40-425e254d2ff2",
+    "8938c853-2282-46d8-ba44-87584fa2c168",
+    "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+    "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+    "ed036406-26a7-4c68-92d5-dcd04f62556d",
+    "212383a2-ed84-4a5e-af37-50814247a437",
+    "8158d0ae-0255-48f0-b189-d134035b72b0",
+    "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+    "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+    "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+    "7c998bc2-6073-4461-8873-64d1b3e78930",
+    "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a"
+  ],
+  "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+  "pricing_semantics": "latest authoritative observation in fixed seven-day window ending at reference date; no interpolation",
+  "source_relation": "public.card_variant_price_observations",
+  "canonical_mapping_hash": "f297fa97379a96221e73dec71f78524bec9562f5b8798765bf97ef4dcf018755",
+  "taxonomy_hash": "82aec01c61449ec519df6b53d9c211009114e4efdd678f633c69c4b0a8e793fb",
+  "comparison_universe_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+  "demand_snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+  "model_version": "tmp-v3-hierarchical-r5",
+  "baseline_hash": "6c1ae19217ee8758057bf251aa60d26a397f66319729f1abbff51e21424cdbf4",
+  "cohort_hash": "bd0406d21026b70a8ab35d564bf532602ccadf797028ee669ac1351eeaba41a4",
+  "rows": 2019
+}

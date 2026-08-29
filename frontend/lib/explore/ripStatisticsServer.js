@@ -1,11 +1,9 @@
-import { cache } from "react";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { getBackendRequestAuthHeaders } from "@/lib/authServer";
 import { normaliseRipStatisticsPayload } from "./ripStatisticsNormalizer.mjs";
 
 const BACKEND_URL = getBackendApiBaseUrl();
 
-const SUCCESS_TTL_MS = 120_000;
-const NOT_FOUND_TTL_MS = 10_000;
 const DEFAULT_TARGETS_LIMIT = 150;
 const MAX_TARGETS_LIMIT = 200;
 const MIN_LIMIT = 1;
@@ -14,8 +12,6 @@ const TARGETS_REQUEST_FAILED_WARNING =
 const TARGETS_STALE_WARNING =
   "RIP Statistics targets request failed; using stale cached targets.";
 
-const targetsCache = new Map();
-const inflightRequests = new Map();
 
 function sanitiseLimit(value, defaultValue, maxValue) {
   const parsed = Number.parseInt(String(value), 10);
@@ -40,10 +36,6 @@ function sanitiseLimit(value, defaultValue, maxValue) {
 // precisely the Rankings -> Set navigation. One cohort is fetched and cached
 // once; each caller's `limit` is applied by slicing that shared result.
 const CANONICAL_COHORT_LIMIT = MAX_TARGETS_LIMIT;
-
-function toCacheKey() {
-  return "rip-statistics-targets";
-}
 
 export function normalisePayload(payload) {
   return normaliseRipStatisticsPayload(payload);
@@ -81,37 +73,15 @@ function toBackendFailureWarning({ status = null, detail = null } = {}) {
   return `${TARGETS_REQUEST_FAILED_WARNING} (${statusText}: ${detailText})`;
 }
 
-function getRecoverableTargetsPayload(cacheKey, warning) {
-  const cached = targetsCache.get(cacheKey);
-  if (cached?.data) {
-    return withTargetsRequestFailureMeta(cached.data, {
-      stale: true,
-      fallback: true,
-      warning: warning || TARGETS_STALE_WARNING,
-    });
-  }
+function getRecoverableTargetsPayload(warning) {
   return withTargetsRequestFailureMeta(null, {
     fallback: true,
     warning: warning || TARGETS_REQUEST_FAILED_WARNING,
   });
 }
 
-const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTargets() {
+async function _fetchRipStatisticsTargets(request = null) {
   const limit = CANONICAL_COHORT_LIMIT;
-  const cacheKey = toCacheKey();
-  const now = Date.now();
-
-  const cached = targetsCache.get(cacheKey);
-  if (cached && cached.expiresAt > now) {
-    console.info("[rip-statistics-server] process_cached_response", { limit });
-    return cached.data;
-  }
-
-  if (inflightRequests.has(cacheKey)) {
-    return inflightRequests.get(cacheKey);
-  }
-
-  const promise = (async () => {
     const url = new URL(`${BACKEND_URL}/explore/rip-statistics/targets`);
     url.searchParams.set("limit", String(CANONICAL_COHORT_LIMIT));
 
@@ -120,7 +90,10 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
       // The bounded process cache below is the single cross-request freshness
       // boundary. A second Next data-cache TTL used to stack with it and could
       // keep a superseded persisted snapshot visible unpredictably longer.
-      res = await fetch(url.toString(), { cache: "no-store" });
+      res = await fetch(url.toString(), {
+        cache: "no-store",
+        headers: await getBackendRequestAuthHeaders(request),
+      });
     } catch (error) {
       const warning = toBackendFailureWarning({ detail: error?.message || String(error) });
       console.warn("[rip-statistics-server] targets_request_failed", {
@@ -128,15 +101,11 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
         error: error?.message || String(error),
       });
       console.warn("[rip-statistics-server] stale_fallback", { limit });
-      return getRecoverableTargetsPayload(cacheKey, warning);
+      return getRecoverableTargetsPayload(warning);
     }
 
     if (res.status === 404) {
       const emptyPayload = normalisePayload(null);
-      targetsCache.set(cacheKey, {
-        data: emptyPayload,
-        expiresAt: now + NOT_FOUND_TTL_MS,
-      });
       return emptyPayload;
     }
 
@@ -149,7 +118,7 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
         status: res.status,
         bodyPreview,
       });
-      return getRecoverableTargetsPayload(cacheKey, warning);
+      return getRecoverableTargetsPayload(warning);
     }
 
     const payload = normalisePayload(await res.json());
@@ -158,22 +127,12 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
       builtAt: payload?.meta?.snapshot?.builtAt ?? null,
       marketDate: payload?.meta?.comparisonSnapshots?.currentMarketDate ?? null,
     });
-    targetsCache.set(cacheKey, {
-      data: payload,
-      expiresAt: now + SUCCESS_TTL_MS,
-    });
     return payload;
-  })().finally(() => {
-    inflightRequests.delete(cacheKey);
-  });
-
-  inflightRequests.set(cacheKey, promise);
-  return promise;
-});
+}
 
 export async function getRipStatisticsTargets(options = {}) {
   const limit = sanitiseLimit(options.limit, DEFAULT_TARGETS_LIMIT, MAX_TARGETS_LIMIT);
-  const cohort = await _fetchRipStatisticsTargets();
+  const cohort = await _fetchRipStatisticsTargets(options.request || null);
   // Return a fresh payload per caller — the cached cohort object is shared by
   // every consumer in this process and must never be truncated in place.
   return {

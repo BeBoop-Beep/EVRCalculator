@@ -3,6 +3,15 @@ import { getOverallProductRankings } from "@/lib/explore/overallProductRankingsS
 
 export async function GET(request) {
   const budget = new URL(request.url).searchParams.get("budget") || "full_market";
-  const result = await getOverallProductRankings(budget);
-  return NextResponse.json(result, { status: result.status === "available" ? 200 : 503 });
+  const result = await getOverallProductRankings(budget, request);
+  const payload = result?.data || {
+    available: false,
+    reason: result?.reason || "publication_unavailable",
+    rows: [],
+    availableBudgets: [],
+  };
+  return NextResponse.json(payload, {
+    status: payload.available === true ? 200 : 503,
+    headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" },
+  });
 }

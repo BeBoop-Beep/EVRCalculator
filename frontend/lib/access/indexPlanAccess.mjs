@@ -44,13 +44,49 @@ export function hasIndexPremiumAccess(plan) {
  * plan name at every call site is what makes repackaging a rewrite.
  */
 export const FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS = "market_explorer_custom_markets";
+export const FEATURE_MARKET_EXPLORER_SINGLE_AXIS = "market_explorer_single_axis";
+export const FEATURE_MARKET_EXPLORER_COMPOUND = "market_explorer_compound";
+export const FEATURE_MARKET_EXPLORER_CUSTOM_RANKED = "market_explorer_custom_ranked";
+export const FEATURE_MARKET_EXPLORER_POKEMON = "market_explorer_pokemon";
 export const FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency";
 
 export function hasIndexFeatureAccess(plan, feature) {
-  if (feature === FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS || feature === FEATURE_CARD_CHASE_EFFICIENCY) {
+  if (feature === FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS || feature === FEATURE_MARKET_EXPLORER_SINGLE_AXIS) return hasIndexPlusAccess(plan);
+  if (feature === FEATURE_CARD_CHASE_EFFICIENCY) {
+    return hasIndexPremiumAccess(plan);
+  }
+  if (feature === FEATURE_MARKET_EXPLORER_COMPOUND || feature === FEATURE_MARKET_EXPLORER_CUSTOM_RANKED || feature === FEATURE_MARKET_EXPLORER_POKEMON) {
     return hasIndexPremiumAccess(plan);
   }
   return false;
+}
+
+export function activeMarketFilterAxes(spec) {
+  const axes = [];
+  if (spec?.eraIds?.length || spec?.setIds?.length) axes.push("scope");
+  if (spec?.segmentIds?.length) axes.push("segment");
+  if (spec?.pokemonIds?.length) axes.push("pokemon");
+  if (spec?.priceSegmentIds?.length) axes.push("priceSegment");
+  if (spec?.releaseAgeCohortIds?.length) axes.push("releaseAge");
+  return axes;
+}
+
+export function evaluateMarketQueryAccess(plan, spec) {
+  const activeFilterAxes = activeMarketFilterAxes(spec);
+  const ranked = spec?.mode === "chase";
+  const pokemon = Boolean(spec?.pokemonIds?.length);
+  const requiredPlan = pokemon || ranked || activeFilterAxes.length > 1 ? INDEX_PLAN_PREMIUM : INDEX_PLAN_PLUS;
+  const capability = pokemon
+    ? FEATURE_MARKET_EXPLORER_POKEMON
+    : ranked
+      ? FEATURE_MARKET_EXPLORER_CUSTOM_RANKED
+    : activeFilterAxes.length > 1
+      ? FEATURE_MARKET_EXPLORER_COMPOUND
+      : FEATURE_MARKET_EXPLORER_SINGLE_AXIS;
+  const allowed = requiredPlan === INDEX_PLAN_PREMIUM
+    ? hasIndexPremiumAccess(plan)
+    : hasIndexPlusAccess(plan);
+  return { allowed, requiredPlan, capability, activeFilterAxes };
 }
 
 /** Plan display names. The product language, in one place. */
@@ -83,7 +119,10 @@ export function resolveMarketExplorerPlanAccess(user) {
     canUsePreparedMarketIntelligence: hasIndexPlusAccess(indexPlan),
     // Premium only. Browsing Era & Sets is a Plus capability; turning a scope
     // into a real custom market is not.
-    canBuildCustomMarkets: hasIndexPremiumAccess(indexPlan),
+    canBuildCustomMarkets: hasIndexPlusAccess(indexPlan),
+    canBuildSingleAxisMarket: hasIndexPlusAccess(indexPlan),
+    canBuildCompoundMarket: hasIndexPremiumAccess(indexPlan),
+    canUseCustomRankedComposition: hasIndexPremiumAccess(indexPlan),
   };
 }
 

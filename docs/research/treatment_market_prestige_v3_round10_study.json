@@ -1,0 +1,1960 @@
+{
+  "study_id": "treatment-market-prestige-v3-r10-f81bcceeef89eaf4",
+  "built_at": "2026-08-29T21:41:26.723949+00:00",
+  "frozenDenominator": 19847,
+  "currentCoveredCards": 5059,
+  "currentCoverage": 0.2548999848843654,
+  "cascadeMethodology": "Preserve Round 9 identity; simulate only an explicitly classified upstream repair; re-resolve taxonomy, universe, treatment evidence, history, stability, and universe publication in frozen gate order; AVAILABLE only when every known gate passes.",
+  "mappingRootCauses": {
+    "MISSING_SPECIES_CARD_ASSOCIATION": 217,
+    "NON_POKEMON_TRAINER_OUTSIDE_SPECIES_ESTIMAND": 2709,
+    "NON_POKEMON_ENERGY_OUTSIDE_SPECIES_ESTIMAND": 335,
+    "MISSING_SUPERTYPE_AND_SPECIES_ASSOCIATION": 300
+  },
+  "mappingRecoverability": {
+    "MANUAL_CANONICAL_RESEARCH_REQUIRED": 217,
+    "STRUCTURALLY_UNRECOVERABLE": 3044,
+    "AMBIGUOUS_NOT_SAFE_TO_MAP": 300
+  },
+  "deterministicMappingRecoveryCount": 0,
+  "mappingCardsUltimatelyScoreable": 102,
+  "mappingSecondaryBlockers": {
+    "UNSUPPORTED_TREATMENT": 99,
+    "STRUCTURALLY_UNRECOVERABLE": 3044,
+    "AMBIGUOUS_NOT_SAFE_TO_MAP": 300,
+    "UNSUPPORTED_ERA": 15,
+    "AVAILABLE": 102,
+    "MODEL_INSTABILITY": 1
+  },
+  "unsupportedEraAudit": [
+    {
+      "era": "Base/WOTC",
+      "pricedCards": 441,
+      "sets": 5,
+      "species": 150,
+      "mappedTreatmentCards": 429,
+      "unmappedTreatmentCards": 12,
+      "treatmentCounts": {
+        "common": 112,
+        "rare": 63,
+        "rare_holo": 81,
+        "rare_secret": 1,
+        "uncommon": 100
+      },
+      "multiSetSupportedTreatments": {
+        "rare_holo": 81,
+        "rare": 63,
+        "uncommon": 100,
+        "common": 112
+      },
+      "canonicalContinuity": 0.8095238095238095,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "HISTORY_INSUFFICIENT",
+      "researchState": "NOT_YET_RESEARCHED",
+      "architectureRecommendation": "ERA_RELATIVE_PILOT",
+      "pilot": {
+        "crossSectionallyEstimable": true,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "Black and White",
+      "pricedCards": 1447,
+      "sets": 14,
+      "species": 487,
+      "mappedTreatmentCards": 1444,
+      "unmappedTreatmentCards": 3,
+      "treatmentCounts": {
+        "__UNMAPPED__": 1,
+        "common": 380,
+        "rare": 219,
+        "rare_holo": 168,
+        "rare_holo_ex": 56,
+        "rare_secret": 25,
+        "rare_ultra": 52,
+        "uncommon": 294
+      },
+      "multiSetSupportedTreatments": {
+        "common": 380,
+        "uncommon": 294,
+        "rare_holo": 168,
+        "rare": 219,
+        "rare_ultra": 52,
+        "rare_secret": 25,
+        "rare_holo_ex": 56
+      },
+      "canonicalContinuity": 0.8258465791292329,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "HISTORY_INSUFFICIENT",
+      "researchState": "NOT_YET_RESEARCHED",
+      "architectureRecommendation": "ERA_RELATIVE_PILOT",
+      "pilot": {
+        "crossSectionallyEstimable": true,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "Diamond and Pearl",
+      "pricedCards": 844,
+      "sets": 7,
+      "species": 490,
+      "mappedTreatmentCards": 844,
+      "unmappedTreatmentCards": 0,
+      "treatmentCounts": {
+        "common": 261,
+        "rare": 163,
+        "rare_holo": 108,
+        "rare_holo_lv_x": 28,
+        "rare_secret": 3,
+        "uncommon": 184
+      },
+      "multiSetSupportedTreatments": {
+        "rare": 163,
+        "rare_holo_lv_x": 28,
+        "rare_holo": 108,
+        "uncommon": 184,
+        "common": 261
+      },
+      "canonicalContinuity": 0.8850710900473934,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "HISTORY_INSUFFICIENT",
+      "researchState": "NOT_YET_RESEARCHED",
+      "architectureRecommendation": "ERA_RELATIVE_PILOT",
+      "pilot": {
+        "crossSectionallyEstimable": true,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "E-Card",
+      "pricedCards": 519,
+      "sets": 3,
+      "species": 246,
+      "mappedTreatmentCards": 513,
+      "unmappedTreatmentCards": 6,
+      "treatmentCounts": {
+        "common": 164,
+        "rare": 117,
+        "rare_holo": 73,
+        "rare_secret": 8,
+        "uncommon": 53
+      },
+      "multiSetSupportedTreatments": {
+        "rare_holo": 73,
+        "rare": 117,
+        "uncommon": 53,
+        "common": 164
+      },
+      "canonicalContinuity": 0.7996146435452793,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "HISTORY_INSUFFICIENT",
+      "researchState": "NOT_YET_RESEARCHED",
+      "architectureRecommendation": "ERA_RELATIVE_PILOT",
+      "pilot": {
+        "crossSectionallyEstimable": true,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "EX",
+      "pricedCards": 1701,
+      "sets": 16,
+      "species": 384,
+      "mappedTreatmentCards": 1701,
+      "unmappedTreatmentCards": 0,
+      "treatmentCounts": {
+        "common": 484,
+        "rare": 234,
+        "rare_holo": 230,
+        "rare_holo_ex": 123,
+        "rare_holo_star": 14,
+        "rare_secret": 17,
+        "uncommon": 334
+      },
+      "multiSetSupportedTreatments": {
+        "uncommon": 334,
+        "rare_holo": 230,
+        "rare": 234,
+        "common": 484,
+        "rare_holo_ex": 123
+      },
+      "canonicalContinuity": 0.8442092886537331,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "HISTORY_INSUFFICIENT",
+      "researchState": "NOT_YET_RESEARCHED",
+      "architectureRecommendation": "ERA_RELATIVE_PILOT",
+      "pilot": {
+        "crossSectionallyEstimable": true,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "Gym",
+      "pricedCards": 265,
+      "sets": 2,
+      "species": 124,
+      "mappedTreatmentCards": 253,
+      "unmappedTreatmentCards": 12,
+      "treatmentCounts": {
+        "common": 76,
+        "rare": 25,
+        "rare_holo": 30,
+        "uncommon": 55
+      },
+      "multiSetSupportedTreatments": {},
+      "canonicalContinuity": 0.7018867924528301,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "TREATMENT_STRUCTURE_INSUFFICIENT",
+      "researchState": "RESEARCHED_AND_FAILED",
+      "architectureRecommendation": "STRUCTURAL_RESEARCH_REQUIRED",
+      "pilot": {
+        "crossSectionallyEstimable": false,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "HeartGold and SoulSilver",
+      "pricedCards": 549,
+      "sets": 6,
+      "species": 304,
+      "mappedTreatmentCards": 549,
+      "unmappedTreatmentCards": 0,
+      "treatmentCounts": {
+        "common": 142,
+        "legend": 4,
+        "rare": 88,
+        "rare_holo": 79,
+        "rare_prime": 26,
+        "uncommon": 89
+      },
+      "multiSetSupportedTreatments": {
+        "rare_holo": 79,
+        "rare": 88,
+        "uncommon": 89,
+        "common": 142,
+        "rare_prime": 26
+      },
+      "canonicalContinuity": 0.7795992714025501,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "HISTORY_INSUFFICIENT",
+      "researchState": "NOT_YET_RESEARCHED",
+      "architectureRecommendation": "ERA_RELATIVE_PILOT",
+      "pilot": {
+        "crossSectionallyEstimable": true,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "NP",
+      "pricedCards": 74,
+      "sets": 1,
+      "species": 0,
+      "mappedTreatmentCards": 74,
+      "unmappedTreatmentCards": 0,
+      "treatmentCounts": {},
+      "multiSetSupportedTreatments": {},
+      "canonicalContinuity": 0.0,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "TREATMENT_STRUCTURE_INSUFFICIENT",
+      "researchState": "RESEARCHED_AND_FAILED",
+      "architectureRecommendation": "STRUCTURAL_RESEARCH_REQUIRED",
+      "pilot": {
+        "crossSectionallyEstimable": false,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "Neo",
+      "pricedCards": 364,
+      "sets": 4,
+      "species": 175,
+      "mappedTreatmentCards": 358,
+      "unmappedTreatmentCards": 6,
+      "treatmentCounts": {
+        "common": 99,
+        "rare": 52,
+        "rare_holo": 64,
+        "rare_shining": 9,
+        "uncommon": 86
+      },
+      "multiSetSupportedTreatments": {
+        "rare_holo": 64,
+        "uncommon": 86,
+        "rare": 52,
+        "common": 99
+      },
+      "canonicalContinuity": 0.8516483516483516,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "HISTORY_INSUFFICIENT",
+      "researchState": "NOT_YET_RESEARCHED",
+      "architectureRecommendation": "ERA_RELATIVE_PILOT",
+      "pilot": {
+        "crossSectionallyEstimable": true,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "Other",
+      "pricedCards": 271,
+      "sets": 13,
+      "species": 191,
+      "mappedTreatmentCards": 111,
+      "unmappedTreatmentCards": 160,
+      "treatmentCounts": {
+        "__UNMAPPED__": 160,
+        "common": 34,
+        "rare": 16,
+        "rare_holo": 19,
+        "uncommon": 31
+      },
+      "multiSetSupportedTreatments": {},
+      "canonicalContinuity": 0.959409594095941,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "TAXONOMY_INCOMPLETE",
+      "researchState": "TAXONOMY_INCOMPLETE",
+      "architectureRecommendation": "STRUCTURAL_RESEARCH_REQUIRED",
+      "pilot": {
+        "crossSectionallyEstimable": false,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "POP",
+      "pricedCards": 153,
+      "sets": 9,
+      "species": 107,
+      "mappedTreatmentCards": 153,
+      "unmappedTreatmentCards": 0,
+      "treatmentCounts": {
+        "common": 53,
+        "rare": 51,
+        "uncommon": 31
+      },
+      "multiSetSupportedTreatments": {
+        "rare": 51,
+        "uncommon": 31,
+        "common": 53
+      },
+      "canonicalContinuity": 0.8823529411764706,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "HISTORY_INSUFFICIENT",
+      "researchState": "NOT_YET_RESEARCHED",
+      "architectureRecommendation": "ERA_RELATIVE_PILOT",
+      "pilot": {
+        "crossSectionallyEstimable": true,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    },
+    {
+      "era": "Platinum",
+      "pricedCards": 517,
+      "sets": 4,
+      "species": 309,
+      "mappedTreatmentCards": 517,
+      "unmappedTreatmentCards": 0,
+      "treatmentCounts": {
+        "common": 145,
+        "rare": 124,
+        "rare_holo": 56,
+        "rare_holo_lv_x": 28,
+        "rare_secret": 9,
+        "uncommon": 102
+      },
+      "multiSetSupportedTreatments": {
+        "rare_holo": 56,
+        "rare": 124,
+        "uncommon": 102,
+        "common": 145,
+        "rare_holo_lv_x": 28
+      },
+      "canonicalContinuity": 0.8974854932301741,
+      "frozenHistoricalCheckpointDepth": 0,
+      "historicalAvailability": "NOT_FROZEN_OR_VALIDATED_FOR_V3",
+      "rootCause": "HISTORY_INSUFFICIENT",
+      "researchState": "NOT_YET_RESEARCHED",
+      "architectureRecommendation": "ERA_RELATIVE_PILOT",
+      "pilot": {
+        "crossSectionallyEstimable": true,
+        "hierarchicallyStable": null,
+        "temporallyTestable": false,
+        "eventualEligibility": "REQUIRES_ONTOLOGY_BASELINE_AND_FOUR_CHECKPOINTS"
+      }
+    }
+  ],
+  "untreatedUnresearchedEraCount": 9,
+  "researchedFailedEraCount": 2,
+  "unsupportedTreatmentRootCauses": [
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "mega_attack_rare",
+      "cards": 7,
+      "sets": 1,
+      "rawLabels": {
+        "MEGA_ATTACK_RARE": 7
+      },
+      "mechanics": {
+        "ex": 7,
+        "mega": 7,
+        "stage_1": 2,
+        "stage_2": 3,
+        "basic": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "mega_hyper_rare",
+      "cards": 8,
+      "sets": 6,
+      "rawLabels": {
+        "Mega Hyper Rare": 8
+      },
+      "mechanics": {
+        "ex": 8,
+        "mega": 8,
+        "stage_2": 5,
+        "stage_1": 1,
+        "basic": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "special_illustration_rare",
+      "cards": 41,
+      "sets": 6,
+      "rawLabels": {
+        "Special Illustration Rare": 41
+      },
+      "mechanics": {
+        "ex": 41,
+        "mega": 28,
+        "stage_2": 12,
+        "stage_1": 11,
+        "basic": 17
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "black_white_rare",
+      "cards": 2,
+      "sets": 2,
+      "rawLabels": {
+        "Black White Rare": 2
+      },
+      "mechanics": {
+        "basic": 2,
+        "ex": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "hyper_rare",
+      "cards": 32,
+      "sets": 12,
+      "rawLabels": {
+        "Hyper Rare": 32
+      },
+      "mechanics": {
+        "basic": 22,
+        "ex": 32,
+        "stage_2": 7,
+        "stage_1": 3
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "shiny_rare",
+      "cards": 120,
+      "sets": 1,
+      "rawLabels": {
+        "Shiny Rare": 120
+      },
+      "mechanics": {
+        "basic": 67,
+        "stage_1": 43,
+        "stage_2": 10
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "shiny_ultra_rare",
+      "cards": 12,
+      "sets": 1,
+      "rawLabels": {
+        "Shiny Ultra Rare": 12
+      },
+      "mechanics": {
+        "ex": 12,
+        "stage_1": 7,
+        "stage_2": 3,
+        "basic": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "XY",
+      "treatmentKey": "rare_secret",
+      "cards": 21,
+      "sets": 9,
+      "rawLabels": {
+        "Rare Secret": 21
+      },
+      "mechanics": {
+        "ex": 17,
+        "mega": 10,
+        "basic": 10,
+        "stage_1": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r1",
+      "treatmentKey": "rare_prism_star",
+      "cards": 16,
+      "sets": 6,
+      "rawLabels": {
+        "Rare Prism Star": 16
+      },
+      "mechanics": {
+        "basic": 16
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r1",
+      "treatmentKey": "rare_secret",
+      "cards": 4,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Secret": 4
+      },
+      "mechanics": {
+        "basic": 2,
+        "gx": 4,
+        "stage_2": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r1",
+      "treatmentKey": "rare_shining",
+      "cards": 6,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Shining": 6
+      },
+      "mechanics": {
+        "basic": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "common",
+      "cards": 135,
+      "sets": 3,
+      "rawLabels": {
+        "Common": 135
+      },
+      "mechanics": {
+        "basic": 134,
+        "stage_1": 1
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare",
+      "cards": 83,
+      "sets": 3,
+      "rawLabels": {
+        "Rare": 83
+      },
+      "mechanics": {
+        "stage_2": 16,
+        "stage_1": 54,
+        "basic": 13
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_holo",
+      "cards": 42,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo": 42
+      },
+      "mechanics": {
+        "stage_2": 15,
+        "basic": 18,
+        "stage_1": 9
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_holo_gx",
+      "cards": 18,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo GX": 18
+      },
+      "mechanics": {
+        "gx": 18,
+        "stage_1": 7,
+        "stage_2": 2,
+        "basic": 9,
+        "tag_team": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_rainbow",
+      "cards": 16,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Rainbow": 16
+      },
+      "mechanics": {
+        "gx": 16,
+        "stage_1": 6,
+        "basic": 8,
+        "stage_2": 2,
+        "tag_team": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_ultra",
+      "cards": 21,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Ultra": 21
+      },
+      "mechanics": {
+        "stage_2": 3,
+        "basic": 12,
+        "gx": 17,
+        "stage_1": 6,
+        "tag_team": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "uncommon",
+      "cards": 71,
+      "sets": 2,
+      "rawLabels": {
+        "Uncommon": 71
+      },
+      "mechanics": {
+        "stage_1": 42,
+        "basic": 28,
+        "stage_2": 1
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "common",
+      "cards": 85,
+      "sets": 2,
+      "rawLabels": {
+        "Common": 85
+      },
+      "mechanics": {
+        "basic": 84,
+        "stage_1": 1
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare",
+      "cards": 50,
+      "sets": 2,
+      "rawLabels": {
+        "Rare": 50
+      },
+      "mechanics": {
+        "stage_2": 8,
+        "basic": 12,
+        "stage_1": 30
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_holo",
+      "cards": 24,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo": 24
+      },
+      "mechanics": {
+        "stage_1": 7,
+        "basic": 9,
+        "stage_2": 8
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_holo_gx",
+      "cards": 15,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo GX": 15
+      },
+      "mechanics": {
+        "basic": 5,
+        "gx": 15,
+        "stage_2": 3,
+        "stage_1": 7
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_rainbow",
+      "cards": 6,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Rainbow": 6
+      },
+      "mechanics": {
+        "gx": 6,
+        "stage_2": 2,
+        "stage_1": 3,
+        "basic": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_secret",
+      "cards": 16,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Secret": 16
+      },
+      "mechanics": {
+        "basic": 11,
+        "stage_1": 3,
+        "stage_2": 2,
+        "gx": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_shiny",
+      "cards": 45,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Shiny": 45
+      },
+      "mechanics": {
+        "basic": 32,
+        "stage_1": 11,
+        "stage_2": 2
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_shiny_gx",
+      "cards": 35,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Shiny GX": 35
+      },
+      "mechanics": {
+        "gx": 35,
+        "stage_1": 17,
+        "stage_2": 4,
+        "basic": 14
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_ultra",
+      "cards": 6,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Ultra": 6
+      },
+      "mechanics": {
+        "gx": 6,
+        "stage_2": 2,
+        "stage_1": 3,
+        "basic": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "uncommon",
+      "cards": 50,
+      "sets": 2,
+      "rawLabels": {
+        "Uncommon": 50
+      },
+      "mechanics": {
+        "stage_1": 30,
+        "basic": 20
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "amazing_rare",
+      "cards": 9,
+      "sets": 2,
+      "rawLabels": {
+        "Amazing Rare": 9
+      },
+      "mechanics": {
+        "basic": 9
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "rare_rainbow",
+      "cards": 26,
+      "sets": 6,
+      "rawLabels": {
+        "Rare Rainbow": 26
+      },
+      "mechanics": {
+        "vmax": 26
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "rare_secret",
+      "cards": 9,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Secret": 9
+      },
+      "mechanics": {
+        "basic": 4,
+        "v": 3,
+        "stage_1": 2,
+        "stage_2": 3
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "common",
+      "cards": 126,
+      "sets": 3,
+      "rawLabels": {
+        "Common": 126
+      },
+      "mechanics": {
+        "basic": 126
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare",
+      "cards": 62,
+      "sets": 3,
+      "rawLabels": {
+        "Rare": 62
+      },
+      "mechanics": {
+        "stage_2": 16,
+        "stage_1": 33,
+        "basic": 13
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_holo",
+      "cards": 60,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo": 60
+      },
+      "mechanics": {
+        "stage_1": 19,
+        "basic": 20,
+        "stage_2": 21
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_rainbow",
+      "cards": 36,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Rainbow": 36
+      },
+      "mechanics": {
+        "vmax": 36
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_secret",
+      "cards": 10,
+      "sets": 4,
+      "rawLabels": {
+        "Rare Secret": 10
+      },
+      "mechanics": {
+        "stage_1": 5,
+        "basic": 3,
+        "stage_2": 1,
+        "v": 1,
+        "vmax": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_shiny",
+      "cards": 104,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Shiny": 104
+      },
+      "mechanics": {
+        "basic": 51,
+        "stage_1": 42,
+        "stage_2": 11
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_ultra",
+      "cards": 75,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Ultra": 75
+      },
+      "mechanics": {
+        "basic": 75,
+        "v": 75
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "uncommon",
+      "cards": 66,
+      "sets": 3,
+      "rawLabels": {
+        "Uncommon": 66
+      },
+      "mechanics": {
+        "stage_1": 58,
+        "basic": 8
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "classic_collection",
+      "cards": 22,
+      "sets": 1,
+      "rawLabels": {
+        "Classic Collection": 22
+      },
+      "mechanics": {
+        "stage_2": 4,
+        "basic": 11,
+        "stage_1": 3,
+        "ex": 5,
+        "level_up": 2,
+        "mega": 1,
+        "gx": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "common",
+      "cards": 131,
+      "sets": 2,
+      "rawLabels": {
+        "Common": 131
+      },
+      "mechanics": {
+        "basic": 131
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare",
+      "cards": 70,
+      "sets": 3,
+      "rawLabels": {
+        "Rare": 70
+      },
+      "mechanics": {
+        "basic": 28,
+        "stage_1": 29,
+        "stage_2": 13
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_holo",
+      "cards": 26,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo": 26
+      },
+      "mechanics": {
+        "basic": 6,
+        "stage_2": 13,
+        "stage_1": 7
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_holo_vmax",
+      "cards": 20,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Holo VMAX": 20
+      },
+      "mechanics": {
+        "vmax": 20
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_holo_vstar",
+      "cards": 4,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Holo VSTAR": 4
+      },
+      "mechanics": {
+        "vstar": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_rainbow",
+      "cards": 12,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Rainbow": 12
+      },
+      "mechanics": {
+        "vmax": 8,
+        "vstar": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_secret",
+      "cards": 9,
+      "sets": 4,
+      "rawLabels": {
+        "Rare Secret": 9
+      },
+      "mechanics": {
+        "stage_1": 1,
+        "basic": 3,
+        "v": 3,
+        "vstar": 1,
+        "vmax": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_ultra",
+      "cards": 28,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Ultra": 28
+      },
+      "mechanics": {
+        "basic": 28,
+        "v": 28
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "trainer_gallery_rare_holo",
+      "cards": 24,
+      "sets": 2,
+      "rawLabels": {
+        "Trainer Gallery Rare Holo": 24
+      },
+      "mechanics": {
+        "stage_2": 4,
+        "stage_1": 14,
+        "basic": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "uncommon",
+      "cards": 87,
+      "sets": 2,
+      "rawLabels": {
+        "Uncommon": 87
+      },
+      "mechanics": {
+        "stage_1": 70,
+        "basic": 17
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "common",
+      "cards": 111,
+      "sets": 3,
+      "rawLabels": {
+        "Common": 111
+      },
+      "mechanics": {
+        "basic": 107,
+        "stage_1": 4
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "radiant_rare",
+      "cards": 9,
+      "sets": 3,
+      "rawLabels": {
+        "Radiant Rare": 9
+      },
+      "mechanics": {
+        "basic": 9,
+        "radiant": 9
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare",
+      "cards": 49,
+      "sets": 2,
+      "rawLabels": {
+        "Rare": 49
+      },
+      "mechanics": {
+        "stage_1": 25,
+        "basic": 16,
+        "stage_2": 8
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo",
+      "cards": 55,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo": 55
+      },
+      "mechanics": {
+        "stage_1": 15,
+        "basic": 19,
+        "stage_2": 21
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo_v",
+      "cards": 37,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo V": 37
+      },
+      "mechanics": {
+        "basic": 37,
+        "v": 37
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo_vmax",
+      "cards": 4,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo VMAX": 4
+      },
+      "mechanics": {
+        "vmax": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo_vstar",
+      "cards": 15,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo VSTAR": 15
+      },
+      "mechanics": {
+        "vstar": 15
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_rainbow",
+      "cards": 19,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Rainbow": 19
+      },
+      "mechanics": {
+        "vstar": 15,
+        "vmax": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_secret",
+      "cards": 6,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Secret": 6
+      },
+      "mechanics": {
+        "vstar": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_ultra",
+      "cards": 45,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Ultra": 45
+      },
+      "mechanics": {
+        "basic": 45,
+        "v": 45
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "uncommon",
+      "cards": 68,
+      "sets": 3,
+      "rawLabels": {
+        "Uncommon": 68
+      },
+      "mechanics": {
+        "stage_1": 56,
+        "basic": 11,
+        "stage_2": 1
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "common",
+      "cards": 90,
+      "sets": 2,
+      "rawLabels": {
+        "Common": 90
+      },
+      "mechanics": {
+        "basic": 90
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "radiant_rare",
+      "cards": 6,
+      "sets": 2,
+      "rawLabels": {
+        "Radiant Rare": 6
+      },
+      "mechanics": {
+        "basic": 6,
+        "radiant": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare",
+      "cards": 43,
+      "sets": 2,
+      "rawLabels": {
+        "Rare": 43
+      },
+      "mechanics": {
+        "stage_1": 22,
+        "basic": 12,
+        "stage_2": 9
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_holo",
+      "cards": 25,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo": 25
+      },
+      "mechanics": {
+        "stage_1": 3,
+        "basic": 14,
+        "stage_2": 8
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_holo_vmax",
+      "cards": 17,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Holo VMAX": 17
+      },
+      "mechanics": {
+        "vmax": 17
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_holo_vstar",
+      "cards": 24,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo VSTAR": 24
+      },
+      "mechanics": {
+        "vstar": 24
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_rainbow",
+      "cards": 7,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Rainbow": 7
+      },
+      "mechanics": {
+        "vstar": 6,
+        "vmax": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_secret",
+      "cards": 11,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Secret": 11
+      },
+      "mechanics": {
+        "vstar": 6,
+        "basic": 1,
+        "vmax": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_ultra",
+      "cards": 18,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Ultra": 18
+      },
+      "mechanics": {
+        "basic": 18,
+        "v": 18
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "trainer_gallery_rare_holo",
+      "cards": 56,
+      "sets": 3,
+      "rawLabels": {
+        "Trainer Gallery Rare Holo": 56
+      },
+      "mechanics": {
+        "basic": 34,
+        "stage_1": 16,
+        "stage_2": 6
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "uncommon",
+      "cards": 56,
+      "sets": 2,
+      "rawLabels": {
+        "Uncommon": 56
+      },
+      "mechanics": {
+        "stage_1": 45,
+        "basic": 11
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    }
+  ],
+  "taxonomyRootCauses": {
+    "ERA_ONTOLOGY_UNRESOLVED": 100,
+    "MISSING_RAW_TREATMENT": 238,
+    "AMBIGUOUS_PROMO_STATUS": 480
+  },
+  "taxonomyRecoverability": {
+    "ONTOLOGY_EXTENSION_REQUIRED": 100,
+    "SOURCE_DATA_INSUFFICIENT": 238,
+    "AMBIGUOUS": 480
+  },
+  "remediationOverlap": {
+    "olderEraOntology": {
+      "unsupportedEraCards": 5486,
+      "alsoRequiresTreatmentResearch": 5486,
+      "alsoRequiresTemporalEvidence": 5486
+    },
+    "canonicalRepair": {
+      "candidateCards": 217,
+      "immediatelyAvailable": 102
+    }
+  },
+  "modelInstabilityDecomposition": [
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "common",
+      "cards": 288,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "illustration_rare",
+      "cards": 101,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "rare",
+      "cards": 72,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "uncommon",
+      "cards": 138,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "XY",
+      "treatmentKey": "common",
+      "cards": 433,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "common",
+      "cards": 243,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "rare",
+      "cards": 137,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "rare_holo",
+      "cards": 83,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "uncommon",
+      "cards": 132,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_holo_v",
+      "cards": 54,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_holo_vmax",
+      "cards": 36,
+      "type": "TEMPORAL_INSTABILITY",
+      "recoverable": "UNPROVEN",
+      "genuineObservedInstability": true
+    }
+  ],
+  "recoverableVsGenuineInstability": {
+    "plausiblyRecoverable": 0,
+    "genuineObservedOrUnresolved": 1717,
+    "reason": "All primary cases breached the frozen temporal gate; no repair has yet reversed that evidence."
+  },
+  "secondaryHistoryBlockerCount": 5486,
+  "universeSupportRecoveryOpportunities": [
+    {
+      "universeId": "sword_and_shield_r3",
+      "era": "Sword and Shield",
+      "cards": 583,
+      "coveredCards": 0,
+      "uncoveredCards": 583,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 92,
+        "UNSUPPORTED_TREATMENT": 433,
+        "INSUFFICIENT_UNIVERSE_SUPPORT": 58
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "rare_holo_v",
+          "cardCount": 58,
+          "setCount": 5,
+          "speciesCount": 48,
+          "researchScore": 2.504484285227715,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "INSUFFICIENT_REGIME_SUPPORT"
+        }
+      ],
+      "publicationStatus": "INSUFFICIENT_REGIME_SUPPORT"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "era": "Sword and Shield",
+      "cards": 506,
+      "coveredCards": 0,
+      "uncoveredCards": 506,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 98,
+        "UNSUPPORTED_TREATMENT": 353,
+        "INSUFFICIENT_UNIVERSE_SUPPORT": 55
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "rare_holo_v",
+          "cardCount": 55,
+          "setCount": 5,
+          "speciesCount": 50,
+          "researchScore": 3.71816114756977,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "INSUFFICIENT_REGIME_SUPPORT"
+        }
+      ],
+      "publicationStatus": "INSUFFICIENT_REGIME_SUPPORT"
+    },
+    {
+      "universeId": "Mega Evolution",
+      "era": "Mega Evolution",
+      "cards": 992,
+      "coveredCards": 0,
+      "uncoveredCards": 992,
+      "primaryBlockers": {
+        "MISSING_CANONICAL_MAPPING": 204,
+        "MODEL_INSTABILITY": 599,
+        "INSUFFICIENT_UNIVERSE_SUPPORT": 88,
+        "INSUFFICIENT_HISTORY": 45,
+        "UNSUPPORTED_TREATMENT": 56
+      },
+      "treatmentEvidence": [
+        {
+          "treatmentKey": "common",
+          "cardCount": 288,
+          "setCount": 6,
+          "speciesCount": 250,
+          "researchScore": 4.997539801214917,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "double_rare",
+          "cardCount": 88,
+          "setCount": 6,
+          "speciesCount": 83,
+          "researchScore": 2.86662482489956,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MARKET_MOVEMENT",
+          "evidenceStatus": "AVAILABLE",
+          "finalAvailabilityStatus": "INSUFFICIENT_ERA_SUPPORT"
+        },
+        {
+          "treatmentKey": "illustration_rare",
+          "cardCount": 101,
+          "setCount": 6,
+          "speciesCount": 100,
+          "researchScore": 7.331355374980519,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "rare",
+          "cardCount": 72,
+          "setCount": 6,
+          "speciesCount": 68,
+          "researchScore": 5.493771971010635,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        },
+        {
+          "treatmentKey": "ultra_rare",
+          "cardCount": 45,
+          "setCount": 6,
+          "speciesCount": 45,
+          "researchScore": 3.7944007503093737,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "INSUFFICIENT_HISTORY",
+          "evidenceStatus": "INSUFFICIENT_HISTORY",
+          "finalAvailabilityStatus": "INSUFFICIENT_HISTORY"
+        },
+        {
+          "treatmentKey": "uncommon",
+          "cardCount": 138,
+          "setCount": 6,
+          "speciesCount": 122,
+          "researchScore": 4.989059358763905,
+          "scoreInterval": null,
+          "heterogeneityStatus": "WITHIN_GATE",
+          "temporalStatus": "MODEL_INSTABILITY",
+          "evidenceStatus": "MODEL_INSTABILITY",
+          "finalAvailabilityStatus": "MODEL_INSTABILITY"
+        }
+      ],
+      "publicationStatus": "INSUFFICIENT_ERA_SUPPORT"
+    }
+  ],
+  "recoveryProjects": [
+    {
+      "project": "Pok\u00e9mon species/demand canonical research",
+      "affected": 217,
+      "conservative": 0,
+      "likely": 102,
+      "upper": 217,
+      "external": false
+    },
+    {
+      "project": "Older-era ontology + baseline + temporal validation",
+      "affected": 5486,
+      "conservative": 0,
+      "likely": 0,
+      "upper": 5486,
+      "external": true
+    },
+    {
+      "project": "Modern unsupported-treatment research",
+      "affected": 2774,
+      "conservative": 0,
+      "likely": 0,
+      "upper": 2774,
+      "external": false
+    },
+    {
+      "project": "Taxonomy source remediation",
+      "affected": 818,
+      "conservative": 0,
+      "likely": 0,
+      "upper": 818,
+      "external": true
+    },
+    {
+      "project": "Instability root-cause research",
+      "affected": 1717,
+      "conservative": 0,
+      "likely": 0,
+      "upper": 1717,
+      "external": false
+    },
+    {
+      "project": "Universe recovery after upstream treatment eligibility",
+      "affected": 387,
+      "conservative": 0,
+      "likely": 0,
+      "upper": 387,
+      "external": false
+    }
+  ],
+  "iterativeSimulator": [
+    {
+      "afterProject": "Pok\u00e9mon species/demand canonical research",
+      "coveredCards": 5161,
+      "coverage": 0.26003930064997227,
+      "basis": "LIKELY_RECOVERABLE_ONLY"
+    },
+    {
+      "afterProject": "Older-era ontology + baseline + temporal validation",
+      "coveredCards": 5161,
+      "coverage": 0.26003930064997227,
+      "basis": "LIKELY_RECOVERABLE_ONLY"
+    },
+    {
+      "afterProject": "Modern unsupported-treatment research",
+      "coveredCards": 5161,
+      "coverage": 0.26003930064997227,
+      "basis": "LIKELY_RECOVERABLE_ONLY"
+    },
+    {
+      "afterProject": "Taxonomy source remediation",
+      "coveredCards": 5161,
+      "coverage": 0.26003930064997227,
+      "basis": "LIKELY_RECOVERABLE_ONLY"
+    },
+    {
+      "afterProject": "Instability root-cause research",
+      "coveredCards": 5161,
+      "coverage": 0.26003930064997227,
+      "basis": "LIKELY_RECOVERABLE_ONLY"
+    },
+    {
+      "afterProject": "Universe recovery after upstream treatment eligibility",
+      "coveredCards": 5161,
+      "coverage": 0.26003930064997227,
+      "basis": "LIKELY_RECOVERABLE_ONLY"
+    }
+  ],
+  "thresholdPaths": {
+    "50%": "NOT_CREDIBLY_REACHED_BY_VALIDATED_RECOVERIES",
+    "60%": "NOT_CREDIBLY_REACHED_BY_VALIDATED_RECOVERIES",
+    "70%": "REQUIRES_ADDITIONAL_RESEARCH",
+    "80%": "NOT_CURRENTLY_CREDIBLE"
+  },
+  "internalDataOnlyMaximum": {
+    "validatedCards": 5161,
+    "coverage": 0.26003930064997227
+  },
+  "externalDataAssistedMaximum": {
+    "theoreticalUpperBound": 16503,
+    "coverage": 0.8315110596059858,
+    "notExpectedCoverage": true
+  },
+  "prioritizedRoadmap": [
+    "Repair 217 Pok\u00e9mon species/demand associations and validate the 102 immediate candidates",
+    "Design ontology and acquire four checkpoints for EX and Black & White",
+    "Research unsupported treatments in SWSH regimes 2\u20135 and S&M regimes 2\u20133",
+    "Resolve taxonomy source gaps",
+    "Reassess temporal instability only after upstream cohort repairs"
+  ],
+  "coverageRecoveryDecision": "70_PERCENT_COVERAGE_PATH_REQUIRES_ADDITIONAL_RESEARCH",
+  "canonicalRecoveryDecision": "CANONICAL_RECOVERY_LOW_VALUE",
+  "olderEraDecision": "OLDER_ERA_EXPANSION_HIGH_VALUE",
+  "taxonomyDecision": "TAXONOMY_EXTENSION_PARTIAL",
+  "productionPaused": true,
+  "rowsPersisted": 0,
+  "productionBehavior": "Unchanged; read-only research plus local artifacts. No migration, score approval, reader/UI activation, V1/V2, appeal, RIP, or ranking changes.",
+  "filesChanged": [
+    "docs\\research\\treatment_market_prestige_v3_round10_recovery\\card_blocker_cascade.json",
+    "docs\\research\\treatment_market_prestige_v3_round10_recovery\\manifest.json",
+    "docs\\research\\treatment_market_prestige_v3_round10_study.json",
+    "docs\\research\\TREATMENT_MARKET_PRESTIGE_V3_ROUND10_RESULTS.md",
+    "backend/scripts/build_treatment_market_prestige_v3_round10.py",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round10.py"
+  ],
+  "testsExecuted": [
+    "Round 10 identity reconciliation",
+    "cascade exclusivity",
+    "recovery non-inflation",
+    "product pause"
+  ],
+  "remainingLimitations": [
+    "No older-era checkpoint series is frozen",
+    "mapping repair is simulated and does not mutate canonical data",
+    "likely counts are zero unless downstream evidence already passes",
+    "older-era architecture remains a pilot recommendation"
+  ],
+  "recommendedRound11Tasks": [
+    "Create reviewed mappings for the 217 Pok\u00e9mon-labeled missing associations",
+    "Freeze authoritative older-era ontology before modeling",
+    "Backfill four >=85-day checkpoints for EX and Black & White",
+    "Preregister older-era baselines and regime decisions",
+    "Rerun unchanged hierarchical and temporal gates"
+  ]
+}

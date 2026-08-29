@@ -12,6 +12,6 @@ export async function GET(request) {
   const response = await fetch(target, { headers, cache: "no-store" });
   return new NextResponse(await response.text(), {
     status: response.status,
-    headers: { "content-type": response.headers.get("content-type") || "application/json", "Cache-Control": "private, no-store" },
+    headers: { "content-type": response.headers.get("content-type") || "application/json", "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" },
   });
 }

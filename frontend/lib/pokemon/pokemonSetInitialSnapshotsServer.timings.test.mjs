@@ -94,7 +94,7 @@ test("Phase 3C: getPokemonSetInitialSnapshots no longer fetches full cards for t
   assert.equal(emptyPlaceholderCount, 5);
 });
 
-test("getPokemonSetInitialSnapshots seeds the compact market bootstrap for the Market tab only", () => {
+test("getPokemonSetInitialSnapshots seeds the compact Market first paint for the Market tab only", () => {
   const source = fs.readFileSync(snapshotsServerPath, "utf8");
   const fnStart = source.indexOf("export async function getPokemonSetInitialSnapshots");
   const fnEnd = source.indexOf("\n}\n", fnStart);
@@ -108,6 +108,10 @@ test("getPokemonSetInitialSnapshots seeds the compact market bootstrap for the M
     fnSource.includes("wantsMarketSeed ? getPokemonSetMarketBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT)"),
     "the compact bootstrap payload must be fetched only when Market is the active tab, resolving empty otherwise"
   );
+  assert.ok(
+    fnSource.includes("wantsMarketSeed ? getPokemonSetTopChaseInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT)"),
+    "the bounded Top Chase preview must be fetched with the Market first paint"
+  );
   assert.ok(fnSource.includes('const wantsRipBootstrap = resolvedTab === "overview"'));
   assert.ok(fnSource.includes("errors.overview"), "must surface errors.overview on overview seed failure");
   assert.ok(fnSource.includes("overviewPayload: overview.payload"), "must return overviewPayload");
@@ -119,8 +123,8 @@ test("getPokemonSetInitialSnapshots seeds the compact market bootstrap for the M
   const snapshotCalls = [...new Set(fnSource.match(/getPokemonSet\w+InitialSnapshot\(/g) || [])].sort();
   assert.deepEqual(
     snapshotCalls,
-    ["getPokemonSetMarketBootstrapInitialSnapshot(", "getPokemonSetMarketMoversInitialSnapshot(", "getPokemonSetRipBootstrapInitialSnapshot(", "getPokemonSetShellInitialSnapshot("],
-    "only shell, market bootstrap, independent Movers, and RIP bootstrap initial snapshots may be fetched here"
+    ["getPokemonSetMarketBootstrapInitialSnapshot(", "getPokemonSetMarketMoversInitialSnapshot(", "getPokemonSetRipBootstrapInitialSnapshot(", "getPokemonSetShellInitialSnapshot(", "getPokemonSetTopChaseInitialSnapshot("],
+    "only bounded first-paint snapshots may be fetched here"
   );
 });
 

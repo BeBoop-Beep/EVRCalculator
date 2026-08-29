@@ -1,0 +1,2718 @@
+{
+  "study_name": "Treatment Market Prestige V3 Round 2",
+  "frozen_study": {
+    "study_id": "treatment-market-prestige-v3-r2-9439727344d3bbb5",
+    "manifest_hash": "9439727344d3bbb5a5f57c09d6f3bc24ac844680e812acfac9f232d27fc81648",
+    "frozen_at": "2026-08-29T17:32:37.844219+00:00",
+    "methodology": "treatment_market_prestige_v3_round2",
+    "round1_study_id": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+    "round1_manifest_hash": "6959bfa9889458fe5ed2e241065dbec7a0c62f609de6f5141092884ce1e9e075",
+    "round1_cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+    "cohort_hash": "797fe80e91db99ff05387ba1597382896d5915e6cdd5c696e0d781a3e288e427",
+    "calculation_run_provenance_hash": "17cd87b340875884b664d2e91373791d69a164327ee4d0e9aeca270bd8a14396",
+    "rows": 4398,
+    "calculation_runs": 22,
+    "source_rule": "intersection of immutable Round 1 rows with already-frozen exact_pull_probability and exact_pull_run_id"
+  },
+  "diagnostic_cohort": {
+    "cards": 4398,
+    "variants": 4397,
+    "sets": 22,
+    "eras": 2,
+    "species": 941,
+    "treatment_designations": 14,
+    "era_treatment_categories": 21,
+    "main_cohort_coverage_rate": 0.22159520330528543,
+    "treatment_coverage": [
+      {
+        "era": "Base/WOTC",
+        "treatment": "__unmapped__",
+        "main_cards": 12,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Base/WOTC",
+        "treatment": "common",
+        "main_cards": 130,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Base/WOTC",
+        "treatment": "rare",
+        "main_cards": 84,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Base/WOTC",
+        "treatment": "rare_holo",
+        "main_cards": 84,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Base/WOTC",
+        "treatment": "rare_secret",
+        "main_cards": 1,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Base/WOTC",
+        "treatment": "uncommon",
+        "main_cards": 130,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "__unmapped__",
+        "main_cards": 3,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "common",
+        "main_cards": 396,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "promo",
+        "main_cards": 113,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "rare",
+        "main_cards": 219,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "rare_ace",
+        "main_cards": 13,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "rare_holo",
+        "main_cards": 170,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "rare_holo_ex",
+        "main_cards": 56,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "rare_secret",
+        "main_cards": 30,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "rare_ultra",
+        "main_cards": 60,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Black and White",
+        "treatment": "uncommon",
+        "main_cards": 387,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Diamond and Pearl",
+        "treatment": "common",
+        "main_cards": 283,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Diamond and Pearl",
+        "treatment": "rare",
+        "main_cards": 164,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Diamond and Pearl",
+        "treatment": "rare_holo",
+        "main_cards": 108,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Diamond and Pearl",
+        "treatment": "rare_holo_lv_x",
+        "main_cards": 28,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Diamond and Pearl",
+        "treatment": "rare_secret",
+        "main_cards": 4,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Diamond and Pearl",
+        "treatment": "uncommon",
+        "main_cards": 257,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "E-Card",
+        "treatment": "__unmapped__",
+        "main_cards": 6,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "E-Card",
+        "treatment": "common",
+        "main_cards": 176,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "E-Card",
+        "treatment": "holo_rare",
+        "main_cards": 10,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "E-Card",
+        "treatment": "rare",
+        "main_cards": 123,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "E-Card",
+        "treatment": "rare_holo",
+        "main_cards": 73,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "E-Card",
+        "treatment": "rare_secret",
+        "main_cards": 8,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "E-Card",
+        "treatment": "uncommon",
+        "main_cards": 123,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "EX",
+        "treatment": "common",
+        "main_cards": 517,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "EX",
+        "treatment": "rare",
+        "main_cards": 262,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "EX",
+        "treatment": "rare_holo",
+        "main_cards": 248,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "EX",
+        "treatment": "rare_holo_ex",
+        "main_cards": 123,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "EX",
+        "treatment": "rare_holo_star",
+        "main_cards": 14,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "EX",
+        "treatment": "rare_secret",
+        "main_cards": 18,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "EX",
+        "treatment": "uncommon",
+        "main_cards": 519,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Gym",
+        "treatment": "__unmapped__",
+        "main_cards": 12,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Gym",
+        "treatment": "common",
+        "main_cards": 85,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Gym",
+        "treatment": "rare",
+        "main_cards": 44,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Gym",
+        "treatment": "rare_holo",
+        "main_cards": 39,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Gym",
+        "treatment": "ultra_rare",
+        "main_cards": 1,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Gym",
+        "treatment": "uncommon",
+        "main_cards": 84,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "HeartGold and SoulSilver",
+        "treatment": "common",
+        "main_cards": 158,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "HeartGold and SoulSilver",
+        "treatment": "legend",
+        "main_cards": 18,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "HeartGold and SoulSilver",
+        "treatment": "promo",
+        "main_cards": 30,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "HeartGold and SoulSilver",
+        "treatment": "rare",
+        "main_cards": 88,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "HeartGold and SoulSilver",
+        "treatment": "rare_holo",
+        "main_cards": 79,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "HeartGold and SoulSilver",
+        "treatment": "rare_prime",
+        "main_cards": 26,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "HeartGold and SoulSilver",
+        "treatment": "rare_secret",
+        "main_cards": 4,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "HeartGold and SoulSilver",
+        "treatment": "uncommon",
+        "main_cards": 146,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "common",
+        "main_cards": 319,
+        "exact_pull_cards": 311,
+        "coverage_rate": 0.9749216300940439
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "double_rare",
+        "main_cards": 88,
+        "exact_pull_cards": 88,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "illustration_rare",
+        "main_cards": 101,
+        "exact_pull_cards": 101,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "mega_attack_rare",
+        "main_cards": 7,
+        "exact_pull_cards": 7,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "mega_hyper_rare",
+        "main_cards": 8,
+        "exact_pull_cards": 8,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "promo",
+        "main_cards": 2,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "rare",
+        "main_cards": 84,
+        "exact_pull_cards": 79,
+        "coverage_rate": 0.9404761904761905
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "special_illustration_rare",
+        "main_cards": 55,
+        "exact_pull_cards": 55,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "ultra_rare",
+        "main_cards": 107,
+        "exact_pull_cards": 107,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "uncommon",
+        "main_cards": 221,
+        "exact_pull_cards": 218,
+        "coverage_rate": 0.9864253393665159
+      },
+      {
+        "era": "NP",
+        "treatment": "promo",
+        "main_cards": 74,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Neo",
+        "treatment": "__unmapped__",
+        "main_cards": 6,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Neo",
+        "treatment": "common",
+        "main_cards": 108,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Neo",
+        "treatment": "rare",
+        "main_cards": 67,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Neo",
+        "treatment": "rare_holo",
+        "main_cards": 66,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Neo",
+        "treatment": "rare_shining",
+        "main_cards": 9,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Neo",
+        "treatment": "uncommon",
+        "main_cards": 108,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Other",
+        "treatment": "__unmapped__",
+        "main_cards": 160,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Other",
+        "treatment": "common",
+        "main_cards": 37,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Other",
+        "treatment": "rare",
+        "main_cards": 19,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Other",
+        "treatment": "rare_holo",
+        "main_cards": 19,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Other",
+        "treatment": "uncommon",
+        "main_cards": 36,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "POP",
+        "treatment": "common",
+        "main_cards": 54,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "POP",
+        "treatment": "rare",
+        "main_cards": 52,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "POP",
+        "treatment": "uncommon",
+        "main_cards": 47,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Platinum",
+        "treatment": "common",
+        "main_cards": 150,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Platinum",
+        "treatment": "rare",
+        "main_cards": 125,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Platinum",
+        "treatment": "rare_holo",
+        "main_cards": 56,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Platinum",
+        "treatment": "rare_holo_lv_x",
+        "main_cards": 28,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Platinum",
+        "treatment": "rare_secret",
+        "main_cards": 9,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Platinum",
+        "treatment": "uncommon",
+        "main_cards": 149,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "ace_spec_rare",
+        "main_cards": 33,
+        "exact_pull_cards": 33,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "black_white_rare",
+        "main_cards": 2,
+        "exact_pull_cards": 2,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "common",
+        "main_cards": 1102,
+        "exact_pull_cards": 1099,
+        "coverage_rate": 0.9972776769509982
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "double_rare",
+        "main_cards": 231,
+        "exact_pull_cards": 230,
+        "coverage_rate": 0.9956709956709957
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "hyper_rare",
+        "main_cards": 74,
+        "exact_pull_cards": 74,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "illustration_rare",
+        "main_cards": 391,
+        "exact_pull_cards": 391,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "rare",
+        "main_cards": 274,
+        "exact_pull_cards": 270,
+        "coverage_rate": 0.9854014598540146
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "shiny_rare",
+        "main_cards": 120,
+        "exact_pull_cards": 120,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "shiny_ultra_rare",
+        "main_cards": 12,
+        "exact_pull_cards": 11,
+        "coverage_rate": 0.9166666666666666
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "special_illustration_rare",
+        "main_cards": 167,
+        "exact_pull_cards": 167,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "ultra_rare",
+        "main_cards": 251,
+        "exact_pull_cards": 251,
+        "coverage_rate": 1.0
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "uncommon",
+        "main_cards": 777,
+        "exact_pull_cards": 776,
+        "coverage_rate": 0.9987129987129987
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "common",
+        "main_cards": 642,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "promo",
+        "main_cards": 309,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare",
+        "main_cards": 357,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_holo",
+        "main_cards": 231,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_holo_gx",
+        "main_cards": 159,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_prism_star",
+        "main_cards": 27,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_rainbow",
+        "main_cards": 144,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_secret",
+        "main_cards": 112,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_shining",
+        "main_cards": 6,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_shiny",
+        "main_cards": 45,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_shiny_gx",
+        "main_cards": 35,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_ultra",
+        "main_cards": 244,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "uncommon",
+        "main_cards": 658,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "amazing_rare",
+        "main_cards": 9,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "classic_collection",
+        "main_cards": 25,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "common",
+        "main_cards": 711,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "holo_rare",
+        "main_cards": 4,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "radiant_rare",
+        "main_cards": 15,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare",
+        "main_cards": 364,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_holo",
+        "main_cards": 270,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_holo_v",
+        "main_cards": 281,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_holo_vmax",
+        "main_cards": 110,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_holo_vstar",
+        "main_cards": 43,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_rainbow",
+        "main_cards": 180,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_secret",
+        "main_cards": 105,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_shiny",
+        "main_cards": 104,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_ultra",
+        "main_cards": 356,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "secret_rare",
+        "main_cards": 2,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "trainer_gallery_rare_holo",
+        "main_cards": 80,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "ultra_rare",
+        "main_cards": 4,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "uncommon",
+        "main_cards": 714,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "__unmapped__",
+        "main_cards": 39,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "common",
+        "main_cards": 461,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "holo_rare",
+        "main_cards": 2,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "promo",
+        "main_cards": 236,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "rare",
+        "main_cards": 241,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "rare_break",
+        "main_cards": 27,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "rare_holo",
+        "main_cards": 145,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "rare_holo_ex",
+        "main_cards": 129,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "rare_secret",
+        "main_cards": 30,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "rare_ultra",
+        "main_cards": 118,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      },
+      {
+        "era": "XY",
+        "treatment": "uncommon",
+        "main_cards": 502,
+        "exact_pull_cards": 0,
+        "coverage_rate": 0.0
+      }
+    ]
+  },
+  "analytic_rows": 3604,
+  "deterministic_gates": {
+    "min_cards": 25,
+    "min_sets": 5,
+    "bootstrap_sign_stability": 0.9,
+    "max_bootstrap_interval_width": 2.0,
+    "leave_set_out_sign_stability": 0.8,
+    "strong_ordering_probability": 0.95,
+    "moderate_ordering_probability": 0.8,
+    "meaningful_partial_r2": 0.02,
+    "meaningful_cv_rmse_reduction": 0.01,
+    "matched_log_scarcity_tolerance": 0.1
+  },
+  "broad_comparison": {
+    "models": {
+      "scarcity": {
+        "mode": "scarcity",
+        "n": 3604,
+        "rank": 6,
+        "columns": 6,
+        "full_rank": true,
+        "coefficients": {
+          "control_mechanic:basic": -0.4820579495422693,
+          "control_mechanic:ex": -0.4529001010282472,
+          "control_mechanic:mega": 0.13701640761510414,
+          "control_mechanic:stage_1": -0.9549055131879517,
+          "control_mechanic:stage_2": -0.24807662088305826,
+          "exact_pull_scarcity": 1.4376121782093376
+        },
+        "references": {
+          "rarity_designation": "common",
+          "printing_finish": "non_holo",
+          "special_treatment": "__none__",
+          "edition_status": "__none__"
+        },
+        "non_estimable_columns": [],
+        "sse": 1177.1211865624698,
+        "r_squared_within": 0.8936967677449705,
+        "adjusted_r_squared_within": 0.8547000964283493,
+        "rmse_within": 0.571502582320421,
+        "aic_comparable": -2098.7770865012913,
+        "cv_rmse_conditional_5fold": 0.5732434148518168
+      },
+      "treatment": {
+        "mode": "treatment",
+        "n": 3604,
+        "rank": 13,
+        "columns": 13,
+        "full_rank": true,
+        "coefficients": {
+          "control_mechanic:basic": -0.3185276567126339,
+          "control_mechanic:ex": 0.4343988187842728,
+          "control_mechanic:mega": 0.3066770882416079,
+          "control_mechanic:stage_1": -0.34574256854871094,
+          "control_mechanic:stage_2": -0.08560487093817526,
+          "rarity_designation:uncommon": -0.043121455169380485,
+          "rarity_designation:illustration_rare": 0.3549955463628177,
+          "rarity_designation:rare": -3.758987993254572,
+          "rarity_designation:double_rare": -2.784132312011329,
+          "rarity_designation:ultra_rare": -1.5109660655959383,
+          "rarity_designation:special_illustration_rare": 1.2712370560183979,
+          "rarity_designation:hyper_rare": -0.17820729890039483,
+          "printing_finish:holo": 4.29159840415883
+        },
+        "references": {
+          "rarity_designation": "common",
+          "printing_finish": "non_holo",
+          "special_treatment": "__none__",
+          "edition_status": "__none__"
+        },
+        "non_estimable_columns": [],
+        "sse": 806.611084628232,
+        "r_squared_within": 0.9271567223090112,
+        "adjusted_r_squared_within": 0.900169520912654,
+        "rmse_within": 0.4730855703665845,
+        "aic_comparable": -3447.0366102786293,
+        "cv_rmse_conditional_5fold": 0.4769351017692855
+      },
+      "combined": {
+        "mode": "combined",
+        "n": 3604,
+        "rank": 14,
+        "columns": 14,
+        "full_rank": true,
+        "coefficients": {
+          "control_mechanic:basic": -0.2651775552014131,
+          "control_mechanic:ex": 0.8727159892267337,
+          "control_mechanic:mega": 0.1993875046450994,
+          "control_mechanic:stage_1": -0.43776281905346326,
+          "control_mechanic:stage_2": 0.013188270985436722,
+          "exact_pull_scarcity": 0.6637182381402851,
+          "rarity_designation:uncommon": -0.020370265911012066,
+          "rarity_designation:illustration_rare": 0.9570684842851364,
+          "rarity_designation:rare": -1.3754310766239162,
+          "rarity_designation:double_rare": -1.778863456534266,
+          "rarity_designation:ultra_rare": -1.2498315337525343,
+          "rarity_designation:special_illustration_rare": 0.9649739117171553,
+          "rarity_designation:hyper_rare": -0.32287677628414496,
+          "printing_finish:holo": 1.7136548883666045
+        },
+        "references": {
+          "rarity_designation": "common",
+          "printing_finish": "non_holo",
+          "special_treatment": "__none__",
+          "edition_status": "__none__"
+        },
+        "non_estimable_columns": [],
+        "sse": 657.3338772716245,
+        "r_squared_within": 0.9406376194546592,
+        "adjusted_r_squared_within": 0.9186139052112393,
+        "rmse_within": 0.4270715256642523,
+        "aic_comparable": -4182.5935912493405,
+        "cv_rmse_conditional_5fold": 0.4303453822560026
+      }
+    },
+    "treatment_incremental": {
+      "partial_r_squared": 0.4415750181243214,
+      "adjusted_r_squared_change": 0.06391380878288999,
+      "aic_change_combined_minus_scarcity": -2083.8165047480493,
+      "cv_rmse_reduction": 0.2492798502234052,
+      "treatment_block_f": 259.6628039267335,
+      "treatment_block_df": [
+        8,
+        2627
+      ],
+      "treatment_block_p_value": 0.0
+    },
+    "scarcity_incremental_reverse": {
+      "partial_r_squared": 0.18506714103167768,
+      "adjusted_r_squared_change": 0.018444384298585303,
+      "aic_change_combined_minus_treatment": -735.5569809707113,
+      "cv_rmse_reduction": 0.09768565857377465,
+      "scarcity_block_f": 596.5784470952539,
+      "scarcity_block_df": [
+        1,
+        2627
+      ],
+      "scarcity_block_p_value": 6.550923393745536e-119
+    }
+  },
+  "era_comparisons": {
+    "Scarlet and Violet": {
+      "models": {
+        "scarcity": {
+          "mode": "scarcity",
+          "n": 2821,
+          "rank": 4,
+          "columns": 4,
+          "full_rank": true,
+          "coefficients": {
+            "control_mechanic:basic": -0.8402026591506901,
+            "control_mechanic:ex": -0.3880557638936113,
+            "control_mechanic:stage_1": -0.17952638168178342,
+            "exact_pull_scarcity": 1.409848004061572
+          },
+          "references": {
+            "rarity_designation": "common",
+            "printing_finish": "non_holo",
+            "special_treatment": "__none__",
+            "edition_status": "__none__"
+          },
+          "non_estimable_columns": [
+            "control_mechanic:stage_2"
+          ],
+          "sse": 934.9367621501555,
+          "r_squared_within": 0.8916413362717034,
+          "adjusted_r_squared_within": 0.8415085935094416,
+          "rmse_within": 0.5756911793465036,
+          "aic_comparable": -1331.4216147602383,
+          "cv_rmse_conditional_5fold": 0.5772103375792239
+        },
+        "treatment": {
+          "mode": "treatment",
+          "n": 2821,
+          "rank": 11,
+          "columns": 11,
+          "full_rank": true,
+          "coefficients": {
+            "control_mechanic:basic": -0.6001615343393921,
+            "control_mechanic:ex": -0.08287649193269397,
+            "control_mechanic:stage_1": 0.6779246685682611,
+            "rarity_designation:uncommon": -0.07443920967966186,
+            "rarity_designation:illustration_rare": 0.6288596367274525,
+            "rarity_designation:rare": -3.758808094415656,
+            "rarity_designation:double_rare": -2.150331406462081,
+            "rarity_designation:ultra_rare": -0.9964839235589672,
+            "rarity_designation:special_illustration_rare": 1.7575273728736889,
+            "rarity_designation:hyper_rare": 0.3720826308423718,
+            "printing_finish:holo": 4.222202563012008
+          },
+          "references": {
+            "rarity_designation": "common",
+            "printing_finish": "non_holo",
+            "special_treatment": "__none__",
+            "edition_status": "__none__"
+          },
+          "non_estimable_columns": [
+            "control_mechanic:stage_2"
+          ],
+          "sse": 576.3803606563813,
+          "r_squared_within": 0.9331978287640288,
+          "adjusted_r_squared_within": 0.9019353863167939,
+          "rmse_within": 0.45201520517898836,
+          "aic_comparable": -2681.970632976896,
+          "cv_rmse_conditional_5fold": 0.4574749807968994
+        },
+        "combined": {
+          "mode": "combined",
+          "n": 2821,
+          "rank": 12,
+          "columns": 12,
+          "full_rank": true,
+          "coefficients": {
+            "control_mechanic:basic": -0.6784486701671429,
+            "control_mechanic:ex": 0.38208840095450314,
+            "control_mechanic:stage_1": 0.5004865687243824,
+            "exact_pull_scarcity": 0.5711074149968309,
+            "rarity_designation:uncommon": -0.04750550885241331,
+            "rarity_designation:illustration_rare": 1.042317970119259,
+            "rarity_designation:rare": -1.7154158115860125,
+            "rarity_designation:double_rare": -1.3961915940585212,
+            "rarity_designation:ultra_rare": -0.8690382504943229,
+            "rarity_designation:special_illustration_rare": 1.4320912701692732,
+            "rarity_designation:hyper_rare": 0.13395899353538326,
+            "printing_finish:holo": 2.0213787050541687
+          },
+          "references": {
+            "rarity_designation": "common",
+            "printing_finish": "non_holo",
+            "special_treatment": "__none__",
+            "edition_status": "__none__"
+          },
+          "non_estimable_columns": [
+            "control_mechanic:stage_2"
+          ],
+          "sse": 491.2467495137748,
+          "r_squared_within": 0.9430647681285285,
+          "adjusted_r_squared_within": 0.9163763781887762,
+          "rmse_within": 0.4172999203297157,
+          "aic_comparable": -3130.826364354285,
+          "cv_rmse_conditional_5fold": 0.4213431947364084
+        }
+      },
+      "treatment_incremental": {
+        "partial_r_squared": 0.4745668697591783,
+        "adjusted_r_squared_change": 0.07486778467933453,
+        "aic_change_combined_minus_scarcity": -1799.4047495940467,
+        "cv_rmse_reduction": 0.27003525871783657,
+        "treatment_block_f": 216.65312164710306,
+        "treatment_block_df": [
+          8,
+          1919
+        ],
+        "treatment_block_p_value": 1.0904034961072195e-261
+      },
+      "scarcity_incremental_reverse": {
+        "partial_r_squared": 0.14770387222364145,
+        "adjusted_r_squared_change": 0.014440991871982223,
+        "aic_change_combined_minus_treatment": -448.855731377389,
+        "cv_rmse_reduction": 0.078980900764346,
+        "scarcity_block_f": 332.56484637173344,
+        "scarcity_block_df": [
+          1,
+          1919
+        ],
+        "scarcity_block_p_value": 1.1911175306552092e-68
+      }
+    },
+    "Mega Evolution": {
+      "models": {
+        "scarcity": {
+          "mode": "scarcity",
+          "n": 783,
+          "rank": 6,
+          "columns": 6,
+          "full_rank": true,
+          "coefficients": {
+            "control_mechanic:basic": 15784.824210821027,
+            "control_mechanic:ex": -1.0441013261261105,
+            "control_mechanic:mega": 0.5955970254098901,
+            "control_mechanic:stage_1": 15784.02288282587,
+            "control_mechanic:stage_2": -0.4684802435932107,
+            "exact_pull_scarcity": 1.6096504765400823
+          },
+          "references": {
+            "rarity_designation": "common",
+            "printing_finish": "non_holo",
+            "special_treatment": "__none__",
+            "edition_status": "__none__"
+          },
+          "non_estimable_columns": [],
+          "sse": 111.60204454484334,
+          "r_squared_within": 0.9248093389437075,
+          "adjusted_r_squared_within": 0.8040030101799309,
+          "rmse_within": 0.3775332393320702,
+          "aic_comparable": -561.4353741930988,
+          "cv_rmse_conditional_5fold": 0.37884576572542344
+        },
+        "treatment": {
+          "mode": "treatment",
+          "n": 783,
+          "rank": 11,
+          "columns": 11,
+          "full_rank": true,
+          "coefficients": {
+            "control_mechanic:basic": 20818.75837364262,
+            "control_mechanic:ex": 5.446963139633226,
+            "control_mechanic:mega": 0.01877248127308796,
+            "control_mechanic:stage_1": 20818.193148980492,
+            "control_mechanic:stage_2": 0.7368512935513538,
+            "rarity_designation:uncommon": -0.013324989238938352,
+            "rarity_designation:illustration_rare": 3.959989387429232,
+            "rarity_designation:double_rare": -3.475211469687565,
+            "rarity_designation:rare": 0.7484806592224231,
+            "rarity_designation:ultra_rare": -1.8830415892944101,
+            "rarity_designation:special_illustration_rare": 0.9874825516899529
+          },
+          "references": {
+            "rarity_designation": "common",
+            "printing_finish": "non_holo",
+            "special_treatment": "__none__",
+            "edition_status": "__none__"
+          },
+          "non_estimable_columns": [
+            "printing_finish:holo"
+          ],
+          "sse": 72.9636662803538,
+          "r_squared_within": 0.9508415251433311,
+          "adjusted_r_squared_within": 0.8696883819053726,
+          "rmse_within": 0.3052617876163679,
+          "aic_comparable": -884.1929720314386,
+          "cv_rmse_conditional_5fold": 0.3187827796607619
+        },
+        "combined": {
+          "mode": "combined",
+          "n": 783,
+          "rank": 12,
+          "columns": 12,
+          "full_rank": true,
+          "coefficients": {
+            "control_mechanic:basic": 20234.832150315095,
+            "control_mechanic:ex": 2.7054395833965827,
+            "control_mechanic:mega": 0.3046103811120452,
+            "control_mechanic:stage_1": 20234.104856239534,
+            "control_mechanic:stage_2": 0.6988500430459343,
+            "exact_pull_scarcity": 0.759681660413662,
+            "rarity_designation:uncommon": 0.05282795529511723,
+            "rarity_designation:illustration_rare": 2.1087892327927875,
+            "rarity_designation:double_rare": -2.140153995046603,
+            "rarity_designation:rare": 0.5226862207068734,
+            "rarity_designation:ultra_rare": -1.5368114799498493,
+            "rarity_designation:special_illustration_rare": 0.6285142722928325
+          },
+          "references": {
+            "rarity_designation": "common",
+            "printing_finish": "non_holo",
+            "special_treatment": "__none__",
+            "edition_status": "__none__"
+          },
+          "non_estimable_columns": [
+            "printing_finish:holo"
+          ],
+          "sse": 55.479353842032396,
+          "r_squared_within": 0.9626213900706613,
+          "adjusted_r_squared_within": 0.9005779831131194,
+          "rmse_within": 0.26618575851424,
+          "aic_comparable": -1096.6963281319072,
+          "cv_rmse_conditional_5fold": 0.27022639015600364
+        }
+      },
+      "treatment_incremental": {
+        "partial_r_squared": 0.5028822808014062,
+        "adjusted_r_squared_change": 0.09657497293318851,
+        "aic_change_combined_minus_scarcity": -535.2609539388084,
+        "cv_rmse_reduction": 0.28671133584252334,
+        "treatment_block_f": 49.39960314709993,
+        "treatment_block_df": [
+          6,
+          293
+        ],
+        "treatment_block_p_value": 9.539400884668802e-42
+      },
+      "scarcity_incremental_reverse": {
+        "partial_r_squared": 0.23963039865815017,
+        "adjusted_r_squared_change": 0.030889601207746864,
+        "aic_change_combined_minus_treatment": -212.50335610046864,
+        "cv_rmse_reduction": 0.15231810688278197,
+        "scarcity_block_f": 92.33891870865568,
+        "scarcity_block_df": [
+          1,
+          293
+        ],
+        "scarcity_block_p_value": 3.498945510156123e-19
+      }
+    }
+  },
+  "residual_market_association": {
+    "definition": "mean residual log-price association after Exact Pull Scarcity, set FE, species FE, and mechanic controls; not pure prestige",
+    "apparent_prestige_substantially_reduced_after_exact_pull_scarcity": [
+      {
+        "treatment": "rarity_designation:uncommon",
+        "treatment_only_coefficient": -0.043121455169380485,
+        "after_exact_pull_scarcity": -0.020370265911012066,
+        "absolute_shrinkage_rate": 0.5276071776567386
+      },
+      {
+        "treatment": "rarity_designation:rare",
+        "treatment_only_coefficient": -3.758987993254572,
+        "after_exact_pull_scarcity": -1.3754310766239162,
+        "absolute_shrinkage_rate": 0.6340953791041366
+      },
+      {
+        "treatment": "printing_finish:holo",
+        "treatment_only_coefficient": 4.29159840415883,
+        "after_exact_pull_scarcity": 1.7136548883666045,
+        "absolute_shrinkage_rate": 0.6006954223149201
+      }
+    ],
+    "treatments": [
+      {
+        "era": "Mega Evolution",
+        "treatment": "common",
+        "n": 286,
+        "mean_residual_log_price": -0.017124003754960107,
+        "median_residual_log_price": 0.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "double_rare",
+        "n": 88,
+        "mean_residual_log_price": -0.3375377020813861,
+        "median_residual_log_price": -0.4004160789348322
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "illustration_rare",
+        "n": 101,
+        "mean_residual_log_price": 0.23467707900378032,
+        "median_residual_log_price": 0.19685180185886564
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "rare",
+        "n": 70,
+        "mean_residual_log_price": 0.02307756097151149,
+        "median_residual_log_price": 0.0
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "special_illustration_rare",
+        "n": 41,
+        "mean_residual_log_price": 0.781583820781475,
+        "median_residual_log_price": 0.731088960766459
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "ultra_rare",
+        "n": 45,
+        "mean_residual_log_price": -0.4231699736744837,
+        "median_residual_log_price": -0.5225066628974997
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "uncommon",
+        "n": 137,
+        "mean_residual_log_price": -0.06926278627574067,
+        "median_residual_log_price": -0.022929295441036418
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "common",
+        "n": 1036,
+        "mean_residual_log_price": -0.027477400846907814,
+        "median_residual_log_price": -0.0019899734560175006
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "double_rare",
+        "n": 211,
+        "mean_residual_log_price": -0.08288300435511986,
+        "median_residual_log_price": -0.07899967167372757
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "hyper_rare",
+        "n": 32,
+        "mean_residual_log_price": -0.018040065342614913,
+        "median_residual_log_price": -0.19984578495526517
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "illustration_rare",
+        "n": 384,
+        "mean_residual_log_price": 0.23922169010166128,
+        "median_residual_log_price": 0.2676816538114093
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "rare",
+        "n": 250,
+        "mean_residual_log_price": 0.030396089957096136,
+        "median_residual_log_price": 0.0
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "shiny_rare",
+        "n": 120,
+        "mean_residual_log_price": -0.5280695762899855,
+        "median_residual_log_price": -0.5508211214505785
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "shiny_ultra_rare",
+        "n": 11,
+        "mean_residual_log_price": 0.4389237202356282,
+        "median_residual_log_price": 0.37298043254931845
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "special_illustration_rare",
+        "n": 95,
+        "mean_residual_log_price": 0.9746627495470599,
+        "median_residual_log_price": 0.9861593798003101
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "ultra_rare",
+        "n": 141,
+        "mean_residual_log_price": -0.5081528958875469,
+        "median_residual_log_price": -0.5112340199871672
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "uncommon",
+        "n": 539,
+        "mean_residual_log_price": -0.034427759758520894,
+        "median_residual_log_price": -0.029486256596782168
+      }
+    ]
+  },
+  "matched_scarcity_examples": [
+    {
+      "era": "Mega Evolution",
+      "matching_rule": "absolute log Exact Pull Scarcity difference <= 0.1",
+      "exact_pull_scarcity_log_difference": 0.00997017231984998,
+      "same_species": false,
+      "card_a": {
+        "name": "Team Rocket's Mewtwo ex",
+        "set": "Ascended Heroes",
+        "treatment": "double_rare",
+        "pull_probability": 0.00504,
+        "scarcity_adjusted_residual": -1.8799493210524412
+      },
+      "card_b": {
+        "name": "Vulpix",
+        "set": "Mega Evolution",
+        "treatment": "illustration_rare",
+        "pull_probability": 0.00499,
+        "scarcity_adjusted_residual": 1.2849393589076712
+      }
+    },
+    {
+      "era": "Scarlet and Violet",
+      "matching_rule": "absolute log Exact Pull Scarcity difference <= 0.1",
+      "exact_pull_scarcity_log_difference": 0.09986599634018578,
+      "same_species": false,
+      "card_a": {
+        "name": "Beheeyem",
+        "set": "Black Bolt",
+        "treatment": "illustration_rare",
+        "pull_probability": 0.00121,
+        "scarcity_adjusted_residual": -1.203138176764353
+      },
+      "card_b": {
+        "name": "Milotic ex",
+        "set": "Surging Sparks",
+        "treatment": "special_illustration_rare",
+        "pull_probability": 0.001095,
+        "scarcity_adjusted_residual": 1.8126559740310784
+      }
+    },
+    {
+      "era": "Mega Evolution",
+      "matching_rule": "absolute log Exact Pull Scarcity difference <= 0.1",
+      "exact_pull_scarcity_log_difference": 0.06920547912036668,
+      "same_species": false,
+      "card_a": {
+        "name": "Mega Excadrill ex",
+        "set": "Pitch Black",
+        "treatment": "ultra_rare",
+        "pull_probability": 0.004703,
+        "scarcity_adjusted_residual": 0.5754618728501697
+      },
+      "card_b": {
+        "name": "Team Rocket's Mewtwo ex",
+        "set": "Ascended Heroes",
+        "treatment": "double_rare",
+        "pull_probability": 0.00504,
+        "scarcity_adjusted_residual": -1.8799493210524412
+      }
+    },
+    {
+      "era": "Mega Evolution",
+      "matching_rule": "absolute log Exact Pull Scarcity difference <= 0.1",
+      "exact_pull_scarcity_log_difference": 0.01860895123345152,
+      "same_species": false,
+      "card_a": {
+        "name": "Rotom ex",
+        "set": "Phantasmal Flames",
+        "treatment": "ultra_rare",
+        "pull_probability": 0.004898,
+        "scarcity_adjusted_residual": -1.1516777939117815
+      },
+      "card_b": {
+        "name": "Vulpix",
+        "set": "Mega Evolution",
+        "treatment": "illustration_rare",
+        "pull_probability": 0.00499,
+        "scarcity_adjusted_residual": 1.2849393589076712
+      }
+    }
+  ],
+  "eligible_treatment_universes": {
+    "Scarlet and Violet": {
+      "eligible": [
+        "illustration_rare",
+        "special_illustration_rare"
+      ],
+      "details": [
+        {
+          "treatment": "illustration_rare",
+          "cards": 384,
+          "sets": 15,
+          "coefficient_after_exact_pull_scarcity": 1.042317970119259,
+          "bootstrap_ci": [
+            0.7526270818543951,
+            1.345283206516937
+          ],
+          "bootstrap_sign_stability": 1.0,
+          "leave_set_out": {
+            "fits": 16,
+            "failures": [],
+            "same_sign_rate": 1.0,
+            "min": 0.9478163558760487,
+            "max": 1.2570414439231352
+          },
+          "gates": {
+            "round1_stable": true,
+            "minimum_cards": true,
+            "minimum_sets": true,
+            "estimable": true,
+            "bootstrap_sign_stability": true,
+            "bootstrap_interval_excludes_zero": true,
+            "acceptable_uncertainty": true,
+            "leave_set_out_stability": true
+          },
+          "eligible": true
+        },
+        {
+          "treatment": "special_illustration_rare",
+          "cards": 95,
+          "sets": 15,
+          "coefficient_after_exact_pull_scarcity": 1.4320912701692732,
+          "bootstrap_ci": [
+            0.47682182842587767,
+            2.4623912272745483
+          ],
+          "bootstrap_sign_stability": 1.0,
+          "leave_set_out": {
+            "fits": 16,
+            "failures": [],
+            "same_sign_rate": 0.9375,
+            "min": -1.6646358402405759,
+            "max": 1.7120392209527209
+          },
+          "gates": {
+            "round1_stable": true,
+            "minimum_cards": true,
+            "minimum_sets": true,
+            "estimable": true,
+            "bootstrap_sign_stability": true,
+            "bootstrap_interval_excludes_zero": true,
+            "acceptable_uncertainty": true,
+            "leave_set_out_stability": true
+          },
+          "eligible": true
+        },
+        {
+          "treatment": "double_rare",
+          "cards": 211,
+          "sets": 16,
+          "coefficient_after_exact_pull_scarcity": -1.3961915940585212,
+          "bootstrap_ci": [
+            -2.4554683814608746,
+            -0.35631511953897244
+          ],
+          "bootstrap_sign_stability": 1.0,
+          "leave_set_out": {
+            "fits": 16,
+            "failures": [],
+            "same_sign_rate": 1.0,
+            "min": -4.569869018637726,
+            "max": -1.0752437642231163
+          },
+          "gates": {
+            "round1_stable": true,
+            "minimum_cards": true,
+            "minimum_sets": true,
+            "estimable": true,
+            "bootstrap_sign_stability": true,
+            "bootstrap_interval_excludes_zero": true,
+            "acceptable_uncertainty": false,
+            "leave_set_out_stability": true
+          },
+          "eligible": false
+        }
+      ],
+      "gates": {
+        "min_cards": 25,
+        "min_sets": 5,
+        "bootstrap_sign_stability": 0.9,
+        "max_bootstrap_interval_width": 2.0,
+        "leave_set_out_sign_stability": 0.8,
+        "strong_ordering_probability": 0.95,
+        "moderate_ordering_probability": 0.8,
+        "meaningful_partial_r2": 0.02,
+        "meaningful_cv_rmse_reduction": 0.01,
+        "matched_log_scarcity_tolerance": 0.1
+      }
+    },
+    "Mega Evolution": {
+      "eligible": [
+        "illustration_rare",
+        "double_rare",
+        "ultra_rare"
+      ],
+      "details": [
+        {
+          "treatment": "illustration_rare",
+          "cards": 101,
+          "sets": 6,
+          "coefficient_after_exact_pull_scarcity": 2.1087892327927875,
+          "bootstrap_ci": [
+            1.8463012650609016,
+            2.3712771963328123
+          ],
+          "bootstrap_sign_stability": 1.0,
+          "leave_set_out": {
+            "fits": 6,
+            "failures": [],
+            "same_sign_rate": 1.0,
+            "min": 2.0221546282879217,
+            "max": 2.8358275526431616
+          },
+          "gates": {
+            "round1_stable": true,
+            "minimum_cards": true,
+            "minimum_sets": true,
+            "estimable": true,
+            "bootstrap_sign_stability": true,
+            "bootstrap_interval_excludes_zero": true,
+            "acceptable_uncertainty": true,
+            "leave_set_out_stability": true
+          },
+          "eligible": true
+        },
+        {
+          "treatment": "double_rare",
+          "cards": 88,
+          "sets": 6,
+          "coefficient_after_exact_pull_scarcity": -2.140153995046603,
+          "bootstrap_ci": [
+            -2.31918802857399,
+            -1.961119920015335
+          ],
+          "bootstrap_sign_stability": 1.0,
+          "leave_set_out": {
+            "fits": 6,
+            "failures": [],
+            "same_sign_rate": 1.0,
+            "min": -3.214305285983661,
+            "max": -2.009473495673893
+          },
+          "gates": {
+            "round1_stable": true,
+            "minimum_cards": true,
+            "minimum_sets": true,
+            "estimable": true,
+            "bootstrap_sign_stability": true,
+            "bootstrap_interval_excludes_zero": true,
+            "acceptable_uncertainty": true,
+            "leave_set_out_stability": true
+          },
+          "eligible": true
+        },
+        {
+          "treatment": "ultra_rare",
+          "cards": 45,
+          "sets": 6,
+          "coefficient_after_exact_pull_scarcity": -1.5368114799498493,
+          "bootstrap_ci": [
+            -1.7030718277729195,
+            -1.3706187548690982
+          ],
+          "bootstrap_sign_stability": 1.0,
+          "leave_set_out": {
+            "fits": 6,
+            "failures": [],
+            "same_sign_rate": 1.0,
+            "min": -2.2187556271489233,
+            "max": -1.4647037965255965
+          },
+          "gates": {
+            "round1_stable": true,
+            "minimum_cards": true,
+            "minimum_sets": true,
+            "estimable": true,
+            "bootstrap_sign_stability": true,
+            "bootstrap_interval_excludes_zero": true,
+            "acceptable_uncertainty": true,
+            "leave_set_out_stability": true
+          },
+          "eligible": true
+        }
+      ],
+      "gates": {
+        "min_cards": 25,
+        "min_sets": 5,
+        "bootstrap_sign_stability": 0.9,
+        "max_bootstrap_interval_width": 2.0,
+        "leave_set_out_sign_stability": 0.8,
+        "strong_ordering_probability": 0.95,
+        "moderate_ordering_probability": 0.8,
+        "meaningful_partial_r2": 0.02,
+        "meaningful_cv_rmse_reduction": 0.01,
+        "matched_log_scarcity_tolerance": 0.1
+      }
+    }
+  },
+  "rankings_and_scores": {
+    "Scarlet and Violet": {
+      "status": "SCORE_NOT_READY_UNRESOLVED_ORDERING",
+      "matrix": {
+        "illustration_rare": {
+          "illustration_rare": 0.5,
+          "special_illustration_rare": {
+            "probability": 0.2781954887218045,
+            "confidence": "unresolved"
+          }
+        },
+        "special_illustration_rare": {
+          "illustration_rare": {
+            "probability": 0.7218045112781954,
+            "confidence": "unresolved"
+          },
+          "special_illustration_rare": 0.5
+        }
+      },
+      "scores": [],
+      "diagnostic_unapproved_score_estimates": [
+        {
+          "treatment": "illustration_rare",
+          "score": 2.781954887218045,
+          "bootstrap_interval": [
+            0.0,
+            10.0
+          ],
+          "cards": 384,
+          "sets": 15,
+          "support": "eligible",
+          "presentation": "broad_tier"
+        },
+        {
+          "treatment": "special_illustration_rare",
+          "score": 7.2180451127819545,
+          "bootstrap_interval": [
+            0.0,
+            10.0
+          ],
+          "cards": 95,
+          "sets": 15,
+          "support": "eligible",
+          "presentation": "broad_tier"
+        }
+      ],
+      "interpretation": "How consistently this treatment carries a stronger adjusted market premium than other supported treatments in the same Pok\u00e9mon era."
+    },
+    "Mega Evolution": {
+      "status": "CANDIDATE_SCORE_ESTIMATED",
+      "matrix": {
+        "illustration_rare": {
+          "illustration_rare": 0.5,
+          "double_rare": {
+            "probability": 1.0,
+            "confidence": "strong"
+          },
+          "ultra_rare": {
+            "probability": 1.0,
+            "confidence": "strong"
+          }
+        },
+        "double_rare": {
+          "illustration_rare": {
+            "probability": 0.0,
+            "confidence": "strong"
+          },
+          "double_rare": 0.5,
+          "ultra_rare": {
+            "probability": 0.0,
+            "confidence": "strong"
+          }
+        },
+        "ultra_rare": {
+          "illustration_rare": {
+            "probability": 0.0,
+            "confidence": "strong"
+          },
+          "double_rare": {
+            "probability": 1.0,
+            "confidence": "strong"
+          },
+          "ultra_rare": 0.5
+        }
+      },
+      "scores": [
+        {
+          "treatment": "illustration_rare",
+          "score": 10.0,
+          "bootstrap_interval": [
+            10.0,
+            10.0
+          ],
+          "cards": 101,
+          "sets": 6,
+          "support": "eligible",
+          "presentation": "integer"
+        },
+        {
+          "treatment": "double_rare",
+          "score": 0.0,
+          "bootstrap_interval": [
+            0.0,
+            0.0
+          ],
+          "cards": 88,
+          "sets": 6,
+          "support": "eligible",
+          "presentation": "integer"
+        },
+        {
+          "treatment": "ultra_rare",
+          "score": 5.0,
+          "bootstrap_interval": [
+            5.0,
+            5.0
+          ],
+          "cards": 45,
+          "sets": 6,
+          "support": "eligible",
+          "presentation": "integer"
+        }
+      ],
+      "diagnostic_unapproved_score_estimates": [],
+      "interpretation": "How consistently this treatment carries a stronger adjusted market premium than other supported treatments in the same Pok\u00e9mon era."
+    }
+  },
+  "era_heterogeneity": [
+    {
+      "treatment": "double_rare",
+      "sv_minus_mega_log_difference": 0.7831937043960959,
+      "bootstrap_interval": [
+        -0.3581075972587571,
+        1.8384770969808633
+      ],
+      "probability_sv_greater": 0.8897243107769424,
+      "material_difference": false
+    },
+    {
+      "treatment": "illustration_rare",
+      "sv_minus_mega_log_difference": -1.0676155464490726,
+      "bootstrap_interval": [
+        -1.4616273972369416,
+        -0.6741476104767533
+      ],
+      "probability_sv_greater": 0.0,
+      "material_difference": true
+    }
+  ],
+  "score_robustness": {
+    "Scarlet and Violet": {
+      "baseline_order": [
+        "special_illustration_rare",
+        "illustration_rare"
+      ],
+      "leave_one_set_out": [
+        {
+          "left_out_set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+          "order": [
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 0.0,
+            "special_illustration_rare": 10.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+          "order": [
+            "illustration_rare",
+            "special_illustration_rare"
+          ],
+          "rank_changes": 2,
+          "ordering_scores": {
+            "illustration_rare": 10.0,
+            "special_illustration_rare": 0.0
+          },
+          "max_score_change": 10.0,
+          "tier_changes": 2
+        }
+      ],
+      "fits_with_any_rank_change": 1,
+      "max_leave_set_out_score_change": 10.0,
+      "fits_with_tier_change": 1,
+      "treatment_cell_sensitivity": "eligibility gates retained; no gate reduction",
+      "temporal_sensitivity": "NOT_ESTIMABLE_NO_COMPARABLE_FROZEN_HISTORY"
+    },
+    "Mega Evolution": {
+      "baseline_order": [
+        "illustration_rare",
+        "ultra_rare",
+        "double_rare"
+      ],
+      "leave_one_set_out": [
+        {
+          "left_out_set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "order": [
+            "illustration_rare",
+            "ultra_rare",
+            "double_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 10.0,
+            "double_rare": 0.0,
+            "ultra_rare": 5.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+          "order": [
+            "illustration_rare",
+            "ultra_rare",
+            "double_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 10.0,
+            "double_rare": 0.0,
+            "ultra_rare": 5.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+          "order": [
+            "illustration_rare",
+            "ultra_rare",
+            "double_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 10.0,
+            "double_rare": 0.0,
+            "ultra_rare": 5.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+          "order": [
+            "illustration_rare",
+            "ultra_rare",
+            "double_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 10.0,
+            "double_rare": 0.0,
+            "ultra_rare": 5.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "order": [
+            "illustration_rare",
+            "ultra_rare",
+            "double_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 10.0,
+            "double_rare": 0.0,
+            "ultra_rare": 5.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        },
+        {
+          "left_out_set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+          "order": [
+            "illustration_rare",
+            "ultra_rare",
+            "double_rare"
+          ],
+          "rank_changes": 0,
+          "ordering_scores": {
+            "illustration_rare": 10.0,
+            "double_rare": 0.0,
+            "ultra_rare": 5.0
+          },
+          "max_score_change": 0.0,
+          "tier_changes": 0
+        }
+      ],
+      "fits_with_any_rank_change": 0,
+      "max_leave_set_out_score_change": 0.0,
+      "fits_with_tier_change": 0,
+      "treatment_cell_sensitivity": "eligibility gates retained; no gate reduction",
+      "temporal_sensitivity": "NOT_ESTIMABLE_NO_COMPARABLE_FROZEN_HISTORY"
+    }
+  },
+  "score_sensitivity": {
+    "price_outlier_trim_1_99": {
+      "Scarlet and Violet": {
+        "status": "NOT_RUN_NO_APPROVED_CANDIDATE_SCORE"
+      },
+      "Mega Evolution": {
+        "retained_rows": 764,
+        "scores": [
+          {
+            "treatment": "illustration_rare",
+            "score": 10.0,
+            "bootstrap_interval": [
+              10.0,
+              10.0
+            ],
+            "cards": 101,
+            "sets": 6,
+            "support": "eligible",
+            "presentation": "integer"
+          },
+          {
+            "treatment": "double_rare",
+            "score": 0.0,
+            "bootstrap_interval": [
+              0.0,
+              0.0
+            ],
+            "cards": 88,
+            "sets": 6,
+            "support": "eligible",
+            "presentation": "integer"
+          },
+          {
+            "treatment": "ultra_rare",
+            "score": 5.0,
+            "bootstrap_interval": [
+              5.0,
+              5.0
+            ],
+            "cards": 45,
+            "sets": 6,
+            "support": "eligible",
+            "presentation": "integer"
+          }
+        ],
+        "rank_changes": 0,
+        "max_score_change": 0.0
+      }
+    },
+    "demand_outlier_top_5_removal": {
+      "Scarlet and Violet": {
+        "status": "NOT_RUN_NO_APPROVED_CANDIDATE_SCORE"
+      },
+      "Mega Evolution": {
+        "retained_rows": 729,
+        "scores": [
+          {
+            "treatment": "illustration_rare",
+            "score": 10.0,
+            "bootstrap_interval": [
+              10.0,
+              10.0
+            ],
+            "cards": 98,
+            "sets": 6,
+            "support": "eligible",
+            "presentation": "integer"
+          },
+          {
+            "treatment": "double_rare",
+            "score": 0.0,
+            "bootstrap_interval": [
+              0.0,
+              0.0
+            ],
+            "cards": 73,
+            "sets": 6,
+            "support": "eligible",
+            "presentation": "integer"
+          },
+          {
+            "treatment": "ultra_rare",
+            "score": 5.0,
+            "bootstrap_interval": [
+              5.0,
+              5.0
+            ],
+            "cards": 39,
+            "sets": 6,
+            "support": "eligible",
+            "presentation": "integer"
+          }
+        ],
+        "rank_changes": 0,
+        "max_score_change": 0.0
+      }
+    },
+    "mechanic_control_removal": {
+      "Scarlet and Violet": {
+        "status": "NOT_RUN_NO_APPROVED_CANDIDATE_SCORE"
+      },
+      "Mega Evolution": {
+        "retained_rows": 783,
+        "scores": [
+          {
+            "treatment": "illustration_rare",
+            "score": 10.0,
+            "bootstrap_interval": [
+              10.0,
+              10.0
+            ],
+            "cards": 101,
+            "sets": 6,
+            "support": "eligible",
+            "presentation": "integer"
+          },
+          {
+            "treatment": "double_rare",
+            "score": 0.0,
+            "bootstrap_interval": [
+              0.0,
+              0.0
+            ],
+            "cards": 88,
+            "sets": 6,
+            "support": "eligible",
+            "presentation": "integer"
+          },
+          {
+            "treatment": "ultra_rare",
+            "score": 5.0,
+            "bootstrap_interval": [
+              5.0,
+              5.0
+            ],
+            "cards": 45,
+            "sets": 6,
+            "support": "eligible",
+            "presentation": "integer"
+          }
+        ],
+        "rank_changes": 0,
+        "max_score_change": 0.0
+      }
+    },
+    "treatment_cell_threshold_50": {
+      "Scarlet and Violet": {
+        "still_supported": [
+          "illustration_rare",
+          "special_illustration_rare"
+        ],
+        "excluded_below_50": []
+      },
+      "Mega Evolution": {
+        "still_supported": [
+          "illustration_rare",
+          "double_rare"
+        ],
+        "excluded_below_50": [
+          "ultra_rare"
+        ]
+      }
+    }
+  },
+  "scarcity_vs_prestige": {
+    "by_era": {
+      "Scarlet and Violet": {
+        "mean_log_exact_pull_scarcity": {
+          "illustration_rare": 6.009361655779682,
+          "special_illustration_rare": 6.544004829156758
+        },
+        "prestige_coefficients_after_scarcity": {
+          "illustration_rare": 1.042317970119259,
+          "special_illustration_rare": 1.4320912701692732
+        },
+        "scarcity_superiority_score": {
+          "illustration_rare": 0.0,
+          "special_illustration_rare": 10.0
+        },
+        "prestige_score": {
+          "illustration_rare": 2.781954887218045,
+          "special_illustration_rare": 7.2180451127819545
+        },
+        "score_or_rank_correlation": null,
+        "discordant_pairs": [],
+        "discordant_pair_rate": 0.0
+      },
+      "Mega Evolution": {
+        "mean_log_exact_pull_scarcity": {
+          "illustration_rare": 5.136802249461584,
+          "double_rare": 4.506047495302512,
+          "ultra_rare": 5.4407582096163996
+        },
+        "prestige_coefficients_after_scarcity": {
+          "illustration_rare": 2.1087892327927875,
+          "double_rare": -2.140153995046603,
+          "ultra_rare": -1.5368114799498493
+        },
+        "scarcity_superiority_score": {
+          "illustration_rare": 5.0,
+          "double_rare": 0.0,
+          "ultra_rare": 10.0
+        },
+        "prestige_score": {
+          "illustration_rare": 10.0,
+          "double_rare": 0.0,
+          "ultra_rare": 5.0
+        },
+        "score_or_rank_correlation": 0.5,
+        "discordant_pairs": [
+          [
+            "illustration_rare",
+            "ultra_rare"
+          ]
+        ],
+        "discordant_pair_rate": 0.3333333333333333
+      }
+    },
+    "overall_discordant_pair_rate": 0.25,
+    "comparison_count": 4
+  },
+  "other_robustness": {
+    "candidate_score_sensitivity": {
+      "price_outlier_trim_1_99": {
+        "Scarlet and Violet": {
+          "status": "NOT_RUN_NO_APPROVED_CANDIDATE_SCORE"
+        },
+        "Mega Evolution": {
+          "retained_rows": 764,
+          "scores": [
+            {
+              "treatment": "illustration_rare",
+              "score": 10.0,
+              "bootstrap_interval": [
+                10.0,
+                10.0
+              ],
+              "cards": 101,
+              "sets": 6,
+              "support": "eligible",
+              "presentation": "integer"
+            },
+            {
+              "treatment": "double_rare",
+              "score": 0.0,
+              "bootstrap_interval": [
+                0.0,
+                0.0
+              ],
+              "cards": 88,
+              "sets": 6,
+              "support": "eligible",
+              "presentation": "integer"
+            },
+            {
+              "treatment": "ultra_rare",
+              "score": 5.0,
+              "bootstrap_interval": [
+                5.0,
+                5.0
+              ],
+              "cards": 45,
+              "sets": 6,
+              "support": "eligible",
+              "presentation": "integer"
+            }
+          ],
+          "rank_changes": 0,
+          "max_score_change": 0.0
+        }
+      },
+      "demand_outlier_top_5_removal": {
+        "Scarlet and Violet": {
+          "status": "NOT_RUN_NO_APPROVED_CANDIDATE_SCORE"
+        },
+        "Mega Evolution": {
+          "retained_rows": 729,
+          "scores": [
+            {
+              "treatment": "illustration_rare",
+              "score": 10.0,
+              "bootstrap_interval": [
+                10.0,
+                10.0
+              ],
+              "cards": 98,
+              "sets": 6,
+              "support": "eligible",
+              "presentation": "integer"
+            },
+            {
+              "treatment": "double_rare",
+              "score": 0.0,
+              "bootstrap_interval": [
+                0.0,
+                0.0
+              ],
+              "cards": 73,
+              "sets": 6,
+              "support": "eligible",
+              "presentation": "integer"
+            },
+            {
+              "treatment": "ultra_rare",
+              "score": 5.0,
+              "bootstrap_interval": [
+                5.0,
+                5.0
+              ],
+              "cards": 39,
+              "sets": 6,
+              "support": "eligible",
+              "presentation": "integer"
+            }
+          ],
+          "rank_changes": 0,
+          "max_score_change": 0.0
+        }
+      },
+      "mechanic_control_removal": {
+        "Scarlet and Violet": {
+          "status": "NOT_RUN_NO_APPROVED_CANDIDATE_SCORE"
+        },
+        "Mega Evolution": {
+          "retained_rows": 783,
+          "scores": [
+            {
+              "treatment": "illustration_rare",
+              "score": 10.0,
+              "bootstrap_interval": [
+                10.0,
+                10.0
+              ],
+              "cards": 101,
+              "sets": 6,
+              "support": "eligible",
+              "presentation": "integer"
+            },
+            {
+              "treatment": "double_rare",
+              "score": 0.0,
+              "bootstrap_interval": [
+                0.0,
+                0.0
+              ],
+              "cards": 88,
+              "sets": 6,
+              "support": "eligible",
+              "presentation": "integer"
+            },
+            {
+              "treatment": "ultra_rare",
+              "score": 5.0,
+              "bootstrap_interval": [
+                5.0,
+                5.0
+              ],
+              "cards": 45,
+              "sets": 6,
+              "support": "eligible",
+              "presentation": "integer"
+            }
+          ],
+          "rank_changes": 0,
+          "max_score_change": 0.0
+        }
+      },
+      "treatment_cell_threshold_50": {
+        "Scarlet and Violet": {
+          "still_supported": [
+            "illustration_rare",
+            "special_illustration_rare"
+          ],
+          "excluded_below_50": []
+        },
+        "Mega Evolution": {
+          "still_supported": [
+            "illustration_rare",
+            "double_rare"
+          ],
+          "excluded_below_50": [
+            "ultra_rare"
+          ]
+        }
+      }
+    },
+    "temporal_sensitivity": "NOT_ESTIMABLE_NO_COMPARABLE_FROZEN_HISTORY",
+    "secondary_market_availability_liquidity": "FUTURE_DISTINCT_RESEARCH_DIMENSION"
+  },
+  "product_information_decision": "PRESTIGE_ADDS_MEANINGFUL_INFORMATION",
+  "research_status": "V3_ERA_RELATIVE_SCORE_RESEARCH_VALIDATED",
+  "score_research_should_continue": true,
+  "card_detail_integration_research_justified": true,
+  "database_rows_persisted": 0,
+  "approved_scores_persisted": 0,
+  "files_changed": [
+    "backend/scripts/build_treatment_market_prestige_v3_round2.py",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round2.py",
+    "docs/research/treatment_market_prestige_v3_round2_exact_pull_cohort/",
+    "docs/research/treatment_market_prestige_v3_round2_study.json",
+    "docs/research/TREATMENT_MARKET_PRESTIGE_V3_ROUND2_RESULTS.md"
+  ],
+  "tests_executed": [
+    "Round 2 plus preserved V3/V2 unit suites (26 passed)",
+    "Round 1 and Round 2 immutable hash verification (passed)"
+  ],
+  "recommended_next_task": "If score research remains justified, preregister a replication using a later frozen market snapshot and add Secondary-Market Availability / Liquidity as a separate dimension; do not integrate Card Detail without explicit production authorization."
+}

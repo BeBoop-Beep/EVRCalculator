@@ -103,10 +103,14 @@ class PublicationSummary:
     rip_contract_audit_report: Optional[Dict[str, Any]] = None
     sealed_product_finalization_status: str = "not_attempted"
     sealed_product_finalization_report: Optional[Dict[str, Any]] = None
+    rankings_publication_status: str = "not_attempted"
+    rankings_readiness_reason_code: Optional[str] = None
     rip_stats_publication_status: str = "not_attempted"
     ev_representativeness_status: str = "not_attempted"
     rip_stats_audit_status: str = "not_attempted"
     rip_stats_market_date: Optional[str] = None
+    rankings_market_date: Optional[str] = None
+    simulation_execution_date: Optional[str] = None
     rip_stats_set_count: int = 0
     rip_stats_source_run_fingerprint: Optional[str] = None
     rip_stats_failures: List[str] = field(default_factory=list)
@@ -130,6 +134,8 @@ class PublicationSummary:
         out.append(
             f"{TAG} sealed_product_finalization_status={self.sealed_product_finalization_status}"
         )
+        out.append(f"{TAG} rankings_publication_status={self.rankings_publication_status}")
+        out.append(f"{TAG} rankings_readiness_reason_code={self.rankings_readiness_reason_code}")
         if self.sealed_product_finalization_report:
             report = self.sealed_product_finalization_report
             out.append(
@@ -153,6 +159,8 @@ class PublicationSummary:
         out.append(f"{TAG} ev_representativeness_status={self.ev_representativeness_status}")
         out.append(f"{TAG} rip_stats_audit_status={self.rip_stats_audit_status}")
         out.append(f"{TAG} rip_stats_market_date={self.rip_stats_market_date}")
+        out.append(f"{TAG} rankings_market_date={self.rankings_market_date}")
+        out.append(f"{TAG} simulation_execution_date={self.simulation_execution_date}")
         out.append(f"{TAG} rip_stats_set_count={self.rip_stats_set_count}")
         out.append(f"{TAG} rip_stats_source_run_fingerprint={self.rip_stats_source_run_fingerprint}")
         for failure in self.rip_stats_failures:
@@ -228,6 +236,7 @@ def refresh_public_snapshots(
     dry_run: bool = False,
     gate_wait_attempts: int = 6,
     gate_wait_seconds: int = 600,
+    skip_explore_rankings: bool = False,
 ) -> int:
     executable = python_executable or sys.executable
     command = [
@@ -241,6 +250,8 @@ def refresh_public_snapshots(
     ]
     if commit:
         command.insert(2, "--commit")
+    if skip_explore_rankings:
+        command.append("--skip-explore-rankings")
     return _run_command(command, dry_run=dry_run)
 
 
@@ -334,6 +345,24 @@ def _skipped_entries(report: OpeningSimulationFreshnessReport) -> List[Dict[str,
     return entries
 
 
+def _persist_rankings_deferral(client: Any, report: Any) -> None:
+    """Persist a no-publish Rankings decision before independent surfaces continue."""
+    fake_tables = getattr(client, "_tables", None)
+    if isinstance(fake_tables, dict) and "pokemon_rankings_publication_attempts" not in fake_tables:
+        return
+    from backend.db.services.rankings_publication_lifecycle import (
+        finish_rankings_publication_attempt,
+        read_active_publication,
+        start_rankings_publication_attempt,
+    )
+    prior = read_active_publication(client)
+    attempt_id = start_rankings_publication_attempt(client, report, prior=prior)
+    finish_rankings_publication_attempt(
+        client, attempt_id, status="deferred", reason_code=report.reason_code,
+        detail=report.detail,
+    )
+
+
 def orchestrate(
     client: Any,
     *,
@@ -344,6 +373,7 @@ def orchestrate(
     python_executable: Optional[str] = None,
     gate_wait_attempts: int = 6,
     gate_wait_seconds: int = 600,
+    simulation_execution_date: Optional[str] = None,
 ) -> PublicationSummary:
     summary = PublicationSummary()
 
@@ -396,7 +426,33 @@ def orchestrate(
     summary.eligible_set_count = before.eligible_count
     summary.skipped = _skipped_entries(before)
     pending = sets_needing_simulation(before)
+    from backend.Scraper.helpers.market_date_helper import resolve_phoenix_market_date
+    current_simulation_date = simulation_execution_date or resolve_phoenix_market_date()
+    summary.simulation_execution_date = current_simulation_date
     print(f"{TAG} market_date={resolved_market_date} eligible={before.eligible_count} pending={len(pending)}")
+
+    # Simulation history is dated from actual Phoenix execution time. After a
+    # rollover, running yesterday's missing work can only create today's point;
+    # it can never repair yesterday's promoted cohort.
+    if pending and current_simulation_date != resolved_market_date:
+        from backend.db.services.rankings_publication_lifecycle import (
+            deferred_simulation_rollover_readiness,
+        )
+        report = deferred_simulation_rollover_readiness(
+            market_date=resolved_market_date,
+            simulation_date=current_simulation_date,
+            expected_count=before.eligible_count,
+            current_count=sum(1 for item in before.statuses if item.status == "current"),
+            pending_keys=pending,
+        )
+        summary.rankings_publication_status = "deferred"
+        summary.rankings_readiness_reason_code = report.reason_code
+        summary.latest_simulation_date_by_set = _latest_dates(before)
+        summary.error = report.detail
+        summary.exit_code = GATE_DEFERRED_EXIT_CODE
+        if not dry_run:
+            _persist_rankings_deferral(client, report)
+        return summary
 
     outcomes = run_simulations_for_sets(pending, python_executable=python_executable, dry_run=dry_run)
     summary.simulation_succeeded = sum(1 for outcome in outcomes if outcome.succeeded)
@@ -428,6 +484,44 @@ def orchestrate(
         unsupported_keys=unsupported_keys,
         dry_run=dry_run,
     )
+    rankings_branch_ready = (
+        after.ok
+        and not summary.simulation_failed
+        and summary.sealed_product_finalization_status in {"ok", "skipped_dry_run"}
+    )
+    if not after.ok or summary.simulation_failed:
+        from backend.db.services.rankings_publication_lifecycle import (
+            deferred_simulation_readiness,
+        )
+        report = deferred_simulation_readiness(
+            market_date=resolved_market_date,
+            expected_count=after.eligible_count,
+            verified_count=sum(1 for item in after.statuses if item.status == "current"),
+            failures=[f"{item.canonical_key}:{item.status}" for item in after.failures],
+        )
+        summary.rankings_publication_status = "deferred"
+        summary.rankings_readiness_reason_code = report.reason_code
+        if not dry_run:
+            _persist_rankings_deferral(client, report)
+    elif summary.sealed_product_finalization_status not in {"ok", "skipped_dry_run"}:
+        from backend.db.services.rankings_publication_lifecycle import (
+            DEFERRED_SEALED_PRODUCT_FINALIZATION_INCOMPLETE,
+            RankingsReadinessReport,
+        )
+        report = RankingsReadinessReport(
+            status=DEFERRED_SEALED_PRODUCT_FINALIZATION_INCOMPLETE,
+            reason_code=DEFERRED_SEALED_PRODUCT_FINALIZATION_INCOMPLETE,
+            detail=f"sealed-product finalization status={summary.sealed_product_finalization_status}",
+            market_date=resolved_market_date,
+            expected_supported_cohort_count=after.eligible_count,
+            verified_simulation_cohort_count=after.eligible_count,
+            sealed_product_finalized_set_count=int((summary.sealed_product_finalization_report or {}).get("setCount") or 0),
+            sealed_product_finalized_product_row_count=int((summary.sealed_product_finalization_report or {}).get("rowsFinalized") or 0),
+        )
+        summary.rankings_publication_status = "deferred"
+        summary.rankings_readiness_reason_code = report.reason_code
+        if not dry_run:
+            _persist_rankings_deferral(client, report)
 
     # ---- Step 3c: optional exact-artifact research -------------------------
     # Current run ids are authoritative now, and every downstream public
@@ -471,9 +565,12 @@ def orchestrate(
             dry_run=dry_run,
             gate_wait_attempts=gate_wait_attempts,
             gate_wait_seconds=gate_wait_seconds,
+            skip_explore_rankings=not rankings_branch_ready,
         )
         if refresh_code == 0:
             summary.snapshot_publication_status = "published"
+            if rankings_branch_ready:
+                summary.rankings_publication_status = "published"
         elif refresh_code == GATE_DEFERRED_EXIT_CODE:
             summary.snapshot_publication_status = "deferred_cohort_not_ready"
             summary.exit_code = GATE_DEFERRED_EXIT_CODE
@@ -612,6 +709,23 @@ def orchestrate(
     if summary.rip_stats_audit_status not in {"passed", "skipped"}:
         summary.exit_code = EXIT_FAILED
         summary.error = "published Pokemon RIP Stats failed its provenance audit"
+        return summary
+
+    if (
+        not dry_run
+        and not skip_snapshots
+        and summary.rip_stats_publication_status == "published"
+        and (
+            summary.rip_stats_market_date != resolved_market_date
+            or summary.rankings_market_date != resolved_market_date
+        )
+    ):
+        summary.exit_code = EXIT_FAILED
+        summary.error = (
+            "Rankings page publication clocks disagree with promoted authority: "
+            f"expected={resolved_market_date} rip_stats={summary.rip_stats_market_date} "
+            f"explore_rankings={summary.rankings_market_date}"
+        )
         return summary
 
     summary.exit_code = EXIT_OK
@@ -763,6 +877,7 @@ def _run_rip_contract_audit(
         f"{assertion.name}: {assertion.detail}" for assertion in report.failures
     ]
     summary.rip_contract_audit_report = report.to_dict()
+    summary.rankings_market_date = report.market_date
     for line in report.lines():
         print(line)
     return "passed" if report.passed else "failed"

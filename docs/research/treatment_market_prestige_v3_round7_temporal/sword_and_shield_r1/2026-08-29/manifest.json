@@ -1,0 +1,27 @@
+{
+  "checkpoint_id": "tmp-v3-r7-sword_and_shield_r1-2026-08-29-b26de7f0b3",
+  "manifest_hash": "b26de7f0b34571a97a5952aa2e688f9d86580d866df8a12c52d31b250495a0df",
+  "reference_date": "2026-08-29",
+  "universe_id": "sword_and_shield_r1",
+  "era": "Sword and Shield",
+  "comparison_universe_type": "TREATMENT_REGIME_RELATIVE",
+  "set_ids": [
+    "cbc11b3c-0244-4fca-880f-68ebdd599894",
+    "759c09f8-8a1b-4212-be89-66088afa6893",
+    "3836457c-77dc-44b0-a72f-779b6dd78884",
+    "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+    "26fedb88-87d7-487a-9f01-528d603c682e",
+    "03764ded-825a-45c0-8b15-ce100cff9552"
+  ],
+  "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+  "pricing_semantics": "latest authoritative observation in fixed seven-day window ending at reference date; no interpolation",
+  "source_relation": "public.card_variant_price_observations",
+  "canonical_mapping_hash": "f297fa97379a96221e73dec71f78524bec9562f5b8798765bf97ef4dcf018755",
+  "taxonomy_hash": "82aec01c61449ec519df6b53d9c211009114e4efdd678f633c69c4b0a8e793fb",
+  "comparison_universe_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+  "demand_snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+  "model_version": "tmp-v3-hierarchical-r5",
+  "baseline_hash": "6c1ae19217ee8758057bf251aa60d26a397f66319729f1abbff51e21424cdbf4",
+  "cohort_hash": "d75a4fa30b7f7b4cd3cca57b84eae2954543392f0d3bc5dfa336330d9d38defc",
+  "rows": 982
+}

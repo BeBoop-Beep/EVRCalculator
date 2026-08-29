@@ -126,10 +126,11 @@ export const MARKET_EXPLORER_DEFAULT_TIMEFRAME = "7D";
  * "Since Comparable Start" — and lives on the timeframe control as "All".
  */
 export const MARKET_EXPLORER_DETAIL_WINDOWS = [
-  { key: "1D", label: "1D", dimension: "comparison" },
   { key: "7D", label: "7D", dimension: "comparison" },
   { key: "30D", label: "30D", dimension: "comparison" },
-  { key: "3M", label: "3M", dimension: "comparison" },
+  { key: "3M", label: "90D", dimension: "comparison" },
+  { key: "6M", label: "6M", dimension: "comparison" },
+  { key: "1Y", label: "1Y", dimension: "comparison" },
   { key: "All", label: FAMILY_SINCE_TRACKING_LABEL, dimension: "family" },
 ];
 

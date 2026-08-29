@@ -81,6 +81,15 @@ const SCALAR_FIELDS = Object.freeze([
   "p99_value_to_cost_ratio", "p99_value_to_cost_rank", "p99_value_to_cost_tier",
 ]);
 
+const BASE_SCALAR_FIELDS = Object.freeze([
+  "target_type", "target_id", "set_id", "id", "name", "era",
+  "canonical_key", "logo_image_url", "symbol_image_url",
+  "checklist_set_value", "checklist_set_value_as_of", "checklistSetValue",
+  "checklistSetValueAsOf", "current_checklist_set_value",
+  "current_checklist_set_value_date", "currentChecklistSetValue",
+  "currentChecklistSetValueDate",
+]);
+
 /**
  * Nested blocks, projected leaf-by-leaf.
  *
@@ -176,8 +185,22 @@ function projectTarget(target) {
  * order as its tie-break and as the default view. Reordering here would change
  * the leaderboard.
  */
-export function projectRankingsTargets(targets) {
+export function projectRankingsClientBase(targets) {
+  return Array.isArray(targets)
+    ? targets.map((target) => projectLeaves(target, BASE_SCALAR_FIELDS) || {})
+    : [];
+}
+
+export function projectRankingsClientPlus(targets) {
   return Array.isArray(targets) ? targets.map(projectTarget) : [];
+}
+
+export const projectRankingsClientPremium = projectRankingsClientPlus;
+
+export function projectRankingsTargets(targets, { canViewRankingsIntelligence = true } = {}) {
+  return canViewRankingsIntelligence
+    ? projectRankingsClientPlus(targets)
+    : projectRankingsClientBase(targets);
 }
 
 /** Flat list of every projected path, for tests and audit reporting. */

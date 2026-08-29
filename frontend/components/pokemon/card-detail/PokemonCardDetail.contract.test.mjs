@@ -72,6 +72,12 @@ test("unsupported cards retain public market identity with precise pull-model st
   assert.doesNotMatch(source, /plan\s*===\s*["']plus["']/);
 });
 
+test("above-fold artwork uses the warm image optimizer with responsive sizing", () => {
+  assert.match(source, /sizes="\(min-width: 768px\) 430px, 300px"/);
+  assert.match(source, /priority[\s\S]*onLoad=/);
+  assert.doesNotMatch(source, /unoptimized/);
+});
+
 test("identity is rarity plus number and excludes subtype metadata", () => {
   assert.match(
     source,

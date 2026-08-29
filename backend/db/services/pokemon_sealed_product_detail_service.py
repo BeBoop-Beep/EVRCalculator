@@ -70,14 +70,25 @@ def _product_href(product_id: Any) -> Optional[str]:
 def _published_rankings(client: Any) -> Dict[str, Any]:
     rows = _rows(
         client.table("pokemon_explore_rankings_snapshot_latest")
-        .select("ranking_payload_json,updated_at")
+        .select(
+            "product_family_rankings:ranking_payload_json->productFamilyRankings,"
+            "meta:ranking_payload_json->meta,updated_at"
+        )
         .eq("tcg", "pokemon")
         .eq("scope", DEFAULT_RANKINGS_SCOPE)
         .limit(1)
     )
-    if not rows or not isinstance(rows[0].get("ranking_payload_json"), dict):
+    if not rows:
         return {"payload": {}, "updatedAt": None, "current": False}
-    payload = rows[0]["ranking_payload_json"]
+    if isinstance(rows[0].get("product_family_rankings"), dict):
+        payload = {
+            "productFamilyRankings": rows[0]["product_family_rankings"],
+            "meta": rows[0].get("meta") if isinstance(rows[0].get("meta"), dict) else {},
+        }
+    elif isinstance(rows[0].get("ranking_payload_json"), dict):
+        payload = rows[0]["ranking_payload_json"]
+    else:
+        return {"payload": {}, "updatedAt": None, "current": False}
     return {
         "payload": payload,
         "updatedAt": rows[0].get("updated_at"),

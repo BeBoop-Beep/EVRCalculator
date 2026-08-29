@@ -285,7 +285,10 @@ def _resolve_pokemon_set_identifier_once(active_client: Any, set_id: str) -> Dic
             return row
         raise PokemonSetMarketError(404, "Pokemon set not found", "POKEMON_SET_NOT_FOUND")
 
-    for field in ("id", "canonical_key", "pokemon_api_set_id"):
+    # Non-UUID route slugs must never be sent to the UUID `id` predicate.
+    # Postgres rejects that cast before it can return an ordinary miss, adding
+    # a guaranteed failed request to every canonical card/set navigation.
+    for field in ("canonical_key", "pokemon_api_set_id"):
         try:
             result = (
                 active_client.table("sets")

@@ -1,0 +1,178 @@
+[
+  {
+    "calculation_run_id": "28ffeb1c-09e5-4ffa-b960-3e093c713140",
+    "sets": [
+      "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896"
+    ],
+    "rows": 122,
+    "rows_hash": "d27ad06dbde3aa506eee05da26b9c86fe8ac90f84838d70e721fdea0a0ef9f6c"
+  },
+  {
+    "calculation_run_id": "2925570c-5580-4903-b8dc-c08ea52cd79f",
+    "sets": [
+      "de291399-ead5-41dc-bc12-e7c587684f85"
+    ],
+    "rows": 244,
+    "rows_hash": "c76b18e188b68f7c68dfffec107c2b1a673072ef4615628ad4e4d81661cefd87"
+  },
+  {
+    "calculation_run_id": "3e1940e7-6dd6-4dcf-a59c-739dc754be34",
+    "sets": [
+      "5e99f658-39f0-4845-9228-db8db3965f32"
+    ],
+    "rows": 124,
+    "rows_hash": "c0589c23b2c7f0672d0edb129383f59ce72caed05423b90dcbf2ac1df9a33766"
+  },
+  {
+    "calculation_run_id": "5b8ff5dd-efbf-4e9f-b221-33aa1fcf58d4",
+    "sets": [
+      "c38df164-ea0d-4e9e-bae6-4c3a517beb8f"
+    ],
+    "rows": 172,
+    "rows_hash": "99eec3d687f4b0312fee707b8918aa21021f73ed04bc17c4e5d2d804c3dc61f0"
+  },
+  {
+    "calculation_run_id": "716ef97d-1d85-4e8d-89d6-923c97507ac8",
+    "sets": [
+      "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b"
+    ],
+    "rows": 226,
+    "rows_hash": "ee71a81474740f80b40c59b4cffa8e1c8a12dadf7f5afe97ad2f24cdf91f7b8c"
+  },
+  {
+    "calculation_run_id": "7603944e-bbe6-4d1b-a97a-175b3ac277b9",
+    "sets": [
+      "0f7e51e2-5a78-4500-9c9c-f690e934a069"
+    ],
+    "rows": 130,
+    "rows_hash": "e81cd8b3b78b2dd545dd42e2e6e07e265cc9e2af39a95790a3f0557d07078235"
+  },
+  {
+    "calculation_run_id": "7893e94d-197e-4eb3-8b8a-94dfab7afd8b",
+    "sets": [
+      "7a3dd188-4375-41af-94de-c5247fe0b1a6"
+    ],
+    "rows": 181,
+    "rows_hash": "042615b52adff06cda035827da7fbce60ba7c9a1a6ee36c81d8d707d7031068a"
+  },
+  {
+    "calculation_run_id": "9d63b06a-37b6-4803-8d7a-31fddf2139ef",
+    "sets": [
+      "4b15f040-4351-41ea-90e1-c07eb1b2f4d6"
+    ],
+    "rows": 175,
+    "rows_hash": "d9597a21a11f4d1d0e68afbc048fcc4c9636298ae329bdbf58f57a546a5ceee5"
+  },
+  {
+    "calculation_run_id": "a0be1d95-d185-4a42-9312-a21d20de8d9c",
+    "sets": [
+      "d001d563-988b-4f8e-904f-acb926748e22"
+    ],
+    "rows": 207,
+    "rows_hash": "a866804aa0a1ded52a24be8c56326af723e79cf86ecbe653381094cdd41195d5"
+  },
+  {
+    "calculation_run_id": "a804197e-2fa9-44a7-91c8-f65ed4e0301f",
+    "sets": [
+      "3c459327-59d0-41d5-b21e-aae36361cc77"
+    ],
+    "rows": 260,
+    "rows_hash": "caf3b8e912c9cb018eefda4ab784d0ce55ba84ff65c55d0a207e60c4e9ab0887"
+  },
+  {
+    "calculation_run_id": "b20e3796-86c1-4024-9a5f-ee5b815469ea",
+    "sets": [
+      "472f851c-2e41-4c80-b6fc-8478d1d92730"
+    ],
+    "rows": 120,
+    "rows_hash": "a85d2e6fa13774b167ff4431acc6ef5fcfdf525a549550e53a3c9f8aa8da35b5"
+  },
+  {
+    "calculation_run_id": "bcbbe948-c6d5-47b2-a604-9700f6b33238",
+    "sets": [
+      "3b753fb6-a465-4e68-8ad9-4e34e114d4b7"
+    ],
+    "rows": 107,
+    "rows_hash": "5883249bd672501d0173f245f93b2d026da7230e08066cad2db74cc794491e0e"
+  },
+  {
+    "calculation_run_id": "bf4498c2-8743-4b7d-aad1-59118f5ec74b",
+    "sets": [
+      "5d3d5c23-7098-4393-ad63-6ad9372aee30"
+    ],
+    "rows": 266,
+    "rows_hash": "ade1859bfae43578327cfdf31b5308bf06df5afdfe9f89acb9e04dd16f9dc312"
+  },
+  {
+    "calculation_run_id": "c1fb0c2a-1990-4a6b-ae5f-2b3221b1fd86",
+    "sets": [
+      "b4b34b61-ce48-4fc4-bd91-201a350b2600"
+    ],
+    "rows": 230,
+    "rows_hash": "4522c8a329723b424698d9a73bed4907ffeefcbe7111b0d20eec7211e96b3f3f"
+  },
+  {
+    "calculation_run_id": "c2b02b6a-8aae-467f-88ea-4e935dea2e19",
+    "sets": [
+      "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+    ],
+    "rows": 244,
+    "rows_hash": "a43ac7b2e4b5638df1e983f1bef9dcf1c90411c9427c0e65e9176e2438abe00d"
+  },
+  {
+    "calculation_run_id": "db55e9c3-a7e5-4a35-aea2-1c9231df4251",
+    "sets": [
+      "f59f25a2-d3da-4100-a918-901271a99925"
+    ],
+    "rows": 252,
+    "rows_hash": "759948912b388f0cd4a941b944a5d0c3303685001a93696e6bf9a83fcdc8a5be"
+  },
+  {
+    "calculation_run_id": "de0aee28-b39a-4286-9b97-e03ffd3097b0",
+    "sets": [
+      "41a0ac1c-27ca-444b-8665-8ba35e583a3b"
+    ],
+    "rows": 173,
+    "rows_hash": "69ea783d34e22c2c1de83efcbc86bc960d92cbd83b6509ceb54550b29646aeab"
+  },
+  {
+    "calculation_run_id": "e9ccb779-bd84-4729-9746-850291092523",
+    "sets": [
+      "202518a0-5e86-4949-b1cd-c1c8ad95b616"
+    ],
+    "rows": 279,
+    "rows_hash": "f8d45e3c9942f610f1d5678a773b36517eec142f78fb0d08d663f2d86e2a42a8"
+  },
+  {
+    "calculation_run_id": "f1506299-38a2-4874-a2ce-291ee14fc09f",
+    "sets": [
+      "b3c96740-a4a9-4c3d-a8f6-81ed4584549d"
+    ],
+    "rows": 188,
+    "rows_hash": "cb33764cf28de3ac49c778e57a91212ca95c289f8cfedaefb350fb15f8f15b68"
+  },
+  {
+    "calculation_run_id": "f2ed9183-1159-4782-b168-585a63397870",
+    "sets": [
+      "75cd439d-aaa2-41cb-86f3-2fefa5b26e29"
+    ],
+    "rows": 290,
+    "rows_hash": "f59cf2d08e1d07a6205ef3b158e2b373c1ca90ac71aa537dea5fc95a35c34f2e"
+  },
+  {
+    "calculation_run_id": "fa64ac79-78be-478e-bb73-ecbf107952b5",
+    "sets": [
+      "91442900-3949-4ba4-8398-9e3dc2db1fa6"
+    ],
+    "rows": 218,
+    "rows_hash": "4d5bef4e698c9cee315d4b4ffeb15e631e77d98be9295a088b9c8a2beb0f85cd"
+  },
+  {
+    "calculation_run_id": "fef3dc93-9bf1-4536-a0bc-d36ce4883bec",
+    "sets": [
+      "142d3869-9d39-48b6-a810-751af2aac748"
+    ],
+    "rows": 190,
+    "rows_hash": "aff57988a6591698ce6d5bc11ed9f378a9248330c114f15d1b4d5184ec09e1ba"
+  }
+]
