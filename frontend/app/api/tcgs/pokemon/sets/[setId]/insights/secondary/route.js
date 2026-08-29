@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
-import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
-import { applySetRipEntitlement } from "@/lib/pokemon/setRipEntitlement.mjs";
-
-const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
 
 export async function GET(request, { params }) {
@@ -25,17 +21,18 @@ export async function GET(request, { params }) {
     method: "GET",
     headers: {
       Accept: "application/json",
+      ...(request.headers.get("authorization") ? { Authorization: request.headers.get("authorization") } : {}),
+      ...(request.headers.get("cookie") ? { Cookie: request.headers.get("cookie") } : {}),
     },
     cache: "no-store",
   });
 
   const payload = await proxyResponse.text();
   const contentType = proxyResponse.headers.get("content-type") || "application/json";
-  const cacheControl = proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL;
+  const cacheControl = FAILED_ANALYTICS_CACHE_CONTROL;
 
   if (proxyResponse.ok && contentType.includes("application/json")) {
-    const auth = await getAuthenticatedUserFromCookies();
-    return NextResponse.json(applySetRipEntitlement(JSON.parse(payload), auth?.user || null), {
+    return NextResponse.json(JSON.parse(payload), {
       status: proxyResponse.status,
       headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" },
     });

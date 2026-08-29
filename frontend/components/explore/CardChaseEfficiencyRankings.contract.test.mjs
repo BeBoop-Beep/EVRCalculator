@@ -15,7 +15,7 @@ test("RIP hierarchy ends with Cards without changing the existing lenses", () =>
 
 test("locked Cards is discoverable but cannot fetch Premium rows", () => {
   assert.match(cards, /if \(!entitled\) return <LockedCards/);
-  assert.match(cards, /if \(!entitled\) return undefined/);
+  assert.match(cards, /if \(!entitled\) \{[\s\S]*setResult\(\{ status: "idle", payload: null \}\);[\s\S]*return undefined/);
   assert.match(cards, /data-card-chase-efficiency-locked/);
 });
 
@@ -42,4 +42,11 @@ test("pagination uses authoritative totals and never appends pages", () => {
   assert.match(cards, /setPage\(1\)/);
   assert.match(cards, /result\.payload\?\.totalPages/);
   assert.doesNotMatch(cards, /\.\.\.current.*rows/);
+});
+
+test("query results reuse the parent session cache and in-flight request", () => {
+  assert.match(cards, /canonicalCardQueryKey\(params\)/);
+  assert.match(cards, /sessionCache\?\.peek\(cacheKey\)/);
+  assert.match(cards, /sessionCache\.request\(cacheKey, load\)/);
+  assert.doesNotMatch(cards, /controller\.abort/);
 });

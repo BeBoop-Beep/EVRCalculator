@@ -4,13 +4,37 @@ import test from "node:test";
 const source = fs.readFileSync(new URL("./pokemonCardDetailClient.js", import.meta.url), "utf8");
 const slugifySource = fs.readFileSync(new URL("../../utils/slugify.js", import.meta.url), "utf8")
   .replace(/export function/g, "function");
-const executableSource = source.replace(/^import \{ toSetSlug \} from "@\/utils\/slugify";\r?\n/m, "");
+const executableSource = source.replace(/^import \{ toSetSlug \} from "\.\.\/\.\.\/utils\/slugify\.js";\r?\n/m, "");
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(`${slugifySource}\n${executableSource}`).toString("base64")}`;
-const { buildPokemonCardDetailHref, buildPokemonCardHref, normalizePokemonCardDetail } = await import(moduleUrl);
+const { buildPokemonCardDetailHref, buildPokemonCardHref, normalizePokemonCardDetail, resolvePokemonPublicSetSlug } = await import(moduleUrl);
 
 test("canonical object route canonicalizes set identities and preserves the variant", () => {
   assert.equal(buildPokemonCardDetailHref({ setCanonicalKey: "set / one", canonicalCardId: "card / one", cardVariantId: "variant ? one" }), "/TCGs/Pokemon/Sets/set-one/Cards/card%20%2F%20one?variant=variant%20%3F%20one");
   assert.equal(buildPokemonCardDetailHref({ setCanonicalKey: "ascendedHeroes", canonicalCardId: "card" }), "/TCGs/Pokemon/Sets/ascended-heroes/Cards/card");
+});
+
+test("public set names are the primary route authority across eras", () => {
+  assert.equal(resolvePokemonPublicSetSlug({ name: "Ascended Heroes", canonical_key: "ascendedHeroes" }), "ascended-heroes");
+  assert.equal(resolvePokemonPublicSetSlug({ name: "Surging Sparks", slug: "surgingSparks" }), "surging-sparks");
+  assert.equal(resolvePokemonPublicSetSlug({ name: "Paldea Evolved" }), "paldea-evolved");
+  assert.equal(resolvePokemonPublicSetSlug({ name: "Neo Genesis" }), "neo-genesis");
+});
+
+test("unrelated sets and cards produce their own canonical destinations", () => {
+  const cases = [
+    ["Ascended Heroes", "card-ah"],
+    ["Surging Sparks", "card-ss"],
+    ["Paldea Evolved", "card-pe"],
+    ["Neo Genesis", "card-ng"],
+  ];
+  const hrefs = cases.map(([setName, canonicalCardId]) => buildPokemonCardDetailHref({ setName, canonicalCardId }));
+  assert.equal(new Set(hrefs).size, cases.length);
+  assert.deepEqual(hrefs, [
+    "/TCGs/Pokemon/Sets/ascended-heroes/Cards/card-ah",
+    "/TCGs/Pokemon/Sets/surging-sparks/Cards/card-ss",
+    "/TCGs/Pokemon/Sets/paldea-evolved/Cards/card-pe",
+    "/TCGs/Pokemon/Sets/neo-genesis/Cards/card-ng",
+  ]);
 });
 
 test("missing canonical card identity cannot create a route", () => {

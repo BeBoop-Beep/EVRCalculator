@@ -7,7 +7,42 @@ from backend.db.services.pokemon_explore_set_value_service import (
     ExploreSetValueUnavailable,
     build_global_set_value_row,
     compute_window_movements,
+    read_explore_set_value_snapshot,
+    read_market_explorer_snapshot,
 )
+
+
+class _Result:
+    def __init__(self, data): self.data = data
+
+
+class _SnapshotQuery:
+    def __init__(self, row): self.row = row
+    def select(self, *_args): return self
+    def eq(self, *_args): return self
+    def limit(self, *_args): return self
+    def execute(self): return _Result([self.row])
+
+
+class _SnapshotClient:
+    def __init__(self, row): self.row = row
+    def table(self, _name): return _SnapshotQuery(self.row)
+
+
+def test_market_reader_stays_slim_while_explorer_reader_preserves_published_segments():
+    row = {"market_date": "2026-08-28", "updated_at": "now", "payload_size_bytes": 1,
+           "payload_json": {"marketOverview": {
+               "raw": {"indexValue": 100},
+               "cardSegments": {"raw": {"segments": {"sir": {"available": True}}}},
+               "sealedSegments": {"segments": {"boosterBox": {"available": True}}},
+           }, "sets": [], "meta": {}}}
+    client = _SnapshotClient(row)
+    market = read_explore_set_value_snapshot(client=client)
+    explorer = read_market_explorer_snapshot(client=client)
+    assert "cardSegments" not in market["marketOverview"]
+    assert "sealedSegments" not in market["marketOverview"]
+    assert explorer["marketOverview"]["cardSegments"]["raw"]["segments"]["sir"]["available"] is True
+    assert explorer["marketOverview"]["sealedSegments"]["segments"]["boosterBox"]["available"] is True
 
 
 def history(days=40, start=100.0, set_id="set-1"):

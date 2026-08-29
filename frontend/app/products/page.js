@@ -4,6 +4,7 @@ import ProductStoreFilterWrapper from "@/components/Products/ProductStoreFilter/
 import ProductsCard from "@/components/Products/ProductsCard";
 import { useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -60,9 +61,8 @@ export default function Products() {
   };
 
   const handleProductClick = (product) => {
-    const productId = product?._id || product?.id;
-    if (!productId) return;
-    router.push(`/sealed-products/${encodeURIComponent(String(productId))}`);
+    const href = buildSealedProductHref(product);
+    if (href) router.push(href);
   };
 
   return (

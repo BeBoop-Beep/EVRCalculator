@@ -9,7 +9,7 @@ const marketSource = fs.readFileSync(path.resolve(__dirname, "../Market/page.js"
 
 test("Rankings is the public name and /Explore remains backwards compatible", () => {
   // The public question is visible before the rankings data.
-  assert.ok(exploreSource.includes('<header className="mx-auto mb-5 w-full max-w-5xl">'));
+  assert.ok(exploreSource.includes('<header className="mb-5 w-full">'));
   assert.ok(exploreSource.includes("Pokémon RIP Rankings"));
   assert.ok(rankingsSource.includes('export { default } from "../Explore/page"'));
 });
@@ -24,18 +24,18 @@ test("Rankings — not /Explore — owns the canonical identity of the leaderboa
   assert.ok(rankingsSource.includes('buildRouteMetadata'));
 });
 
-test("Rankings contains one canonical leaderboard with set and family views", () => {
-  assert.ok(exploreSource.includes("<ProductFamilyRankingsClient"));
+test("Rankings contains one lazy canonical leaderboard with all five views", () => {
+  assert.ok(exploreSource.includes("<RankingsLazyClient"));
   assert.ok(!exploreSource.includes("ExploreMarketMovers"));
   assert.ok(!exploreSource.includes("SetMarketExplorer"));
   assert.ok(!exploreSource.includes("getExploreMarketMovers"));
-  assert.equal((exploreSource.match(/getRipStatisticsTargets\(/g) || []).length, 1);
-  assert.ok(exploreSource.includes("targets.filter(isPublicAnalyticsEligiblePokemonSet)"));
+  assert.equal((exploreSource.match(/getRipStatisticsTargets\(/g) || []).length, 0);
+  assert.ok(exploreSource.includes("getPokemonSetRouteDirectory"));
 });
 
 test("Rankings preserves its bounded layout and existing atmosphere", () => {
   assert.ok(exploreSource.includes("max-w-7xl"));
-  assert.ok(exploreSource.includes("max-w-5xl"));
+  assert.ok(exploreSource.includes("md:max-w-[100rem]"));
   assert.ok(/px-4[^\"]*sm:px-6[^\"]*lg:px-8/.test(exploreSource));
   assert.ok(exploreSource.includes('getExploreBackground("pokemon")'));
 });

@@ -1,0 +1,24 @@
+{
+  "study_id": "treatment-market-prestige-v3-r3-mag-a39cf55ee20e1c16",
+  "manifest_hash": "a39cf55ee20e1c16f93c6e43ab0650d0eafc2a7abe8f15fef3fe7b30f6a28188",
+  "frozen_at": "2026-08-29T18:08:39.907242+00:00",
+  "methodology": "treatment_market_prestige_v3_round3_magnitude",
+  "round1_study_id": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+  "round1_cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+  "round2_study_id": "treatment-market-prestige-v3-r2-9439727344d3bbb5",
+  "round2_cohort_hash": "797fe80e91db99ff05387ba1597382896d5915e6cdd5c696e0d781a3e288e427",
+  "temporal_manifest_hash": "1ea452e28039e366c5548a1d19b25f7f00653fb01913cecdf8de21197b97d77d",
+  "taxonomy_version": "pokemon_card_treatment_taxonomy_v3_decomposed",
+  "demand_snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+  "cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+  "rows": 19847,
+  "gates": {
+    "practical_equivalence_log_margin": 0.22314355131420976,
+    "minimum_set_ir": 10,
+    "minimum_set_sir": 5,
+    "minimum_stratum_each": 20,
+    "pilot_minimum_cell": 25,
+    "pilot_minimum_sets": 3,
+    "bootstrap_draws": 399
+  }
+}

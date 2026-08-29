@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple
 
@@ -32,6 +34,16 @@ logger = logging.getLogger(__name__)
 
 class AuthClientUnavailableError(RuntimeError):
     pass
+
+
+class ProfileProvisioningError(RuntimeError):
+    """A verified Auth identity cannot safely be mapped to an app profile."""
+
+    code = "PROFILE_PROVISIONING_FAILED"
+
+
+class ProfileIdentityConflictError(ProfileProvisioningError):
+    code = "ACCOUNT_LINK_REQUIRED"
 
 
 def _create_auth_client():
@@ -93,6 +105,127 @@ def issue_token(user_id: str, email: Optional[str], name: Optional[str]) -> str:
         "iat": now,
     }
     return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def _safe_provider_text(value: Any, *, max_length: int) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    value = " ".join(value.strip().split())
+    if not value or len(value) > max_length or any(ord(char) < 32 for char in value):
+        return None
+    return value
+
+
+def _safe_avatar_url(value: Any) -> Optional[str]:
+    value = _safe_provider_text(value, max_length=500)
+    if not value or not re.match(r"^https://[^\\\s]+$", value, re.IGNORECASE):
+        return None
+    return value
+
+
+def _verified_auth_user_fields(auth_user: Any) -> Tuple[str, str, Dict[str, Any]]:
+    user_id = str(getattr(auth_user, "id", "") or "").strip()
+    email = _normalize_email(getattr(auth_user, "email", None))
+    metadata = getattr(auth_user, "user_metadata", None) or {}
+    if not user_id or not email:
+        raise ProfileProvisioningError("Verified identity is missing required account fields.")
+    try:
+        from uuid import UUID
+        UUID(user_id)
+    except (TypeError, ValueError) as exc:
+        raise ProfileProvisioningError("Verified identity has an invalid account identifier.") from exc
+    return user_id, email, metadata if isinstance(metadata, dict) else {}
+
+
+def ensure_app_profile_for_supabase_user(auth_user: Any, *, db_client: Any = None) -> Dict[str, Any]:
+    """Provision a Base profile for a server-verified Supabase identity.
+
+    Identity is matched by UUID only. An email owned by another UUID is a
+    migration conflict, never an invitation to merge accounts. Entitlement is
+    neither read from metadata nor included in inserts.
+    """
+    client = db_client or supabase
+    user_id, email, metadata = _verified_auth_user_fields(auth_user)
+
+    existing = _first_row(
+        client.table("users").select(PROFILE_SELECT_FIELDS).eq("id", user_id).limit(1).execute()
+    )
+    if existing:
+        return existing
+
+    email_owner = _first_row(
+        client.table("users").select("id,email").ilike("email", email).limit(1).execute()
+    )
+    if email_owner and str(email_owner.get("id")) != user_id:
+        logger.warning(
+            "supabase profile identity conflict verified_user_id=%s existing_user_id=%s",
+            user_id,
+            email_owner.get("id"),
+        )
+        raise ProfileIdentityConflictError(
+            "This account needs a one-time identity migration before it can sign in."
+        )
+
+    display_name = _safe_provider_text(
+        metadata.get("display_name") or metadata.get("full_name") or metadata.get("name"),
+        max_length=100,
+    )
+    avatar_url = _safe_avatar_url(metadata.get("avatar_url") or metadata.get("picture"))
+
+    for _attempt in range(6):
+        username = f"collector-{secrets.token_hex(4)}"
+        profile = {"id": user_id, "email": email, "username": username}
+        if display_name:
+            profile["display_name"] = display_name
+        if avatar_url:
+            profile["avatar_url"] = avatar_url
+        try:
+            result = client.table("users").insert(profile).execute()
+            created = _first_row(result)
+            return created or {**profile, "index_plan": None}
+        except Exception as exc:
+            # Only retry a username collision. A concurrent request may also
+            # have completed the same UUID insert, so re-read before failing.
+            concurrent = _first_row(
+                client.table("users").select(PROFILE_SELECT_FIELDS).eq("id", user_id).limit(1).execute()
+            )
+            if concurrent:
+                return concurrent
+            if "username" not in str(exc).lower() or "unique" not in str(exc).lower():
+                logger.exception("supabase profile provisioning failed user_id=%s", user_id)
+                raise ProfileProvisioningError("Unable to create the application profile.") from exc
+
+    raise ProfileProvisioningError("Unable to allocate a unique application username.")
+
+
+def exchange_supabase_access_token(access_token: Any) -> Tuple[Dict[str, Any], int]:
+    """Verify a Supabase token remotely, then issue the canonical app JWT."""
+    if not isinstance(access_token, str) or not access_token.strip():
+        return {"message": "Supabase access token is required.", "code": "INVALID_SUPABASE_TOKEN"}, 401
+    try:
+        auth_client = _create_auth_client()
+        verified = auth_client.auth.get_user(access_token.strip())
+        auth_user = getattr(verified, "user", None)
+        if not auth_user:
+            return {"message": "Invalid or expired authentication session.", "code": "INVALID_SUPABASE_TOKEN"}, 401
+    except AuthClientUnavailableError as exc:
+        return {"message": str(exc), "code": "AUTH_SERVICE_UNAVAILABLE"}, 503
+    except Exception as exc:
+        logger.info("supabase token verification denied error_type=%s", type(exc).__name__)
+        return {"message": "Invalid or expired authentication session.", "code": "INVALID_SUPABASE_TOKEN"}, 401
+
+    try:
+        profile = ensure_app_profile_for_supabase_user(auth_user)
+    except ProfileIdentityConflictError as exc:
+        return {"message": str(exc), "code": exc.code}, 409
+    except ProfileProvisioningError as exc:
+        return {"message": str(exc), "code": exc.code}, 503
+    except Exception:
+        logger.exception("unexpected app profile provisioning failure")
+        return {"message": "Unable to prepare the application profile.", "code": "PROFILE_PROVISIONING_FAILED"}, 503
+
+    token = issue_token(str(profile["id"]), profile.get("email"), profile.get("username"))
+    return {"token": token}, 200
 
 
 def decode_token(token: Optional[str]) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Dict[str, Any], int]]]:
@@ -397,6 +530,7 @@ def get_me(token: Optional[str]) -> Tuple[Dict[str, Any], int]:
         **token_user,
         "username": username,
         "display_name": display_name,
+        "name": display_name or username or token_user.get("name") or "",
         "index_plan": index_plan,
     }
 
@@ -660,14 +794,21 @@ def get_current_profile(token: Optional[str]) -> Tuple[Dict[str, Any], int]:
             type(exc).__name__,
             str(exc),
         )
-        return {"message": "Unable to fetch profile"}, 500
+        profile, profile_error = None, "Profile lookup unavailable"
 
     if profile_error:
+        me_payload, me_status = get_me(token)
+        fallback_user = (me_payload or {}).get("user") if me_status == 200 else None
+        if isinstance(fallback_user, dict) and fallback_user.get("id"):
+            return {
+                "profile": normalize_profile_username(fallback_user),
+                "profile_warning": "PROFILE_FROM_TOKEN_FALLBACK",
+            }, 200
         if profile_error == "Profile not found":
             return {"message": profile_error, "code": "PROFILE_NOT_FOUND"}, 404
         return {"message": "Unable to fetch profile"}, 500
 
-    return {"profile": profile}, 200
+    return {"profile": normalize_profile_username(profile)}, 200
 
 
 def update_profile(token: Optional[str], payload: Any) -> Tuple[Dict[str, Any], int]:

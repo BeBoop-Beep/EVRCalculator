@@ -118,16 +118,11 @@ test("the row never repairs nested semantics with stopPropagation", () => {
   );
 });
 
-test("the row destination keeps the set and the timeframe context", () => {
-  assert.ok(source.includes("const topChaseRowHref = updateSetDetailQueryParams("), "the href is built from the shared builder");
-  const hrefBlock = source.slice(
-    source.indexOf("const topChaseRowHref = updateSetDetailQueryParams("),
-    source.indexOf("});", source.indexOf("const topChaseRowHref = updateSetDetailQueryParams("))
-  );
-  assert.ok(hrefBlock.includes('tab: "cards"'), "chase rows lead into the Cards experience for this set");
-  assert.ok(hrefBlock.includes('cardSort: "current-price"'), "the sort key must be one the Cards tab recognises");
-  assert.ok(source.includes("rowHref={topChaseRowHref}"), "the destination reaches the module");
-  assert.ok(source.includes("href={rowHref}"), "the destination reaches each row");
+test("each compact chase row uses its own canonical card destination", () => {
+  assert.ok(source.includes("setSlug={activeSetSlug}"), "the public set slug reaches the module");
+  assert.ok(source.includes("href={buildPokemonCardHref(setSlug, card)}"), "each row resolves its own card identity");
+  assert.ok(source.includes("viewAllHref: topChaseRowHref"), "the collection CTA retains the Cards listing destination");
+  assert.ok(!source.includes("rowHref={topChaseRowHref}"), "a shared collection href never reaches card rows");
 });
 
 test("rows 6-10 are never discarded", () => {

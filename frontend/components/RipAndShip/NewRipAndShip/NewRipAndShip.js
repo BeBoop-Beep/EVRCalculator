@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation"; // Import useRouter
 import styles from "./NewRipAndShip.module.css";
 import Image from "next/image";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 
 export default function NewProducts({ products }) {
   const router = useRouter(); // Initialize the router
@@ -14,9 +15,8 @@ export default function NewProducts({ products }) {
 
   // Function to handle product click
   const handleProductClick = (product) => {
-    const productId = product?._id || product?.id;
-    if (!productId) return;
-    router.push(`/sealed-products/${encodeURIComponent(String(productId))}`);
+    const href = buildSealedProductHref(product);
+    if (href) router.push(href);
   };
 
   return (

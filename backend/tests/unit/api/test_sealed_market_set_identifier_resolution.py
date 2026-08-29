@@ -23,11 +23,16 @@ hand-rolled query bypassed entirely.
 """
 
 import pytest
+from fastapi import Request
 
 from backend.api import main as api_main
 
 
 SET_UUID = "75cd439d-aaa2-41cb-86f3-2fefa5b26e29"
+
+
+def _request():
+    return Request({"type": "http", "method": "GET", "path": "/", "headers": [], "client": ("test", 1)})
 
 
 @pytest.fixture
@@ -71,10 +76,10 @@ def sealed_reads(monkeypatch):
 def test_sealed_market_accepts_every_identifier_form_its_siblings_accept(
     identifier, resolver_calls, sealed_reads
 ):
-    response = api_main.get_pokemon_set_sealed_market(identifier)
+    response = api_main.get_pokemon_set_sealed_market(_request(), identifier)
 
-    # A JSONResponse here means an error status; a dict means the payload.
-    assert isinstance(response, dict), (
+    # Tier-aware responses are explicit no-store JSONResponse objects.
+    assert isinstance(response, dict) or getattr(response, "status_code", None) == 200, (
         f"/market/sealed rejected identifier {identifier!r} that sibling set modules accept; "
         f"got {getattr(response, 'status_code', response)!r}"
     )
@@ -87,5 +92,5 @@ def test_sealed_market_uses_the_shared_resolver_not_a_hand_rolled_query(resolver
     Bypassing it is what both broke case tolerance and dropped sealed out of
     `run_public_read_with_retry`'s dead-socket protection.
     """
-    api_main.get_pokemon_set_sealed_market("ascendedheroes")
+    api_main.get_pokemon_set_sealed_market(_request(), "ascendedheroes")
     assert resolver_calls == ["ascendedheroes"]

@@ -1,0 +1,217 @@
+{
+  "operational": {
+    "semantics": "How strongly the market values this card's treatment package relative to evidence-supported treatments in the appropriate Pok\u00e9mon era or treatment regime, after adjusting for established non-treatment characteristics.",
+    "score_drift": {
+      "maximum_adjacent_checkpoint": 0.5,
+      "maximum_30_day": 0.5,
+      "maximum_90_day": 1.0,
+      "rank_flip_confidence_floor": 0.8,
+      "maximum_interval_width_expansion_ratio": 1.5,
+      "maximum_tier_steps": 1,
+      "classification": "movement within gates is MARKET_MOVEMENT; a breached gate without a source/cohort/taxonomy explanation is MODEL_INSTABILITY"
+    },
+    "treatment_gate": {
+      "minimum_cards": 25,
+      "minimum_sets": 3,
+      "minimum_species": 20,
+      "maximum_single_set_share": 0.6,
+      "minimum_price_coverage": 0.95,
+      "maximum_score_interval_width": 2.0,
+      "maximum_prediction_interval_width": 4.0,
+      "maximum_loso_shift": 1.0,
+      "minimum_historical_checkpoints": 4,
+      "minimum_history_days": 85
+    },
+    "universe_gate": {
+      "minimum_eligible_treatments": 2,
+      "minimum_sets": 3,
+      "unique_ordering_required": false
+    },
+    "heterogeneity_gate": {
+      "production_eligible_prediction_width": 2.5,
+      "high_uncertainty_prediction_width": 4.0,
+      "maximum_between_set_score_sd": 1.25,
+      "maximum_loso_shift": 1.0,
+      "maximum_90_day_drift": 1.0,
+      "maximum_heldout_rmse_ratio": 1.02
+    },
+    "staleness": {
+      "market_authority_age_days": 45,
+      "publication_age_days": 62,
+      "taxonomy_or_universe_change": "immediate MODEL_STALE",
+      "baseline_change": "old run remains reproducible but is not latest-version eligible",
+      "material_new_set": "MODEL_STALE after 30 days unless entry review completes"
+    },
+    "precision": {
+      "storage": "numeric(6,4) for score/effects and numeric(7,4) interval bounds",
+      "api": "one decimal scoreDisplay; full stored numeric score reserved for audit",
+      "display": "one decimal"
+    },
+    "cadence": {
+      "candidate_build": "weekly coordinated market snapshot",
+      "approved_promotion": "monthly after full validation; exceptional promotion after canonical taxonomy/universe change",
+      "reason": "monthly checkpoints show stability, but no evidence supports daily promotion and daily prices would imply false responsiveness"
+    },
+    "freshness": "current market prestige as of a coordinated approved snapshot; hierarchical stabilization, not a temporal moving-average blend"
+  },
+  "database": {
+    "publication_run": {
+      "table": "treatment_market_prestige_publication_runs",
+      "fields": {
+        "id": "uuid pk",
+        "model_version": "text not null",
+        "methodology_version": "text not null",
+        "score_transform_version": "text not null",
+        "baseline_version": "text not null",
+        "market_reference_date": "date not null",
+        "built_at": "timestamptz not null",
+        "approval_status": "enum(candidate, approved, rejected, revoked)",
+        "approved_at": "timestamptz nullable",
+        "approved_by": "uuid nullable",
+        "comparison_universe_config_hash": "text not null",
+        "source_cohort_hash": "text not null",
+        "validation_metadata": "jsonb not null"
+      },
+      "constraints": [
+        "approval is explicit and transactional",
+        "unique approved model/methodology/baseline/reference tuple"
+      ]
+    },
+    "score_row": {
+      "table": "treatment_market_prestige_scores",
+      "fields": {
+        "id": "uuid pk",
+        "publication_run_id": "uuid fk not null",
+        "era_id": "uuid not null",
+        "treatment_regime_id": "text nullable",
+        "comparison_universe_type": "enum(era_relative,treatment_regime_relative)",
+        "treatment_key": "text not null",
+        "coefficient": "numeric(10,6) not null",
+        "score": "numeric(6,4) nullable",
+        "score_interval_low": "numeric(6,4) nullable",
+        "score_interval_high": "numeric(6,4) nullable",
+        "prediction_interval_low": "numeric(6,4) nullable",
+        "prediction_interval_high": "numeric(6,4) nullable",
+        "evidence_status": "text not null",
+        "card_count": "int not null",
+        "species_count": "int not null",
+        "set_count": "int not null",
+        "between_set_variance": "numeric nullable",
+        "ordering_metadata": "jsonb not null",
+        "as_of_date": "date not null",
+        "provenance": "jsonb not null"
+      },
+      "constraints": [
+        "unique run/universe/regime/treatment",
+        "score is null unless evidence_status AVAILABLE or SUPPORTED_WITH_HIGH_UNCERTAINTY",
+        "no redundant full research artifact"
+      ]
+    },
+    "latest_approved_reader": {
+      "name": "latest_approved_treatment_market_prestige",
+      "semantics": "security-invoker read model selecting the greatest approved market_reference_date, then approved_at, only within the current non-stale methodology/baseline version; candidate/completed/rejected/revoked runs are invisible; explicit approval cannot be inferred from successful execution",
+      "publication_atomicity": "run and all score rows staged as candidate, validation finalized, then one transaction changes approval; partial writes never become visible"
+    }
+  },
+  "api": {
+    "field": "treatmentMarketPrestige",
+    "nullable": false,
+    "fields": {
+      "status": "fail-closed status enum",
+      "modelVersion": "string|null",
+      "methodologyVersion": "string|null",
+      "asOfDate": "date|null",
+      "eraId": "uuid|null",
+      "eraName": "string|null",
+      "comparisonUniverseType": "ERA_RELATIVE|TREATMENT_REGIME_RELATIVE|null",
+      "treatmentRegimeId": "string|null",
+      "treatmentKey": "string|null",
+      "treatmentLabel": "string|null",
+      "score": "number|null",
+      "scoreDisplay": "string|null",
+      "scoreInterval": "{low,high}|null",
+      "tier": "null initially",
+      "confidence": "STANDARD|HIGH_UNCERTAINTY|null",
+      "evidenceStatus": "string",
+      "cardCount": "integer|null",
+      "setCount": "integer|null",
+      "comparisonUniverseSize": "integer|null"
+    },
+    "resolution": "card -> canonical era -> frozen set-to-regime mapping where applicable -> normalized treatment key -> latest approved non-stale eligible row",
+    "forbidden": [
+      "frontend calculation",
+      "rarity-name heuristic",
+      "V1 fallback",
+      "neighbor treatment fallback",
+      "neighbor era fallback"
+    ],
+    "tooltip_requirements": [
+      "market-relative within the appropriate era/regime",
+      "real-world scarcity and mechanics bundled with the treatment are part of the package",
+      "not Exact Pull Scarcity",
+      "similar prestige can produce similar scores",
+      "unsupported evidence is unavailable, never estimated"
+    ]
+  },
+  "entryRules": {
+    "new_set": {
+      "initial_status": "MODEL_STALE for affected universe pending review; its rows do not influence approved scores",
+      "gates": [
+        "canonical set/era mapping complete",
+        "price maturity >=30 days",
+        "minimum 25 eligible cards and >=5 per treatment cell",
+        "taxonomy/mechanics coverage >=95%",
+        "hierarchy estimable",
+        "leave-one-new-set influence <=1.0 score point",
+        "publication validation passes"
+      ],
+      "regime": "join only through structural ontology review; price behavior cannot create a regime"
+    },
+    "new_treatment": {
+      "initial_status": "NEW_TREATMENT_RESEARCHING",
+      "gates": [
+        "normalized taxonomy approved",
+        ">=25 cards, >=3 sets, >=20 species",
+        "price maturity >=30 days",
+        "four checkpoints spanning >=85 days",
+        "hierarchical and influence gates pass",
+        "universe still has >=2 eligible treatments"
+      ],
+      "fallback": "none; no V1, neighboring treatment, or cross-era borrowing"
+    },
+    "baseline": {
+      "creation": "created for a newly validated comparison universe or methodology major version",
+      "replacement": "only after full historical backtest and explicit approval",
+      "versioning": "replacement requires score-transform/baseline version bump; methodology bump if formula/estimand changes",
+      "new_sets": "never mutate an existing baseline",
+      "new_treatments": "enter against the frozen baseline after eligibility; do not re-center prior scores",
+      "history": "every row retains baseline version and immutable parameters"
+    }
+  },
+  "promotionGate": [
+    "cohort_integrity",
+    "taxonomy_mapping",
+    "model_execution",
+    "treatment_eligibility",
+    "universe_eligibility",
+    "temporal_validation",
+    "baseline_version_compatibility",
+    "score_drift_and_influence",
+    "historical_regression_tests",
+    "atomic_write_simulation",
+    "explicit_human_approval"
+  ],
+  "failStatuses": [
+    "AVAILABLE",
+    "INSUFFICIENT_TREATMENT_SUPPORT",
+    "INSUFFICIENT_ERA_SUPPORT",
+    "INSUFFICIENT_REGIME_SUPPORT",
+    "HIGH_HETEROGENEITY",
+    "INSUFFICIENT_HISTORY",
+    "TAXONOMY_UNMAPPED",
+    "NEW_TREATMENT_RESEARCHING",
+    "MODEL_INSTABILITY",
+    "MODEL_STALE",
+    "NO_APPROVED_RUN"
+  ]
+}

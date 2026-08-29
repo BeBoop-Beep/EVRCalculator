@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation"; // Import useRouter
 import Spinner from "@/utils/Spinner";
 import styles from "./NewProducts.module.css";
 import Image from "next/image";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 
 export default function NewProducts({ products, isLoading = false }) {
   const router = useRouter(); // Initialize the router
@@ -23,9 +24,8 @@ export default function NewProducts({ products, isLoading = false }) {
 
   // Function to handle product click
   const handleProductClick = (product) => {
-    const productId = product?._id || product?.id;
-    if (!productId) return;
-    router.push(`/sealed-products/${encodeURIComponent(String(productId))}`);
+    const href = buildSealedProductHref(product);
+    if (href) router.push(href);
   };
 
   return (

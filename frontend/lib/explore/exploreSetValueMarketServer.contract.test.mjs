@@ -18,6 +18,7 @@ const SNAPSHOT = {
     topChase: { basketValue: 555.5, indexValue: 97.25, historyStartDate: "2024-01-01", changes: {}, trend: [] },
   },
   sets: [{ setId: "set-a", currentSetValue: 10 }],
+  initialSelectedSetMovers: { setId: "set-a", window: "7d", movers: [{ cardId: "card-a" }] },
   meta: { snapshot: { marketDate: "2024-03-04" } },
 };
 
@@ -35,15 +36,17 @@ test.after(() => {
   Date.now = realNow;
 });
 
-test("the adapter preserves marketOverview, sets and meta", async () => {
+test("the adapter preserves marketOverview, sets, the default 7D movers seed and meta", async () => {
   stubFetch(async () => ({ ok: true, json: async () => SNAPSHOT }));
   const payload = await getExploreSetValueMarket();
 
-  assert.deepEqual(Object.keys(payload).sort(), ["marketOverview", "meta", "sets"]);
+  assert.deepEqual(Object.keys(payload).sort(), ["initialSelectedSetMovers", "marketOverview", "meta", "sets"]);
   assert.equal(payload.marketOverview.contractVersion, "pokemon-market-overview-v1");
   assert.equal(payload.marketOverview.raw.indexValue, 104.5);
   assert.equal(payload.marketOverview.topChase.basketValue, 555.5);
   assert.equal(payload.sets.length, 1);
+  assert.equal(payload.initialSelectedSetMovers.window, "7d");
+  assert.equal(payload.initialSelectedSetMovers.movers.length, 1);
   assert.equal(payload.meta.snapshot.marketDate, "2024-03-04");
 });
 
@@ -60,4 +63,5 @@ test("a stale cached payload still carries its marketOverview when the request f
   assert.ok(payload.marketOverview, "stale fallback must not drop marketOverview");
   assert.equal(payload.marketOverview.raw.indexValue, 104.5);
   assert.equal(payload.sets.length, 1);
+  assert.equal(payload.initialSelectedSetMovers.window, "7d");
 });

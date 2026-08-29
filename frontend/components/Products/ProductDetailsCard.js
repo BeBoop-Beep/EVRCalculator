@@ -1,14 +1,14 @@
 "use client";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 
 export default function ProductDetailsCard({ product }) {
   const router = useRouter();
 
   const handleProductClick = () => {
-    const productId = product?._id || product?.id;
-    if (!productId) return;
-    router.push(`/sealed-products/${encodeURIComponent(String(productId))}`);
+    const href = buildSealedProductHref(product);
+    if (href) router.push(href);
   };
 
   return (

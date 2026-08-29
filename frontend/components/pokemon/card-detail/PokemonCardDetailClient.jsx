@@ -1149,6 +1149,7 @@ function CardArtwork({ detail, imageRef, onLoad }) {
       alt={`${detail.card.name} card artwork`}
       width={734}
       height={1024}
+      sizes="(min-width: 768px) 430px, 300px"
       priority
       onLoad={onLoad}
       onError={() => setFailed(true)}
@@ -1181,6 +1182,7 @@ export default function PokemonCardDetailClient({ initialDetail }) {
       return undefined;
     }
     const controller = new AbortController();
+    let active = true;
     setChaseEfficiencyState({ status: "loading", payload: null });
     getPokemonCardChaseEfficiency(
       detail.set.id,
@@ -1188,16 +1190,21 @@ export default function PokemonCardDetailClient({ initialDetail }) {
       detail.selectedVariantId,
       { signal: controller.signal },
     )
-      .then((payload) => setChaseEfficiencyState({ status: "ready", payload }))
+      .then((payload) => {
+        if (active) setChaseEfficiencyState({ status: "ready", payload });
+      })
       .catch((caught) => {
-        if (caught.name !== "AbortError")
+        if (active && caught.name !== "AbortError")
           setChaseEfficiencyState({
             status: "error",
             error: caught.message,
             payload: null,
           });
       });
-    return () => controller.abort();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [
     premiumEntitled,
     detail.set.id,

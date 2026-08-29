@@ -1,0 +1,55 @@
+{
+  "study_id": "treatment-market-prestige-v3-r6-f51c77c192e216f5",
+  "manifest_hash": "f51c77c192e216f5b0590c18b32e2aca1df7844be5649eb270e61add09ce114a",
+  "frozen_at": "2026-08-29T19:32:50.633502+00:00",
+  "round5_study_id": "treatment-market-prestige-v3-r5-63a7fdee93518f74",
+  "round5_study_hash": "fd2c4acb9737b1e0d3e2dea98e2291955107197a1d638b164e596e122ceff161",
+  "round4_definition_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+  "temporal_manifest_hash": "1ea452e28039e366c5548a1d19b25f7f00653fb01913cecdf8de21197b97d77d",
+  "contract_hash": "1696d156b3cb7857954a10c620e15b333f9a3c18d177c98642048539daed1355",
+  "database_contract_hash": "4ee99250e96b9fa788062addb444e15522ad2eae43fbd7dbee6b9feb455b53a5",
+  "api_contract_hash": "16e23e42ee909e55fa10da19f1a0eb5633d23dbd8d4356b2d1672c7f928038a7",
+  "checkpoints": [
+    {
+      "reference_date": "2026-05-31",
+      "source_cohort_hash": "b950fb5a5ae3010ef883258a52cf90ce583e9eda8fd8fc1f4a2646ca7ddfb7b0",
+      "canonical_mapping_hash": "f297fa97379a96221e73dec71f78524bec9562f5b8798765bf97ef4dcf018755",
+      "taxonomy_hash": "82aec01c61449ec519df6b53d9c211009114e4efdd678f633c69c4b0a8e793fb",
+      "comparison_universe_definition_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+      "model_version": "tmp-v3-hierarchical-r5",
+      "baseline_parameters_hash": "6c1ae19217ee8758057bf251aa60d26a397f66319729f1abbff51e21424cdbf4",
+      "checkpoint_contract_hash": "2419f99f918cf5df4754c4ccb306db3e1315e2ecd0a1a8434c7db670b45f6b61"
+    },
+    {
+      "reference_date": "2026-06-30",
+      "source_cohort_hash": "9623fe033e8f64d2ccb6c7d5c846134ac685a9a86db82ea48c3c62913642947d",
+      "canonical_mapping_hash": "f297fa97379a96221e73dec71f78524bec9562f5b8798765bf97ef4dcf018755",
+      "taxonomy_hash": "82aec01c61449ec519df6b53d9c211009114e4efdd678f633c69c4b0a8e793fb",
+      "comparison_universe_definition_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+      "model_version": "tmp-v3-hierarchical-r5",
+      "baseline_parameters_hash": "6c1ae19217ee8758057bf251aa60d26a397f66319729f1abbff51e21424cdbf4",
+      "checkpoint_contract_hash": "d746dcca676f56cebd6bdbb642efa7c7e3890d2a49651b9f37c53eb685a41fd7"
+    },
+    {
+      "reference_date": "2026-07-30",
+      "source_cohort_hash": "6ec024ff071697c072b16163e8c0d32c6d0df30c62991bcbd92328ef1f552fb6",
+      "canonical_mapping_hash": "f297fa97379a96221e73dec71f78524bec9562f5b8798765bf97ef4dcf018755",
+      "taxonomy_hash": "82aec01c61449ec519df6b53d9c211009114e4efdd678f633c69c4b0a8e793fb",
+      "comparison_universe_definition_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+      "model_version": "tmp-v3-hierarchical-r5",
+      "baseline_parameters_hash": "6c1ae19217ee8758057bf251aa60d26a397f66319729f1abbff51e21424cdbf4",
+      "checkpoint_contract_hash": "9b5a3f278ef109c58f96172ece1f4a4b111acb7654e2042757f22f4dca1050ee"
+    },
+    {
+      "reference_date": "2026-08-29",
+      "source_cohort_hash": "fc089585f864b6747574459e288c4fe339daea5a4bf13d9111bfd9f478d97a06",
+      "canonical_mapping_hash": "f297fa97379a96221e73dec71f78524bec9562f5b8798765bf97ef4dcf018755",
+      "taxonomy_hash": "82aec01c61449ec519df6b53d9c211009114e4efdd678f633c69c4b0a8e793fb",
+      "comparison_universe_definition_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+      "model_version": "tmp-v3-hierarchical-r5",
+      "baseline_parameters_hash": "6c1ae19217ee8758057bf251aa60d26a397f66319729f1abbff51e21424cdbf4",
+      "checkpoint_contract_hash": "c4e541240adfb7ef52df0e2ecd91b576246700a38b56f4e7745bd43d521ccd95"
+    }
+  ],
+  "study_hash": "6984c4db859b4b39d8e6a11d3544422d1c7ae3d9e2b9b112ac1907953c524f4a"
+}

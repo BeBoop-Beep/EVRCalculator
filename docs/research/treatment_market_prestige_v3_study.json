@@ -1,0 +1,4225 @@
+{
+  "study_name": "Treatment Market Prestige V3 Round 1",
+  "estimand": "observational real-world treatment-package market association",
+  "frozen_study": {
+    "study_id": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+    "manifest_hash": "6959bfa9889458fe5ed2e241065dbec7a0c62f609de6f5141092884ce1e9e075",
+    "frozen_at": "2026-08-29T17:00:26.328187+00:00",
+    "market_reference_date": "2026-08-29",
+    "pricing_semantics": "one authoritative latest positive USD Near Mint selected variant per canonical card",
+    "methodology_version": "treatment_market_prestige_v3_round1",
+    "taxonomy_version": "pokemon_card_treatment_taxonomy_v3_decomposed",
+    "source_git_sha": "4b35b0cb95304ffec2d01086abd95508b9607dec",
+    "cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+    "input_hashes": {
+      "canonical_cards": "cd9d1b12b80e7d6c968c81bd4a4ae74612d9eb80f74e75c1b14c820b21bc9395",
+      "selected_prices": "2be4f41ab4995d68f6765522b4ce1185dc8821f5f18938fbda235a5f8c54af6f",
+      "sets": "63a9d8aa4e90dd4564e6e1973f15d96e5a1c99688ebd2a6d2b98ef8a7e81d777",
+      "eras": "02f2a26b8c6996c957171712d0fd53aab5cc6078da0ff12c04f3e896ec2f634f",
+      "selected_variants": "3931e22cef33b8bf959e6e4320d3aebb69385a1601b7bfd13f029131b97616d7",
+      "demand_snapshot": "06935c2a4ee6da47aac38bf8fba48468ab4a282b902092496749f20b92858cd3"
+    },
+    "demand_snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+    "demand_snapshot_hash": "06935c2a4ee6da47aac38bf8fba48468ab4a282b902092496749f20b92858cd3",
+    "row_count": 19847
+  },
+  "cohort_audit": {
+    "canonical_cards": 20651,
+    "priced_canonical_cards": 19847,
+    "variants": 40654,
+    "priced_variants": 19836,
+    "priced_sets": 165,
+    "priced_eras": 17,
+    "species": 1022,
+    "single_species_rows": 16242,
+    "independent_demand_covered_rows": 16242,
+    "join_failures": {
+      "unmapped_rarity_designation": 238,
+      "canonical_without_selected_nm_price": 804
+    },
+    "selected_variant_join_failure_rate": 0.0,
+    "priced_variant_semantics": "distinct variants selected by the canonical current positive USD Near Mint authority",
+    "taxonomy": {
+      "rarity_designation": [
+        {
+          "value": "common",
+          "rows": 5329,
+          "sets": 138,
+          "eras": 16,
+          "species": 617
+        },
+        {
+          "value": "uncommon",
+          "rows": 4858,
+          "sets": 137,
+          "eras": 16,
+          "species": 683
+        },
+        {
+          "value": "rare",
+          "rows": 2567,
+          "sets": 132,
+          "eras": 16,
+          "species": 585
+        },
+        {
+          "value": "rare_holo",
+          "rows": 1588,
+          "sets": 105,
+          "eras": 13,
+          "species": 421
+        },
+        {
+          "value": "rare_ultra",
+          "rows": 778,
+          "sets": 64,
+          "eras": 4,
+          "species": 250
+        },
+        {
+          "value": "promo",
+          "rows": 764,
+          "sets": 9,
+          "eras": 6,
+          "species": 223
+        },
+        {
+          "value": "illustration_rare",
+          "rows": 492,
+          "sets": 21,
+          "eras": 2,
+          "species": 437
+        },
+        {
+          "value": "ultra_rare",
+          "rows": 363,
+          "sets": 27,
+          "eras": 4,
+          "species": 172
+        },
+        {
+          "value": "rare_rainbow",
+          "rows": 324,
+          "sets": 30,
+          "eras": 2,
+          "species": 159
+        },
+        {
+          "value": "rare_secret",
+          "rows": 321,
+          "sets": 80,
+          "eras": 10,
+          "species": 105
+        },
+        {
+          "value": "double_rare",
+          "rows": 319,
+          "sets": 22,
+          "eras": 2,
+          "species": 227
+        },
+        {
+          "value": "rare_holo_ex",
+          "rows": 308,
+          "sets": 38,
+          "eras": 3,
+          "species": 150
+        },
+        {
+          "value": "rare_holo_v",
+          "rows": 281,
+          "sets": 23,
+          "eras": 1,
+          "species": 188
+        },
+        {
+          "value": "__unmapped__",
+          "rows": 238,
+          "sets": 20,
+          "eras": 7,
+          "species": 144
+        },
+        {
+          "value": "special_illustration_rare",
+          "rows": 222,
+          "sets": 22,
+          "eras": 2,
+          "species": 115
+        },
+        {
+          "value": "rare_holo_gx",
+          "rows": 159,
+          "sets": 15,
+          "eras": 1,
+          "species": 110
+        },
+        {
+          "value": "rare_shiny",
+          "rows": 149,
+          "sets": 2,
+          "eras": 2,
+          "species": 146
+        },
+        {
+          "value": "shiny_rare",
+          "rows": 120,
+          "sets": 1,
+          "eras": 1,
+          "species": 118
+        },
+        {
+          "value": "rare_holo_vmax",
+          "rows": 110,
+          "sets": 23,
+          "eras": 1,
+          "species": 74
+        },
+        {
+          "value": "trainer_gallery_rare_holo",
+          "rows": 80,
+          "sets": 5,
+          "eras": 1,
+          "species": 77
+        },
+        {
+          "value": "hyper_rare",
+          "rows": 74,
+          "sets": 14,
+          "eras": 1,
+          "species": 26
+        },
+        {
+          "value": "rare_holo_lv_x",
+          "rows": 56,
+          "sets": 11,
+          "eras": 2,
+          "species": 48
+        },
+        {
+          "value": "rare_holo_vstar",
+          "rows": 43,
+          "sets": 7,
+          "eras": 1,
+          "species": 34
+        },
+        {
+          "value": "rare_shiny_gx",
+          "rows": 35,
+          "sets": 1,
+          "eras": 1,
+          "species": 34
+        },
+        {
+          "value": "ace_spec_rare",
+          "rows": 33,
+          "sets": 6,
+          "eras": 1,
+          "species": 0
+        },
+        {
+          "value": "rare_break",
+          "rows": 27,
+          "sets": 5,
+          "eras": 1,
+          "species": 27
+        },
+        {
+          "value": "rare_prism_star",
+          "rows": 27,
+          "sets": 6,
+          "eras": 1,
+          "species": 16
+        },
+        {
+          "value": "rare_prime",
+          "rows": 26,
+          "sets": 4,
+          "eras": 1,
+          "species": 26
+        },
+        {
+          "value": "classic_collection",
+          "rows": 25,
+          "sets": 1,
+          "eras": 1,
+          "species": 22
+        },
+        {
+          "value": "legend",
+          "rows": 18,
+          "sets": 4,
+          "eras": 1,
+          "species": 2
+        },
+        {
+          "value": "holo_rare",
+          "rows": 16,
+          "sets": 7,
+          "eras": 3,
+          "species": 0
+        },
+        {
+          "value": "radiant_rare",
+          "rows": 15,
+          "sets": 5,
+          "eras": 1,
+          "species": 14
+        },
+        {
+          "value": "rare_shining",
+          "rows": 15,
+          "sets": 3,
+          "eras": 2,
+          "species": 15
+        },
+        {
+          "value": "rare_holo_star",
+          "rows": 14,
+          "sets": 9,
+          "eras": 1,
+          "species": 14
+        },
+        {
+          "value": "rare_ace",
+          "rows": 13,
+          "sets": 4,
+          "eras": 1,
+          "species": 0
+        },
+        {
+          "value": "shiny_ultra_rare",
+          "rows": 12,
+          "sets": 1,
+          "eras": 1,
+          "species": 12
+        },
+        {
+          "value": "amazing_rare",
+          "rows": 9,
+          "sets": 2,
+          "eras": 1,
+          "species": 9
+        },
+        {
+          "value": "mega_hyper_rare",
+          "rows": 8,
+          "sets": 6,
+          "eras": 1,
+          "species": 7
+        },
+        {
+          "value": "mega_attack_rare",
+          "rows": 7,
+          "sets": 1,
+          "eras": 1,
+          "species": 7
+        },
+        {
+          "value": "black_white_rare",
+          "rows": 2,
+          "sets": 2,
+          "eras": 1,
+          "species": 2
+        },
+        {
+          "value": "secret_rare",
+          "rows": 2,
+          "sets": 2,
+          "eras": 1,
+          "species": 0
+        }
+      ],
+      "printing_finish": [
+        {
+          "value": "non_holo",
+          "rows": 12409,
+          "sets": 144,
+          "eras": 17,
+          "species": 984
+        },
+        {
+          "value": "holo",
+          "rows": 7376,
+          "sets": 164,
+          "eras": 17,
+          "species": 887
+        },
+        {
+          "value": "reverse_holo",
+          "rows": 62,
+          "sets": 15,
+          "eras": 10,
+          "species": 35
+        }
+      ],
+      "special_treatment": [
+        {
+          "value": "__unmapped__",
+          "rows": 19786,
+          "sets": 165,
+          "eras": 17,
+          "species": 1022
+        },
+        {
+          "value": "ace_spec",
+          "rows": 33,
+          "sets": 6,
+          "eras": 1,
+          "species": 0
+        },
+        {
+          "value": "pokeball",
+          "rows": 21,
+          "sets": 21,
+          "eras": 11,
+          "species": 0
+        },
+        {
+          "value": "master_ball",
+          "rows": 7,
+          "sets": 7,
+          "eras": 5,
+          "species": 0
+        }
+      ],
+      "edition_status": [
+        {
+          "value": "__unmapped__",
+          "rows": 19008,
+          "sets": 156,
+          "eras": 15,
+          "species": 1022
+        },
+        {
+          "value": "1st_edition",
+          "rows": 427,
+          "sets": 10,
+          "eras": 3,
+          "species": 202
+        },
+        {
+          "value": "unlimited",
+          "rows": 412,
+          "sets": 9,
+          "eras": 3,
+          "species": 186
+        }
+      ]
+    },
+    "mechanics": [
+      {
+        "value": "basic",
+        "rows": 9486,
+        "sets": 165,
+        "eras": 17,
+        "species": 724
+      },
+      {
+        "value": "stage_1",
+        "rows": 4953,
+        "sets": 158,
+        "eras": 17,
+        "species": 371
+      },
+      {
+        "value": "stage_2",
+        "rows": 1665,
+        "sets": 154,
+        "eras": 17,
+        "species": 125
+      },
+      {
+        "value": "ex",
+        "rows": 1315,
+        "sets": 70,
+        "eras": 8,
+        "species": 301
+      },
+      {
+        "value": "supporter",
+        "rows": 1132,
+        "sets": 130,
+        "eras": 12,
+        "species": 0
+      },
+      {
+        "value": "__none__",
+        "rows": 1035,
+        "sets": 133,
+        "eras": 17,
+        "species": 11
+      },
+      {
+        "value": "item",
+        "rows": 819,
+        "sets": 115,
+        "eras": 12,
+        "species": 0
+      },
+      {
+        "value": "gx",
+        "rows": 589,
+        "sets": 18,
+        "eras": 2,
+        "species": 132
+      },
+      {
+        "value": "v",
+        "rows": 507,
+        "sets": 23,
+        "eras": 1,
+        "species": 197
+      },
+      {
+        "value": "stadium",
+        "rows": 253,
+        "sets": 101,
+        "eras": 14,
+        "species": 0
+      },
+      {
+        "value": "mega",
+        "rows": 206,
+        "sets": 23,
+        "eras": 4,
+        "species": 65
+      },
+      {
+        "value": "vmax",
+        "rows": 194,
+        "sets": 23,
+        "eras": 1,
+        "species": 74
+      },
+      {
+        "value": "tag_team",
+        "rows": 129,
+        "sets": 6,
+        "eras": 1,
+        "species": 2
+      },
+      {
+        "value": "vstar",
+        "rows": 81,
+        "sets": 7,
+        "eras": 1,
+        "species": 35
+      },
+      {
+        "value": "level_up",
+        "rows": 58,
+        "sets": 12,
+        "eras": 3,
+        "species": 48
+      },
+      {
+        "value": "ace_spec",
+        "rows": 46,
+        "sets": 10,
+        "eras": 2,
+        "species": 0
+      },
+      {
+        "value": "break",
+        "rows": 35,
+        "sets": 6,
+        "eras": 1,
+        "species": 35
+      },
+      {
+        "value": "radiant",
+        "rows": 15,
+        "sets": 5,
+        "eras": 1,
+        "species": 14
+      },
+      {
+        "value": "restored",
+        "rows": 13,
+        "sets": 6,
+        "eras": 2,
+        "species": 10
+      }
+    ],
+    "unmapped": {
+      "rarity_designation": {
+        "count": 238,
+        "rate": 0.011991736786416083
+      },
+      "printing_finish": {
+        "count": 0,
+        "rate": 0.0
+      },
+      "special_treatment": {
+        "count": 0,
+        "rate": 0.0
+      },
+      "edition_status": {
+        "count": 0,
+        "rate": 0.0
+      }
+    },
+    "explicit_component_absence": {
+      "special_treatment": {
+        "count": 19786,
+        "rate": 0.9969264876303724
+      },
+      "edition_status": {
+        "count": 19008,
+        "rate": 0.9577266085554492
+      }
+    },
+    "promo_ambiguous_rows": 765
+  },
+  "treatment_component_classification": {
+    "rarity_designation": {
+      "class": "A",
+      "role": "treatment_component"
+    },
+    "printing_finish": {
+      "class": "A",
+      "role": "treatment_component"
+    },
+    "special_treatment": {
+      "class": "A",
+      "role": "treatment_component"
+    },
+    "edition_status": {
+      "class": "A",
+      "role": "treatment_component"
+    },
+    "mechanic_or_card_form": {
+      "class": "B",
+      "role": "control"
+    },
+    "pokemon_identity_or_demand": {
+      "class": "B",
+      "role": "control"
+    },
+    "set": {
+      "class": "B",
+      "role": "control"
+    },
+    "promo_status": {
+      "class": "C",
+      "role": "excluded_ambiguous",
+      "reason": "Promo can denote distribution channel, set membership, or rarity rather than a consistent physical treatment."
+    }
+  },
+  "primary_specification": "species fixed effects",
+  "species_fe": {
+    "n": 15762,
+    "set_count": 160,
+    "species_count": 1022,
+    "rank": 39,
+    "columns": 39,
+    "full_rank": true,
+    "references": {
+      "rarity_designation": "common",
+      "printing_finish": "non_holo",
+      "special_treatment": "__none__",
+      "edition_status": "__none__"
+    },
+    "coefficients": {
+      "control_mechanic:basic": 0.1807510723154084,
+      "control_mechanic:break": 1.9718551132198052,
+      "control_mechanic:ex": 1.5390686833803677,
+      "control_mechanic:gx": 0.43172553081486287,
+      "control_mechanic:level_up": 0.4766426667690865,
+      "control_mechanic:mega": 0.5070646034493362,
+      "control_mechanic:radiant": 0.8768325072954347,
+      "control_mechanic:restored": 0.48662054664890303,
+      "control_mechanic:stage_1": 0.18902618396830873,
+      "control_mechanic:stage_2": 0.18265698733434618,
+      "control_mechanic:tag_team": 1.2899151604595809,
+      "control_mechanic:v": 0.8168766965586142,
+      "control_mechanic:vmax": 0.5989811977393216,
+      "control_mechanic:vstar": 0.13771748468811318,
+      "rarity_designation:uncommon": -0.07286795347976611,
+      "rarity_designation:rare": 0.3406637195337034,
+      "rarity_designation:rare_holo": 0.6695259451378381,
+      "rarity_designation:illustration_rare": 3.506028898424812,
+      "rarity_designation:rare_ultra": 1.894864995389337,
+      "rarity_designation:rare_holo_ex": 0.33943479899811296,
+      "rarity_designation:double_rare": -0.8847615425726747,
+      "rarity_designation:rare_holo_v": 0.08281993029782805,
+      "rarity_designation:rare_rainbow": 2.950405114581232,
+      "rarity_designation:__none__": 1.9273491897046922,
+      "rarity_designation:ultra_rare": 0.4480320460719652,
+      "rarity_designation:rare_secret": 2.6074850508093412,
+      "rarity_designation:rare_shiny": 0.3395464717232829,
+      "rarity_designation:special_illustration_rare": 3.1568539081960045,
+      "rarity_designation:rare_holo_gx": 0.9106889801983133,
+      "rarity_designation:rare_holo_vmax": 1.315112307613879,
+      "rarity_designation:trainer_gallery_rare_holo": 0.38161364420713495,
+      "rarity_designation:rare_holo_lv_x": 2.453501801864598,
+      "rarity_designation:rare_holo_vstar": 1.2397431031064094,
+      "rarity_designation:hyper_rare": 1.6057537361667489,
+      "rarity_designation:rare_prime": 2.5148103610943937,
+      "printing_finish:holo": 1.1442901123578677,
+      "printing_finish:reverse_holo": 2.660868816881175,
+      "edition_status:1st_edition": 0.1877193404569587,
+      "edition_status:unlimited": -0.7191428815036852,
+      "rarity_designation:common": 0.0,
+      "printing_finish:non_holo": 0.0,
+      "special_treatment:__none__": 0.0,
+      "edition_status:__none__": 0.0
+    },
+    "non_estimable_columns": [
+      "rarity_designation:rare_break"
+    ],
+    "treatment_effects": [
+      {
+        "component": "edition_status",
+        "value": "1st_edition",
+        "coefficient_log_price_vs_reference": 0.1877193404569587,
+        "adjusted_market_association_pct_vs_reference": 20.64948535332187,
+        "rows": 352,
+        "sets": 10,
+        "eras": 3,
+        "species": 202
+      },
+      {
+        "component": "edition_status",
+        "value": "__none__",
+        "coefficient_log_price_vs_reference": 0.0,
+        "adjusted_market_association_pct_vs_reference": 0.0,
+        "rows": 15077,
+        "sets": 151,
+        "eras": 14,
+        "species": 1022
+      },
+      {
+        "component": "edition_status",
+        "value": "unlimited",
+        "coefficient_log_price_vs_reference": -0.7191428815036852,
+        "adjusted_market_association_pct_vs_reference": -51.28303608304403,
+        "rows": 333,
+        "sets": 9,
+        "eras": 3,
+        "species": 186
+      },
+      {
+        "component": "printing_finish",
+        "value": "holo",
+        "coefficient_log_price_vs_reference": 1.1442901123578677,
+        "adjusted_market_association_pct_vs_reference": 214.02113681681695,
+        "rows": 5570,
+        "sets": 159,
+        "eras": 16,
+        "species": 880
+      },
+      {
+        "component": "printing_finish",
+        "value": "non_holo",
+        "coefficient_log_price_vs_reference": 0.0,
+        "adjusted_market_association_pct_vs_reference": 0.0,
+        "rows": 10159,
+        "sets": 139,
+        "eras": 16,
+        "species": 984
+      },
+      {
+        "component": "printing_finish",
+        "value": "reverse_holo",
+        "coefficient_log_price_vs_reference": 2.660868816881175,
+        "adjusted_market_association_pct_vs_reference": 1330.8715353272914,
+        "rows": 33,
+        "sets": 9,
+        "eras": 5,
+        "species": 29
+      },
+      {
+        "component": "rarity_designation",
+        "value": "__none__",
+        "coefficient_log_price_vs_reference": 1.9273491897046922,
+        "adjusted_market_association_pct_vs_reference": 587.1271641118128,
+        "rows": 194,
+        "sets": 14,
+        "eras": 3,
+        "species": 144
+      },
+      {
+        "component": "rarity_designation",
+        "value": "common",
+        "coefficient_log_price_vs_reference": 0.0,
+        "adjusted_market_association_pct_vs_reference": 0.0,
+        "rows": 5052,
+        "sets": 138,
+        "eras": 16,
+        "species": 617
+      },
+      {
+        "component": "rarity_designation",
+        "value": "double_rare",
+        "coefficient_log_price_vs_reference": -0.8847615425726747,
+        "adjusted_market_association_pct_vs_reference": -58.718740022617155,
+        "rows": 299,
+        "sets": 22,
+        "eras": 2,
+        "species": 227
+      },
+      {
+        "component": "rarity_designation",
+        "value": "hyper_rare",
+        "coefficient_log_price_vs_reference": 1.6057537361667489,
+        "adjusted_market_association_pct_vs_reference": 398.16130099169385,
+        "rows": 32,
+        "sets": 12,
+        "eras": 1,
+        "species": 26
+      },
+      {
+        "component": "rarity_designation",
+        "value": "illustration_rare",
+        "coefficient_log_price_vs_reference": 3.506028898424812,
+        "adjusted_market_association_pct_vs_reference": 3231.5704700002557,
+        "rows": 485,
+        "sets": 21,
+        "eras": 2,
+        "species": 437
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare",
+        "coefficient_log_price_vs_reference": 0.3406637195337034,
+        "adjusted_market_association_pct_vs_reference": 40.58803912480547,
+        "rows": 2429,
+        "sets": 132,
+        "eras": 16,
+        "species": 585
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo",
+        "coefficient_log_price_vs_reference": 0.6695259451378381,
+        "adjusted_market_association_pct_vs_reference": 95.33111244835138,
+        "rows": 1521,
+        "sets": 105,
+        "eras": 13,
+        "species": 421
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_ex",
+        "coefficient_log_price_vs_reference": 0.33943479899811296,
+        "adjusted_market_association_pct_vs_reference": 40.41537371423162,
+        "rows": 308,
+        "sets": 38,
+        "eras": 3,
+        "species": 150
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_gx",
+        "coefficient_log_price_vs_reference": 0.9106889801983133,
+        "adjusted_market_association_pct_vs_reference": 148.60347721981287,
+        "rows": 131,
+        "sets": 15,
+        "eras": 1,
+        "species": 110
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_lv_x",
+        "coefficient_log_price_vs_reference": 2.453501801864598,
+        "adjusted_market_association_pct_vs_reference": 1062.8997948106064,
+        "rows": 56,
+        "sets": 11,
+        "eras": 2,
+        "species": 48
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_v",
+        "coefficient_log_price_vs_reference": 0.08281993029782805,
+        "adjusted_market_association_pct_vs_reference": 8.634617290293024,
+        "rows": 281,
+        "sets": 23,
+        "eras": 1,
+        "species": 188
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_vmax",
+        "coefficient_log_price_vs_reference": 1.315112307613879,
+        "adjusted_market_association_pct_vs_reference": 272.5169326637685,
+        "rows": 110,
+        "sets": 23,
+        "eras": 1,
+        "species": 74
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_vstar",
+        "coefficient_log_price_vs_reference": 1.2397431031064094,
+        "adjusted_market_association_pct_vs_reference": 245.47258424167217,
+        "rows": 43,
+        "sets": 7,
+        "eras": 1,
+        "species": 34
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_prime",
+        "coefficient_log_price_vs_reference": 2.5148103610943937,
+        "adjusted_market_association_pct_vs_reference": 1136.426381131285,
+        "rows": 26,
+        "sets": 4,
+        "eras": 1,
+        "species": 26
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_rainbow",
+        "coefficient_log_price_vs_reference": 2.950405114581232,
+        "adjusted_market_association_pct_vs_reference": 1811.369539670081,
+        "rows": 218,
+        "sets": 29,
+        "eras": 2,
+        "species": 159
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_secret",
+        "coefficient_log_price_vs_reference": 2.6074850508093412,
+        "adjusted_market_association_pct_vs_reference": 1256.4892900657214,
+        "rows": 149,
+        "sets": 63,
+        "eras": 9,
+        "species": 105
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_shiny",
+        "coefficient_log_price_vs_reference": 0.3395464717232829,
+        "adjusted_market_association_pct_vs_reference": 40.43105515724848,
+        "rows": 149,
+        "sets": 2,
+        "eras": 2,
+        "species": 146
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_ultra",
+        "coefficient_log_price_vs_reference": 1.894864995389337,
+        "adjusted_market_association_pct_vs_reference": 565.1650340548348,
+        "rows": 483,
+        "sets": 55,
+        "eras": 4,
+        "species": 250
+      },
+      {
+        "component": "rarity_designation",
+        "value": "special_illustration_rare",
+        "coefficient_log_price_vs_reference": 3.1568539081960045,
+        "adjusted_market_association_pct_vs_reference": 2249.6557197792163,
+        "rows": 136,
+        "sets": 21,
+        "eras": 2,
+        "species": 115
+      },
+      {
+        "component": "rarity_designation",
+        "value": "trainer_gallery_rare_holo",
+        "coefficient_log_price_vs_reference": 0.38161364420713495,
+        "adjusted_market_association_pct_vs_reference": 46.464610129869975,
+        "rows": 80,
+        "sets": 5,
+        "eras": 1,
+        "species": 77
+      },
+      {
+        "component": "rarity_designation",
+        "value": "ultra_rare",
+        "coefficient_log_price_vs_reference": 0.4480320460719652,
+        "adjusted_market_association_pct_vs_reference": 56.52288542863302,
+        "rows": 186,
+        "sets": 20,
+        "eras": 2,
+        "species": 172
+      },
+      {
+        "component": "rarity_designation",
+        "value": "uncommon",
+        "coefficient_log_price_vs_reference": -0.07286795347976611,
+        "adjusted_market_association_pct_vs_reference": -7.027641131464731,
+        "rows": 3088,
+        "sets": 135,
+        "eras": 16,
+        "species": 683
+      },
+      {
+        "component": "special_treatment",
+        "value": "__none__",
+        "coefficient_log_price_vs_reference": 0.0,
+        "adjusted_market_association_pct_vs_reference": 0.0,
+        "rows": 15762,
+        "sets": 160,
+        "eras": 16,
+        "species": 1022
+      }
+    ],
+    "r_squared_within": 0.7230590951682816
+  },
+  "independent_demand": {
+    "n": 15762,
+    "set_count": 160,
+    "species_count": 1022,
+    "rank": 40,
+    "columns": 40,
+    "full_rank": true,
+    "references": {
+      "rarity_designation": "common",
+      "printing_finish": "non_holo",
+      "special_treatment": "__none__",
+      "edition_status": "__none__"
+    },
+    "coefficients": {
+      "control_mechanic:basic": -0.20065747387566343,
+      "control_mechanic:break": 1.6645819269833497,
+      "control_mechanic:ex": 1.7953059801453082,
+      "control_mechanic:gx": 0.5789310298629946,
+      "control_mechanic:level_up": -0.7078006795644163,
+      "control_mechanic:mega": 0.45543641247581723,
+      "control_mechanic:radiant": 1.30035785853033,
+      "control_mechanic:restored": 0.6979767359449289,
+      "control_mechanic:stage_1": -0.1993182363485059,
+      "control_mechanic:stage_2": -0.24840282708702024,
+      "control_mechanic:tag_team": 1.0795018873129667,
+      "control_mechanic:v": 0.8833939061481652,
+      "control_mechanic:vmax": 0.3590858531680792,
+      "control_mechanic:vstar": 0.045868900866412377,
+      "control_independent_demand_z": 0.456403282500778,
+      "rarity_designation:uncommon": 0.16948088463298588,
+      "rarity_designation:rare": 0.5822643866519412,
+      "rarity_designation:rare_holo": 0.8785998886378847,
+      "rarity_designation:illustration_rare": 3.532524592199905,
+      "rarity_designation:rare_ultra": 2.0595599813572196,
+      "rarity_designation:rare_holo_ex": 0.5137064544047366,
+      "rarity_designation:double_rare": -1.0719225288598175,
+      "rarity_designation:rare_holo_v": 0.17718046169554974,
+      "rarity_designation:rare_rainbow": 3.045657399816768,
+      "rarity_designation:__none__": 1.9153325178602276,
+      "rarity_designation:ultra_rare": 0.21852513452912772,
+      "rarity_designation:rare_secret": 2.902556498977892,
+      "rarity_designation:rare_shiny": 0.4358672432063949,
+      "rarity_designation:special_illustration_rare": 3.039761245222755,
+      "rarity_designation:rare_holo_gx": 1.010579825829738,
+      "rarity_designation:rare_holo_vmax": 1.3611708537586666,
+      "rarity_designation:trainer_gallery_rare_holo": 0.40839666902280547,
+      "rarity_designation:rare_holo_lv_x": 3.480089743421942,
+      "rarity_designation:rare_holo_vstar": 1.2491525005203368,
+      "rarity_designation:hyper_rare": 1.3326428486891102,
+      "rarity_designation:rare_prime": 2.865106290212861,
+      "printing_finish:holo": 1.2822672219394278,
+      "printing_finish:reverse_holo": 2.5250041894035977,
+      "edition_status:1st_edition": 0.34502871641677485,
+      "edition_status:unlimited": -0.5626716793877167,
+      "rarity_designation:common": 0.0,
+      "printing_finish:non_holo": 0.0,
+      "special_treatment:__none__": 0.0,
+      "edition_status:__none__": 0.0
+    },
+    "non_estimable_columns": [
+      "rarity_designation:rare_break"
+    ],
+    "treatment_effects": [
+      {
+        "component": "edition_status",
+        "value": "1st_edition",
+        "coefficient_log_price_vs_reference": 0.34502871641677485,
+        "adjusted_market_association_pct_vs_reference": 41.203046754086614,
+        "rows": 352,
+        "sets": 10,
+        "eras": 3,
+        "species": 202
+      },
+      {
+        "component": "edition_status",
+        "value": "__none__",
+        "coefficient_log_price_vs_reference": 0.0,
+        "adjusted_market_association_pct_vs_reference": 0.0,
+        "rows": 15077,
+        "sets": 151,
+        "eras": 14,
+        "species": 1022
+      },
+      {
+        "component": "edition_status",
+        "value": "unlimited",
+        "coefficient_log_price_vs_reference": -0.5626716793877167,
+        "adjusted_market_association_pct_vs_reference": -43.03149868392027,
+        "rows": 333,
+        "sets": 9,
+        "eras": 3,
+        "species": 186
+      },
+      {
+        "component": "printing_finish",
+        "value": "holo",
+        "coefficient_log_price_vs_reference": 1.2822672219394278,
+        "adjusted_market_association_pct_vs_reference": 260.4803356948438,
+        "rows": 5570,
+        "sets": 159,
+        "eras": 16,
+        "species": 880
+      },
+      {
+        "component": "printing_finish",
+        "value": "non_holo",
+        "coefficient_log_price_vs_reference": 0.0,
+        "adjusted_market_association_pct_vs_reference": 0.0,
+        "rows": 10159,
+        "sets": 139,
+        "eras": 16,
+        "species": 984
+      },
+      {
+        "component": "printing_finish",
+        "value": "reverse_holo",
+        "coefficient_log_price_vs_reference": 2.5250041894035977,
+        "adjusted_market_association_pct_vs_reference": 1149.094759311798,
+        "rows": 33,
+        "sets": 9,
+        "eras": 5,
+        "species": 29
+      },
+      {
+        "component": "rarity_designation",
+        "value": "__none__",
+        "coefficient_log_price_vs_reference": 1.9153325178602276,
+        "adjusted_market_association_pct_vs_reference": 578.9195950616735,
+        "rows": 194,
+        "sets": 14,
+        "eras": 3,
+        "species": 144
+      },
+      {
+        "component": "rarity_designation",
+        "value": "common",
+        "coefficient_log_price_vs_reference": 0.0,
+        "adjusted_market_association_pct_vs_reference": 0.0,
+        "rows": 5052,
+        "sets": 138,
+        "eras": 16,
+        "species": 617
+      },
+      {
+        "component": "rarity_designation",
+        "value": "double_rare",
+        "coefficient_log_price_vs_reference": -1.0719225288598175,
+        "adjusted_market_association_pct_vs_reference": -65.76502928613857,
+        "rows": 299,
+        "sets": 22,
+        "eras": 2,
+        "species": 227
+      },
+      {
+        "component": "rarity_designation",
+        "value": "hyper_rare",
+        "coefficient_log_price_vs_reference": 1.3326428486891102,
+        "adjusted_market_association_pct_vs_reference": 279.1049329400213,
+        "rows": 32,
+        "sets": 12,
+        "eras": 1,
+        "species": 26
+      },
+      {
+        "component": "rarity_designation",
+        "value": "illustration_rare",
+        "coefficient_log_price_vs_reference": 3.532524592199905,
+        "adjusted_market_association_pct_vs_reference": 3321.0225554471067,
+        "rows": 485,
+        "sets": 21,
+        "eras": 2,
+        "species": 437
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare",
+        "coefficient_log_price_vs_reference": 0.5822643866519412,
+        "adjusted_market_association_pct_vs_reference": 79.00872946992313,
+        "rows": 2429,
+        "sets": 132,
+        "eras": 16,
+        "species": 585
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo",
+        "coefficient_log_price_vs_reference": 0.8785998886378847,
+        "adjusted_market_association_pct_vs_reference": 140.7526540300476,
+        "rows": 1521,
+        "sets": 105,
+        "eras": 13,
+        "species": 421
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_ex",
+        "coefficient_log_price_vs_reference": 0.5137064544047366,
+        "adjusted_market_association_pct_vs_reference": 67.14749736982664,
+        "rows": 308,
+        "sets": 38,
+        "eras": 3,
+        "species": 150
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_gx",
+        "coefficient_log_price_vs_reference": 1.010579825829738,
+        "adjusted_market_association_pct_vs_reference": 174.71934470255692,
+        "rows": 131,
+        "sets": 15,
+        "eras": 1,
+        "species": 110
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_lv_x",
+        "coefficient_log_price_vs_reference": 3.480089743421942,
+        "adjusted_market_association_pct_vs_reference": 3146.2635253115473,
+        "rows": 56,
+        "sets": 11,
+        "eras": 2,
+        "species": 48
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_v",
+        "coefficient_log_price_vs_reference": 0.17718046169554974,
+        "adjusted_market_association_pct_vs_reference": 19.384651725538255,
+        "rows": 281,
+        "sets": 23,
+        "eras": 1,
+        "species": 188
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_vmax",
+        "coefficient_log_price_vs_reference": 1.3611708537586666,
+        "adjusted_market_association_pct_vs_reference": 290.0757846052553,
+        "rows": 110,
+        "sets": 23,
+        "eras": 1,
+        "species": 74
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_holo_vstar",
+        "coefficient_log_price_vs_reference": 1.2491525005203368,
+        "adjusted_market_association_pct_vs_reference": 248.73861467462964,
+        "rows": 43,
+        "sets": 7,
+        "eras": 1,
+        "species": 34
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_prime",
+        "coefficient_log_price_vs_reference": 2.865106290212861,
+        "adjusted_market_association_pct_vs_reference": 1655.0918596321899,
+        "rows": 26,
+        "sets": 4,
+        "eras": 1,
+        "species": 26
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_rainbow",
+        "coefficient_log_price_vs_reference": 3.045657399816768,
+        "adjusted_market_association_pct_vs_reference": 2002.3847734537667,
+        "rows": 218,
+        "sets": 29,
+        "eras": 2,
+        "species": 159
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_secret",
+        "coefficient_log_price_vs_reference": 2.902556498977892,
+        "adjusted_market_association_pct_vs_reference": 1722.0666994409878,
+        "rows": 149,
+        "sets": 63,
+        "eras": 9,
+        "species": 105
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_shiny",
+        "coefficient_log_price_vs_reference": 0.4358672432063949,
+        "adjusted_market_association_pct_vs_reference": 54.630349882802,
+        "rows": 149,
+        "sets": 2,
+        "eras": 2,
+        "species": 146
+      },
+      {
+        "component": "rarity_designation",
+        "value": "rare_ultra",
+        "coefficient_log_price_vs_reference": 2.0595599813572196,
+        "adjusted_market_association_pct_vs_reference": 684.2518196774062,
+        "rows": 483,
+        "sets": 55,
+        "eras": 4,
+        "species": 250
+      },
+      {
+        "component": "rarity_designation",
+        "value": "special_illustration_rare",
+        "coefficient_log_price_vs_reference": 3.039761245222755,
+        "adjusted_market_association_pct_vs_reference": 1990.02526041931,
+        "rows": 136,
+        "sets": 21,
+        "eras": 2,
+        "species": 115
+      },
+      {
+        "component": "rarity_designation",
+        "value": "trainer_gallery_rare_holo",
+        "coefficient_log_price_vs_reference": 0.40839666902280547,
+        "adjusted_market_association_pct_vs_reference": 50.440379321212234,
+        "rows": 80,
+        "sets": 5,
+        "eras": 1,
+        "species": 77
+      },
+      {
+        "component": "rarity_designation",
+        "value": "ultra_rare",
+        "coefficient_log_price_vs_reference": 0.21852513452912772,
+        "adjusted_market_association_pct_vs_reference": 24.42402896279501,
+        "rows": 186,
+        "sets": 20,
+        "eras": 2,
+        "species": 172
+      },
+      {
+        "component": "rarity_designation",
+        "value": "uncommon",
+        "coefficient_log_price_vs_reference": 0.16948088463298588,
+        "adjusted_market_association_pct_vs_reference": 18.46897010382452,
+        "rows": 3088,
+        "sets": 135,
+        "eras": 16,
+        "species": 683
+      },
+      {
+        "component": "special_treatment",
+        "value": "__none__",
+        "coefficient_log_price_vs_reference": 0.0,
+        "adjusted_market_association_pct_vs_reference": 0.0,
+        "rows": 15762,
+        "sets": 160,
+        "eras": 16,
+        "species": 1022
+      }
+    ],
+    "r_squared_within": 0.7936133601991381
+  },
+  "era_heterogeneity": [
+    {
+      "era_name": "Base/WOTC",
+      "status": "ESTIMATED",
+      "n": 357,
+      "set_count": 5,
+      "species_count": 150,
+      "rank": 6,
+      "columns": 6,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "rarity_designation:uncommon": 0.7293707252388592,
+        "rarity_designation:rare_holo": -0.6649029701763967,
+        "rarity_designation:rare": 1.8474627334306373,
+        "printing_finish:holo": 4.185585248604654,
+        "edition_status:unlimited": -1.366365859852723,
+        "edition_status:1st_edition": -0.28254590348986286,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:basic",
+        "control_mechanic:stage_1",
+        "control_mechanic:stage_2"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "1st_edition",
+          "coefficient_log_price_vs_reference": -0.28254590348986286,
+          "adjusted_market_association_pct_vs_reference": -24.613796373327382,
+          "rows": 90,
+          "sets": 4,
+          "eras": 1,
+          "species": 68
+        },
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 168,
+          "sets": 2,
+          "eras": 1,
+          "species": 103
+        },
+        {
+          "component": "edition_status",
+          "value": "unlimited",
+          "coefficient_log_price_vs_reference": -1.366365859852723,
+          "adjusted_market_association_pct_vs_reference": -74.49679001171707,
+          "rows": 99,
+          "sets": 3,
+          "eras": 1,
+          "species": 76
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 4.185585248604654,
+          "adjusted_market_association_pct_vs_reference": 6473.19591992144,
+          "rows": 82,
+          "sets": 5,
+          "eras": 1,
+          "species": 49
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 275,
+          "sets": 5,
+          "eras": 1,
+          "species": 142
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 112,
+          "sets": 5,
+          "eras": 1,
+          "species": 55
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 1.8474627334306373,
+          "adjusted_market_association_pct_vs_reference": 534.3703419211049,
+          "rows": 63,
+          "sets": 5,
+          "eras": 1,
+          "species": 45
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": -0.6649029701763967,
+          "adjusted_market_association_pct_vs_reference": -48.567657000272476,
+          "rows": 81,
+          "sets": 5,
+          "eras": 1,
+          "species": 49
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.7293707252388592,
+          "adjusted_market_association_pct_vs_reference": 107.37752225864013,
+          "rows": 100,
+          "sets": 5,
+          "eras": 1,
+          "species": 56
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 357,
+          "sets": 5,
+          "eras": 1,
+          "species": 150
+        }
+      ],
+      "r_squared_within": 0.8207264314010636,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": 0.49635387657205116,
+          "ci_high": 0.9623875739056786,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": -0.867632621469204,
+          "ci_high": -0.43704809098507313,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare": {
+          "ci_low": 1.5996453751733006,
+          "ci_high": 2.095280091687981,
+          "sign_stability": 1.0
+        },
+        "printing_finish:holo": {
+          "ci_low": 3.9437872670177545,
+          "ci_high": 4.386724564059339,
+          "sign_stability": 1.0
+        },
+        "edition_status:unlimited": {
+          "ci_low": -1.452261064694622,
+          "ci_high": -1.2968743030889853,
+          "sign_stability": 1.0
+        },
+        "edition_status:1st_edition": {
+          "ci_low": -0.34895953976058636,
+          "ci_high": -0.2161322672191378,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "Black and White",
+      "status": "ESTIMATED",
+      "n": 1195,
+      "set_count": 13,
+      "species_count": 487,
+      "rank": 11,
+      "columns": 11,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": 18892.64398512685,
+        "control_mechanic:ex": 0.38991225873360236,
+        "control_mechanic:stage_1": 18892.80960692362,
+        "control_mechanic:stage_2": 18893.222613863327,
+        "rarity_designation:uncommon": 0.19701713470840332,
+        "rarity_designation:rare": 0.8272632790963144,
+        "rarity_designation:rare_holo": -1.6241188803141995,
+        "rarity_designation:rare_holo_ex": -0.9829183759106854,
+        "rarity_designation:rare_ultra": 1.4731295182691042,
+        "rarity_designation:rare_secret": 2.1219952562877893,
+        "printing_finish:holo": 3.3469410098391563,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:restored"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1195,
+          "sets": 13,
+          "eras": 1,
+          "species": 487
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 3.3469410098391563,
+          "adjusted_market_association_pct_vs_reference": 2741.567728215589,
+          "rows": 321,
+          "sets": 13,
+          "eras": 1,
+          "species": 141
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 874,
+          "sets": 11,
+          "eras": 1,
+          "species": 421
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 380,
+          "sets": 12,
+          "eras": 1,
+          "species": 175
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 0.8272632790963144,
+          "adjusted_market_association_pct_vs_reference": 128.7051147167245,
+          "rows": 219,
+          "sets": 12,
+          "eras": 1,
+          "species": 144
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": -1.6241188803141995,
+          "adjusted_market_association_pct_vs_reference": -80.29147455816184,
+          "rows": 168,
+          "sets": 12,
+          "eras": 1,
+          "species": 104
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo_ex",
+          "coefficient_log_price_vs_reference": -0.9829183759106854,
+          "adjusted_market_association_pct_vs_reference": -62.5782603325211,
+          "rows": 56,
+          "sets": 8,
+          "eras": 1,
+          "species": 40
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_secret",
+          "coefficient_log_price_vs_reference": 2.1219952562877893,
+          "adjusted_market_association_pct_vs_reference": 734.7776836506947,
+          "rows": 25,
+          "sets": 10,
+          "eras": 1,
+          "species": 25
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_ultra",
+          "coefficient_log_price_vs_reference": 1.4731295182691042,
+          "adjusted_market_association_pct_vs_reference": 336.28674720816923,
+          "rows": 52,
+          "sets": 11,
+          "eras": 1,
+          "species": 38
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.19701713470840332,
+          "adjusted_market_association_pct_vs_reference": 21.776490657372054,
+          "rows": 294,
+          "sets": 12,
+          "eras": 1,
+          "species": 180
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1195,
+          "sets": 13,
+          "eras": 1,
+          "species": 487
+        }
+      ],
+      "r_squared_within": 0.761215030999637,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": 0.07573937631677836,
+          "ci_high": 0.31032261941581957,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare": {
+          "ci_low": 0.6328473275527358,
+          "ci_high": 1.04299361333251,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": -2.2862916074693205,
+          "ci_high": -0.9629225727170707,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo_ex": {
+          "ci_low": -2.028759887814522,
+          "ci_high": -0.01938915252685618,
+          "sign_stability": 0.9748743718592965
+        },
+        "rarity_designation:rare_ultra": {
+          "ci_low": 0.5876604808494449,
+          "ci_high": 2.307537199370563,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_secret": {
+          "ci_low": 1.375951528828591,
+          "ci_high": 2.886371138412505,
+          "sign_stability": 1.0
+        },
+        "printing_finish:holo": {
+          "ci_low": 2.700390288233757,
+          "ci_high": 4.001843233779073,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "Diamond and Pearl",
+      "status": "ESTIMATED",
+      "n": 747,
+      "set_count": 7,
+      "species_count": 490,
+      "rank": 7,
+      "columns": 7,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": 0.35317351341960895,
+        "control_mechanic:level_up": 1.394605638012882,
+        "control_mechanic:stage_1": 0.3313050808135114,
+        "rarity_designation:uncommon": 0.9032234926732873,
+        "rarity_designation:rare": 2.348402413845727,
+        "rarity_designation:rare_holo": -0.3157958059682473,
+        "printing_finish:holo": 4.4986608654038625,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:stage_2",
+        "rarity_designation:rare_holo_lv_x"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 747,
+          "sets": 7,
+          "eras": 1,
+          "species": 490
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 4.4986608654038625,
+          "adjusted_market_association_pct_vs_reference": 8889.666692276236,
+          "rows": 139,
+          "sets": 7,
+          "eras": 1,
+          "species": 89
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 605,
+          "sets": 7,
+          "eras": 1,
+          "species": 434
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 261,
+          "sets": 7,
+          "eras": 1,
+          "species": 187
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 2.348402413845727,
+          "adjusted_market_association_pct_vs_reference": 946.8831497655651,
+          "rows": 163,
+          "sets": 7,
+          "eras": 1,
+          "species": 139
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": -0.3157958059682473,
+          "adjusted_market_association_pct_vs_reference": -27.079166504368374,
+          "rows": 108,
+          "sets": 7,
+          "eras": 1,
+          "species": 86
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.9032234926732873,
+          "adjusted_market_association_pct_vs_reference": 146.7544416257919,
+          "rows": 184,
+          "sets": 7,
+          "eras": 1,
+          "species": 136
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 747,
+          "sets": 7,
+          "eras": 1,
+          "species": 490
+        }
+      ],
+      "r_squared_within": 0.7142915315332242,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": 0.1953438926222983,
+          "ci_high": 1.611103092724277,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare": {
+          "ci_low": 1.251586233064755,
+          "ci_high": 3.545661107677302,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": -0.8642978714639346,
+          "ci_high": 0.23228217275336438,
+          "sign_stability": 0.7889447236180904
+        },
+        "printing_finish:holo": {
+          "ci_low": 3.836704181193969,
+          "ci_high": 5.160617549613749,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "E-Card",
+      "status": "ESTIMATED",
+      "n": 415,
+      "set_count": 3,
+      "species_count": 246,
+      "rank": 2,
+      "columns": 2,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:stage_1": 567563739.1263036,
+        "control_mechanic:stage_2": 480525566.3086804,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:basic",
+        "rarity_designation:rare",
+        "rarity_designation:rare_holo",
+        "rarity_designation:uncommon",
+        "printing_finish:holo"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 415,
+          "sets": 3,
+          "eras": 1,
+          "species": 246
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 334,
+          "sets": 3,
+          "eras": 1,
+          "species": 243
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 164,
+          "sets": 3,
+          "eras": 1,
+          "species": 122
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 415,
+          "sets": 3,
+          "eras": 1,
+          "species": 246
+        }
+      ],
+      "r_squared_within": 8.107770010923332e-11,
+      "bootstrap_stability": {}
+    },
+    {
+      "era_name": "EX",
+      "status": "ESTIMATED",
+      "n": 1436,
+      "set_count": 16,
+      "species_count": 384,
+      "rank": 8,
+      "columns": 8,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": -0.28241343106970673,
+        "control_mechanic:ex": 0.6319864632372496,
+        "control_mechanic:stage_1": -1.9085242222887355,
+        "rarity_designation:uncommon": 0.46079582342841197,
+        "rarity_designation:rare": 0.5831805352371368,
+        "rarity_designation:rare_holo": -0.5840261291532743,
+        "rarity_designation:rare_holo_ex": -0.20355302435604117,
+        "printing_finish:holo": 3.45911002157551,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:stage_2"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1436,
+          "sets": 16,
+          "eras": 1,
+          "species": 384
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 3.45911002157551,
+          "adjusted_market_association_pct_vs_reference": 3078.8672688802512,
+          "rows": 405,
+          "sets": 16,
+          "eras": 1,
+          "species": 159
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1030,
+          "sets": 16,
+          "eras": 1,
+          "species": 321
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 484,
+          "sets": 16,
+          "eras": 1,
+          "species": 136
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 0.5831805352371368,
+          "adjusted_market_association_pct_vs_reference": 79.17280321065137,
+          "rows": 234,
+          "sets": 16,
+          "eras": 1,
+          "species": 137
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": -0.5840261291532743,
+          "adjusted_market_association_pct_vs_reference": -44.23513247582816,
+          "rows": 230,
+          "sets": 16,
+          "eras": 1,
+          "species": 125
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo_ex",
+          "coefficient_log_price_vs_reference": -0.20355302435604117,
+          "adjusted_market_association_pct_vs_reference": -18.41730555226009,
+          "rows": 123,
+          "sets": 16,
+          "eras": 1,
+          "species": 90
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.46079582342841197,
+          "adjusted_market_association_pct_vs_reference": 58.533512994186566,
+          "rows": 334,
+          "sets": 16,
+          "eras": 1,
+          "species": 158
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1436,
+          "sets": 16,
+          "eras": 1,
+          "species": 384
+        }
+      ],
+      "r_squared_within": 0.6233601454037063,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": 0.10585615589497864,
+          "ci_high": 0.8675366022900195,
+          "sign_stability": 0.9949748743718593
+        },
+        "rarity_designation:rare": {
+          "ci_low": 0.17261864497083423,
+          "ci_high": 1.0419475418307471,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": -1.2602006527516978,
+          "ci_high": 0.11285389307935441,
+          "sign_stability": 0.9447236180904522
+        },
+        "rarity_designation:rare_holo_ex": {
+          "ci_low": -0.9198468357894514,
+          "ci_high": 0.5105187491150666,
+          "sign_stability": 0.6582914572864321
+        },
+        "printing_finish:holo": {
+          "ci_low": 2.6789313374639367,
+          "ci_high": 4.193846196077521,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "Gym",
+      "status": "ESTIMATED",
+      "n": 186,
+      "set_count": 2,
+      "species_count": 124,
+      "rank": 4,
+      "columns": 4,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "1st_edition"
+      },
+      "coefficients": {
+        "rarity_designation:uncommon": 0.6291843429984675,
+        "rarity_designation:rare_holo": 2.7697214099315777,
+        "rarity_designation:rare": 1.670445026889011,
+        "edition_status:unlimited": -0.9935735145249938,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:1st_edition": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:basic",
+        "control_mechanic:stage_1",
+        "control_mechanic:stage_2",
+        "printing_finish:holo"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "1st_edition",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 111,
+          "sets": 2,
+          "eras": 1,
+          "species": 86
+        },
+        {
+          "component": "edition_status",
+          "value": "unlimited",
+          "coefficient_log_price_vs_reference": -0.9935735145249938,
+          "adjusted_market_association_pct_vs_reference": -62.97487739857258,
+          "rows": 75,
+          "sets": 2,
+          "eras": 1,
+          "species": 64
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 156,
+          "sets": 2,
+          "eras": 1,
+          "species": 101
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 76,
+          "sets": 2,
+          "eras": 1,
+          "species": 48
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 1.670445026889011,
+          "adjusted_market_association_pct_vs_reference": 431.4532380802472,
+          "rows": 25,
+          "sets": 2,
+          "eras": 1,
+          "species": 25
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": 2.7697214099315777,
+          "adjusted_market_association_pct_vs_reference": 1495.418871208996,
+          "rows": 30,
+          "sets": 2,
+          "eras": 1,
+          "species": 28
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.6291843429984675,
+          "adjusted_market_association_pct_vs_reference": 87.6079717463161,
+          "rows": 55,
+          "sets": 2,
+          "eras": 1,
+          "species": 48
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 186,
+          "sets": 2,
+          "eras": 1,
+          "species": 124
+        }
+      ],
+      "r_squared_within": 0.7833595828518319,
+      "bootstrap_stability": {}
+    },
+    {
+      "era_name": "HeartGold and SoulSilver",
+      "status": "ESTIMATED",
+      "n": 428,
+      "set_count": 5,
+      "species_count": 304,
+      "rank": 6,
+      "columns": 6,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": -2.7427996937238186,
+        "control_mechanic:stage_2": -18.863398453801974,
+        "rarity_designation:uncommon": 0.15708235508232715,
+        "rarity_designation:rare": 1.1192429302875004,
+        "rarity_designation:rare_holo": 2.5529494745875105,
+        "rarity_designation:rare_prime": 3.993296941584576,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:stage_1",
+        "printing_finish:holo"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 428,
+          "sets": 5,
+          "eras": 1,
+          "species": 304
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 319,
+          "sets": 5,
+          "eras": 1,
+          "species": 249
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 142,
+          "sets": 5,
+          "eras": 1,
+          "species": 108
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 1.1192429302875004,
+          "adjusted_market_association_pct_vs_reference": 206.25347730984197,
+          "rows": 88,
+          "sets": 5,
+          "eras": 1,
+          "species": 75
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": 2.5529494745875105,
+          "adjusted_market_association_pct_vs_reference": 1184.4933771680385,
+          "rows": 79,
+          "sets": 5,
+          "eras": 1,
+          "species": 60
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_prime",
+          "coefficient_log_price_vs_reference": 3.993296941584576,
+          "adjusted_market_association_pct_vs_reference": 5323.339928260868,
+          "rows": 26,
+          "sets": 4,
+          "eras": 1,
+          "species": 26
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.15708235508232715,
+          "adjusted_market_association_pct_vs_reference": 17.00919729537932,
+          "rows": 89,
+          "sets": 5,
+          "eras": 1,
+          "species": 71
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 428,
+          "sets": 5,
+          "eras": 1,
+          "species": 304
+        }
+      ],
+      "r_squared_within": 0.7428552287535318,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": -0.0753658913745312,
+          "ci_high": 0.3895306015474489,
+          "sign_stability": 0.7839195979899497
+        },
+        "rarity_designation:rare": {
+          "ci_low": 0.826300619111862,
+          "ci_high": 1.412185241759289,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": 2.285184271633625,
+          "ci_high": 2.820714677684009,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_prime": {
+          "ci_low": 3.678782789410616,
+          "ci_high": 4.3221553596667945,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "Mega Evolution",
+      "status": "ESTIMATED",
+      "n": 788,
+      "set_count": 6,
+      "species_count": 476,
+      "rank": 11,
+      "columns": 11,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": 3940.763428314427,
+        "control_mechanic:ex": 5.4394175990250915,
+        "control_mechanic:mega": 0.01904999221321327,
+        "control_mechanic:stage_1": 3940.2020826127764,
+        "control_mechanic:stage_2": 0.7371150899740916,
+        "rarity_designation:uncommon": -0.023833014843836226,
+        "rarity_designation:illustration_rare": 3.945967060212297,
+        "rarity_designation:double_rare": -3.4754347154386096,
+        "rarity_designation:rare": 0.7373865668824351,
+        "rarity_designation:ultra_rare": -1.8829606043510518,
+        "rarity_designation:special_illustration_rare": 0.9876752177113485,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "printing_finish:holo"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 788,
+          "sets": 6,
+          "eras": 1,
+          "species": 476
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 426,
+          "sets": 6,
+          "eras": 1,
+          "species": 360
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 288,
+          "sets": 6,
+          "eras": 1,
+          "species": 250
+        },
+        {
+          "component": "rarity_designation",
+          "value": "double_rare",
+          "coefficient_log_price_vs_reference": -3.4754347154386096,
+          "adjusted_market_association_pct_vs_reference": -96.90516228388725,
+          "rows": 88,
+          "sets": 6,
+          "eras": 1,
+          "species": 83,
+          "bootstrap": {
+            "ci_low": -4.469828709214926,
+            "ci_high": -2.4810411833226698,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "illustration_rare",
+          "coefficient_log_price_vs_reference": 3.945967060212297,
+          "adjusted_market_association_pct_vs_reference": 5072.633641440031,
+          "rows": 101,
+          "sets": 6,
+          "eras": 1,
+          "species": 100,
+          "bootstrap": {
+            "ci_low": 3.8749507188797,
+            "ci_high": 4.036016751080751,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 0.7373865668824351,
+          "adjusted_market_association_pct_vs_reference": 109.04650786312348,
+          "rows": 72,
+          "sets": 6,
+          "eras": 1,
+          "species": 68
+        },
+        {
+          "component": "rarity_designation",
+          "value": "special_illustration_rare",
+          "coefficient_log_price_vs_reference": 0.9876752177113485,
+          "adjusted_market_association_pct_vs_reference": 168.49852050209094,
+          "rows": 41,
+          "sets": 6,
+          "eras": 1,
+          "species": 40,
+          "bootstrap": {
+            "ci_low": -0.10304886351232567,
+            "ci_high": 2.078399303619625,
+            "sign_stability": 0.949748743718593
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "ultra_rare",
+          "coefficient_log_price_vs_reference": -1.8829606043510518,
+          "adjusted_market_association_pct_vs_reference": -84.78609850938888,
+          "rows": 45,
+          "sets": 6,
+          "eras": 1,
+          "species": 45,
+          "bootstrap": {
+            "ci_low": -2.799025157454875,
+            "ci_high": -1.0389714637908052,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": -0.023833014843836226,
+          "adjusted_market_association_pct_vs_reference": -2.355125140823258,
+          "rows": 138,
+          "sets": 6,
+          "eras": 1,
+          "species": 122
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 788,
+          "sets": 6,
+          "eras": 1,
+          "species": 476
+        }
+      ],
+      "r_squared_within": 0.9507251415587606,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": -0.1832310219578572,
+          "ci_high": 0.1355651353768455,
+          "sign_stability": 0.6080402010050251
+        },
+        "rarity_designation:illustration_rare": {
+          "ci_low": 3.8749507188797,
+          "ci_high": 4.036016751080751,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:double_rare": {
+          "ci_low": -4.469828709214926,
+          "ci_high": -2.4810411833226698,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare": {
+          "ci_low": 0.6284729391336441,
+          "ci_high": 0.8463001400232315,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:ultra_rare": {
+          "ci_low": -2.799025157454875,
+          "ci_high": -1.0389714637908052,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:special_illustration_rare": {
+          "ci_low": -0.10304886351232567,
+          "ci_high": 2.078399303619625,
+          "sign_stability": 0.949748743718593
+        }
+      }
+    },
+    {
+      "era_name": "Neo",
+      "status": "ESTIMATED",
+      "n": 310,
+      "set_count": 4,
+      "species_count": 175,
+      "rank": 8,
+      "columns": 8,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "unlimited"
+      },
+      "coefficients": {
+        "control_mechanic:basic": 100656.43673551388,
+        "control_mechanic:stage_1": 100656.06980516932,
+        "control_mechanic:stage_2": 100656.32567523081,
+        "rarity_designation:uncommon": 0.8965469312552159,
+        "rarity_designation:rare_holo": -1.0272321512238705,
+        "rarity_designation:rare": 2.234573294823349,
+        "printing_finish:holo": 4.983567904273514,
+        "edition_status:1st_edition": 0.8432994996601337,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:unlimited": 0.0
+      },
+      "non_estimable_columns": [],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "1st_edition",
+          "coefficient_log_price_vs_reference": 0.8432994996601337,
+          "adjusted_market_association_pct_vs_reference": 132.40224515066183,
+          "rows": 151,
+          "sets": 4,
+          "eras": 1,
+          "species": 115
+        },
+        {
+          "component": "edition_status",
+          "value": "unlimited",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 159,
+          "sets": 4,
+          "eras": 1,
+          "species": 111
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 4.983567904273514,
+          "adjusted_market_association_pct_vs_reference": 14499.434736394436,
+          "rows": 73,
+          "sets": 4,
+          "eras": 1,
+          "species": 52
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 237,
+          "sets": 4,
+          "eras": 1,
+          "species": 153
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 99,
+          "sets": 4,
+          "eras": 1,
+          "species": 66
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 2.234573294823349,
+          "adjusted_market_association_pct_vs_reference": 834.249451077694,
+          "rows": 52,
+          "sets": 4,
+          "eras": 1,
+          "species": 46
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": -1.0272321512238705,
+          "adjusted_market_association_pct_vs_reference": -64.20035293765937,
+          "rows": 64,
+          "sets": 4,
+          "eras": 1,
+          "species": 47
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.8965469312552159,
+          "adjusted_market_association_pct_vs_reference": 145.11245794303025,
+          "rows": 86,
+          "sets": 4,
+          "eras": 1,
+          "species": 61
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 310,
+          "sets": 4,
+          "eras": 1,
+          "species": 175
+        }
+      ],
+      "r_squared_within": 0.8627206011374595,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": 0.6395679712295532,
+          "ci_high": 1.1535263061523438,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": -1.126537799835205,
+          "ci_high": -0.9279274940490723,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare": {
+          "ci_low": 1.965790543705225,
+          "ci_high": 2.503356046974659,
+          "sign_stability": 1.0
+        },
+        "printing_finish:holo": {
+          "ci_low": 4.799336165189743,
+          "ci_high": 5.167799644172192,
+          "sign_stability": 1.0
+        },
+        "edition_status:1st_edition": {
+          "ci_low": 0.7812247574329376,
+          "ci_high": 0.9053747355937958,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "Other",
+      "status": "ESTIMATED",
+      "n": 260,
+      "set_count": 13,
+      "species_count": 191,
+      "rank": 3,
+      "columns": 3,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "__none__",
+        "printing_finish": "holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": 967539549400244.8,
+        "control_mechanic:stage_1": 967539549399905.1,
+        "control_mechanic:stage_2": 967539549399962.2,
+        "rarity_designation:__none__": 0.0,
+        "printing_finish:holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "rarity_designation:common",
+        "printing_finish:non_holo"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 260,
+          "sets": 13,
+          "eras": 1,
+          "species": 191
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 143,
+          "sets": 12,
+          "eras": 1,
+          "species": 116
+        },
+        {
+          "component": "rarity_designation",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 160,
+          "sets": 12,
+          "eras": 1,
+          "species": 124
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 260,
+          "sets": 13,
+          "eras": 1,
+          "species": 191
+        }
+      ],
+      "r_squared_within": 0.0005016181973407363,
+      "bootstrap_stability": {}
+    },
+    {
+      "era_name": "POP",
+      "status": "ESTIMATED",
+      "n": 135,
+      "set_count": 9,
+      "species_count": 107,
+      "rank": 6,
+      "columns": 6,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": 12.434370575738283,
+        "control_mechanic:ex": 0.6332989449283382,
+        "control_mechanic:stage_1": 147.11735457259664,
+        "rarity_designation:rare": 0.32137175946181396,
+        "rarity_designation:uncommon": 1.4442841406826061,
+        "printing_finish:holo": -0.24722604851913577,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:stage_2"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 135,
+          "sets": 9,
+          "eras": 1,
+          "species": 107
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": -0.24722604851913577,
+          "adjusted_market_association_pct_vs_reference": -21.903586220979925,
+          "rows": 39,
+          "sets": 9,
+          "eras": 1,
+          "species": 37
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 96,
+          "sets": 9,
+          "eras": 1,
+          "species": 76
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 53,
+          "sets": 9,
+          "eras": 1,
+          "species": 41
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 0.32137175946181396,
+          "adjusted_market_association_pct_vs_reference": 37.90181486566691,
+          "rows": 51,
+          "sets": 9,
+          "eras": 1,
+          "species": 45
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 1.4442841406826061,
+          "adjusted_market_association_pct_vs_reference": 323.88166600599266,
+          "rows": 31,
+          "sets": 9,
+          "eras": 1,
+          "species": 30
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 135,
+          "sets": 9,
+          "eras": 1,
+          "species": 107
+        }
+      ],
+      "r_squared_within": 0.4357816878207158,
+      "bootstrap_stability": {
+        "rarity_designation:rare": {
+          "ci_low": -0.2053937017917633,
+          "ci_high": 0.8487148374319075,
+          "sign_stability": 0.8592964824120602
+        },
+        "rarity_designation:uncommon": {
+          "ci_low": 1.0584428456961177,
+          "ci_high": 1.7845706545747815,
+          "sign_stability": 1.0
+        },
+        "printing_finish:holo": {
+          "ci_low": -0.5440755542367697,
+          "ci_high": 0.020066365599632263,
+          "sign_stability": 0.9597989949748744
+        }
+      }
+    },
+    {
+      "era_name": "Platinum",
+      "status": "ESTIMATED",
+      "n": 464,
+      "set_count": 4,
+      "species_count": 309,
+      "rank": 7,
+      "columns": 7,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": 0.41511777842098163,
+        "control_mechanic:level_up": 2.096947976881049,
+        "control_mechanic:stage_1": -0.008551946480499062,
+        "rarity_designation:rare": 2.7012559118292554,
+        "rarity_designation:uncommon": 1.0961939679604897,
+        "rarity_designation:rare_holo": 0.042409888812789176,
+        "printing_finish:holo": 3.953942132705172,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:stage_2",
+        "rarity_designation:rare_holo_lv_x"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 464,
+          "sets": 4,
+          "eras": 1,
+          "species": 309
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 3.953942132705172,
+          "adjusted_market_association_pct_vs_reference": 5114.05070222436,
+          "rows": 102,
+          "sets": 4,
+          "eras": 1,
+          "species": 62
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 348,
+          "sets": 4,
+          "eras": 1,
+          "species": 276
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 145,
+          "sets": 4,
+          "eras": 1,
+          "species": 122
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 2.7012559118292554,
+          "adjusted_market_association_pct_vs_reference": 1389.8431095884978,
+          "rows": 124,
+          "sets": 4,
+          "eras": 1,
+          "species": 100
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": 0.042409888812789176,
+          "adjusted_market_association_pct_vs_reference": 4.332203715023902,
+          "rows": 56,
+          "sets": 4,
+          "eras": 1,
+          "species": 48
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 1.0961939679604897,
+          "adjusted_market_association_pct_vs_reference": 199.27538032224783,
+          "rows": 102,
+          "sets": 4,
+          "eras": 1,
+          "species": 94
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 464,
+          "sets": 4,
+          "eras": 1,
+          "species": 309
+        }
+      ],
+      "r_squared_within": 0.7122291855207561,
+      "bootstrap_stability": {
+        "rarity_designation:rare": {
+          "ci_low": 1.7483649509103079,
+          "ci_high": 3.6541468727482043,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:uncommon": {
+          "ci_low": 0.016962760170181376,
+          "ci_high": 2.175425175750793,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": -1.8307691072684984,
+          "ci_high": 1.9155888848940745,
+          "sign_stability": 0.5778894472361809
+        },
+        "printing_finish:holo": {
+          "ci_low": 2.695963186792339,
+          "ci_high": 5.211921078618001,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "Scarlet and Violet",
+      "status": "ESTIMATED",
+      "n": 2824,
+      "set_count": 16,
+      "species_count": 874,
+      "rank": 11,
+      "columns": 11,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": -0.5984970748242797,
+        "control_mechanic:ex": -0.13734418445547003,
+        "control_mechanic:stage_1": 0.6802198416924244,
+        "rarity_designation:uncommon": -0.07248725844204007,
+        "rarity_designation:illustration_rare": 0.6306629452523544,
+        "rarity_designation:rare": -3.7576432997705678,
+        "rarity_designation:double_rare": -2.0943428709181533,
+        "rarity_designation:ultra_rare": -0.9411911985323114,
+        "rarity_designation:special_illustration_rare": 1.8115356085425003,
+        "rarity_designation:hyper_rare": 0.42673042551737195,
+        "printing_finish:holo": 4.224061992731809,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:stage_2"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 2824,
+          "sets": 16,
+          "eras": 1,
+          "species": 874
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 4.224061992731809,
+          "adjusted_market_association_pct_vs_reference": 6731.039783778225,
+          "rows": 1248,
+          "sets": 16,
+          "eras": 1,
+          "species": 574
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1576,
+          "sets": 16,
+          "eras": 1,
+          "species": 751
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1038,
+          "sets": 16,
+          "eras": 1,
+          "species": 501
+        },
+        {
+          "component": "rarity_designation",
+          "value": "double_rare",
+          "coefficient_log_price_vs_reference": -2.0943428709181533,
+          "adjusted_market_association_pct_vs_reference": -87.68488567319838,
+          "rows": 211,
+          "sets": 16,
+          "eras": 1,
+          "species": 172,
+          "bootstrap": {
+            "ci_low": -3.3061504665875083,
+            "ci_high": -0.8951656516027398,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "hyper_rare",
+          "coefficient_log_price_vs_reference": 0.42673042551737195,
+          "adjusted_market_association_pct_vs_reference": 53.22395533599244,
+          "rows": 32,
+          "sets": 12,
+          "eras": 1,
+          "species": 26
+        },
+        {
+          "component": "rarity_designation",
+          "value": "illustration_rare",
+          "coefficient_log_price_vs_reference": 0.6306629452523544,
+          "adjusted_market_association_pct_vs_reference": 87.88557449763816,
+          "rows": 384,
+          "sets": 15,
+          "eras": 1,
+          "species": 356,
+          "bootstrap": {
+            "ci_low": 0.4538249869308497,
+            "ci_high": 0.8166030534772585,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": -3.7576432997705678,
+          "adjusted_market_association_pct_vs_reference": -97.66613221186294,
+          "rows": 250,
+          "sets": 16,
+          "eras": 1,
+          "species": 201
+        },
+        {
+          "component": "rarity_designation",
+          "value": "special_illustration_rare",
+          "coefficient_log_price_vs_reference": 1.8115356085425003,
+          "adjusted_market_association_pct_vs_reference": 511.9837895698702,
+          "rows": 95,
+          "sets": 15,
+          "eras": 1,
+          "species": 85,
+          "bootstrap": {
+            "ci_low": 0.5989467491390539,
+            "ci_high": 3.0263878701028917,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "ultra_rare",
+          "coefficient_log_price_vs_reference": -0.9411911985323114,
+          "adjusted_market_association_pct_vs_reference": -60.983720291419495,
+          "rows": 141,
+          "sets": 14,
+          "eras": 1,
+          "species": 135,
+          "bootstrap": {
+            "ci_low": -2.2193468314617792,
+            "ci_high": 0.3029857545634982,
+            "sign_stability": 0.864321608040201
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": -0.07248725844204007,
+          "adjusted_market_association_pct_vs_reference": -6.9922402777606765,
+          "rows": 539,
+          "sets": 16,
+          "eras": 1,
+          "species": 361
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 2824,
+          "sets": 16,
+          "eras": 1,
+          "species": 874
+        }
+      ],
+      "r_squared_within": 0.9333277867157943,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": -0.18511977515281905,
+          "ci_high": 0.024478845220536064,
+          "sign_stability": 0.9095477386934674
+        },
+        "rarity_designation:illustration_rare": {
+          "ci_low": 0.4538249869308497,
+          "ci_high": 0.8166030534772585,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare": {
+          "ci_low": -3.944788808515794,
+          "ci_high": -3.5983836698046288,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:double_rare": {
+          "ci_low": -3.3061504665875083,
+          "ci_high": -0.8951656516027398,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:ultra_rare": {
+          "ci_low": -2.2193468314617792,
+          "ci_high": 0.3029857545634982,
+          "sign_stability": 0.864321608040201
+        },
+        "rarity_designation:special_illustration_rare": {
+          "ci_low": 0.5989467491390539,
+          "ci_high": 3.0263878701028917,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:hyper_rare": {
+          "ci_low": -0.8633445246081846,
+          "ci_high": 1.696239576795183,
+          "sign_stability": 0.6130653266331658
+        },
+        "printing_finish:holo": {
+          "ci_low": 4.111749772359888,
+          "ci_high": 4.340590101085496,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "Sun and Moon",
+      "status": "ESTIMATED",
+      "n": 2085,
+      "set_count": 17,
+      "species_count": 766,
+      "rank": 11,
+      "columns": 11,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": -0.3364991944485505,
+        "control_mechanic:gx": 1.1257408539834608,
+        "control_mechanic:stage_1": 6916.0226758621875,
+        "control_mechanic:tag_team": 6917.780815765779,
+        "rarity_designation:uncommon": 0.25733318101486635,
+        "rarity_designation:rare": 0.8574282020794932,
+        "rarity_designation:rare_holo": -1.8492258851627628,
+        "rarity_designation:rare_holo_gx": -1.8566522163680543,
+        "rarity_designation:rare_rainbow": -0.027568926408703995,
+        "rarity_designation:rare_ultra": -0.8399116302244212,
+        "printing_finish:holo": 3.4260057756355127,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:stage_2"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 2085,
+          "sets": 17,
+          "eras": 1,
+          "species": 766
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 3.4260057756355127,
+          "adjusted_market_association_pct_vs_reference": 2975.3560483641695,
+          "rows": 725,
+          "sets": 17,
+          "eras": 1,
+          "species": 254
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1360,
+          "sets": 15,
+          "eras": 1,
+          "species": 680
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 642,
+          "sets": 16,
+          "eras": 1,
+          "species": 282
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 0.8574282020794932,
+          "adjusted_market_association_pct_vs_reference": 135.70909303957524,
+          "rows": 353,
+          "sets": 14,
+          "eras": 1,
+          "species": 237
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": -1.8492258851627628,
+          "adjusted_market_association_pct_vs_reference": -84.26410669383215,
+          "rows": 221,
+          "sets": 15,
+          "eras": 1,
+          "species": 168
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo_gx",
+          "coefficient_log_price_vs_reference": -1.8566522163680543,
+          "adjusted_market_association_pct_vs_reference": -84.38053380112194,
+          "rows": 131,
+          "sets": 15,
+          "eras": 1,
+          "species": 110
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_rainbow",
+          "coefficient_log_price_vs_reference": -0.027568926408703995,
+          "adjusted_market_association_pct_vs_reference": -2.71923718935958,
+          "rows": 118,
+          "sets": 14,
+          "eras": 1,
+          "species": 104
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_ultra",
+          "coefficient_log_price_vs_reference": -0.8399116302244212,
+          "adjusted_market_association_pct_vs_reference": -56.82513247231395,
+          "rows": 118,
+          "sets": 15,
+          "eras": 1,
+          "species": 101
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.25733318101486635,
+          "adjusted_market_association_pct_vs_reference": 29.347601662513057,
+          "rows": 380,
+          "sets": 15,
+          "eras": 1,
+          "species": 260
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 2085,
+          "sets": 17,
+          "eras": 1,
+          "species": 766
+        }
+      ],
+      "r_squared_within": 0.7669637445869192,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": 0.06377435249631895,
+          "ci_high": 0.4541824360616816,
+          "sign_stability": 0.9949748743718593
+        },
+        "rarity_designation:rare": {
+          "ci_low": 0.5897092170355016,
+          "ci_high": 1.1148686466451083,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": -2.531817894056706,
+          "ci_high": -1.1691044556032535,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo_gx": {
+          "ci_low": -2.6572981613958944,
+          "ci_high": -1.1455053343918744,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_rainbow": {
+          "ci_low": -0.856712677621669,
+          "ci_high": 0.7142283786241539,
+          "sign_stability": 0.507537688442211
+        },
+        "rarity_designation:rare_ultra": {
+          "ci_low": -1.5742390321987556,
+          "ci_high": -0.13103148159131703,
+          "sign_stability": 0.9949748743718593
+        },
+        "printing_finish:holo": {
+          "ci_low": 2.734765188392266,
+          "ci_high": 4.115943128449097,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "Sword and Shield",
+      "status": "ESTIMATED",
+      "n": 2748,
+      "set_count": 24,
+      "species_count": 825,
+      "rank": 21,
+      "columns": 21,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": 1.6153692823346388,
+        "control_mechanic:ex": -0.2950361983360277,
+        "control_mechanic:gx": 0.20465669381097873,
+        "control_mechanic:level_up": 1.4571463169127499,
+        "control_mechanic:mega": 2.080921310181017,
+        "control_mechanic:radiant": -0.248985430412929,
+        "control_mechanic:stage_1": 1.6422845568773488,
+        "control_mechanic:stage_2": 1.6576203178486635,
+        "control_mechanic:v": -0.11467033035209465,
+        "control_mechanic:vmax": 0.029475118417622303,
+        "rarity_designation:uncommon": 0.09397555350953293,
+        "rarity_designation:rare": 0.5494627289619377,
+        "rarity_designation:rare_holo_v": -0.11322038673627487,
+        "rarity_designation:rare_holo": -1.3428042090379801,
+        "rarity_designation:rare_ultra": 1.7003335607927403,
+        "rarity_designation:rare_holo_vmax": 2.1815374660599116,
+        "rarity_designation:rare_rainbow": 3.916845917346616,
+        "rarity_designation:trainer_gallery_rare_holo": -0.9205624207074844,
+        "rarity_designation:rare_secret": 2.0666765871090647,
+        "rarity_designation:rare_holo_vstar": 1.6477595294644036,
+        "printing_finish:holo": 2.329510408116386,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:vstar"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 2748,
+          "sets": 24,
+          "eras": 1,
+          "species": 825
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 2.329510408116386,
+          "adjusted_market_association_pct_vs_reference": 927.2910767899992,
+          "rows": 1290,
+          "sets": 24,
+          "eras": 1,
+          "species": 360
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1458,
+          "sets": 16,
+          "eras": 1,
+          "species": 720
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 701,
+          "sets": 16,
+          "eras": 1,
+          "species": 322
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 0.5494627289619377,
+          "adjusted_market_association_pct_vs_reference": 73.23220413350195,
+          "rows": 361,
+          "sets": 15,
+          "eras": 1,
+          "species": 259
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": -1.3428042090379801,
+          "adjusted_market_association_pct_vs_reference": -73.88875728484498,
+          "rows": 249,
+          "sets": 17,
+          "eras": 1,
+          "species": 184
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo_v",
+          "coefficient_log_price_vs_reference": -0.11322038673627487,
+          "adjusted_market_association_pct_vs_reference": -10.704615675425872,
+          "rows": 281,
+          "sets": 23,
+          "eras": 1,
+          "species": 188
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo_vmax",
+          "coefficient_log_price_vs_reference": 2.1815374660599116,
+          "adjusted_market_association_pct_vs_reference": 785.9917615167319,
+          "rows": 110,
+          "sets": 23,
+          "eras": 1,
+          "species": 74
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo_vstar",
+          "coefficient_log_price_vs_reference": 1.6477595294644036,
+          "adjusted_market_association_pct_vs_reference": 419.53268013027366,
+          "rows": 43,
+          "sets": 7,
+          "eras": 1,
+          "species": 34
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_rainbow",
+          "coefficient_log_price_vs_reference": 3.916845917346616,
+          "adjusted_market_association_pct_vs_reference": 4924.1728043896455,
+          "rows": 100,
+          "sets": 15,
+          "eras": 1,
+          "species": 84
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_secret",
+          "coefficient_log_price_vs_reference": 2.0666765871090647,
+          "adjusted_market_association_pct_vs_reference": 689.8529375224194,
+          "rows": 45,
+          "sets": 21,
+          "eras": 1,
+          "species": 37
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_ultra",
+          "coefficient_log_price_vs_reference": 1.7003335607927403,
+          "adjusted_market_association_pct_vs_reference": 447.57735905158285,
+          "rows": 219,
+          "sets": 15,
+          "eras": 1,
+          "species": 164
+        },
+        {
+          "component": "rarity_designation",
+          "value": "trainer_gallery_rare_holo",
+          "coefficient_log_price_vs_reference": -0.9205624207074844,
+          "adjusted_market_association_pct_vs_reference": -60.17050312591491,
+          "rows": 80,
+          "sets": 5,
+          "eras": 1,
+          "species": 77
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.09397555350953293,
+          "adjusted_market_association_pct_vs_reference": 9.853289031508163,
+          "rows": 409,
+          "sets": 16,
+          "eras": 1,
+          "species": 265
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 2748,
+          "sets": 24,
+          "eras": 1,
+          "species": 825
+        }
+      ],
+      "r_squared_within": 0.7673765621095299,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": -0.06656640554532516,
+          "ci_high": 0.26489877921995675,
+          "sign_stability": 0.8291457286432161
+        },
+        "rarity_designation:rare": {
+          "ci_low": 0.3175863612353281,
+          "ci_high": 0.7633477943884145,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo_v": {
+          "ci_low": -1.0005057211234056,
+          "ci_high": 0.5951816148024359,
+          "sign_stability": 0.6080402010050251
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": -2.024031956901843,
+          "ci_high": -0.6274117451255937,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_ultra": {
+          "ci_low": 0.6873814929623729,
+          "ci_high": 2.4510077933248873,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo_vmax": {
+          "ci_low": 0.8981993920467548,
+          "ci_high": 3.4284204346566134,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_rainbow": {
+          "ci_low": 2.5572722246715527,
+          "ci_high": 5.1703842246449865,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:trainer_gallery_rare_holo": {
+          "ci_low": -1.6062860177113005,
+          "ci_high": -0.19870979724350096,
+          "sign_stability": 0.9949748743718593
+        },
+        "rarity_designation:rare_secret": {
+          "ci_low": 1.3556434752948854,
+          "ci_high": 2.763072748281105,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo_vstar": {
+          "ci_low": 0.6241242111133579,
+          "ci_high": 2.622978404383662,
+          "sign_stability": 1.0
+        },
+        "printing_finish:holo": {
+          "ci_low": 1.5308818268768634,
+          "ci_high": 3.1011665523188565,
+          "sign_stability": 1.0
+        }
+      }
+    },
+    {
+      "era_name": "XY",
+      "status": "ESTIMATED",
+      "n": 1384,
+      "set_count": 16,
+      "species_count": 652,
+      "rank": 12,
+      "columns": 12,
+      "full_rank": true,
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "coefficients": {
+        "control_mechanic:basic": -3749138.249057455,
+        "control_mechanic:break": -3749134.9065433536,
+        "control_mechanic:ex": 5.220274725928903,
+        "control_mechanic:mega": -3749137.4796495503,
+        "control_mechanic:stage_1": -3749137.5044586174,
+        "control_mechanic:stage_2": -3749137.4194548503,
+        "rarity_designation:uncommon": 0.26007620326709,
+        "rarity_designation:rare": 0.7632735089864582,
+        "rarity_designation:rare_holo": 1.3995434476528317,
+        "rarity_designation:rare_holo_ex": -2.210196883417666,
+        "rarity_designation:rare_ultra": -0.5947274696081877,
+        "printing_finish:holo": 0.48306855582632124,
+        "rarity_designation:common": 0.0,
+        "printing_finish:non_holo": 0.0,
+        "special_treatment:__none__": 0.0,
+        "edition_status:__none__": 0.0
+      },
+      "non_estimable_columns": [
+        "control_mechanic:restored",
+        "rarity_designation:rare_break"
+      ],
+      "treatment_effects": [
+        {
+          "component": "edition_status",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1384,
+          "sets": 16,
+          "eras": 1,
+          "species": 652
+        },
+        {
+          "component": "printing_finish",
+          "value": "holo",
+          "coefficient_log_price_vs_reference": 0.48306855582632124,
+          "adjusted_market_association_pct_vs_reference": 62.10410330103136,
+          "rows": 430,
+          "sets": 16,
+          "eras": 1,
+          "species": 182
+        },
+        {
+          "component": "printing_finish",
+          "value": "non_holo",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 954,
+          "sets": 16,
+          "eras": 1,
+          "species": 564
+        },
+        {
+          "component": "rarity_designation",
+          "value": "common",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 433,
+          "sets": 15,
+          "eras": 1,
+          "species": 249
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare",
+          "coefficient_log_price_vs_reference": 0.7632735089864582,
+          "adjusted_market_association_pct_vs_reference": 114.52873561670938,
+          "rows": 241,
+          "sets": 13,
+          "eras": 1,
+          "species": 192
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo",
+          "coefficient_log_price_vs_reference": 1.3995434476528317,
+          "adjusted_market_association_pct_vs_reference": 305.3348978350297,
+          "rows": 143,
+          "sets": 14,
+          "eras": 1,
+          "species": 116
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_holo_ex",
+          "coefficient_log_price_vs_reference": -2.210196883417666,
+          "adjusted_market_association_pct_vs_reference": -89.03209475970606,
+          "rows": 129,
+          "sets": 14,
+          "eras": 1,
+          "species": 78
+        },
+        {
+          "component": "rarity_designation",
+          "value": "rare_ultra",
+          "coefficient_log_price_vs_reference": -0.5947274696081877,
+          "adjusted_market_association_pct_vs_reference": -44.82870960850723,
+          "rows": 94,
+          "sets": 14,
+          "eras": 1,
+          "species": 62
+        },
+        {
+          "component": "rarity_designation",
+          "value": "uncommon",
+          "coefficient_log_price_vs_reference": 0.26007620326709,
+          "adjusted_market_association_pct_vs_reference": 29.702892074125497,
+          "rows": 263,
+          "sets": 14,
+          "eras": 1,
+          "species": 202
+        },
+        {
+          "component": "special_treatment",
+          "value": "__none__",
+          "coefficient_log_price_vs_reference": 0.0,
+          "adjusted_market_association_pct_vs_reference": 0.0,
+          "rows": 1384,
+          "sets": 16,
+          "eras": 1,
+          "species": 652
+        }
+      ],
+      "r_squared_within": 0.7357043052285296,
+      "bootstrap_stability": {
+        "rarity_designation:uncommon": {
+          "ci_low": -0.06915275305509566,
+          "ci_high": 0.6092874050140376,
+          "sign_stability": 0.9346733668341709
+        },
+        "rarity_designation:rare": {
+          "ci_low": 0.39266022443771365,
+          "ci_high": 1.1551452636718749,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo": {
+          "ci_low": 0.9694068193435669,
+          "ci_high": 1.846363133192062,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_holo_ex": {
+          "ci_low": -2.5083834648132326,
+          "ci_high": -1.9616132974624636,
+          "sign_stability": 1.0
+        },
+        "rarity_designation:rare_ultra": {
+          "ci_low": -0.9102791547775269,
+          "ci_high": -0.32270946502685566,
+          "sign_stability": 1.0
+        },
+        "printing_finish:holo": {
+          "ci_low": 0.11851611137390138,
+          "ci_high": 0.8421927928924557,
+          "sign_stability": 1.0
+        }
+      }
+    }
+  ],
+  "high_product_relevance_findings": [
+    {
+      "era_name": "Mega Evolution",
+      "reference": "common",
+      "effects": [
+        {
+          "component": "rarity_designation",
+          "value": "double_rare",
+          "coefficient_log_price_vs_reference": -3.4754347154386096,
+          "adjusted_market_association_pct_vs_reference": -96.90516228388725,
+          "rows": 88,
+          "sets": 6,
+          "eras": 1,
+          "species": 83,
+          "bootstrap": {
+            "ci_low": -4.469828709214926,
+            "ci_high": -2.4810411833226698,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "illustration_rare",
+          "coefficient_log_price_vs_reference": 3.945967060212297,
+          "adjusted_market_association_pct_vs_reference": 5072.633641440031,
+          "rows": 101,
+          "sets": 6,
+          "eras": 1,
+          "species": 100,
+          "bootstrap": {
+            "ci_low": 3.8749507188797,
+            "ci_high": 4.036016751080751,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "special_illustration_rare",
+          "coefficient_log_price_vs_reference": 0.9876752177113485,
+          "adjusted_market_association_pct_vs_reference": 168.49852050209094,
+          "rows": 41,
+          "sets": 6,
+          "eras": 1,
+          "species": 40,
+          "bootstrap": {
+            "ci_low": -0.10304886351232567,
+            "ci_high": 2.078399303619625,
+            "sign_stability": 0.949748743718593
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "ultra_rare",
+          "coefficient_log_price_vs_reference": -1.8829606043510518,
+          "adjusted_market_association_pct_vs_reference": -84.78609850938888,
+          "rows": 45,
+          "sets": 6,
+          "eras": 1,
+          "species": 45,
+          "bootstrap": {
+            "ci_low": -2.799025157454875,
+            "ci_high": -1.0389714637908052,
+            "sign_stability": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "era_name": "Scarlet and Violet",
+      "reference": "common",
+      "effects": [
+        {
+          "component": "rarity_designation",
+          "value": "double_rare",
+          "coefficient_log_price_vs_reference": -2.0943428709181533,
+          "adjusted_market_association_pct_vs_reference": -87.68488567319838,
+          "rows": 211,
+          "sets": 16,
+          "eras": 1,
+          "species": 172,
+          "bootstrap": {
+            "ci_low": -3.3061504665875083,
+            "ci_high": -0.8951656516027398,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "illustration_rare",
+          "coefficient_log_price_vs_reference": 0.6306629452523544,
+          "adjusted_market_association_pct_vs_reference": 87.88557449763816,
+          "rows": 384,
+          "sets": 15,
+          "eras": 1,
+          "species": 356,
+          "bootstrap": {
+            "ci_low": 0.4538249869308497,
+            "ci_high": 0.8166030534772585,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "special_illustration_rare",
+          "coefficient_log_price_vs_reference": 1.8115356085425003,
+          "adjusted_market_association_pct_vs_reference": 511.9837895698702,
+          "rows": 95,
+          "sets": 15,
+          "eras": 1,
+          "species": 85,
+          "bootstrap": {
+            "ci_low": 0.5989467491390539,
+            "ci_high": 3.0263878701028917,
+            "sign_stability": 1.0
+          }
+        },
+        {
+          "component": "rarity_designation",
+          "value": "ultra_rare",
+          "coefficient_log_price_vs_reference": -0.9411911985323114,
+          "adjusted_market_association_pct_vs_reference": -60.983720291419495,
+          "rows": 141,
+          "sets": 14,
+          "eras": 1,
+          "species": 135,
+          "bootstrap": {
+            "ci_low": -2.2193468314617792,
+            "ci_high": 0.3029857545634982,
+            "sign_stability": 0.864321608040201
+          }
+        }
+      ]
+    }
+  ],
+  "bootstrap_stability": {
+    "rarity_designation:uncommon": {
+      "ci_low": -0.20579600408183096,
+      "ci_high": 0.0650790029099393,
+      "sign_stability": 0.8190954773869347
+    },
+    "rarity_designation:rare": {
+      "ci_low": 0.10103891897347027,
+      "ci_high": 0.557715430330722,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:rare_holo": {
+      "ci_low": -0.13033776517483753,
+      "ci_high": 1.3585799471429514,
+      "sign_stability": 0.9547738693467337
+    },
+    "rarity_designation:illustration_rare": {
+      "ci_low": 2.8493164087235328,
+      "ci_high": 4.09870281204152,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:rare_ultra": {
+      "ci_low": 1.26524137789325,
+      "ci_high": 2.446750043559003,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:rare_holo_ex": {
+      "ci_low": -0.31026161693332854,
+      "ci_high": 0.8031298961361794,
+      "sign_stability": 0.864321608040201
+    },
+    "rarity_designation:double_rare": {
+      "ci_low": -1.5426765031410312,
+      "ci_high": -0.372751656911084,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:rare_holo_v": {
+      "ci_low": -0.6608880143726695,
+      "ci_high": 0.6669069998220921,
+      "sign_stability": 0.5477386934673367
+    },
+    "rarity_designation:rare_rainbow": {
+      "ci_low": 2.223516797426787,
+      "ci_high": 3.5718327378764405,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:__none__": {
+      "ci_low": -0.2718932382762866,
+      "ci_high": 4.186088522173059,
+      "sign_stability": 0.8693467336683417
+    },
+    "rarity_designation:ultra_rare": {
+      "ci_low": -0.14388962880378187,
+      "ci_high": 0.9355428675822357,
+      "sign_stability": 0.9045226130653267
+    },
+    "rarity_designation:rare_secret": {
+      "ci_low": 1.9065565590712203,
+      "ci_high": 3.1728409773902815,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:rare_shiny": {
+      "ci_low": -1.1837525982958796,
+      "ci_high": 1.6999203097100446,
+      "sign_stability": 0.6432160804020101
+    },
+    "rarity_designation:special_illustration_rare": {
+      "ci_low": 2.4704020437379013,
+      "ci_high": 3.6369851582571,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:rare_holo_gx": {
+      "ci_low": 0.18561171840742924,
+      "ci_high": 1.5133040081987053,
+      "sign_stability": 0.9899497487437185
+    },
+    "rarity_designation:rare_holo_vmax": {
+      "ci_low": 0.37940512934820286,
+      "ci_high": 2.0231359990147313,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:trainer_gallery_rare_holo": {
+      "ci_low": -0.3483326533564008,
+      "ci_high": 1.0334501981338655,
+      "sign_stability": 0.7738693467336684
+    },
+    "rarity_designation:rare_holo_lv_x": {
+      "ci_low": 1.7386019858294788,
+      "ci_high": 3.1259500235824125,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:rare_holo_vstar": {
+      "ci_low": 0.39789892582129976,
+      "ci_high": 1.8303179068625717,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:hyper_rare": {
+      "ci_low": 0.8603505636012954,
+      "ci_high": 2.12529546052637,
+      "sign_stability": 1.0
+    },
+    "rarity_designation:rare_prime": {
+      "ci_low": 1.6938553576399396,
+      "ci_high": 3.3621029299898586,
+      "sign_stability": 1.0
+    },
+    "printing_finish:holo": {
+      "ci_low": 0.5529927974921584,
+      "ci_high": 1.7826632694873,
+      "sign_stability": 1.0
+    },
+    "printing_finish:reverse_holo": {
+      "ci_low": 1.564001763971653,
+      "ci_high": 3.7978293230316504,
+      "sign_stability": 1.0
+    },
+    "edition_status:1st_edition": {
+      "ci_low": -0.06368266120934993,
+      "ci_high": 0.46716233979569166,
+      "sign_stability": 0.8894472361809045
+    },
+    "edition_status:unlimited": {
+      "ci_low": -1.0350840441211346,
+      "ci_high": -0.34464097233416485,
+      "sign_stability": 1.0
+    }
+  },
+  "leave_set_out_stability": {
+    "scope": "all leave-one-set-out refits for high-product-relevance designation coefficients",
+    "summary": {
+      "rarity_designation:illustration_rare": {
+        "point": 3.506028898424812,
+        "fits": 22,
+        "same_sign_rate": 1.0,
+        "min": 3.39283750993513,
+        "max": 3.8745100939044104
+      },
+      "rarity_designation:double_rare": {
+        "point": -0.8847615425726747,
+        "fits": 22,
+        "same_sign_rate": 1.0,
+        "min": -0.9421621054461641,
+        "max": -0.7156967862304997
+      },
+      "rarity_designation:ultra_rare": {
+        "point": 0.4480320460719652,
+        "fits": 22,
+        "same_sign_rate": 1.0,
+        "min": 0.37597751772635674,
+        "max": 0.6187569060224104
+      },
+      "rarity_designation:special_illustration_rare": {
+        "point": 3.1568539081960045,
+        "fits": 22,
+        "same_sign_rate": 1.0,
+        "min": 3.0345144621344193,
+        "max": 3.2730391756786035
+      }
+    },
+    "failures": []
+  },
+  "other_robustness": {
+    "mechanic_control_removal": {
+      "shared_treatment_coefficients": 29,
+      "same_sign_rate": 0.9655172413793104,
+      "median_absolute_log_difference": 0.14897790219041873
+    },
+    "price_outlier_trim_1_99_pct": {
+      "retained": 15458,
+      "shared_treatment_coefficients": 28,
+      "same_sign_rate": 1.0,
+      "median_absolute_log_difference": 0.13058711126291
+    },
+    "demand_outlier_top_5_pct_removal": {
+      "retained": 14996,
+      "cutoff": 70.5984,
+      "shared_treatment_coefficients": 28,
+      "same_sign_rate": 1.0,
+      "median_absolute_log_difference": 0.14148870967373295
+    },
+    "treatment_cell_gate": "minimum 25 rows and 2 sets per represented component level",
+    "temporal_sensitivity": {
+      "status": "NOT_ESTIMABLE",
+      "reason": "No authoritative frozen historical canonical NM cohorts with identical taxonomy and identity semantics were available."
+    },
+    "permutation_placebo": {
+      "status": "COMPLETED",
+      "draws": 99,
+      "seed": 20267829,
+      "scheme": "joint treatment-package permutation within set",
+      "statistic": "sum of squared supported treatment coefficients",
+      "observed": 74.96343304306323,
+      "null_median": 2.1848593495101616,
+      "p_value": 0.01,
+      "interpretation": "Global association placebo only; it does not establish causal assignment or validate each component."
+    }
+  },
+  "exact_pull_scarcity_diagnostic": {
+    "covered_rows": 3604,
+    "coverage_rate": 0.22865118639766527,
+    "pearson_correlation": 0.7785762340814963,
+    "variation_explained_r_squared": 0.606180952276525,
+    "within_era": {
+      "Mega Evolution": {
+        "n": 783,
+        "correlation": 0.7307740400572161
+      },
+      "Scarlet and Violet": {
+        "n": 2821,
+        "correlation": 0.7955375221391073
+      }
+    },
+    "within_treatment_family": {
+      "common": {
+        "n": 1322,
+        "correlation": 0.3798417601636115
+      },
+      "double_rare": {
+        "n": 299,
+        "correlation": 0.11278653536675837
+      },
+      "hyper_rare": {
+        "n": 32,
+        "correlation": null
+      },
+      "illustration_rare": {
+        "n": 485,
+        "correlation": 0.5178917460579192
+      },
+      "rare": {
+        "n": 320,
+        "correlation": 0.1596635156316725
+      },
+      "shiny_rare": {
+        "n": 120,
+        "correlation": null
+      },
+      "shiny_ultra_rare": {
+        "n": 11,
+        "correlation": null
+      },
+      "special_illustration_rare": {
+        "n": 136,
+        "correlation": -0.15025761425861095
+      },
+      "ultra_rare": {
+        "n": 186,
+        "correlation": 0.39849986728159337
+      },
+      "uncommon": {
+        "n": 676,
+        "correlation": 0.4102527386283729
+      }
+    },
+    "interpretation": "Association with Exact Pull Scarcity; the primary V3 model does not control it out."
+  },
+  "treatment_contribution": {
+    "formula": "era_center(sum of supported decomposed treatment coefficients)",
+    "excludes": [
+      "species fixed effect",
+      "independent demand score",
+      "set fixed effect",
+      "mechanic/card-form controls"
+    ],
+    "card_level_values_persisted": 0
+  },
+  "database_rows_persisted": 0,
+  "production_scores_published": 0,
+  "files_changed": [
+    "backend/desirability/treatment_market_prestige_v3.py",
+    "backend/scripts/build_treatment_market_prestige_v3.py",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3.py",
+    "docs/research/treatment_market_prestige_v3_study.json",
+    "docs/research/TREATMENT_MARKET_PRESTIGE_V3_RESULTS.md",
+    "docs/research/treatment_market_prestige_v3_frozen_cohort"
+  ],
+  "tests_executed": [
+    "pytest backend/tests/unit/desirability/test_treatment_market_prestige_v3.py plus preserved V2 unit suites (23 passed)",
+    "immutable freeze hash verification (passed)"
+  ],
+  "research_status": "V3_MARKET_PRESTIGE_PARTIALLY_SUPPORTED",
+  "coherent_structure_exists": true,
+  "scoring_research_justified": true,
+  "status_reason": "Supported structure is concentrated in specific eras/treatment families; global publication is not justified.",
+  "recommended_next_task": "Preregister V3 Round 2 targeted era/treatment-family validation with historical NM snapshots, an explicit permutation placebo, and market listing/liquidity data; keep all outputs research-only."
+}

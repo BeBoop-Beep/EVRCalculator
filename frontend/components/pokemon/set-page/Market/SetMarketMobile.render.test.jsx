@@ -98,6 +98,8 @@ test("movers degrade to a message instead of a broken rail", async () => {
 
 const chaseCards = Array.from({ length: 9 }, (_, index) => ({
   id: `card-${index}`,
+  canonicalCardId: `canonical-card-${index}`,
+  cardVariantId: `variant-${index}`,
   name: `Chase ${index}`,
   rarity: "Special Illustration Rare",
   marketPrice: 500 - index * 30,
@@ -111,7 +113,8 @@ test("top chase is one featured card above a compact ranked list", async () => {
       cards={chaseCards}
       selectedWindowKey="30D"
       marketAsOfDate="2026-08-19"
-      rowHref="/pokemon?tab=cards"
+      setSlug="surging-sparks"
+      viewAllHref="/TCGs/Pokemon/Sets/surging-sparks?tab=cards&section=all-cards"
     />
   );
   const featured = renderer.root.findAll((node) => node.props?.["data-market-mobile-chase-featured"]);
@@ -121,11 +124,18 @@ test("top chase is one featured card above a compact ranked list", async () => {
   assert.equal(renderer.root.findAll((node) => node.props?.["data-market-mobile-chase-row"]).length, 2);
 
   const text = textOf(renderer);
-  assert.match(text, /Top 10 Cards/);
+  assert.match(text, /Top 10/);
   assert.match(text, /#1/);
   assert.match(text, /Chase 0/);
   assert.match(text, /\$500\.00/);
   assert.match(text, /View Top 10/);
+  assert.equal(featured[0].props.href, "/TCGs/Pokemon/Sets/surging-sparks/Cards/canonical-card-0?variant=variant-0");
+  const previewRows = renderer.root.findAll((node) => node.props?.["data-market-mobile-chase-row"]);
+  assert.equal(previewRows[0].props.href, "/TCGs/Pokemon/Sets/surging-sparks/Cards/canonical-card-1?variant=variant-1");
+  assert.equal(previewRows[1].props.href, "/TCGs/Pokemon/Sets/surging-sparks/Cards/canonical-card-2?variant=variant-2");
+  assert.equal(new Set([featured[0].props.href, ...previewRows.map((row) => row.props.href)]).size, 3);
+  const allCards = renderer.root.findAll((node) => node.type === "a" && node.props?.href === "/TCGs/Pokemon/Sets/surging-sparks?tab=cards&section=all-cards");
+  assert.equal(allCards.length, 1, "only the collection CTA uses the Cards listing URL");
 
   await act(async () => {
     renderer.root

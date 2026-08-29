@@ -28,6 +28,13 @@ const distribution = read("./OpeningEconomicsDistribution.jsx");
 const chartFrame = read("./ChartFrame.jsx");
 const chartTooltipShell = read("./ChartTooltipShell.jsx");
 const chartVisualSystem = read("./chartVisualSystem.mjs");
+
+test("opening and set ranking dates name their distinct publication clocks", () => {
+  const setRankings = read("./ExploreTableClient.jsx");
+  assert.match(overall, /Opening data as of \{marketDate\}/);
+  assert.match(setRankings, /Rankings data as of \{marketDate\}/);
+  assert.doesNotMatch(overall, />As of \{marketDate\}</);
+});
 const eras = read("./OpeningEconomicsEras.jsx");
 const page = read("../../app/Explore/page.js");
 const server = read("../../lib/explore/openingEconomicsServer.js");
@@ -313,10 +320,11 @@ test("the opening economics fetch never rejects and never fails the page", () =>
   assert.ok(eras.includes("OpeningEconomicsEmpty"));
 });
 
-test("opening economics is fetched in parallel with the existing rankings reads", () => {
+test("opening economics is fetched in parallel with only the slim route directory", () => {
   const block = page.slice(page.indexOf("await Promise.all(["), page.indexOf("]);"));
-  assert.ok(block.includes("getRipStatisticsTargets"));
+  assert.ok(block.includes("getPokemonSetRouteDirectory"));
   assert.ok(block.includes("getOpeningEconomics()"));
+  assert.ok(!page.includes("getRipStatisticsTargets"));
 });
 
 // ---------------------------------------------------------------------------

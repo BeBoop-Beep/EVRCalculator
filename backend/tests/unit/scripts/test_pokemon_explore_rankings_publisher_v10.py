@@ -8,7 +8,7 @@ from backend.scripts.pokemon_explore_rankings_publisher import (
 
 def _v10_contract():
     pillar = lambda: {
-        "score": 50.0, "absoluteScore": 50.0, "relativeScore": 50.0,
+        "score": 50.0, "absoluteScore": 50.0, "relativeScore": 50.0, "leaderNormalizedScore": 50.0,
         "rank": 1, "tier": "A", "rankedSetCount": 22, "cohortFingerprint": "fp",
     }
     return {

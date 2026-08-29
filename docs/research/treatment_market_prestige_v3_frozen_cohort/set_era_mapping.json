@@ -1,0 +1,1892 @@
+[
+  {
+    "id": "708f76d0-3b41-4a10-bcdf-515911c95b44",
+    "name": "Pikachu World Collection Promos",
+    "canonical_key": "pikachuWorldCollectionPromos",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "499768a1-e523-45a1-acd1-3b7517e30e71",
+    "name": "Deck Exclusives",
+    "canonical_key": "deckExclusives",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8ac94f2a-bb38-46da-964e-553a6738bfed",
+    "name": "Countdown Calendar Promos",
+    "canonical_key": "countdownCalendarPromos",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "897af8d8-29f0-4695-ac0f-1818681a8347",
+    "name": "World Championship Decks",
+    "canonical_key": "worldChampionshipDecks",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "3658ed92-28bb-4157-9499-a362ea2131f4",
+    "name": "Trick or Trade BOOster Bundle 2023",
+    "canonical_key": "trickOrTradeBOOsterBundle2023",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "4f5809fb-003b-4b48-87b8-ddac6bb8cb3e",
+    "name": "McDonald's Promos 2023",
+    "canonical_key": "mcdonaldSPromos2023",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "eac925d2-b5fd-4924-b44b-b9248b792e8e",
+    "name": "Battle Academy 2024",
+    "canonical_key": "battleAcademy2024",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "620d3f6e-579c-49c1-9104-96cffc92808c",
+    "name": "Trick or Trade BOOster Bundle 2024",
+    "canonical_key": "trickOrTradeBOOsterBundle2024",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+    "name": "Phantasmal Flames",
+    "canonical_key": "phantasmalFlames",
+    "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+    "release_date": "2025-11-14",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+    "name": "Twilight Masquerade",
+    "canonical_key": "twilightMasquerade",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2024-05-24",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+    "name": "Black Bolt",
+    "canonical_key": "blackBolt",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2025-07-18",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "de291399-ead5-41dc-bc12-e7c587684f85",
+    "name": "Destined Rivals",
+    "canonical_key": "destinedRivals",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2025-05-30",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "f59f25a2-d3da-4100-a918-901271a99925",
+    "name": "Surging Sparks",
+    "canonical_key": "surgingSparks",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2024-11-08",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "142d3869-9d39-48b6-a810-751af2aac748",
+    "name": "Journey Together",
+    "canonical_key": "journeyTogether",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2025-03-28",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "77bde285-03f8-4a48-b6a5-2f548225c3eb",
+    "name": "Stormfront",
+    "canonical_key": "stormfront",
+    "era_id": "89a73e3f-f781-46f4-9f29-82645f2718bd",
+    "release_date": "2008-11-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+    "name": "Obsidian Flames",
+    "canonical_key": "obsidianFlames",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2023-08-11",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+    "name": "Paldea Evolved",
+    "canonical_key": "paldeaEvolved",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2023-06-09",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+    "name": "Paldean Fates",
+    "canonical_key": "paldeanFates",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2024-01-26",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+    "name": "Paradox Rift",
+    "canonical_key": "paradoxRift",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2023-11-03",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+    "name": "Prismatic Evolutions",
+    "canonical_key": "prismaticEvolutions",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2025-01-17",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "d001d563-988b-4f8e-904f-acb926748e22",
+    "name": "Scarlet and Violet 151",
+    "canonical_key": "scarletAndViolet151",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2023-09-22",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+    "name": "Stellar Crown",
+    "canonical_key": "stellarCrown",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2024-09-13",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "6c82fb37-b9b9-4961-a528-12556bd15417",
+    "name": "Base Set 2",
+    "canonical_key": "baseSet2",
+    "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+    "release_date": "2000-02-24",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+    "name": "Fossil",
+    "canonical_key": "fossil",
+    "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+    "release_date": "1999-10-10",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+    "name": "Jungle",
+    "canonical_key": "jungle",
+    "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+    "release_date": "1999-06-16",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+    "name": "Team Rocket",
+    "canonical_key": "teamRocket",
+    "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+    "release_date": "2000-04-24",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "591a2b3e-2dc8-4e80-b42d-aec4f4b786e4",
+    "name": "Black & White",
+    "canonical_key": "blackAndWhite",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2011-04-25",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+    "name": "Boundaries Crossed",
+    "canonical_key": "boundariesCrossed",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2012-11-07",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "6cfb0c2c-0758-4b54-89b6-e1dd00771fa6",
+    "name": "BW Black Star Promos",
+    "canonical_key": "bwBlackStarPromos",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2011-03-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "7a87a5b5-17dc-43e6-9eac-3de88beab0e7",
+    "name": "Dark Explorers",
+    "canonical_key": "darkExplorers",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2012-05-09",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+    "name": "Dragons Exalted",
+    "canonical_key": "dragonsExalted",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2012-08-15",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+    "name": "Dragon Vault",
+    "canonical_key": "dragonVault",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2012-10-05",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "34a48f79-1bd3-4f1d-9e3c-758955be70ee",
+    "name": "Emerging Powers",
+    "canonical_key": "emergingPowers",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2011-08-31",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+    "name": "Legendary Treasures",
+    "canonical_key": "legendaryTreasures",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2013-11-06",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+    "name": "Next Destinies",
+    "canonical_key": "nextDestinies",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2012-02-08",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "5361a918-eb23-447e-a00e-e21493bc4320",
+    "name": "Noble Victories",
+    "canonical_key": "nobleVictories",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2011-11-16",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+    "name": "Plasma Blast",
+    "canonical_key": "plasmaBlast",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2013-08-14",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "ddbc1691-ea68-4775-8343-7b8fddbf81e6",
+    "name": "Plasma Freeze",
+    "canonical_key": "plasmaFreeze",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2013-05-08",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "65ee8536-af5a-4242-8a1f-9928c81f501b",
+    "name": "Plasma Storm",
+    "canonical_key": "plasmaStorm",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2013-02-06",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "7a1b8de0-331f-4635-8512-b737da431f7d",
+    "name": "Diamond & Pearl",
+    "canonical_key": "diamondAndPearl",
+    "era_id": "89a73e3f-f781-46f4-9f29-82645f2718bd",
+    "release_date": "2007-05-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "e7370b09-d1ba-41e4-b5b9-bb999c9628af",
+    "name": "DP Black Star Promos",
+    "canonical_key": "dpBlackStarPromos",
+    "era_id": "89a73e3f-f781-46f4-9f29-82645f2718bd",
+    "release_date": "2007-05-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "15fd93a2-82e3-4a5f-9f11-112cee192c95",
+    "name": "Great Encounters",
+    "canonical_key": "greatEncounters",
+    "era_id": "89a73e3f-f781-46f4-9f29-82645f2718bd",
+    "release_date": "2008-02-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "2262c6e4-3f9a-4364-b03a-d811cd604739",
+    "name": "Legends Awakened",
+    "canonical_key": "legendsAwakened",
+    "era_id": "89a73e3f-f781-46f4-9f29-82645f2718bd",
+    "release_date": "2008-08-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "bd54a027-2b93-4cfb-b118-687bd0481def",
+    "name": "Majestic Dawn",
+    "canonical_key": "majesticDawn",
+    "era_id": "89a73e3f-f781-46f4-9f29-82645f2718bd",
+    "release_date": "2008-05-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "ca43d96a-ad90-4717-a4f6-253fb26a6d53",
+    "name": "Mysterious Treasures",
+    "canonical_key": "mysteriousTreasures",
+    "era_id": "89a73e3f-f781-46f4-9f29-82645f2718bd",
+    "release_date": "2007-08-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8f78267f-493b-4d60-a19e-587ae1f60f69",
+    "name": "Secret Wonders",
+    "canonical_key": "secretWonders",
+    "era_id": "89a73e3f-f781-46f4-9f29-82645f2718bd",
+    "release_date": "2007-11-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "e9063738-f85d-4e2c-8cbe-9a5dc98883e9",
+    "name": "Pok\u00e9mon Futsal Collection",
+    "canonical_key": "pokMonFutsalCollection",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2020-09-11",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+    "name": "Aquapolis",
+    "canonical_key": "aquapolis",
+    "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+    "release_date": "2003-01-15",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+    "name": "Skyridge",
+    "canonical_key": "skyridge",
+    "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+    "release_date": "2003-05-12",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "93050f21-b805-41fc-a49d-b5afcb9c41dc",
+    "name": "Crystal Guardians",
+    "canonical_key": "crystalGuardians",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2006-08-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "1b3250bb-f123-47d8-b090-499e5879eda7",
+    "name": "Delta Species",
+    "canonical_key": "deltaSpecies",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2005-10-31",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "388dd649-960b-4fd8-a8df-e56b3730972e",
+    "name": "Deoxys",
+    "canonical_key": "deoxys",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2005-02-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "4c0902e8-fc57-4e07-82e1-e4bdb9fe9990",
+    "name": "Dragon",
+    "canonical_key": "dragon",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2003-11-24",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "c56fe006-6d9a-4b26-a4e0-6726138edecb",
+    "name": "Dragon Frontiers",
+    "canonical_key": "dragonFrontiers",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2006-11-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+    "name": "Emerald",
+    "canonical_key": "emerald",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2005-05-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "50c5370b-a5e7-4fbc-98fe-efc35e05ff80",
+    "name": "FireRed & LeafGreen",
+    "canonical_key": "fireredAndLeafGreen",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2004-09-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "846787ce-2e12-4dab-b941-886f95cd16f8",
+    "name": "Hidden Legends",
+    "canonical_key": "hiddenLegends",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2004-06-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "4099fc11-a3f6-4034-8208-fbf82bd89de5",
+    "name": "Holon Phantoms",
+    "canonical_key": "holonPhantoms",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2006-05-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "7ceb2e94-7968-4394-95cb-742b01804974",
+    "name": "Expedition Base Set",
+    "canonical_key": "expeditionBaseSet",
+    "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+    "release_date": "2002-09-15",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+    "name": "Legend Maker",
+    "canonical_key": "legendMaker",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2006-02-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "30396643-190c-416d-92a4-e8414c8b4980",
+    "name": "Power Keepers",
+    "canonical_key": "powerKeepers",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2007-02-02",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "b0d7bd6a-4e57-4495-b975-e132417cc071",
+    "name": "Ruby & Sapphire",
+    "canonical_key": "rubyAndSapphire",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2003-07-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "27f3eb48-9964-4a3f-9861-a434ae244697",
+    "name": "Sandstorm",
+    "canonical_key": "sandstorm",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2003-09-18",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "a69e4091-5b33-499d-85a5-a8f0b7ecaddc",
+    "name": "Team Magma vs Team Aqua",
+    "canonical_key": "teamMagmaVsTeamAqua",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2004-03-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+    "name": "Team Rocket Returns",
+    "canonical_key": "teamRocketReturns",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2004-11-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "126093d8-50e7-4a7c-891d-8cffd5733eeb",
+    "name": "Unseen Forces",
+    "canonical_key": "unseenForces",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2005-08-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "537d3312-9622-4015-9ef2-66e16a27287c",
+    "name": "Gym Heroes",
+    "canonical_key": "gymHeroes",
+    "era_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+    "release_date": "2000-08-14",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+    "name": "Call of Legends",
+    "canonical_key": "callOfLegends",
+    "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+    "release_date": "2011-02-09",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+    "name": "HeartGold & SoulSilver",
+    "canonical_key": "heartgoldAndSoulSilver",
+    "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+    "release_date": "2010-02-10",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "bbea2ee9-6be2-44bd-b14e-b4a8b9c858de",
+    "name": "HGSS Black Star Promos",
+    "canonical_key": "hgssBlackStarPromos",
+    "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+    "release_date": "2010-02-10",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "965b3000-c483-4110-bb21-ff5ffe120564",
+    "name": "HS\u2014Triumphant",
+    "canonical_key": "hsTriumphant",
+    "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+    "release_date": "2010-11-03",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+    "name": "HS\u2014Undaunted",
+    "canonical_key": "hsUndaunted",
+    "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+    "release_date": "2010-08-18",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+    "name": "HS\u2014Unleashed",
+    "canonical_key": "hsUnleashed",
+    "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+    "release_date": "2010-05-12",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "42a3740d-4778-4857-9c28-e116f34b51f3",
+    "name": "Neo Destiny",
+    "canonical_key": "neoDestiny",
+    "era_id": "56975efd-b21b-41cd-b062-e89baf035ff5",
+    "release_date": "2002-02-28",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2",
+    "name": "Neo Discovery",
+    "canonical_key": "neoDiscovery",
+    "era_id": "56975efd-b21b-41cd-b062-e89baf035ff5",
+    "release_date": "2001-06-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "3562f9c9-f879-4d49-9d69-d0ab511230f9",
+    "name": "Neo Genesis",
+    "canonical_key": "neoGenesis",
+    "era_id": "56975efd-b21b-41cd-b062-e89baf035ff5",
+    "release_date": "2000-12-16",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "89e710d1-c378-4b4e-aaea-5994d8441f45",
+    "name": "Neo Revelation",
+    "canonical_key": "neoRevelation",
+    "era_id": "56975efd-b21b-41cd-b062-e89baf035ff5",
+    "release_date": "2001-09-21",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "78c7f000-9a9e-45ca-8233-8f36030f6019",
+    "name": "Nintendo Black Star Promos",
+    "canonical_key": "nintendoBlackStarPromos",
+    "era_id": "798fec5b-4e8c-4bc1-bbd1-bdacf5e7105c",
+    "release_date": "2003-10-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "e5c150bd-9a74-4bd3-a0a4-68e0508b7ba6",
+    "name": "Best of Game",
+    "canonical_key": "bestOfGame",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2002-12-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+    "name": "Legendary Collection",
+    "canonical_key": "legendaryCollection",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2002-05-24",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "5e99f658-39f0-4845-9228-db8db3965f32",
+    "name": "Perfect Order",
+    "canonical_key": "perfectOrder",
+    "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+    "release_date": "2026-03-27",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+    "name": "McDonald's Collection 2011",
+    "canonical_key": "mcdonaldSCollection2011",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2011-06-17",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+    "name": "McDonald's Collection 2012",
+    "canonical_key": "mcdonaldSCollection2012",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2012-06-15",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+    "name": "McDonald's Collection 2014",
+    "canonical_key": "mcdonaldSCollection2014",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2014-05-23",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+    "name": "McDonald's Collection 2015",
+    "canonical_key": "mcdonaldSCollection2015",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2015-11-27",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+    "name": "McDonald's Collection 2016",
+    "canonical_key": "mcdonaldSCollection2016",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2016-08-19",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+    "name": "McDonald's Collection 2017",
+    "canonical_key": "mcdonaldSCollection2017",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2017-11-07",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+    "name": "McDonald's Collection 2018",
+    "canonical_key": "mcdonaldSCollection2018",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2018-10-16",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+    "name": "McDonald's Collection 2019",
+    "canonical_key": "mcdonaldSCollection2019",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2019-10-15",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "332b2885-9354-4a29-ba52-03fca35594d1",
+    "name": "McDonald's Collection 2021",
+    "canonical_key": "mcdonaldSCollection2021",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2021-02-09",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+    "name": "McDonald's Collection 2022",
+    "canonical_key": "mcdonaldSCollection2022",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2022-08-03",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "d425bce0-952c-456b-8402-707daeb35850",
+    "name": "Pok\u00e9mon Rumble",
+    "canonical_key": "pokMonRumble",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2009-12-02",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+    "name": "Southern Islands",
+    "canonical_key": "southernIslands",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": "2001-07-31",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6",
+    "name": "Arceus",
+    "canonical_key": "arceus",
+    "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+    "release_date": "2009-11-04",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "98301e8a-8aa3-43d8-a85b-908883264721",
+    "name": "Platinum",
+    "canonical_key": "platinum",
+    "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+    "release_date": "2009-02-11",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+    "name": "Rising Rivals",
+    "canonical_key": "risingRivals",
+    "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+    "release_date": "2009-05-16",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "549f2297-a03b-4276-ad96-ad41a8bcef8f",
+    "name": "POP Series 1",
+    "canonical_key": "popSeries1",
+    "era_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+    "release_date": "2004-09-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "a91d2dfa-fd33-44ff-ac12-f221b833a2e2",
+    "name": "POP Series 2",
+    "canonical_key": "popSeries2",
+    "era_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+    "release_date": "2005-08-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "92575c0d-fac2-42ff-86f3-fb81f7452188",
+    "name": "POP Series 3",
+    "canonical_key": "popSeries3",
+    "era_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+    "release_date": "2006-04-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "62aaa567-d5a7-4d0c-b1b0-1fde562c0081",
+    "name": "POP Series 4",
+    "canonical_key": "popSeries4",
+    "era_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+    "release_date": "2006-08-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "1c6a8735-af2a-475b-b230-5bd18f827b06",
+    "name": "POP Series 5",
+    "canonical_key": "popSeries5",
+    "era_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+    "release_date": "2007-03-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "9e777620-7479-41c4-84fb-17d2aea123bb",
+    "name": "POP Series 6",
+    "canonical_key": "popSeries6",
+    "era_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+    "release_date": "2007-09-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "2d477c9a-bb2c-42aa-ae25-7cd4ca0f2a4a",
+    "name": "POP Series 7",
+    "canonical_key": "popSeries7",
+    "era_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+    "release_date": "2008-03-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "ba05227c-b7eb-4428-9e8e-ae70b52fe89f",
+    "name": "POP Series 8",
+    "canonical_key": "popSeries8",
+    "era_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+    "release_date": "2008-09-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "9d282514-6b63-48cd-bc25-9ce330632cd3",
+    "name": "POP Series 9",
+    "canonical_key": "popSeries9",
+    "era_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+    "release_date": "2009-03-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+    "name": "Burning Shadows",
+    "canonical_key": "burningShadows",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2017-08-05",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+    "name": "Celestial Storm",
+    "canonical_key": "celestialStorm",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2018-08-03",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "d0a3d2ba-c685-4d8c-a5f7-b781b6b730f7",
+    "name": "Base Set (Shadowless)",
+    "canonical_key": "baseSetShadowless",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+    "name": "Cosmic Eclipse",
+    "canonical_key": "cosmicEclipse",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2019-11-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "212383a2-ed84-4a5e-af37-50814247a437",
+    "name": "Crimson Invasion",
+    "canonical_key": "crimsonInvasion",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2017-11-03",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+    "name": "Detective Pikachu",
+    "canonical_key": "detectivePikachu",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2019-04-05",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+    "name": "Scarlet and Violet Base Set",
+    "canonical_key": "scarletAndVioletBase",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2023-03-31",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+    "name": "Dragon Majesty",
+    "canonical_key": "dragonMajesty",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2018-09-07",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+    "name": "Forbidden Light",
+    "canonical_key": "forbiddenLight",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2018-05-04",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+    "name": "Guardians Rising",
+    "canonical_key": "guardiansRising",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2017-05-05",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+    "name": "Hidden Fates",
+    "canonical_key": "hiddenFates",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2019-08-23",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "7c998bc2-6073-4461-8873-64d1b3e78930",
+    "name": "Lost Thunder",
+    "canonical_key": "lostThunder",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2018-11-02",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+    "name": "Shining Legends",
+    "canonical_key": "shiningLegends",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2017-10-06",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "0a49ab45-80d7-47e3-be40-425e254d2ff2",
+    "name": "SM Black Star Promos",
+    "canonical_key": "smBlackStarPromos",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2017-02-03",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8938c853-2282-46d8-ba44-87584fa2c168",
+    "name": "Sun & Moon",
+    "canonical_key": "sunAndMoon",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2017-02-03",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+    "name": "Team Up",
+    "canonical_key": "teamUp",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2019-02-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8158d0ae-0255-48f0-b189-d134035b72b0",
+    "name": "Ultra Prism",
+    "canonical_key": "ultraPrism",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2018-02-02",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+    "name": "Unbroken Bonds",
+    "canonical_key": "unbrokenBonds",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2019-05-03",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+    "name": "Unified Minds",
+    "canonical_key": "unifiedMinds",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2019-08-02",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+    "name": "Astral Radiance",
+    "canonical_key": "astralRadiance",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2022-05-27",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+    "name": "Battle Styles",
+    "canonical_key": "battleStyles",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2021-03-19",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+    "name": "Brilliant Stars",
+    "canonical_key": "brilliantStars",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2022-02-25",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "be7c981b-c55e-4f60-a1b8-be922531452d",
+    "name": "Celebrations",
+    "canonical_key": "celebrations",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2021-10-08",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+    "name": "Champion's Path",
+    "canonical_key": "championSPath",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2020-09-25",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+    "name": "Chilling Reign",
+    "canonical_key": "chillingReign",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2021-06-18",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+    "name": "Crown Zenith",
+    "canonical_key": "crownZenith",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2023-01-20",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "3836457c-77dc-44b0-a72f-779b6dd78884",
+    "name": "Darkness Ablaze",
+    "canonical_key": "darknessAblaze",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2020-08-14",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "93212749-ce0e-498e-975e-7d947a3448ce",
+    "name": "Evolving Skies",
+    "canonical_key": "evolvingSkies",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2021-08-27",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+    "name": "Fusion Strike",
+    "canonical_key": "fusionStrike",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2021-11-12",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+    "name": "Lost Origin",
+    "canonical_key": "lostOrigin",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2022-09-09",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+    "name": "Pok\u00e9mon GO",
+    "canonical_key": "pokMonGO",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2022-07-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "759c09f8-8a1b-4212-be89-66088afa6893",
+    "name": "Rebel Clash",
+    "canonical_key": "rebelClash",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2020-05-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "03764ded-825a-45c0-8b15-ce100cff9552",
+    "name": "Shining Fates",
+    "canonical_key": "shiningFates",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2021-02-19",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "2d6ec108-70b2-4698-a21a-1af39828004f",
+    "name": "Silver Tempest",
+    "canonical_key": "silverTempest",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2022-11-11",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+    "name": "Sword & Shield",
+    "canonical_key": "swordAndShield",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2020-02-07",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "26fedb88-87d7-487a-9f01-528d603c682e",
+    "name": "Vivid Voltage",
+    "canonical_key": "vividVoltage",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2020-11-13",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "3f3c7677-b876-4353-821e-6bdd610fd683",
+    "name": "Ancient Origins",
+    "canonical_key": "ancientOrigins",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2015-08-12",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "4de777b3-396e-4f19-9d78-c054b296bedb",
+    "name": "BREAKpoint",
+    "canonical_key": "breakpoint",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2016-02-03",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+    "name": "BREAKthrough",
+    "canonical_key": "breakthrough",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2015-11-04",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "806b7046-4fd5-4259-be17-54b28381f034",
+    "name": "Double Crisis",
+    "canonical_key": "doubleCrisis",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2015-03-25",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "75cc9ef9-1099-4e47-8d09-17f416606865",
+    "name": "Evolutions",
+    "canonical_key": "evolutions",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2016-11-02",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+    "name": "Fates Collide",
+    "canonical_key": "fatesCollide",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2016-05-02",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+    "name": "Flashfire",
+    "canonical_key": "flashfire",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2014-05-07",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+    "name": "Furious Fists",
+    "canonical_key": "furiousFists",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2014-08-13",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+    "name": "Generations",
+    "canonical_key": "generations",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2016-02-22",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "f133524e-50e2-4238-91db-393770680c9b",
+    "name": "Kalos Starter Set",
+    "canonical_key": "kalosStarterSet",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2013-11-08",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "d38ee646-382d-45c0-9463-e9302aa2471a",
+    "name": "Phantom Forces",
+    "canonical_key": "phantomForces",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2014-11-05",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+    "name": "Primal Clash",
+    "canonical_key": "primalClash",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2015-02-04",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+    "name": "Roaring Skies",
+    "canonical_key": "roaringSkies",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2015-05-06",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "69d6d1be-f610-421b-b29c-c3348fe19518",
+    "name": "Steam Siege",
+    "canonical_key": "steamSiege",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2016-08-03",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+    "name": "XY",
+    "canonical_key": "xy",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2014-02-05",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "0b8ebcec-2b4e-4a77-9923-ffc4be6514c5",
+    "name": "XY Black Star Promos",
+    "canonical_key": "xyBlackStarPromos",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2013-10-12",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+    "name": "Chaos Rising",
+    "canonical_key": "chaosRising",
+    "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+    "release_date": "2026-05-22",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "1c097569-7ad5-4531-a51c-a0c619348029",
+    "name": "Best of Promos",
+    "canonical_key": "bestOfPromos",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+    "name": "Shrouded Fable",
+    "canonical_key": "shroudedFable",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2024-08-02",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+    "name": "Temporal Forces",
+    "canonical_key": "temporalForces",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2024-03-22",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+    "name": "White Flare",
+    "canonical_key": "whiteFlare",
+    "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+    "release_date": "2025-07-18",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+    "name": "Ascended Heroes",
+    "canonical_key": "ascendedHeroes",
+    "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+    "release_date": "2026-01-30",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+    "name": "Pitch Black",
+    "canonical_key": "pitchBlack",
+    "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+    "release_date": "2026-07-17",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "cf0803d1-bcea-4bc4-b263-62b82a1104ba",
+    "name": "WoTC Promo",
+    "canonical_key": "wotcPromo",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "3afc0db0-e663-4145-8ab6-b3ea0bb08c4d",
+    "name": "Diamond and Pearl Promos",
+    "canonical_key": "diamondAndPearlPromos",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "3e4adf68-773f-4ed5-86a2-ce4fcead8bff",
+    "name": "SV: Scarlet & Violet Promo Cards",
+    "canonical_key": "svScarletAndVioletPromoCards",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "9d26311a-2df9-4509-95b7-f2c0fa84be97",
+    "name": "Blister Exclusives",
+    "canonical_key": "blisterExclusives",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "27682e80-4233-4019-bd88-3c6b899d2c9c",
+    "name": "Professor Program Promos",
+    "canonical_key": "professorProgramPromos",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "691a893f-a2a2-4981-8654-bcde6fd04241",
+    "name": "Trading Card Game Classic",
+    "canonical_key": "tradingCardGameClassic",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "633200a6-13cd-4631-9831-4f6c36fadc15",
+    "name": "SWSH: Sword & Shield Promo Cards",
+    "canonical_key": "swshSwordAndShieldPromoCards",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "a7173805-4be3-4b17-aee9-63ca51198e28",
+    "name": "First Partner Collection 2026",
+    "canonical_key": "firstPartnerCollection2026",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8dbf97f7-b7e8-4ff5-883a-0bb3356291bf",
+    "name": "ME: 30th Celebration",
+    "canonical_key": "me30thCelebration",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "a7be046d-97a9-42a2-8f94-ba65d9437c54",
+    "name": "SVE: Scarlet & Violet Energies",
+    "canonical_key": "sveScarletAndVioletEnergies",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "38bb9c0d-8463-4e3c-8f6a-183b5d8026bc",
+    "name": "Alternate Art Promos",
+    "canonical_key": "alternateArtPromos",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "007ab2d1-b71b-4049-bf2d-b772b53cbfed",
+    "name": "ME: Mega Evolution Promo",
+    "canonical_key": "megaEvolutionPromos",
+    "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "d46f3d54-020e-4f00-b02c-394aaf4ece13",
+    "name": "Expedition",
+    "canonical_key": "expedition",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "e1a1f0dc-d89e-4b97-9bb9-6465f1f08c18",
+    "name": "Battle Academy",
+    "canonical_key": "battleAcademy",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "653c64a2-e05c-4843-8227-38341b08749f",
+    "name": "First Partner Pack",
+    "canonical_key": "firstPartnerPack",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "04cd092f-0e97-4f45-bf91-ef7ebdf9420e",
+    "name": "Battle Academy 2022",
+    "canonical_key": "battleAcademy2022",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "9a17644c-e449-4b75-a4f8-9a4c8306bf27",
+    "name": "e-Reader Sample Cards",
+    "canonical_key": "eReaderSampleCards",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "7a2814b3-1153-4b1a-a0b2-2a0725258214",
+    "name": "Wizards Black Star Promos",
+    "canonical_key": "wizardsBlackStarPromos",
+    "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+    "release_date": "1999-07-01",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "528c1630-0565-427c-98a3-0ad3d85da32e",
+    "name": "Hidden Fates Shiny Vault",
+    "canonical_key": "hiddenFatesShinyVault",
+    "era_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+    "release_date": "2019-08-23",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "f93ca977-cfc9-4d06-a62a-f9dcf9afbfb8",
+    "name": "Shining Fates Shiny Vault",
+    "canonical_key": "shiningFatesShinyVault",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2021-02-19",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "09f1674c-26c5-40df-8d52-4ce823c7c2fb",
+    "name": "Celebrations: Classic Collection",
+    "canonical_key": "celebrationsClassicCollection",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2021-10-08",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "7b44aba2-0e04-4b04-a1c7-9b6273daf3d5",
+    "name": "Brilliant Stars Trainer Gallery",
+    "canonical_key": "brilliantStarsTrainerGallery",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2022-02-25",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "01b45c4b-c606-41f7-9669-0137cd4aafaf",
+    "name": "Astral Radiance Trainer Gallery",
+    "canonical_key": "astralRadianceTrainerGallery",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2022-05-27",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "fc711667-a178-41c9-afbc-7e7d88bfe593",
+    "name": "Lost Origin Trainer Gallery",
+    "canonical_key": "lostOriginTrainerGallery",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2022-09-09",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "1f5a156b-2335-4803-a82c-803976263e8b",
+    "name": "Silver Tempest Trainer Gallery",
+    "canonical_key": "silverTempestTrainerGallery",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2022-11-11",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+    "name": "EX Trainer Kit Latios",
+    "canonical_key": "exTrainerKitLatios",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2004-06-01",
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "532d2ad5-32b3-434d-9772-2159fcdfbd5b",
+    "name": "Crown Zenith Galarian Gallery",
+    "canonical_key": "crownZenithGalarianGallery",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2023-01-20",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "9afac122-a330-4891-b18b-553ffe8d8cf8",
+    "name": "Generations: Radiant Collection",
+    "canonical_key": "generationsRadiantCollection",
+    "era_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+    "release_date": "2016-02-22",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "5e473875-7d0f-43ff-86bd-9aa939e6ca32",
+    "name": "Legendary Treasures: Radiant Collection",
+    "canonical_key": "legendaryTreasuresRadiantCollection",
+    "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+    "release_date": "2013-11-06",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+    "name": "Mega Evolution",
+    "canonical_key": "megaEvolution",
+    "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+    "release_date": "2025-09-26",
+    "catalog_only": false,
+    "supports_opening_simulation": true
+  },
+  {
+    "id": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+    "name": "Base",
+    "canonical_key": "base",
+    "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+    "release_date": "1999-01-09",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+    "name": "Gym Challenge",
+    "canonical_key": "gymChallenge",
+    "era_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+    "release_date": "2000-10-16",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+    "name": "Supreme Victors",
+    "canonical_key": "supremeVictors",
+    "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+    "release_date": "2009-08-19",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "a8e71483-9883-4e9c-b0ce-1ef5049c9ed0",
+    "name": "SWSH Black Star Promos",
+    "canonical_key": "swshBlackStarPromos",
+    "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+    "release_date": "2019-11-15",
+    "catalog_only": false,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "21f603ea-ddb3-4f89-9989-b72de2800ce1",
+    "name": "XY Trainer Kit: Pikachu Libre & Suicune",
+    "canonical_key": "xyTrainerKitPikachuLibreAndSuicune",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "718e3e69-aa91-4e44-bf33-0c3b80e46083",
+    "name": "DP Trainer Kit: Manaphy & Lucario",
+    "canonical_key": "dpTrainerKitManaphyAndLucario",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "0e7872d8-5de9-40be-bcee-d3715b86e6f3",
+    "name": "SM Trainer Kit: Lycanroc & Alolan Raichu",
+    "canonical_key": "smTrainerKitLycanrocAndAlolanRaichu",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "61403394-018a-41e9-8565-2d9974d6086d",
+    "name": "XY Trainer Kit: Sylveon & Noivern",
+    "canonical_key": "xyTrainerKitSylveonAndNoivern",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "d3a942b0-feaa-4002-8204-645aca7c97e7",
+    "name": "XY Trainer Kit: Latias & Latios",
+    "canonical_key": "xyTrainerKitLatiasAndLatios",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "e055d45e-3eb1-41af-9903-52fdcb96121e",
+    "name": "BW Trainer Kit: Excadrill & Zoroark",
+    "canonical_key": "bwTrainerKitExcadrillAndZoroark",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "f666d013-7d6c-47a2-a587-1d41b1a0268a",
+    "name": "HGSS Trainer Kit: Gyarados & Raichu",
+    "canonical_key": "hgssTrainerKitGyaradosAndRaichu",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "de4ffcac-bffa-48e3-b61b-ee42a1207832",
+    "name": "XY Trainer Kit: Bisharp & Wigglytuff",
+    "canonical_key": "xyTrainerKitBisharpAndWigglytuff",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "9d1fc476-98fc-4242-82e4-dcf577fb287c",
+    "name": "SM Trainer Kit: Alolan Sandslash & Alolan Ninetales",
+    "canonical_key": "smTrainerKitAlolanSandslashAndAlolanNinetales",
+    "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+    "release_date": null,
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+    "name": "EX Trainer Kit 2 Minun",
+    "canonical_key": "exTrainerKit2Minun",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2006-03-01",
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+    "name": "EX Trainer Kit 2 Plusle",
+    "canonical_key": "exTrainerKit2Plusle",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2006-03-01",
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  },
+  {
+    "id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+    "name": "EX Trainer Kit Latias",
+    "canonical_key": "exTrainerKitLatias",
+    "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+    "release_date": "2004-06-01",
+    "catalog_only": true,
+    "supports_opening_simulation": false
+  }
+]

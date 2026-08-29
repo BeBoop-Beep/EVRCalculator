@@ -1,0 +1,5113 @@
+{
+  "definition_id": "tmp-v3-r4-regimes-328e5809d656e75e",
+  "definition_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+  "frozen_at": "2026-08-29T18:44:20.562439+00:00",
+  "round1_study_id": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+  "round1_cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+  "preregistration": {
+    "ontology_feature_rule": "non-null normalized rarity, finish, special treatment, and mechanic/form values observed in each dated set",
+    "boundary_rule": "adjacent-set ontology Jaccard distance >= 0.50; greedily highest distance first; every resulting segment >= 3 dated observed sets",
+    "minimum_treatment_cell": 25,
+    "minimum_treatment_sets": 3,
+    "bootstrap_draws": 199,
+    "price_trim_quantiles": [
+      0.05,
+      0.95
+    ],
+    "acceptable_score_movement": {
+      "unrelated_universe_change": 0.5,
+      "set_or_sample_perturbation": 1.0
+    },
+    "display_precision": "one decimal plus uncertainty/confidence metadata"
+  },
+  "timelines": {
+    "Sword and Shield": [
+      {
+        "set_id": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+        "set_name": "Sword & Shield",
+        "release_date": "2020-02-07",
+        "cards": 219,
+        "rarities": [
+          "common",
+          "holo_rare",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "secret_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:common",
+          "rarity:holo_rare",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:secret_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "759c09f8-8a1b-4212-be89-66088afa6893",
+        "set_name": "Rebel Clash",
+        "release_date": "2020-05-01",
+        "cards": 209,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "pokeball"
+        ],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon",
+          "special:pokeball"
+        ]
+      },
+      {
+        "set_id": "3836457c-77dc-44b0-a72f-779b6dd78884",
+        "set_name": "Darkness Ablaze",
+        "release_date": "2020-08-14",
+        "cards": 201,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+        "set_name": "Champion's Path",
+        "release_date": "2020-09-25",
+        "cards": 81,
+        "rarities": [
+          "common",
+          "holo_rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "pokeball"
+        ],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:common",
+          "rarity:holo_rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon",
+          "special:pokeball"
+        ]
+      },
+      {
+        "set_id": "26fedb88-87d7-487a-9f01-528d603c682e",
+        "set_name": "Vivid Voltage",
+        "release_date": "2020-11-13",
+        "cards": 203,
+        "rarities": [
+          "amazing_rare",
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:amazing_rare",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "03764ded-825a-45c0-8b15-ce100cff9552",
+        "set_name": "Shining Fates",
+        "release_date": "2021-02-19",
+        "cards": 74,
+        "rarities": [
+          "amazing_rare",
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:amazing_rare",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "f93ca977-cfc9-4d06-a62a-f9dcf9afbfb8",
+        "set_name": "Shining Fates Shiny Vault",
+        "release_date": "2021-02-19",
+        "cards": 122,
+        "rarities": [
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_secret",
+          "rare_shiny"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "stage_1",
+          "stage_2",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_secret",
+          "rarity:rare_shiny"
+        ]
+      },
+      {
+        "set_id": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+        "set_name": "Battle Styles",
+        "release_date": "2021-03-19",
+        "cards": 183,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+        "set_name": "Chilling Reign",
+        "release_date": "2021-06-18",
+        "cards": 233,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "93212749-ce0e-498e-975e-7d947a3448ce",
+        "set_name": "Evolving Skies",
+        "release_date": "2021-08-27",
+        "cards": 237,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "09f1674c-26c5-40df-8d52-4ce823c7c2fb",
+        "set_name": "Celebrations: Classic Collection",
+        "release_date": "2021-10-08",
+        "cards": 25,
+        "rarities": [
+          "classic_collection"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "gx",
+          "level_up",
+          "mega",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:gx",
+          "mechanic:level_up",
+          "mechanic:mega",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:classic_collection"
+        ]
+      },
+      {
+        "set_id": "be7c981b-c55e-4f60-a1b8-be922531452d",
+        "set_name": "Celebrations",
+        "release_date": "2021-10-08",
+        "cards": 27,
+        "rarities": [
+          "holo_rare",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_ultra",
+          "ultra_rare"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:holo_rare",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_ultra",
+          "rarity:ultra_rare"
+        ]
+      },
+      {
+        "set_id": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+        "set_name": "Fusion Strike",
+        "release_date": "2021-11-12",
+        "cards": 284,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "7b44aba2-0e04-4b04-a1c7-9b6273daf3d5",
+        "set_name": "Brilliant Stars Trainer Gallery",
+        "release_date": "2022-02-25",
+        "cards": 30,
+        "rarities": [
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_secret",
+          "rare_ultra",
+          "trainer_gallery_rare_holo"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:trainer_gallery_rare_holo"
+        ]
+      },
+      {
+        "set_id": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+        "set_name": "Brilliant Stars",
+        "release_date": "2022-02-25",
+        "cards": 187,
+        "rarities": [
+          "common",
+          "holo_rare",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_holo_vstar",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax",
+          "vstar"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "mechanic:vstar",
+          "rarity:common",
+          "rarity:holo_rare",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_holo_vstar",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "01b45c4b-c606-41f7-9669-0137cd4aafaf",
+        "set_name": "Astral Radiance Trainer Gallery",
+        "release_date": "2022-05-27",
+        "cards": 30,
+        "rarities": [
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_secret",
+          "rare_ultra",
+          "trainer_gallery_rare_holo"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:trainer_gallery_rare_holo"
+        ]
+      },
+      {
+        "set_id": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+        "set_name": "Astral Radiance",
+        "release_date": "2022-05-27",
+        "cards": 216,
+        "rarities": [
+          "common",
+          "radiant_rare",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_holo_vstar",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "radiant",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax",
+          "vstar"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:radiant",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "mechanic:vstar",
+          "rarity:common",
+          "rarity:radiant_rare",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_holo_vstar",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+        "set_name": "Pok\u00e9mon GO",
+        "release_date": "2022-07-01",
+        "cards": 93,
+        "rarities": [
+          "common",
+          "radiant_rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_holo_vstar",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "secret_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo",
+          "reverse_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "radiant",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax",
+          "vstar"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "finish:reverse_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:radiant",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "mechanic:vstar",
+          "rarity:common",
+          "rarity:radiant_rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_holo_vstar",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:secret_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+        "set_name": "Lost Origin",
+        "release_date": "2022-09-09",
+        "cards": 217,
+        "rarities": [
+          "common",
+          "radiant_rare",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_holo_vstar",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "radiant",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax",
+          "vstar"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:radiant",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "mechanic:vstar",
+          "rarity:common",
+          "rarity:radiant_rare",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_holo_vstar",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "fc711667-a178-41c9-afbc-7e7d88bfe593",
+        "set_name": "Lost Origin Trainer Gallery",
+        "release_date": "2022-09-09",
+        "cards": 30,
+        "rarities": [
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_secret",
+          "rare_ultra",
+          "trainer_gallery_rare_holo"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:trainer_gallery_rare_holo"
+        ]
+      },
+      {
+        "set_id": "1f5a156b-2335-4803-a82c-803976263e8b",
+        "set_name": "Silver Tempest Trainer Gallery",
+        "release_date": "2022-11-11",
+        "cards": 30,
+        "rarities": [
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_secret",
+          "rare_ultra",
+          "trainer_gallery_rare_holo"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:trainer_gallery_rare_holo"
+        ]
+      },
+      {
+        "set_id": "2d6ec108-70b2-4698-a21a-1af39828004f",
+        "set_name": "Silver Tempest",
+        "release_date": "2022-11-11",
+        "cards": 215,
+        "rarities": [
+          "common",
+          "radiant_rare",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_holo_vstar",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "radiant",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax",
+          "vstar"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:radiant",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "mechanic:vstar",
+          "rarity:common",
+          "rarity:radiant_rare",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_holo_vstar",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "532d2ad5-32b3-434d-9772-2159fcdfbd5b",
+        "set_name": "Crown Zenith Galarian Gallery",
+        "release_date": "2023-01-20",
+        "cards": 70,
+        "rarities": [
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_holo_vstar",
+          "rare_secret",
+          "rare_ultra",
+          "trainer_gallery_rare_holo"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax",
+          "vstar"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "mechanic:vstar",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_holo_vstar",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:trainer_gallery_rare_holo"
+        ]
+      },
+      {
+        "set_id": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+        "set_name": "Crown Zenith",
+        "release_date": "2023-01-20",
+        "cards": 161,
+        "rarities": [
+          "common",
+          "radiant_rare",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_holo_vstar",
+          "rare_secret",
+          "rare_ultra",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "pokeball"
+        ],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "radiant",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "v",
+          "vmax",
+          "vstar"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:radiant",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:v",
+          "mechanic:vmax",
+          "mechanic:vstar",
+          "rarity:common",
+          "rarity:radiant_rare",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_v",
+          "rarity:rare_holo_vmax",
+          "rarity:rare_holo_vstar",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:pokeball"
+        ]
+      }
+    ],
+    "Sun and Moon": [
+      {
+        "set_id": "0a49ab45-80d7-47e3-be40-425e254d2ff2",
+        "set_name": "SM Black Star Promos",
+        "release_date": "2017-02-03",
+        "cards": 310,
+        "rarities": [
+          "promo",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "tag_team"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:tag_team",
+          "rarity:promo",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "8938c853-2282-46d8-ba44-87584fa2c168",
+        "set_name": "Sun & Moon",
+        "release_date": "2017-02-03",
+        "cards": 163,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "pokeball"
+        ],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon",
+          "special:pokeball"
+        ]
+      },
+      {
+        "set_id": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+        "set_name": "Guardians Rising",
+        "release_date": "2017-05-05",
+        "cards": 169,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+        "set_name": "Burning Shadows",
+        "release_date": "2017-08-05",
+        "cards": 169,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+        "set_name": "Shining Legends",
+        "release_date": "2017-10-06",
+        "cards": 78,
+        "rarities": [
+          "common",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_shining",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_shining",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "212383a2-ed84-4a5e-af37-50814247a437",
+        "set_name": "Crimson Invasion",
+        "release_date": "2017-11-03",
+        "cards": 124,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "8158d0ae-0255-48f0-b189-d134035b72b0",
+        "set_name": "Ultra Prism",
+        "release_date": "2018-02-02",
+        "cards": 173,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_prism_star",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_prism_star",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+        "set_name": "Forbidden Light",
+        "release_date": "2018-05-04",
+        "cards": 146,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_prism_star",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_prism_star",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+        "set_name": "Celestial Storm",
+        "release_date": "2018-08-03",
+        "cards": 183,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_prism_star",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_prism_star",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+        "set_name": "Dragon Majesty",
+        "release_date": "2018-09-07",
+        "cards": 78,
+        "rarities": [
+          "common",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_prism_star",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_prism_star",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "7c998bc2-6073-4461-8873-64d1b3e78930",
+        "set_name": "Lost Thunder",
+        "release_date": "2018-11-02",
+        "cards": 236,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_prism_star",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_prism_star",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+        "set_name": "Team Up",
+        "release_date": "2019-02-01",
+        "cards": 196,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_prism_star",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "tag_team"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:tag_team",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_prism_star",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+        "set_name": "Detective Pikachu",
+        "release_date": "2019-04-05",
+        "cards": 18,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_ultra"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "stage_1",
+          "stage_2"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_ultra"
+        ]
+      },
+      {
+        "set_id": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+        "set_name": "Unbroken Bonds",
+        "release_date": "2019-05-03",
+        "cards": 234,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "tag_team"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:tag_team",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+        "set_name": "Unified Minds",
+        "release_date": "2019-08-02",
+        "cards": 258,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "tag_team"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:tag_team",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "528c1630-0565-427c-98a3-0ad3d85da32e",
+        "set_name": "Hidden Fates Shiny Vault",
+        "release_date": "2019-08-23",
+        "cards": 94,
+        "rarities": [
+          "rare_secret",
+          "rare_shiny",
+          "rare_shiny_gx",
+          "rare_ultra"
+        ],
+        "finishes": [
+          "holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:rare_secret",
+          "rarity:rare_shiny",
+          "rarity:rare_shiny_gx",
+          "rarity:rare_ultra"
+        ]
+      },
+      {
+        "set_id": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+        "set_name": "Hidden Fates",
+        "release_date": "2019-08-23",
+        "cards": 69,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "tag_team"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:tag_team",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_rainbow",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+        "set_name": "Cosmic Eclipse",
+        "release_date": "2019-11-01",
+        "cards": 271,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "gx",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter",
+          "tag_team"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:gx",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "mechanic:tag_team",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_gx",
+          "rarity:rare_rainbow",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      }
+    ],
+    "XY": [
+      {
+        "set_id": "0b8ebcec-2b4e-4a77-9923-ffc4be6514c5",
+        "set_name": "XY Black Star Promos",
+        "release_date": "2013-10-12",
+        "cards": 235,
+        "rarities": [
+          "promo"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "break",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:break",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:promo"
+        ]
+      },
+      {
+        "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+        "set_name": "Kalos Starter Set",
+        "release_date": "2013-11-08",
+        "cards": 39,
+        "rarities": [],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "pokeball"
+        ],
+        "mechanics_forms": [
+          "basic",
+          "item",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:item",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "special:pokeball"
+        ]
+      },
+      {
+        "set_id": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+        "set_name": "XY",
+        "release_date": "2014-02-05",
+        "cards": 147,
+        "rarities": [
+          "common",
+          "holo_rare",
+          "rare",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:holo_rare",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+        "set_name": "Flashfire",
+        "release_date": "2014-05-07",
+        "cards": 109,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+        "set_name": "Furious Fists",
+        "release_date": "2014-08-13",
+        "cards": 113,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "restored",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:restored",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "d38ee646-382d-45c0-9463-e9302aa2471a",
+        "set_name": "Phantom Forces",
+        "release_date": "2014-11-05",
+        "cards": 122,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+        "set_name": "Primal Clash",
+        "release_date": "2015-02-04",
+        "cards": 164,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "806b7046-4fd5-4259-be17-54b28381f034",
+        "set_name": "Double Crisis",
+        "release_date": "2015-03-25",
+        "cards": 34,
+        "rarities": [
+          "common",
+          "rare_holo",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare_holo",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+        "set_name": "Roaring Skies",
+        "release_date": "2015-05-06",
+        "cards": 110,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "3f3c7677-b876-4353-821e-6bdd610fd683",
+        "set_name": "Ancient Origins",
+        "release_date": "2015-08-12",
+        "cards": 100,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+        "set_name": "BREAKthrough",
+        "release_date": "2015-11-04",
+        "cards": 164,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_break",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "break",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:break",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_break",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "4de777b3-396e-4f19-9d78-c054b296bedb",
+        "set_name": "BREAKpoint",
+        "release_date": "2016-02-03",
+        "cards": 123,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_break",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "break",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:break",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_break",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+        "set_name": "Generations",
+        "release_date": "2016-02-22",
+        "cards": 84,
+        "rarities": [
+          "common",
+          "promo",
+          "rare",
+          "rare_holo",
+          "rare_holo_ex",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "pokeball"
+        ],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:promo",
+          "rarity:rare",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:uncommon",
+          "special:pokeball"
+        ]
+      },
+      {
+        "set_id": "9afac122-a330-4891-b18b-553ffe8d8cf8",
+        "set_name": "Generations: Radiant Collection",
+        "release_date": "2016-02-22",
+        "cards": 32,
+        "rarities": [
+          "common",
+          "rare_holo_ex",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "mega",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:mega",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare_holo_ex",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+        "set_name": "Fates Collide",
+        "release_date": "2016-05-02",
+        "cards": 125,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_break",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "break",
+          "ex",
+          "item",
+          "mega",
+          "restored",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:break",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:restored",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_break",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "69d6d1be-f610-421b-b29c-c3348fe19518",
+        "set_name": "Steam Siege",
+        "release_date": "2016-08-03",
+        "cards": 116,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_break",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "break",
+          "ex",
+          "item",
+          "mega",
+          "restored",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:break",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:restored",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_break",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "75cc9ef9-1099-4e47-8d09-17f416606865",
+        "set_name": "Evolutions",
+        "release_date": "2016-11-02",
+        "cards": 113,
+        "rarities": [
+          "common",
+          "rare",
+          "rare_break",
+          "rare_holo",
+          "rare_holo_ex",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "break",
+          "ex",
+          "item",
+          "mega",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:break",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:rare",
+          "rarity:rare_break",
+          "rarity:rare_holo",
+          "rarity:rare_holo_ex",
+          "rarity:rare_secret",
+          "rarity:rare_ultra",
+          "rarity:uncommon"
+        ]
+      }
+    ],
+    "Scarlet and Violet": [
+      {
+        "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "set_name": "Scarlet and Violet Base Set",
+        "release_date": "2023-03-31",
+        "cards": 262,
+        "rarities": [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "pokeball"
+        ],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:pokeball"
+        ]
+      },
+      {
+        "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "set_name": "Paldea Evolved",
+        "release_date": "2023-06-09",
+        "cards": 279,
+        "rarities": [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "set_name": "Obsidian Flames",
+        "release_date": "2023-08-11",
+        "cards": 230,
+        "rarities": [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+        "set_name": "Scarlet and Violet 151",
+        "release_date": "2023-09-22",
+        "cards": 208,
+        "rarities": [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "set_name": "Paradox Rift",
+        "release_date": "2023-11-03",
+        "cards": 266,
+        "rarities": [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "set_name": "Paldean Fates",
+        "release_date": "2024-01-26",
+        "cards": 247,
+        "rarities": [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "shiny_rare",
+          "shiny_ultra_rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:shiny_rare",
+          "rarity:shiny_ultra_rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "set_name": "Temporal Forces",
+        "release_date": "2024-03-22",
+        "cards": 218,
+        "rarities": [
+          "ace_spec_rare",
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "ace_spec"
+        ],
+        "mechanics_forms": [
+          "ace_spec",
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:ace_spec",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:ace_spec_rare",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:ace_spec"
+        ]
+      },
+      {
+        "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "set_name": "Twilight Masquerade",
+        "release_date": "2024-05-24",
+        "cards": 226,
+        "rarities": [
+          "ace_spec_rare",
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "ace_spec"
+        ],
+        "mechanics_forms": [
+          "ace_spec",
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:ace_spec",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:ace_spec_rare",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:ace_spec"
+        ]
+      },
+      {
+        "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "set_name": "Shrouded Fable",
+        "release_date": "2024-08-02",
+        "cards": 107,
+        "rarities": [
+          "ace_spec_rare",
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo",
+          "reverse_holo"
+        ],
+        "special_treatments": [
+          "ace_spec"
+        ],
+        "mechanics_forms": [
+          "ace_spec",
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "finish:reverse_holo",
+          "mechanic:ace_spec",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:ace_spec_rare",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:ace_spec"
+        ]
+      },
+      {
+        "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "set_name": "Stellar Crown",
+        "release_date": "2024-09-13",
+        "cards": 175,
+        "rarities": [
+          "ace_spec_rare",
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "ace_spec"
+        ],
+        "mechanics_forms": [
+          "ace_spec",
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:ace_spec",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:ace_spec_rare",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:ace_spec"
+        ]
+      },
+      {
+        "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+        "set_name": "Surging Sparks",
+        "release_date": "2024-11-08",
+        "cards": 252,
+        "rarities": [
+          "ace_spec_rare",
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "ace_spec"
+        ],
+        "mechanics_forms": [
+          "ace_spec",
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:ace_spec",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:ace_spec_rare",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:ace_spec"
+        ]
+      },
+      {
+        "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "set_name": "Prismatic Evolutions",
+        "release_date": "2025-01-17",
+        "cards": 181,
+        "rarities": [
+          "ace_spec_rare",
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "ace_spec"
+        ],
+        "mechanics_forms": [
+          "ace_spec",
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:ace_spec",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:ace_spec_rare",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:ace_spec"
+        ]
+      },
+      {
+        "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+        "set_name": "Journey Together",
+        "release_date": "2025-03-28",
+        "cards": 191,
+        "rarities": [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "set_name": "Destined Rivals",
+        "release_date": "2025-05-30",
+        "cards": 244,
+        "rarities": [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:hyper_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "set_name": "Black Bolt",
+        "release_date": "2025-07-18",
+        "cards": 175,
+        "rarities": [
+          "black_white_rare",
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "master_ball"
+        ],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:black_white_rare",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:master_ball"
+        ]
+      },
+      {
+        "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "set_name": "White Flare",
+        "release_date": "2025-07-18",
+        "cards": 173,
+        "rarities": [
+          "black_white_rare",
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:black_white_rare",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:illustration_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      }
+    ],
+    "Mega Evolution": [
+      {
+        "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "set_name": "Mega Evolution",
+        "release_date": "2025-09-26",
+        "cards": 189,
+        "rarities": [
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "mega_hyper_rare",
+          "promo",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:illustration_rare",
+          "rarity:mega_hyper_rare",
+          "rarity:promo",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "set_name": "Phantasmal Flames",
+        "release_date": "2025-11-14",
+        "cards": 132,
+        "rarities": [
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "mega_hyper_rare",
+          "promo",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:illustration_rare",
+          "rarity:mega_hyper_rare",
+          "rarity:promo",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "set_name": "Ascended Heroes",
+        "release_date": "2026-01-30",
+        "cards": 305,
+        "rarities": [
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "mega_attack_rare",
+          "mega_hyper_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo",
+          "reverse_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "finish:reverse_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:illustration_rare",
+          "rarity:mega_attack_rare",
+          "rarity:mega_hyper_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "set_name": "Perfect Order",
+        "release_date": "2026-03-27",
+        "cards": 124,
+        "rarities": [
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "mega_hyper_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [
+          "pokeball"
+        ],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:illustration_rare",
+          "rarity:mega_hyper_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon",
+          "special:pokeball"
+        ]
+      },
+      {
+        "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "set_name": "Chaos Rising",
+        "release_date": "2026-05-22",
+        "cards": 122,
+        "rarities": [
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "mega_hyper_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:illustration_rare",
+          "rarity:mega_hyper_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      },
+      {
+        "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "set_name": "Pitch Black",
+        "release_date": "2026-07-17",
+        "cards": 120,
+        "rarities": [
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "mega_hyper_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        "finishes": [
+          "holo",
+          "non_holo"
+        ],
+        "special_treatments": [],
+        "mechanics_forms": [
+          "basic",
+          "ex",
+          "item",
+          "mega",
+          "stadium",
+          "stage_1",
+          "stage_2",
+          "supporter"
+        ],
+        "features": [
+          "finish:holo",
+          "finish:non_holo",
+          "mechanic:basic",
+          "mechanic:ex",
+          "mechanic:item",
+          "mechanic:mega",
+          "mechanic:stadium",
+          "mechanic:stage_1",
+          "mechanic:stage_2",
+          "mechanic:supporter",
+          "rarity:common",
+          "rarity:double_rare",
+          "rarity:illustration_rare",
+          "rarity:mega_hyper_rare",
+          "rarity:rare",
+          "rarity:special_illustration_rare",
+          "rarity:ultra_rare",
+          "rarity:uncommon"
+        ]
+      }
+    ]
+  },
+  "era_regimes": {
+    "Sword and Shield": {
+      "classification": "MULTIPLE_TREATMENT_REGIMES_SUPPORTED",
+      "adjacent_distances": [
+        {
+          "after_index": 1,
+          "left_set": "Sword & Shield",
+          "right_set": "Rebel Clash",
+          "jaccard_distance": 0.21739130434782605
+        },
+        {
+          "after_index": 2,
+          "left_set": "Rebel Clash",
+          "right_set": "Darkness Ablaze",
+          "jaccard_distance": 0.050000000000000044
+        },
+        {
+          "after_index": 3,
+          "left_set": "Darkness Ablaze",
+          "right_set": "Champion's Path",
+          "jaccard_distance": 0.1428571428571429
+        },
+        {
+          "after_index": 4,
+          "left_set": "Champion's Path",
+          "right_set": "Vivid Voltage",
+          "jaccard_distance": 0.18181818181818177
+        },
+        {
+          "after_index": 5,
+          "left_set": "Vivid Voltage",
+          "right_set": "Shining Fates",
+          "jaccard_distance": 0.09999999999999998
+        },
+        {
+          "after_index": 6,
+          "left_set": "Shining Fates",
+          "right_set": "Shining Fates Shiny Vault",
+          "jaccard_distance": 0.6
+        },
+        {
+          "after_index": 7,
+          "left_set": "Shining Fates Shiny Vault",
+          "right_set": "Battle Styles",
+          "jaccard_distance": 0.55
+        },
+        {
+          "after_index": 8,
+          "left_set": "Battle Styles",
+          "right_set": "Chilling Reign",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 9,
+          "left_set": "Chilling Reign",
+          "right_set": "Evolving Skies",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 10,
+          "left_set": "Evolving Skies",
+          "right_set": "Celebrations: Classic Collection",
+          "jaccard_distance": 0.7916666666666666
+        },
+        {
+          "after_index": 11,
+          "left_set": "Celebrations: Classic Collection",
+          "right_set": "Celebrations",
+          "jaccard_distance": 0.736842105263158
+        },
+        {
+          "after_index": 12,
+          "left_set": "Celebrations",
+          "right_set": "Fusion Strike",
+          "jaccard_distance": 0.4285714285714286
+        },
+        {
+          "after_index": 13,
+          "left_set": "Fusion Strike",
+          "right_set": "Brilliant Stars Trainer Gallery",
+          "jaccard_distance": 0.44999999999999996
+        },
+        {
+          "after_index": 14,
+          "left_set": "Brilliant Stars Trainer Gallery",
+          "right_set": "Brilliant Stars",
+          "jaccard_distance": 0.5217391304347826
+        },
+        {
+          "after_index": 15,
+          "left_set": "Brilliant Stars",
+          "right_set": "Astral Radiance Trainer Gallery",
+          "jaccard_distance": 0.5217391304347826
+        },
+        {
+          "after_index": 16,
+          "left_set": "Astral Radiance Trainer Gallery",
+          "right_set": "Astral Radiance",
+          "jaccard_distance": 0.5416666666666667
+        },
+        {
+          "after_index": 17,
+          "left_set": "Astral Radiance",
+          "right_set": "Pok\u00e9mon GO",
+          "jaccard_distance": 0.15384615384615385
+        },
+        {
+          "after_index": 18,
+          "left_set": "Pok\u00e9mon GO",
+          "right_set": "Lost Origin",
+          "jaccard_distance": 0.15384615384615385
+        },
+        {
+          "after_index": 19,
+          "left_set": "Lost Origin",
+          "right_set": "Lost Origin Trainer Gallery",
+          "jaccard_distance": 0.5416666666666667
+        },
+        {
+          "after_index": 20,
+          "left_set": "Lost Origin Trainer Gallery",
+          "right_set": "Silver Tempest Trainer Gallery",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 21,
+          "left_set": "Silver Tempest Trainer Gallery",
+          "right_set": "Silver Tempest",
+          "jaccard_distance": 0.5416666666666667
+        },
+        {
+          "after_index": 22,
+          "left_set": "Silver Tempest",
+          "right_set": "Crown Zenith Galarian Gallery",
+          "jaccard_distance": 0.45833333333333337
+        },
+        {
+          "after_index": 23,
+          "left_set": "Crown Zenith Galarian Gallery",
+          "right_set": "Crown Zenith",
+          "jaccard_distance": 0.45833333333333337
+        }
+      ],
+      "regimes": [
+        {
+          "regime_id": "sword_and_shield_r1",
+          "set_ids": [
+            "cbc11b3c-0244-4fca-880f-68ebdd599894",
+            "759c09f8-8a1b-4212-be89-66088afa6893",
+            "3836457c-77dc-44b0-a72f-779b6dd78884",
+            "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+            "26fedb88-87d7-487a-9f01-528d603c682e",
+            "03764ded-825a-45c0-8b15-ce100cff9552"
+          ],
+          "sets": [
+            "Sword & Shield",
+            "Rebel Clash",
+            "Darkness Ablaze",
+            "Champion's Path",
+            "Vivid Voltage",
+            "Shining Fates"
+          ],
+          "start": "2020-02-07",
+          "end": "2021-02-19",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "mechanic:basic",
+            "mechanic:item",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "mechanic:v",
+            "mechanic:vmax",
+            "rarity:amazing_rare",
+            "rarity:common",
+            "rarity:holo_rare",
+            "rarity:rare",
+            "rarity:rare_holo",
+            "rarity:rare_holo_v",
+            "rarity:rare_holo_vmax",
+            "rarity:rare_rainbow",
+            "rarity:rare_secret",
+            "rarity:rare_ultra",
+            "rarity:secret_rare",
+            "rarity:ultra_rare",
+            "rarity:uncommon",
+            "special:pokeball"
+          ],
+          "structural_reason": "initial observed treatment ecosystem"
+        },
+        {
+          "regime_id": "sword_and_shield_r2",
+          "set_ids": [
+            "f93ca977-cfc9-4d06-a62a-f9dcf9afbfb8",
+            "46ab39a7-dd96-4a2d-af0f-44b868918114",
+            "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+            "93212749-ce0e-498e-975e-7d947a3448ce"
+          ],
+          "sets": [
+            "Shining Fates Shiny Vault",
+            "Battle Styles",
+            "Chilling Reign",
+            "Evolving Skies"
+          ],
+          "start": "2021-02-19",
+          "end": "2021-08-27",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "mechanic:basic",
+            "mechanic:item",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "mechanic:v",
+            "mechanic:vmax",
+            "rarity:common",
+            "rarity:rare",
+            "rarity:rare_holo",
+            "rarity:rare_holo_v",
+            "rarity:rare_holo_vmax",
+            "rarity:rare_rainbow",
+            "rarity:rare_secret",
+            "rarity:rare_shiny",
+            "rarity:rare_ultra",
+            "rarity:uncommon"
+          ],
+          "structural_reason": "price-blind ontology discontinuity"
+        },
+        {
+          "regime_id": "sword_and_shield_r3",
+          "set_ids": [
+            "09f1674c-26c5-40df-8d52-4ce823c7c2fb",
+            "be7c981b-c55e-4f60-a1b8-be922531452d",
+            "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+            "7b44aba2-0e04-4b04-a1c7-9b6273daf3d5",
+            "a72c75bd-0d61-4643-b603-fef78425dcfa",
+            "01b45c4b-c606-41f7-9669-0137cd4aafaf"
+          ],
+          "sets": [
+            "Celebrations: Classic Collection",
+            "Celebrations",
+            "Fusion Strike",
+            "Brilliant Stars Trainer Gallery",
+            "Brilliant Stars",
+            "Astral Radiance Trainer Gallery"
+          ],
+          "start": "2021-10-08",
+          "end": "2022-05-27",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "mechanic:basic",
+            "mechanic:ex",
+            "mechanic:gx",
+            "mechanic:item",
+            "mechanic:level_up",
+            "mechanic:mega",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "mechanic:v",
+            "mechanic:vmax",
+            "mechanic:vstar",
+            "rarity:classic_collection",
+            "rarity:common",
+            "rarity:holo_rare",
+            "rarity:rare",
+            "rarity:rare_holo",
+            "rarity:rare_holo_v",
+            "rarity:rare_holo_vmax",
+            "rarity:rare_holo_vstar",
+            "rarity:rare_rainbow",
+            "rarity:rare_secret",
+            "rarity:rare_ultra",
+            "rarity:trainer_gallery_rare_holo",
+            "rarity:ultra_rare",
+            "rarity:uncommon"
+          ],
+          "structural_reason": "price-blind ontology discontinuity"
+        },
+        {
+          "regime_id": "sword_and_shield_r4",
+          "set_ids": [
+            "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+            "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+            "5109f22e-0799-46b5-a4ad-8861d1cfefee"
+          ],
+          "sets": [
+            "Astral Radiance",
+            "Pok\u00e9mon GO",
+            "Lost Origin"
+          ],
+          "start": "2022-05-27",
+          "end": "2022-09-09",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "finish:reverse_holo",
+            "mechanic:basic",
+            "mechanic:item",
+            "mechanic:radiant",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "mechanic:v",
+            "mechanic:vmax",
+            "mechanic:vstar",
+            "rarity:common",
+            "rarity:radiant_rare",
+            "rarity:rare",
+            "rarity:rare_holo",
+            "rarity:rare_holo_v",
+            "rarity:rare_holo_vmax",
+            "rarity:rare_holo_vstar",
+            "rarity:rare_rainbow",
+            "rarity:rare_secret",
+            "rarity:rare_ultra",
+            "rarity:secret_rare",
+            "rarity:ultra_rare",
+            "rarity:uncommon"
+          ],
+          "structural_reason": "price-blind ontology discontinuity"
+        },
+        {
+          "regime_id": "sword_and_shield_r5",
+          "set_ids": [
+            "fc711667-a178-41c9-afbc-7e7d88bfe593",
+            "1f5a156b-2335-4803-a82c-803976263e8b",
+            "2d6ec108-70b2-4698-a21a-1af39828004f",
+            "532d2ad5-32b3-434d-9772-2159fcdfbd5b",
+            "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4"
+          ],
+          "sets": [
+            "Lost Origin Trainer Gallery",
+            "Silver Tempest Trainer Gallery",
+            "Silver Tempest",
+            "Crown Zenith Galarian Gallery",
+            "Crown Zenith"
+          ],
+          "start": "2022-09-09",
+          "end": "2023-01-20",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "mechanic:basic",
+            "mechanic:item",
+            "mechanic:radiant",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "mechanic:v",
+            "mechanic:vmax",
+            "mechanic:vstar",
+            "rarity:common",
+            "rarity:radiant_rare",
+            "rarity:rare",
+            "rarity:rare_holo",
+            "rarity:rare_holo_v",
+            "rarity:rare_holo_vmax",
+            "rarity:rare_holo_vstar",
+            "rarity:rare_rainbow",
+            "rarity:rare_secret",
+            "rarity:rare_ultra",
+            "rarity:trainer_gallery_rare_holo",
+            "rarity:ultra_rare",
+            "rarity:uncommon",
+            "special:pokeball"
+          ],
+          "structural_reason": "price-blind ontology discontinuity"
+        }
+      ]
+    },
+    "Sun and Moon": {
+      "classification": "MULTIPLE_TREATMENT_REGIMES_SUPPORTED",
+      "adjacent_distances": [
+        {
+          "after_index": 1,
+          "left_set": "SM Black Star Promos",
+          "right_set": "Sun & Moon",
+          "jaccard_distance": 0.6
+        },
+        {
+          "after_index": 2,
+          "left_set": "Sun & Moon",
+          "right_set": "Guardians Rising",
+          "jaccard_distance": 0.11111111111111116
+        },
+        {
+          "after_index": 3,
+          "left_set": "Guardians Rising",
+          "right_set": "Burning Shadows",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 4,
+          "left_set": "Burning Shadows",
+          "right_set": "Shining Legends",
+          "jaccard_distance": 0.16666666666666663
+        },
+        {
+          "after_index": 5,
+          "left_set": "Shining Legends",
+          "right_set": "Crimson Invasion",
+          "jaccard_distance": 0.16666666666666663
+        },
+        {
+          "after_index": 6,
+          "left_set": "Crimson Invasion",
+          "right_set": "Ultra Prism",
+          "jaccard_distance": 0.05555555555555558
+        },
+        {
+          "after_index": 7,
+          "left_set": "Ultra Prism",
+          "right_set": "Forbidden Light",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 8,
+          "left_set": "Forbidden Light",
+          "right_set": "Celestial Storm",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 9,
+          "left_set": "Celestial Storm",
+          "right_set": "Dragon Majesty",
+          "jaccard_distance": 0.05555555555555558
+        },
+        {
+          "after_index": 10,
+          "left_set": "Dragon Majesty",
+          "right_set": "Lost Thunder",
+          "jaccard_distance": 0.05555555555555558
+        },
+        {
+          "after_index": 11,
+          "left_set": "Lost Thunder",
+          "right_set": "Team Up",
+          "jaccard_distance": 0.052631578947368474
+        },
+        {
+          "after_index": 12,
+          "left_set": "Team Up",
+          "right_set": "Detective Pikachu",
+          "jaccard_distance": 0.631578947368421
+        },
+        {
+          "after_index": 13,
+          "left_set": "Detective Pikachu",
+          "right_set": "Unbroken Bonds",
+          "jaccard_distance": 0.6111111111111112
+        },
+        {
+          "after_index": 14,
+          "left_set": "Unbroken Bonds",
+          "right_set": "Unified Minds",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 15,
+          "left_set": "Unified Minds",
+          "right_set": "Hidden Fates Shiny Vault",
+          "jaccard_distance": 0.55
+        },
+        {
+          "after_index": 16,
+          "left_set": "Hidden Fates Shiny Vault",
+          "right_set": "Hidden Fates",
+          "jaccard_distance": 0.5789473684210527
+        },
+        {
+          "after_index": 17,
+          "left_set": "Hidden Fates",
+          "right_set": "Cosmic Eclipse",
+          "jaccard_distance": 0.11111111111111116
+        }
+      ],
+      "regimes": [
+        {
+          "regime_id": "sun_and_moon_r1",
+          "set_ids": [
+            "0a49ab45-80d7-47e3-be40-425e254d2ff2",
+            "8938c853-2282-46d8-ba44-87584fa2c168",
+            "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+            "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+            "ed036406-26a7-4c68-92d5-dcd04f62556d",
+            "212383a2-ed84-4a5e-af37-50814247a437",
+            "8158d0ae-0255-48f0-b189-d134035b72b0",
+            "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+            "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+            "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+            "7c998bc2-6073-4461-8873-64d1b3e78930",
+            "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a"
+          ],
+          "sets": [
+            "SM Black Star Promos",
+            "Sun & Moon",
+            "Guardians Rising",
+            "Burning Shadows",
+            "Shining Legends",
+            "Crimson Invasion",
+            "Ultra Prism",
+            "Forbidden Light",
+            "Celestial Storm",
+            "Dragon Majesty",
+            "Lost Thunder",
+            "Team Up"
+          ],
+          "start": "2017-02-03",
+          "end": "2019-02-01",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "mechanic:basic",
+            "mechanic:gx",
+            "mechanic:item",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "mechanic:tag_team",
+            "rarity:common",
+            "rarity:promo",
+            "rarity:rare",
+            "rarity:rare_holo",
+            "rarity:rare_holo_gx",
+            "rarity:rare_prism_star",
+            "rarity:rare_rainbow",
+            "rarity:rare_secret",
+            "rarity:rare_shining",
+            "rarity:rare_ultra",
+            "rarity:uncommon",
+            "special:pokeball"
+          ],
+          "structural_reason": "initial observed treatment ecosystem"
+        },
+        {
+          "regime_id": "sun_and_moon_r2",
+          "set_ids": [
+            "29901e65-a5d2-4e12-8e26-62216ed947ab",
+            "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+            "6e18dc34-5d2f-47b2-8595-e350ebd4a630"
+          ],
+          "sets": [
+            "Detective Pikachu",
+            "Unbroken Bonds",
+            "Unified Minds"
+          ],
+          "start": "2019-04-05",
+          "end": "2019-08-02",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "mechanic:basic",
+            "mechanic:gx",
+            "mechanic:item",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "mechanic:tag_team",
+            "rarity:common",
+            "rarity:rare",
+            "rarity:rare_holo",
+            "rarity:rare_holo_gx",
+            "rarity:rare_rainbow",
+            "rarity:rare_secret",
+            "rarity:rare_ultra",
+            "rarity:uncommon"
+          ],
+          "structural_reason": "price-blind ontology discontinuity"
+        },
+        {
+          "regime_id": "sun_and_moon_r3",
+          "set_ids": [
+            "528c1630-0565-427c-98a3-0ad3d85da32e",
+            "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+            "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03"
+          ],
+          "sets": [
+            "Hidden Fates Shiny Vault",
+            "Hidden Fates",
+            "Cosmic Eclipse"
+          ],
+          "start": "2019-08-23",
+          "end": "2019-11-01",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "mechanic:basic",
+            "mechanic:gx",
+            "mechanic:item",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "mechanic:tag_team",
+            "rarity:common",
+            "rarity:rare",
+            "rarity:rare_holo",
+            "rarity:rare_holo_gx",
+            "rarity:rare_rainbow",
+            "rarity:rare_secret",
+            "rarity:rare_shiny",
+            "rarity:rare_shiny_gx",
+            "rarity:rare_ultra",
+            "rarity:uncommon"
+          ],
+          "structural_reason": "price-blind ontology discontinuity"
+        }
+      ]
+    },
+    "XY": {
+      "classification": "STRUCTURALLY_STABLE_ACROSS_ERA",
+      "adjacent_distances": [
+        {
+          "after_index": 1,
+          "left_set": "XY Black Star Promos",
+          "right_set": "Kalos Starter Set",
+          "jaccard_distance": 0.46153846153846156
+        },
+        {
+          "after_index": 2,
+          "left_set": "Kalos Starter Set",
+          "right_set": "XY",
+          "jaccard_distance": 0.6111111111111112
+        },
+        {
+          "after_index": 3,
+          "left_set": "XY",
+          "right_set": "Flashfire",
+          "jaccard_distance": 0.11111111111111116
+        },
+        {
+          "after_index": 4,
+          "left_set": "Flashfire",
+          "right_set": "Furious Fists",
+          "jaccard_distance": 0.05555555555555558
+        },
+        {
+          "after_index": 5,
+          "left_set": "Furious Fists",
+          "right_set": "Phantom Forces",
+          "jaccard_distance": 0.05555555555555558
+        },
+        {
+          "after_index": 6,
+          "left_set": "Phantom Forces",
+          "right_set": "Primal Clash",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 7,
+          "left_set": "Primal Clash",
+          "right_set": "Double Crisis",
+          "jaccard_distance": 0.23529411764705888
+        },
+        {
+          "after_index": 8,
+          "left_set": "Double Crisis",
+          "right_set": "Roaring Skies",
+          "jaccard_distance": 0.23529411764705888
+        },
+        {
+          "after_index": 9,
+          "left_set": "Roaring Skies",
+          "right_set": "Ancient Origins",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 10,
+          "left_set": "Ancient Origins",
+          "right_set": "BREAKthrough",
+          "jaccard_distance": 0.10526315789473684
+        },
+        {
+          "after_index": 11,
+          "left_set": "BREAKthrough",
+          "right_set": "BREAKpoint",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 12,
+          "left_set": "BREAKpoint",
+          "right_set": "Generations",
+          "jaccard_distance": 0.33333333333333337
+        },
+        {
+          "after_index": 13,
+          "left_set": "Generations",
+          "right_set": "Generations: Radiant Collection",
+          "jaccard_distance": 0.3529411764705882
+        },
+        {
+          "after_index": 14,
+          "left_set": "Generations: Radiant Collection",
+          "right_set": "Fates Collide",
+          "jaccard_distance": 0.4
+        },
+        {
+          "after_index": 15,
+          "left_set": "Fates Collide",
+          "right_set": "Steam Siege",
+          "jaccard_distance": 0.050000000000000044
+        },
+        {
+          "after_index": 16,
+          "left_set": "Steam Siege",
+          "right_set": "Evolutions",
+          "jaccard_distance": 0.052631578947368474
+        }
+      ],
+      "regimes": [
+        {
+          "regime_id": "xy_r1",
+          "set_ids": [
+            "0b8ebcec-2b4e-4a77-9923-ffc4be6514c5",
+            "f133524e-50e2-4238-91db-393770680c9b",
+            "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+            "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+            "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+            "d38ee646-382d-45c0-9463-e9302aa2471a",
+            "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+            "806b7046-4fd5-4259-be17-54b28381f034",
+            "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+            "3f3c7677-b876-4353-821e-6bdd610fd683",
+            "6c5be923-95d0-46ee-86a4-61148fb5152a",
+            "4de777b3-396e-4f19-9d78-c054b296bedb",
+            "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+            "9afac122-a330-4891-b18b-553ffe8d8cf8",
+            "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+            "69d6d1be-f610-421b-b29c-c3348fe19518",
+            "75cc9ef9-1099-4e47-8d09-17f416606865"
+          ],
+          "sets": [
+            "XY Black Star Promos",
+            "Kalos Starter Set",
+            "XY",
+            "Flashfire",
+            "Furious Fists",
+            "Phantom Forces",
+            "Primal Clash",
+            "Double Crisis",
+            "Roaring Skies",
+            "Ancient Origins",
+            "BREAKthrough",
+            "BREAKpoint",
+            "Generations",
+            "Generations: Radiant Collection",
+            "Fates Collide",
+            "Steam Siege",
+            "Evolutions"
+          ],
+          "start": "2013-10-12",
+          "end": "2016-11-02",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "mechanic:basic",
+            "mechanic:break",
+            "mechanic:ex",
+            "mechanic:item",
+            "mechanic:mega",
+            "mechanic:restored",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "rarity:common",
+            "rarity:holo_rare",
+            "rarity:promo",
+            "rarity:rare",
+            "rarity:rare_break",
+            "rarity:rare_holo",
+            "rarity:rare_holo_ex",
+            "rarity:rare_secret",
+            "rarity:rare_ultra",
+            "rarity:uncommon",
+            "special:pokeball"
+          ],
+          "structural_reason": "initial observed treatment ecosystem"
+        }
+      ]
+    },
+    "Scarlet and Violet": {
+      "classification": "STRUCTURALLY_STABLE_ACROSS_ERA",
+      "adjacent_distances": [
+        {
+          "after_index": 1,
+          "left_set": "Scarlet and Violet Base Set",
+          "right_set": "Paldea Evolved",
+          "jaccard_distance": 0.05555555555555558
+        },
+        {
+          "after_index": 2,
+          "left_set": "Paldea Evolved",
+          "right_set": "Obsidian Flames",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 3,
+          "left_set": "Obsidian Flames",
+          "right_set": "Scarlet and Violet 151",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 4,
+          "left_set": "Scarlet and Violet 151",
+          "right_set": "Paradox Rift",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 5,
+          "left_set": "Paradox Rift",
+          "right_set": "Paldean Fates",
+          "jaccard_distance": 0.10526315789473684
+        },
+        {
+          "after_index": 6,
+          "left_set": "Paldean Fates",
+          "right_set": "Temporal Forces",
+          "jaccard_distance": 0.2272727272727273
+        },
+        {
+          "after_index": 7,
+          "left_set": "Temporal Forces",
+          "right_set": "Twilight Masquerade",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 8,
+          "left_set": "Twilight Masquerade",
+          "right_set": "Shrouded Fable",
+          "jaccard_distance": 0.04761904761904767
+        },
+        {
+          "after_index": 9,
+          "left_set": "Shrouded Fable",
+          "right_set": "Stellar Crown",
+          "jaccard_distance": 0.04761904761904767
+        },
+        {
+          "after_index": 10,
+          "left_set": "Stellar Crown",
+          "right_set": "Surging Sparks",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 11,
+          "left_set": "Surging Sparks",
+          "right_set": "Prismatic Evolutions",
+          "jaccard_distance": 0.050000000000000044
+        },
+        {
+          "after_index": 12,
+          "left_set": "Prismatic Evolutions",
+          "right_set": "Journey Together",
+          "jaccard_distance": 0.19999999999999996
+        },
+        {
+          "after_index": 13,
+          "left_set": "Journey Together",
+          "right_set": "Destined Rivals",
+          "jaccard_distance": 0.05555555555555558
+        },
+        {
+          "after_index": 14,
+          "left_set": "Destined Rivals",
+          "right_set": "Black Bolt",
+          "jaccard_distance": 0.25
+        },
+        {
+          "after_index": 15,
+          "left_set": "Black Bolt",
+          "right_set": "White Flare",
+          "jaccard_distance": 0.05882352941176472
+        }
+      ],
+      "regimes": [
+        {
+          "regime_id": "scarlet_and_violet_r1",
+          "set_ids": [
+            "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+            "d001d563-988b-4f8e-904f-acb926748e22",
+            "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+            "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+            "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+            "f59f25a2-d3da-4100-a918-901271a99925",
+            "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "142d3869-9d39-48b6-a810-751af2aac748",
+            "de291399-ead5-41dc-bc12-e7c587684f85",
+            "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "c38df164-ea0d-4e9e-bae6-4c3a517beb8f"
+          ],
+          "sets": [
+            "Scarlet and Violet Base Set",
+            "Paldea Evolved",
+            "Obsidian Flames",
+            "Scarlet and Violet 151",
+            "Paradox Rift",
+            "Paldean Fates",
+            "Temporal Forces",
+            "Twilight Masquerade",
+            "Shrouded Fable",
+            "Stellar Crown",
+            "Surging Sparks",
+            "Prismatic Evolutions",
+            "Journey Together",
+            "Destined Rivals",
+            "Black Bolt",
+            "White Flare"
+          ],
+          "start": "2023-03-31",
+          "end": "2025-07-18",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "finish:reverse_holo",
+            "mechanic:ace_spec",
+            "mechanic:basic",
+            "mechanic:ex",
+            "mechanic:item",
+            "mechanic:mega",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "rarity:ace_spec_rare",
+            "rarity:black_white_rare",
+            "rarity:common",
+            "rarity:double_rare",
+            "rarity:hyper_rare",
+            "rarity:illustration_rare",
+            "rarity:rare",
+            "rarity:shiny_rare",
+            "rarity:shiny_ultra_rare",
+            "rarity:special_illustration_rare",
+            "rarity:ultra_rare",
+            "rarity:uncommon",
+            "special:ace_spec",
+            "special:master_ball",
+            "special:pokeball"
+          ],
+          "structural_reason": "initial observed treatment ecosystem"
+        }
+      ]
+    },
+    "Mega Evolution": {
+      "classification": "STRUCTURALLY_STABLE_ACROSS_ERA",
+      "adjacent_distances": [
+        {
+          "after_index": 1,
+          "left_set": "Mega Evolution",
+          "right_set": "Phantasmal Flames",
+          "jaccard_distance": 0.0
+        },
+        {
+          "after_index": 2,
+          "left_set": "Phantasmal Flames",
+          "right_set": "Ascended Heroes",
+          "jaccard_distance": 0.1428571428571429
+        },
+        {
+          "after_index": 3,
+          "left_set": "Ascended Heroes",
+          "right_set": "Perfect Order",
+          "jaccard_distance": 0.1428571428571429
+        },
+        {
+          "after_index": 4,
+          "left_set": "Perfect Order",
+          "right_set": "Chaos Rising",
+          "jaccard_distance": 0.052631578947368474
+        },
+        {
+          "after_index": 5,
+          "left_set": "Chaos Rising",
+          "right_set": "Pitch Black",
+          "jaccard_distance": 0.0
+        }
+      ],
+      "regimes": [
+        {
+          "regime_id": "mega_evolution_r1",
+          "set_ids": [
+            "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "5e99f658-39f0-4845-9228-db8db3965f32",
+            "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "472f851c-2e41-4c80-b6fc-8478d1d92730"
+          ],
+          "sets": [
+            "Mega Evolution",
+            "Phantasmal Flames",
+            "Ascended Heroes",
+            "Perfect Order",
+            "Chaos Rising",
+            "Pitch Black"
+          ],
+          "start": "2025-09-26",
+          "end": "2026-07-17",
+          "structural_features": [
+            "finish:holo",
+            "finish:non_holo",
+            "finish:reverse_holo",
+            "mechanic:basic",
+            "mechanic:ex",
+            "mechanic:item",
+            "mechanic:mega",
+            "mechanic:stadium",
+            "mechanic:stage_1",
+            "mechanic:stage_2",
+            "mechanic:supporter",
+            "rarity:common",
+            "rarity:double_rare",
+            "rarity:illustration_rare",
+            "rarity:mega_attack_rare",
+            "rarity:mega_hyper_rare",
+            "rarity:promo",
+            "rarity:rare",
+            "rarity:special_illustration_rare",
+            "rarity:ultra_rare",
+            "rarity:uncommon",
+            "special:pokeball"
+          ],
+          "structural_reason": "initial observed treatment ecosystem"
+        }
+      ]
+    }
+  },
+  "assurance": "price-blind definitions created solely from structural metadata before market modeling"
+}

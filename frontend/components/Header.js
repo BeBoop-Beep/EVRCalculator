@@ -6,6 +6,7 @@ import SearchBar from "@/components/Search/SearchBar";
 import Image from "next/image";
 import { useAuth } from "@/components/AuthContext";
 import { TCGS_NAV_HREF, isTopNavRouteActive } from "@/lib/navigation/tcgsNav.mjs";
+import AuthPopover from "@/components/AuthPopover";
 
 function getCleanText(value) {
   if (typeof value !== "string") return null;
@@ -35,8 +36,12 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isCollectionDropdownOpen, setIsCollectionDropdownOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const collectionDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
+  const authRef = useRef(null);
+  const mobileAuthRef = useRef(null);
+  const authTriggerRef = useRef(null);
   const pathname = usePathname(); // Get the current route path
   const router = useRouter();
 
@@ -73,6 +78,11 @@ export default function Header() {
     logout();
   };
 
+  const closeAuth = () => {
+    setIsAuthOpen(false);
+    requestAnimationFrame(() => authTriggerRef.current?.focus());
+  };
+
   useEffect(() => {
     setIsClient(true); // Set isClient to true on client-side rendering
   }, []);
@@ -81,6 +91,7 @@ export default function Header() {
     setIsMobileMenuOpen(false);
     setIsCollectionDropdownOpen(false);
     setIsUserDropdownOpen(false);
+    setIsAuthOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -98,14 +109,25 @@ export default function Header() {
       ) {
         setIsUserDropdownOpen(false);
       }
+      if (
+        isAuthOpen &&
+        !authRef.current?.contains(event.target) &&
+        !mobileAuthRef.current?.contains(event.target)
+      ) setIsAuthOpen(false);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" && isAuthOpen) closeAuth();
     };
 
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [isAuthOpen]);
 
   return (
     <header className="relative z-[1000]">
@@ -262,7 +284,8 @@ export default function Header() {
 
             <div className="hidden xl:flex items-center">
               {!isAuthenticated ? (
-                <Link href="/login" className="pl-4 pr-2.5 py-2 text-[16px] font-semibold border-2 border-brand rounded-xl bg-brand text-white hover:bg-brand-dark hover:border-brand-dark transition-colors duration-200 ease-in-out">
+                <div ref={authRef} className="relative">
+                <button ref={authTriggerRef} type="button" onClick={() => setIsAuthOpen((value) => !value)} aria-expanded={isAuthOpen} aria-haspopup="dialog" className="pl-4 pr-2.5 py-2 text-[16px] font-semibold border-2 border-brand rounded-xl bg-brand text-white hover:bg-brand-dark hover:border-brand-dark transition-colors duration-200 ease-in-out">
                   <span className="inline-flex items-center gap-1">
                     Login
                     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
@@ -271,7 +294,9 @@ export default function Header() {
                       <path d="M9.5 7.5L12 10L9.5 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
-                </Link>
+                </button>
+                {isAuthOpen && <AuthPopover onClose={closeAuth} />}
+                </div>
               ) : (
                 <div ref={userDropdownRef} className="relative">
                   <button
@@ -339,8 +364,8 @@ export default function Header() {
               <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">ACCOUNT</div>
               <div className="border-y border-[var(--border-subtle)] mb-6">
                 {!isAuthenticated ? (
-                  <>
-                    <Link href="/login" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                  <div ref={mobileAuthRef} className="px-3 py-3">
+                    <button type="button" onClick={() => setIsAuthOpen((value) => !value)} className="block w-full px-4 py-3 text-left text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors">
                       <span className="inline-flex items-center gap-1">
                         Login
                         <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
@@ -349,11 +374,9 @@ export default function Header() {
                           <path d="M9.5 7.5L12 10L9.5 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </span>
-                    </Link>
-                    <Link href="/signup" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                      Sign Up
-                    </Link>
-                  </>
+                    </button>
+                    {isAuthOpen && <div className="mt-2"><AuthPopover embedded onClose={() => setIsAuthOpen(false)} /></div>}
+                  </div>
                 ) : (
                   <>
                     <Link href={publicProfileHref} className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>

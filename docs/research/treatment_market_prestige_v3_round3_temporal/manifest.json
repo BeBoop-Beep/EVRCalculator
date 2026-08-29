@@ -1,0 +1,14 @@
+{
+  "study_id": "treatment-market-prestige-v3-r3-1ea452e28039e366",
+  "manifest_hash": "1ea452e28039e366c5548a1d19b25f7f00653fb01913cecdf8de21197b97d77d",
+  "frozen_at": "2026-08-29T18:04:31.785709+00:00",
+  "methodology": "treatment_market_prestige_v3_round3",
+  "round1_manifest_hash": "6959bfa9889458fe5ed2e241065dbec7a0c62f609de6f5141092884ce1e9e075",
+  "round2_manifest_hash": "9439727344d3bbb5a5f57c09d6f3bc24ac844680e812acfac9f232d27fc81648",
+  "checkpoint_manifest_hashes": [
+    "3223a5e3f7f72781fd59604c784dc2cd6ed56626dbfdc79cab012207f7afa022",
+    "9fc8b3e4213588f22defef6bd79b5d7270d6347de039187b89aad71ae8adc98a",
+    "ef41c74f0caa2bef70fc1e7cf51be53ec78e035ba42e389f2e459de573b86198",
+    "55e6bec5d99cf2c1417926273899d8af8fa570c1f348dd6c864c035c539bbce5"
+  ]
+}

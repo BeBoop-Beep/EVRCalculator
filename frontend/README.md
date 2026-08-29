@@ -1,5 +1,18 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
+## Authentication configuration
+
+Inline authentication uses Supabase Auth with PKCE, then exchanges the verified Supabase session for the existing inDex application session.
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://zwxzxuuawalvwioadhmf.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_replace_me
+NEXT_PUBLIC_AUTH_GOOGLE_ENABLED=false
+NEXT_PUBLIC_AUTH_APPLE_ENABLED=false
+```
+
+Set provider flags to `true` only after enabling each provider in the Supabase Dashboard. Allow `https://www.inthedex.io/auth/callback` plus the development callback URL. Provider secrets remain in Supabase/provider configuration and must never use a `NEXT_PUBLIC_` variable. The backend still requires `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `JWT_SECRET` for verified profile provisioning and inDex JWT issuance.
+
 ## inDex Mobile UI Invariants
 
 1. Mobile is a dedicated composition, not desktop stacked vertically.

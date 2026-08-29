@@ -14,6 +14,7 @@ from backend.desirability.scoring_config import (
     CANONICAL_OVERALL_RIP_VERSION,
 )
 from backend.scripts import pokemon_snapshot_builders as builders
+from backend.db.services.era_set_strength_service import METHODOLOGY_VERSION as ERA_STRENGTH_METHODOLOGY_VERSION
 
 
 def _payload(*, desirability_status, targets=None):
@@ -58,6 +59,8 @@ def test_ok_desirability_bundle_publishes(monkeypatch):
     assert row["tcg"] == "pokemon"
     assert row["scope"] == "rip-statistics"
     assert row["ranking_payload_json"]["meta"]["desirabilityBundleStatus"] == "ok"
+    assert row["ranking_payload_json"]["eraSetStrengthV1"]["methodologyVersion"] == ERA_STRENGTH_METHODOLOGY_VERSION
+    assert row["ranking_payload_json"]["eraSetStrengthV1"]["eras"] == []
 
 
 def _canonical_meta(market_date: str) -> dict:

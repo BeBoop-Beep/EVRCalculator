@@ -1,18 +1,32 @@
-import { toSetSlug } from "@/utils/slugify";
+import { toSetSlug } from "../../utils/slugify.js";
 
 function text(value) {
   const normalized = value == null ? "" : String(value).trim();
   return normalized || null;
 }
 
+/** Resolve the canonical public URL identity for a Pokemon set. */
+export function resolvePokemonPublicSetSlug(input = {}) {
+  if (typeof input === "string") return toSetSlug(input);
+  const set = input?.set || input;
+  const name = text(set?.name || set?.setName || set?.set_name);
+  const explicitSlug = text(set?.publicSlug || set?.public_slug || set?.slug);
+  const compatibilityFallback = text(
+    set?.canonicalKey || set?.canonical_key || set?.setCanonicalKey || set?.set_canonical_key ||
+    set?.setId || set?.set_id
+  );
+  return toSetSlug(name, explicitSlug || compatibilityFallback) || null;
+}
+
 export function buildPokemonCardDetailHref(input = {}) {
   const card = input?.card || input;
-  const slug = toSetSlug(text(
-    input?.setSlug || input?.setCanonicalKey || input?.set_canonical_key ||
-    input?.canonicalKey || input?.canonical_key || card?.setCanonicalKey ||
-    card?.set_canonical_key || card?.canonicalKey || card?.canonical_key ||
-    input?.setId || input?.set_id || card?.setId || card?.set_id
-  ));
+  const slug = resolvePokemonPublicSetSlug({
+    name: input?.setName || input?.set_name || card?.setName || card?.set_name,
+    slug: input?.setSlug || input?.set_slug || card?.setSlug || card?.set_slug,
+    canonicalKey: input?.setCanonicalKey || input?.set_canonical_key ||
+      card?.setCanonicalKey || card?.set_canonical_key || card?.canonicalKey || card?.canonical_key,
+    setId: input?.setId || input?.set_id || card?.setId || card?.set_id,
+  });
   const canonicalId = text(
     input?.canonicalCardId || input?.canonical_card_id || card?.canonicalCardId ||
     card?.canonical_card_id || input?.cardId || input?.card_id || card?.cardId || card?.card_id
@@ -28,7 +42,7 @@ export function buildPokemonCardDetailHref(input = {}) {
 export function buildPokemonCardHref(setSlug, card, variantId = undefined) {
   return buildPokemonCardDetailHref({
     setSlug,
-    canonicalCardId: card?.canonicalCardId || card?.canonical_card_id || card?.id,
+    canonicalCardId: card?.canonicalCardId || card?.canonical_card_id || card?.cardId || card?.card_id || card?.id,
     cardVariantId: variantId === undefined ? (card?.cardVariantId || card?.card_variant_id) : variantId,
   });
 }

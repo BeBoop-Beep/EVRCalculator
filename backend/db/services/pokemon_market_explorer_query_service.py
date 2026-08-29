@@ -78,6 +78,7 @@ from backend.domain.pokemon.market_explorer_query import (
     build_chain_linked_history_from_cohorts,
     build_query_observations,
     rank_chase_constituents,
+    filter_point_in_time_rows,
     normalize_query_spec,
     query_fingerprint,
     query_key,
@@ -321,6 +322,31 @@ def resolve_segment_card_universe(
     return universe
 
 
+def resolve_pokemon_card_ids(
+    client: Any, pokemon_ids: Sequence[str],
+) -> tuple[set[str] | None, dict[str, str]]:
+    """Canonical multi-subject card membership from durable reference links."""
+    wanted = {str(value).strip() for value in pokemon_ids if str(value or "").strip()}
+    if not wanted:
+        return None, {}
+    references = _page_all(lambda: client.table("pokemon_reference")
+                           .select("id,display_name").in_("id", sorted(wanted)))
+    names = {str(row.get("id")): str(row.get("display_name") or "") for row in references}
+    unknown = sorted(wanted - set(names))
+    if unknown:
+        raise MarketExplorerQueryError(f"unknown Pokemon id(s): {unknown}")
+    links = _page_all(lambda: client.table("pokemon_card_desirability_links")
+                      .select("pokemon_canonical_card_id,pokemon_reference_id")
+                      .in_("pokemon_reference_id", sorted(wanted)))
+    return ({str(row.get("pokemon_canonical_card_id")) for row in links}, names)
+
+
+def load_release_dates(client: Any, set_ids: Sequence[str]) -> dict[str, str]:
+    rows = _page_all(lambda: client.table("sets").select("id,release_date").in_("id", list(set_ids)))
+    return {str(row.get("id")): str(row.get("release_date"))[:10]
+            for row in rows if row.get("release_date")}
+
+
 def load_scope_constituent_rows(
     client: Any,
     set_ids: Sequence[str],
@@ -359,6 +385,7 @@ COHORT_RPC = "get_pokemon_market_explorer_daily_cohort"
 #: The batched multi-set card-date panel. Used only for the CURRENT day, where
 #: the actual constituent identities are needed for the published basket.
 BATCHED_CONSTITUENT_RPC = "get_pokemon_cards_daily_constituents"
+FILTERED_COHORT_RPC = "get_pokemon_market_explorer_filtered_cohort"
 
 _RPC_MAX_ROWS_PER_RESPONSE = 1000
 
@@ -367,6 +394,69 @@ _RPC_MAX_ROWS_PER_RESPONSE = 1000
 #: timeout over the same span, so the bound has to come from days-per-statement
 #: rather than from the caller's date range.
 COHORT_CHUNK_DAYS = 30
+
+
+def load_filtered_daily_cohort_rows(
+    client: Any,
+    set_ids: Sequence[str],
+    *,
+    start_date: str,
+    end_date: str,
+    card_ids: Sequence[str] | None,
+    price_segment_ids: Sequence[str],
+    release_age_cohort_ids: Sequence[str],
+    top_n: int | None,
+    chunk_days: int = COHORT_CHUNK_DAYS,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Reduced point-in-time cohort and latest basket from the filtered SQL RPC.
+
+    Every chunk overlaps the previous observed date, preserving the exact
+    common-cohort boundary while transporting one row per date rather than the
+    global card/date panel. Only the final date carries constituent identities.
+    """
+    first = date.fromisoformat(str(start_date)[:10])
+    last = date.fromisoformat(str(end_date)[:10])
+    rows: list[dict[str, Any]] = []
+    latest_basket: list[dict[str, Any]] = []
+    cursor = first
+    previous_observed: str | None = None
+    while cursor <= last:
+        chunk_end = min(last, cursor + timedelta(days=max(1, int(chunk_days)) - 1))
+        request_start = date.fromisoformat(previous_observed) if previous_observed else cursor
+        payload = {
+            "p_set_ids": [str(value) for value in set_ids],
+            "p_start_date": request_start.isoformat(),
+            "p_end_date": chunk_end.isoformat(),
+            "p_card_ids": [str(value) for value in card_ids] if card_ids is not None else None,
+            "p_price_segment_ids": list(price_segment_ids) or None,
+            "p_release_age_cohort_ids": list(release_age_cohort_ids) or None,
+            "p_top_n": int(top_n) if top_n else None,
+        }
+        page = list(getattr(client.rpc(FILTERED_COHORT_RPC, payload).execute(), "data", None) or [])
+        if previous_observed is not None:
+            page = [row for row in page if str(row.get("market_date"))[:10] != previous_observed]
+        if page:
+            rows.extend(page)
+            previous_observed = str(page[-1].get("market_date"))[:10]
+            latest_basket = list(page[-1].get("current_constituents") or [])
+        cursor = chunk_end + timedelta(days=1)
+
+    cohorts = [{
+        "marketDate": str(row.get("market_date"))[:10],
+        "constituentCount": row.get("constituent_count"),
+        "eligibleUniverseCount": row.get("eligible_universe_count"),
+        "basketValue": _numeric(row.get("basket_value")) or 0.0,
+        "commonCount": row.get("common_count"),
+        "commonCurrentValue": _numeric(row.get("common_current_value")),
+        "commonPreviousValue": _numeric(row.get("common_previous_value")),
+    } for row in rows]
+    basket = [{
+        "canonicalCardId": str(row.get("canonical_card_id")),
+        "marketPrice": _numeric(row.get("market_price")),
+        "marketDate": str(row.get("market_date"))[:10],
+        "rank": row.get("rank"),
+    } for row in latest_basket if _numeric(row.get("market_price")) is not None]
+    return cohorts, basket
 
 
 #: Largest UNRANKED universe the cohort authority can serve over full history.
@@ -849,7 +939,8 @@ def build_query_series_from_cohorts(
 
 
 def describe_query(spec: Mapping[str, Any], *, era_names: Mapping[str, str] | None = None,
-                   set_names: Mapping[str, str] | None = None) -> str:
+                   set_names: Mapping[str, str] | None = None,
+                   pokemon_names: Mapping[str, str] | None = None) -> str:
     """Human display label, e.g. "Scarlet & Violet - SIR - Top 10"."""
     era_names = era_names or {}
     set_names = set_names or {}
@@ -862,8 +953,18 @@ def describe_query(spec: Mapping[str, Any], *, era_names: Mapping[str, str] | No
 
     labels = {str(d["key"]): str(d["label"]) for d in RAW_CARD_SEGMENT_DEFINITIONS}
     segment = ", ".join(labels.get(value, value) for value in spec["segmentIds"]) or "All rarities"
-    market_mode = f"Top {spec['topN']}" if spec["mode"] == MODE_CHASE else "All"
-    return f"{scope} · {segment} · {market_mode}"
+    dimensions = [scope, segment]
+    if spec["pokemonIds"]:
+        dimensions.append(", ".join((pokemon_names or {}).get(value, value) for value in spec["pokemonIds"]))
+    labels_by_axis = {
+        "priceSegmentIds": {"obtainable": "Obtainable", "intermediate": "Intermediate", "premium": "Premium"},
+        "releaseAgeCohortIds": {"new": "New", "recent": "Recent", "established": "Established", "legacy": "Legacy"},
+    }
+    for field, names in labels_by_axis.items():
+        if spec[field]:
+            dimensions.append(", ".join(names.get(value, value) for value in spec[field]))
+    dimensions.append(f"Top {spec['topN']}" if spec["mode"] == MODE_CHASE else "All")
+    return " · ".join(dimensions)
 
 
 def run_market_explorer_query(
@@ -873,6 +974,9 @@ def run_market_explorer_query(
     era_ids: Sequence[str] = (),
     set_ids: Sequence[str] = (),
     segment_ids: Sequence[str] = (),
+    pokemon_ids: Sequence[str] = (),
+    price_segment_ids: Sequence[str] = (),
+    release_age_cohort_ids: Sequence[str] = (),
     top_n: int | None = None,
     start_date: str,
     end_date: str,
@@ -883,7 +987,9 @@ def run_market_explorer_query(
     effect of a user running a query.
     """
     spec = normalize_query_spec(
-        mode=mode, era_ids=era_ids, set_ids=set_ids, segment_ids=segment_ids, top_n=top_n,
+        mode=mode, era_ids=era_ids, set_ids=set_ids, segment_ids=segment_ids,
+        pokemon_ids=pokemon_ids, price_segment_ids=price_segment_ids,
+        release_age_cohort_ids=release_age_cohort_ids, top_n=top_n,
     )
     started = time.perf_counter()
 
@@ -894,6 +1000,9 @@ def run_market_explorer_query(
         raise MarketExplorerQueryUnavailable("no tracked set satisfies the selected scope")
 
     card_universe = resolve_segment_card_universe(client, scope_set_ids, spec["segmentIds"])
+    pokemon_card_ids, pokemon_names = resolve_pokemon_card_ids(client, spec["pokemonIds"])
+    if pokemon_card_ids is not None:
+        card_universe = {key: value for key, value in card_universe.items() if key in pokemon_card_ids}
     if not card_universe:
         raise MarketExplorerQueryUnavailable("no eligible card satisfies the selected filters")
 
@@ -915,7 +1024,7 @@ def run_market_explorer_query(
     # universe. For an "all rarities" query every card in scope is eligible, and
     # shipping tens of thousands of ids as an array parameter would cost more
     # than it saves.
-    card_ids = list(card_universe.keys()) if spec["segmentIds"] else None
+    card_ids = list(card_universe.keys()) if (spec["segmentIds"] or spec["pokemonIds"]) else None
 
     # Narrow an open-ended request to the history that exists, so "everything"
     # does not become hundreds of statements over empty years.
@@ -927,16 +1036,27 @@ def run_market_explorer_query(
             "the requested date range does not overlap this scope's tracked history"
         )
 
-    cohort_rows = load_daily_cohort_rows(
-        client, scope_set_ids, start_date=effective_start, end_date=effective_end,
-        card_ids=card_ids, top_n=spec["topN"],
-    )
-    if not cohort_rows:
-        raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
+    dynamic_membership = bool(spec["priceSegmentIds"] or spec["releaseAgeCohortIds"])
+    if dynamic_membership:
+        cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
+            client, scope_set_ids, start_date=effective_start, end_date=effective_end,
+            card_ids=card_ids,
+            price_segment_ids=spec["priceSegmentIds"],
+            release_age_cohort_ids=spec["releaseAgeCohortIds"], top_n=spec["topN"],
+        )
+        if not cohort_rows:
+            raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
+    else:
+        cohort_rows = load_daily_cohort_rows(
+            client, scope_set_ids, start_date=effective_start, end_date=effective_end,
+            card_ids=card_ids, top_n=spec["topN"],
+        )
+        if not cohort_rows:
+            raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
 
     basket_rows = load_basket_for_date(
         client, scope_set_ids, market_date=cohort_rows[-1]["marketDate"], card_ids=card_ids,
-    )
+    ) if not dynamic_membership else basket_rows
     # Movement needs the window baseline days, which the cohort path does not
     # transport. At most four extra single-date basket reads, usually fewer.
     movement_prices = load_constituent_movement_prices(
@@ -945,7 +1065,7 @@ def run_market_explorer_query(
         latest_date=cohort_rows[-1]["marketDate"],
         latest_rows=basket_rows,
         card_ids=card_ids,
-    )
+    ) if not dynamic_membership else {}
     series = build_query_series_from_cohorts(
         cohort_rows, basket_rows, card_universe, mode=spec["mode"], top_n=spec["topN"],
         movement_prices=movement_prices,
@@ -956,10 +1076,12 @@ def run_market_explorer_query(
     return {
         "serviceVersion": MARKET_EXPLORER_QUERY_SERVICE_VERSION,
         "spec": {**spec, "eraIds": list(spec["eraIds"]), "setIds": list(spec["setIds"]),
-                 "segmentIds": list(spec["segmentIds"])},
+                 "segmentIds": list(spec["segmentIds"]), "pokemonIds": list(spec["pokemonIds"]),
+                 "priceSegmentIds": list(spec["priceSegmentIds"]),
+                 "releaseAgeCohortIds": list(spec["releaseAgeCohortIds"])},
         "queryKey": query_key(spec),
         "queryFingerprint": query_fingerprint(spec),
-        "displayLabel": describe_query(spec, era_names=era_names, set_names=set_names),
+        "displayLabel": describe_query(spec, era_names=era_names, set_names=set_names, pokemon_names=pokemon_names),
         "taxonomyVersion": CARD_RARITY_TAXONOMY_VERSION,
         "chaseModelNote": MARKET_EXPLORER_CHASE_VS_SET_AGGREGATED_NOTE,
         "scope": {
@@ -1032,8 +1154,47 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
         published_sealed_family_options,
         resolve_sealed_tracked_set_ids,
     )
+    from backend.domain.pokemon.sealed_market_segments import SEALED_SEGMENT_DEFINITIONS
 
     sealed_set_ids = set(resolve_sealed_tracked_set_ids(client))
+
+    # Compact compatibility authority: one set-id list per selectable rarity or
+    # Pokemon, never a materialized cross-product of every possible query.
+    card_rows = _page_all(lambda: client.table("pokemon_canonical_cards")
+                          .select("id,set_id,rarity").in_("set_id", list(tracked_set_ids)))
+    card_set_by_id = {str(row.get("id")): str(row.get("set_id")) for row in card_rows}
+    segment_sets: dict[str, set[str]] = {}
+    for row in card_rows:
+        segment_key = segment_key_for_rarity(row.get("rarity"))
+        if segment_key:
+            segment_sets.setdefault(segment_key, set()).add(str(row.get("set_id")))
+    subject_links = _page_all(lambda: client.table("pokemon_card_desirability_links")
+                              .select("pokemon_canonical_card_id,pokemon_reference_id"))
+    pokemon_sets: dict[str, set[str]] = {}
+    for link in subject_links:
+        set_id = card_set_by_id.get(str(link.get("pokemon_canonical_card_id")))
+        if set_id:
+            pokemon_sets.setdefault(str(link.get("pokemon_reference_id")), set()).add(set_id)
+    reference_ids = sorted(pokemon_sets)
+    reference_rows = _page_all(lambda: client.table("pokemon_reference")
+                               .select("id,display_name,pokedex_number").in_("id", reference_ids)) if reference_ids else []
+
+    sealed_family_sets: dict[str, set[str]] = {}
+    sealed_snapshots = _page_all(lambda: client.table("pokemon_set_sealed_market_snapshot_latest")
+                                 .select("set_id,payload_json"))
+    for snapshot in sealed_snapshots:
+        set_id = str(snapshot.get("set_id") or "")
+        for product in (snapshot.get("payload_json") or {}).get("products") or []:
+            family = str(product.get("productFamily") or "")
+            if family:
+                sealed_family_sets.setdefault(family, set()).add(set_id)
+    sealed_segment_sets = {
+        str(definition["key"]): set().union(*(
+            sealed_family_sets.get(str(family), set())
+            for family in definition.get("productFamilies", ())
+        ))
+        for definition in SEALED_SEGMENT_DEFINITIONS
+    }
 
     return {
         "serviceVersion": MARKET_EXPLORER_QUERY_SERVICE_VERSION,
@@ -1092,6 +1253,35 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
         "segments": published_segment_options(),
         "cardSegments": published_segment_options(),
         "sealedProductFamilies": published_sealed_family_options(),
+        "pokemon": [
+            {"id": str(row.get("id")), "label": str(row.get("display_name") or ""),
+             "pokedexNumber": row.get("pokedex_number"),
+             "eligibleSetIds": sorted(pokemon_sets.get(str(row.get("id")), set()))}
+            for row in sorted(reference_rows, key=lambda row: str(row.get("display_name") or ""))
+        ],
+        "priceSegments": {
+            ASSET_CARDS: [
+                {"id": "obtainable", "label": "Obtainable", "description": "Below $10 on each market date"},
+                {"id": "intermediate", "label": "Intermediate", "description": "$10 to below $100 on each market date"},
+                {"id": "premium", "label": "Premium", "description": "$100 or more on each market date"},
+            ],
+            ASSET_SEALED: [
+                {"id": "obtainable", "label": "Obtainable", "description": "Below $100 on each market date"},
+                {"id": "intermediate", "label": "Intermediate", "description": "$100 to below $500 on each market date"},
+                {"id": "premium", "label": "Premium", "description": "$500 or more on each market date"},
+            ],
+        },
+        "releaseAgeCohorts": [
+            {"id": "new", "label": "New", "description": "0-180 days since set release"},
+            {"id": "recent", "label": "Recent", "description": "181 days-2 years since set release"},
+            {"id": "established", "label": "Established", "description": "2-5 years since set release"},
+            {"id": "legacy", "label": "Legacy", "description": "More than 5 years since set release"},
+        ],
+        "compatibility": {
+            "cardSegmentSetIds": {key: sorted(value) for key, value in segment_sets.items()},
+            "pokemonSetIds": {key: sorted(value) for key, value in pokemon_sets.items()},
+            "sealedFamilySetIds": {key: sorted(value) for key, value in sealed_segment_sets.items()},
+        },
         "marketModes": [
             {"id": MODE_ALL, "label": "All Constituents"},
             {"id": MODE_CHASE, "label": "Chase", "topNOptions": [10], "defaultTopN": 10},

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
-import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
-import { applySetRipEntitlement } from "@/lib/pokemon/setRipEntitlement.mjs";
 
 const TIMEOUT_MS = 9000;
 const PRIVATE_HEADERS = { "Cache-Control": "no-store", Vary: "Cookie, Authorization" };
@@ -26,9 +24,7 @@ export async function proxySetRipProjection(request, setId, suffix, { entitled =
     const text = await response.text();
     if (!response.ok) return new NextResponse(text, { status: response.status, headers: { ...PRIVATE_HEADERS, "content-type": response.headers.get("content-type") || "application/json" } });
     const payload = JSON.parse(text);
-    if (!entitled) return NextResponse.json(payload, { status: response.status, headers: { "Cache-Control": "no-store" } });
-    const auth = await getAuthenticatedUserFromCookies();
-    return NextResponse.json(applySetRipEntitlement(payload, auth?.user || null), { status: response.status, headers: PRIVATE_HEADERS });
+    return NextResponse.json(payload, { status: response.status, headers: PRIVATE_HEADERS });
   } catch (error) {
     const timedOut = error?.name === "AbortError";
     return NextResponse.json({ message: timedOut ? "Set RIP request timed out" : "Unable to load Set RIP data", code: timedOut ? "SET_RIP_PROXY_TIMEOUT" : "SET_RIP_PROXY_ERROR", retryable: true }, { status: timedOut ? 504 : 502, headers: PRIVATE_HEADERS });

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import time
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -13,13 +14,23 @@ SORT_COLUMNS = {
     "pull_probability": "exact_pull_probability",
     "chase_spend_50": "chase_spend_50", "cost_multiple_50": "cost_multiple_50",
 }
+_LATEST_POINTER_TTL_SECONDS = 30.0
+_LATEST_POINTER_CACHE: Dict[int, tuple[float, Dict[str, Any]]] = {}
 
 
 def _latest_snapshot(client: Any) -> Optional[Dict[str, Any]]:
+    cache_key = id(client)
+    cached = _LATEST_POINTER_CACHE.get(cache_key)
+    now = time.monotonic()
+    if cached and cached[0] > now:
+        return dict(cached[1])
     response = (client.table("pokemon_card_chase_efficiency_latest")
                 .select("snapshot_id,market_date").order("market_date", desc=True).limit(1).execute())
     rows = list(response.data or [])
-    return rows[0] if rows else None
+    latest = rows[0] if rows else None
+    if latest:
+        _LATEST_POINTER_CACHE[cache_key] = (now + _LATEST_POINTER_TTL_SECONDS, dict(latest))
+    return latest
 
 
 def _public_row(row: Dict[str, Any]) -> Dict[str, Any]:

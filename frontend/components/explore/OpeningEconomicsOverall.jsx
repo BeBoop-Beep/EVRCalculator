@@ -22,7 +22,7 @@ function Header({ scope, marketDate }) {
       <span className="tabular-nums">{scope.setCount} modeled sets</span><span aria-hidden="true" className="opacity-40">·</span>
       <span className="tabular-nums">{scope.productFamilyCount} represented product families</span><span aria-hidden="true" className="opacity-40">·</span>
       <span className="tabular-nums">{scope.productSkuCount} modeled products</span>
-      {marketDate ? <><span aria-hidden="true" className="opacity-40">·</span><span className="tabular-nums">As of {marketDate}</span></> : null}
+      {marketDate ? <><span aria-hidden="true" className="opacity-40">·</span><span className="tabular-nums">Opening data as of {marketDate}</span></> : null}
     </div>
   </header>;
 }
