@@ -31,5 +31,7 @@ jobs:
         run: npm ci
       - name: Run P0 architecture contracts
         run: npx tsx --test components/explore/P0PerformanceArchitecture.contract.test.mjs
+      - name: Build frontend for production
+        run: npm run build
       - name: Parse P0 soak script
         run: node --check .perf-audit/p0-renderer-soak.mjs

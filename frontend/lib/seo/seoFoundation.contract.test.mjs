@@ -184,13 +184,15 @@ test("the set route resolves a real set name through the existing canonical help
     "set title must be generated from the real set name"
   );
   assert.ok(!source.includes("Perfect Order"), "no set name may be hard-coded into metadata");
-  // Metadata must reuse the cached targets loader, not introduce a second data path.
-  assert.ok(source.includes("getRipStatisticsTargets({ limit: 150 })"));
+  // Metadata must reuse the slim cached route directory, not introduce the
+  // heavyweight canonical rankings cohort as a second data path.
+  assert.ok(source.includes("getPokemonSetRouteDirectory({ limit: 150 })"));
+  assert.ok(!source.includes("getRipStatisticsTargets"));
 });
 
 test("the set route canonicalises every query variant onto the bare set URL", () => {
   const source = read("app/TCGs/Pokemon/Sets/[setSlug]/page.js");
-  assert.ok(source.includes("const canonicalPath = `${SETS_BASE_PATH}/${encodeURIComponent(requestedSetSlug)}`"));
+  assert.ok(source.includes('buildTcgSetHrefFromTarget(selectedTarget).split("?")[0]'));
   assert.ok(source.includes("buildRouteMetadata({\n      path: canonicalPath") || source.includes("path: canonicalPath"));
 });
 

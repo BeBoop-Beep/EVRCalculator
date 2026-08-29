@@ -37,9 +37,9 @@ export default function RankingsLazyClient({
   rankingsMarketDate = null,
 }) {
   const { canViewRankingsIntelligence, canViewCardChaseEfficiency } = useRankingsAccess();
-  const [lens, setLens] = useState("overall");
+  const [lens, setActiveLens] = useState("overall");
   const [eraLens, setEraLens] = useState("rankings");
-  const [setLens, setSetLens] = useState("rankings");
+  const [setAnalysisLens, setSetAnalysisLens] = useState("rankings");
   const [selectedEra, setSelectedEra] = useState(null);
   const [eraState, setEraState] = useState({ status: "idle", contract: null, marketDate: rankingsMarketDate });
   const [setsState, setSetsState] = useState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
@@ -83,10 +83,10 @@ export default function RankingsLazyClient({
   }, [lens, setsState.status, rankingsMarketDate]);
 
   const changeLens = (next) => {
-    setLens(next);
+    setActiveLens(next);
     if (next !== "sets") setSelectedEra(null);
     if (next === "eras") setEraLens("rankings");
-    if (next === "sets") setSetLens("rankings");
+    if (next === "sets") setSetAnalysisLens("rankings");
   };
 
   const setTargets = setsState.status === "ready" ? setsState.targets : [];
@@ -113,13 +113,13 @@ export default function RankingsLazyClient({
       {(lens === "eras" || lens === "sets") ? (
         <nav aria-label={`${lens === "eras" ? "Era" : "Set"} analysis`} className="mb-3 flex gap-2 overflow-x-auto pb-1" data-analysis-lens-tabs>
           {[{ value: "rankings", label: "Rankings" }, { value: "economics", label: "Pack Economics" }].map((option) => {
-            const active = lens === "eras" ? eraLens : setLens;
+            const active = lens === "eras" ? eraLens : setAnalysisLens;
             return (
               <button
                 key={option.value}
                 type="button"
                 aria-pressed={active === option.value}
-                onClick={() => lens === "eras" ? setEraLens(option.value) : setSetLens(option.value)}
+                onClick={() => lens === "eras" ? setEraLens(option.value) : setSetAnalysisLens(option.value)}
                 className={`${styles.productFamilyTab} ${active === option.value ? styles.productFamilyTabActive : ""}`}
               >
                 {option.label}
@@ -139,8 +139,8 @@ export default function RankingsLazyClient({
               marketDate={eraState.marketDate}
               onSelectEra={(era) => {
                 setSelectedEra(era?.eraName || null);
-                setSetLens("rankings");
-                setLens("sets");
+                setSetAnalysisLens("rankings");
+                setActiveLens("sets");
               }}
             />
           ) : eraState.status === "unavailable" || eraState.status === "error" ? (
@@ -152,8 +152,8 @@ export default function RankingsLazyClient({
             canViewRankingsIntelligence={canViewRankingsIntelligence}
             onSelectEra={(era) => {
               setSelectedEra(era?.eraName || null);
-              setSetLens("economics");
-              setLens("sets");
+              setSetAnalysisLens("economics");
+              setActiveLens("sets");
             }}
           />
         )
@@ -171,7 +171,7 @@ export default function RankingsLazyClient({
                 </span>
               </div>
             ) : null}
-            {setLens === "economics" ? (
+            {setAnalysisLens === "economics" ? (
               <SetPackMetrics sets={openingEconomics?.sets} targets={setTargets} eraFilter={selectedEra} marketDate={openingEconomics?.marketDate} canViewRankingsIntelligence={canViewRankingsIntelligence} />
             ) : (
               <ExploreTableClient targets={setTargets} loadError={loadError || setsUnavailable} canViewProductRipIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} />

@@ -232,7 +232,10 @@ export default function RankingsProductLensClient() {
     return () => controller.abort();
   }, []);
 
-  const families = state.productFamilyRankings?.families || {};
+  const families = useMemo(
+    () => state.productFamilyRankings?.families || {},
+    [state.productFamilyRankings],
+  );
   const familyEntries = useMemo(() => {
     const entries = Object.entries(families).filter(([, block]) => Number(block?.count) > 0);
     return entries.sort(([a], [b]) => {

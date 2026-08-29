@@ -32,6 +32,9 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
   }
   assert.ok(source.includes('/api/explore/rankings/lens?lens=sets'));
   assert.ok(source.includes('/api/explore/rankings/lens?lens=eras'));
+  assert.ok(source.includes('const [lens, setActiveLens]'));
+  assert.ok(source.includes('const [setAnalysisLens, setSetAnalysisLens]'));
+  assert.ok(!source.includes('const [setLens, setSetLens]'));
 });
 
 test("canonical Set rankings cohort is isolated behind the Sets lens endpoint", () => {
@@ -68,4 +71,6 @@ test("card and sealed-product server detail reads use bounded Next cache windows
     assert.ok(source.includes("revalidate: DETAIL_REVALIDATE_SECONDS"));
     assert.ok(!source.includes('cache: "no-store"'));
   }
+  assert.ok(card.includes('String(variantId || "canonical")'), "card cache identity must include the selected variant");
+  assert.ok(product.includes("pokemon-sealed-product-detail:${id}"), "product cache identity must include the product id");
 });

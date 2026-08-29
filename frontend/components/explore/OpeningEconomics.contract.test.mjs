@@ -313,10 +313,11 @@ test("the opening economics fetch never rejects and never fails the page", () =>
   assert.ok(eras.includes("OpeningEconomicsEmpty"));
 });
 
-test("opening economics is fetched in parallel with the existing rankings reads", () => {
+test("opening economics is fetched in parallel with only the slim route directory", () => {
   const block = page.slice(page.indexOf("await Promise.all(["), page.indexOf("]);"));
-  assert.ok(block.includes("getRipStatisticsTargets"));
+  assert.ok(block.includes("getPokemonSetRouteDirectory"));
   assert.ok(block.includes("getOpeningEconomics()"));
+  assert.ok(!page.includes("getRipStatisticsTargets"));
 });
 
 // ---------------------------------------------------------------------------

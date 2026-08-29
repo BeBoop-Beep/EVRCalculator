@@ -67,15 +67,10 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
   // route directory; active-tab analytics arrive through their own dedicated
   // contracts below/client-side.
   const targetsStartedAt = Date.now();
-  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 150 }).catch((error) => ({
-    targets: [],
-    default_target: null,
-    meta: {
-      fallback: true,
-      requestFailed: true,
-      warnings: [`Set route directory unavailable. ${error?.message || ""}`.trim()],
-    },
-  }));
+  // If neither the fresh directory nor its last-known-good snapshot is
+  // available, propagate the technical failure. Treating it as an empty
+  // authoritative directory would turn a backend outage into a false 404.
+  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 150 });
   const targetsMs = Date.now() - targetsStartedAt;
   const targets = Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [];
   const defaultTarget = targetsPayload?.default_target || null;

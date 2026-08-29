@@ -37,5 +37,7 @@ test("canonical page and loaders use only real backend data", () => {
   const server = read("./sealedProductDetailServer.js");
   assert.match(page, /getSealedProductDetailServer/);
   assert.doesNotMatch(page, /marketDataLoader|MarketModule/);
-  assert.match(server, /cache: "no-store"/);
+  assert.match(server, /revalidate: DETAIL_REVALIDATE_SECONDS/);
+  assert.match(server, /pokemon-sealed-product-detail:\$\{id\}/);
+  assert.doesNotMatch(server, /cache: "no-store"/);
 });

@@ -7,13 +7,13 @@ const page = fs.readFileSync(new URL("../../app/TCGs/Pokemon/Sets/[setSlug]/page
 test("RIP and Market directory technical failure propagates instead of fabricating empty targets", () => {
   const bodyStart = page.indexOf("export default async function TcgSetRipStatisticsPage");
   const body = page.slice(bodyStart);
-  assert.match(body, /useSlimSetDirectory\s*\? await getPokemonSetRouteDirectory/);
+  assert.match(body, /const targetsPayload = await getPokemonSetRouteDirectory/);
   assert.doesNotMatch(body, /getPokemonSetRouteDirectory\(\{ limit: 150 \}\)\.catch/);
-  assert.match(body, /: await getRipStatisticsTargets\(\{ limit: 150 \}\)\.catch/);
+  assert.doesNotMatch(body, /getRipStatisticsTargets/);
 });
 
 test("notFound runs only after a successfully obtained authoritative target list", () => {
-  const fetchIndex = page.indexOf("const targetsPayload = useSlimSetDirectory");
+  const fetchIndex = page.indexOf("const targetsPayload = await getPokemonSetRouteDirectory");
   const selectedIndex = page.indexOf("const selectedTarget = findTargetBySetSlug", fetchIndex);
   const notFoundIndex = page.indexOf("if (!selectedTarget) notFound()", selectedIndex);
   assert.ok(fetchIndex >= 0 && selectedIndex > fetchIndex && notFoundIndex > selectedIndex);
