@@ -44,7 +44,13 @@ from backend.domain.pokemon.market_index import (
     deterministic_fingerprint,
 )
 
-MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1"
+MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v2"
+
+FILTER_AXIS_SCOPE = "scope"
+FILTER_AXIS_SEGMENT = "segment"
+FILTER_AXIS_POKEMON = "pokemon"
+FILTER_AXIS_PRICE_SEGMENT = "priceSegment"
+FILTER_AXIS_RELEASE_AGE = "releaseAge"
 
 ASSET_CARDS = "cards"
 ASSET_SEALED = "sealed"
@@ -76,6 +82,27 @@ ASSET_MODE_LABELS = {
 #: publishing additional choices is a product decision, not a code one.
 DEFAULT_CHASE_TOP_N = 10
 
+PRICE_SEGMENT_OBTAINABLE = "obtainable"
+PRICE_SEGMENT_INTERMEDIATE = "intermediate"
+PRICE_SEGMENT_PREMIUM = "premium"
+PRICE_SEGMENT_IDS = (PRICE_SEGMENT_OBTAINABLE, PRICE_SEGMENT_INTERMEDIATE, PRICE_SEGMENT_PREMIUM)
+
+RELEASE_AGE_NEW = "new"
+RELEASE_AGE_RECENT = "recent"
+RELEASE_AGE_ESTABLISHED = "established"
+RELEASE_AGE_LEGACY = "legacy"
+RELEASE_AGE_COHORT_IDS = (RELEASE_AGE_NEW, RELEASE_AGE_RECENT, RELEASE_AGE_ESTABLISHED, RELEASE_AGE_LEGACY)
+
+# Fixed bands keep the meaning stable through time. They were selected from the
+# 2026-08-29 production audit; cards and sealed are intentionally independent.
+PRICE_SEGMENT_BOUNDS = {
+    ASSET_CARDS: (10.0, 100.0),
+    ASSET_SEALED: (100.0, 500.0),
+}
+
+# Age is measured from the owning set's release date on EACH observation date.
+RELEASE_AGE_BOUNDS_DAYS = (180, 730, 1825)
+
 
 class MarketExplorerQueryError(ValueError):
     """A query specification that cannot be normalized into a real market."""
@@ -101,6 +128,9 @@ def normalize_query_spec(
     era_ids: Iterable[Any] | None = None,
     set_ids: Iterable[Any] | None = None,
     segment_ids: Iterable[Any] | None = None,
+    pokemon_ids: Iterable[Any] | None = None,
+    price_segment_ids: Iterable[Any] | None = None,
+    release_age_cohort_ids: Iterable[Any] | None = None,
     top_n: int | None = None,
 ) -> dict[str, Any]:
     """The canonical form of a Market Explorer query.
@@ -139,12 +169,27 @@ def normalize_query_spec(
             f"segment(s) {unknown!r} are not valid for asset {asset_key!r}"
         )
 
+    cleaned_pokemon = _clean_ids(pokemon_ids)
+    if asset_key == ASSET_SEALED and cleaned_pokemon:
+        raise MarketExplorerQueryError("Pokemon filtering is supported for cards only")
+    cleaned_price_segments = _clean_ids(price_segment_ids)
+    unknown_price = sorted(set(cleaned_price_segments) - set(PRICE_SEGMENT_IDS))
+    if unknown_price:
+        raise MarketExplorerQueryError(f"unknown price segment(s): {unknown_price}")
+    cleaned_release_ages = _clean_ids(release_age_cohort_ids)
+    unknown_release = sorted(set(cleaned_release_ages) - set(RELEASE_AGE_COHORT_IDS))
+    if unknown_release:
+        raise MarketExplorerQueryError(f"unknown release-age cohort(s): {unknown_release}")
+
     return {
         "contractVersion": MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
         "asset": asset_key,
         "eraIds": _clean_ids(era_ids),
         "setIds": _clean_ids(set_ids),
         "segmentIds": cleaned_segments,
+        "pokemonIds": cleaned_pokemon,
+        "priceSegmentIds": cleaned_price_segments,
+        "releaseAgeCohortIds": cleaned_release_ages,
         "mode": mode_key,
         "topN": resolved_top_n,
     }
@@ -168,6 +213,27 @@ def segment_vocabulary(asset: str) -> frozenset[str]:
     raise MarketExplorerQueryError(f"unsupported asset: {asset!r}")
 
 
+def active_filter_axes(spec: Mapping[str, Any]) -> tuple[str, ...]:
+    """Logical non-asset axes active in a normalized market definition.
+
+    Era and Set are two selectors for one scope axis.  Keeping this mapping in
+    the query contract lets future axes be added once without teaching every
+    endpoint or component how to count filters.
+    """
+    axes = []
+    if spec.get("eraIds") or spec.get("setIds"):
+        axes.append(FILTER_AXIS_SCOPE)
+    if spec.get("segmentIds"):
+        axes.append(FILTER_AXIS_SEGMENT)
+    if spec.get("pokemonIds"):
+        axes.append(FILTER_AXIS_POKEMON)
+    if spec.get("priceSegmentIds"):
+        axes.append(FILTER_AXIS_PRICE_SEGMENT)
+    if spec.get("releaseAgeCohortIds"):
+        axes.append(FILTER_AXIS_RELEASE_AGE)
+    return tuple(axes)
+
+
 def _key_part(label: str, values: Sequence[str]) -> str:
     return f"{label}={'all' if not values else '+'.join(values)}"
 
@@ -183,6 +249,9 @@ def query_key(spec: Mapping[str, Any]) -> str:
         _key_part("era", spec["eraIds"]),
         _key_part("set", spec["setIds"]),
         _key_part("segment", spec["segmentIds"]),
+        _key_part("pokemon", spec["pokemonIds"]),
+        _key_part("priceSegment", spec["priceSegmentIds"]),
+        _key_part("releaseAge", spec["releaseAgeCohortIds"]),
         f"mode={spec['mode']}",
         f"topN={spec['topN'] if spec['topN'] is not None else 'na'}",
     ))
@@ -195,10 +264,70 @@ def query_fingerprint(spec: Mapping[str, Any]) -> str:
         "eraIds": list(spec["eraIds"]),
         "setIds": list(spec["setIds"]),
         "segmentIds": list(spec["segmentIds"]),
+        "pokemonIds": list(spec["pokemonIds"]),
+        "priceSegmentIds": list(spec["priceSegmentIds"]),
+        "releaseAgeCohortIds": list(spec["releaseAgeCohortIds"]),
         "mode": spec["mode"],
         "topN": spec["topN"],
         "contractVersion": spec["contractVersion"],
     })
+
+
+def price_segment_for(asset: str, market_price: Any) -> str | None:
+    price = _price(market_price)
+    if price is None:
+        return None
+    try:
+        low_upper, middle_upper = PRICE_SEGMENT_BOUNDS[asset]
+    except KeyError as exc:
+        raise MarketExplorerQueryError(f"unsupported asset: {asset!r}") from exc
+    if price < low_upper:
+        return PRICE_SEGMENT_OBTAINABLE
+    if price < middle_upper:
+        return PRICE_SEGMENT_INTERMEDIATE
+    return PRICE_SEGMENT_PREMIUM
+
+
+def release_age_cohort_for(release_date: Any, market_date: Any) -> str | None:
+    from datetime import date
+    try:
+        released = date.fromisoformat(str(release_date)[:10])
+        observed = date.fromisoformat(str(market_date)[:10])
+    except (TypeError, ValueError):
+        return None
+    age_days = (observed - released).days
+    if age_days < 0:
+        return None
+    new_upper, recent_upper, established_upper = RELEASE_AGE_BOUNDS_DAYS
+    if age_days <= new_upper:
+        return RELEASE_AGE_NEW
+    if age_days <= recent_upper:
+        return RELEASE_AGE_RECENT
+    if age_days <= established_upper:
+        return RELEASE_AGE_ESTABLISHED
+    return RELEASE_AGE_LEGACY
+
+
+def filter_point_in_time_rows(
+    rows: Iterable[Mapping[str, Any]], *, asset: str,
+    price_segment_ids: Sequence[str] = (), release_age_cohort_ids: Sequence[str] = (),
+    release_date_by_set: Mapping[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Apply dynamic price and release membership before optional ranking."""
+    wanted_prices, wanted_ages = set(price_segment_ids), set(release_age_cohort_ids)
+    release_dates = release_date_by_set or {}
+    output = []
+    for source in rows:
+        row = dict(source)
+        if wanted_prices and price_segment_for(asset, row.get("marketPrice", row.get("market_price"))) not in wanted_prices:
+            continue
+        if wanted_ages:
+            set_id = str(row.get("setId") or row.get("set_id") or "")
+            market_date = row.get("marketDate") or row.get("market_date")
+            if release_age_cohort_for(release_dates.get(set_id), market_date) not in wanted_ages:
+                continue
+        output.append(row)
+    return output
 
 
 def _price(value: Any) -> float | None:

@@ -555,7 +555,7 @@ test("the detail strip locks Since Tracking to the family-specific series", () =
   const byKey = new Map(MARKET_EXPLORER_DETAIL_WINDOWS.map((entry) => [entry.key, entry]));
   // Every fixed window reads the same user-facing accessor, which is now the
   // series' own history for every timeframe...
-  for (const key of ["1D", "7D", "30D", "3M"]) {
+  for (const key of ["7D", "30D", "3M", "6M", "1Y"]) {
     assert.equal(byKey.get(key).dimension, "comparison", key);
   }
   // ...and only the Since Tracking column reads the family's own history.
@@ -564,7 +564,7 @@ test("the detail strip locks Since Tracking to the family-specific series", () =
 });
 
 test("the detail strip reports the fixed published window set", () => {
-  assert.deepEqual(MARKET_EXPLORER_DETAIL_WINDOWS.map((entry) => entry.key), ["1D", "7D", "30D", "3M", "All"]);
+  assert.deepEqual(MARKET_EXPLORER_DETAIL_WINDOWS.map((entry) => entry.key), ["7D", "30D", "3M", "6M", "1Y", "All"]);
   assert.equal(MARKET_EXPLORER_DETAIL_WINDOWS.at(-1).label, "Since Tracking");
 });
 

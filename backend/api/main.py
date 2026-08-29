@@ -45,14 +45,14 @@ from backend.db.services.frontend_proxy_service import (
 from backend.domain.access.index_plan_access import (
     FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_MARKET_BREADTH,
-    FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
     FEATURE_PACK_ECONOMICS,
     FEATURE_PRODUCT_RIP,
     FEATURE_SET_RIP_ANALYTICS,
+    evaluate_market_query_access,
     filter_set_market_signal_access,
     has_index_plus_access,
     has_index_feature_access,
-    has_index_premium_access,
     project_card_detail_response,
     project_insights_critical_response,
     project_product_rankings_response,
@@ -127,6 +127,7 @@ from backend.db.services.pokemon_explore_card_movers_service import (
 )
 from backend.db.services.pokemon_explore_set_value_service import (
     ExploreSetValueUnavailable,
+    read_market_explorer_snapshot,
     read_explore_set_value_snapshot,
 )
 from backend.db.services.pokemon_set_sealed_market_snapshot_service import read_snapshot as read_sealed_market_snapshot
@@ -166,6 +167,8 @@ logger = logging.getLogger(__name__)
 _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS = 300
 _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES = 128
 _market_explorer_query_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
+_MARKET_EXPLORER_OPTIONS_CACHE_TTL_SECONDS = 900
+_market_explorer_options_cache: tuple[float, Dict[str, Any]] | None = None
 
 _DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000"]
 
@@ -225,6 +228,9 @@ class MarketExplorerQueryRequest(BaseModel):
     eraIds: List[str] = Field(default_factory=list)
     setIds: List[str] = Field(default_factory=list)
     segmentIds: List[str] = Field(default_factory=list)
+    pokemonIds: List[str] = Field(default_factory=list)
+    priceSegmentIds: List[str] = Field(default_factory=list)
+    releaseAgeCohortIds: List[str] = Field(default_factory=list)
     mode: str = "all"
     topN: Optional[int] = Field(default=None, ge=1, le=100)
 
@@ -273,29 +279,29 @@ def _resolve_index_plan(authorization: Optional[str], token_cookie: Optional[str
     return ((payload or {}).get("user") or {}).get("index_plan")
 
 
-def _require_market_explorer_custom_markets(
-    *, authorization: Optional[str], token_cookie: Optional[str]
+def _require_market_explorer_query_access(
+    spec: Dict[str, Any], *, authorization: Optional[str], token_cookie: Optional[str]
 ) -> str:
-    """Authenticate, then require the Index Premium custom-markets entitlement.
-
-    ENFORCED BEFORE ANY WORK. This runs ahead of spec normalization, the shared
-    result cache and the query engine, so an Index Plus user cannot reach a
-    cached Premium result by calling the endpoint directly, and an unentitled
-    caller cannot make the database do work on their behalf.
-    """
+    """Authenticate and authorize the normalized definition before any query work."""
     user_id = _require_authenticated_user_id(
         authorization=authorization, token_cookie=token_cookie
     )
-    if not has_index_premium_access(_resolve_index_plan(authorization, token_cookie)):
+    decision = evaluate_market_query_access(
+        _resolve_index_plan(authorization, token_cookie), spec
+    )
+    if not decision["allowed"]:
         emit_security_event("entitlement_denied", route="market_explorer", policy_class=POLICY_CUSTOM_QUERY,
-                            user_id=user_id, required_capability=FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
-                            authenticated=True)
+                            user_id=user_id, required_capability=decision["capability"],
+                            authenticated=True, required_plan=decision["requiredPlan"],
+                            active_filter_axes=decision["activeFilterAxes"])
         raise HTTPException(
             status_code=403,
             detail={
-                "message": "Building custom markets requires Index Premium.",
-                "code": "MARKET_EXPLORER_PREMIUM_REQUIRED",
-                "requiredFeature": FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+                "message": decision["reason"],
+                "code": "MARKET_EXPLORER_PLAN_REQUIRED",
+                "requiredPlan": decision["requiredPlan"],
+                "requiredFeature": decision["capability"],
+                "activeFilterAxes": decision["activeFilterAxes"],
             },
         )
     return user_id
@@ -928,25 +934,65 @@ def get_explore_set_value_market():
         return JSONResponse(content={"message": "Unable to load global Market Set Values", "code": "POKEMON_EXPLORE_SET_VALUE_FAILED"}, status_code=500)
 
 
+@app.get("/market/explorer/snapshot")
+def get_market_explorer_snapshot(
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """Serve the full prepared Market Explorer publication."""
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(status_code=403, detail={
+            "message": "Prepared market intelligence requires Index Plus.",
+            "code": "MARKET_EXPLORER_PLAN_REQUIRED",
+            "requiredPlan": "plus",
+        })
+    try:
+        return read_market_explorer_snapshot()
+    except ExploreSetValueUnavailable as exc:
+        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_SNAPSHOT_UNAVAILABLE"}, status_code=404)
+    except Exception:
+        logger.exception("/market/explorer/snapshot unexpected error")
+        return JSONResponse(content={"message": "Unable to load Market Explorer snapshot", "code": "MARKET_EXPLORER_SNAPSHOT_FAILED"}, status_code=500)
+
+
 @app.get("/market/explorer/query/options")
 def get_market_explorer_query_options(
     request: Request,
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    """Read-only filter metadata for the Explorer builder — Index Premium.
-
-    The options ARE the custom-market builder's surface: era and set ids exist
-    on this endpoint for no other purpose, so it carries the same gate as the
-    query itself rather than a weaker one.
-    """
-    user_id = _require_market_explorer_custom_markets(
+    """Read-only filter metadata for the Index Plus Explorer builder."""
+    user_id = _require_authenticated_user_id(
         authorization=authorization, token_cookie=token_cookie
     )
+    plan = _resolve_index_plan(authorization, token_cookie)
+    if not has_index_plus_access(plan):
+        emit_security_event(
+            "entitlement_denied", route="market_explorer_options",
+            policy_class=POLICY_CUSTOM_QUERY, user_id=user_id,
+            required_capability=FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
+            authenticated=True, normalized_plan=plan,
+        )
+        raise HTTPException(status_code=403, detail={
+            "message": "Market query options require Index Plus.",
+            "code": "MARKET_EXPLORER_PLAN_REQUIRED",
+            "requiredPlan": "plus",
+            "requiredFeature": FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
+        })
     _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
                         route="/market/explorer/query/options")
     try:
-        return _tiered_response(build_market_explorer_filter_options(service_read_client))
+        global _market_explorer_options_cache
+        now = time.monotonic()
+        if _market_explorer_options_cache and _market_explorer_options_cache[0] > now:
+            return _tiered_response(_market_explorer_options_cache[1])
+        options = build_market_explorer_filter_options(service_read_client)
+        _market_explorer_options_cache = (
+            now + _MARKET_EXPLORER_OPTIONS_CACHE_TTL_SECONDS,
+            options,
+        )
+        return _tiered_response(options)
     except MarketExplorerQueryUnavailable as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
     except Exception:
@@ -968,11 +1014,6 @@ def post_market_explorer_query(
     apart because the asset is part of the spec, so the shared cache cannot
     serve one asset's result for the other.
     """
-    user_id = _require_market_explorer_custom_markets(
-        authorization=authorization, token_cookie=token_cookie
-    )
-    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
-                        route="/market/explorer/query")
     if payload.asset not in SUPPORTED_ASSETS:
         return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     if payload.mode == "chase" and payload.topN not in (None, 10):
@@ -983,8 +1024,15 @@ def post_market_explorer_query(
         # rejected rather than keyed, and equivalent selections share one entry.
         normalized = normalize_query_spec(
             asset=payload.asset, mode=payload.mode, era_ids=payload.eraIds,
-            set_ids=payload.setIds, segment_ids=payload.segmentIds, top_n=payload.topN,
+            set_ids=payload.setIds, segment_ids=payload.segmentIds,
+            pokemon_ids=payload.pokemonIds, price_segment_ids=payload.priceSegmentIds,
+            release_age_cohort_ids=payload.releaseAgeCohortIds, top_n=payload.topN,
         )
+        user_id = _require_market_explorer_query_access(
+            normalized, authorization=authorization, token_cookie=token_cookie
+        )
+        _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+                            route="/market/explorer/query")
         cache_key = f"{query_fingerprint(normalized)}:{today}"
         cached = _market_explorer_query_cache.get(cache_key)
         if cached and cached[0] > time.monotonic():
@@ -999,6 +1047,9 @@ def post_market_explorer_query(
             era_ids=payload.eraIds,
             set_ids=payload.setIds,
             segment_ids=payload.segmentIds,
+            pokemon_ids=payload.pokemonIds,
+            price_segment_ids=payload.priceSegmentIds,
+            release_age_cohort_ids=payload.releaseAgeCohortIds,
             top_n=payload.topN,
             start_date="1999-01-01",
             end_date=today,
@@ -1010,6 +1061,8 @@ def post_market_explorer_query(
         while len(_market_explorer_query_cache) > _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES:
             _market_explorer_query_cache.pop(next(iter(_market_explorer_query_cache)), None)
         return _tiered_response(result)
+    except HTTPException:
+        raise
     except MarketExplorerQueryError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     except (MarketExplorerQueryUnavailable, SealedMarketExplorerQueryUnavailable) as exc:

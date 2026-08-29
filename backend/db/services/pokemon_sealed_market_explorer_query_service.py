@@ -67,6 +67,7 @@ from backend.domain.pokemon.market_explorer_query import (
     MODE_CHASE,
     MarketExplorerQueryError,
     build_query_observations,
+    filter_point_in_time_rows,
     normalize_query_spec,
     query_fingerprint,
     query_key,
@@ -201,6 +202,7 @@ def build_sealed_price_panel(
                 "marketDate": point_date,
                 SEALED_ID_FIELD: product_id,
                 "marketPrice": point.get("marketPrice"),
+                "setId": product.get("setId"),
             })
     return rows
 
@@ -358,8 +360,14 @@ def describe_sealed_query(
 
     labels = {str(d["key"]): str(d["label"]) for d in SEALED_SEGMENT_DEFINITIONS}
     segment = ", ".join(labels.get(value, value) for value in spec["segmentIds"]) or "All Sealed Products"
-    market_mode = f"Top {spec['topN']}" if spec["mode"] == MODE_CHASE else "All"
-    return f"{scope} · {segment} · {market_mode}"
+    dimensions = [scope, segment]
+    names = {"obtainable": "Obtainable", "intermediate": "Intermediate", "premium": "Premium",
+             "new": "New", "recent": "Recent", "established": "Established", "legacy": "Legacy"}
+    for field in ("priceSegmentIds", "releaseAgeCohortIds"):
+        if spec[field]:
+            dimensions.append(", ".join(names.get(value, value) for value in spec[field]))
+    dimensions.append(f"Top {spec['topN']}" if spec["mode"] == MODE_CHASE else "All")
+    return " · ".join(dimensions)
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +381,9 @@ def run_sealed_market_explorer_query(
     era_ids: Sequence[str] = (),
     set_ids: Sequence[str] = (),
     segment_ids: Sequence[str] = (),
+    pokemon_ids: Sequence[str] = (),
+    price_segment_ids: Sequence[str] = (),
+    release_age_cohort_ids: Sequence[str] = (),
     top_n: int | None = None,
     start_date: str,
     end_date: str,
@@ -384,7 +395,9 @@ def run_sealed_market_explorer_query(
     """
     spec = normalize_query_spec(
         mode=mode, asset=ASSET_SEALED,
-        era_ids=era_ids, set_ids=set_ids, segment_ids=segment_ids, top_n=top_n,
+        era_ids=era_ids, set_ids=set_ids, segment_ids=segment_ids,
+        pokemon_ids=pokemon_ids, price_segment_ids=price_segment_ids,
+        release_age_cohort_ids=release_age_cohort_ids, top_n=top_n,
     )
     started = time.perf_counter()
 
@@ -448,10 +461,19 @@ def run_sealed_market_explorer_query(
             "productFamilyLabel": product.get("productFamilyLabel"),
             "imageUrl": product.get("imageUrl"),
         }
+        product["setId"] = owning_set_id
 
     effective_end = min(str(end_date)[:10], market_date)
     panel_rows = build_sealed_price_panel(
         eligible, start_date=str(start_date)[:10], end_date=effective_end,
+    )
+    release_rows = list((client.table("sets").select("id,release_date")
+                         .in_("id", scope_set_ids).execute()).data or [])
+    panel_rows = filter_point_in_time_rows(
+        panel_rows, asset=ASSET_SEALED,
+        price_segment_ids=spec["priceSegmentIds"],
+        release_age_cohort_ids=spec["releaseAgeCohortIds"],
+        release_date_by_set={str(row.get("id")): row.get("release_date") for row in release_rows},
     )
     if not panel_rows:
         raise SealedMarketExplorerQueryUnavailable("the filtered universe has no priced history")
@@ -466,7 +488,9 @@ def run_sealed_market_explorer_query(
     return {
         "serviceVersion": SEALED_EXPLORER_QUERY_SERVICE_VERSION,
         "spec": {**spec, "eraIds": list(spec["eraIds"]), "setIds": list(spec["setIds"]),
-                 "segmentIds": list(spec["segmentIds"])},
+                 "segmentIds": list(spec["segmentIds"]), "pokemonIds": list(spec["pokemonIds"]),
+                 "priceSegmentIds": list(spec["priceSegmentIds"]),
+                 "releaseAgeCohortIds": list(spec["releaseAgeCohortIds"])},
         "queryKey": query_key(spec),
         "queryFingerprint": query_fingerprint(spec),
         "displayLabel": describe_sealed_query(spec, era_names=era_names, set_names=set_names),

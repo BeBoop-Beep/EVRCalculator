@@ -10,6 +10,7 @@ import pytest
 from backend.domain.access.index_plan_access import (
     FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    evaluate_market_query_access,
     INDEX_PLAN_PLUS,
     INDEX_PLAN_PREMIUM,
     filter_set_market_signal_access,
@@ -63,17 +64,69 @@ def test_market_explorer_ladder_has_three_levels():
         "accessMode": "basic",
         "canUsePreparedMarketIntelligence": False,
         "canBuildCustomMarkets": False,
+        "canBuildSingleAxisMarket": False,
+        "canBuildCompoundMarket": False,
+        "canUseCustomRankedComposition": False,
     }
     assert resolve_market_explorer_plan_access({"index_plan": "plus"}) == {
         "accessMode": "plus",
         "canUsePreparedMarketIntelligence": True,
-        "canBuildCustomMarkets": False,
+        "canBuildCustomMarkets": True,
+        "canBuildSingleAxisMarket": True,
+        "canBuildCompoundMarket": False,
+        "canUseCustomRankedComposition": False,
     }
     assert resolve_market_explorer_plan_access({"index_plan": "premium"}) == {
         "accessMode": "premium",
         "canUsePreparedMarketIntelligence": True,
         "canBuildCustomMarkets": True,
+        "canBuildSingleAxisMarket": True,
+        "canBuildCompoundMarket": True,
+        "canUseCustomRankedComposition": True,
     }
+
+
+@pytest.mark.parametrize("asset", ["cards", "sealed"])
+def test_plus_can_build_one_axis_all_constituent_markets(asset):
+    scope = {"asset": asset, "eraIds": ("sv",), "setIds": (), "segmentIds": (), "mode": "all"}
+    segment = {"asset": asset, "eraIds": (), "setIds": (), "segmentIds": ("segment",), "mode": "all"}
+    assert evaluate_market_query_access("plus", scope)["allowed"] is True
+    assert evaluate_market_query_access("plus", segment)["allowed"] is True
+
+
+def test_plus_cannot_build_compound_or_ranked_markets_but_premium_can():
+    compound = {"eraIds": ("sv",), "setIds": (), "segmentIds": ("sir",), "mode": "all"}
+    ranked = {"eraIds": (), "setIds": (), "segmentIds": ("sir",), "mode": "chase"}
+    assert evaluate_market_query_access("plus", compound)["capability"] == "market_explorer_compound"
+    assert evaluate_market_query_access("plus", compound)["allowed"] is False
+    assert evaluate_market_query_access("plus", ranked)["capability"] == "market_explorer_custom_ranked"
+    assert evaluate_market_query_access("plus", ranked)["allowed"] is False
+    assert evaluate_market_query_access("premium", compound)["allowed"] is True
+    assert evaluate_market_query_access("premium", ranked)["allowed"] is True
+
+
+def test_pass3_axis_packaging_is_centralized_and_fail_closed():
+    price = {"priceSegmentIds": ("premium",), "mode": "all"}
+    release = {"releaseAgeCohortIds": ("new",), "mode": "all"}
+    pokemon = {"pokemonIds": ("149",), "mode": "all"}
+    scope_price = {"setIds": ("sv8",), "priceSegmentIds": ("premium",), "mode": "all"}
+    segment_pokemon = {"segmentIds": ("sir",), "pokemonIds": ("149",), "mode": "all"}
+
+    assert evaluate_market_query_access("plus", price)["allowed"] is True
+    assert evaluate_market_query_access("plus", release)["allowed"] is True
+    pokemon_access = evaluate_market_query_access("plus", pokemon)
+    assert pokemon_access["allowed"] is False
+    assert pokemon_access["requiredPlan"] == "premium"
+    assert pokemon_access["capability"] == "market_explorer_pokemon"
+    assert pokemon_access["activeFilterAxes"] == ["pokemon"]
+    assert evaluate_market_query_access("plus", scope_price)["allowed"] is False
+    assert evaluate_market_query_access("plus", segment_pokemon)["allowed"] is False
+    assert evaluate_market_query_access("premium", segment_pokemon)["allowed"] is True
+
+
+def test_basic_cannot_obtain_query_results():
+    broad = {"eraIds": (), "setIds": (), "segmentIds": (), "mode": "all"}
+    assert evaluate_market_query_access(None, broad)["allowed"] is False
 
 
 def test_authentication_alone_grants_nothing():

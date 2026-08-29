@@ -22,6 +22,10 @@ INDEX_PLAN_PREMIUM = "premium"
 #: later move to a differently-named tier, the seam is this constant's mapping
 #: and not every call site.
 FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS = "market_explorer_custom_markets"
+FEATURE_MARKET_EXPLORER_SINGLE_AXIS = "market_explorer_single_axis"
+FEATURE_MARKET_EXPLORER_COMPOUND = "market_explorer_compound"
+FEATURE_MARKET_EXPLORER_CUSTOM_RANKED = "market_explorer_custom_ranked"
+FEATURE_MARKET_EXPLORER_POKEMON = "market_explorer_pokemon"
 FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency"
 FEATURE_MARKET_BREADTH = "market_breadth"
 FEATURE_PRODUCT_RIP = "product_rip"
@@ -30,6 +34,8 @@ FEATURE_ACQUISITION_MILESTONES = "acquisition_milestones"
 FEATURE_SET_RIP_ANALYTICS = "set_rip_analytics"
 
 _PLUS_FEATURES = frozenset({
+    FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
     FEATURE_MARKET_BREADTH,
     FEATURE_PRODUCT_RIP,
     FEATURE_PACK_ECONOMICS,
@@ -37,7 +43,9 @@ _PLUS_FEATURES = frozenset({
     FEATURE_SET_RIP_ANALYTICS,
 })
 _PREMIUM_FEATURES = frozenset({
-    FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    FEATURE_MARKET_EXPLORER_COMPOUND,
+    FEATURE_MARKET_EXPLORER_CUSTOM_RANKED,
+    FEATURE_MARKET_EXPLORER_POKEMON,
     FEATURE_CARD_CHASE_EFFICIENCY,
 })
 
@@ -65,6 +73,35 @@ def has_index_feature_access(plan: Any, feature: str) -> bool:
     if feature in _PLUS_FEATURES:
         return has_index_plus_access(plan)
     return False
+
+
+def evaluate_market_query_access(plan: Any, spec: Mapping[str, Any]) -> dict[str, Any]:
+    """Evaluate one normalized query definition against the plan hierarchy."""
+    from backend.domain.pokemon.market_explorer_query import MODE_CHASE, active_filter_axes
+
+    axes = active_filter_axes(spec)
+    ranked = spec.get("mode") == MODE_CHASE
+    if spec.get("pokemonIds"):
+        required_plan, capability = INDEX_PLAN_PREMIUM, FEATURE_MARKET_EXPLORER_POKEMON
+        reason = "Pokemon market research requires Index Premium"
+    elif ranked:
+        required_plan, capability = INDEX_PLAN_PREMIUM, FEATURE_MARKET_EXPLORER_CUSTOM_RANKED
+        reason = "custom ranked composition requires Index Premium"
+    elif len(axes) > 1:
+        required_plan, capability = INDEX_PLAN_PREMIUM, FEATURE_MARKET_EXPLORER_COMPOUND
+        reason = "compound market requires Index Premium"
+    else:
+        required_plan, capability = INDEX_PLAN_PLUS, FEATURE_MARKET_EXPLORER_SINGLE_AXIS
+        reason = "custom market exploration requires Index Plus"
+    allowed = (has_index_premium_access(plan) if required_plan == INDEX_PLAN_PREMIUM
+               else has_index_plus_access(plan))
+    return {
+        "allowed": allowed,
+        "requiredPlan": required_plan,
+        "capability": capability,
+        "reason": None if allowed else reason,
+        "activeFilterAxes": list(axes),
+    }
 
 
 def _pick(source: Mapping[str, Any], allowed: frozenset[str]) -> dict[str, Any]:
@@ -365,5 +402,8 @@ def resolve_market_explorer_plan_access(user: Mapping[str, Any] | None) -> dict[
     return {
         "accessMode": plan or "basic",
         "canUsePreparedMarketIntelligence": has_index_plus_access(plan),
-        "canBuildCustomMarkets": has_index_premium_access(plan),
+        "canBuildCustomMarkets": has_index_plus_access(plan),
+        "canBuildSingleAxisMarket": has_index_plus_access(plan),
+        "canBuildCompoundMarket": has_index_premium_access(plan),
+        "canUseCustomRankedComposition": has_index_premium_access(plan),
     }

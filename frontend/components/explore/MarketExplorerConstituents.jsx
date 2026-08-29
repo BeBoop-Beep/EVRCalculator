@@ -200,7 +200,7 @@ export default function MarketExplorerConstituents({
     >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-3 py-3 sm:px-4">
         <h2 id="market-constituents-heading" className="text-[16px] font-semibold text-[var(--text-primary)]">
-          Current Constituents
+          Constituents
         </h2>
         {active ? (
           <span data-market-constituents-active className="text-[11px] text-[var(--text-secondary)]">

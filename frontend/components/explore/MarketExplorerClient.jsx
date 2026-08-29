@@ -3,20 +3,15 @@
 import { useCallback, useMemo, useState } from "react";
 import MarketExplorerChart from "./MarketExplorerChart";
 import MarketExplorerDetails from "./MarketExplorerDetails";
-import MarketExplorerFilters from "./MarketExplorerFilters";
 import MarketExplorerSeriesCard from "./MarketExplorerSeriesCard";
 import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder";
 import MarketExplorerConstituents from "./MarketExplorerConstituents";
 import MarketExplorerActiveMarkets from "./MarketExplorerActiveMarkets";
 import MarketExplorerMethodology from "./MarketExplorerMethodology";
-import ExplorerDisclosure from "./ExplorerDisclosure";
-import ExplorerPlanLockPanel from "./ExplorerPlanLockPanel";
 import {
   buildAssetMarketModel,
   buildBenchmarkModel,
-  buildCardSegmentModel,
   buildExplorerTimeframeOptions,
-  buildSealedFamilyModel,
   resolveExplorerTimeframe,
 } from "@/lib/explore/marketExplorerState.mjs";
 import { resolveActiveDetailSeriesId } from "@/lib/explore/marketExplorerConstituents.mjs";
@@ -24,9 +19,8 @@ import { buildComparableSeries } from "@/lib/explore/marketExplorerSeries.mjs";
 import styles from "./explore.module.css";
 import useMarketExplorerQueries from "@/hooks/explore/useMarketExplorerQueries";
 import useMarketExplorerFilterOptions from "@/hooks/explore/useMarketExplorerFilterOptions";
-import useMarketExplorerScope from "@/hooks/explore/useMarketExplorerScope";
 import useMarketExplorerSelection from "@/hooks/explore/useMarketExplorerSelection";
-import { INDEX_PLAN_PREMIUM, resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
+import { resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
 
 // ---------------------------------------------------------------------------
 // Market Explorer — the research workspace.
@@ -88,11 +82,10 @@ export default function MarketExplorerClient({
   // closed — while the API enforces the same boundary independently.
   const {
     accessMode, indexPlan, isAuthenticated,
-    canUsePreparedMarketIntelligence, canBuildCustomMarkets,
   } = useMemo(() => resolveMarketExplorerPlanAccess(user), [user]);
   const {
     selection: { assetUniverse, sealedFamilyIds, segmentIds },
-    selectedSeriesIds, toggleMarket, toggleSealed, toggleCardSegment, toggleAny,
+    selectedSeriesIds, toggleMarket, toggleAny,
   } = useMarketExplorerSelection({ overview, sealedSegments, cardSegments, initialState });
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
   // ONE detail target at a time. Four selected markets must not produce four
@@ -102,19 +95,18 @@ export default function MarketExplorerClient({
 
   // Era & Sets and Build a Market read the SAME canonical option payload, in
   // one shared request.
-  const { status: optionsStatus, options } = useMarketExplorerFilterOptions();
+  const { status: optionsStatus, options, message: optionsMessage } = useMarketExplorerFilterOptions();
 
   // Era & Sets sets a research SCOPE, never a series — see the hook.
-  const {
-    scope: eraScope, tree: eraTree, handoff: scopeHandoff,
-    toggleEra: toggleScopeEraId, toggleSet: toggleScopeSetId,
-    reset: resetScope, handOffToBuilder: useScopeInBuilder,
-  } = useMarketExplorerScope(options);
-
   const timeframe = resolveExplorerTimeframe(overview, requestedTimeframe);
   const timeframeLabel = timeframeOptions.find((entry) => entry.key === timeframe)?.label || "";
   const toggleSeries = useCallback(
     (seriesId) => toggleAny(seriesId, removeQuery), [toggleAny, removeQuery]);
+  const addPrepared = useCallback((seriesId) => {
+    if (selectedSeriesIds.includes(seriesId)) return "duplicate";
+    toggleAny(seriesId, removeQuery);
+    return "added";
+  }, [selectedSeriesIds, toggleAny, removeQuery]);
 
   // Asset Market is the ASSET CLASSES only. Per-Set Chase is a ranking mode
   // applied to cards, not a fourth asset, so it moved to Benchmarks.
@@ -125,14 +117,6 @@ export default function MarketExplorerClient({
   const benchmarkEntries = useMemo(
     () => buildBenchmarkModel(overview, assetUniverse),
     [overview, assetUniverse]
-  );
-  const sealedEntries = useMemo(
-    () => buildSealedFamilyModel(sealedSegments, sealedFamilyIds),
-    [sealedSegments, sealedFamilyIds]
-  );
-  const cardGroups = useMemo(
-    () => buildCardSegmentModel(cardSegments, segmentIds),
-    [cardSegments, segmentIds]
   );
   const comparableSeries = useMemo(
     () => buildComparableSeries(overview, sealedSegments, cardSegments),
@@ -157,10 +141,6 @@ export default function MarketExplorerClient({
     () => assetEntries.filter((entry) => entry.available === true),
     [assetEntries]
   );
-  const filterAssetEntries = useMemo(
-    () => assetEntries.map((entry) => ({ ...entry, shortLabel: entry.label })),
-    [assetEntries]
-  );
 
   if (!overview || !overview.families?.length) {
     return (
@@ -180,8 +160,6 @@ export default function MarketExplorerClient({
       data-market-explorer-segment-ids={segmentIds.join(",")}
       data-market-explorer-series={selectedSeriesIds.join(",")}
       data-market-explorer-timeframe={timeframe || ""}
-      data-market-explorer-era-ids={eraScope.eraIds.join(",")}
-      data-market-explorer-set-ids={eraScope.setIds.join(",")}
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
       data-market-explorer-access-mode={accessMode}
       className="space-y-3 desk:space-y-4"
@@ -216,26 +194,17 @@ export default function MarketExplorerClient({
           onTimeframeChange={setRequestedTimeframe}
           onToggleSeries={toggleSeries}
         />
-        <MarketExplorerFilters
-          assetEntries={filterAssetEntries}
+        <MarketExplorerQueryBuilder
+          options={options}
+          optionsStatus={optionsStatus}
+          optionsMessage={optionsMessage}
           benchmarkEntries={benchmarkEntries}
-          sealedEntries={sealedEntries}
-          cardGroups={cardGroups}
-          reconciliation={reconciliation}
-          cardReconciliation={cardReconciliation}
-          topChaseSegmentStatus={topChaseSegmentStatus}
-          eraTree={eraTree}
-          eraScope={eraScope}
-          eraOptionsStatus={optionsStatus}
-          onToggleMarket={toggleMarket}
-          onToggleSealedFamily={toggleSealed}
-          onToggleCardSegment={toggleCardSegment}
-          onToggleScopeEra={toggleScopeEraId}
-          onToggleScopeSet={toggleScopeSetId}
-          onClearScope={resetScope}
-          onUseScopeInBuilder={useScopeInBuilder}
-          selectedSeriesCount={selectedSeriesIds.length}
-          canUsePreparedMarketIntelligence={canUsePreparedMarketIntelligence}
+          preparedSeries={comparableSeries}
+          activeSeries={selectedSeries}
+          onAddPrepared={addPrepared}
+          onAddQuery={addQuery}
+          onToggleBenchmark={toggleMarket}
+          selectedSeriesCount={selectedSeries.length}
           isAuthenticated={isAuthenticated}
           currentPlan={indexPlan}
         />
@@ -243,33 +212,6 @@ export default function MarketExplorerClient({
 
       {/* 3 — the advanced lane, collapsed and sitting directly beneath the
              workspace it feeds rather than stranded below unrelated content. */}
-      <section className={`${styles.surfaceQuiet} set-glass-surface px-3 py-3 sm:px-4`} aria-label="Build a market">
-        {/* `openSignal` opens this group when the Era & Sets hand-off fires:
-            the user asked for their scope to be used, so the controls it lands
-            in have to be visible. Nothing else may open or close it. */}
-        <ExplorerDisclosure
-          id="buildAMarket"
-          title="Build a Market"
-          badge={canBuildCustomMarkets ? null : "🔒"}
-          summary={canBuildCustomMarkets ? "Create a custom filtered market." : "Index Premium"}
-          openSignal={scopeHandoff?.token || null}
-        >
-          {canBuildCustomMarkets ? (
-            <MarketExplorerQueryBuilder onAddQuery={addQuery} scopeHandoff={scopeHandoff} />
-          ) : (
-            // The builder is not rendered disabled underneath: a functioning
-            // "Add to Comparison" that always refuses is worse than an honest
-            // locked panel, and the disabled controls would leak the filter
-            // taxonomy the gate exists to sell.
-            <ExplorerPlanLockPanel
-              requiredPlan={INDEX_PLAN_PREMIUM}
-              isAuthenticated={isAuthenticated}
-              currentPlan={indexPlan}
-              description="Build custom markets by Era, Set, rarity, product family and Top 10 composition, and chart them beside the prepared markets."
-            />
-          )}
-        </ExplorerDisclosure>
-      </section>
 
       {/* 4 — everything currently charted, from either lane, in ONE row.
              There is deliberately no second chip strip beneath this: custom
@@ -286,19 +228,20 @@ export default function MarketExplorerClient({
         />
       </section>
 
+      <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Market comparison analysis">
+        <MarketExplorerDetails
+          series={selectedSeries}
+          activeSeriesId={activeDetailSeriesId}
+          onInspect={setRequestedDetailSeriesId}
+          timeframe={timeframe}
+        />
+      </section>
+
       <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Current market constituents">
         <MarketExplorerConstituents
           selectedSeries={selectedSeries}
           activeSeriesId={activeDetailSeriesId}
           onSelectSeries={setRequestedDetailSeriesId}
-        />
-      </section>
-
-      <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Selected market detail">
-        <MarketExplorerDetails
-          series={selectedSeries}
-          activeSeriesId={activeDetailSeriesId}
-          onInspect={setRequestedDetailSeriesId}
         />
       </section>
 

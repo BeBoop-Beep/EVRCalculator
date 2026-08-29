@@ -20,6 +20,7 @@ const overview = read("../../../components/explore/PokemonMarketOverview.jsx");
 const client = read("../../../components/explore/MarketExplorerClient.jsx");
 const chart = read("../../../components/explore/MarketExplorerChart.jsx");
 const filters = read("../../../components/explore/MarketExplorerFilters.jsx");
+const builder = read("../../../components/explore/MarketExplorerQueryBuilder.jsx");
 const details = read("../../../components/explore/MarketExplorerDetails.jsx");
 const card = read("../../../components/explore/MarketExplorerSeriesCard.jsx");
 const gate = read("../../../components/explore/MarketExplorerAccessGate.jsx");
@@ -200,16 +201,16 @@ test("Asset Market holds three top-level markets and Chase is not one of them", 
 test("one reusable disclosure serves every collapsible group", () => {
   // Five groups, one implementation — so accessibility is fixed once and the
   // groups cannot drift into five different expand/collapse behaviours.
-  for (const id of ["cardRarities", "sealedFamilies", "eraSets", "benchmarks"]) {
-    assert.ok(filters.includes(`id="${id}"`) || client.includes(`id="${id}"`), id);
+  for (const id of ["rawCardsBuilder", "sealedBuilder", "gradedBuilder", "benchmarks", "marketComposition"]) {
+    assert.ok(builder.includes(`id="${id}"`), id);
   }
-  assert.ok(client.includes('id="buildAMarket"'), "the builder is a disclosure too");
+  assert.ok(!client.includes('id="buildAMarket"'), "the detached builder must stay removed");
   assert.match(disclosure, /aria-expanded=\{isOpen\}/);
   assert.match(disclosure, /aria-controls=\{panelId\}/);
   assert.match(disclosure, /type="button"/);
   // Collapsed is the DEFAULT; only an explicit prop opens a group.
   assert.match(disclosure, /defaultOpen = false/);
-  assert.ok(!/defaultOpen(?!\s*=\s*false)/.test(filters), "no rail group opts itself open");
+  assert.match(builder, /defaultOpen/, "the primary asset can open without another state owner");
 });
 
 test("no quick-segment toggle supplies a parent benchmark", () => {
@@ -237,11 +238,11 @@ test("the future filter state model is declared now so later phases extend it", 
 // --- component architecture ----------------------------------------------
 
 test("the workspace is composed, not one giant page component", () => {
-  for (const component of ["MarketExplorerChart", "MarketExplorerDetails", "MarketExplorerFilters", "MarketExplorerSeriesCard"]) {
+  for (const component of ["MarketExplorerChart", "MarketExplorerDetails", "MarketExplorerQueryBuilder", "MarketExplorerSeriesCard"]) {
     assert.ok(client.includes(component), component);
   }
   // No file in the surface is allowed to become the 1,000-line page.
-  for (const [name, source] of Object.entries({ explorerPage, client, chart, filters, details, card })) {
+  for (const [name, source] of Object.entries({ explorerPage, client, chart, builder, details, card })) {
     // 340, raised from 300 when the access ladder landed. The guard exists to
     // stop a component becoming THE page, not to cap documentation: the growth
     // here is the client's prose explaining the three access levels, which is

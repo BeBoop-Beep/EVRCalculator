@@ -500,7 +500,7 @@ test("cards and detail rows print the published values, never a recomputed one",
 test("the detail strip reports every published window for each selected market", () => {
   const renderer = render();
   const headings = findAll(renderer, "data-market-explorer-detail-heading").map((node) => node.props["data-market-explorer-detail-heading"]);
-  assert.deepEqual(headings, ["1D", "7D", "30D", "3M", "All"]);
+  assert.deepEqual(headings, ["7D", "30D", "3M", "6M", "1Y", "All"]);
   assert.ok(pageText(renderer).includes("Since Tracking"));
 });
 
