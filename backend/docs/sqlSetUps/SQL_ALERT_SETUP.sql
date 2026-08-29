@@ -24,12 +24,15 @@ CREATE TABLE IF NOT EXISTS public.alert_events (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS if using Supabase (public can read+write, backend service uses anon key)
+-- Alerts are private operational data. Backend workers use the service-role key.
 ALTER TABLE public.alert_events ENABLE ROW LEVEL SECURITY;
 
--- This policy allows public read/write (backend service has service role for unrestricted access)
-CREATE POLICY alert_events_public_access ON public.alert_events
-  FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS alert_events_public_access ON public.alert_events;
+
+REVOKE ALL ON TABLE public.alert_events FROM PUBLIC;
+REVOKE ALL ON TABLE public.alert_events FROM anon;
+REVOKE ALL ON TABLE public.alert_events FROM authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.alert_events TO service_role;
 
 -- =============================================================================
 -- 2. Create indexing for efficient unsent alert queries

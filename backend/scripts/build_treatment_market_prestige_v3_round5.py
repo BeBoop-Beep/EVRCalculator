@@ -26,7 +26,9 @@ PREREG={"practical_log_bands":{"approximately_equivalent":math.log(1.25),"slight
  "predictors":["release_time","set_size","treatment_counts","demand_composition","exact_pull_scarcity_composition","mechanic_mix","canonical_special_set"],
  "predictor_gate":{"minimum_sets":8,"minimum_loocv_rmse_improvement":.05,"minimum_absolute_correlation":.35}}
 
-def score(beta:float,center:float,scale:float)->float:return float(1+8/(1+math.exp(-(beta-center)/max(scale,1e-9))))
+def score(beta:float,center:float,scale:float)->float:
+    x=max(-60.,min(60.,(beta-center)/max(scale,1e-9)))
+    return float(1+8/(1+math.exp(-x)))
 
 def clean_rows(rows:Iterable[Mapping[str,Any]],era:str,set_ids:set[str]|None=None)->list[dict[str,Any]]:
     return [dict(r) for r in rows if r["era_name"]==era and (set_ids is None or r["set_id"] in set_ids) and r.get("rarity_designation") and r.get("species_id") and r.get("demand_score") is not None and not r.get("promo_status_ambiguous")]
