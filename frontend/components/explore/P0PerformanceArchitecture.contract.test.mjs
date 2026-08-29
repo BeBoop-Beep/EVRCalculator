@@ -64,13 +64,14 @@ test("Recharts named imports stay optimized across analytical routes", () => {
   assert.ok(source.includes('optimizePackageImports: ["recharts"]'));
 });
 
-test("card and sealed-product server detail reads use bounded Next cache windows", () => {
+test("card and sealed-product detail reads dedupe per render without sharing entitled payloads", () => {
   const card = read("lib/pokemon/pokemonCardDetailServer.js");
   const product = read("lib/pokemon/sealedProductDetailServer.js");
   for (const source of [card, product]) {
-    assert.ok(source.includes("revalidate: DETAIL_REVALIDATE_SECONDS"));
-    assert.ok(!source.includes('cache: "no-store"'));
+    assert.ok(source.includes("cache(async function"), "React cache must dedupe identical reads within one server render");
+    assert.ok(source.includes('cache: "no-store"'), "identity-sensitive detail must not enter a shared Next cache");
+    assert.ok(source.includes("getBackendRequestAuthHeaders"));
   }
-  assert.ok(card.includes('String(variantId || "canonical")'), "card cache identity must include the selected variant");
-  assert.ok(product.includes("pokemon-sealed-product-detail:${id}"), "product cache identity must include the product id");
+  assert.ok(card.includes('url.searchParams.set("variant_id", variantId)'), "card request identity must include the selected variant");
+  assert.ok(product.includes("encodeURIComponent(id)"), "product request identity must include the product id");
 });

@@ -55,6 +55,12 @@ export async function GET(request) {
     }
     const eligible = (Array.isArray(payload?.targets) ? payload.targets : [])
       .filter(isPublicAnalyticsEligiblePokemonSet);
+    if (eligible.length === 0) {
+      return NextResponse.json(
+        { status: "unavailable", targets: [], marketDate: marketDate(payload) },
+        { status: 503, headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
+      );
+    }
     return NextResponse.json(
       {
         status: "available",
@@ -70,7 +76,8 @@ export async function GET(request) {
 
   if (lens === "eras") {
     const payload = await preparedLensPayloadForRequest("eras", request);
-    if (!payload || payload?.meta?.requestFailed) {
+    const eraSetStrength = payload?.eraSetStrengthV1;
+    if (!payload || payload?.meta?.requestFailed || !Array.isArray(eraSetStrength?.eras)) {
       return NextResponse.json(
         { status: "unavailable", eraSetStrength: null, marketDate: marketDate(payload) },
         { status: 503, headers: { "Cache-Control": "private, no-store" } },
@@ -79,7 +86,7 @@ export async function GET(request) {
     return NextResponse.json(
       {
         status: "available",
-        eraSetStrength: payload?.eraSetStrengthV1 || null,
+        eraSetStrength,
         marketDate: marketDate(payload),
       },
       { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },

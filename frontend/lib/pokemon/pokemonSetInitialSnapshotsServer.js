@@ -226,14 +226,14 @@ export async function getPokemonSetTopChaseInitialSnapshot(setId) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) return { ...EMPTY_INITIAL_SNAPSHOT, error: { message: "Set id is required", code: "SET_ID_REQUIRED" } };
   const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/top-chase`);
-  url.searchParams.set("window", "30d");
+  url.searchParams.set("window", "365d");
   url.searchParams.set("limit", "10");
   return loadInitialSnapshot(url, {
     moduleName: "market top chase",
     normalizePayload: normalizeTopChasePayload,
     nextCacheOptions: {
       revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S,
-      tags: [`pokemon-set-market-top-chase:${resolvedSetId}:30d:10`],
+      tags: [`pokemon-set-market-top-chase:${resolvedSetId}:365d:10`],
     },
     timeoutMs: getOverviewTimeoutMs(),
   });

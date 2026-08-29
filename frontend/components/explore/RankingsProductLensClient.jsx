@@ -15,6 +15,7 @@ import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { getTierTone } from "@/lib/explore/interpretationTone";
 import styles from "./explore.module.css";
+import { normalizeOverallProductResult, sortProductRankingRows } from "./rankingsProductLensModel.mjs";
 
 const FAMILY_ORDER = [
   "loose_booster_pack",
@@ -54,33 +55,6 @@ function familyLabel(value) {
   if (singular === "Booster Box") return "Booster Boxes";
   if (singular === "Enhanced Booster Box") return "Enhanced Booster Boxes";
   return `${singular}s`;
-}
-
-function sortRows(rows, query, sortKey, direction, overall) {
-  const needle = String(query || "").trim().toLowerCase();
-  const factor = direction === "asc" ? 1 : -1;
-  const effectiveKey = overall && sortKey === "marketPrice" ? "unitPrice" : sortKey;
-  return (Array.isArray(rows) ? rows : [])
-    .filter((row) => {
-      if (!needle) return true;
-      return [row?.productName, row?.setName]
-        .some((value) => String(value || "").toLowerCase().includes(needle));
-    })
-    .slice()
-    .sort((left, right) => {
-      if (effectiveKey === "alphabetical") {
-        return factor * (
-          String(left?.productName || "").localeCompare(String(right?.productName || ""), "en", { sensitivity: "base" }) ||
-          String(left?.setName || "").localeCompare(String(right?.setName || ""), "en", { sensitivity: "base" }) ||
-          String(left?.sealedProductId || "").localeCompare(String(right?.sealedProductId || ""))
-        );
-      }
-      const a = numeric(left?.[effectiveKey]);
-      const b = numeric(right?.[effectiveKey]);
-      if (a === null) return b === null ? 0 : 1;
-      if (b === null) return -1;
-      return factor * (a - b);
-    });
 }
 
 function recovery(value) {
@@ -202,7 +176,8 @@ function LoadingPanel() {
 export default function RankingsProductLensClient() {
   const { canViewRankingsIntelligence } = useRankingsAccess();
   const entitled = canViewRankingsIntelligence;
-  const [state, setState] = useState({ status: "loading", productFamilyRankings: null, overallProductRankings: null });
+  const [state, setState] = useState({ status: "idle", productFamilyRankings: null, overallProductRankings: null });
+  const [retryNonce, setRetryNonce] = useState(0);
   const [view, setView] = useState("allProducts");
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState(entitled ? "overallRipLeaderScore" : "alphabetical");
@@ -214,6 +189,7 @@ export default function RankingsProductLensClient() {
     setState({ status: "loading", productFamilyRankings: null, overallProductRankings: null });
     setOverallResult(null);
     const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort("timeout"), 12000);
     fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json();
@@ -226,13 +202,13 @@ export default function RankingsProductLensClient() {
           productFamilyRankings: payload?.productFamilyRankings || null,
           overallProductRankings: payload?.overallProductRankings || null,
         });
-        setOverallResult(payload?.overallProductRankings || null);
+        setOverallResult(normalizeOverallProductResult(payload?.overallProductRankings));
       })
       .catch((error) => {
-        if (error.name !== "AbortError") setState({ status: "error", error: error.message, productFamilyRankings: null, overallProductRankings: null });
+        setState({ status: error.name === "AbortError" ? "unavailable" : "error", error: error.message, productFamilyRankings: null, overallProductRankings: null });
       });
-    return () => controller.abort();
-  }, [entitled]);
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [entitled, retryNonce]);
 
   const families = useMemo(
     () => state.productFamilyRankings?.families || {},
@@ -261,20 +237,20 @@ export default function RankingsProductLensClient() {
     setOverallResult((current) => ({ ...(current || {}), status: "loading" }));
     fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store" })
       .then((response) => response.json())
-      .then(setOverallResult)
-      .catch(() => setOverallResult({ status: "unavailable", data: null }));
+      .then((payload) => setOverallResult(normalizeOverallProductResult(payload)))
+      .catch(() => setOverallResult(normalizeOverallProductResult(null)));
   };
 
-  if (state.status === "loading") return <LoadingPanel />;
+  if (state.status === "loading" || state.status === "idle") return <LoadingPanel />;
   if (state.status === "error" || state.status === "unavailable") {
-    return <section className={`${styles.surface} set-glass-surface`}><p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Product rankings are temporarily unavailable.</p></section>;
+    return <section className={`${styles.surface} set-glass-surface`}><p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Product rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => setRetryNonce((value) => value + 1)}>Retry</button></p></section>;
   }
 
   const overall = view === "allProducts";
   const selectedFamily = overall ? null : families[view];
-  const sourceRows = overall ? (overallResult?.data?.rows || []) : (selectedFamily?.products || []);
-  const rows = sortRows(sourceRows, query, sortKey, sortDirection, overall);
-  const budgetOptions = (overallResult?.data?.availableBudgets || []).map((entry) => ({
+  const sourceRows = overall ? (overallResult?.rows || []) : (selectedFamily?.products || []);
+  const rows = sortProductRankingRows(sourceRows, query, sortKey, sortDirection, overall);
+  const budgetOptions = (overallResult?.availableBudgets || []).map((entry) => ({
     value: entry?.type === "full_market" ? "full_market" : String(entry?.value),
     label: entry?.label,
   }));
@@ -296,7 +272,7 @@ export default function RankingsProductLensClient() {
         <div className={`${styles.divider} grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_16rem_minmax(18rem,1fr)] md:items-center`}>
           <div>
             <h2 className="font-semibold text-[var(--text-primary)]">{overall ? "Best Products to Rip" : familyLabel(selectedFamily?.label)}</h2>
-            <p className="text-xs text-[var(--text-secondary)]">{overall ? `${overallResult?.data?.cohortSize || rows.length} products ranked` : `${selectedFamily?.count || rows.length} products in this format`}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{overall ? `${overallResult?.cohortSize || rows.length} products ranked` : `${selectedFamily?.count || rows.length} products in this format`}</p>
           </div>
           <TableSearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products or sets..." ariaLabel="Search products or sets" containerClassName="md:justify-self-center" />
           <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row md:justify-self-end">

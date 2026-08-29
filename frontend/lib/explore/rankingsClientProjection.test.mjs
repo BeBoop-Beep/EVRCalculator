@@ -184,6 +184,18 @@ test("a non-array input yields an empty leaderboard rather than throwing", () =>
   assert.deepEqual(projectRankingsTargets(undefined), []);
 });
 
+test("a 22-set API cohort remains renderable with canonical Set RIP rank and tier", () => {
+  const source = Array.from({ length: 22 }, (_, index) => target(index + 1, {
+    setRipV1: { score: 90 - index, rank: index + 1, tier: index < 3 ? "S" : "A", cohortSize: 22 },
+  }));
+  const projected = projectRankingsTargets(source, { canViewRankingsIntelligence: true });
+  assert.equal(projected.length, 22);
+  assert.deepEqual(
+    projected.map((row) => [row.setRipV1.rank, row.setRipV1.tier]),
+    source.map((row) => [row.setRipV1.rank, row.setRipV1.tier]),
+  );
+});
+
 test("packaged V10 survives projection and resolves through the strict headline reader", () => {
   const source = {
     target_id: "v10-contract",

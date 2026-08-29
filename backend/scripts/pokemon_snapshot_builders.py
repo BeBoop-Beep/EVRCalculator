@@ -24,6 +24,7 @@ from backend.db.services.ev_representativeness_public_service import attach_publ
 from backend.db.services import rip_decision_service
 from backend.db.services.product_family_rankings_service import build_product_family_rankings
 from backend.db.services.set_rip_service import attach_set_rip_to_targets, build_set_rip
+from backend.db.services.era_set_strength_service import attach_era_set_strength
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
 from backend.db.services.pokemon_set_cards_market_analytics_service import (
     PokemonSetCardsMarketAnalyticsError,
@@ -4213,6 +4214,10 @@ def build_explore_rankings_snapshot_row(
         set_rip = build_set_rip(product_family_rankings, set_targets=opening_targets)
         payload["targets"] = attach_set_rip_to_targets(payload["targets"], set_rip)
         payload["setRip"] = {key: value for key, value in set_rip.items() if key != "sets"}
+    # Era strength is a projection of the already-published Set RIP blocks,
+    # using the canonical Era Set Strength V1 builder. Persist it with the
+    # publication so the normal lens path never recomputes a cohort.
+    payload = attach_era_set_strength(payload)
 
     comparison_diagnostics = meta.get("ripDesirabilityComparison") or meta.get("rip_desirability_comparison") or {}
     logger.info(

@@ -43,50 +43,48 @@ export default function RankingsLazyClient({
   const [selectedEra, setSelectedEra] = useState(null);
   const [eraState, setEraState] = useState({ status: "idle", contract: null, marketDate: rankingsMarketDate });
   const [setsState, setSetsState] = useState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
+  const [eraRetry, setEraRetry] = useState(0);
+  const [setsRetry, setSetsRetry] = useState(0);
 
   useEffect(() => {
-    // Auth changes invalidate browser-held tier projections before refetch.
-    setEraState({ status: "idle", contract: null, marketDate: rankingsMarketDate });
-    setSetsState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
-  }, [canViewRankingsIntelligence, rankingsMarketDate]);
-
-  useEffect(() => {
-    if (lens !== "eras" || eraLens !== "rankings" || eraState.status !== "idle") return undefined;
+    if (lens !== "eras" || eraLens !== "rankings") return undefined;
     const controller = new AbortController();
-    setEraState((current) => ({ ...current, status: "loading" }));
+    const timeout = setTimeout(() => controller.abort("timeout"), 12000);
+    setEraState({ status: "loading", contract: null, marketDate: rankingsMarketDate });
     fetch("/api/explore/rankings/lens?lens=eras", { cache: "no-store", signal: controller.signal })
       .then((response) => readLens(response, "Unable to load era rankings"))
       .then((payload) => {
         setEraState({
-          status: payload?.status === "available" ? "ready" : "unavailable",
+          status: payload?.status === "available" && Array.isArray(payload?.eraSetStrength?.eras) ? "ready" : "unavailable",
           contract: payload?.eraSetStrength || null,
           marketDate: payload?.marketDate || rankingsMarketDate,
         });
       })
       .catch((error) => {
-        if (error.name !== "AbortError") setEraState({ status: "error", error: error.message, contract: null, marketDate: rankingsMarketDate });
+        setEraState({ status: error.name === "AbortError" ? "unavailable" : "error", error: error.message, contract: null, marketDate: rankingsMarketDate });
       });
-    return () => controller.abort();
-  }, [lens, eraLens, eraState.status, rankingsMarketDate]);
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [lens, eraLens, rankingsMarketDate, canViewRankingsIntelligence, eraRetry]);
 
   useEffect(() => {
-    if (lens !== "sets" || setsState.status !== "idle") return undefined;
+    if (lens !== "sets") return undefined;
     const controller = new AbortController();
-    setSetsState((current) => ({ ...current, status: "loading" }));
+    const timeout = setTimeout(() => controller.abort("timeout"), 12000);
+    setSetsState({ status: "loading", targets: [], marketDate: rankingsMarketDate });
     fetch("/api/explore/rankings/lens?lens=sets", { cache: "no-store", signal: controller.signal })
       .then((response) => readLens(response, "Unable to load set rankings"))
       .then((payload) => {
         setSetsState({
-          status: payload?.status === "available" ? "ready" : "unavailable",
+          status: payload?.status === "available" && Array.isArray(payload?.targets) && payload.targets.length > 0 ? "ready" : "unavailable",
           targets: Array.isArray(payload?.targets) ? payload.targets : [],
           marketDate: payload?.marketDate || rankingsMarketDate,
         });
       })
       .catch((error) => {
-        if (error.name !== "AbortError") setSetsState({ status: "error", error: error.message, targets: [], marketDate: rankingsMarketDate });
+        setSetsState({ status: error.name === "AbortError" ? "unavailable" : "error", error: error.message, targets: [], marketDate: rankingsMarketDate });
       });
-    return () => controller.abort();
-  }, [lens, setsState.status, rankingsMarketDate]);
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [lens, rankingsMarketDate, canViewRankingsIntelligence, setsRetry]);
 
   const changeLens = (next) => {
     setActiveLens(next);
@@ -150,7 +148,7 @@ export default function RankingsLazyClient({
               }}
             />
           ) : eraState.status === "unavailable" || eraState.status === "error" ? (
-            <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Era rankings are temporarily unavailable.</section>
+            <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Era rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => setEraRetry((value) => value + 1)}>Retry</button></section>
           ) : <LensSkeleton />
         ) : (
           <OpeningEconomicsEras
@@ -165,7 +163,7 @@ export default function RankingsLazyClient({
         )
       ) : lens === "sets" ? (
         setsState.status === "loading" || setsState.status === "idle" ? <LensSkeleton /> : setsUnavailable ? (
-          <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Set rankings are temporarily unavailable.</section>
+          <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Set rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => setSetsRetry((value) => value + 1)}>Retry</button></section>
         ) : (
           <>
             {selectedEra ? (

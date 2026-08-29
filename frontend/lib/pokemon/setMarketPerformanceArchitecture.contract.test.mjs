@@ -10,8 +10,8 @@ const marketClient = fs.readFileSync(new URL("./pokemonSetMarketClient.js", impo
 const signalsHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetMarketSignals.js", import.meta.url), "utf8");
 
 test("Market and RIP routes use the slim route directory", () => {
-  assert.match(route, /activeSetDetailTab === "overview" \|\| activeSetDetailTab === "market"/);
-  assert.match(route, /useSlimSetDirectory[\s\S]*getPokemonSetRouteDirectory/);
+  assert.match(route, /getPokemonSetRouteDirectory\(\{ limit: 150 \}\)/);
+  assert.match(route, /requestedTargetType === "set"[\s\S]*getPokemonSetInitialSnapshots/);
 });
 
 test("Market server seed uses the dedicated bootstrap projection", () => {
@@ -23,6 +23,11 @@ test("Market server seed uses the dedicated bootstrap projection", () => {
 test("a valid Market bootstrap seed suppresses immediate duplicate overview fetch", () => {
   assert.match(client, /seededOverviewPayload && overviewRetryNonce === 0/);
   assert.match(client, /overview\.seed_satisfied_initial_resource/);
+});
+
+test("the visible 365d Top Chase preview is seeded and suppresses its first duplicate fetch", () => {
+  assert.match(snapshots, /market\/top-chase[\s\S]*url\.searchParams\.set\("window", "365d"\)[\s\S]*url\.searchParams\.set\("limit", "10"\)/);
+  assert.match(client, /if \(seededTopChasePayload && topChaseRetryNonce === 0\) return undefined/);
 });
 
 test("consumer sealed is opt-in and uses a bounded completed-resource cache", () => {

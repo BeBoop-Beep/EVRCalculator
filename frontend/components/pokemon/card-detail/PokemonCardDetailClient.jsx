@@ -1149,7 +1149,9 @@ function CardArtwork({ detail, imageRef, onLoad }) {
       alt={`${detail.card.name} card artwork`}
       width={734}
       height={1024}
+      sizes="(min-width: 768px) 430px, 300px"
       priority
+      unoptimized
       onLoad={onLoad}
       onError={() => setFailed(true)}
       className="h-auto w-full max-w-[430px] object-contain drop-shadow-[0_24px_40px_rgba(0,0,0,.48)] md:h-full md:w-auto md:max-w-full"

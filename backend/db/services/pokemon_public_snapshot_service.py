@@ -1848,7 +1848,10 @@ _RANKINGS_LENS_SELECTS = {
         "targets:ranking_payload_json->targets,meta:ranking_payload_json->meta,"
         "default_target_json,updated_at"
     ),
-    "eras": "targets:ranking_payload_json->targets,meta:ranking_payload_json->meta,updated_at",
+    "eras": (
+        "eraSetStrengthV1:ranking_payload_json->eraSetStrengthV1,"
+        "targets:ranking_payload_json->targets,meta:ranking_payload_json->meta,updated_at"
+    ),
     "products": (
         "productFamilyRankings:ranking_payload_json->productFamilyRankings,"
         "meta:ranking_payload_json->meta,updated_at"
@@ -1936,7 +1939,21 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
     if not targets:
         raise ExploreRipStatisticsTargetsError(503, f"{resolved_lens.title()} Rankings publication is incomplete", "RANKINGS_LENS_INCOMPLETE")
     if resolved_lens == "eras":
-        return {"eraSetStrengthV1": build_era_set_strength(targets), "meta": meta}
+        persisted = row.get("eraSetStrengthV1")
+        if isinstance(persisted, dict) and isinstance(persisted.get("eras"), list):
+            return {"eraSetStrengthV1": persisted, "meta": meta}
+        fallback = build_era_set_strength(targets)
+        return {
+            "eraSetStrengthV1": fallback,
+            "meta": {
+                **meta,
+                "snapshot": {
+                    **snapshot,
+                    "source": "canonical_era_set_strength_v1_fallback_from_published_targets",
+                    "persistedProjectionAvailable": False,
+                },
+            },
+        }
     return {
         "targets": targets,
         "default_target": row.get("default_target") or row.get("default_target_json") or None,
