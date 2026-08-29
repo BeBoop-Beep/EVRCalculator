@@ -25,6 +25,7 @@ from backend.db.services.public_rip_publication_contract import (
 
 READY = "READY"
 DEFERRED_SIMULATION_COHORT_INCOMPLETE = "DEFERRED_SIMULATION_COHORT_INCOMPLETE"
+DEFERRED_SIMULATION_DATE_ROLLOVER = "DEFERRED_SIMULATION_DATE_ROLLOVER"
 DEFERRED_SEALED_PRODUCT_FINALIZATION_INCOMPLETE = "DEFERRED_SEALED_PRODUCT_FINALIZATION_INCOMPLETE"
 DEFERRED_PRODUCT_RANKINGS_INCOMPLETE = "DEFERRED_PRODUCT_RANKINGS_INCOMPLETE"
 DEFERRED_SET_RIP_INCOMPLETE = "DEFERRED_SET_RIP_INCOMPLETE"
@@ -84,6 +85,29 @@ def deferred_simulation_readiness(
         expected_supported_cohort_count=expected_count,
         verified_simulation_cohort_count=verified_count,
         problems=problems,
+    )
+
+
+def deferred_simulation_rollover_readiness(
+    *, market_date: str, simulation_date: str, expected_count: int,
+    current_count: int, pending_keys: Sequence[str],
+) -> RankingsReadinessReport:
+    pending = sorted(str(key) for key in pending_keys)
+    detail = (
+        f"promoted market date {market_date} cannot be repaired by simulations executed "
+        f"on {simulation_date} because calculation history is dated from actual execution "
+        f"time and simulations cannot be backdated; waiting for promoted market date "
+        f"{simulation_date}; current={current_count}/{expected_count}; "
+        f"pending={','.join(pending)}"
+    )
+    return RankingsReadinessReport(
+        status=DEFERRED_SIMULATION_DATE_ROLLOVER,
+        reason_code=DEFERRED_SIMULATION_DATE_ROLLOVER,
+        detail=detail,
+        market_date=market_date,
+        expected_supported_cohort_count=expected_count,
+        verified_simulation_cohort_count=current_count,
+        problems=[detail],
     )
 
 

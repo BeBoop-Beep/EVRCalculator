@@ -522,7 +522,11 @@ def _orchestrate(client, **kwargs):
     original = gate.supported_opening_set_keys
     gate.supported_opening_set_keys = lambda: ("alpha",)
     try:
-        return orchestrate(client, **kwargs)
+        return orchestrate(
+            client,
+            simulation_execution_date=kwargs.pop("simulation_execution_date", MARKET_DATE),
+            **kwargs,
+        )
     finally:
         gate.supported_opening_set_keys = original
 
@@ -539,6 +543,77 @@ def test_simulations_run_before_snapshots_are_built(patched):
     assert summary.exit_code == EXIT_OK
     assert summary.verification_passed is True
     assert summary.snapshot_publication_status == "published"
+
+
+def test_previous_day_rollover_defers_without_launching_simulation(monkeypatch, patched):
+    persisted = []
+    monkeypatch.setattr(orchestrator, "_persist_rankings_deferral", lambda _client, report: persisted.append(report))
+    client = _client([_history(STALE_DATE)])
+
+    summary = _orchestrate(client, simulation_execution_date="2026-08-02")
+
+    assert not [call for call in patched if call[0] == "simulate"]
+    assert summary.exit_code == GATE_DEFERRED_EXIT_CODE
+    assert summary.rankings_readiness_reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
+    assert summary.simulation_execution_date == "2026-08-02"
+    assert "cannot be backdated" in summary.error
+    assert persisted and persisted[0].reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
+
+
+def test_rollover_dry_run_never_persists_attempt(monkeypatch, patched):
+    monkeypatch.setattr(
+        orchestrator,
+        "_persist_rankings_deferral",
+        lambda *_a, **_k: pytest.fail("dry-run must not persist a publication attempt"),
+    )
+    summary = _orchestrate(
+        _client([_history(STALE_DATE)]),
+        simulation_execution_date="2026-08-02",
+        dry_run=True,
+    )
+    assert summary.exit_code == GATE_DEFERRED_EXIT_CODE
+
+
+def test_mixed_current_day_cohort_runs_only_stale_sets(monkeypatch, patched):
+    from backend.db.services.opening_simulation_gate import (
+        OpeningSetSimulationStatus,
+        OpeningSimulationFreshnessReport,
+        STATUS_CURRENT,
+        STATUS_STALE,
+    )
+
+    keys = [f"set-{index:02d}" for index in range(22)]
+    before = OpeningSimulationFreshnessReport(
+        market_date=MARKET_DATE,
+        statuses=[
+            OpeningSetSimulationStatus(
+                canonical_key=key, set_id=key, set_name=key,
+                status=STATUS_CURRENT if index == 0 else STATUS_STALE,
+                latest_simulation_date=MARKET_DATE if index == 0 else PRIOR_DATE,
+                calculation_run_id=f"run-{index}" if index == 0 else None,
+            )
+            for index, key in enumerate(keys)
+        ],
+    )
+    after = OpeningSimulationFreshnessReport(
+        market_date=MARKET_DATE,
+        statuses=[
+            OpeningSetSimulationStatus(
+                canonical_key=key, set_id=key, set_name=key, status=STATUS_CURRENT,
+                latest_simulation_date=MARKET_DATE, calculation_run_id=f"run-{index}",
+            )
+            for index, key in enumerate(keys)
+        ],
+    )
+    reports = iter((before, after))
+    monkeypatch.setattr(orchestrator, "evaluate_opening_simulation_freshness", lambda *_a, **_k: next(reports))
+
+    summary = _orchestrate(_client([_history(MARKET_DATE)]))
+
+    simulations = [sets for step, sets in patched if step == "simulate"]
+    assert simulations == [keys[1:]]
+    assert any(entry["set"] == keys[0] and "already current" in entry["reason"] for entry in summary.skipped)
+    assert summary.verification_passed is True
 
 
 def test_tier_a_exists_before_same_run_snapshot_projection(monkeypatch, patched):
@@ -848,6 +923,40 @@ def test_a_passing_audit_allows_exit_zero(patched):
     # missing `.gte(...)` while this test still read as green.
     assert summary.market_audit_status == "passed"
     assert summary.rip_contract_audit_status == "passed"
+
+
+def test_dual_rankings_page_clocks_must_both_match_promoted_date(monkeypatch, patched):
+    monkeypatch.setattr(orchestrator, "_rip_stats_capability_expected", lambda _client: True)
+    def publish_stats(_client, summary, *, market_date, dry_run):
+        summary.rip_stats_market_date = market_date
+        return "published"
+    monkeypatch.setattr(orchestrator, "_publish_rip_stats", publish_stats)
+    monkeypatch.setattr(orchestrator, "_audit_rip_stats", lambda *_a, **_k: "passed")
+    def stale_rankings(_client, summary, **_kwargs):
+        summary.rankings_market_date = PRIOR_DATE
+        return "passed"
+    monkeypatch.setattr(orchestrator, "_run_rip_contract_audit", stale_rankings)
+
+    summary = _orchestrate(_client([_history(MARKET_DATE)]))
+
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.rip_stats_market_date == MARKET_DATE
+    assert summary.rankings_market_date == PRIOR_DATE
+    assert "publication clocks disagree" in summary.error
+
+
+def test_dual_rankings_page_clocks_allow_same_date_success(monkeypatch, patched):
+    monkeypatch.setattr(orchestrator, "_rip_stats_capability_expected", lambda _client: True)
+    def publish_stats(_client, summary, *, market_date, dry_run):
+        summary.rip_stats_market_date = market_date
+        return "published"
+    monkeypatch.setattr(orchestrator, "_publish_rip_stats", publish_stats)
+    monkeypatch.setattr(orchestrator, "_audit_rip_stats", lambda *_a, **_k: "passed")
+
+    summary = _orchestrate(_client([_history(MARKET_DATE)]))
+
+    assert summary.exit_code == EXIT_OK
+    assert summary.rip_stats_market_date == summary.rankings_market_date == MARKET_DATE
 
 
 def test_an_unreadable_audit_is_not_reported_as_success(monkeypatch, patched):

@@ -28,6 +28,13 @@ const distribution = read("./OpeningEconomicsDistribution.jsx");
 const chartFrame = read("./ChartFrame.jsx");
 const chartTooltipShell = read("./ChartTooltipShell.jsx");
 const chartVisualSystem = read("./chartVisualSystem.mjs");
+
+test("opening and set ranking dates name their distinct publication clocks", () => {
+  const setRankings = read("./ExploreTableClient.jsx");
+  assert.match(overall, /Opening data as of \{marketDate\}/);
+  assert.match(setRankings, /Rankings data as of \{marketDate\}/);
+  assert.doesNotMatch(overall, />As of \{marketDate\}</);
+});
 const eras = read("./OpeningEconomicsEras.jsx");
 const page = read("../../app/Explore/page.js");
 const server = read("../../lib/explore/openingEconomicsServer.js");

@@ -19,6 +19,13 @@ publication agrees with promoted-date authority, not merely that simulations hav
 The publisher's existing payload validation remains the final defensive boundary. Readiness is
 an orchestration and operations contract; it does not replace or loosen publisher validation.
 
+Before step 2 launches missing work, the orchestrator compares the promoted market date with the
+Phoenix execution date used by simulation history. If they differ, it returns
+`DEFERRED_SIMULATION_DATE_ROLLOVER` without starting a simulation. A run executed after midnight
+cannot create or repair the previous day's history point because simulations are never backdated.
+When today's batch is promoted, the same evaluator keeps valid current-day runs, runs only stale
+or missing sets, and re-verifies the exact cohort normally.
+
 ## Failure behavior
 
 An incomplete promoted-date simulation cohort explicitly defers only Rankings. Independent
@@ -28,6 +35,10 @@ never claimed for a partial cohort, and the last complete Rankings snapshot rema
 If finalization, product-family construction, Set RIP, the publication RPC, or post-publication
 parity fails, the attempt row records a machine-readable reason and bounded diagnostics. A daily
 coordinated run cannot report fully current success in those states.
+
+The Rankings page has two publication clocks: Pokemon RIP Stats powers Opening Economics, while
+the Explore leaderboard powers Set Rankings. A successful coordinated run reports both
+`rip_stats_market_date` and `rankings_market_date` and requires both to match promoted authority.
 
 ## August 2026 incident
 

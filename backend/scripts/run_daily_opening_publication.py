@@ -109,6 +109,8 @@ class PublicationSummary:
     ev_representativeness_status: str = "not_attempted"
     rip_stats_audit_status: str = "not_attempted"
     rip_stats_market_date: Optional[str] = None
+    rankings_market_date: Optional[str] = None
+    simulation_execution_date: Optional[str] = None
     rip_stats_set_count: int = 0
     rip_stats_source_run_fingerprint: Optional[str] = None
     rip_stats_failures: List[str] = field(default_factory=list)
@@ -157,6 +159,8 @@ class PublicationSummary:
         out.append(f"{TAG} ev_representativeness_status={self.ev_representativeness_status}")
         out.append(f"{TAG} rip_stats_audit_status={self.rip_stats_audit_status}")
         out.append(f"{TAG} rip_stats_market_date={self.rip_stats_market_date}")
+        out.append(f"{TAG} rankings_market_date={self.rankings_market_date}")
+        out.append(f"{TAG} simulation_execution_date={self.simulation_execution_date}")
         out.append(f"{TAG} rip_stats_set_count={self.rip_stats_set_count}")
         out.append(f"{TAG} rip_stats_source_run_fingerprint={self.rip_stats_source_run_fingerprint}")
         for failure in self.rip_stats_failures:
@@ -369,6 +373,7 @@ def orchestrate(
     python_executable: Optional[str] = None,
     gate_wait_attempts: int = 6,
     gate_wait_seconds: int = 600,
+    simulation_execution_date: Optional[str] = None,
 ) -> PublicationSummary:
     summary = PublicationSummary()
 
@@ -421,7 +426,33 @@ def orchestrate(
     summary.eligible_set_count = before.eligible_count
     summary.skipped = _skipped_entries(before)
     pending = sets_needing_simulation(before)
+    from backend.Scraper.helpers.market_date_helper import resolve_phoenix_market_date
+    current_simulation_date = simulation_execution_date or resolve_phoenix_market_date()
+    summary.simulation_execution_date = current_simulation_date
     print(f"{TAG} market_date={resolved_market_date} eligible={before.eligible_count} pending={len(pending)}")
+
+    # Simulation history is dated from actual Phoenix execution time. After a
+    # rollover, running yesterday's missing work can only create today's point;
+    # it can never repair yesterday's promoted cohort.
+    if pending and current_simulation_date != resolved_market_date:
+        from backend.db.services.rankings_publication_lifecycle import (
+            deferred_simulation_rollover_readiness,
+        )
+        report = deferred_simulation_rollover_readiness(
+            market_date=resolved_market_date,
+            simulation_date=current_simulation_date,
+            expected_count=before.eligible_count,
+            current_count=sum(1 for item in before.statuses if item.status == "current"),
+            pending_keys=pending,
+        )
+        summary.rankings_publication_status = "deferred"
+        summary.rankings_readiness_reason_code = report.reason_code
+        summary.latest_simulation_date_by_set = _latest_dates(before)
+        summary.error = report.detail
+        summary.exit_code = GATE_DEFERRED_EXIT_CODE
+        if not dry_run:
+            _persist_rankings_deferral(client, report)
+        return summary
 
     outcomes = run_simulations_for_sets(pending, python_executable=python_executable, dry_run=dry_run)
     summary.simulation_succeeded = sum(1 for outcome in outcomes if outcome.succeeded)
@@ -680,6 +711,23 @@ def orchestrate(
         summary.error = "published Pokemon RIP Stats failed its provenance audit"
         return summary
 
+    if (
+        not dry_run
+        and not skip_snapshots
+        and summary.rip_stats_publication_status == "published"
+        and (
+            summary.rip_stats_market_date != resolved_market_date
+            or summary.rankings_market_date != resolved_market_date
+        )
+    ):
+        summary.exit_code = EXIT_FAILED
+        summary.error = (
+            "Rankings page publication clocks disagree with promoted authority: "
+            f"expected={resolved_market_date} rip_stats={summary.rip_stats_market_date} "
+            f"explore_rankings={summary.rankings_market_date}"
+        )
+        return summary
+
     summary.exit_code = EXIT_OK
     return summary
 
@@ -829,6 +877,7 @@ def _run_rip_contract_audit(
         f"{assertion.name}: {assertion.detail}" for assertion in report.failures
     ]
     summary.rip_contract_audit_report = report.to_dict()
+    summary.rankings_market_date = report.market_date
     for line in report.lines():
         print(line)
     return "passed" if report.passed else "failed"
