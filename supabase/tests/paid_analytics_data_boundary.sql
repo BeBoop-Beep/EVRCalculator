@@ -24,7 +24,14 @@ DECLARE
         'simulation_run_summary',
         'simulation_value_distribution_bins',
         'simulation_value_threshold_bins',
-        'pokemon_set_opening_desirability_latest'
+        'pokemon_set_opening_desirability_latest',
+        'pokemon_set_hit_desirability_summaries',
+        'calculation_configs',
+        'calculation_price_snapshots',
+        'manual_calculation_results',
+        'calculation_history_daily_latest',
+        'calculation_history_trend',
+        'calculation_latest_by_target'
     ];
 BEGIN
     FOREACH role_name IN ARRAY ARRAY['anon', 'authenticated'] LOOP

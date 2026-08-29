@@ -1,0 +1,53 @@
+{
+  "study_id": "treatment-market-prestige-v3-r5-63a7fdee93518f74",
+  "manifest_hash": "63a7fdee93518f7440dd97d69c7290ae17b48d108235345a850189f9483ac8cd",
+  "frozen_at": "2026-08-29T18:54:54.833027+00:00",
+  "methodology": "treatment_market_prestige_v3_round5_hierarchical",
+  "round1_study_id": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+  "round1_cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+  "round4_study_id": "treatment-market-prestige-v3-r4-887d1cd0b8b987b2",
+  "round4_definition_id": "tmp-v3-r4-regimes-328e5809d656e75e",
+  "round4_definition_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+  "round4_calibration_hash": "6c1ae19217ee8758057bf251aa60d26a397f66319729f1abbff51e21424cdbf4",
+  "temporal_manifest_hash": "1ea452e28039e366c5548a1d19b25f7f00653fb01913cecdf8de21197b97d77d",
+  "canonical_variant_mapping_hash": "f297fa97379a96221e73dec71f78524bec9562f5b8798765bf97ef4dcf018755",
+  "taxonomy_hash": "82aec01c61449ec519df6b53d9c211009114e4efdd678f633c69c4b0a8e793fb",
+  "set_era_mapping_hash": "63a9d8aa4e90dd4564e6e1973f15d96e5a1c99688ebd2a6d2b98ef8a7e81d777",
+  "pricing_reference": "immutable Round 1 selected positive USD near-mint market price",
+  "demand_snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+  "exact_pull_provenance": "immutable Round 1 exact_pull_probability/run_id fields where populated",
+  "cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+  "rows": 19847,
+  "preregistration": {
+    "practical_log_bands": {
+      "approximately_equivalent": 0.22314355131420976,
+      "slight_edge": 0.5596157879354227,
+      "moderate_difference": 1.0986122886681098
+    },
+    "minimum_set_treatment_n": 5,
+    "minimum_sets_for_hierarchy": 4,
+    "bootstrap_draws": 399,
+    "eligibility": {
+      "maximum_score_between_set_sd": 1.25,
+      "maximum_score_prediction_interval_width": 4.0,
+      "maximum_loso_score_shift": 1.0,
+      "maximum_temporal_score_range": 1.0,
+      "maximum_hierarchical_heldout_rmse_ratio": 1.02
+    },
+    "predictors": [
+      "release_time",
+      "set_size",
+      "treatment_counts",
+      "demand_composition",
+      "exact_pull_scarcity_composition",
+      "mechanic_mix",
+      "canonical_special_set"
+    ],
+    "predictor_gate": {
+      "minimum_sets": 8,
+      "minimum_loocv_rmse_improvement": 0.05,
+      "minimum_absolute_correlation": 0.35
+    }
+  },
+  "study_hash": "fd2c4acb9737b1e0d3e2dea98e2291955107197a1d638b164e596e122ceff161"
+}

@@ -78,8 +78,8 @@ def test_sealed_market_accepts_every_identifier_form_its_siblings_accept(
 ):
     response = api_main.get_pokemon_set_sealed_market(_request(), identifier)
 
-    # A JSONResponse here means an error status; a dict means the payload.
-    assert isinstance(response, dict), (
+    # Tier-aware responses are explicit no-store JSONResponse objects.
+    assert isinstance(response, dict) or getattr(response, "status_code", None) == 200, (
         f"/market/sealed rejected identifier {identifier!r} that sibling set modules accept; "
         f"got {getattr(response, 'status_code', response)!r}"
     )
