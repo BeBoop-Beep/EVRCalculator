@@ -19,7 +19,7 @@ export function buildCardRoute(cardId) {
 }
 
 export function buildSealedProductRoute(productId) {
-  return `/sealed-products/${encodeURIComponent(String(productId || ""))}`;
+  return buildSealedProductHref(productId);
 }
 
 export function buildPublicCollectibleRouteFromEntry(entry) {
@@ -64,3 +64,4 @@ export function buildShowcaseAssetHref({ asset, mode = "public", username = "" }
 
   return buildPublicCollectionListRoute(username);
 }
+import { buildSealedProductHref } from "../pokemon/sealedProductRoutes.mjs";

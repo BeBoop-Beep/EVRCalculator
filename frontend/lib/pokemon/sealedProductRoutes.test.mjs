@@ -5,7 +5,9 @@ import { buildSealedProductHref } from "./sealedProductRoutes.mjs";
 test("buildSealedProductHref is canonical, encoded, and object-aware", () => {
   assert.equal(buildSealedProductHref("sku/id"), "/sealed-products/sku%2Fid");
   assert.equal(buildSealedProductHref({ sealedProductId: "p 1" }), "/sealed-products/p%201");
+  assert.equal(buildSealedProductHref({ sealed_product_id: "p-snake" }), "/sealed-products/p-snake");
   assert.equal(buildSealedProductHref({ productPageId: "p2" }), "/sealed-products/p2");
+  assert.equal(buildSealedProductHref({ _id: "legacy-p3" }), "/sealed-products/legacy-p3");
 });
 
 test("buildSealedProductHref fails safely without an id", () => {

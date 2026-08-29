@@ -219,6 +219,8 @@ export function buildTopChaseModel(
     const price = readCardMarketPrice(card);
     return {
       key: String(card?.id || card?.cardId || card?.cardNumber || card?.name || index),
+      canonicalCardId: String(card?.canonicalCardId || card?.canonical_card_id || card?.cardId || card?.card_id || card?.id || "").trim() || null,
+      cardVariantId: String(card?.cardVariantId || card?.card_variant_id || "").trim() || null,
       rank: index + 1,
       name: String(card?.name || "Unknown card"),
       // Rarity is a real published field or it is nothing — never "N/A" filler
