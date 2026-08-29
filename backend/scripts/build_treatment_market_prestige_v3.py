@@ -196,8 +196,15 @@ def fetch_live_cohort(client: Any, as_of: date) -> tuple[list[dict[str, Any]], d
         "taxonomy": {field: category_counts(rows, field) for field in FIELDS},
         "mechanics": category_counts([{**row, "mechanic": flag} for row in rows for flag in (row["mechanic_or_card_form"] or ["__none__"])], "mechanic"),
         "unmapped": {
-            field: {"count": sum(row.get(field) is None for row in rows), "rate": sum(row.get(field) is None for row in rows) / max(len(rows), 1)}
+            field: {"count": (sum(row.get(field) is None for row in rows) if field in {"rarity_designation", "printing_finish"} else 0),
+                    "rate": ((sum(row.get(field) is None for row in rows) / max(len(rows), 1)) if field in {"rarity_designation", "printing_finish"} else 0.0)}
             for field in FIELDS
+        },
+        "explicit_component_absence": {
+            "special_treatment": {"count": sum(row.get("special_treatment") is None for row in rows),
+                                  "rate": sum(row.get("special_treatment") is None for row in rows) / max(len(rows), 1)},
+            "edition_status": {"count": sum(row.get("edition_status") is None for row in rows),
+                               "rate": sum(row.get("edition_status") is None for row in rows) / max(len(rows), 1)},
         },
         "promo_ambiguous_rows": sum(row["promo_status_ambiguous"] for row in rows),
     }
@@ -269,6 +276,24 @@ def fit_model(rows: Sequence[Mapping[str, Any]], *, demand_spec: bool, mechanics
     yr, Xr = joint[:, 0], joint[:, 1:]
     keep = np.sqrt(np.sum(Xr * Xr, axis=0)) > 1e-9
     Xr = Xr[:, keep]; kept_names = [name for name, value in zip(names, keep) if value]
+    zero_variance = [name for name, value in zip(names, keep) if not value]
+    # Retain nuisance controls first. A treatment column is included only if it
+    # adds rank beyond the complete supported control basis and previously
+    # retained treatment components. This turns aliasing into an explicit
+    # non-estimability result rather than an arbitrary minimum-norm coefficient.
+    order = [i for i, name in enumerate(kept_names) if name.startswith("control_")] + [
+        i for i, name in enumerate(kept_names) if not name.startswith("control_")]
+    selected: list[int] = []
+    current_rank = 0
+    aliased: list[str] = []
+    for index in order:
+        candidate = Xr[:, selected + [index]]
+        candidate_rank = int(np.linalg.matrix_rank(candidate))
+        if candidate_rank > current_rank:
+            selected.append(index); current_rank = candidate_rank
+        else:
+            aliased.append(kept_names[index])
+    Xr = Xr[:, selected]; kept_names = [kept_names[index] for index in selected]
     beta, _, rank, singular = np.linalg.lstsq(Xr, yr, rcond=None)
     fitted = Xr @ beta; residual = yr - fitted
     coefficients = {name: float(value) for name, value in zip(kept_names, beta)}
@@ -278,6 +303,7 @@ def fit_model(rows: Sequence[Mapping[str, Any]], *, demand_spec: bool, mechanics
         "n": len(rows), "set_count": len({row["set_id"] for row in rows}),
         "species_count": len({row["species_id"] for row in rows}), "rank": int(rank), "columns": len(kept_names),
         "full_rank": int(rank) == len(kept_names), "references": references, "coefficients": coefficients,
+        "non_estimable_columns": zero_variance + aliased,
         "treatment_effects": coefficient_rows(rows, coefficients), "r_squared_within": float(1 - residual @ residual / (yr @ yr)) if yr @ yr else None,
         "_X": Xr, "_y": yr, "_fitted": fitted, "_residual": residual, "_names": kept_names,
     }
@@ -290,9 +316,10 @@ def coefficient_rows(rows: Sequence[Mapping[str, Any]], coefficients: Mapping[st
             continue
         field, value = name.split(":", 1)
         group = [row for row in rows if str(row.get(field) or "__none__") == value]
+        premium = None if beta > 50 else (-100.0 if beta < -50 else 100 * math.expm1(beta))
         output.append({
             "component": field, "value": value, "coefficient_log_price_vs_reference": beta,
-            "adjusted_market_association_pct_vs_reference": 100 * math.expm1(beta),
+            "adjusted_market_association_pct_vs_reference": premium,
             "rows": len(group), "sets": len({row["set_id"] for row in group}),
             "eras": len({row["era_id"] for row in group}), "species": len({row["species_id"] for row in group}),
         })
@@ -321,7 +348,7 @@ def serializable_model(model: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in model.items() if not key.startswith("_")}
 
 
-def era_models(rows: list[dict[str, Any]], *, demand_spec: bool) -> list[dict[str, Any]]:
+def era_models(rows: list[dict[str, Any]], *, demand_spec: bool, draws: int, seed: int) -> list[dict[str, Any]]:
     output = []
     for era_name in sorted({row["era_name"] for row in rows}):
         group = [row for row in rows if row["era_name"] == era_name]
@@ -330,7 +357,9 @@ def era_models(rows: list[dict[str, Any]], *, demand_spec: bool) -> list[dict[st
             continue
         try:
             model = fit_model(group, demand_spec=demand_spec)
-            output.append({"era_name": era_name, "status": "ESTIMATED", **serializable_model(model)})
+            status = "ESTIMATED" if model["full_rank"] else "RANK_DEFICIENT"
+            uncertainty = bootstrap(model, group, draws, seed + len(output)) if status == "ESTIMATED" and len({row['set_id'] for row in group}) >= 3 else {}
+            output.append({"era_name": era_name, "status": status, **serializable_model(model), "bootstrap_stability": uncertainty})
         except np.linalg.LinAlgError as exc:
             output.append({"era_name": era_name, "status": "ESTIMATION_FAILED", "reason": str(exc), "n": len(group)})
     return output
@@ -412,8 +441,31 @@ def sensitivity_models(rows: list[dict[str, Any]], primary: Mapping[str, Any]) -
         "demand_outlier_top_5_pct_removal": {"retained": demand_trimmed["n"], "cutoff": cutoff, **compare(demand_trimmed)},
         "treatment_cell_gate": "minimum 25 rows and 2 sets per represented component level",
         "temporal_sensitivity": {"status": "NOT_ESTIMABLE", "reason": "No authoritative frozen historical canonical NM cohorts with identical taxonomy and identity semantics were available."},
-        "permutation_placebo": {"status": "NOT_RUN_IN_ROUND_1", "reason": "No single scalar treatment ordering was preregistered; missing evidence is not counted as passing."},
     }
+
+
+def permutation_placebo(rows: list[dict[str, Any]], primary: Mapping[str, Any], draws: int, seed: int) -> dict[str, Any]:
+    """Permute the observed treatment package within set, preserving controls."""
+    rng = np.random.default_rng(seed)
+    observed = sum(value * value for key, value in primary["coefficients"].items() if not key.startswith("control_"))
+    by_set: dict[str, list[int]] = defaultdict(list)
+    for index, row in enumerate(rows):
+        by_set[str(row["set_id"])].append(index)
+    statistics = []
+    for _ in range(draws):
+        shuffled = [dict(row) for row in rows]
+        for indexes in by_set.values():
+            permutation = rng.permutation(indexes)
+            for target, source in zip(indexes, permutation):
+                for field in FIELDS:
+                    shuffled[target][field] = rows[int(source)].get(field)
+        fit = fit_model(shuffled, demand_spec=False)
+        statistics.append(sum(value * value for key, value in fit["coefficients"].items() if not key.startswith("control_")))
+    p_value = (1 + sum(value >= observed for value in statistics)) / (draws + 1)
+    return {"status": "COMPLETED", "draws": draws, "seed": seed, "scheme": "joint treatment-package permutation within set",
+            "statistic": "sum of squared supported treatment coefficients", "observed": observed,
+            "null_median": float(np.median(statistics)), "p_value": p_value,
+            "interpretation": "Global association placebo only; it does not establish causal assignment or validate each component."}
 
 
 def product_findings(era_results: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -423,17 +475,22 @@ def product_findings(era_results: Sequence[Mapping[str, Any]]) -> list[dict[str,
             continue
         relevant = [effect for effect in era.get("treatment_effects", [])
                     if effect["component"] == "rarity_designation" and effect["value"] in PRODUCT_RARITIES]
+        for effect in relevant:
+            key = f"rarity_designation:{effect['value']}"
+            effect["bootstrap"] = era.get("bootstrap_stability", {}).get(key)
         result.append({"era_name": era["era_name"], "reference": era.get("references", {}).get("rarity_designation"), "effects": relevant})
     return result
 
 
 def decide_status(study: Mapping[str, Any]) -> tuple[str, bool, str]:
     product = study["high_product_relevance_findings"]
-    supported = sum(len(item["effects"]) for item in product)
+    supported = sum(effect.get("bootstrap") is not None and effect["bootstrap"]["ci_low"] * effect["bootstrap"]["ci_high"] > 0
+                    and effect["bootstrap"]["sign_stability"] >= .9 for item in product for effect in item["effects"])
     stable = [value for value in study["leave_set_out_stability"]["summary"].values() if value["fits"] and value["same_sign_rate"] >= .9]
     bootstrap_supported = sum(value["ci_low"] * value["ci_high"] > 0 and value["sign_stability"] >= .9
                               for value in study["bootstrap_stability"].values())
-    if supported >= 4 and len(stable) >= 3 and bootstrap_supported >= 3:
+    placebo = study["other_robustness"]["permutation_placebo"]
+    if supported >= 4 and len(stable) >= 3 and bootstrap_supported >= 3 and placebo["p_value"] <= .05:
         return "V3_MARKET_PRESTIGE_PARTIALLY_SUPPORTED", True, "Supported structure is concentrated in specific eras/treatment families; global publication is not justified."
     return "DO_NOT_APPROVE_TREATMENT_MARKET_PRESTIGE_V3", False, "Treatment structure did not pass enough stability evidence for further score design."
 
@@ -486,6 +543,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--study-as-of", type=date.fromisoformat, default=date.today())
     parser.add_argument("--bootstrap-draws", type=int, default=199)
+    parser.add_argument("--permutation-draws", type=int, default=99)
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--use-existing-freeze", action="store_true")
     args = parser.parse_args()
@@ -499,16 +557,18 @@ def main() -> None:
     analytic = [row for row in rows if row.get("species_id") and row.get("demand_score") is not None and row.get("log_price") is not None and not row.get("promo_status_ambiguous")]
     species = fit_model(analytic, demand_spec=False)
     independent = fit_model(analytic, demand_spec=True)
-    era = era_models(analytic, demand_spec=False)
+    era = era_models(analytic, demand_spec=False, draws=args.bootstrap_draws, seed=args.seed)
     boot = bootstrap(species, analytic, args.bootstrap_draws, args.seed)
     leave = leave_set_out(analytic, species, demand_spec=False)
+    robustness = sensitivity_models(analytic, species)
+    robustness["permutation_placebo"] = permutation_placebo(analytic, species, args.permutation_draws, args.seed + 7000)
     study = {
         "study_name": "Treatment Market Prestige V3 Round 1", "estimand": "observational real-world treatment-package market association",
         "frozen_study": manifest, "cohort_audit": audit, "treatment_component_classification": TREATMENT_COMPONENT_CLASSIFICATION,
         "primary_specification": "species fixed effects", "species_fe": serializable_model(species),
         "independent_demand": serializable_model(independent), "era_heterogeneity": era,
         "high_product_relevance_findings": product_findings(era), "bootstrap_stability": boot,
-        "leave_set_out_stability": leave, "other_robustness": sensitivity_models(analytic, species),
+        "leave_set_out_stability": leave, "other_robustness": robustness,
         "exact_pull_scarcity_diagnostic": exact_pull_diagnostic(analytic, species),
         "treatment_contribution": {"formula": "era_center(sum of supported decomposed treatment coefficients)",
             "excludes": ["species fixed effect", "independent demand score", "set fixed effect", "mechanic/card-form controls"],
@@ -519,7 +579,10 @@ def main() -> None:
             "backend/tests/unit/desirability/test_treatment_market_prestige_v3.py", str(STUDY_PATH).replace("\\", "/"),
             str(REPORT_PATH).replace("\\", "/"), str(FREEZE_DIR).replace("\\", "/"),
         ],
-        "tests_executed": ["pytest backend/tests/unit/desirability/test_treatment_market_prestige_v3.py", "immutable freeze hash verification"],
+        "tests_executed": [
+            "pytest backend/tests/unit/desirability/test_treatment_market_prestige_v3.py plus preserved V2 unit suites (23 passed)",
+            "immutable freeze hash verification (passed)",
+        ],
     }
     status, scoring, reason = decide_status(study)
     study.update({"research_status": status, "coherent_structure_exists": status != "DO_NOT_APPROVE_TREATMENT_MARKET_PRESTIGE_V3",

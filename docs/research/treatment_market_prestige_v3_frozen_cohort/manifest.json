@@ -1,0 +1,22 @@
+{
+  "study_id": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+  "manifest_hash": "6959bfa9889458fe5ed2e241065dbec7a0c62f609de6f5141092884ce1e9e075",
+  "frozen_at": "2026-08-29T17:00:26.328187+00:00",
+  "market_reference_date": "2026-08-29",
+  "pricing_semantics": "one authoritative latest positive USD Near Mint selected variant per canonical card",
+  "methodology_version": "treatment_market_prestige_v3_round1",
+  "taxonomy_version": "pokemon_card_treatment_taxonomy_v3_decomposed",
+  "source_git_sha": "4b35b0cb95304ffec2d01086abd95508b9607dec",
+  "cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+  "input_hashes": {
+    "canonical_cards": "cd9d1b12b80e7d6c968c81bd4a4ae74612d9eb80f74e75c1b14c820b21bc9395",
+    "selected_prices": "2be4f41ab4995d68f6765522b4ce1185dc8821f5f18938fbda235a5f8c54af6f",
+    "sets": "63a9d8aa4e90dd4564e6e1973f15d96e5a1c99688ebd2a6d2b98ef8a7e81d777",
+    "eras": "02f2a26b8c6996c957171712d0fd53aab5cc6078da0ff12c04f3e896ec2f634f",
+    "selected_variants": "3931e22cef33b8bf959e6e4320d3aebb69385a1601b7bfd13f029131b97616d7",
+    "demand_snapshot": "06935c2a4ee6da47aac38bf8fba48468ab4a282b902092496749f20b92858cd3"
+  },
+  "demand_snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+  "demand_snapshot_hash": "06935c2a4ee6da47aac38bf8fba48468ab4a282b902092496749f20b92858cd3",
+  "row_count": 19847
+}

@@ -1,0 +1,406 @@
+{
+  "version": "pokemon_card_treatment_taxonomy_v3_decomposed",
+  "classification": {
+    "rarity_designation": {
+      "class": "A",
+      "role": "treatment_component"
+    },
+    "printing_finish": {
+      "class": "A",
+      "role": "treatment_component"
+    },
+    "special_treatment": {
+      "class": "A",
+      "role": "treatment_component"
+    },
+    "edition_status": {
+      "class": "A",
+      "role": "treatment_component"
+    },
+    "mechanic_or_card_form": {
+      "class": "B",
+      "role": "control"
+    },
+    "pokemon_identity_or_demand": {
+      "class": "B",
+      "role": "control"
+    },
+    "set": {
+      "class": "B",
+      "role": "control"
+    },
+    "promo_status": {
+      "class": "C",
+      "role": "excluded_ambiguous",
+      "reason": "Promo can denote distribution channel, set membership, or rarity rather than a consistent physical treatment."
+    }
+  },
+  "observed": {
+    "rarity_designation": [
+      {
+        "value": "common",
+        "rows": 5329,
+        "sets": 138,
+        "eras": 16,
+        "species": 617
+      },
+      {
+        "value": "uncommon",
+        "rows": 4858,
+        "sets": 137,
+        "eras": 16,
+        "species": 683
+      },
+      {
+        "value": "rare",
+        "rows": 2567,
+        "sets": 132,
+        "eras": 16,
+        "species": 585
+      },
+      {
+        "value": "rare_holo",
+        "rows": 1588,
+        "sets": 105,
+        "eras": 13,
+        "species": 421
+      },
+      {
+        "value": "rare_ultra",
+        "rows": 778,
+        "sets": 64,
+        "eras": 4,
+        "species": 250
+      },
+      {
+        "value": "promo",
+        "rows": 764,
+        "sets": 9,
+        "eras": 6,
+        "species": 223
+      },
+      {
+        "value": "illustration_rare",
+        "rows": 492,
+        "sets": 21,
+        "eras": 2,
+        "species": 437
+      },
+      {
+        "value": "ultra_rare",
+        "rows": 363,
+        "sets": 27,
+        "eras": 4,
+        "species": 172
+      },
+      {
+        "value": "rare_rainbow",
+        "rows": 324,
+        "sets": 30,
+        "eras": 2,
+        "species": 159
+      },
+      {
+        "value": "rare_secret",
+        "rows": 321,
+        "sets": 80,
+        "eras": 10,
+        "species": 105
+      },
+      {
+        "value": "double_rare",
+        "rows": 319,
+        "sets": 22,
+        "eras": 2,
+        "species": 227
+      },
+      {
+        "value": "rare_holo_ex",
+        "rows": 308,
+        "sets": 38,
+        "eras": 3,
+        "species": 150
+      },
+      {
+        "value": "rare_holo_v",
+        "rows": 281,
+        "sets": 23,
+        "eras": 1,
+        "species": 188
+      },
+      {
+        "value": "__unmapped__",
+        "rows": 238,
+        "sets": 20,
+        "eras": 7,
+        "species": 144
+      },
+      {
+        "value": "special_illustration_rare",
+        "rows": 222,
+        "sets": 22,
+        "eras": 2,
+        "species": 115
+      },
+      {
+        "value": "rare_holo_gx",
+        "rows": 159,
+        "sets": 15,
+        "eras": 1,
+        "species": 110
+      },
+      {
+        "value": "rare_shiny",
+        "rows": 149,
+        "sets": 2,
+        "eras": 2,
+        "species": 146
+      },
+      {
+        "value": "shiny_rare",
+        "rows": 120,
+        "sets": 1,
+        "eras": 1,
+        "species": 118
+      },
+      {
+        "value": "rare_holo_vmax",
+        "rows": 110,
+        "sets": 23,
+        "eras": 1,
+        "species": 74
+      },
+      {
+        "value": "trainer_gallery_rare_holo",
+        "rows": 80,
+        "sets": 5,
+        "eras": 1,
+        "species": 77
+      },
+      {
+        "value": "hyper_rare",
+        "rows": 74,
+        "sets": 14,
+        "eras": 1,
+        "species": 26
+      },
+      {
+        "value": "rare_holo_lv_x",
+        "rows": 56,
+        "sets": 11,
+        "eras": 2,
+        "species": 48
+      },
+      {
+        "value": "rare_holo_vstar",
+        "rows": 43,
+        "sets": 7,
+        "eras": 1,
+        "species": 34
+      },
+      {
+        "value": "rare_shiny_gx",
+        "rows": 35,
+        "sets": 1,
+        "eras": 1,
+        "species": 34
+      },
+      {
+        "value": "ace_spec_rare",
+        "rows": 33,
+        "sets": 6,
+        "eras": 1,
+        "species": 0
+      },
+      {
+        "value": "rare_break",
+        "rows": 27,
+        "sets": 5,
+        "eras": 1,
+        "species": 27
+      },
+      {
+        "value": "rare_prism_star",
+        "rows": 27,
+        "sets": 6,
+        "eras": 1,
+        "species": 16
+      },
+      {
+        "value": "rare_prime",
+        "rows": 26,
+        "sets": 4,
+        "eras": 1,
+        "species": 26
+      },
+      {
+        "value": "classic_collection",
+        "rows": 25,
+        "sets": 1,
+        "eras": 1,
+        "species": 22
+      },
+      {
+        "value": "legend",
+        "rows": 18,
+        "sets": 4,
+        "eras": 1,
+        "species": 2
+      },
+      {
+        "value": "holo_rare",
+        "rows": 16,
+        "sets": 7,
+        "eras": 3,
+        "species": 0
+      },
+      {
+        "value": "radiant_rare",
+        "rows": 15,
+        "sets": 5,
+        "eras": 1,
+        "species": 14
+      },
+      {
+        "value": "rare_shining",
+        "rows": 15,
+        "sets": 3,
+        "eras": 2,
+        "species": 15
+      },
+      {
+        "value": "rare_holo_star",
+        "rows": 14,
+        "sets": 9,
+        "eras": 1,
+        "species": 14
+      },
+      {
+        "value": "rare_ace",
+        "rows": 13,
+        "sets": 4,
+        "eras": 1,
+        "species": 0
+      },
+      {
+        "value": "shiny_ultra_rare",
+        "rows": 12,
+        "sets": 1,
+        "eras": 1,
+        "species": 12
+      },
+      {
+        "value": "amazing_rare",
+        "rows": 9,
+        "sets": 2,
+        "eras": 1,
+        "species": 9
+      },
+      {
+        "value": "mega_hyper_rare",
+        "rows": 8,
+        "sets": 6,
+        "eras": 1,
+        "species": 7
+      },
+      {
+        "value": "mega_attack_rare",
+        "rows": 7,
+        "sets": 1,
+        "eras": 1,
+        "species": 7
+      },
+      {
+        "value": "black_white_rare",
+        "rows": 2,
+        "sets": 2,
+        "eras": 1,
+        "species": 2
+      },
+      {
+        "value": "secret_rare",
+        "rows": 2,
+        "sets": 2,
+        "eras": 1,
+        "species": 0
+      }
+    ],
+    "printing_finish": [
+      {
+        "value": "non_holo",
+        "rows": 12409,
+        "sets": 144,
+        "eras": 17,
+        "species": 984
+      },
+      {
+        "value": "holo",
+        "rows": 7376,
+        "sets": 164,
+        "eras": 17,
+        "species": 887
+      },
+      {
+        "value": "reverse_holo",
+        "rows": 62,
+        "sets": 15,
+        "eras": 10,
+        "species": 35
+      }
+    ],
+    "special_treatment": [
+      {
+        "value": "__unmapped__",
+        "rows": 19786,
+        "sets": 165,
+        "eras": 17,
+        "species": 1022
+      },
+      {
+        "value": "ace_spec",
+        "rows": 33,
+        "sets": 6,
+        "eras": 1,
+        "species": 0
+      },
+      {
+        "value": "pokeball",
+        "rows": 21,
+        "sets": 21,
+        "eras": 11,
+        "species": 0
+      },
+      {
+        "value": "master_ball",
+        "rows": 7,
+        "sets": 7,
+        "eras": 5,
+        "species": 0
+      }
+    ],
+    "edition_status": [
+      {
+        "value": "__unmapped__",
+        "rows": 19008,
+        "sets": 156,
+        "eras": 15,
+        "species": 1022
+      },
+      {
+        "value": "1st_edition",
+        "rows": 427,
+        "sets": 10,
+        "eras": 3,
+        "species": 202
+      },
+      {
+        "value": "unlimited",
+        "rows": 412,
+        "sets": 9,
+        "eras": 3,
+        "species": 186
+      }
+    ]
+  },
+  "unknown_policy": "explicitly unmapped; never inferred from price"
+}
