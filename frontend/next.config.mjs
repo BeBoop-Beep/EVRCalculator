@@ -11,6 +11,12 @@ const nextConfig = {
 	...(process.env.PERF_AUDIT_DIST_DIR
 		? { distDir: process.env.PERF_AUDIT_DIST_DIR }
 		: {}),
+	// Set/Rankings surfaces use many named Recharts exports. Ask Next to rewrite
+	// those package imports to the narrow modules that are actually referenced so
+	// an analytical route does not pay to traverse the package barrel graph.
+	experimental: {
+		optimizePackageImports: ["recharts"],
+	},
 	images: {
 		// EXACTLY the two hosts that serve set/card artwork today — never a
 		// wildcard. `/_next/image` is a fetch-and-transform endpoint, so every
