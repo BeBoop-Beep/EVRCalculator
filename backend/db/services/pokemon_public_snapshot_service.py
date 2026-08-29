@@ -1871,6 +1871,15 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
     clamped_limit = _sanitize_limit(limit, default=DEFAULT_RANKINGS_LIMIT, max_value=MAX_RANKINGS_LIMIT)
 
     def load(client: Any):
+        if resolved_lens == "sets":
+            try:
+                result = client.rpc("get_pokemon_rankings_sets_lens", {"p_limit": clamped_limit}).execute()
+                if isinstance(result.data, dict):
+                    return {**result.data, "_compact_rpc": True}
+            except Exception as exc:
+                # Backward-safe during rolling deploys: application code may
+                # arrive before the compact RPC migration reaches PostgREST.
+                logger.warning("compact Sets Rankings lens unavailable; using JSON-path fallback: %s", exc)
         return _first_row(
             client.table("pokemon_explore_rankings_snapshot_latest")
             .select(select_clause)
@@ -1907,7 +1916,8 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
         )
     snapshot = dict(meta.get("snapshot") or {})
     snapshot.update({
-        "source": "pokemon_explore_rankings_snapshot_latest",
+        "source": "get_pokemon_rankings_sets_lens"
+        if row.get("_compact_rpc") else "pokemon_explore_rankings_snapshot_latest",
         "updatedAt": _to_optional_str(row.get("updated_at")),
         "publicationIdentity": "current",
     })
@@ -1929,7 +1939,7 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
         return {"eraSetStrengthV1": build_era_set_strength(targets), "meta": meta}
     return {
         "targets": targets,
-        "default_target": row.get("default_target_json") or None,
+        "default_target": row.get("default_target") or row.get("default_target_json") or None,
         "meta": {**meta, "request": {**(meta.get("request") or {}), "limit": clamped_limit}},
     }
 

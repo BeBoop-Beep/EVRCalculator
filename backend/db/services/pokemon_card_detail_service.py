@@ -56,13 +56,13 @@ def _variant_label(row: Mapping[str, Any]) -> str:
 def _current_run_id(client: Any, set_id: str) -> Optional[str]:
     rows = _rows(
         client.table("pokemon_set_page_snapshot_latest")
-        .select("payload_json")
+        .select("snapshot_run_id:payload_json->ripDecision->sourceCalculationRunId")
         .eq("set_id", set_id)
         .limit(1)
     )
-    payload = rows[0].get("payload_json") if rows else {}
-    rip = payload.get("ripDecision") if isinstance(payload, dict) else {}
-    snapshot_run_id = _text(rip.get("sourceCalculationRunId") if isinstance(rip, dict) else None)
+    snapshot_run_id = _text(rows[0].get("snapshot_run_id")) if rows else None
+    if rows and not snapshot_run_id and isinstance(rows[0].get("payload_json"), dict):
+        snapshot_run_id = _text((rows[0]["payload_json"].get("ripDecision") or {}).get("sourceCalculationRunId"))
     # Exact-variant publication is itself a completed-run marker: these rows are
     # written only after the authoritative V2 simulation and its input snapshot
     # have persisted.  Prefer its newest run so card detail does not wait for a
