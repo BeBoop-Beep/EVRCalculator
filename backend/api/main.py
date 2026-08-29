@@ -747,9 +747,11 @@ def get_explore_rankings_lens(
         if normalized_lens == "sets":
             return _tiered_response(project_rankings_response(payload, plan))
         if normalized_lens == "eras":
+            entitled = has_index_feature_access(plan, FEATURE_SET_RIP_ANALYTICS)
             return _tiered_response({
                 "meta": {key: (payload.get("meta") or {})[key] for key in ("source", "updatedAt", "warnings", "snapshot", "limit") if key in (payload.get("meta") or {})},
-                **({"eraSetStrengthV1": payload.get("eraSetStrengthV1")} if has_index_feature_access(plan, FEATURE_SET_RIP_ANALYTICS) else {}),
+                "access": {"rankingsIntelligence": entitled, "requiredPlan": "plus"},
+                **({"eraSetStrengthV1": payload.get("eraSetStrengthV1")} if entitled else {}),
             })
         if normalized_lens == "products":
             payload = {

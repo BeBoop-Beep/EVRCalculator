@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DarkSelect from "@/components/ui/DarkSelect";
 import SortMenuButton from "@/components/ui/SortMenuButton";
 import TableSearchInput from "@/components/ui/TableSearchInput";
@@ -174,7 +174,7 @@ function LoadingPanel() {
 }
 
 export default function RankingsProductLensClient() {
-  const { canViewRankingsIntelligence } = useRankingsAccess();
+  const { canViewRankingsIntelligence, authStatus, requestKey } = useRankingsAccess();
   const entitled = canViewRankingsIntelligence;
   const [state, setState] = useState({ status: "idle", productFamilyRankings: null, overallProductRankings: null });
   const [retryNonce, setRetryNonce] = useState(0);
@@ -184,12 +184,30 @@ export default function RankingsProductLensClient() {
   const [sortDirection, setSortDirection] = useState(entitled ? "desc" : "asc");
   const [budgetKey, setBudgetKey] = useState("full_market");
   const [overallResult, setOverallResult] = useState(null);
+  const resultCache = useRef(new Map());
+  const budgetRequest = useRef(null);
 
   useEffect(() => {
+    budgetRequest.current?.abort();
+    budgetRequest.current = null;
+    setBudgetKey("full_market");
+    return () => budgetRequest.current?.abort();
+  }, [requestKey]);
+
+  useEffect(() => {
+    if (authStatus !== "resolved") return undefined;
+    const cached = resultCache.current.get(requestKey);
+    if (cached) {
+      setState(cached.state);
+      setOverallResult(cached.overallResult);
+      return undefined;
+    }
     setState({ status: "loading", productFamilyRankings: null, overallProductRankings: null });
     setOverallResult(null);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort("timeout"), 12000);
+    let active = true;
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 12000);
     fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json();
@@ -197,18 +215,23 @@ export default function RankingsProductLensClient() {
         return payload;
       })
       .then((payload) => {
-        setState({
+        if (!active) return;
+        const nextState = {
           status: payload?.status === "available" ? "ready" : "unavailable",
           productFamilyRankings: payload?.productFamilyRankings || null,
           overallProductRankings: payload?.overallProductRankings || null,
-        });
-        setOverallResult(normalizeOverallProductResult(payload?.overallProductRankings));
+        };
+        const nextOverall = normalizeOverallProductResult(payload?.overallProductRankings);
+        if (nextState.status === "ready") resultCache.current.set(requestKey, { state: nextState, overallResult: nextOverall });
+        setState(nextState);
+        setOverallResult(nextOverall);
       })
       .catch((error) => {
-        setState({ status: error.name === "AbortError" ? "unavailable" : "error", error: error.message, productFamilyRankings: null, overallProductRankings: null });
+        if (!active) return;
+        setState({ status: "error", error: timedOut ? "Request timed out" : error.message, productFamilyRankings: null, overallProductRankings: null });
       });
-    return () => { clearTimeout(timeout); controller.abort(); };
-  }, [entitled, retryNonce]);
+    return () => { active = false; clearTimeout(timeout); controller.abort(); };
+  }, [authStatus, requestKey, retryNonce]);
 
   const families = useMemo(
     () => state.productFamilyRankings?.families || {},
@@ -233,12 +256,20 @@ export default function RankingsProductLensClient() {
   };
 
   const selectBudget = (next) => {
+    budgetRequest.current?.abort();
     setBudgetKey(next);
     setOverallResult((current) => ({ ...(current || {}), status: "loading" }));
-    fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store" })
+    const controller = new AbortController();
+    budgetRequest.current = controller;
+    const identityAtRequest = requestKey;
+    fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", signal: controller.signal })
       .then((response) => response.json())
-      .then((payload) => setOverallResult(normalizeOverallProductResult(payload)))
-      .catch(() => setOverallResult(normalizeOverallProductResult(null)));
+      .then((payload) => {
+        if (!controller.signal.aborted && identityAtRequest === requestKey) setOverallResult(normalizeOverallProductResult(payload));
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError" && identityAtRequest === requestKey) setOverallResult(normalizeOverallProductResult(null));
+      });
   };
 
   if (state.status === "loading" || state.status === "idle") return <LoadingPanel />;

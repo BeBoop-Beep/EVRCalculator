@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import styles from "./explore.module.css";
@@ -36,7 +36,7 @@ export default function RankingsLazyClient({
   loadError,
   rankingsMarketDate = null,
 }) {
-  const { canViewRankingsIntelligence, canViewCardChaseEfficiency } = useRankingsAccess();
+  const { canViewRankingsIntelligence, canViewCardChaseEfficiency, authStatus, requestKey } = useRankingsAccess();
   const [lens, setActiveLens] = useState("overall");
   const [eraLens, setEraLens] = useState("rankings");
   const [setAnalysisLens, setSetAnalysisLens] = useState("rankings");
@@ -45,46 +45,78 @@ export default function RankingsLazyClient({
   const [setsState, setSetsState] = useState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
   const [eraRetry, setEraRetry] = useState(0);
   const [setsRetry, setSetsRetry] = useState(0);
+  const eraCache = useRef(new Map());
+  const setsCache = useRef(new Map());
 
   useEffect(() => {
     if (lens !== "eras" || eraLens !== "rankings") return undefined;
+    if (authStatus !== "resolved") return undefined;
+    if (!canViewRankingsIntelligence) {
+      setEraState({ status: "locked", contract: null, marketDate: rankingsMarketDate });
+      return undefined;
+    }
+    const cacheKey = `${requestKey}:${rankingsMarketDate || "current"}`;
+    const cached = eraCache.current.get(cacheKey);
+    if (cached) {
+      setEraState(cached);
+      return undefined;
+    }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort("timeout"), 12000);
+    let active = true;
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 12000);
     setEraState({ status: "loading", contract: null, marketDate: rankingsMarketDate });
     fetch("/api/explore/rankings/lens?lens=eras", { cache: "no-store", signal: controller.signal })
       .then((response) => readLens(response, "Unable to load era rankings"))
       .then((payload) => {
-        setEraState({
-          status: payload?.status === "available" && Array.isArray(payload?.eraSetStrength?.eras) ? "ready" : "unavailable",
+        if (!active) return;
+        const next = {
+          status: payload?.status === "locked" ? "locked" : payload?.status === "available" && Array.isArray(payload?.eraSetStrength?.eras) ? "ready" : "unavailable",
           contract: payload?.eraSetStrength || null,
           marketDate: payload?.marketDate || rankingsMarketDate,
-        });
+        };
+        if (next.status === "ready") eraCache.current.set(cacheKey, next);
+        setEraState(next);
       })
       .catch((error) => {
-        setEraState({ status: error.name === "AbortError" ? "unavailable" : "error", error: error.message, contract: null, marketDate: rankingsMarketDate });
+        if (!active) return;
+        setEraState({ status: "error", error: timedOut ? "Request timed out" : error.message, contract: null, marketDate: rankingsMarketDate });
       });
-    return () => { clearTimeout(timeout); controller.abort(); };
-  }, [lens, eraLens, rankingsMarketDate, canViewRankingsIntelligence, eraRetry]);
+    return () => { active = false; clearTimeout(timeout); controller.abort(); };
+  }, [lens, eraLens, rankingsMarketDate, canViewRankingsIntelligence, authStatus, requestKey, eraRetry]);
 
   useEffect(() => {
     if (lens !== "sets") return undefined;
+    if (authStatus !== "resolved") return undefined;
+    const cacheKey = `${requestKey}:${rankingsMarketDate || "current"}`;
+    const cached = setsCache.current.get(cacheKey);
+    if (cached) {
+      setSetsState(cached);
+      return undefined;
+    }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort("timeout"), 12000);
+    let active = true;
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 12000);
     setSetsState({ status: "loading", targets: [], marketDate: rankingsMarketDate });
     fetch("/api/explore/rankings/lens?lens=sets", { cache: "no-store", signal: controller.signal })
       .then((response) => readLens(response, "Unable to load set rankings"))
       .then((payload) => {
-        setSetsState({
+        if (!active) return;
+        const next = {
           status: payload?.status === "available" && Array.isArray(payload?.targets) && payload.targets.length > 0 ? "ready" : "unavailable",
           targets: Array.isArray(payload?.targets) ? payload.targets : [],
           marketDate: payload?.marketDate || rankingsMarketDate,
-        });
+        };
+        if (next.status === "ready") setsCache.current.set(cacheKey, next);
+        setSetsState(next);
       })
       .catch((error) => {
-        setSetsState({ status: error.name === "AbortError" ? "unavailable" : "error", error: error.message, targets: [], marketDate: rankingsMarketDate });
+        if (!active) return;
+        setSetsState({ status: "error", error: timedOut ? "Request timed out" : error.message, targets: [], marketDate: rankingsMarketDate });
       });
-    return () => { clearTimeout(timeout); controller.abort(); };
-  }, [lens, rankingsMarketDate, canViewRankingsIntelligence, setsRetry]);
+    return () => { active = false; clearTimeout(timeout); controller.abort(); };
+  }, [lens, rankingsMarketDate, authStatus, requestKey, setsRetry]);
 
   const changeLens = (next) => {
     setActiveLens(next);
@@ -147,6 +179,8 @@ export default function RankingsLazyClient({
                 setActiveLens("sets");
               }}
             />
+          ) : eraState.status === "locked" ? (
+            <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Era Rankings are available with Index Plus or Premium.</section>
           ) : eraState.status === "unavailable" || eraState.status === "error" ? (
             <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Era rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => setEraRetry((value) => value + 1)}>Retry</button></section>
           ) : <LensSkeleton />

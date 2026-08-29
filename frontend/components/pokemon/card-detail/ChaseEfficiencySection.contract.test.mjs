@@ -62,6 +62,13 @@ test("Premium inherits centralized Plus access", () => {
   assert.match(source, /hasIndexFeatureAccess\([\s\S]*?user\?\.index_plan,[\s\S]*?FEATURE_CARD_CHASE_EFFICIENCY/);
 });
 
+test("one identity-scoped effect owns Chase loading and ignores aborted stale completion", () => {
+  assert.equal((source.match(/getPokemonCardChaseEfficiency\(/g) || []).length, 1);
+  assert.match(source, /let active = true;[\s\S]*if \(active\) setChaseEfficiencyState/);
+  assert.match(source, /active = false;[\s\S]*controller\.abort\(\)/);
+  assert.match(source, /detail\.set\.id,[\s\S]*detail\.card\.id,[\s\S]*detail\.selectedVariantId/);
+});
+
 test("lock content establishes height and Premium reuses canonical S-tier purple", () => {
   const plus = source.slice(source.indexOf("function PlusLock"), source.indexOf("function ProbabilityJourney"));
   const premium = source.slice(source.indexOf("function PremiumLock"), source.indexOf("const rarityRankLabel"));

@@ -10486,8 +10486,8 @@ export default function RipStatisticsPageClient({
   // label. The legacy `rip` / `ripCore` / V5 / V6 objects are still served in
   // the payload for audit consumers and are read by no public surface here.
   const canonicalRip = useMemo(
-    () => resolveCanonicalRipV7(ripBootstrap?.canonicalSource, explorePayload, selectedTarget, summary),
-    [ripBootstrap?.canonicalSource, explorePayload, selectedTarget, summary]
+    () => resolveCanonicalRipV7(ripBootstrap?.canonicalSource, explorePayload, effectiveShellPayload, selectedTarget, summary),
+    [ripBootstrap?.canonicalSource, explorePayload, effectiveShellPayload, selectedTarget, summary]
   );
 
   const heroScoreSelection = selectRipHeroScoreMode({ canonical: canonicalRip });

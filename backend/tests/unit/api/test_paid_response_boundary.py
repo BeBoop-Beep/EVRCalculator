@@ -124,6 +124,7 @@ def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
     assert str(PLUS_VALUE) in plus_products.text and str(PLUS_VALUE) in plus_sets.text
     assert str(PLUS_VALUE) not in base_products.text and str(PLUS_VALUE) not in base_sets.text
     assert "eraSetStrengthV1" not in base_eras.json()
+    assert base_eras.json()["access"] == {"rankingsIntelligence": False, "requiredPlan": "plus"}
     assert "unknownFutureField" not in plus_products.text
     assert all(response.headers["cache-control"] == "no-store" for response in (
         plus_products, base_products, base_sets, plus_sets, base_eras,

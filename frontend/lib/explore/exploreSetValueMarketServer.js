@@ -22,6 +22,10 @@ export const getExploreSetValueMarket = cache(async function getExploreSetValueM
     const data = {
       marketOverview: payload?.marketOverview && typeof payload.marketOverview === "object" ? payload.marketOverview : null,
       sets: Array.isArray(payload?.sets) ? payload.sets : [],
+      initialSelectedSetMovers:
+        payload?.initialSelectedSetMovers && typeof payload.initialSelectedSetMovers === "object"
+          ? payload.initialSelectedSetMovers
+          : null,
       meta: payload?.meta || {},
     };
     processCache.set("market", { data, expiresAt: Date.now() + TTL });

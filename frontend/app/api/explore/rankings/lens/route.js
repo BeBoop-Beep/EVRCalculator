@@ -77,6 +77,13 @@ export async function GET(request) {
   if (lens === "eras") {
     const payload = await preparedLensPayloadForRequest("eras", request);
     const eraSetStrength = payload?.eraSetStrengthV1;
+    const access = payload?.access || { rankingsIntelligence: false, requiredPlan: "plus" };
+    if (payload && !payload?.meta?.requestFailed && access.rankingsIntelligence !== true) {
+      return NextResponse.json(
+        { status: "locked", eraSetStrength: null, access, marketDate: marketDate(payload) },
+        { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
+      );
+    }
     if (!payload || payload?.meta?.requestFailed || !Array.isArray(eraSetStrength?.eras)) {
       return NextResponse.json(
         { status: "unavailable", eraSetStrength: null, marketDate: marketDate(payload) },
@@ -87,6 +94,7 @@ export async function GET(request) {
       {
         status: "available",
         eraSetStrength,
+        access,
         marketDate: marketDate(payload),
       },
       { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
