@@ -8,9 +8,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const frontend = path.resolve(here, "../..");
 const read = (relative) => fs.readFileSync(path.join(frontend, relative), "utf8").replace(/\r\n/g, "\n");
 
-test("Rankings default route does not preload inactive Product/Era lenses", () => {
+test("Rankings default route uses only lightweight publications", () => {
   const source = read("app/Explore/page.js");
   assert.ok(source.includes("RankingsLazyClient"));
+  assert.ok(source.includes("getPokemonSetRouteDirectory"));
+  assert.ok(!source.includes("getRipStatisticsTargets"), "Overall route must not build the canonical RIP cohort before a rankings lens needs it");
   assert.ok(!source.includes("getOverallProductRankings"), "Overall route must not fetch Product rankings before Product is selected");
   assert.ok(!source.includes("ProductFamilyRankingsClient"), "legacy all-lenses client must stay off the initial Rankings route");
 });
@@ -28,7 +30,15 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
   ]) {
     assert.ok(source.includes(`dynamic(() => import(\"./${moduleName}\")`), `${moduleName} must stay dynamically imported`);
   }
+  assert.ok(source.includes('/api/explore/rankings/lens?lens=sets'));
   assert.ok(source.includes('/api/explore/rankings/lens?lens=eras'));
+});
+
+test("canonical Set rankings cohort is isolated behind the Sets lens endpoint", () => {
+  const source = read("app/api/explore/rankings/lens/route.js");
+  assert.ok(source.includes('if (lens === "sets")'));
+  assert.ok(source.includes("projectRankingsTargets"));
+  assert.ok(source.includes("isPublicAnalyticsEligiblePokemonSet"));
 });
 
 test("set canonical route uses the slim route directory on every tab", () => {
