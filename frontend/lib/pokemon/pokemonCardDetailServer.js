@@ -1,8 +1,7 @@
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 import { normalizePokemonCardDetail } from "@/lib/pokemon/pokemonCardDetailClient";
 import { cache } from "react";
-
-const DETAIL_REVALIDATE_SECONDS = 120;
+import { getBackendRequestAuthHeaders } from "@/lib/authServer";
 
 export const getPokemonCardDetailServer = cache(async function getPokemonCardDetailServer(setId, cardId, variantId = null) {
   const url = new URL(
@@ -10,11 +9,8 @@ export const getPokemonCardDetailServer = cache(async function getPokemonCardDet
   );
   if (variantId) url.searchParams.set("variant_id", variantId);
   const response = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
-    next: {
-      revalidate: DETAIL_REVALIDATE_SECONDS,
-      tags: [`pokemon-card-detail:${String(setId)}:${String(cardId)}:${String(variantId || "canonical")}`],
-    },
+    headers: await getBackendRequestAuthHeaders(),
+    cache: "no-store",
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {

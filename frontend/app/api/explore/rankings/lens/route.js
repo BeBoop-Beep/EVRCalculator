@@ -28,13 +28,15 @@ function rankTargets(targets) {
   });
 }
 
-async function preparedLensPayload(lens) {
+async function preparedLensPayloadForRequest(lens, request) {
   const url = new URL(`${getBackendApiBaseUrl()}/explore/rankings/lens/${encodeURIComponent(lens)}`);
   url.searchParams.set("limit", "60");
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-    next: { revalidate: 60, tags: [`pokemon-rankings-lens:${lens}`] },
-  });
+  const headers = { Accept: "application/json" };
+  const authorization = request.headers.get("authorization");
+  const cookie = request.headers.get("cookie");
+  if (authorization) headers.Authorization = authorization;
+  if (cookie) headers.Cookie = cookie;
+  const response = await fetch(url, { headers, cache: "no-store" });
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload) return null;
   return payload;
@@ -44,7 +46,7 @@ export async function GET(request) {
   const lens = String(request.nextUrl.searchParams.get("lens") || "").trim().toLowerCase();
 
   if (lens === "sets") {
-    const payload = await preparedLensPayload("sets");
+    const payload = await preparedLensPayloadForRequest("sets", request);
     if (!payload || payload?.meta?.requestFailed) {
       return NextResponse.json(
         { status: "unavailable", targets: [], marketDate: marketDate(payload) },
@@ -56,15 +58,18 @@ export async function GET(request) {
     return NextResponse.json(
       {
         status: "available",
-        targets: projectRankingsTargets(rankTargets(eligible)),
+        targets: projectRankingsTargets(rankTargets(eligible), {
+          canViewRankingsIntelligence: payload?.access?.rankingsIntelligence === true,
+        }),
+        access: payload?.access || { rankingsIntelligence: false, requiredPlan: "plus" },
         marketDate: marketDate(payload),
       },
-      { headers: { "Cache-Control": "private, max-age=0, must-revalidate" } },
+      { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
     );
   }
 
   if (lens === "eras") {
-    const payload = await preparedLensPayload("eras");
+    const payload = await preparedLensPayloadForRequest("eras", request);
     if (!payload || payload?.meta?.requestFailed) {
       return NextResponse.json(
         { status: "unavailable", eraSetStrength: null, marketDate: marketDate(payload) },
@@ -77,12 +82,12 @@ export async function GET(request) {
         eraSetStrength: payload?.eraSetStrengthV1 || null,
         marketDate: marketDate(payload),
       },
-      { headers: { "Cache-Control": "private, max-age=0, must-revalidate" } },
+      { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
     );
   }
 
   if (lens === "products") {
-    const payload = await preparedLensPayload("products");
+    const payload = await preparedLensPayloadForRequest("products", request);
     const overallProductRankings = payload?.overallProductRankings || {
       status: "unavailable", reason: "publication_unavailable", data: null,
     };
@@ -104,7 +109,7 @@ export async function GET(request) {
         overallProductRankings,
         marketDate: marketDate(payload),
       },
-      { headers: { "Cache-Control": "private, max-age=0, must-revalidate" } },
+      { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
     );
   }
 

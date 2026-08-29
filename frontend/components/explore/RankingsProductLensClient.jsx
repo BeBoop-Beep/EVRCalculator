@@ -211,6 +211,8 @@ export default function RankingsProductLensClient() {
   const [overallResult, setOverallResult] = useState(null);
 
   useEffect(() => {
+    setState({ status: "loading", productFamilyRankings: null, overallProductRankings: null });
+    setOverallResult(null);
     const controller = new AbortController();
     fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
@@ -230,7 +232,7 @@ export default function RankingsProductLensClient() {
         if (error.name !== "AbortError") setState({ status: "error", error: error.message, productFamilyRankings: null, overallProductRankings: null });
       });
     return () => controller.abort();
-  }, []);
+  }, [entitled]);
 
   const families = useMemo(
     () => state.productFamilyRankings?.families || {},

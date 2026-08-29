@@ -15,7 +15,7 @@ test("RIP hierarchy ends with Cards without changing the existing lenses", () =>
 
 test("locked Cards is discoverable but cannot fetch Premium rows", () => {
   assert.match(cards, /if \(!entitled\) return <LockedCards/);
-  assert.match(cards, /if \(!entitled\) return undefined/);
+  assert.match(cards, /if \(!entitled\) \{[\s\S]*setResult\(\{ status: "idle", payload: null \}\);[\s\S]*return undefined/);
   assert.match(cards, /data-card-chase-efficiency-locked/);
 });
 

@@ -1,0 +1,13 @@
+{
+  "checkpoint_id": "tmp-v3-r3-2026-08-29-3223a5e3f7f7",
+  "manifest_hash": "3223a5e3f7f72781fd59604c784dc2cd6ed56626dbfdc79cab012207f7afa022",
+  "reference_date": "2026-08-29",
+  "pricing_semantics": "immutable Round 1 selected positive USD Near Mint price",
+  "near_mint_condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+  "taxonomy_version": "pokemon_card_treatment_taxonomy_v3_decomposed",
+  "demand_snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+  "canonical_mapping_authority": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+  "exact_pull_authority": "treatment-market-prestige-v3-r2-9439727344d3bbb5",
+  "cohort_hash": "fc089585f864b6747574459e288c4fe339daea5a4bf13d9111bfd9f478d97a06",
+  "rows": 4398
+}

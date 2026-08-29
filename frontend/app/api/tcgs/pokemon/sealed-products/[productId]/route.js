@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
-const DETAIL_REVALIDATE_SECONDS = 120;
-
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
   const { productId } = await params;
   const id = String(productId || "").trim();
   if (!id) {
@@ -13,16 +11,18 @@ export async function GET(_request, { params }) {
     );
   }
 
+  const headers = { Accept: "application/json" };
+  const authorization = request.headers.get("authorization");
+  const cookie = request.headers.get("cookie");
+  if (authorization) headers.Authorization = authorization;
+  if (cookie) headers.Cookie = cookie;
   const response = await fetch(`${getBackendApiBaseUrl()}/tcgs/pokemon/sealed-products/${encodeURIComponent(id)}`, {
-    headers: { Accept: "application/json" },
-    next: {
-      revalidate: DETAIL_REVALIDATE_SECONDS,
-      tags: [`pokemon-sealed-product-detail:${id}`],
-    },
+    headers,
+    cache: "no-store",
   });
   const payload = await response.json().catch(() => ({ message: "Invalid backend response" }));
   return NextResponse.json(payload, {
     status: response.status,
-    headers: { "Cache-Control": "private, max-age=0, must-revalidate" },
+    headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" },
   });
 }

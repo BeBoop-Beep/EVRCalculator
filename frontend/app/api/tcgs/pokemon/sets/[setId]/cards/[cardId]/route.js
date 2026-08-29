@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
-const DETAIL_REVALIDATE_SECONDS = 120;
-
 export async function GET(request, { params }) {
   const values = (await params) || {};
   const setId = String(values.setId || "").trim();
@@ -17,20 +15,21 @@ export async function GET(request, { params }) {
   const variant = request.nextUrl.searchParams.get("variant_id");
   if (variant) url.searchParams.set("variant_id", variant);
 
+  const headers = { Accept: "application/json" };
+  const authorization = request.headers.get("authorization");
+  const cookie = request.headers.get("cookie");
+  if (authorization) headers.Authorization = authorization;
+  if (cookie) headers.Cookie = cookie;
   const response = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
-    next: {
-      revalidate: DETAIL_REVALIDATE_SECONDS,
-      tags: [`pokemon-card-detail:${setId}:${cardId}:${variant || "canonical"}`],
-    },
+    headers,
+    cache: "no-store",
   });
   return new NextResponse(await response.text(), {
     status: response.status,
     headers: {
       "content-type": response.headers.get("content-type") || "application/json",
-      // Browser navigations still revalidate through the application route;
-      // the expensive backend read is what is deduplicated by Next's data cache.
-      "Cache-Control": "private, max-age=0, must-revalidate",
+      "Cache-Control": "no-store",
+      Vary: "Cookie, Authorization",
     },
   });
 }

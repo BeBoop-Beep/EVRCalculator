@@ -51,7 +51,10 @@ export default function CardChaseEfficiencyRankings({ entitled, targets = [] }) 
   const setOptions = useMemo(() => [...sets.entries()].map(([id, item]) => ({ id, ...item })).filter((item) => !filters.era || item.era === filters.era).sort((a,b) => String(a.name).localeCompare(String(b.name))), [sets, filters.era]);
   const { search, era, set: selectedSet, rarity, min_price: minPrice, max_price: maxPrice, sort, direction } = filters;
   useEffect(() => {
-    if (!entitled) return undefined;
+    if (!entitled) {
+      setResult({ status: "idle", payload: null });
+      return undefined;
+    }
     const controller = new AbortController(); const timer = setTimeout(() => {
       const params = new URLSearchParams({ page: String(page), page_size: "50", sort, direction });
       for (const [key, input] of Object.entries({ search, era, set: selectedSet, rarity, min_price: minPrice, max_price: maxPrice })) if (String(input || "").trim()) params.set(key, input);

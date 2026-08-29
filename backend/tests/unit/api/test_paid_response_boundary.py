@@ -98,6 +98,62 @@ def test_product_rankings_http_projection_plus_then_base(monkeypatch):
     }]
 
 
+def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
+    _install_auth(monkeypatch)
+    family = {"label": "Booster Box", "count": 1, "products": [{
+        "sealedProductId": "product-1", "productName": "Safe Product", "marketPrice": 99,
+        "financialRipLeaderScore": PLUS_VALUE, "unknownFutureField": PREMIUM_VALUE,
+    }]}
+    monkeypatch.setattr(main, "get_pokemon_explore_rankings_lens_payload", lambda lens, limit=None: {
+        "targets": _rankings_fixture()["targets"],
+        "productFamilyRankings": {"families": {"booster_box": family}},
+        "eraSetStrengthV1": {"secret": PLUS_VALUE}, "meta": {"updatedAt": "now"},
+    })
+    monkeypatch.setattr(main, "read_public_overall_product_rankings", lambda *args, **kwargs: {
+        "available": True, "rows": [{"sealedProductId": "product-1", "productName": "Safe Product",
+                                      "unitPrice": 99, "financialRipLeaderScore": PLUS_VALUE}],
+    })
+    client = TestClient(main.app)
+
+    plus_products = client.get("/explore/rankings/lens/products", headers=_headers("plus-token"))
+    base_products = client.get("/explore/rankings/lens/products", headers=_headers("base-token"))
+    base_sets = client.get("/explore/rankings/lens/sets", headers=_headers("base-token"))
+    plus_sets = client.get("/explore/rankings/lens/sets", headers=_headers("plus-token"))
+    base_eras = client.get("/explore/rankings/lens/eras", headers=_headers("base-token"))
+
+    assert str(PLUS_VALUE) in plus_products.text and str(PLUS_VALUE) in plus_sets.text
+    assert str(PLUS_VALUE) not in base_products.text and str(PLUS_VALUE) not in base_sets.text
+    assert "eraSetStrengthV1" not in base_eras.json()
+    assert "unknownFutureField" not in plus_products.text
+    assert all(response.headers["cache-control"] == "no-store" for response in (
+        plus_products, base_products, base_sets, plus_sets, base_eras,
+    ))
+
+
+def test_public_opening_economics_stays_public_but_detailed_pack_values_are_plus(monkeypatch):
+    _install_auth(monkeypatch)
+    fixture = {
+        "status": "available", "contractVersion": "pokemon-rip-stats-v3",
+        "basis": "all_modeled_products_per_pack_equivalent", "methodology": {},
+        "global": {"typicalOpeningPerPack": 3.25, "modeledReturnOnSpend": 0.71},
+        "eras": [{"eraName": "Safe Era", "setCount": 2, "averageCostPerPack": 5,
+                  "modeledReturnOnSpend": PLUS_VALUE}],
+        "sets": [{"setId": "set-1", "setName": "Safe Set", "averageCostPerPack": 5,
+                  "chanceToRecoverCost": PLUS_VALUE,
+                  "familyEconomics": [{"secret": PLUS_VALUE}]}],
+        "familyBenchmarks": [{"secret": PLUS_VALUE}],
+    }
+    monkeypatch.setattr(main, "read_public_opening_economics", lambda _client: fixture)
+    client = TestClient(main.app)
+    base = client.get("/explore/opening-economics", headers=_headers("base-token"))
+    plus = client.get("/explore/opening-economics", headers=_headers("plus-token"))
+
+    assert base.json()["global"]["typicalOpeningPerPack"] == 3.25
+    assert str(PLUS_VALUE) not in base.text
+    assert str(PLUS_VALUE) in plus.text
+    assert '"secret"' not in plus.text  # unknown nested fields fail closed
+
+
 def test_market_breadth_and_acquisition_value_sentinels_never_cross_to_base(monkeypatch):
     _install_auth(monkeypatch)
     payload = {

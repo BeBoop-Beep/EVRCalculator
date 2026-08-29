@@ -1,0 +1,2410 @@
+{
+  "frozen_study": {
+    "study_id": "treatment-market-prestige-v3-r3-mag-a39cf55ee20e1c16",
+    "manifest_hash": "a39cf55ee20e1c16f93c6e43ab0650d0eafc2a7abe8f15fef3fe7b30f6a28188",
+    "frozen_at": "2026-08-29T18:08:39.907242+00:00",
+    "methodology": "treatment_market_prestige_v3_round3_magnitude",
+    "round1_study_id": "treatment-market-prestige-v3-r1-6959bfa9889458fe",
+    "round1_cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+    "round2_study_id": "treatment-market-prestige-v3-r2-9439727344d3bbb5",
+    "round2_cohort_hash": "797fe80e91db99ff05387ba1597382896d5915e6cdd5c696e0d781a3e288e427",
+    "temporal_manifest_hash": "1ea452e28039e366c5548a1d19b25f7f00653fb01913cecdf8de21197b97d77d",
+    "taxonomy_version": "pokemon_card_treatment_taxonomy_v3_decomposed",
+    "demand_snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+    "cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+    "rows": 19847,
+    "gates": {
+      "practical_equivalence_log_margin": 0.22314355131420976,
+      "minimum_set_ir": 10,
+      "minimum_set_sir": 5,
+      "minimum_stratum_each": 20,
+      "pilot_minimum_cell": 25,
+      "pilot_minimum_sets": 3,
+      "bootstrap_draws": 399
+    }
+  },
+  "preregistered_gates": {
+    "practical_equivalence_log_margin": 0.22314355131420976,
+    "minimum_set_ir": 10,
+    "minimum_set_sir": 5,
+    "minimum_stratum_each": 20,
+    "pilot_minimum_cell": 25,
+    "pilot_minimum_sets": 3,
+    "bootstrap_draws": 399
+  },
+  "sv_population": {
+    "illustration_rare": {
+      "cards": 384,
+      "sets": 15,
+      "species": 356,
+      "price": {
+        "min": 2.06,
+        "p10": 5.7540000000000004,
+        "p25": 8.7275,
+        "median": 15.16,
+        "mean": 23.644843749999996,
+        "p75": 28.9375,
+        "p90": 49.82199999999999,
+        "max": 382.18,
+        "std": 29.38697483715792
+      },
+      "exact_pull_scarcity": {
+        "min": 3.734923392615343,
+        "p10": 5.17601132439933,
+        "p25": 5.62883741835892,
+        "median": 6.084457413957146,
+        "mean": 6.009361655779682,
+        "p75": 6.66736143224186,
+        "p90": 6.69830505479993,
+        "max": 6.743088657426903,
+        "std": 0.6093118057128842
+      },
+      "exact_pull_coverage": 1.0,
+      "demand": {
+        "min": 26.8942,
+        "p10": 32.48892,
+        "p25": 37.405474999999996,
+        "median": 45.3925,
+        "mean": 46.3373453125,
+        "p75": 53.048725,
+        "p90": 62.2207,
+        "max": 86.6387,
+        "std": 10.983427569457527
+      },
+      "mechanics": {
+        "basic": 211,
+        "stage_1": 138,
+        "stage_2": 35
+      },
+      "maximum_set_share": 0.1796875,
+      "maximum_species_share": 0.0078125,
+      "top_price_share": 0.04209206993244211
+    },
+    "special_illustration_rare": {
+      "cards": 95,
+      "sets": 15,
+      "species": 85,
+      "price": {
+        "min": 5.73,
+        "p10": 13.014,
+        "p25": 22.46,
+        "median": 45.37,
+        "mean": 117.19368421052637,
+        "p75": 114.16499999999999,
+        "p90": 292.906,
+        "max": 1472.79,
+        "std": 199.24848483107527
+      },
+      "exact_pull_scarcity": {
+        "min": 5.2529616648272395,
+        "p10": 5.759203154738144,
+        "p25": 6.172992059542281,
+        "median": 6.817000915713673,
+        "mean": 6.54400482915676,
+        "p75": 6.976034119735432,
+        "p90": 7.09698341353543,
+        "max": 7.146012468106395,
+        "std": 0.5548070972131249
+      },
+      "exact_pull_coverage": 1.0,
+      "demand": {
+        "min": 27.2031,
+        "p10": 35.38256,
+        "p25": 44.3322,
+        "median": 54.5988,
+        "mean": 54.141395789473684,
+        "p75": 63.400800000000004,
+        "p90": 70.9731,
+        "max": 87.9598,
+        "std": 14.589415902242758
+      },
+      "mechanics": {
+        "ex": 95,
+        "stage_2": 23,
+        "stage_1": 28,
+        "basic": 44
+      },
+      "maximum_set_share": 0.21052631578947367,
+      "maximum_species_share": 0.042105263157894736,
+      "top_price_share": 0.13228573481595918
+    }
+  },
+  "sv_magnitude": {
+    "model": {
+      "mode": "treatment",
+      "n": 2821,
+      "rank": 11,
+      "columns": 11,
+      "full_rank": true,
+      "coefficients": {
+        "control_mechanic:basic": -0.6001615343393881,
+        "control_mechanic:ex": -0.08287649193270041,
+        "control_mechanic:stage_1": 0.6779246685682824,
+        "rarity_designation:uncommon": -0.07443920967965931,
+        "rarity_designation:illustration_rare": 0.6288596367274534,
+        "rarity_designation:rare": -3.758808094415662,
+        "rarity_designation:double_rare": -2.150331406462081,
+        "rarity_designation:ultra_rare": -0.9964839235589606,
+        "rarity_designation:special_illustration_rare": 1.7575273728736946,
+        "rarity_designation:hyper_rare": 0.37208263084237786,
+        "printing_finish:holo": 4.222202563012016
+      },
+      "references": {
+        "rarity_designation": "common",
+        "printing_finish": "non_holo",
+        "special_treatment": "__none__",
+        "edition_status": "__none__"
+      },
+      "non_estimable_columns": [
+        "control_mechanic:stage_2"
+      ],
+      "sse": 576.3803606563814,
+      "r_squared_within": 0.9331978287640288,
+      "adjusted_r_squared_within": 0.9019353863167939,
+      "rmse_within": 0.4520152051789884,
+      "aic_comparable": -2681.970632976896
+    },
+    "effects": {
+      "illustration_rare": {
+        "coefficient": 0.6288596367274534,
+        "market_association_multiplier": 1.8754706415047213,
+        "bootstrap_interval": [
+          0.457248135581115,
+          0.8188802676395872
+        ]
+      },
+      "special_illustration_rare": {
+        "coefficient": 1.7575273728736946,
+        "market_association_multiplier": 5.798083157682129,
+        "bootstrap_interval": [
+          0.4913259096438891,
+          3.006483802750854
+        ]
+      }
+    },
+    "difference_sir_minus_ir": {
+      "log": 1.1286677361462414,
+      "multiplier": 3.091535014928429,
+      "percent": 209.1535014928429,
+      "bootstrap_interval": [
+        -0.16514573723337675,
+        2.371298050324123
+      ],
+      "probability_sir_greater": 0.9398496240601504,
+      "probability_within_equivalence_region": 0.10275689223057644,
+      "status": "SLIGHT_EDGE"
+    }
+  },
+  "sv_status": "SLIGHT_EDGE",
+  "set_heterogeneity": [
+    {
+      "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+      "set_name": "Journey Together",
+      "ir_n": 11,
+      "sir_n": 6,
+      "ir": 0.0,
+      "sir": 0.0,
+      "log": 0.0,
+      "multiplier": 1.0,
+      "percent": 0.0,
+      "bootstrap_interval": [
+        0.0,
+        0.0
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 1.0,
+      "status": "PRACTICALLY_SIMILAR"
+    },
+    {
+      "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "set_name": "Paldea Evolved",
+      "ir_n": 36,
+      "sir_n": 9,
+      "ir": 0.0,
+      "sir": 0.0,
+      "log": 0.0,
+      "multiplier": 1.0,
+      "percent": 0.0,
+      "bootstrap_interval": [
+        0.0,
+        0.0
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 1.0,
+      "status": "PRACTICALLY_SIMILAR"
+    },
+    {
+      "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "set_name": "Scarlet and Violet Base Set",
+      "ir_n": 24,
+      "sir_n": 6,
+      "ir": 0.0,
+      "sir": 0.0,
+      "log": 0.0,
+      "multiplier": 1.0,
+      "percent": 0.0,
+      "bootstrap_interval": [
+        0.0,
+        0.0
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 1.0,
+      "status": "PRACTICALLY_SIMILAR"
+    },
+    {
+      "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "set_name": "Black Bolt",
+      "ir_n": 69,
+      "sir_n": 6,
+      "ir": 0.0,
+      "sir": 0.0,
+      "log": 0.0,
+      "multiplier": 1.0,
+      "percent": 0.0,
+      "bootstrap_interval": [
+        0.0,
+        0.0
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 1.0,
+      "status": "PRACTICALLY_SIMILAR"
+    },
+    {
+      "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "set_name": "Paradox Rift",
+      "ir_n": 34,
+      "sir_n": 9,
+      "ir": 0.0,
+      "sir": 0.0,
+      "log": 0.0,
+      "multiplier": 1.0,
+      "percent": 0.0,
+      "bootstrap_interval": [
+        0.0,
+        0.0
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 1.0,
+      "status": "PRACTICALLY_SIMILAR"
+    },
+    {
+      "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "set_name": "White Flare",
+      "ir_n": 69,
+      "sir_n": 6,
+      "ir": 0.0,
+      "sir": 0.0,
+      "log": 0.0,
+      "multiplier": 1.0,
+      "percent": 0.0,
+      "bootstrap_interval": [
+        0.0,
+        0.0
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 1.0,
+      "status": "PRACTICALLY_SIMILAR"
+    },
+    {
+      "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+      "set_name": "Scarlet and Violet 151",
+      "ir_n": 16,
+      "sir_n": 5,
+      "ir": 0.0,
+      "sir": 0.0,
+      "log": 0.0,
+      "multiplier": 1.0,
+      "percent": 0.0,
+      "bootstrap_interval": [
+        0.0,
+        0.0
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 1.0,
+      "status": "PRACTICALLY_SIMILAR"
+    },
+    {
+      "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "set_name": "Destined Rivals",
+      "ir_n": 23,
+      "sir_n": 8,
+      "ir": 0.0,
+      "sir": 0.0,
+      "log": 0.0,
+      "multiplier": 1.0,
+      "percent": 0.0,
+      "bootstrap_interval": [
+        0.0,
+        0.0
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 1.0,
+      "status": "PRACTICALLY_SIMILAR"
+    },
+    {
+      "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+      "set_name": "Surging Sparks",
+      "ir_n": 23,
+      "sir_n": 7,
+      "ir": 0.0,
+      "sir": 0.0,
+      "log": 0.0,
+      "multiplier": 1.0,
+      "percent": 0.0,
+      "bootstrap_interval": [
+        0.0,
+        0.0
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 1.0,
+      "status": "PRACTICALLY_SIMILAR"
+    }
+  ],
+  "leave_set_out": [
+    {
+      "left_out_set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+      "left_out_set_name": "Journey Together",
+      "ir": 0.6693180318740327,
+      "sir": 1.78974914210284,
+      "log": 1.1204311102288074,
+      "multiplier": 3.066175778141594,
+      "percent": 206.6175778141594,
+      "bootstrap_interval": [
+        -0.22318419238456824,
+        2.321666975938373
+      ],
+      "probability_sir_greater": 0.9246231155778895,
+      "probability_within_equivalence_region": 0.12060301507537688,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "left_out_set_name": "Paldea Evolved",
+      "ir": 0.5349260752675453,
+      "sir": 1.8564909136871819,
+      "log": 1.3215648384196366,
+      "multiplier": 3.749283812538579,
+      "percent": 274.9283812538579,
+      "bootstrap_interval": [
+        0.0819558215557445,
+        2.5857790482107177
+      ],
+      "probability_sir_greater": 0.9849246231155779,
+      "probability_within_equivalence_region": 0.09547738693467336,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "left_out_set_name": "Shrouded Fable",
+      "ir": 0.6017347145925173,
+      "sir": 1.7598273327801348,
+      "log": 1.1580926181876174,
+      "multiplier": 3.183854654371775,
+      "percent": 218.38546543717752,
+      "bootstrap_interval": [
+        -0.08032297771685441,
+        2.5204467756691655
+      ],
+      "probability_sir_greater": 0.9396984924623115,
+      "probability_within_equivalence_region": 0.08040201005025126,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "left_out_set_name": "Scarlet and Violet Base Set",
+      "ir": 0.601000304368654,
+      "sir": 1.7896663130146238,
+      "log": 1.1886660086459697,
+      "multiplier": 3.2826991929070144,
+      "percent": 228.26991929070144,
+      "bootstrap_interval": [
+        -0.0791511842316885,
+        2.4131368098490875
+      ],
+      "probability_sir_greater": 0.9195979899497487,
+      "probability_within_equivalence_region": 0.1306532663316583,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "left_out_set_name": "Black Bolt",
+      "ir": 0.6349960446798564,
+      "sir": 2.074538280328235,
+      "log": 1.4395422356483785,
+      "multiplier": 4.218764175064633,
+      "percent": 321.8764175064633,
+      "bootstrap_interval": [
+        0.3838315165080032,
+        2.3749567047469453
+      ],
+      "probability_sir_greater": 1.0,
+      "probability_within_equivalence_region": 0.005025125628140704,
+      "status": "MEANINGFULLY_DIFFERENT"
+    },
+    {
+      "left_out_set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "left_out_set_name": "Stellar Crown",
+      "ir": 0.6369289807424027,
+      "sir": 1.766611966901741,
+      "log": 1.1296829861593385,
+      "multiplier": 3.0946752897050973,
+      "percent": 209.46752897050973,
+      "bootstrap_interval": [
+        -0.13972325059573457,
+        2.378443499877996
+      ],
+      "probability_sir_greater": 0.9346733668341709,
+      "probability_within_equivalence_region": 0.10050251256281408,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "left_out_set_name": "Paradox Rift",
+      "ir": 0.6169709046399363,
+      "sir": 1.8255321348175386,
+      "log": 1.2085612301776023,
+      "multiplier": 3.3486632293219016,
+      "percent": 234.86632293219017,
+      "bootstrap_interval": [
+        -0.10693771762439665,
+        2.461080760087625
+      ],
+      "probability_sir_greater": 0.9547738693467337,
+      "probability_within_equivalence_region": 0.07537688442211055,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "left_out_set_name": "Prismatic Evolutions",
+      "ir": 0.624320400520523,
+      "sir": 1.6475547081587048,
+      "log": 1.0232343076381818,
+      "multiplier": 2.7821786494647904,
+      "percent": 178.21786494647904,
+      "bootstrap_interval": [
+        -0.08119778650504925,
+        2.368812733443201
+      ],
+      "probability_sir_greater": 0.9547738693467337,
+      "probability_within_equivalence_region": 0.08542713567839195,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "left_out_set_name": "Temporal Forces",
+      "ir": 0.6340140083775005,
+      "sir": 1.7666765899400838,
+      "log": 1.1326625815625833,
+      "multiplier": 3.103909920873049,
+      "percent": 210.3909920873049,
+      "bootstrap_interval": [
+        -0.20113181160556118,
+        2.3747343661553013
+      ],
+      "probability_sir_greater": 0.9547738693467337,
+      "probability_within_equivalence_region": 0.08040201005025126,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+      "left_out_set_name": "Obsidian Flames",
+      "ir": 0.6603986923750365,
+      "sir": 1.793305668009492,
+      "log": 1.1329069756344556,
+      "multiplier": 3.1046685907607716,
+      "percent": 210.46685907607716,
+      "bootstrap_interval": [
+        -0.09320066751907663,
+        2.453903983625679
+      ],
+      "probability_sir_greater": 0.9447236180904522,
+      "probability_within_equivalence_region": 0.11055276381909548,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "left_out_set_name": "White Flare",
+      "ir": 0.6274088754579847,
+      "sir": 2.1073419934987694,
+      "log": 1.4799331180407846,
+      "multiplier": 4.392651881929925,
+      "percent": 339.2651881929925,
+      "bootstrap_interval": [
+        0.46296004025775855,
+        2.4177042564445537
+      ],
+      "probability_sir_greater": 1.0,
+      "probability_within_equivalence_region": 0.0,
+      "status": "MEANINGFULLY_DIFFERENT"
+    },
+    {
+      "left_out_set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+      "left_out_set_name": "Twilight Masquerade",
+      "ir": 0.6529993942902698,
+      "sir": 1.7388775556130958,
+      "log": 1.0858781613228259,
+      "multiplier": 2.9620398257712597,
+      "percent": 196.20398257712597,
+      "bootstrap_interval": [
+        -0.1241149749180237,
+        2.2476509153597592
+      ],
+      "probability_sir_greater": 0.9246231155778895,
+      "probability_within_equivalence_region": 0.09547738693467336,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+      "left_out_set_name": "Scarlet and Violet 151",
+      "ir": 0.6168901795893433,
+      "sir": 1.729595946201527,
+      "log": 1.1127057666121836,
+      "multiplier": 3.0425797776249617,
+      "percent": 204.25797776249618,
+      "bootstrap_interval": [
+        -0.30582301606482465,
+        2.4794208217842026
+      ],
+      "probability_sir_greater": 0.914572864321608,
+      "probability_within_equivalence_region": 0.07035175879396985,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "left_out_set_name": "Destined Rivals",
+      "ir": 0.661516420007846,
+      "sir": 1.7209251577222493,
+      "log": 1.0594087377144032,
+      "multiplier": 2.8846648913851336,
+      "percent": 188.46648913851337,
+      "bootstrap_interval": [
+        -0.26209414441597695,
+        2.390726388911964
+      ],
+      "probability_sir_greater": 0.914572864321608,
+      "probability_within_equivalence_region": 0.11557788944723618,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+      "left_out_set_name": "Surging Sparks",
+      "ir": 0.6630726006737491,
+      "sir": 1.743854307693442,
+      "log": 1.080781707019693,
+      "multiplier": 2.946982327672395,
+      "percent": 194.69823276723952,
+      "bootstrap_interval": [
+        -0.21073465785263512,
+        2.343368428643503
+      ],
+      "probability_sir_greater": 0.949748743718593,
+      "probability_within_equivalence_region": 0.10050251256281408,
+      "status": "SLIGHT_EDGE"
+    },
+    {
+      "left_out_set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "left_out_set_name": "Paldean Fates",
+      "ir": 0.6424639753952138,
+      "sir": -2.090425342394193,
+      "log": -2.732889317789407,
+      "multiplier": 0.06503112238272363,
+      "percent": -93.49688776172765,
+      "bootstrap_interval": [
+        -3.188720325232048,
+        -2.3507215083637867
+      ],
+      "probability_sir_greater": 0.0,
+      "probability_within_equivalence_region": 0.0,
+      "status": "EVIDENCE_INSUFFICIENT"
+    }
+  ],
+  "scarcity_decomposition": {
+    "preregistered_rule": "pooled Exact Pull Scarcity quartiles",
+    "cuts": [
+      5.648584807824573,
+      6.136259132011215,
+      6.6810182715848985
+    ],
+    "bands": [
+      {
+        "band": 1,
+        "counts": {
+          "uncommon": 538,
+          "common": 1036,
+          "rare": 248,
+          "double_rare": 211,
+          "illustration_rare": 111,
+          "ultra_rare": 56,
+          "special_illustration_rare": 9,
+          "hyper_rare": 2,
+          "shiny_ultra_rare": 11
+        },
+        "status": "INSUFFICIENT_SUPPORT"
+      },
+      {
+        "band": 2,
+        "counts": {
+          "special_illustration_rare": 7,
+          "illustration_rare": 112,
+          "ultra_rare": 85,
+          "hyper_rare": 10,
+          "shiny_rare": 1
+        },
+        "status": "INSUFFICIENT_SUPPORT"
+      },
+      {
+        "band": 3,
+        "bounds": [
+          6.136259132011215,
+          6.6810182715848985
+        ],
+        "counts": {
+          "illustration_rare": 92,
+          "special_illustration_rare": 28,
+          "hyper_rare": 8,
+          "shiny_rare": 119
+        },
+        "difference": {
+          "log": 1.3145780491002057,
+          "multiplier": 3.7231796547569513,
+          "percent": 272.31796547569513,
+          "bootstrap_interval": [
+            1.2940378325791244,
+            1.3351182656988385
+          ],
+          "probability_sir_greater": 1.0,
+          "probability_within_equivalence_region": 0.0,
+          "status": "MEANINGFULLY_DIFFERENT"
+        }
+      },
+      {
+        "band": 4,
+        "bounds": [
+          6.6810182715848985,
+          Infinity
+        ],
+        "counts": {
+          "special_illustration_rare": 51,
+          "hyper_rare": 12,
+          "illustration_rare": 69,
+          "rare": 2,
+          "black_white_rare": 2,
+          "uncommon": 1
+        },
+        "difference": {
+          "log": 0.9436308690355641,
+          "multiplier": 2.5692932704204074,
+          "percent": 156.92932704204074,
+          "bootstrap_interval": [
+            0.4994793364259739,
+            1.415043976975734
+          ],
+          "probability_sir_greater": 1.0,
+          "probability_within_equivalence_region": 0.0,
+          "status": "MEANINGFULLY_DIFFERENT"
+        }
+      }
+    ]
+  },
+  "demand_interaction": {
+    "cuts": [
+      41.343,
+      51.1668
+    ],
+    "strata": [
+      {
+        "stratum": "lower",
+        "bounds": [
+          -Infinity,
+          41.343
+        ],
+        "counts": {
+          "illustration_rare": 141,
+          "common": 407,
+          "double_rare": 50,
+          "rare": 68,
+          "uncommon": 167,
+          "ultra_rare": 36,
+          "special_illustration_rare": 20,
+          "hyper_rare": 6,
+          "shiny_rare": 42,
+          "shiny_ultra_rare": 3
+        },
+        "difference": {
+          "log": -0.6081752573317974,
+          "multiplier": 0.5443432497334111,
+          "percent": -45.565675026658894,
+          "bootstrap_interval": [
+            -0.77746361697504,
+            -0.41978728485998357
+          ],
+          "probability_sir_greater": 0.0,
+          "probability_within_equivalence_region": 0.0,
+          "status": "EVIDENCE_INSUFFICIENT"
+        }
+      },
+      {
+        "stratum": "middle",
+        "bounds": [
+          41.343,
+          51.1668
+        ],
+        "counts": {
+          "uncommon": 214,
+          "common": 350,
+          "rare": 77,
+          "double_rare": 55,
+          "illustration_rare": 119,
+          "ultra_rare": 40,
+          "special_illustration_rare": 23,
+          "hyper_rare": 15,
+          "shiny_rare": 43,
+          "shiny_ultra_rare": 4
+        },
+        "difference": {
+          "log": -0.3982126096858678,
+          "multiplier": 0.6715192409887519,
+          "percent": -32.84807590112481,
+          "bootstrap_interval": [
+            -0.6061430641804888,
+            -0.20926406127860728
+          ],
+          "probability_sir_greater": 0.0,
+          "probability_within_equivalence_region": 0.04522613065326633,
+          "status": "EVIDENCE_INSUFFICIENT"
+        }
+      },
+      {
+        "stratum": "higher",
+        "bounds": [
+          51.1668,
+          Infinity
+        ],
+        "counts": {
+          "special_illustration_rare": 52,
+          "uncommon": 158,
+          "common": 279,
+          "rare": 105,
+          "double_rare": 106,
+          "illustration_rare": 124,
+          "ultra_rare": 65,
+          "hyper_rare": 11,
+          "shiny_rare": 35,
+          "shiny_ultra_rare": 4,
+          "black_white_rare": 2
+        },
+        "difference": {
+          "log": 1.0227299275848676,
+          "multiplier": 2.780775727881817,
+          "percent": 178.07757278818167,
+          "bootstrap_interval": [
+            0.24811150563624265,
+            1.7408454216932092
+          ],
+          "probability_sir_greater": 1.0,
+          "probability_within_equivalence_region": 0.02512562814070352,
+          "status": "MEANINGFULLY_DIFFERENT"
+        }
+      }
+    ]
+  },
+  "mechanic_decomposition": [
+    {
+      "mechanic": "basic",
+      "counts": {
+        "uncommon": 134,
+        "illustration_rare": 211,
+        "common": 860,
+        "rare": 94,
+        "double_rare": 76,
+        "ultra_rare": 51,
+        "special_illustration_rare": 44,
+        "hyper_rare": 22,
+        "shiny_rare": 67,
+        "shiny_ultra_rare": 2,
+        "black_white_rare": 2
+      },
+      "composition": {
+        "ir_rate": 0.13499680102367242,
+        "sir_rate": 0.02815099168266155
+      },
+      "difference": {
+        "log": 0.42690369268968364,
+        "multiplier": 1.5325050631760426,
+        "percent": 53.25050631760426,
+        "bootstrap_interval": [
+          0.059076131290602484,
+          0.7817553067517116
+        ],
+        "probability_sir_greater": 0.9849246231155779,
+        "probability_within_equivalence_region": 0.1658291457286432,
+        "status": "SLIGHT_EDGE"
+      }
+    },
+    {
+      "mechanic": "ex",
+      "counts": {
+        "special_illustration_rare": 95,
+        "double_rare": 211,
+        "ultra_rare": 141,
+        "hyper_rare": 32,
+        "shiny_ultra_rare": 11,
+        "black_white_rare": 2
+      },
+      "composition": {
+        "ir_rate": 0.0,
+        "sir_rate": 0.19308943089430894
+      },
+      "status": "INSUFFICIENT_COMPARABLE_SUPPORT"
+    },
+    {
+      "mechanic": "stage_1",
+      "counts": {
+        "uncommon": 339,
+        "common": 176,
+        "double_rare": 84,
+        "rare": 93,
+        "illustration_rare": 138,
+        "ultra_rare": 53,
+        "special_illustration_rare": 28,
+        "shiny_rare": 43,
+        "shiny_ultra_rare": 6,
+        "hyper_rare": 3
+      },
+      "composition": {
+        "ir_rate": 0.14330218068535824,
+        "sir_rate": 0.029075804776739357
+      },
+      "difference": {
+        "log": 1.7048776532203131,
+        "multiplier": 5.500712631564009,
+        "percent": 450.0712631564009,
+        "bootstrap_interval": [
+          0.8493134022703195,
+          2.5915724887152134
+        ],
+        "probability_sir_greater": 1.0,
+        "probability_within_equivalence_region": 0.0,
+        "status": "MEANINGFULLY_DIFFERENT"
+      }
+    },
+    {
+      "mechanic": "stage_2",
+      "counts": {
+        "special_illustration_rare": 23,
+        "uncommon": 66,
+        "rare": 63,
+        "double_rare": 51,
+        "illustration_rare": 35,
+        "ultra_rare": 37,
+        "hyper_rare": 7,
+        "shiny_rare": 10,
+        "shiny_ultra_rare": 3
+      },
+      "composition": {
+        "ir_rate": 0.11864406779661017,
+        "sir_rate": 0.07796610169491526
+      },
+      "difference": {
+        "log": -0.9100978847030659,
+        "multiplier": 0.4024848249978025,
+        "percent": -59.75151750021974,
+        "bootstrap_interval": [
+          -1.4017342268846413,
+          -0.42729655147794066
+        ],
+        "probability_sir_greater": 0.0,
+        "probability_within_equivalence_region": 0.005025125628140704,
+        "status": "EVIDENCE_INSUFFICIENT"
+      }
+    }
+  ],
+  "price_distribution": {
+    "illustration_rare": {
+      "min": -0.7405827938004576,
+      "p10": -0.004202130724443678,
+      "p25": 0.2876142880008402,
+      "median": 0.6053885690883026,
+      "mean": 0.6288596367324838,
+      "p75": 0.9736219349885051,
+      "p90": 1.2446180059345813,
+      "max": 2.812225666273754,
+      "std": 0.5062972509561802,
+      "skew": 0.3013584339212952,
+      "trimmed_mean_5_95": 0.6221593618136726
+    },
+    "special_illustration_rare": {
+      "min": 0.2521939617797133,
+      "p10": 0.9282211720144561,
+      "p25": 1.337600833931799,
+      "median": 1.7665680670720123,
+      "mean": 1.7575273728742002,
+      "p75": 2.2118219521736617,
+      "p90": 2.5549741520943425,
+      "max": 3.3777532653793987,
+      "std": 0.6345090256372138,
+      "skew": 0.007033458695353057,
+      "trimmed_mean_5_95": 1.756191347189822
+    }
+  },
+  "chase_concentration": {
+    "illustration_rare": {
+      "top_1_price_share": 0.09291247871606963,
+      "top_5_price_share": 0.2448296294338309,
+      "top_10_price_share": 0.36369253338796115,
+      "herfindahl_price_concentration": 0.006626755474554079
+    },
+    "special_illustration_rare": {
+      "top_1_price_share": 0.1322857348159592,
+      "top_5_price_share": 0.34511559811019105,
+      "top_10_price_share": 0.491247058400848,
+      "herfindahl_price_concentration": 0.04095323876088425
+    }
+  },
+  "temporal_ir_sir": {
+    "checkpoints": [
+      {
+        "reference_date": "2026-08-29",
+        "n": 2821,
+        "ir": {
+          "coefficient": 0.6288596367274525,
+          "market_association_multiplier": 1.8754706415047198,
+          "bootstrap_interval": [
+            0.43868020344468855,
+            0.8174231757188938
+          ]
+        },
+        "sir": {
+          "coefficient": 1.7575273728736889,
+          "market_association_multiplier": 5.798083157682095,
+          "bootstrap_interval": [
+            0.48448711998903177,
+            3.0572149013559655
+          ]
+        },
+        "difference": {
+          "log": 1.1286677361462365,
+          "multiplier": 3.091535014928414,
+          "percent": 209.1535014928414,
+          "bootstrap_interval": [
+            -0.17493856676985578,
+            2.4789971388453154
+          ],
+          "probability_sir_greater": 0.9095477386934674,
+          "probability_within_equivalence_region": 0.12060301507537688,
+          "status": "SLIGHT_EDGE"
+        }
+      },
+      {
+        "reference_date": "2026-07-30",
+        "n": 2821,
+        "ir": {
+          "coefficient": 0.7262118688243052,
+          "market_association_multiplier": 2.067234799988694,
+          "bootstrap_interval": [
+            0.5149565334423052,
+            0.9188073549802354
+          ]
+        },
+        "sir": {
+          "coefficient": 1.9237532520220983,
+          "market_association_multiplier": 6.846607348703096,
+          "bootstrap_interval": [
+            0.6270399385871929,
+            3.2161502061441136
+          ]
+        },
+        "difference": {
+          "log": 1.1975413831977932,
+          "multiplier": 3.3119640539819386,
+          "percent": 231.19640539819386,
+          "bootstrap_interval": [
+            -0.14057233332472915,
+            2.4986479784961904
+          ],
+          "probability_sir_greater": 0.9396984924623115,
+          "probability_within_equivalence_region": 0.08040201005025126,
+          "status": "SLIGHT_EDGE"
+        }
+      },
+      {
+        "reference_date": "2026-06-30",
+        "n": 2821,
+        "ir": {
+          "coefficient": 0.71074167466944,
+          "market_association_multiplier": 2.0355003780097753,
+          "bootstrap_interval": [
+            0.5067361566358941,
+            0.9151042382262967
+          ]
+        },
+        "sir": {
+          "coefficient": 1.879950649238384,
+          "market_association_multiplier": 6.5531814497153364,
+          "bootstrap_interval": [
+            0.6325997364219761,
+            3.1723385007153984
+          ]
+        },
+        "difference": {
+          "log": 1.169208974568944,
+          "multiplier": 3.21944496818161,
+          "percent": 221.944496818161,
+          "bootstrap_interval": [
+            -0.07539032587320513,
+            2.519243137645563
+          ],
+          "probability_sir_greater": 0.9346733668341709,
+          "probability_within_equivalence_region": 0.08542713567839195,
+          "status": "SLIGHT_EDGE"
+        }
+      },
+      {
+        "reference_date": "2026-05-31",
+        "n": 2821,
+        "ir": {
+          "coefficient": 0.6671618208629797,
+          "market_association_multiplier": 1.948698708548275,
+          "bootstrap_interval": [
+            0.4683549996178353,
+            0.8311542130584247
+          ]
+        },
+        "sir": {
+          "coefficient": 1.8856812505402547,
+          "market_association_multiplier": 6.5908429282552445,
+          "bootstrap_interval": [
+            0.6533306370966627,
+            3.1266938727975635
+          ]
+        },
+        "difference": {
+          "log": 1.218519429677275,
+          "multiplier": 3.3821764746615113,
+          "percent": 238.21764746615113,
+          "bootstrap_interval": [
+            -0.04332591746655526,
+            2.4273672034310003
+          ],
+          "probability_sir_greater": 0.9547738693467337,
+          "probability_within_equivalence_region": 0.11557788944723618,
+          "status": "SLIGHT_EDGE"
+        }
+      }
+    ],
+    "difference_range": 0.0898516935310385,
+    "classification": "PERSISTENT_SLIGHT_EDGE"
+  },
+  "sv_explanation": [
+    "SET_HETEROGENEITY",
+    "SCARCITY_COMPOSITION",
+    "DEMAND_INTERACTION",
+    "MECHANIC_COMPOSITION",
+    "CHASE_CONCENTRATION"
+  ],
+  "near_ties_defensible": true,
+  "candidate_score_methods": [
+    "robust_logistic_1_9",
+    "anchored_robust_linear_1_9",
+    "empirical_percentile_1_9"
+  ],
+  "magnitude_score_evaluation": {
+    "Scarlet and Violet": {
+      "robust_logistic_1_9": {
+        "scores": {
+          "illustration_rare": {
+            "score": 4.636311794958775,
+            "bootstrap_interval": [
+              4.526630899767936,
+              4.758398089437191
+            ]
+          },
+          "special_illustration_rare": {
+            "score": 5.363688205041224,
+            "bootstrap_interval": [
+              4.548358852069227,
+              6.139410729664858
+            ]
+          }
+        },
+        "criteria": {
+          "monotonic": true,
+          "near_equal_preserved": true,
+          "non_absolute_endpoints": true,
+          "era_relative": true,
+          "outlier_robust": true
+        },
+        "distance_correlation": 1.0
+      },
+      "anchored_robust_linear_1_9": {
+        "scores": {
+          "illustration_rare": {
+            "score": 4.6353046129334174,
+            "bootstrap_interval": [
+              4.52440231488539,
+              4.758103635749035
+            ]
+          },
+          "special_illustration_rare": {
+            "score": 5.3646953870665826,
+            "bootstrap_interval": [
+              4.546424751788966,
+              6.171821583795803
+            ]
+          }
+        },
+        "criteria": {
+          "monotonic": true,
+          "near_equal_preserved": true,
+          "non_absolute_endpoints": true,
+          "era_relative": true,
+          "outlier_robust": true
+        },
+        "distance_correlation": 1.0
+      },
+      "empirical_percentile_1_9": {
+        "scores": {
+          "illustration_rare": {
+            "score": 6.0818858560794045,
+            "bootstrap_interval": [
+              5.988302020560085,
+              6.132931584544488
+            ]
+          },
+          "special_illustration_rare": {
+            "score": 6.595179014533853,
+            "bootstrap_interval": [
+              6.016660758596243,
+              7.176816731655442
+            ]
+          }
+        },
+        "criteria": {
+          "monotonic": true,
+          "near_equal_preserved": false,
+          "non_absolute_endpoints": true,
+          "era_relative": true,
+          "outlier_robust": true
+        },
+        "distance_correlation": 1.0
+      }
+    },
+    "Mega Evolution": {
+      "robust_logistic_1_9": {
+        "scores": {
+          "illustration_rare": {
+            "score": 8.024969028155871,
+            "bootstrap_interval": [
+              7.998545869131447,
+              8.050789583641578
+            ]
+          },
+          "ultra_rare": {
+            "score": 5.0,
+            "bootstrap_interval": [
+              4.384235469449786,
+              5.615764547598616
+            ]
+          },
+          "double_rare": {
+            "score": 3.9464175923161555,
+            "bootstrap_interval": [
+              3.3003524009752434,
+              4.59291432279969
+            ]
+          }
+        },
+        "criteria": {
+          "monotonic": true,
+          "near_equal_preserved": true,
+          "non_absolute_endpoints": true,
+          "era_relative": true,
+          "outlier_robust": true
+        },
+        "distance_correlation": 0.9989318624649619
+      },
+      "anchored_robust_linear_1_9": {
+        "scores": {
+          "illustration_rare": {
+            "score": 8.949513697802992,
+            "bootstrap_interval": [
+              8.888498639701089,
+              9.0
+            ]
+          },
+          "ultra_rare": {
+            "score": 5.0,
+            "bootstrap_interval": [
+              4.379301012337,
+              5.620699005125219
+            ]
+          },
+          "double_rare": {
+            "score": 3.920985354926667,
+            "bootstrap_interval": [
+              3.1853159616339974,
+              4.591500070851217
+            ]
+          }
+        },
+        "criteria": {
+          "monotonic": true,
+          "near_equal_preserved": true,
+          "non_absolute_endpoints": true,
+          "era_relative": true,
+          "outlier_robust": true
+        },
+        "distance_correlation": 1.0
+      },
+      "empirical_percentile_1_9": {
+        "scores": {
+          "illustration_rare": {
+            "score": 8.269035532994923,
+            "bootstrap_interval": [
+              8.197969543147208,
+              8.289340101522843
+            ]
+          },
+          "ultra_rare": {
+            "score": 1.0507614213197969,
+            "bootstrap_interval": [
+              1.0,
+              2.0761421319796955
+            ]
+          },
+          "double_rare": {
+            "score": 1.0,
+            "bootstrap_interval": [
+              1.0,
+              1.0
+            ]
+          }
+        },
+        "criteria": {
+          "monotonic": true,
+          "near_equal_preserved": false,
+          "non_absolute_endpoints": true,
+          "era_relative": true,
+          "outlier_robust": true
+        },
+        "distance_correlation": 0.9802321962568378
+      }
+    }
+  },
+  "recommended_score_formulation": "robust_logistic_1_9: 1 + 8*logistic((beta - era median beta)/MAD); era-relative, bounded away from misleading absolute 0/10 endpoints",
+  "sv_candidate_scores": {
+    "illustration_rare": {
+      "score": 4.636311794958775,
+      "bootstrap_interval": [
+        4.526630899767936,
+        4.758398089437191
+      ]
+    },
+    "special_illustration_rare": {
+      "score": 5.363688205041224,
+      "bootstrap_interval": [
+        4.548358852069227,
+        6.139410729664858
+      ]
+    }
+  },
+  "mega_candidate_scores": {
+    "illustration_rare": {
+      "score": 8.024969028155871,
+      "bootstrap_interval": [
+        7.998545869131447,
+        8.050789583641578
+      ]
+    },
+    "ultra_rare": {
+      "score": 5.0,
+      "bootstrap_interval": [
+        4.384235469449786,
+        5.615764547598616
+      ]
+    },
+    "double_rare": {
+      "score": 3.9464175923161555,
+      "bootstrap_interval": [
+        3.3003524009752434,
+        4.59291432279969
+      ]
+    }
+  },
+  "magnitude_score_status": "MAGNITUDE_SCORE_PARTIALLY_SUPPORTED",
+  "era_audit": [
+    {
+      "era": "Base/WOTC",
+      "priced_cards": 441,
+      "sets": 5,
+      "species": 150,
+      "treatment_classes": {
+        "rare_holo": 84,
+        "rare": 84,
+        "uncommon": 130,
+        "common": 130,
+        "__unmapped__": 12,
+        "rare_secret": 1
+      },
+      "finish_classes": {
+        "holo": 85,
+        "non_holo": 356
+      },
+      "taxonomy_unmapped_rate": 0.027210884353741496,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8095238095238095,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "rare_holo",
+        "rare",
+        "uncommon",
+        "common"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "Black and White",
+      "priced_cards": 1447,
+      "sets": 14,
+      "species": 487,
+      "treatment_classes": {
+        "uncommon": 387,
+        "promo": 113,
+        "common": 396,
+        "rare_holo": 170,
+        "rare": 219,
+        "rare_ultra": 60,
+        "rare_secret": 30,
+        "rare_holo_ex": 56,
+        "__unmapped__": 3,
+        "rare_ace": 13
+      },
+      "finish_classes": {
+        "non_holo": 993,
+        "holo": 451,
+        "reverse_holo": 3
+      },
+      "taxonomy_unmapped_rate": 0.002073255010366275,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8804422944022114,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "uncommon",
+        "common",
+        "rare_holo",
+        "rare",
+        "rare_ultra",
+        "rare_secret",
+        "rare_holo_ex"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "Diamond and Pearl",
+      "priced_cards": 844,
+      "sets": 7,
+      "species": 490,
+      "treatment_classes": {
+        "uncommon": 257,
+        "common": 283,
+        "rare": 164,
+        "rare_holo_lv_x": 28,
+        "rare_holo": 108,
+        "rare_secret": 4
+      },
+      "finish_classes": {
+        "non_holo": 701,
+        "holo": 140,
+        "reverse_holo": 3
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8850710900473934,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "uncommon",
+        "common",
+        "rare",
+        "rare_holo_lv_x",
+        "rare_holo"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "E-Card",
+      "priced_cards": 519,
+      "sets": 3,
+      "species": 246,
+      "treatment_classes": {
+        "holo_rare": 10,
+        "rare_holo": 73,
+        "rare": 123,
+        "uncommon": 123,
+        "common": 176,
+        "__unmapped__": 6,
+        "rare_secret": 8
+      },
+      "finish_classes": {
+        "holo": 82,
+        "reverse_holo": 9,
+        "non_holo": 428
+      },
+      "taxonomy_unmapped_rate": 0.011560693641618497,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.7996146435452793,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "rare_holo",
+        "rare",
+        "uncommon",
+        "common"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "EX",
+      "priced_cards": 1701,
+      "sets": 16,
+      "species": 384,
+      "treatment_classes": {
+        "common": 517,
+        "uncommon": 519,
+        "rare_holo": 248,
+        "rare": 262,
+        "rare_holo_ex": 123,
+        "rare_secret": 18,
+        "rare_holo_star": 14
+      },
+      "finish_classes": {
+        "non_holo": 1275,
+        "reverse_holo": 2,
+        "holo": 424
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8442092886537331,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "common",
+        "uncommon",
+        "rare_holo",
+        "rare",
+        "rare_holo_ex"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "Gym",
+      "priced_cards": 265,
+      "sets": 2,
+      "species": 124,
+      "treatment_classes": {
+        "rare_holo": 39,
+        "rare": 44,
+        "uncommon": 84,
+        "common": 85,
+        "__unmapped__": 12,
+        "ultra_rare": 1
+      },
+      "finish_classes": {
+        "holo": 39,
+        "non_holo": 226
+      },
+      "taxonomy_unmapped_rate": 0.045283018867924525,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.7018867924528301,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [],
+      "support_status": "INSUFFICIENT_TREATMENT_DIVERSITY"
+    },
+    {
+      "era": "HeartGold and SoulSilver",
+      "priced_cards": 549,
+      "sets": 6,
+      "species": 306,
+      "treatment_classes": {
+        "promo": 30,
+        "rare_holo": 79,
+        "common": 158,
+        "rare": 88,
+        "uncommon": 146,
+        "rare_prime": 26,
+        "legend": 18,
+        "rare_secret": 4
+      },
+      "finish_classes": {
+        "holo": 162,
+        "non_holo": 387
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8233151183970856,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "rare_holo",
+        "common",
+        "rare",
+        "uncommon",
+        "rare_prime"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "Mega Evolution",
+      "priced_cards": 992,
+      "sets": 6,
+      "species": 476,
+      "treatment_classes": {
+        "promo": 2,
+        "uncommon": 221,
+        "common": 319,
+        "rare": 84,
+        "ultra_rare": 107,
+        "special_illustration_rare": 55,
+        "double_rare": 88,
+        "illustration_rare": 101,
+        "mega_hyper_rare": 8,
+        "mega_attack_rare": 7
+      },
+      "finish_classes": {
+        "holo": 449,
+        "reverse_holo": 10,
+        "non_holo": 533
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.7943548387096774,
+      "historical_coverage": 0.8608870967741935,
+      "exact_pull_coverage": 0.9818548387096774,
+      "ontology": [
+        "uncommon",
+        "common",
+        "rare",
+        "ultra_rare",
+        "special_illustration_rare",
+        "double_rare",
+        "illustration_rare"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "NP",
+      "priced_cards": 74,
+      "sets": 1,
+      "species": 21,
+      "treatment_classes": {
+        "promo": 74
+      },
+      "finish_classes": {
+        "holo": 28,
+        "non_holo": 43,
+        "reverse_holo": 3
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.3108108108108108,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [],
+      "support_status": "INSUFFICIENT_TREATMENT_DIVERSITY"
+    },
+    {
+      "era": "Neo",
+      "priced_cards": 364,
+      "sets": 4,
+      "species": 175,
+      "treatment_classes": {
+        "rare_holo": 66,
+        "uncommon": 108,
+        "rare": 67,
+        "common": 108,
+        "__unmapped__": 6,
+        "rare_shining": 9
+      },
+      "finish_classes": {
+        "holo": 75,
+        "non_holo": 289
+      },
+      "taxonomy_unmapped_rate": 0.016483516483516484,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8516483516483516,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "rare_holo",
+        "uncommon",
+        "rare",
+        "common"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "Other",
+      "priced_cards": 271,
+      "sets": 13,
+      "species": 191,
+      "treatment_classes": {
+        "rare_holo": 19,
+        "__unmapped__": 160,
+        "rare": 19,
+        "uncommon": 36,
+        "common": 37
+      },
+      "finish_classes": {
+        "holo": 143,
+        "reverse_holo": 6,
+        "non_holo": 122
+      },
+      "taxonomy_unmapped_rate": 0.5904059040590406,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.959409594095941,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [],
+      "support_status": "TAXONOMY_REPAIR_REQUIRED"
+    },
+    {
+      "era": "POP",
+      "priced_cards": 153,
+      "sets": 9,
+      "species": 107,
+      "treatment_classes": {
+        "rare": 52,
+        "uncommon": 47,
+        "common": 54
+      },
+      "finish_classes": {
+        "holo": 39,
+        "non_holo": 114
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8823529411764706,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "rare",
+        "uncommon",
+        "common"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "Platinum",
+      "priced_cards": 517,
+      "sets": 4,
+      "species": 309,
+      "treatment_classes": {
+        "uncommon": 149,
+        "rare_holo": 56,
+        "rare": 125,
+        "common": 150,
+        "rare_holo_lv_x": 28,
+        "rare_secret": 9
+      },
+      "finish_classes": {
+        "non_holo": 400,
+        "holo": 102,
+        "reverse_holo": 15
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8974854932301741,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "uncommon",
+        "rare_holo",
+        "rare",
+        "common",
+        "rare_holo_lv_x"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "priced_cards": 3434,
+      "sets": 16,
+      "species": 874,
+      "treatment_classes": {
+        "common": 1102,
+        "rare": 274,
+        "ultra_rare": 251,
+        "special_illustration_rare": 167,
+        "hyper_rare": 74,
+        "uncommon": 777,
+        "illustration_rare": 391,
+        "double_rare": 231,
+        "shiny_rare": 120,
+        "shiny_ultra_rare": 12,
+        "ace_spec_rare": 33,
+        "black_white_rare": 2
+      },
+      "finish_classes": {
+        "reverse_holo": 8,
+        "non_holo": 1871,
+        "holo": 1555
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8223645894001165,
+      "historical_coverage": 0.9970879440885265,
+      "exact_pull_coverage": 0.9970879440885265,
+      "ontology": [
+        "common",
+        "rare",
+        "ultra_rare",
+        "special_illustration_rare",
+        "hyper_rare",
+        "uncommon",
+        "illustration_rare",
+        "double_rare",
+        "ace_spec_rare"
+      ],
+      "support_status": "ERA_PARTIALLY_RESEARCHABLE"
+    },
+    {
+      "era": "Sun and Moon",
+      "priced_cards": 2969,
+      "sets": 18,
+      "species": 766,
+      "treatment_classes": {
+        "rare_ultra": 244,
+        "promo": 309,
+        "rare_secret": 112,
+        "rare_shiny_gx": 35,
+        "uncommon": 658,
+        "common": 642,
+        "rare": 357,
+        "rare_holo_gx": 159,
+        "rare_holo": 231,
+        "rare_rainbow": 144,
+        "rare_shining": 6,
+        "rare_prism_star": 27,
+        "rare_shiny": 45
+      },
+      "finish_classes": {
+        "holo": 1311,
+        "non_holo": 1658
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.7632199393735264,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "rare_ultra",
+        "rare_secret",
+        "uncommon",
+        "common",
+        "rare",
+        "rare_holo_gx",
+        "rare_holo",
+        "rare_rainbow",
+        "rare_prism_star"
+      ],
+      "support_status": "ERA_RESEARCH_READY"
+    },
+    {
+      "era": "Sword and Shield",
+      "priced_cards": 3377,
+      "sets": 24,
+      "species": 825,
+      "treatment_classes": {
+        "holo_rare": 4,
+        "ultra_rare": 4,
+        "rare_ultra": 356,
+        "common": 711,
+        "uncommon": 714,
+        "rare": 364,
+        "rare_holo_v": 281,
+        "rare_holo": 270,
+        "rare_holo_vmax": 110,
+        "rare_rainbow": 180,
+        "rare_secret": 105,
+        "amazing_rare": 9,
+        "rare_shiny": 104,
+        "rare_holo_vstar": 43,
+        "trainer_gallery_rare_holo": 80,
+        "radiant_rare": 15,
+        "classic_collection": 25,
+        "secret_rare": 2
+      },
+      "finish_classes": {
+        "holo": 1601,
+        "reverse_holo": 3,
+        "non_holo": 1773
+      },
+      "taxonomy_unmapped_rate": 0.0,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8137400059224164,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "rare_ultra",
+        "common",
+        "uncommon",
+        "rare",
+        "rare_holo_v",
+        "rare_holo",
+        "rare_holo_vmax",
+        "rare_rainbow",
+        "rare_secret",
+        "rare_holo_vstar",
+        "trainer_gallery_rare_holo"
+      ],
+      "support_status": "ERA_RESEARCH_READY"
+    },
+    {
+      "era": "XY",
+      "priced_cards": 1930,
+      "sets": 17,
+      "species": 658,
+      "treatment_classes": {
+        "promo": 236,
+        "uncommon": 502,
+        "rare_ultra": 118,
+        "__unmapped__": 39,
+        "rare_holo_ex": 129,
+        "common": 461,
+        "rare": 241,
+        "rare_holo": 145,
+        "rare_secret": 30,
+        "rare_break": 27,
+        "holo_rare": 2
+      },
+      "finish_classes": {
+        "holo": 690,
+        "non_holo": 1240
+      },
+      "taxonomy_unmapped_rate": 0.020207253886010364,
+      "price_coverage": 1.0,
+      "demand_coverage": 0.8067357512953368,
+      "historical_coverage": 0.0,
+      "exact_pull_coverage": 0.0,
+      "ontology": [
+        "uncommon",
+        "rare_ultra",
+        "rare_holo_ex",
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_secret",
+        "rare_break"
+      ],
+      "support_status": "ERA_RESEARCH_READY"
+    }
+  ],
+  "era_ontologies": {
+    "Base/WOTC": [
+      "rare_holo",
+      "rare",
+      "uncommon",
+      "common"
+    ],
+    "Black and White": [
+      "uncommon",
+      "common",
+      "rare_holo",
+      "rare",
+      "rare_ultra",
+      "rare_secret",
+      "rare_holo_ex"
+    ],
+    "Diamond and Pearl": [
+      "uncommon",
+      "common",
+      "rare",
+      "rare_holo_lv_x",
+      "rare_holo"
+    ],
+    "E-Card": [
+      "rare_holo",
+      "rare",
+      "uncommon",
+      "common"
+    ],
+    "EX": [
+      "common",
+      "uncommon",
+      "rare_holo",
+      "rare",
+      "rare_holo_ex"
+    ],
+    "Gym": [],
+    "HeartGold and SoulSilver": [
+      "rare_holo",
+      "common",
+      "rare",
+      "uncommon",
+      "rare_prime"
+    ],
+    "Mega Evolution": [
+      "uncommon",
+      "common",
+      "rare",
+      "ultra_rare",
+      "special_illustration_rare",
+      "double_rare",
+      "illustration_rare"
+    ],
+    "NP": [],
+    "Neo": [
+      "rare_holo",
+      "uncommon",
+      "rare",
+      "common"
+    ],
+    "Other": [],
+    "POP": [
+      "rare",
+      "uncommon",
+      "common"
+    ],
+    "Platinum": [
+      "uncommon",
+      "rare_holo",
+      "rare",
+      "common",
+      "rare_holo_lv_x"
+    ],
+    "Scarlet and Violet": [
+      "common",
+      "rare",
+      "ultra_rare",
+      "special_illustration_rare",
+      "hyper_rare",
+      "uncommon",
+      "illustration_rare",
+      "double_rare",
+      "ace_spec_rare"
+    ],
+    "Sun and Moon": [
+      "rare_ultra",
+      "rare_secret",
+      "uncommon",
+      "common",
+      "rare",
+      "rare_holo_gx",
+      "rare_holo",
+      "rare_rainbow",
+      "rare_prism_star"
+    ],
+    "Sword and Shield": [
+      "rare_ultra",
+      "common",
+      "uncommon",
+      "rare",
+      "rare_holo_v",
+      "rare_holo",
+      "rare_holo_vmax",
+      "rare_rainbow",
+      "rare_secret",
+      "rare_holo_vstar",
+      "trainer_gallery_rare_holo"
+    ],
+    "XY": [
+      "uncommon",
+      "rare_ultra",
+      "rare_holo_ex",
+      "common",
+      "rare",
+      "rare_holo",
+      "rare_secret",
+      "rare_break"
+    ]
+  },
+  "era_support_statuses": {
+    "Base/WOTC": "ERA_PARTIALLY_RESEARCHABLE",
+    "Black and White": "ERA_PARTIALLY_RESEARCHABLE",
+    "Diamond and Pearl": "ERA_PARTIALLY_RESEARCHABLE",
+    "E-Card": "ERA_PARTIALLY_RESEARCHABLE",
+    "EX": "ERA_PARTIALLY_RESEARCHABLE",
+    "Gym": "INSUFFICIENT_TREATMENT_DIVERSITY",
+    "HeartGold and SoulSilver": "ERA_PARTIALLY_RESEARCHABLE",
+    "Mega Evolution": "ERA_PARTIALLY_RESEARCHABLE",
+    "NP": "INSUFFICIENT_TREATMENT_DIVERSITY",
+    "Neo": "ERA_PARTIALLY_RESEARCHABLE",
+    "Other": "TAXONOMY_REPAIR_REQUIRED",
+    "POP": "ERA_PARTIALLY_RESEARCHABLE",
+    "Platinum": "ERA_PARTIALLY_RESEARCHABLE",
+    "Scarlet and Violet": "ERA_PARTIALLY_RESEARCHABLE",
+    "Sun and Moon": "ERA_RESEARCH_READY",
+    "Sword and Shield": "ERA_RESEARCH_READY",
+    "XY": "ERA_RESEARCH_READY"
+  },
+  "pilots": {
+    "Sword and Shield": {
+      "era": "Sword and Shield",
+      "n": 2748,
+      "universe": [
+        "common",
+        "uncommon",
+        "rare",
+        "rare_holo_v",
+        "rare_holo",
+        "rare_holo_vmax",
+        "rare_rainbow",
+        "rare_ultra",
+        "rare_secret",
+        "rare_holo_vstar",
+        "trainer_gallery_rare_holo"
+      ],
+      "effects": [
+        {
+          "treatment": "common",
+          "n": 701,
+          "sets": 16,
+          "coefficient": 0,
+          "bootstrap_interval": null
+        },
+        {
+          "treatment": "rare",
+          "n": 361,
+          "sets": 15,
+          "coefficient": 0.5494627289619377,
+          "bootstrap_interval": [
+            0.3229924365024105,
+            0.7828222200594361
+          ]
+        },
+        {
+          "treatment": "rare_holo",
+          "n": 249,
+          "sets": 17,
+          "coefficient": -1.3428042090379801,
+          "bootstrap_interval": [
+            -2.0815489129959728,
+            -0.6186972528216025
+          ]
+        },
+        {
+          "treatment": "rare_holo_v",
+          "n": 281,
+          "sets": 23,
+          "coefficient": -0.11322038673627487,
+          "bootstrap_interval": [
+            -1.0032620784698696,
+            0.6985888960000227
+          ]
+        },
+        {
+          "treatment": "rare_holo_vmax",
+          "n": 110,
+          "sets": 23,
+          "coefficient": 2.1815374660599116,
+          "bootstrap_interval": [
+            0.8702915579218133,
+            3.3941021453308355
+          ]
+        },
+        {
+          "treatment": "rare_holo_vstar",
+          "n": 43,
+          "sets": 7,
+          "coefficient": 1.6477595294644036,
+          "bootstrap_interval": [
+            0.5702825822465837,
+            2.615627692581911
+          ]
+        },
+        {
+          "treatment": "rare_rainbow",
+          "n": 100,
+          "sets": 15,
+          "coefficient": 3.916845917346616,
+          "bootstrap_interval": [
+            2.557285731940026,
+            5.1785735526121615
+          ]
+        },
+        {
+          "treatment": "rare_secret",
+          "n": 45,
+          "sets": 21,
+          "coefficient": 2.0666765871090647,
+          "bootstrap_interval": [
+            1.389260721028818,
+            2.8334363434994576
+          ]
+        },
+        {
+          "treatment": "rare_ultra",
+          "n": 219,
+          "sets": 15,
+          "coefficient": 1.7003335607927403,
+          "bootstrap_interval": [
+            0.685617435623212,
+            2.6325194654607826
+          ]
+        },
+        {
+          "treatment": "trainer_gallery_rare_holo",
+          "n": 80,
+          "sets": 5,
+          "coefficient": -0.9205624207074844,
+          "bootstrap_interval": [
+            -1.5526501414098894,
+            -0.21471601029228396
+          ]
+        },
+        {
+          "treatment": "uncommon",
+          "n": 409,
+          "sets": 16,
+          "coefficient": 0.09397555350953293,
+          "bootstrap_interval": [
+            -0.09238382702771254,
+            0.25360501229311194
+          ]
+        }
+      ],
+      "order": [
+        "rare_rainbow",
+        "rare_holo_vmax",
+        "rare_secret",
+        "rare_ultra",
+        "rare_holo_vstar",
+        "rare",
+        "uncommon",
+        "common",
+        "rare_holo_v",
+        "trainer_gallery_rare_holo",
+        "rare_holo"
+      ],
+      "leave_set_out_exact_order_rate": 0.0,
+      "structure_exists": true
+    },
+    "Sun and Moon": {
+      "era": "Sun and Moon",
+      "n": 2085,
+      "universe": [
+        "common",
+        "uncommon",
+        "rare",
+        "rare_holo_gx",
+        "rare_holo",
+        "rare_rainbow",
+        "rare_ultra"
+      ],
+      "effects": [
+        {
+          "treatment": "common",
+          "n": 642,
+          "sets": 16,
+          "coefficient": 0,
+          "bootstrap_interval": null
+        },
+        {
+          "treatment": "rare",
+          "n": 353,
+          "sets": 14,
+          "coefficient": 0.8574282020794932,
+          "bootstrap_interval": [
+            0.6122526609198443,
+            1.1209001772349787
+          ]
+        },
+        {
+          "treatment": "rare_holo",
+          "n": 221,
+          "sets": 15,
+          "coefficient": -1.8492258851627628,
+          "bootstrap_interval": [
+            -2.445817315209955,
+            -1.1593638740985104
+          ]
+        },
+        {
+          "treatment": "rare_holo_gx",
+          "n": 131,
+          "sets": 15,
+          "coefficient": -1.8566522163680543,
+          "bootstrap_interval": [
+            -2.596059587164347,
+            -1.0939985777971222
+          ]
+        },
+        {
+          "treatment": "rare_rainbow",
+          "n": 118,
+          "sets": 14,
+          "coefficient": -0.027568926408703995,
+          "bootstrap_interval": [
+            -0.7792866383344621,
+            0.7765094490127956
+          ]
+        },
+        {
+          "treatment": "rare_ultra",
+          "n": 118,
+          "sets": 15,
+          "coefficient": -0.8399116302244212,
+          "bootstrap_interval": [
+            -1.569806438552915,
+            -0.06786129364643148
+          ]
+        },
+        {
+          "treatment": "uncommon",
+          "n": 380,
+          "sets": 15,
+          "coefficient": 0.25733318101486635,
+          "bootstrap_interval": [
+            0.06656383426761814,
+            0.44846749822900756
+          ]
+        }
+      ],
+      "order": [
+        "rare",
+        "uncommon",
+        "common",
+        "rare_rainbow",
+        "rare_ultra",
+        "rare_holo",
+        "rare_holo_gx"
+      ],
+      "leave_set_out_exact_order_rate": 0.0,
+      "structure_exists": true
+    },
+    "XY": {
+      "era": "XY",
+      "n": 1351,
+      "universe": [
+        "rare_holo_ex",
+        "uncommon",
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_ultra",
+        "rare_break"
+      ],
+      "effects": [
+        {
+          "treatment": "common",
+          "n": 433,
+          "sets": 15,
+          "coefficient": 0,
+          "bootstrap_interval": null
+        },
+        {
+          "treatment": "rare",
+          "n": 241,
+          "sets": 13,
+          "coefficient": 0.8955054430989549,
+          "bootstrap_interval": [
+            0.49766350984573365,
+            1.3061399817466735
+          ]
+        },
+        {
+          "treatment": "rare_break",
+          "n": 27,
+          "sets": 5,
+          "coefficient": 0,
+          "bootstrap_interval": null
+        },
+        {
+          "treatment": "rare_holo",
+          "n": 143,
+          "sets": 14,
+          "coefficient": 1.3268882628763095,
+          "bootstrap_interval": [
+            0.6405680477619171,
+            1.9790035963058463
+          ]
+        },
+        {
+          "treatment": "rare_holo_ex",
+          "n": 129,
+          "sets": 14,
+          "coefficient": -2.2170119993388653,
+          "bootstrap_interval": [
+            -2.491169261932373,
+            -1.9558513998985292
+          ]
+        },
+        {
+          "treatment": "rare_ultra",
+          "n": 94,
+          "sets": 14,
+          "coefficient": -0.6010636098217219,
+          "bootstrap_interval": [
+            -0.9067850112915039,
+            -0.2721937656402589
+          ]
+        },
+        {
+          "treatment": "uncommon",
+          "n": 263,
+          "sets": 14,
+          "coefficient": 0.3694879782560747,
+          "bootstrap_interval": [
+            0.007767784595489504,
+            0.7306113004684447
+          ]
+        }
+      ],
+      "order": [
+        "rare_holo",
+        "rare",
+        "uncommon",
+        "common",
+        "rare_break",
+        "rare_ultra",
+        "rare_holo_ex"
+      ],
+      "leave_set_out_exact_order_rate": 0.0,
+      "structure_exists": true
+    }
+  },
+  "cross_era_status": "V3_CROSS_ERA_FRAMEWORK_PARTIALLY_SUPPORTED",
+  "exact_pull_coverage_by_era": {
+    "Base/WOTC": 0.0,
+    "Black and White": 0.0,
+    "Diamond and Pearl": 0.0,
+    "E-Card": 0.0,
+    "EX": 0.0,
+    "Gym": 0.0,
+    "HeartGold and SoulSilver": 0.0,
+    "Mega Evolution": 0.9818548387096774,
+    "NP": 0.0,
+    "Neo": 0.0,
+    "Other": 0.0,
+    "POP": 0.0,
+    "Platinum": 0.0,
+    "Scarlet and Violet": 0.9970879440885265,
+    "Sun and Moon": 0.0,
+    "Sword and Shield": 0.0,
+    "XY": 0.0
+  },
+  "production_readiness_research_justified_next": true,
+  "database_rows_persisted": 0,
+  "production_scores_persisted": 0,
+  "files_changed": [
+    "backend/scripts/build_treatment_market_prestige_v3_round3.py",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round3.py",
+    "backend/scripts/build_treatment_market_prestige_v3_round3_magnitude.py",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round3_magnitude.py",
+    "docs/research/treatment_market_prestige_v3_round3_temporal/",
+    "docs/research/treatment_market_prestige_v3_round3_study.json",
+    "docs/research/TREATMENT_MARKET_PRESTIGE_V3_ROUND3_RESULTS.md",
+    "docs/research/treatment_market_prestige_v3_round3_magnitude_frozen/",
+    "docs/research/treatment_market_prestige_v3_round3_magnitude_study.json",
+    "docs/research/TREATMENT_MARKET_PRESTIGE_V3_ROUND3_MAGNITUDE_RESULTS.md"
+  ],
+  "tests_executed": [
+    "Round 3 magnitude/temporal plus preserved V3/V2 suites (32 passed)",
+    "Round 1, Round 2, Round 3 magnitude, and four historical checkpoint hash verifications (passed)"
+  ],
+  "recommended_next_task": "Review the magnitude transform and era ontologies, then resume temporal production-contract research only for supported era-treatment universes; no production integration yet.",
+  "preserved_round2_ordering_probability_sir_greater_ir": 0.7218045112781954
+}

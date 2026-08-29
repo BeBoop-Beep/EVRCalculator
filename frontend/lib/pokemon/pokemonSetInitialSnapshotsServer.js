@@ -11,6 +11,7 @@ import {
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 import { normalizePokemonSetSimulationEvidence } from "@/lib/pokemon/pokemonSetSimulationEvidence.mjs";
 import { normalizePokemonSetRipBootstrap } from "@/lib/pokemon/pokemonSetRipBootstrapNormalizer.mjs";
+import { getBackendRequestAuthHeaders } from "@/lib/authServer";
 
 const BACKEND_API_BASE_URL = getBackendApiBaseUrl();
 const SHELL_SNAPSHOT_REVALIDATE_S = 300;
@@ -52,13 +53,16 @@ function serializeError(error, url, elapsedMs, status = null, bodyPreview = null
   };
 }
 
-async function loadInitialSnapshot(url, { normalizePayload, moduleName, nextCacheOptions = null, timeoutMs = null }) {
+async function loadInitialSnapshot(url, { normalizePayload, moduleName, nextCacheOptions = null, timeoutMs = null, entitlementSensitive = false }) {
   const startedAt = Date.now();
   let response = null;
 
-  const fetchOpts = nextCacheOptions
-    ? { method: "GET", headers: { Accept: "application/json" }, next: nextCacheOptions }
-    : { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" };
+  const headers = entitlementSensitive
+    ? await getBackendRequestAuthHeaders()
+    : { Accept: "application/json" };
+  const fetchOpts = nextCacheOptions && !entitlementSensitive
+    ? { method: "GET", headers, next: nextCacheOptions }
+    : { method: "GET", headers, cache: "no-store" };
 
   try {
     response = await fetchWithTimeout(url.toString(), fetchOpts, timeoutMs || getTimeoutMs());
@@ -137,7 +141,7 @@ export async function getPokemonSetSimulationEvidenceInitialSnapshot(setId) {
   return loadInitialSnapshot(url, {
     moduleName: "simulation evidence",
     normalizePayload: normalizePokemonSetSimulationEvidence,
-    nextCacheOptions: { revalidate: 300, tags: [`pokemon-set-simulation-evidence:${resolvedSetId}`] },
+    entitlementSensitive: true,
     timeoutMs: getOverviewTimeoutMs(),
   });
 }
@@ -163,10 +167,7 @@ export async function getPokemonSetOverviewInitialSnapshot(setId, { window = "36
   return loadInitialSnapshot(url, {
     moduleName: "overview",
     normalizePayload: normalizeOverviewPayload,
-    nextCacheOptions: {
-      revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S,
-      tags: [`pokemon-set-overview:${resolvedSetId}:${normalizedWindow}`],
-    },
+    entitlementSensitive: true,
     timeoutMs: getOverviewTimeoutMs(),
   });
 }
@@ -278,6 +279,7 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
   return loadInitialSnapshot(url, {
     moduleName: "market dashboard",
     normalizePayload: normalizeMarketDashboardPayload,
+    entitlementSensitive: true,
   });
 }
 

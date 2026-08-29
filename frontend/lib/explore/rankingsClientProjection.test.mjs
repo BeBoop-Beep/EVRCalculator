@@ -17,7 +17,7 @@ import {
   readSortValue,
   sortRankingsRows,
 } from "../../components/explore/rankingsSort.mjs";
-import { projectRankingsTargets, RANKINGS_CLIENT_FIELDS } from "./rankingsClientProjection.mjs";
+import { projectRankingsTargets, projectRankingsClientBase, RANKINGS_CLIENT_FIELDS } from "./rankingsClientProjection.mjs";
 import { readCanonicalOverallRipV10 } from "../../components/explore/canonicalRipV7.mjs";
 
 /** A target carrying every field the table reads, plus the heavy blocks it does not. */
@@ -242,6 +242,26 @@ test("the client field manifest advertises current packaged and top-level models
     "overallRipV10.leaderNormalizedScore",
     "financialRipV4.relativeScore",
   ]) assert.ok(RANKINGS_CLIENT_FIELDS.includes(path), path);
+});
+
+test("Base serialized Rankings props contain no Plus or Premium sentinels", () => {
+  const PLUS_SENTINEL_FINANCIAL = 918273.123;
+  const PLUS_SENTINEL_BREADTH = "PLUS_BREADTH_SECRET_918273";
+  const PLUS_SENTINEL_PACK50 = 918273;
+  const PREMIUM_SENTINEL_CHASE = 0.918273456;
+  const serialized = JSON.stringify(projectRankingsClientBase([{
+    target_id: "safe-set", name: "Safe Set", checklistSetValue: 42,
+    financialRipV4: { leaderNormalizedScore: PLUS_SENTINEL_FINANCIAL },
+    marketBreadth: PLUS_SENTINEL_BREADTH,
+    rankingsChase: { packsFor50PercentChance: PLUS_SENTINEL_PACK50 },
+    chaseEfficiency: PREMIUM_SENTINEL_CHASE,
+    raw: { secret: PLUS_SENTINEL_FINANCIAL },
+  }]));
+  for (const sentinel of [PLUS_SENTINEL_FINANCIAL, PLUS_SENTINEL_BREADTH, PLUS_SENTINEL_PACK50, PREMIUM_SENTINEL_CHASE]) {
+    assert.equal(serialized.includes(String(sentinel)), false, String(sentinel));
+  }
+  assert.match(serialized, /Safe Set/);
+  assert.match(serialized, /42/);
 });
 
 test("display-only family evidence crosses the lightweight Rankings boundary", () => {

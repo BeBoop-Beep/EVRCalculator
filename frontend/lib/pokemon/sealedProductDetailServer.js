@@ -1,8 +1,7 @@
 import { cache } from "react";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 import { normalizeSealedProductDetail } from "@/lib/pokemon/sealedProductDetailClient";
-
-const DETAIL_REVALIDATE_SECONDS = 120;
+import { getBackendRequestAuthHeaders } from "@/lib/authServer";
 
 export const getSealedProductDetailServer = cache(async function getSealedProductDetailServer(productId) {
   const id = String(productId ?? "").trim();
@@ -12,11 +11,8 @@ export const getSealedProductDetailServer = cache(async function getSealedProduc
     throw error;
   }
   const response = await fetch(`${getBackendApiBaseUrl()}/tcgs/pokemon/sealed-products/${encodeURIComponent(id)}`, {
-    headers: { Accept: "application/json" },
-    next: {
-      revalidate: DETAIL_REVALIDATE_SECONDS,
-      tags: [`pokemon-sealed-product-detail:${id}`],
-    },
+    headers: await getBackendRequestAuthHeaders(),
+    cache: "no-store",
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {

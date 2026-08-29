@@ -45,6 +45,12 @@ export default function RankingsLazyClient({
   const [setsState, setSetsState] = useState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
 
   useEffect(() => {
+    // Auth changes invalidate browser-held tier projections before refetch.
+    setEraState({ status: "idle", contract: null, marketDate: rankingsMarketDate });
+    setSetsState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
+  }, [canViewRankingsIntelligence, rankingsMarketDate]);
+
+  useEffect(() => {
     if (lens !== "eras" || eraLens !== "rankings" || eraState.status !== "idle") return undefined;
     const controller = new AbortController();
     setEraState((current) => ({ ...current, status: "loading" }));

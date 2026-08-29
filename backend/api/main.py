@@ -54,6 +54,8 @@ from backend.domain.access.index_plan_access import (
     project_card_detail_response,
     project_insights_critical_response,
     project_product_rankings_response,
+    project_product_family_rankings_response,
+    project_opening_economics_response,
     project_rankings_response,
     project_sealed_market_response,
     project_sealed_product_detail_response,
@@ -669,18 +671,43 @@ def get_explore_rip_statistics_targets(
 
 
 @app.get("/explore/rankings/lens/{lens}")
-def get_explore_rankings_lens(lens: str, limit: Optional[str] = Query(default=None)):
+def get_explore_rankings_lens(
+    lens: str,
+    limit: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
     """One narrow prepared Rankings publication; no full-cohort enrichment."""
     try:
-        payload = get_pokemon_explore_rankings_lens_payload(lens=lens, limit=limit)
-        if str(lens or "").strip().lower() == "products":
+        normalized_lens = str(lens or "").strip().lower()
+        payload = get_pokemon_explore_rankings_lens_payload(lens=normalized_lens, limit=limit)
+        plan = _resolve_index_plan(authorization, token_cookie)
+        if normalized_lens == "sets":
+            return _tiered_response(project_rankings_response(payload, plan))
+        if normalized_lens == "eras":
+            return _tiered_response({
+                "meta": {key: (payload.get("meta") or {})[key] for key in ("source", "updatedAt", "warnings", "snapshot", "limit") if key in (payload.get("meta") or {})},
+                **({"eraSetStrengthV1": payload.get("eraSetStrengthV1")} if has_index_feature_access(plan, FEATURE_SET_RIP_ANALYTICS) else {}),
+            })
+        if normalized_lens == "products":
             payload = {
-                **payload,
+                "meta": {key: (payload.get("meta") or {})[key] for key in ("source", "updatedAt", "warnings", "snapshot", "limit") if key in (payload.get("meta") or {})},
+                "productFamilyRankings": project_product_family_rankings_response(
+                    payload.get("productFamilyRankings") or {}, plan
+                ),
                 "overallProductRankings": read_public_overall_product_rankings(
                     "full_market", product_family_rankings=payload.get("productFamilyRankings") or {}
                 ),
             }
-        return payload
+            payload["overallProductRankings"] = project_product_rankings_response(
+                payload["overallProductRankings"], plan
+            )
+            return _tiered_response(payload)
+        return JSONResponse(
+            content={"message": "Unsupported Rankings lens", "code": "RANKINGS_LENS_INVALID"},
+            status_code=400,
+            headers={"Cache-Control": "no-store"},
+        )
     except ExploreRipStatisticsTargetsError as exc:
         headers = {"Retry-After": str(exc.retry_after_seconds)} if exc.retry_after_seconds else None
         return JSONResponse(
@@ -755,7 +782,10 @@ def get_pokemon_set_route_directory(limit: int = Query(default=150, ge=1, le=200
 
 
 @app.get("/explore/opening-economics")
-def get_explore_opening_economics():
+def get_explore_opening_economics(
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
     """Global and per-era loose-pack opening economics from the canonical snapshot.
 
     PUBLIC. These are high-level educational market statistics and carry no
@@ -768,7 +798,10 @@ def get_explore_opening_economics():
     Products down with it.
     """
     try:
-        return read_public_opening_economics(service_read_client)
+        return _tiered_response(project_opening_economics_response(
+            read_public_opening_economics(service_read_client),
+            _resolve_index_plan(authorization, token_cookie),
+        ))
     except Exception:
         logger.exception("/explore/opening-economics unexpected error")
         return JSONResponse(

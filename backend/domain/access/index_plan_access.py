@@ -115,6 +115,7 @@ def project_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str
     result: dict[str, Any] = {
         "targets": targets,
         "meta": _pick(payload.get("meta") or {}, _RANKINGS_META_FIELDS),
+        "access": {"rankingsIntelligence": plus, "requiredPlan": "plus"},
     }
     default_target = payload.get("default_target") or payload.get("defaultTarget")
     if isinstance(default_target, Mapping):
@@ -128,7 +129,7 @@ def project_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str
 
 _BASE_PRODUCT_RANKING_FIELDS = frozenset({
     "sealedProductId", "setId", "productName", "setName", "productFamily",
-    "productFamilyLabel", "productImageUrl", "setCanonicalKey", "unitPrice",
+    "productFamilyLabel", "productImageUrl", "setCanonicalKey", "unitPrice", "marketPrice",
 })
 _PLUS_PRODUCT_RANKING_FIELDS = _BASE_PRODUCT_RANKING_FIELDS | frozenset({
     "budgetRank", "budgetCohortSize", "budgetTier", "budgetModelTier", "publicTier",
@@ -152,6 +153,74 @@ def project_product_rankings_response(payload: Mapping[str, Any], plan: Any) -> 
         "rows": [_pick(row, fields) for row in payload.get("rows", []) if isinstance(row, Mapping)],
         **({"authority": payload.get("authority") or {}} if plus else {}),
     }
+
+
+def project_product_family_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
+    """Tier-safe nested Product Family Rankings publication."""
+    plus = has_index_feature_access(plan, FEATURE_PRODUCT_RIP)
+    fields = _PLUS_PRODUCT_RANKING_FIELDS if plus else _BASE_PRODUCT_RANKING_FIELDS
+    source_families = payload.get("families") or {}
+    families: dict[str, Any] = {}
+    if isinstance(source_families, Mapping):
+        for family_id, block in source_families.items():
+            if not isinstance(block, Mapping):
+                continue
+            products = block.get("products") or block.get("rows") or []
+            projected = _pick(block, frozenset({"label", "count", "productFamily", "productFamilyLabel"}))
+            projected["products"] = [
+                _pick(row, fields) for row in products if isinstance(row, Mapping)
+            ]
+            families[str(family_id)] = projected
+    result = {"families": families}
+    if plus:
+        result.update(_pick(payload, frozenset({"authority", "authorityTargetCount"})))
+    return result
+
+
+_OPENING_SCOPE_FIELDS = frozenset({
+    "averageCostPerPack", "averageModelBreakEvenPerPack", "averageEntertainmentCostPerPack",
+    "modeledReturnOnSpend", "entertainmentCostShare", "meanOutcomeRetention",
+    "chanceToRecoverCost", "typicalOpeningPerPack", "typicalRetention",
+    "valuePerPackPercentiles", "normalizedReturnPercentiles", "setCount",
+    "productSkuCount", "productFamilyCount",
+})
+_BASE_OPENING_BREAKDOWN_FIELDS = frozenset({
+    "eraId", "eraName", "setId", "setName", "setCanonicalKey",
+    "setCount", "productSkuCount", "productFamilyCount", "averageCostPerPack",
+})
+
+
+def project_opening_economics_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
+    """Keep the global educational contract public; tier detailed breakdowns."""
+    plus = has_index_feature_access(plan, FEATURE_PACK_ECONOMICS)
+    result = _pick(payload, frozenset({
+        "status", "reason", "contractVersion", "basis", "methodology", "marketDate", "population",
+    }))
+    if isinstance(payload.get("global"), Mapping):
+        result["global"] = _pick(payload["global"], _OPENING_SCOPE_FIELDS)
+    else:
+        result["global"] = None
+    for key in ("eras", "sets"):
+        result[key] = []
+        for row in payload.get(key, []):
+            if not isinstance(row, Mapping):
+                continue
+            projected = _pick(
+                row,
+                _OPENING_SCOPE_FIELDS | _BASE_OPENING_BREAKDOWN_FIELDS
+                if plus else _BASE_OPENING_BREAKDOWN_FIELDS,
+            )
+            if plus and key == "sets":
+                projected["familyEconomics"] = [
+                    _pick(family, _OPENING_SCOPE_FIELDS | frozenset({"family"}))
+                    for family in row.get("familyEconomics", []) if isinstance(family, Mapping)
+                ]
+            result[key].append(projected)
+    result["familyBenchmarks"] = [
+        _pick(row, _OPENING_SCOPE_FIELDS | frozenset({"family"}))
+        for row in payload.get("familyBenchmarks", []) if plus and isinstance(row, Mapping)
+    ]
+    return result
 
 
 _BASE_MARKET_TOP_LEVEL = frozenset({

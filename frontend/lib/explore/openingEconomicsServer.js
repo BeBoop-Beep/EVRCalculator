@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { getBackendRequestAuthHeaders } from "@/lib/authServer";
 
 /**
  * Server-side read of the published global + era opening economics.
@@ -17,7 +18,6 @@ import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
  */
 
 const BACKEND_URL = getBackendApiBaseUrl();
-const REVALIDATE_SECONDS = 120;
 const V3_CONTRACT = "pokemon-rip-stats-v3";
 const V3_METHODOLOGY = "hierarchical_product_per_pack_empirical_v1";
 const V3_WEIGHTING = "equal-set_equal-family_equal-sku-v1";
@@ -39,7 +39,8 @@ export function isOpeningEconomicsV3(payload) {
 async function fetchOpeningEconomics() {
   try {
     const response = await fetch(`${BACKEND_URL}/explore/opening-economics`, {
-      next: { revalidate: REVALIDATE_SECONDS },
+      headers: await getBackendRequestAuthHeaders(),
+      cache: "no-store",
     });
     if (!response.ok) {
       return unavailable("request_failed");
