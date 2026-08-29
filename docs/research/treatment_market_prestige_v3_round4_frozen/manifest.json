@@ -1,0 +1,9 @@
+{
+  "study_id": "treatment-market-prestige-v3-r4-887d1cd0b8b987b2",
+  "definition_id": "tmp-v3-r4-regimes-328e5809d656e75e",
+  "definition_hash": "328e5809d656e75ed1d06c4c8e55934f80e94b29dc8ba829473e66cb92a244c8",
+  "round1_cohort_hash": "3b3818b458fef75f64314b02b1c92e3e153f55746325c2df3db4c9511a2fe950",
+  "study_hash": "e34d147a9d349107a2f6d84a6e35b9b6b25f82e9632a7c39dc50a551a3696f28",
+  "rows": 19847,
+  "rows_persisted": 0
+}
