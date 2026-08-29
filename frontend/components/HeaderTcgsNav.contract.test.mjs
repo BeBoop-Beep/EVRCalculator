@@ -114,7 +114,8 @@ test("the primary public architecture and account destinations are present", () 
   assert.ok(headerSource.includes('href="/my-portfolio"'));
   assert.ok(headerSource.includes('href="/my-portfolio/collection"'));
   assert.ok(headerSource.includes('href="/my-portfolio/wishlist"'));
-  assert.ok(headerSource.includes('href="/login"'));
+  assert.ok(headerSource.includes('aria-haspopup="dialog"'));
+  assert.ok(headerSource.includes("<AuthPopover"));
   assert.ok(headerSource.includes('href="/account-settings"'));
   assert.ok(headerSource.includes('src="/images/inDex.png"'));
   assert.ok(headerSource.includes('aria-controls="mobile-header-menu"'), "the mobile menu toggle is preserved");

@@ -43,3 +43,10 @@ test("pagination uses authoritative totals and never appends pages", () => {
   assert.match(cards, /result\.payload\?\.totalPages/);
   assert.doesNotMatch(cards, /\.\.\.current.*rows/);
 });
+
+test("query results reuse the parent session cache and in-flight request", () => {
+  assert.match(cards, /canonicalCardQueryKey\(params\)/);
+  assert.match(cards, /sessionCache\?\.peek\(cacheKey\)/);
+  assert.match(cards, /sessionCache\.request\(cacheKey, load\)/);
+  assert.doesNotMatch(cards, /controller\.abort/);
+});

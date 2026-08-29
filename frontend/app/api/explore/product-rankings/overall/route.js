@@ -12,6 +12,6 @@ export async function GET(request) {
   };
   return NextResponse.json(payload, {
     status: payload.available === true ? 200 : 503,
-    headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" },
+    headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" },
   });
 }

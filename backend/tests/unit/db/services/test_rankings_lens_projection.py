@@ -25,6 +25,11 @@ class _Query:
         return _Result([self.row])
 
 
+class _RpcQuery(_Query):
+    def execute(self):
+        return _Result(self.row)
+
+
 class _Client:
     def __init__(self, row):
         self.row = row
@@ -34,7 +39,9 @@ class _Client:
         assert name == "pokemon_explore_rankings_snapshot_latest"
         return _Query(self.row, self.selected)
 
-    def rpc(self, *_args, **_kwargs):
+    def rpc(self, name, *_args, **_kwargs):
+        if name == "get_pokemon_rankings_eras_lens":
+            return _RpcQuery(self.row, self.selected)
         raise RuntimeError("compact RPC unavailable in unit fixture")
 
 
@@ -77,8 +84,8 @@ def test_eras_lens_prefers_persisted_canonical_contract(monkeypatch):
     })
 
     assert payload["eraSetStrengthV1"] == persisted
-    assert payload["meta"]["snapshot"]["source"] == "pokemon_explore_rankings_snapshot_latest"
-    assert "eraSetStrengthV1" in client.selected[0]
+    assert payload["meta"]["snapshot"]["source"] == "get_pokemon_rankings_eras_lens"
+    assert "ranking_payload_json->targets" not in "".join(client.selected)
 
 
 def test_eras_lens_derives_canonical_fallback_from_published_targets(monkeypatch):
@@ -91,7 +98,7 @@ def test_eras_lens_derives_canonical_fallback_from_published_targets(monkeypatch
     })
 
     assert payload["eraSetStrengthV1"] == derived
-    assert payload["meta"]["snapshot"]["source"] == "canonical_era_set_strength_v1_fallback_from_published_targets"
+    assert payload["meta"]["snapshot"]["source"] == "canonical_era_set_strength_v1_fallback_from_compact_set_rip_inputs"
     assert payload["meta"]["snapshot"]["persistedProjectionAvailable"] is False
 
 

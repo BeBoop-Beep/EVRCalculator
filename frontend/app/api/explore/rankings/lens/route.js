@@ -50,7 +50,7 @@ export async function GET(request) {
     if (!payload || payload?.meta?.requestFailed) {
       return NextResponse.json(
         { status: "unavailable", targets: [], marketDate: marketDate(payload) },
-        { status: 503, headers: { "Cache-Control": "private, no-store" } },
+        { status: 503, headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" } },
       );
     }
     const eligible = (Array.isArray(payload?.targets) ? payload.targets : [])
@@ -58,7 +58,7 @@ export async function GET(request) {
     if (eligible.length === 0) {
       return NextResponse.json(
         { status: "unavailable", targets: [], marketDate: marketDate(payload) },
-        { status: 503, headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
+        { status: 503, headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" } },
       );
     }
     return NextResponse.json(
@@ -70,7 +70,7 @@ export async function GET(request) {
         access: payload?.access || { rankingsIntelligence: false, requiredPlan: "plus" },
         marketDate: marketDate(payload),
       },
-      { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
+      { headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" } },
     );
   }
 
@@ -81,13 +81,13 @@ export async function GET(request) {
     if (payload && !payload?.meta?.requestFailed && access.rankingsIntelligence !== true) {
       return NextResponse.json(
         { status: "locked", eraSetStrength: null, access, marketDate: marketDate(payload) },
-        { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
+        { headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" } },
       );
     }
     if (!payload || payload?.meta?.requestFailed || !Array.isArray(eraSetStrength?.eras)) {
       return NextResponse.json(
         { status: "unavailable", eraSetStrength: null, marketDate: marketDate(payload) },
-        { status: 503, headers: { "Cache-Control": "private, no-store" } },
+        { status: 503, headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" } },
       );
     }
     return NextResponse.json(
@@ -97,7 +97,7 @@ export async function GET(request) {
         access,
         marketDate: marketDate(payload),
       },
-      { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
+      { headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" } },
     );
   }
 
@@ -114,7 +114,7 @@ export async function GET(request) {
           overallProductRankings,
           marketDate: marketDate(payload),
         },
-        { status: 503, headers: { "Cache-Control": "private, no-store" } },
+        { status: 503, headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" } },
       );
     }
     return NextResponse.json(
@@ -124,7 +124,7 @@ export async function GET(request) {
         overallProductRankings,
         marketDate: marketDate(payload),
       },
-      { headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" } },
+      { headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" } },
     );
   }
 

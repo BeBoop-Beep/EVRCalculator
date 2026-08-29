@@ -14,6 +14,7 @@ import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { getTierTone } from "@/lib/explore/interpretationTone";
+import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
 import { normalizeOverallProductResult, sortProductRankingRows } from "./rankingsProductLensModel.mjs";
 
@@ -173,7 +174,7 @@ function LoadingPanel() {
   return <section className={`${styles.surface} set-glass-surface`} aria-busy="true"><p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Loading product rankings…</p></section>;
 }
 
-export default function RankingsProductLensClient() {
+export default function RankingsProductLensClient({ sessionCache }) {
   const { canViewRankingsIntelligence, authStatus, requestKey } = useRankingsAccess();
   const entitled = canViewRankingsIntelligence;
   const [state, setState] = useState({ status: "idle", productFamilyRankings: null, overallProductRankings: null });
@@ -184,7 +185,6 @@ export default function RankingsProductLensClient() {
   const [sortDirection, setSortDirection] = useState(entitled ? "desc" : "asc");
   const [budgetKey, setBudgetKey] = useState("full_market");
   const [overallResult, setOverallResult] = useState(null);
-  const resultCache = useRef(new Map());
   const budgetRequest = useRef(null);
 
   useEffect(() => {
@@ -196,7 +196,7 @@ export default function RankingsProductLensClient() {
 
   useEffect(() => {
     if (authStatus !== "resolved") return undefined;
-    const cached = resultCache.current.get(requestKey);
+    const cached = sessionCache?.peek("products:full_market");
     if (cached) {
       setState(cached.state);
       setOverallResult(cached.overallResult);
@@ -204,34 +204,41 @@ export default function RankingsProductLensClient() {
     }
     setState({ status: "loading", productFamilyRankings: null, overallProductRankings: null });
     setOverallResult(null);
-    const controller = new AbortController();
+    markRankingsLens("products", "request-start");
     let active = true;
-    let timedOut = false;
-    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 12000);
-    fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store", signal: controller.signal })
+    const load = () => fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store" })
       .then(async (response) => {
         const payload = await response.json();
         if (!response.ok && response.status !== 503) throw new Error(payload?.message || "Unable to load product rankings");
         return payload;
       })
       .then((payload) => {
-        if (!active) return;
         const nextState = {
           status: payload?.status === "available" ? "ready" : "unavailable",
           productFamilyRankings: payload?.productFamilyRankings || null,
           overallProductRankings: payload?.overallProductRankings || null,
         };
         const nextOverall = normalizeOverallProductResult(payload?.overallProductRankings);
-        if (nextState.status === "ready") resultCache.current.set(requestKey, { state: nextState, overallResult: nextOverall });
-        setState(nextState);
-        setOverallResult(nextOverall);
+        if (nextState.status !== "ready") throw new Error("Product rankings are unavailable");
+        return { state: nextState, overallResult: nextOverall };
+      });
+    (sessionCache ? sessionCache.request("products:full_market", load, { force: retryNonce > 0 }) : load())
+      .then((cachedResult) => {
+        if (!active) return;
+        markRankingsLens("products", "response-received");
+        setState(cachedResult.state);
+        setOverallResult(cachedResult.overallResult);
       })
       .catch((error) => {
         if (!active) return;
-        setState({ status: "error", error: timedOut ? "Request timed out" : error.message, productFamilyRankings: null, overallProductRankings: null });
+        setState({ status: "error", error: error.message, productFamilyRankings: null, overallProductRankings: null });
       });
-    return () => { active = false; clearTimeout(timeout); controller.abort(); };
-  }, [authStatus, requestKey, retryNonce]);
+    return () => { active = false; };
+  }, [authStatus, requestKey, retryNonce, sessionCache]);
+
+  useEffect(() => {
+    if (state.status === "ready") requestAnimationFrame(() => markRankingsLens("products", "render-ready"));
+  }, [state.status]);
 
   const families = useMemo(
     () => state.productFamilyRankings?.families || {},
@@ -262,10 +269,12 @@ export default function RankingsProductLensClient() {
     const controller = new AbortController();
     budgetRequest.current = controller;
     const identityAtRequest = requestKey;
-    fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", signal: controller.signal })
+    const load = () => fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", signal: controller.signal })
       .then((response) => response.json())
-      .then((payload) => {
-        if (!controller.signal.aborted && identityAtRequest === requestKey) setOverallResult(normalizeOverallProductResult(payload));
+      .then((payload) => normalizeOverallProductResult(payload));
+    (sessionCache ? sessionCache.request(`products:${next}`, load) : load())
+      .then((nextResult) => {
+        if (!controller.signal.aborted && identityAtRequest === requestKey) setOverallResult(nextResult);
       })
       .catch((error) => {
         if (error.name !== "AbortError" && identityAtRequest === requestKey) setOverallResult(normalizeOverallProductResult(null));

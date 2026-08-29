@@ -1850,7 +1850,7 @@ _RANKINGS_LENS_SELECTS = {
     ),
     "eras": (
         "eraSetStrengthV1:ranking_payload_json->eraSetStrengthV1,"
-        "targets:ranking_payload_json->targets,meta:ranking_payload_json->meta,updated_at"
+        "meta:ranking_payload_json->meta,updated_at"
     ),
     "products": (
         "productFamilyRankings:ranking_payload_json->productFamilyRankings,"
@@ -1874,6 +1874,15 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
     clamped_limit = _sanitize_limit(limit, default=DEFAULT_RANKINGS_LIMIT, max_value=MAX_RANKINGS_LIMIT)
 
     def load(client: Any):
+        if resolved_lens == "eras":
+            try:
+                result = client.rpc("get_pokemon_rankings_eras_lens").execute()
+                if isinstance(result.data, dict):
+                    return {**result.data, "_compact_era_rpc": True}
+            except Exception as exc:
+                # Never fall back to selecting the complete Set cohort. Older
+                # publications are supported by the compact Era input RPC.
+                logger.warning("compact Era Rankings lens unavailable; checking persisted projection: %s", exc)
         if resolved_lens == "sets":
             try:
                 result = client.rpc("get_pokemon_rankings_sets_lens", {"p_limit": clamped_limit}).execute()
@@ -1919,8 +1928,11 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
         )
     snapshot = dict(meta.get("snapshot") or {})
     snapshot.update({
-        "source": "get_pokemon_rankings_sets_lens"
-        if row.get("_compact_rpc") else "pokemon_explore_rankings_snapshot_latest",
+        "source": (
+            "get_pokemon_rankings_sets_lens" if row.get("_compact_rpc")
+            else "get_pokemon_rankings_eras_lens" if row.get("_compact_era_rpc")
+            else "pokemon_explore_rankings_snapshot_latest"
+        ),
         "updatedAt": _to_optional_str(row.get("updated_at")),
         "publicationIdentity": "current",
     })
@@ -1936,12 +1948,14 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
         target for target in list(row.get("targets") or [])
         if isinstance(target, dict) and is_opening_set_row(target)
     ][:clamped_limit]
-    if not targets:
-        raise ExploreRipStatisticsTargetsError(503, f"{resolved_lens.title()} Rankings publication is incomplete", "RANKINGS_LENS_INCOMPLETE")
     if resolved_lens == "eras":
         persisted = row.get("eraSetStrengthV1")
         if isinstance(persisted, dict) and isinstance(persisted.get("eras"), list):
             return {"eraSetStrengthV1": persisted, "meta": meta}
+        if not row.get("_compact_era_rpc") or not targets:
+            raise ExploreRipStatisticsTargetsError(
+                503, "Era Rankings publication is incomplete", "RANKINGS_LENS_INCOMPLETE"
+            )
         fallback = build_era_set_strength(targets)
         return {
             "eraSetStrengthV1": fallback,
@@ -1949,11 +1963,13 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
                 **meta,
                 "snapshot": {
                     **snapshot,
-                    "source": "canonical_era_set_strength_v1_fallback_from_published_targets",
+                    "source": "canonical_era_set_strength_v1_fallback_from_compact_set_rip_inputs",
                     "persistedProjectionAvailable": False,
                 },
             },
         }
+    if not targets:
+        raise ExploreRipStatisticsTargetsError(503, f"{resolved_lens.title()} Rankings publication is incomplete", "RANKINGS_LENS_INCOMPLETE")
     return {
         "targets": targets,
         "default_target": row.get("default_target") or row.get("default_target_json") or None,

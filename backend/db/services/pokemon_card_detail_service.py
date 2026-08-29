@@ -17,6 +17,9 @@ from backend.db.services.pokemon_set_market_service import (
 from backend.db.services.rip_decision_service import _load_current_run_product_rows
 from backend.db.services.pokemon_sets_catalog_service import _slugify as canonical_set_route_slug
 from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
+from backend.db.services.treatment_market_prestige_v3_service import (
+    resolve_card_treatment_market_prestige,
+)
 
 
 class PokemonCardDetailError(Exception):
@@ -584,6 +587,10 @@ def get_pokemon_card_detail_payload(
         active, str(card_id), card.get("rarity"), variant=by_id.get(selected or "", {}),
         era_id=set_row.get("era_id"), supertype=card.get("supertype"),
     )
+    treatment_market_prestige = resolve_card_treatment_market_prestige(
+        set_id=resolved_set_id, era_id=_text(set_row.get("era_id")),
+        rarity=card.get("rarity"), client=active,
+    )
 
     return {
         "set": {"id": resolved_set_id, "targetId": _text(set_row.get("canonical_key")), "name": _text(set_row.get("name")), "slug": canonical_set_route_slug(_text(set_row.get("name")) or ""),
@@ -605,9 +612,10 @@ def get_pokemon_card_detail_payload(
         "market": market,
         "chase": chase,
         "intelligence": intelligence,
+        "treatmentMarketPrestige": treatment_market_prestige,
         "meta": {
             "contractVersion": "pokemon_card_detail_v3",
-            "sources": ["pokemon_canonical_cards", "card_variant_price_observations", "simulation_input_cards", "simulation_card_variant_pull_rates", "simulation_input_cards_with_near_mint_price", "simulation_sealed_product_results", "pokemon_card_desirability_links", "pokemon_desirability_composite_scores"],
+            "sources": ["pokemon_canonical_cards", "card_variant_price_observations", "simulation_input_cards", "simulation_card_variant_pull_rates", "simulation_input_cards_with_near_mint_price", "simulation_sealed_product_results", "pokemon_card_desirability_links", "pokemon_desirability_composite_scores", "latest_approved_treatment_market_prestige"],
             "wholeSetChaseSnapshotRead": False,
             "requestedVariantValid": requested_is_valid if requested else None,
         },

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import TableSearchInput from "@/components/ui/TableSearchInput";
 import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient";
+import { canonicalCardQueryKey } from "@/lib/rankings/rankingsSessionCache.mjs";
+import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
 
 const SORTS = [
@@ -41,7 +43,7 @@ function odds(row) { const p = value(row?.exactPullProbability); return p && p >
 function spend50(row) { return value(row?.chaseSpend50 ?? row?.milestones?.["50"]?.spend); }
 function multiple50(row) { const direct = value(row?.costMultiple50); const spend = spend50(row), price = value(row?.currentNearMintMarketPrice); return direct ?? (spend !== null && price ? spend / price : null); }
 
-export default function CardChaseEfficiencyRankings({ entitled, targets = [] }) {
+export default function CardChaseEfficiencyRankings({ entitled, targets = [], sessionCache }) {
   const [filters, setFilters] = useState({ search: "", era: "", set: "", rarity: "", min_price: "", max_price: "", sort: "chase_efficiency", direction: "desc" });
   const [page, setPage] = useState(1); const [result, setResult] = useState({ status: "idle", payload: null });
   const sets = useMemo(() => new Map(targets.map((target) => [String(target?.set_id || target?.target_id || target?.id), {
@@ -55,16 +57,21 @@ export default function CardChaseEfficiencyRankings({ entitled, targets = [] }) 
       setResult({ status: "idle", payload: null });
       return undefined;
     }
-    const controller = new AbortController(); const timer = setTimeout(() => {
+    let active = true; const timer = setTimeout(() => {
       const params = new URLSearchParams({ page: String(page), page_size: "50", sort, direction });
       for (const [key, input] of Object.entries({ search, era, set: selectedSet, rarity, min_price: minPrice, max_price: maxPrice })) if (String(input || "").trim()) params.set(key, input);
+      const cacheKey = canonicalCardQueryKey(params);
+      const cached = sessionCache?.peek(cacheKey);
+      if (cached) { markRankingsLens("cards", "render-ready"); setResult({ status: "ready", payload: cached }); return; }
       setResult((current) => ({ ...current, status: "loading" }));
-      fetch(`/api/explore/card-chase-efficiency?${params}`, { cache: "no-store", signal: controller.signal })
+      markRankingsLens("cards", "request-start");
+      const load = () => fetch(`/api/explore/card-chase-efficiency?${params}`, { cache: "no-store" })
         .then(async (response) => { const payload = await response.json(); if (!response.ok) throw new Error(payload?.detail?.message || payload?.message || "Unable to load rankings"); return payload; })
-        .then((payload) => setResult({ status: "ready", payload })).catch((error) => { if (error.name !== "AbortError") setResult({ status: "error", error: error.message, payload: null }); });
+      const request = sessionCache ? sessionCache.request(cacheKey, load) : load();
+      request.then((payload) => { if (active) { markRankingsLens("cards", "response-received"); setResult({ status: "ready", payload }); requestAnimationFrame(() => markRankingsLens("cards", "render-ready")); } }).catch((error) => { if (active && error.name !== "AbortError") setResult((current) => ({ status: "error", error: error.message, payload: current.payload })); });
     }, search ? 250 : 0);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [entitled, page, search, era, selectedSet, rarity, minPrice, maxPrice, sort, direction]);
+    return () => { active = false; clearTimeout(timer); };
+  }, [entitled, page, search, era, selectedSet, rarity, minPrice, maxPrice, sort, direction, sessionCache]);
   if (!entitled) return <LockedCards />;
   const update = (key, next) => { setFilters((current) => ({ ...current, [key]: next, ...(key === "era" ? { set: "" } : {}) })); setPage(1); };
   const rows = result.payload?.rows || [];

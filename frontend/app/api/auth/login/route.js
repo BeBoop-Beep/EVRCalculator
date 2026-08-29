@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { setAppSessionCookie } from "@/lib/auth/appSession";
 
 function getBackendBaseUrl() {
   return getBackendApiBaseUrl();
@@ -45,13 +46,7 @@ export async function POST(req) {
     const response = NextResponse.json(responsePayload, { status: proxyResponse.status });
 
     if (proxyResponse.ok && token) {
-      response.cookies.set("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24,
-        path: "/",
-      });
+      setAppSessionCookie(response, token);
     }
 
     return response;

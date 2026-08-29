@@ -28,7 +28,7 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
     "CardChaseEfficiencyRankings",
     "RankingsProductLensClient",
   ]) {
-    assert.ok(source.includes(`dynamic(() => import(\"./${moduleName}\")`), `${moduleName} must stay dynamically imported`);
+    assert.ok(source.includes(`import(\"./${moduleName}\")`), `${moduleName} must stay dynamically imported`);
   }
   assert.ok(source.includes('/api/explore/rankings/lens?lens=sets'));
   assert.ok(source.includes('/api/explore/rankings/lens?lens=eras'));

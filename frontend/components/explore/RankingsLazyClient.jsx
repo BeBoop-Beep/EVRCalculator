@@ -1,18 +1,29 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
+import { canonicalCardQueryKey, createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.mjs";
+import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
 
-const OpeningEconomicsOverall = dynamic(() => import("./OpeningEconomicsOverall"), { loading: LensSkeleton });
-const OpeningEconomicsEras = dynamic(() => import("./OpeningEconomicsEras"), { loading: LensSkeleton });
-const EraRankings = dynamic(() => import("./EraRankings"), { loading: LensSkeleton });
-const SetPackMetrics = dynamic(() => import("./SetPackMetrics"), { loading: LensSkeleton });
-const ExploreTableClient = dynamic(() => import("./ExploreTableClient"), { loading: LensSkeleton });
-const CardChaseEfficiencyRankings = dynamic(() => import("./CardChaseEfficiencyRankings"), { loading: LensSkeleton });
-const RankingsProductLensClient = dynamic(() => import("./RankingsProductLensClient"), { loading: LensSkeleton });
+const lensModules = {
+  overall: () => import("./OpeningEconomicsOverall"),
+  eraEconomics: () => import("./OpeningEconomicsEras"),
+  eras: () => import("./EraRankings"),
+  setEconomics: () => import("./SetPackMetrics"),
+  sets: () => import("./ExploreTableClient"),
+  cards: () => import("./CardChaseEfficiencyRankings"),
+  products: () => import("./RankingsProductLensClient"),
+};
+const OpeningEconomicsOverall = dynamic(lensModules.overall, { loading: LensSkeleton });
+const OpeningEconomicsEras = dynamic(lensModules.eraEconomics, { loading: LensSkeleton });
+const EraRankings = dynamic(lensModules.eras, { loading: LensSkeleton });
+const SetPackMetrics = dynamic(lensModules.setEconomics, { loading: LensSkeleton });
+const ExploreTableClient = dynamic(lensModules.sets, { loading: LensSkeleton });
+const CardChaseEfficiencyRankings = dynamic(lensModules.cards, { loading: LensSkeleton });
+const RankingsProductLensClient = dynamic(lensModules.products, { loading: LensSkeleton });
 
 function LensSkeleton() {
   return (
@@ -43,90 +54,140 @@ export default function RankingsLazyClient({
   const [selectedEra, setSelectedEra] = useState(null);
   const [eraState, setEraState] = useState({ status: "idle", contract: null, marketDate: rankingsMarketDate });
   const [setsState, setSetsState] = useState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
-  const [eraRetry, setEraRetry] = useState(0);
-  const [setsRetry, setSetsRetry] = useState(0);
-  const eraCache = useRef(new Map());
-  const setsCache = useRef(new Map());
+  const publicationIdentity = rankingsMarketDate || "current";
+  const sessionCache = useMemo(
+    () => createRankingsSessionCache(`${requestKey}:${publicationIdentity}`),
+    [requestKey, publicationIdentity],
+  );
+  const warmGeneration = useRef(0);
 
-  useEffect(() => {
-    if (lens !== "eras" || eraLens !== "rankings") return undefined;
-    if (authStatus !== "resolved") return undefined;
-    if (!canViewRankingsIntelligence) {
-      setEraState({ status: "locked", contract: null, marketDate: rankingsMarketDate });
-      return undefined;
+  const loadEra = useCallback(async ({ force = false, foreground = false } = {}) => {
+    if (authStatus !== "resolved" || !canViewRankingsIntelligence) {
+      const locked = { status: "locked", contract: null, marketDate: rankingsMarketDate, cacheIdentity: sessionCache.identity };
+      if (foreground) setEraState(locked);
+      return locked;
     }
-    const cacheKey = `${requestKey}:${rankingsMarketDate || "current"}`;
-    const cached = eraCache.current.get(cacheKey);
-    if (cached) {
-      setEraState(cached);
-      return undefined;
-    }
-    const controller = new AbortController();
-    let active = true;
-    let timedOut = false;
-    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 12000);
-    setEraState({ status: "loading", contract: null, marketDate: rankingsMarketDate });
-    fetch("/api/explore/rankings/lens?lens=eras", { cache: "no-store", signal: controller.signal })
-      .then((response) => readLens(response, "Unable to load era rankings"))
-      .then((payload) => {
-        if (!active) return;
-        const next = {
+    const cached = !force && sessionCache.peek("eras:rankings");
+    if (cached) { setEraState(cached); return cached; }
+    if (foreground) setEraState((current) => ({ ...current, status: "loading" }));
+    markRankingsLens("eras", "request-start");
+    try {
+      const next = await sessionCache.request("eras:rankings", async () => {
+        const payload = await fetch("/api/explore/rankings/lens?lens=eras", { cache: "no-store" })
+          .then((response) => readLens(response, "Unable to load era rankings"));
+        const value = {
           status: payload?.status === "locked" ? "locked" : payload?.status === "available" && Array.isArray(payload?.eraSetStrength?.eras) ? "ready" : "unavailable",
           contract: payload?.eraSetStrength || null,
           marketDate: payload?.marketDate || rankingsMarketDate,
+          cacheIdentity: sessionCache.identity,
         };
-        if (next.status === "ready") eraCache.current.set(cacheKey, next);
-        setEraState(next);
-      })
-      .catch((error) => {
-        if (!active) return;
-        setEraState({ status: "error", error: timedOut ? "Request timed out" : error.message, contract: null, marketDate: rankingsMarketDate });
-      });
-    return () => { active = false; clearTimeout(timeout); controller.abort(); };
-  }, [lens, eraLens, rankingsMarketDate, canViewRankingsIntelligence, authStatus, requestKey, eraRetry]);
+        if (value.status !== "ready") throw new Error("Era rankings are unavailable");
+        return value;
+      }, { force });
+      setEraState(next);
+      markRankingsLens("eras", "response-received");
+      return next;
+    } catch (error) {
+      const failed = { status: "error", error: error.message, contract: null, marketDate: rankingsMarketDate, cacheIdentity: sessionCache.identity };
+      if (foreground) setEraState(failed);
+      return failed;
+    }
+  }, [authStatus, canViewRankingsIntelligence, rankingsMarketDate, sessionCache]);
+
+  const loadSets = useCallback(async ({ force = false, foreground = false } = {}) => {
+    const cached = !force && sessionCache.peek("sets:rankings");
+    if (cached) { setSetsState(cached); return cached; }
+    if (foreground) setSetsState((current) => ({ ...current, status: "loading" }));
+    markRankingsLens("sets", "request-start");
+    try {
+      const next = await sessionCache.request("sets:rankings", async () => {
+        const payload = await fetch("/api/explore/rankings/lens?lens=sets", { cache: "no-store" })
+          .then((response) => readLens(response, "Unable to load set rankings"));
+        const value = { status: payload?.status === "available" && Array.isArray(payload?.targets) && payload.targets.length > 0 ? "ready" : "unavailable", targets: Array.isArray(payload?.targets) ? payload.targets : [], marketDate: payload?.marketDate || rankingsMarketDate, cacheIdentity: sessionCache.identity };
+        if (value.status !== "ready") throw new Error("Set rankings are unavailable");
+        return value;
+      }, { force });
+      setSetsState(next);
+      markRankingsLens("sets", "response-received");
+      return next;
+    } catch (error) {
+      const failed = { status: "error", error: error.message, targets: [], marketDate: rankingsMarketDate, cacheIdentity: sessionCache.identity };
+      if (foreground) setSetsState(failed);
+      return failed;
+    }
+  }, [rankingsMarketDate, sessionCache]);
+
+  const warmProducts = useCallback(() => sessionCache.request("products:full_market", async () => {
+    const [payload, model] = await Promise.all([
+      fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store" }).then((response) => readLens(response, "Unable to load product rankings")),
+      import("./rankingsProductLensModel.mjs"),
+    ]);
+    if (payload?.status !== "available") throw new Error("Product rankings are unavailable");
+    return { state: { status: "ready", productFamilyRankings: payload.productFamilyRankings || null, overallProductRankings: payload.overallProductRankings || null }, overallResult: model.normalizeOverallProductResult(payload.overallProductRankings) };
+  }), [sessionCache]);
+
+  const warmCards = useCallback(() => {
+    if (!canViewCardChaseEfficiency) return Promise.resolve(null);
+    const params = new URLSearchParams({ page: "1", page_size: "50", sort: "chase_efficiency", direction: "desc" });
+    const key = canonicalCardQueryKey(params);
+    return sessionCache.request(key, () => fetch(`/api/explore/card-chase-efficiency?${params}`, { cache: "no-store" }).then((response) => readLens(response, "Unable to load card rankings")));
+  }, [canViewCardChaseEfficiency, sessionCache]);
 
   useEffect(() => {
-    if (lens !== "sets") return undefined;
+    if (lens === "eras" && eraLens === "rankings") loadEra({ foreground: true });
+  }, [lens, eraLens, loadEra]);
+  useEffect(() => {
+    if (lens === "sets") loadSets({ foreground: true });
+  }, [lens, loadSets]);
+  useEffect(() => {
+    if (lens === "eras" && eraLens === "rankings" && eraState.status === "ready") requestAnimationFrame(() => markRankingsLens("eras", "render-ready"));
+    if (lens === "sets" && setsState.status === "ready") requestAnimationFrame(() => markRankingsLens("sets", "render-ready"));
+  }, [lens, eraLens, eraState.status, setsState.status]);
+
+  useEffect(() => {
     if (authStatus !== "resolved") return undefined;
-    const cacheKey = `${requestKey}:${rankingsMarketDate || "current"}`;
-    const cached = setsCache.current.get(cacheKey);
-    if (cached) {
-      setSetsState(cached);
-      return undefined;
-    }
-    const controller = new AbortController();
-    let active = true;
-    let timedOut = false;
-    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 12000);
-    setSetsState({ status: "loading", targets: [], marketDate: rankingsMarketDate });
-    fetch("/api/explore/rankings/lens?lens=sets", { cache: "no-store", signal: controller.signal })
-      .then((response) => readLens(response, "Unable to load set rankings"))
-      .then((payload) => {
-        if (!active) return;
-        const next = {
-          status: payload?.status === "available" && Array.isArray(payload?.targets) && payload.targets.length > 0 ? "ready" : "unavailable",
-          targets: Array.isArray(payload?.targets) ? payload.targets : [],
-          marketDate: payload?.marketDate || rankingsMarketDate,
-        };
-        if (next.status === "ready") setsCache.current.set(cacheKey, next);
-        setSetsState(next);
-      })
-      .catch((error) => {
-        if (!active) return;
-        setSetsState({ status: "error", error: timedOut ? "Request timed out" : error.message, targets: [], marketDate: rankingsMarketDate });
-      });
-    return () => { active = false; clearTimeout(timeout); controller.abort(); };
-  }, [lens, rankingsMarketDate, authStatus, requestKey, setsRetry]);
+    if (typeof navigator !== "undefined" && navigator.connection?.saveData) return undefined;
+    const generation = ++warmGeneration.current;
+    const idle = (task) => new Promise((resolve) => {
+      const run = () => { if (generation !== warmGeneration.current) return resolve(); Promise.resolve(task()).catch(() => null).finally(resolve); };
+      if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 1500 });
+      else setTimeout(run, 180);
+    });
+    (async () => {
+      await idle(() => Promise.all([lensModules.eraEconomics(), lensModules.setEconomics()]));
+      await idle(() => canViewRankingsIntelligence ? loadEra() : null);
+      await idle(() => loadSets());
+      await idle(() => warmProducts());
+      await idle(() => canViewCardChaseEfficiency ? Promise.all([lensModules.cards(), warmCards()]) : null);
+    })();
+    return () => { warmGeneration.current += 1; };
+  }, [authStatus, canViewRankingsIntelligence, canViewCardChaseEfficiency, loadEra, loadSets, warmCards, warmProducts]);
 
   const changeLens = (next) => {
+    markRankingsLens(next, "selected");
+    lensModules[next]?.().then(() => markRankingsLens(next, "module-ready"));
+    if (next === "eras") loadEra({ foreground: true });
+    if (next === "sets") loadSets({ foreground: true });
+    if (next === "products") warmProducts().catch(() => null);
+    if (next === "cards") warmCards().catch(() => null);
     setActiveLens(next);
     if (next !== "sets") setSelectedEra(null);
     if (next === "eras") setEraLens("rankings");
     if (next === "sets") setSetAnalysisLens("rankings");
   };
 
-  const setTargets = setsState.status === "ready" ? setsState.targets : [];
-  const setsUnavailable = setsState.status === "unavailable" || setsState.status === "error";
+  const signalIntent = (next) => {
+    lensModules[next]?.().then(() => markRankingsLens(next, "module-ready"));
+    if (next === "eras") loadEra();
+    if (next === "sets") loadSets();
+    if (next === "products") warmProducts().catch(() => null);
+    if (next === "cards" && canViewCardChaseEfficiency) warmCards().catch(() => null);
+  };
+
+  const visibleEraState = eraState.cacheIdentity === sessionCache.identity ? eraState : { status: "idle", contract: null, marketDate: rankingsMarketDate };
+  const visibleSetsState = setsState.cacheIdentity === sessionCache.identity ? setsState : { status: "idle", targets: [], marketDate: rankingsMarketDate };
+  const setTargets = visibleSetsState.status === "ready" ? visibleSetsState.targets : [];
+  const setsUnavailable = visibleSetsState.status === "unavailable" || visibleSetsState.status === "error";
 
   return (
     <>
@@ -139,10 +200,10 @@ export default function RankingsLazyClient({
         mobileScroll
         options={[
           { value: "overall", label: "Overall" },
-          { value: "eras", label: "Eras" },
-          { value: "sets", label: "Sets" },
-          { value: "products", label: "Products" },
-          { value: "cards", label: "Cards" },
+          { value: "eras", label: "Eras", onIntent: () => signalIntent("eras") },
+          { value: "sets", label: "Sets", onIntent: () => signalIntent("sets") },
+          { value: "products", label: "Products", onIntent: () => signalIntent("products") },
+          { value: "cards", label: "Cards", onIntent: () => signalIntent("cards") },
         ]}
       />
 
@@ -169,20 +230,20 @@ export default function RankingsLazyClient({
         <OpeningEconomicsOverall economics={openingEconomics} targets={targets} />
       ) : lens === "eras" ? (
         eraLens === "rankings" ? (
-          eraState.status === "ready" ? (
+          visibleEraState.status === "ready" ? (
             <EraRankings
-              contract={eraState.contract}
-              marketDate={eraState.marketDate}
+              contract={visibleEraState.contract}
+              marketDate={visibleEraState.marketDate}
               onSelectEra={(era) => {
                 setSelectedEra(era?.eraName || null);
                 setSetAnalysisLens("rankings");
                 setActiveLens("sets");
               }}
             />
-          ) : eraState.status === "locked" ? (
+          ) : visibleEraState.status === "locked" ? (
             <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Era Rankings are available with Index Plus or Premium.</section>
-          ) : eraState.status === "unavailable" || eraState.status === "error" ? (
-            <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Era rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => setEraRetry((value) => value + 1)}>Retry</button></section>
+          ) : visibleEraState.status === "unavailable" || visibleEraState.status === "error" ? (
+            <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Era rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => loadEra({ force: true, foreground: true })}>Retry</button></section>
           ) : <LensSkeleton />
         ) : (
           <OpeningEconomicsEras
@@ -196,8 +257,8 @@ export default function RankingsLazyClient({
           />
         )
       ) : lens === "sets" ? (
-        setsState.status === "loading" || setsState.status === "idle" ? <LensSkeleton /> : setsUnavailable ? (
-          <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Set rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => setSetsRetry((value) => value + 1)}>Retry</button></section>
+        visibleSetsState.status === "loading" || visibleSetsState.status === "idle" ? <LensSkeleton /> : setsUnavailable ? (
+          <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Set rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => loadSets({ force: true, foreground: true })}>Retry</button></section>
         ) : (
           <>
             {selectedEra ? (
@@ -217,9 +278,9 @@ export default function RankingsLazyClient({
           </>
         )
       ) : lens === "products" ? (
-        <RankingsProductLensClient />
+        <RankingsProductLensClient key={sessionCache.identity} sessionCache={sessionCache} />
       ) : (
-        <CardChaseEfficiencyRankings entitled={canViewCardChaseEfficiency} targets={targets} />
+        <CardChaseEfficiencyRankings key={sessionCache.identity} entitled={canViewCardChaseEfficiency} targets={targets} sessionCache={sessionCache} />
       )}
     </>
   );

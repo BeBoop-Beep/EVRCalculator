@@ -71,23 +71,9 @@ export function AuthProvider({ children, initialUser = null }) {
   
       const data = await response.json();
   
-      if (response.ok && data.token) {
-        const meResponse = await fetch("/api/auth/me", {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (meResponse.ok) {
-          const meData = await meResponse.json();
-          setUser(meData.user || { token: data.token });
-        } else {
-          setUser({ token: data.token });
-        }
-
-        setAuthRevision((value) => value + 1);
-        router.refresh();
-
-        return { token: data.token };
+      if (response.ok) {
+        await refreshUser();
+        return { success: true };
       } else {
         return { error: data.message || "Invalid credentials" };
       }
@@ -109,7 +95,8 @@ export function AuthProvider({ children, initialUser = null }) {
     }
 
     setUser(null);
-    router.push("/login");
+    setAuthRevision((value) => value + 1);
+    router.refresh();
   };
 
   return (

@@ -30,6 +30,7 @@ from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.calculation_run_query_service import get_latest_evr_run_snapshot
 from backend.db.services.frontend_proxy_service import (
     decode_token,
+    exchange_supabase_access_token,
     get_current_profile,
     get_me,
     get_products,
@@ -198,6 +199,10 @@ class SignupRequest(BaseModel):
     name: str
     email: str
     password: str
+
+
+class SupabaseExchangeRequest(BaseModel):
+    access_token: str = Field(min_length=1)
 
 
 class HoldingMutateRequest(BaseModel):
@@ -1049,13 +1054,19 @@ async def auth_login_legacy(payload: LoginRequest):
         return JSONResponse(content={"message": "Unexpected server error"}, status_code=500)
 
 
+@app.post("/auth/supabase/exchange")
+async def auth_supabase_exchange(payload: SupabaseExchangeRequest):
+    response_payload, status = exchange_supabase_access_token(payload.access_token)
+    return JSONResponse(content=response_payload, status_code=status)
+
+
 @app.post("/auth/signup")
 async def auth_signup(_payload: SignupRequest):
     logger.info("/auth/signup: started, env_presence=%s", _auth_env_presence())
     logger.info("/auth/signup: request body parsed successfully")
     return JSONResponse(
-        content={"detail": "Account creation is currently invite-only."},
-        status_code=403,
+        content={"detail": "Use the Supabase signup flow and verified session exchange.", "code": "USE_SUPABASE_SIGNUP"},
+        status_code=410,
     )
 
 
