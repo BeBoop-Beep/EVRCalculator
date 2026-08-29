@@ -1,50 +1,36 @@
-import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import { getOpeningEconomics } from "@/lib/explore/openingEconomicsServer";
+import { getPokemonSetRouteDirectory } from "@/lib/pokemon/pokemonSetRouteDirectoryServer";
 import RankingsLazyClient from "@/components/explore/RankingsLazyClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
-import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
-import { projectRankingsTargets } from "@/lib/explore/rankingsClientProjection.mjs";
 import styles from "@/components/explore/explore.module.css";
-
-function toNumber(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function rankTargets(targets) {
-  return [...targets].sort((left, right) => {
-    const leftRank = toNumber(left?.setRipV1?.rank);
-    const rightRank = toNumber(right?.setRipV1?.rank);
-
-    if (leftRank !== null && rightRank !== null && leftRank !== rightRank) return leftRank - rightRank;
-    if (leftRank !== null && rightRank === null) return -1;
-    if (leftRank === null && rightRank !== null) return 1;
-
-    const leftScore = toNumber(left?.setRipV1?.score) ?? -Infinity;
-    const rightScore = toNumber(right?.setRipV1?.score) ?? -Infinity;
-    if (leftScore !== rightScore) return rightScore - leftScore;
-
-    return String(left?.name || "").localeCompare(String(right?.name || ""));
-  });
-}
 
 export default async function ExplorePage() {
   const backgroundUrl = getExploreBackground("pokemon");
 
-  // P0 performance rule: the default Overall lens must not pay for Product or
-  // Era ranking payloads it does not render. Those contracts now load only
-  // when their lens is selected through /api/explore/rankings/lens.
-  const [payload, openingEconomics] = await Promise.all([
-    getRipStatisticsTargets({ limit: 60 }).catch(() => null),
+  // P0 performance rule: the default Overall lens is powered by the tiny
+  // opening-economics publication plus the slim set-route directory. The
+  // canonical RIP targets cohort is intentionally absent from this route; it
+  // is built only after the user asks for Sets, Eras or Products.
+  const [directory, openingEconomics] = await Promise.all([
+    getPokemonSetRouteDirectory({ limit: 150 }).catch(() => null),
     getOpeningEconomics(),
   ]);
 
-  const targets = Array.isArray(payload?.targets) ? payload.targets : [];
-  const eligibleTargets = targets.filter(isPublicAnalyticsEligiblePokemonSet);
-  const leaderboardTargets = projectRankingsTargets(rankTargets(eligibleTargets));
-  const rankingsLoadError = payload === null || Boolean(payload?.meta?.requestFailed);
-  const rankingsMarketDate = payload?.meta?.comparisonSnapshots?.currentMarketDate || null;
+  const directoryTargets = Array.isArray(directory?.targets) ? directory.targets : [];
+  const modeledSetIds = new Set(
+    (Array.isArray(openingEconomics?.sets) ? openingEconomics.sets : [])
+      .map((entry) => String(entry?.setId || entry?.set_id || "").trim())
+      .filter(Boolean),
+  );
+  // Opening Economics should only decorate identities for sets represented by
+  // the published modeled cohort. If that publication is unavailable, retain
+  // a bounded directory fallback so Cards filtering/routing still works.
+  const targets = modeledSetIds.size
+    ? directoryTargets.filter((target) => modeledSetIds.has(String(target?.set_id || target?.target_id || target?.id || "")))
+    : directoryTargets.slice(0, 60);
+  const rankingsLoadError = directory === null || Boolean(directory?.meta?.requestFailed);
+  const rankingsMarketDate = openingEconomics?.marketDate || null;
 
   return (
     <div data-rankings-wide-shell className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 md:max-w-[100rem] sm:px-6 lg:px-8`}>
@@ -62,7 +48,7 @@ export default async function ExplorePage() {
       <div data-rankings-data-surface className="w-full">
         <div data-mobile-section>
           <RankingsLazyClient
-            targets={leaderboardTargets}
+            targets={targets}
             openingEconomics={openingEconomics}
             rankingsMarketDate={rankingsMarketDate}
             loadError={rankingsLoadError}
