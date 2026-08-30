@@ -26,6 +26,7 @@ logs/
 payload_debug.json
 cleaned_cards_debug.json
 /bench_out.json
+/artifacts/market_explorer_acceptance/
 debug/
 tmp/
 temp/

@@ -308,7 +308,7 @@ test("Cards availability is generic and preserves the backend failure reason", (
   assert.ok(section.includes("return selectPreparedSegmentTrend({"), "available data still builds Cards");
   assert.doesNotMatch(
     code(section),
-    /Ascended Heroes|Prismatic Evolutions|Surging Sparks|Scarlet and Violet 151|Perfect Order/,
+    /Ascended Heroes|Prismatic Evolutions|Surging Sparks|Scarlet and Violet 151|Mega Evolution|Temporal Forces|Perfect Order/,
     "availability cannot be keyed to a set name or slug"
   );
 });

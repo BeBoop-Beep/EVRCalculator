@@ -62,6 +62,11 @@ SELECT count(*) AS fact_rows,
        min(market_date) AS first_market_date,
        max(market_date) AS latest_market_date
 FROM effort1c_variant_daily_fact;
+SELECT 'EFFORT1C_STORAGE ' || json_build_object(
+       'factTotalBytes',pg_total_relation_size('effort1c_variant_daily_fact'),
+       'factHeapBytes',pg_relation_size('effort1c_variant_daily_fact'),
+       'factIndexBytes',pg_indexes_size('effort1c_variant_daily_fact'),
+       'intervalTotalBytes',pg_total_relation_size('public.pokemon_card_variant_market_price_intervals'))::text;
 SELECT pg_size_pretty(pg_total_relation_size('effort1c_variant_daily_fact')) AS total_size,
        pg_size_pretty(pg_relation_size('effort1c_variant_daily_fact')) AS heap_size,
        pg_size_pretty(pg_indexes_size('effort1c_variant_daily_fact')) AS index_size;
@@ -99,6 +104,29 @@ WHERE set_id = ANY(ARRAY[
 ])
 GROUP BY market_date ORDER BY market_date;
 
+-- Second samples preserve ordering for machine parsing: interval1, fact1,
+-- interval2, fact2. These are subsequent-cache samples, not mislabeled cold.
+EXPLAIN (ANALYZE, BUFFERS, WAL, SETTINGS, FORMAT JSON)
+WITH dates AS MATERIALIZED (
+  SELECT market_date FROM public.pokemon_market_date_quality
+  WHERE tcg='pokemon' AND status IN ('READY','LEGACY_VERIFIED')
+), panel AS MATERIALIZED (
+  SELECT d.market_date,i.card_variant_id,i.canonical_card_id,i.set_id,i.market_price
+  FROM dates d JOIN public.pokemon_card_variant_market_price_intervals i
+    ON i.valid_from<=d.market_date AND (i.valid_to IS NULL OR d.market_date<i.valid_to)
+  WHERE i.set_id=ANY(ARRAY['8cd0a0f0-d17c-4a5c-bc52-47e1723e0699'::uuid,
+                           '93212749-ce0e-498e-975e-7d947a3448ce'::uuid])
+)
+SELECT market_date,count(*) constituent_count,sum(market_price) basket_value
+FROM panel GROUP BY market_date ORDER BY market_date;
+
+EXPLAIN (ANALYZE, BUFFERS, WAL, SETTINGS, FORMAT JSON)
+SELECT market_date,count(*) constituent_count,sum(market_price) basket_value
+FROM effort1c_variant_daily_fact
+WHERE set_id=ANY(ARRAY['8cd0a0f0-d17c-4a5c-bc52-47e1723e0699'::uuid,
+                       '93212749-ce0e-498e-975e-7d947a3448ce'::uuid])
+GROUP BY market_date ORDER BY market_date;
+
 -- Pokemon option C: canonical ID bridge join. Membership is timeless unless
 -- the durable link authority itself gains effective dates, so duplicating it
 -- once per variant-date is unnecessary until this plan proves otherwise.
@@ -133,4 +161,3 @@ SELECT card_variant_id, canonical_card_id, set_id, market_price
 FROM effort1c_variant_current
 ORDER BY market_price DESC, card_variant_id
 LIMIT 25;
-

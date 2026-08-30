@@ -251,6 +251,41 @@ test("Cards is the default lens, and selection can never strand the chart", () =
   assert.equal(resolveActiveSegmentKey("nonsense", trends), "cards");
 });
 
+test("rebuilt Cards snapshots are generically selectable across representative sets", () => {
+  const setNames = [
+    "Ascended Heroes",
+    "Prismatic Evolutions",
+    "Surging Sparks",
+    "Scarlet and Violet 151",
+    "Mega Evolution",
+    "Temporal Forces",
+  ];
+  for (const setName of setNames) {
+    const cards = selectPreparedSegmentTrend({
+      valueHistory: [
+        { date: "2026-08-29", setValue: 100 },
+        { date: "2026-08-30", setValue: 101 },
+      ],
+      marketIndex: {
+        currentValue: 101,
+        history: [
+          { date: "2026-08-29", indexValue: 100 },
+          { date: "2026-08-30", indexValue: 101 },
+        ],
+        movements: { "7D": { available: true, percent: 1 } },
+      },
+      selectedWindowKey: "7D",
+    });
+    const trends = { cards, sealed: unavailableSegmentTrend(), graded: unavailableSegmentTrend() };
+    assert.equal(cards.available, true, setName);
+    assert.equal(cards.currentValue, 101, setName);
+    assert.ok(cards.points.length > 0, setName);
+    assert.equal(cards.lastPoint.date, "2026-08-30", setName);
+    assert.equal(resolveDefaultSegmentKey(trends), "cards", setName);
+    assert.equal(buildMarketSegmentRows(trends)[0].selectable, true, setName);
+  }
+});
+
 // --- Concentration ----------------------------------------------------------
 
 test("concentration is the published top10 scope over the published set scope", () => {

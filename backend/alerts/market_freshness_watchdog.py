@@ -82,13 +82,14 @@ def load_watchdog_state(client: Any, market_date: str) -> Dict[str, Any]:
     }
 
 
-def run_watchdog(*, client: Any = supabase, now: Optional[datetime] = None) -> Dict[str, Any]:
+def run_watchdog(*, client: Any = supabase, now: Optional[datetime] = None,
+                 queue_failures: bool = True) -> Dict[str, Any]:
     resolved_now = now or datetime.now(timezone.utc)
     market_date = resolved_now.astimezone(PHOENIX).date().isoformat()
     state = load_watchdog_state(client, market_date)
     failures = evaluate_watchdog_state(state, now=resolved_now)
     queued = 0
-    for failure in failures:
+    for failure in failures if queue_failures else []:
         result = queue_alert(
             failure["alert_type"],
             title=f"Pokémon market watchdog: {failure['failure_class']} — {market_date}",
@@ -99,12 +100,15 @@ def run_watchdog(*, client: Any = supabase, now: Optional[datetime] = None) -> D
         )
         queued += int(result is not None)
     return {"healthy": not failures, "market_date": market_date, "failure_count": len(failures),
-            "queued_or_deduplicated_count": queued, "failures": failures, "state": state}
+            "queued_or_deduplicated_count": queued, "queue_enabled": queue_failures,
+            "failures": failures, "state": state}
 
 
 def main() -> int:
-    argparse.ArgumentParser(description=__doc__).parse_args()
-    report = run_watchdog()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--health", action="store_true", help="Read-only evaluation; do not queue alerts")
+    args = parser.parse_args()
+    report = run_watchdog(queue_failures=not args.health)
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
     return 0 if report["healthy"] else 1
 

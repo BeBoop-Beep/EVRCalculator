@@ -217,6 +217,11 @@ def main() -> int:
         help="Do not create; alert if the batch is missing (deadline monitor).",
     )
     parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Read-only runtime/database registry parity check; do not create a batch.",
+    )
+    parser.add_argument(
         "--skip-new-set-detection", action="store_true",
         help="Skip the bounded best-effort post-batch new-set detector.",
     )
@@ -236,6 +241,10 @@ def main() -> int:
         # Registry parity is verified BEFORE the batch RPC. On failure this
         # raises, so no batch is created and no job is enqueued.
         preflight = run_preflight_or_fail(market_date)
+
+        if args.preflight_only:
+            print(format_preflight_json(preflight))
+            return 0
 
         batch = create_batch(market_date, args.trigger_source)
         provenance = persist_runtime_provenance(batch.get("id"), preflight)
