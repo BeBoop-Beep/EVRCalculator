@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from backend.db.clients.supabase_client import supabase
 

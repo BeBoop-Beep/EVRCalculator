@@ -256,6 +256,36 @@ def assert_packet_is_blind(rows: Sequence[Mapping[str, Any]]) -> None:
                     )
 
 
+def assert_packet_rows_are_unique(rows: Sequence[Mapping[str, Any]]) -> None:
+    """Every ``(set_id, card_variant_id)`` must appear exactly once.
+
+    A duplicated printing asks a human to label the same card twice, which
+    silently corrupts everything downstream: the card gets double weight in the
+    consensus, inflates the apparent labelled-card count, and - if the two
+    copies are labelled differently - manufactures a "disagreement" between a
+    labeler and themselves that the agreement statistics cannot distinguish
+    from a real one.
+
+    This is a backstop, not the fix. The source defect is upstream, where a
+    reverse-printing row was emitted even when the reverse variant id was just
+    the base variant id echoed back. This invariant exists so that if any future
+    input path reintroduces a duplicate, the packet build fails loudly instead
+    of shipping a corrupted experiment to a human.
+    """
+    seen: Dict[Tuple[str, str], int] = {}
+    for index, row in enumerate(rows):
+        key = (str(row.get("set_id") or ""), str(row.get("card_variant_id") or ""))
+        if not key[1]:
+            raise ValueError(f"packet row {index} has no card_variant_id")
+        if key in seen:
+            raise ValueError(
+                "labeling packet contains duplicate (set_id, card_variant_id) "
+                f"{key!r}: rows {seen[key]} and {index}. A human must never be "
+                "asked to label the same printing twice."
+            )
+        seen[key] = index
+
+
 def packet_row(card: Mapping[str, Any], *, set_id: str, set_name: str,
                pack_price: Optional[float]) -> Dict[str, Any]:
     """One blind row. Only real-world card facts a collector could look up."""
@@ -285,6 +315,7 @@ def packet_row(card: Mapping[str, Any], *, set_id: str, set_name: str,
 
 def write_packet_csv(rows: Sequence[Mapping[str, Any]], path: Path) -> Path:
     assert_packet_is_blind(rows)
+    assert_packet_rows_are_unique(rows)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(PACKET_COLUMNS))
@@ -303,6 +334,7 @@ def write_label_template_csv(rows: Sequence[Mapping[str, Any]], path: Path,
     prevent.
     """
     assert_packet_is_blind(rows)
+    assert_packet_rows_are_unique(rows)
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(PACKET_COLUMNS) + list(LABEL_COLUMNS)
     with path.open("w", newline="", encoding="utf-8") as handle:
