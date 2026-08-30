@@ -17,6 +17,8 @@ test("Set runtime shell remains dependency-light and tabs own endpoint imports",
   assert.match(pullRates, /from ["']@\/lib\/pokemon\/pokemonSetPullRatesClient["']/);
   assert.match(shell, /dynamic\(\(\) => import\(["']\.\.\/tabs\/CardsSetTab["']\)/);
   assert.match(shell, /dynamic\(\(\) => import\(["']\.\.\/tabs\/PullRatesSetTab["']\)/);
+  assert.match(shell, /dynamic\(\(\) => import\(["']\.\.\/tabs\/MarketSetTab["']\)/);
+  assert.doesNotMatch(shell, /from ["']@\/lib\/pokemon\/pokemonSetMarketClient["']/);
   assert.doesNotMatch(fallback, /from ["']@\/lib\/pokemon\/pokemonSetCardsClient["']/);
   assert.doesNotMatch(fallback, /from ["']@\/lib\/pokemon\/pokemonSetPullRatesClient["']/);
 });

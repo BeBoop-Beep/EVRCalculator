@@ -10,10 +10,8 @@ import SetRuntimeLoading from "./SetRuntimeLoading";
 import SetRuntimeTabs from "./SetRuntimeTabs";
 import { buildSetRuntimeHref, normalizeSetRuntimeTab, resolveSetRuntimeIdentity } from "./setRuntimeRoute.mjs";
 
-// Transitional Effort-1 boundary. RIP and Market remain in the legacy client
-// until their own extraction efforts; keeping this import dynamic prevents
-// that graph (including Recharts) from entering cold Cards/Pull Rates visits.
-const RipMarketSetTab = dynamic(() => import("@/components/explore/RipStatisticsPageClient"), {
+// Transitional boundary: RIP remains in the legacy client until Effort 3.
+const RipSetTab = dynamic(() => import("@/components/explore/RipStatisticsPageClient"), {
   ssr: false,
   loading: () => <SetRuntimeLoading />,
 });
@@ -24,6 +22,10 @@ const CardsSetTab = dynamic(() => import("../tabs/CardsSetTab"), {
 const PullRatesSetTab = dynamic(() => import("../tabs/PullRatesSetTab"), {
   ssr: false,
   loading: () => <SetRuntimeLoading label="Loading pull rates" />,
+});
+const MarketSetTab = dynamic(() => import("../tabs/MarketSetTab"), {
+  ssr: false,
+  loading: () => <SetRuntimeLoading label="Loading Market" />,
 });
 
 export default function PokemonSetRuntimeShell(props) {
@@ -60,8 +62,8 @@ export default function PokemonSetRuntimeShell(props) {
     import("../tabs/CardsSetTab").then((module) => module.prefetchCardsSetTab(setId)).catch(() => {});
   };
 
-  if (activeTab === "overview" || activeTab === "market") {
-    return <RipMarketSetTab {...props} setDetailMode />;
+  if (activeTab === "overview") {
+    return <RipSetTab {...props} setDetailMode />;
   }
 
   return (
@@ -77,6 +79,7 @@ export default function PokemonSetRuntimeShell(props) {
           {props.pageError ? <div role="alert" className="set-glass-surface rounded-xl border p-5 text-sm text-red-300">{props.pageError}</div> : null}
           {!props.pageError && activeTab === "cards" ? <CardsSetTab key={setId} setId={setId} setSlug={setSlug} /> : null}
           {!props.pageError && activeTab === "pull-rates" ? <PullRatesSetTab key={setId} setId={setId} initialData={props.initialModuleSnapshots?.pullRatesPayload || null} /> : null}
+          {!props.pageError && activeTab === "market" ? <MarketSetTab key={setId} setId={setId} setSlug={setSlug} overviewSeed={props.initialModuleSnapshots?.overviewPayload || props.initialModuleSnapshots?.marketDashboardPayload || null} moversSeed={props.initialModuleSnapshots?.marketMoversPayload || null} /> : null}
         </div>
       </div>
       <ReturnToTopButton visible={showReturnToTop} onActivate={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
