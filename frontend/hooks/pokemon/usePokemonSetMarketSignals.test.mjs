@@ -2,19 +2,28 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import usePokemonSetMarketSignals from "./usePokemonSetMarketSignals.js";
+import * as marketSignalsModule from "./usePokemonSetMarketSignals.js";
+const usePokemonSetMarketSignals = marketSignalsModule.default?.default || marketSignalsModule.default;
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const jsonResponse = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-async function mount(setId, enabled = true) {
+async function mount(setId, enabled = true, initialPayload = null) {
   let latest;
-  function Probe(props) { latest = usePokemonSetMarketSignals(props.setId, { enabled: props.enabled }); return null; }
+  function Probe(props) { latest = usePokemonSetMarketSignals(props.setId, { enabled: props.enabled, initialPayload: props.initialPayload }); return null; }
   let renderer;
-  await act(async () => { renderer = TestRenderer.create(React.createElement(Probe, { setId, enabled })); await wait(10); });
-  return { renderer, state: () => latest, update: async (nextSetId, nextEnabled) => act(async () => { renderer.update(React.createElement(Probe, { setId: nextSetId, enabled: nextEnabled })); await wait(10); }) };
+  await act(async () => { renderer = TestRenderer.create(React.createElement(Probe, { setId, enabled, initialPayload })); await wait(10); });
+  return { renderer, state: () => latest, update: async (nextSetId, nextEnabled, nextInitialPayload = null) => act(async () => { renderer.update(React.createElement(Probe, { setId: nextSetId, enabled: nextEnabled, initialPayload: nextInitialPayload })); await wait(10); }) };
 }
+
+test("valid bootstrap breadth prevents the initial request", async () => {
+  let calls = 0; globalThis.fetch = async () => { calls += 1; return jsonResponse(500, {}); };
+  const seed = { set: { id: "seeded-set" }, marketBreadth: { "7D": { total: 8 } } };
+  const probe = await mount("seeded-set", true, seed);
+  assert.equal(calls, 0); assert.equal(probe.state().status, "success"); assert.equal(probe.state().payload, seed);
+  await act(async () => probe.renderer.unmount());
+});
 
 test("disabled signals hook performs no request and clears paid payload", async () => {
   let calls = 0; globalThis.fetch = async () => { calls += 1; return jsonResponse(200, { marketBreadth: { "7D": {} } }); };

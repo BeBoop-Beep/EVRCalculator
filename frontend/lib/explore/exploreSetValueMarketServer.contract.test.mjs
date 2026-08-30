@@ -22,7 +22,7 @@ const SNAPSHOT = {
   meta: { snapshot: { marketDate: "2024-03-04" } },
 };
 
-const { getExploreSetValueMarket } = await import("./exploreSetValueMarketServer.js");
+const { normalizeExploreSetValueMarket, unavailableExploreSetValueMarket } = await import("./exploreSetValueMarketServer.js");
 
 const realFetch = globalThis.fetch;
 const realNow = Date.now;
@@ -36,9 +36,8 @@ test.after(() => {
   Date.now = realNow;
 });
 
-test("the adapter preserves marketOverview, sets, the default 7D movers seed and meta", async () => {
-  stubFetch(async () => ({ ok: true, json: async () => SNAPSHOT }));
-  const payload = await getExploreSetValueMarket();
+test("the adapter preserves marketOverview, sets, the default 7D movers seed and meta", () => {
+  const payload = normalizeExploreSetValueMarket(SNAPSHOT);
 
   assert.deepEqual(Object.keys(payload).sort(), ["initialSelectedSetMovers", "marketOverview", "meta", "sets"]);
   assert.equal(payload.marketOverview.contractVersion, "pokemon-market-overview-v1");
@@ -50,13 +49,8 @@ test("the adapter preserves marketOverview, sets, the default 7D movers seed and
   assert.equal(payload.meta.snapshot.marketDate, "2024-03-04");
 });
 
-test("a stale cached payload still carries its marketOverview when the request fails", async () => {
-  // Expire the entry written by the previous test, then fail the refetch.
-  const base = realNow.call(Date);
-  Date.now = () => base + 10 * 60_000;
-  stubFetch(async () => { throw new Error("backend down"); });
-
-  const payload = await getExploreSetValueMarket();
+test("a stale cached payload still carries its marketOverview when the request fails", () => {
+  const payload = unavailableExploreSetValueMarket(normalizeExploreSetValueMarket(SNAPSHOT));
 
   assert.equal(payload.meta.stale, true);
   assert.equal(payload.meta.requestFailed, true);

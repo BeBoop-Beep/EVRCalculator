@@ -3910,7 +3910,13 @@ function MarketValueTrendPanel({
  */
 function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedSummaryState }) {
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
-  const signalsState = usePokemonSetMarketSignals(setId, { enabled: canViewSetMarketSignals });
+  const seededSignals = useMemo(() => cardsMarket?.marketBreadth ? {
+    set: { id: setId }, marketBreadth: cardsMarket.marketBreadth,
+  } : null, [cardsMarket?.marketBreadth, setId]);
+  const signalsState = usePokemonSetMarketSignals(setId, {
+    enabled: canViewSetMarketSignals,
+    initialPayload: seededSignals,
+  });
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   // Site convention: every market timeframe control opens on 7D. The reader
   // can still switch away; nothing here re-forces 7D after that.
@@ -13313,7 +13319,7 @@ export default function RipStatisticsPageClient({
     }
 
     const setId = resolvedSetResourceId;
-    if (seededTopChasePayload && topChaseRetryNonce === 0) return undefined;
+    if (seededTopChasePayload && seededTopChasePayload?.meta?.topChasePreviewOnly !== true && topChaseRetryNonce === 0) return undefined;
     const topChaseSourceWindow = DEFAULT_TOP_CHASE_MARKET_WINDOW;
     if (!setId) {
       dispatchTopChase({ type: "reset", status: "empty", sourceWindow: topChaseSourceWindow });

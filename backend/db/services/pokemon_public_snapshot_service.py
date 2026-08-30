@@ -4468,8 +4468,23 @@ _MARKET_BOOTSTRAP_COLUMNS = (
     "set_id,window_key,latest_market_date,updated_at,"
     "standardHistory:set_value_histories_json->standard,"
     "top10History:set_value_histories_json->top10,"
-    "cardsMarket:payload_json->cardsMarket"
+    "cardsMarket:payload_json->cardsMarket,top_chase_cards_json"
 )
+
+_TOP_CHASE_PREVIEW_FIELDS = (
+    "id", "cardId", "canonicalCardId", "cardVariantId", "conditionId",
+    "name", "cardName", "number", "cardNumber", "rarity", "rank",
+    "imageUrl", "imageSmallUrl", "imageLargeUrl", "marketPrice",
+    "currentMarketPrice", "marketDeltaWindows", "deltas",
+)
+
+
+def _compact_top_chase_preview(cards: Any, limit: int = 10) -> List[Dict[str, Any]]:
+    return [
+        {key: card.get(key) for key in _TOP_CHASE_PREVIEW_FIELDS if card.get(key) is not None}
+        for card in list(cards or [])[:limit]
+        if isinstance(card, dict)
+    ]
 
 _MARKET_SIGNALS_COLUMNS = (
     "set_id,window_key,latest_market_date,updated_at,"
@@ -4575,9 +4590,13 @@ def get_pokemon_set_market_bootstrap_snapshot_payload(
             "top10": top10[-1] if top10 else None,
             "asOfDate": latest_market_date,
         },
+        # Identity/price/movement only. Detailed histories remain behind the
+        # progressive /market/top-chase reader and its repair/validation path.
+        "topChaseCards": _compact_top_chase_preview(row.get("top_chase_cards_json")),
         "latestMarketDate": latest_market_date,
         "meta": {
             "warnings": [],
+            "topChasePreviewOnly": True,
             "snapshot": {
                 "source": "pokemon_set_market_dashboard_snapshot_latest_split_projection",
                 "updatedAt": _to_optional_str(row.get("updated_at")),

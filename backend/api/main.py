@@ -367,13 +367,26 @@ def _enforce_paid_abuse(request: Request, *, user_id: str, policy_class: str, ro
 
 def _limit_paid_projection(
     request: Request, *, authorization: Optional[str], token_cookie: Optional[str],
-    feature: str, policy_class: str, route: str,
+    feature: str, policy_class: str, route: str, access_context: Optional[Dict[str, Any]] = None,
 ) -> None:
-    plan = _resolve_index_plan(authorization, token_cookie)
+    plan = access_context.get("plan") if access_context is not None else _resolve_index_plan(authorization, token_cookie)
     if not has_index_feature_access(plan, feature):
         return
-    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    user_id = access_context.get("user_id") if access_context is not None else None
+    if not user_id:
+        user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
     _enforce_paid_abuse(request, user_id=user_id, policy_class=policy_class, route=route)
+
+
+def _resolve_request_access(
+    authorization: Optional[str], token_cookie: Optional[str], *, feature: str,
+) -> Dict[str, Any]:
+    """Resolve the canonical profile once and reuse it throughout one request."""
+    plan = _resolve_index_plan(authorization, token_cookie)
+    user_id = None
+    if has_index_feature_access(plan, feature):
+        user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    return {"plan": plan, "user_id": user_id}
 
 
 def _tiered_response(content: Dict[str, Any]) -> JSONResponse:
@@ -750,11 +763,14 @@ def get_explore_rankings_lens(
     """One narrow prepared Rankings publication; no full-cohort enrichment."""
     try:
         normalized_lens = str(lens or "").strip().lower()
+        access_context = _resolve_request_access(
+            authorization, token_cookie, feature=FEATURE_SET_RIP_ANALYTICS
+        )
         _limit_paid_projection(request, authorization=authorization, token_cookie=token_cookie,
                                feature=FEATURE_SET_RIP_ANALYTICS, policy_class=POLICY_RANKED_INTELLIGENCE,
-                               route="/explore/rankings/lens")
+                               route="/explore/rankings/lens", access_context=access_context)
         payload = get_pokemon_explore_rankings_lens_payload(lens=normalized_lens, limit=limit)
-        plan = _resolve_index_plan(authorization, token_cookie)
+        plan = access_context["plan"]
         if normalized_lens == "sets":
             return _tiered_response(project_rankings_response(payload, plan))
         if normalized_lens == "eras":
@@ -809,15 +825,18 @@ def get_overall_product_rankings(
 ):
     """Return one allowlisted budget cohort; analytical tables remain private."""
     try:
+        access_context = _resolve_request_access(
+            authorization, token_cookie, feature=FEATURE_PRODUCT_RIP
+        )
         _limit_paid_projection(request, authorization=authorization, token_cookie=token_cookie,
                                feature=FEATURE_PRODUCT_RIP, policy_class=POLICY_RANKED_INTELLIGENCE,
-                               route="/explore/product-rankings/overall")
+                               route="/explore/product-rankings/overall", access_context=access_context)
         rankings = get_pokemon_explore_rankings_lens_payload(lens="products", limit=200)
         payload = read_public_overall_product_rankings(
             budget, product_family_rankings=rankings.get("productFamilyRankings") or {}
         )
         return _tiered_response(project_product_rankings_response(
-            payload, _resolve_index_plan(authorization, token_cookie)
+            payload, access_context["plan"]
         ))
     except HTTPException:
         raise
@@ -1799,11 +1818,17 @@ def get_pokemon_set_overview(
 def get_pokemon_set_market_bootstrap(
     set_id: str,
     window: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    """Public/cacheable critical Market data; paid breadth is excluded."""
+    """Critical Market data with server-projected optional paid breadth."""
     try:
         payload = get_pokemon_set_market_bootstrap_snapshot_payload(set_id=set_id, window=window or "365d")
-        return filter_set_market_signal_access(payload, None)
+        plan = _resolve_index_plan(authorization, token_cookie)
+        return JSONResponse(
+            content=filter_set_market_signal_access(payload, plan),
+            headers={"Cache-Control": "private, no-store", "Vary": "Cookie, Authorization"},
+        )
     except PokemonSetMarketError as exc:
         return JSONResponse(content={"message": exc.message, "code": exc.code}, status_code=exc.status_code)
     except Exception:

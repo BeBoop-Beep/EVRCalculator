@@ -1405,6 +1405,12 @@ export function normalizeOverviewPayload(payload) {
   );
   const cardsMarket = normalizePreparedCardsMarket(payload?.cardsMarket || payload?.cards_market);
   const chaseConcentration = payload?.chaseConcentration || payload?.chase_concentration || null;
+  const topChasePreview = normalizeTopChasePayload({
+    set: payload?.set,
+    topChaseCards: payload?.topChaseCards || payload?.top_chase_cards || [],
+    latestMarketDate: payload?.latestMarketDate ?? payload?.latest_market_date,
+    meta: payload?.meta,
+  });
 
   return {
     set: {
@@ -1421,6 +1427,8 @@ export function normalizeOverviewPayload(payload) {
     cards_market: cardsMarket,
     chaseConcentration,
     chase_concentration: chaseConcentration,
+    topChaseCards: topChasePreview.cards,
+    top_chase_cards: topChasePreview.cards,
     availableScopes: availableScopes
       .map((scope) => ({
         key: toOptionalString(scope?.key),

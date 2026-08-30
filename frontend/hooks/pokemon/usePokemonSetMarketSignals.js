@@ -12,10 +12,13 @@ export function isRetryableMarketSignalsError(error) {
     RETRYABLE_STATUSES.has(Number(error?.status)) || (error instanceof TypeError && error?.status == null);
 }
 
-export default function usePokemonSetMarketSignals(setId, { enabled = false } = {}) {
+export default function usePokemonSetMarketSignals(setId, { enabled = false, initialPayload = null } = {}) {
   const resolvedSetId = String(setId || "").trim();
   const [requestVersion, setRequestVersion] = useState(0);
-  const [state, setState] = useState({ status: "idle", payload: null, error: null, isRefreshing: false });
+  const validSeed = initialPayload?.set?.id === resolvedSetId && initialPayload?.marketBreadth;
+  const [state, setState] = useState(() => validSeed
+    ? { status: "success", payload: initialPayload, error: null, isRefreshing: false }
+    : { status: "idle", payload: null, error: null, isRefreshing: false });
   const retry = useCallback(() => setRequestVersion((value) => value + 1), []);
 
   useEffect(() => {
@@ -23,6 +26,7 @@ export default function usePokemonSetMarketSignals(setId, { enabled = false } = 
       setState({ status: "idle", payload: null, error: null, isRefreshing: false });
       return undefined;
     }
+    if (validSeed && requestVersion === 0) return undefined;
     let cancelled = false;
     let timer = null;
     setState({ status: "loading", payload: null, error: null, isRefreshing: false });
@@ -46,7 +50,7 @@ export default function usePokemonSetMarketSignals(setId, { enabled = false } = 
     };
     load();
     return () => { cancelled = true; if (timer !== null) clearTimeout(timer); };
-  }, [enabled, requestVersion, resolvedSetId]);
+  }, [enabled, initialPayload, requestVersion, resolvedSetId, validSeed]);
 
   return { ...state, retry };
 }
