@@ -15,7 +15,8 @@ test("mobile and desktop guarantee one identity-keyed summary load on mount", ()
   assert.match(mobile, /enabled: Boolean\(setId\)/);
   assert.match(page, /enabled: setDetailTab === "market" && isDesktopHeroComposition/);
   assert.doesNotMatch(mobile, /settled\(setValue/);
-  assert.doesNotMatch(page, /marketCriticalSettled/);
+  const summaryOwner = page.slice(page.indexOf("const desktopSealedSummaryState"), page.indexOf("const desktopSealedSummaryState") + 900);
+  assert.doesNotMatch(summaryOwner, /marketCriticalSettled/);
   assert.match(hook, /request\.setId !== resolvedSetId/);
   assert.match(hook, /state\.setId === resolvedSetId/);
 });

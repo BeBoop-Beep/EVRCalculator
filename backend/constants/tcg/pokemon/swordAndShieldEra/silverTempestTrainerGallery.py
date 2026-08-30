@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetSilverTempestTrainerGalleryConfig(BaseSetConfig):
-    PARENT_SET_KEY = "silverTempest"
+    PARENT_OPENING_SET_KEY = "silverTempest"
     IS_SUBSET = True
     SUBSET_TYPE = "trainer_gallery"
     COUNTS_TOWARD_PARENT_SET_VALUE = True

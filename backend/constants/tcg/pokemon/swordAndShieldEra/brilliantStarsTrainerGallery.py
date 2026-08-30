@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetBrilliantStarsTrainerGalleryConfig(BaseSetConfig):
-    PARENT_SET_KEY = "brilliantStars"
+    PARENT_OPENING_SET_KEY = "brilliantStars"
     IS_SUBSET = True
     SUBSET_TYPE = "trainer_gallery"
     COUNTS_TOWARD_PARENT_SET_VALUE = True

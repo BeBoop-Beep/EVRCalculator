@@ -173,7 +173,7 @@ test("Market Snapshot offers exactly Cards, Sealed, Graded — not ranking scope
   // selector), not a static array, so an unavailable lens can be disabled
   // rather than clickable-then-reverting.
   assert.ok(setValue.includes("buildMarketSegmentRows(trendsByKey)"));
-  assert.ok(setValue.includes('row.key === "sealed" && sealedSummaryState.status === "loading"'));
+  assert.ok(setValue.includes('row.key === "sealed" && ["idle", "loading", "error"].includes(sealedSummaryState.status)'));
   assert.equal(/\btop10\b/i.test(code(setValue)), false, "Top 10 is a chase-card rank, not a market lens");
   assert.equal(setValue.includes("SET_VALUE_TREND_VISIBLE_SCOPE_OPTIONS"), false, "the old scope selector is retired here");
 });

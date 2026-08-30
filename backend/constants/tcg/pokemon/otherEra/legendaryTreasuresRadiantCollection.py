@@ -23,7 +23,7 @@ class SetLegendaryTreasuresRadiantCollectionConfig(BaseSetConfig):
 
     # Historical catalog identity added for market/card coverage only.
     # It is NOT an approved pack-simulation product.
-    PARENT_SET_KEY = "legendaryTreasures"
+    PARENT_OPENING_SET_KEY = "legendaryTreasures"
     IS_SUBSET = True
     SUBSET_TYPE = "radiant_collection"
     COUNTS_TOWARD_PARENT_SET_VALUE = True

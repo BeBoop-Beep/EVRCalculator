@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetCelebrationsClassicCollectionConfig(BaseSetConfig):
-    PARENT_SET_KEY = "celebrations"
+    PARENT_OPENING_SET_KEY = "celebrations"
     IS_SUBSET = True
     SUBSET_TYPE = "classic_collection"
     COUNTS_TOWARD_PARENT_SET_VALUE = True

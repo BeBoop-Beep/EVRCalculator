@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetShiningFatesShinyVaultConfig(BaseSetConfig):
-    PARENT_SET_KEY = "shiningFates"
+    PARENT_OPENING_SET_KEY = "shiningFates"
     IS_SUBSET = True
     SUBSET_TYPE = "shiny_vault"
     COUNTS_TOWARD_PARENT_SET_VALUE = True

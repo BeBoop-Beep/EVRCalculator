@@ -226,9 +226,8 @@ def load_database_cohort_rows() -> List[Dict[str, Any]]:
             .select(
                 "id,name,canonical_key,card_details_url,has_card_details_url,"
                 "sealed_details_url,ready_for_daily_scrape,catalog_only,"
-                "supports_opening_simulation,parent_set_id,is_subset,subset_type,"
-                "counts_toward_parent_set_value,counts_toward_parent_opening,"
-                "parent_set:sets!parent_set_id(canonical_key)"
+                "supports_opening_simulation,parent_opening_set_id,is_subset,subset_type,"
+                "counts_toward_parent_set_value,counts_toward_parent_opening"
             )
             .eq("ready_for_daily_scrape", True)
             .eq("has_card_details_url", True)
@@ -244,8 +243,22 @@ def load_database_cohort_rows() -> List[Dict[str, Any]]:
         page = list((result.data if result else []) or [])
         rows.extend(page)
         if len(page) < page_size:
-            return rows
+            break
         offset += page_size
+
+    # parent_set_id is intentionally not backed by a PostgREST-visible FK in
+    # production, so resolve ownership with a second read instead of relying on
+    # an embedded self-relationship.
+    parent_ids = {str(row.get("parent_opening_set_id")) for row in rows if row.get("parent_opening_set_id")}
+    if parent_ids:
+        parent_result = supabase.table("sets").select("id,canonical_key").execute()
+        parent_keys = {
+            str(row.get("id")): row.get("canonical_key")
+            for row in list((parent_result.data if parent_result else []) or [])
+        }
+        for row in rows:
+            row["parent_canonical_key"] = parent_keys.get(str(row.get("parent_opening_set_id")))
+    return rows
 
 
 def run_runtime_preflight(
@@ -361,9 +374,6 @@ def run_runtime_preflight(
             )
 
         resolved_flags = resolve_config_lifecycle_flags(config_cls)
-        parent = row.get("parent_set") or {}
-        if isinstance(parent, list):
-            parent = parent[0] if parent else {}
         for field_name, db_value, config_value in (
             ("ready_for_daily_scrape", row.get("ready_for_daily_scrape"), True),
             ("catalog_only", row.get("catalog_only"), False),
@@ -372,7 +382,7 @@ def run_runtime_preflight(
                 row.get("supports_opening_simulation"),
                 supports_opening_simulation(config_cls),
             ),
-            ("parent_canonical_key", parent.get("canonical_key"), resolved_flags["parent_canonical_key"]),
+            ("parent_canonical_key", row.get("parent_canonical_key"), resolved_flags["parent_canonical_key"]),
             ("is_subset", row.get("is_subset"), resolved_flags["is_subset"]),
             ("subset_type", row.get("subset_type"), resolved_flags["subset_type"]),
             (

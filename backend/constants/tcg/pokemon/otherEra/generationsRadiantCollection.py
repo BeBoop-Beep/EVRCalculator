@@ -23,7 +23,7 @@ class SetGenerationsRadiantCollectionConfig(BaseSetConfig):
 
     # Historical catalog identity added for market/card coverage only.
     # It is NOT an approved pack-simulation product.
-    PARENT_SET_KEY = "generations"
+    PARENT_OPENING_SET_KEY = "generations"
     IS_SUBSET = True
     SUBSET_TYPE = "radiant_collection"
     COUNTS_TOWARD_PARENT_SET_VALUE = True

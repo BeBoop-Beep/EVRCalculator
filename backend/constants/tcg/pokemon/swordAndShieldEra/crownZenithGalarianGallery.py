@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetCrownZenithGalarianGalleryConfig(BaseSetConfig):
-    PARENT_SET_KEY = "crownZenith"
+    PARENT_OPENING_SET_KEY = "crownZenith"
     IS_SUBSET = True
     SUBSET_TYPE = "galarian_gallery"
     COUNTS_TOWARD_PARENT_SET_VALUE = True
