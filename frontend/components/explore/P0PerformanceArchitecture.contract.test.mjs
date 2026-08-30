@@ -39,9 +39,15 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
 
 test("canonical Set rankings cohort is isolated behind the Sets lens endpoint", () => {
   const source = read("app/api/explore/rankings/lens/route.js");
+
   assert.ok(source.includes('if (lens === "sets")'));
-  assert.ok(source.includes("projectRankingsTargets"));
+  assert.ok(source.includes("projectRankingsClientPublicSetLeaderboard"));
   assert.ok(source.includes("isPublicAnalyticsEligiblePokemonSet"));
+
+  assert.ok(
+    !source.includes("getRipStatisticsTargets"),
+    "Sets lens must continue consuming the prepared backend lens rather than rebuilding the heavyweight cohort in Next"
+  );
 });
 
 test("set canonical route uses the slim route directory on every tab", () => {
