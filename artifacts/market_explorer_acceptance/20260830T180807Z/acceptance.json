@@ -1,0 +1,1327 @@
+{
+  "checks": [
+    {
+      "detail": "D:\\EVRCalculator\\supabase\\migrations\\20260829210512_market_explorer_filtered_card_cohorts.sql",
+      "evidence": null,
+      "name": "migration_exists",
+      "status": "PASS"
+    },
+    {
+      "detail": "migration must not invoke an unbounded refresh",
+      "evidence": null,
+      "name": "no_global_migration_backfill",
+      "status": "PASS"
+    },
+    {
+      "detail": "null/empty scope returns zero",
+      "evidence": null,
+      "name": "empty_refresh_is_noop",
+      "status": "PASS"
+    },
+    {
+      "detail": "set refresh has a distinct PostgREST name",
+      "evidence": null,
+      "name": "distinct_set_refresh_rpc",
+      "status": "PASS"
+    },
+    {
+      "detail": "invoker functions and explicit backend-only grants",
+      "evidence": null,
+      "name": "service_only_sql",
+      "status": "PASS"
+    },
+    {
+      "detail": "D:\\EVRCalculator\\backend\\research\\market_explorer\\effort1c_interval_vs_fact_benchmark.sql",
+      "evidence": null,
+      "name": "benchmark_fixture_exists",
+      "status": "PASS"
+    },
+    {
+      "detail": "fixture may create session-local objects only",
+      "evidence": null,
+      "name": "benchmark_temp_only",
+      "status": "PASS"
+    },
+    {
+      "detail": "required table is unavailable",
+      "evidence": "PGRST205",
+      "name": "table:pokemon_card_variant_market_price_intervals",
+      "status": "FAIL"
+    },
+    {
+      "detail": "RPC signature unavailable",
+      "evidence": "PGRST202",
+      "name": "rpc:get_pokemon_canonical_card_variant_authority",
+      "status": "FAIL"
+    },
+    {
+      "detail": "RPC signature unavailable",
+      "evidence": "PGRST202",
+      "name": "rpc:refresh_pokemon_card_variant_market_price_intervals",
+      "status": "FAIL"
+    },
+    {
+      "detail": "RPC signature unavailable",
+      "evidence": "PGRST202",
+      "name": "rpc:refresh_pokemon_card_variant_market_price_intervals_for_sets",
+      "status": "FAIL"
+    },
+    {
+      "detail": "RPC signature unavailable",
+      "evidence": "PGRST202",
+      "name": "rpc:get_pokemon_market_explorer_filtered_cohort",
+      "status": "FAIL"
+    },
+    {
+      "detail": "exactly one Near Mint/NM row required",
+      "evidence": {
+        "count": 1
+      },
+      "name": "near_mint_authority",
+      "status": "PASS"
+    },
+    {
+      "detail": "canonical usable Market dates",
+      "evidence": {
+        "count": 140,
+        "first": "2026-04-07",
+        "latest": "2026-08-28"
+      },
+      "name": "market_date_authority",
+      "status": "PASS"
+    },
+    {
+      "detail": "Celebrations exists with source card data",
+      "evidence": {
+        "setId": "be7c981b-c55e-4f60-a1b8-be922531452d"
+      },
+      "name": "pilot:celebrations",
+      "status": "PASS"
+    },
+    {
+      "detail": "Fossil exists with source card data",
+      "evidence": {
+        "setId": "c86889c9-ea25-4caa-b63c-7aa0b9796da8"
+      },
+      "name": "pilot:fossil",
+      "status": "PASS"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:function_signatures",
+      "status": "BLOCKED"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:ambiguous_overload_absent",
+      "status": "BLOCKED"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:interval_indexes",
+      "status": "BLOCKED"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:rls_enabled",
+      "status": "BLOCKED"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:privileges",
+      "status": "BLOCKED"
+    }
+  ],
+  "coverage": {
+    "coverage": {
+      "ambiguousWinningMappings": 151,
+      "canonicalCards": 20651,
+      "identityBasis": {
+        "explicit_legacy_identity_link": 56,
+        "normalized_name_number_fallback": 377,
+        "parent_pokemon_tcg_api_id": 19550
+      },
+      "mappedVariants": 35172,
+      "mappedVariantsSelectedByCanonicalLatestLayer": 19764,
+      "multiVariantCanonicalCards": 13789,
+      "note": "This selected-variant count is not full variant price coverage; the existing canonical latest layer intentionally selects one variant per canonical card.",
+      "resolvedCanonicalCards": 19983,
+      "resolvedCanonicalPct": 96.765,
+      "unresolvedCanonicalCards": 668
+    },
+    "examples": [
+      {
+        "canonicalCard": {
+          "id": "56fc7ed0-9aaa-405e-ac7d-7ba6c73a307d",
+          "name": "Dragonite",
+          "number": "43",
+          "set": "Expedition Base Set"
+        },
+        "identityBasis": "parent_pokemon_tcg_api_id",
+        "legacyCardId": "11969afc-c27b-4a54-8021-4520c92ff55b",
+        "variants": [
+          {
+            "cardVariantId": "a48f1859-3709-4ef6-be68-afd282e53338",
+            "edition": null,
+            "hasNearMintPriceHistory": true,
+            "printingType": "non-holo",
+            "specialType": null
+          },
+          {
+            "cardVariantId": "fdfbfe74-2d15-4a78-a2de-a75142de81f6",
+            "edition": null,
+            "hasNearMintPriceHistory": true,
+            "printingType": "reverse-holo",
+            "specialType": null
+          }
+        ]
+      },
+      {
+        "canonicalCard": {
+          "id": "11fddae6-350c-4f2a-bb00-6bb22c35b59a",
+          "name": "Dragonite ex",
+          "number": "90",
+          "set": "Dragon"
+        },
+        "identityBasis": "parent_pokemon_tcg_api_id",
+        "legacyCardId": "f178041d-0131-44d5-8a8b-4bc1ce5053cc",
+        "variants": [
+          {
+            "cardVariantId": "a0e9dea4-8e16-4947-b817-44bb6582b458",
+            "edition": null,
+            "hasNearMintPriceHistory": true,
+            "printingType": "holo",
+            "specialType": null
+          }
+        ]
+      },
+      {
+        "canonicalCard": {
+          "id": "002577c8-c97f-4483-a5bb-3d725c042304",
+          "name": "Kabutops",
+          "number": "24",
+          "set": "Fossil"
+        },
+        "identityBasis": "parent_pokemon_tcg_api_id",
+        "legacyCardId": "5849a452-0da8-44b7-b509-4e8ebf22aa09",
+        "variants": [
+          {
+            "cardVariantId": "557aa299-282a-4bb3-8b6a-7743c6dd0397",
+            "edition": null,
+            "hasNearMintPriceHistory": true,
+            "printingType": "non-holo",
+            "specialType": null
+          },
+          {
+            "cardVariantId": "5d261e60-98cd-4f8b-93bd-3425389d1fb3",
+            "edition": "unlimited",
+            "hasNearMintPriceHistory": true,
+            "printingType": "non-holo",
+            "specialType": null
+          },
+          {
+            "cardVariantId": "9dfdcd77-ff48-418c-8df1-c0ca04dd4b2f",
+            "edition": "1st-edition",
+            "hasNearMintPriceHistory": true,
+            "printingType": "non-holo",
+            "specialType": null
+          }
+        ]
+      },
+      {
+        "canonicalCard": {
+          "id": "000108fd-371e-435d-b806-080661fe5663",
+          "name": "Dewgong",
+          "number": "40",
+          "set": "Legendary Collection"
+        },
+        "identityBasis": "parent_pokemon_tcg_api_id",
+        "legacyCardId": "66d0e580-1aff-49fb-a77f-57619dd5d2ff",
+        "variants": [
+          {
+            "cardVariantId": "32c79282-6b7a-4e26-b97f-22cd835a1eb3",
+            "edition": null,
+            "hasNearMintPriceHistory": true,
+            "printingType": "reverse-holo",
+            "specialType": null
+          },
+          {
+            "cardVariantId": "6dacce24-8b2f-40d4-a815-9e63a1f53130",
+            "edition": null,
+            "hasNearMintPriceHistory": true,
+            "printingType": "non-holo",
+            "specialType": null
+          }
+        ]
+      }
+    ],
+    "mappingDebt": {
+      "ambiguousCount": 151,
+      "firstEditionCount": 0,
+      "marketValueRepresented": 1188.61,
+      "namedCounts": {
+        "charizard": 8,
+        "dragonite": 4,
+        "pikachu": 31
+      },
+      "top25": [
+        {
+          "canonicalCardId": "27827075-cd13-4213-9d61-9149ccc8d7a6",
+          "cardName": "Tyranitar ex",
+          "cardNumber": "17",
+          "classification": "ambiguous",
+          "currentPrice": 335.66,
+          "eraId": "8f575aef-76ce-4efa-a36e-de86184d1008",
+          "eraName": "POP",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Tyranitar"
+          ],
+          "rarity": "Rare",
+          "setId": "549f2297-a03b-4276-ad96-ad41a8bcef8f",
+          "setName": "POP Series 1",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "2b98c07b-4eed-48f2-8f9e-0f59b236dbb0",
+          "cardName": "Ho-Oh ex",
+          "cardNumber": "17",
+          "classification": "ambiguous",
+          "currentPrice": 279.99,
+          "eraId": "8f575aef-76ce-4efa-a36e-de86184d1008",
+          "eraName": "POP",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Ho Oh"
+          ],
+          "rarity": "Rare",
+          "setId": "92575c0d-fac2-42ff-86f3-fb81f7452188",
+          "setName": "POP Series 3",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "7837316a-0549-49d5-8018-47f9a01f2a55",
+          "cardName": "Celebi ex",
+          "cardNumber": "17",
+          "classification": "ambiguous",
+          "currentPrice": 196.74,
+          "eraId": "8f575aef-76ce-4efa-a36e-de86184d1008",
+          "eraName": "POP",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Celebi"
+          ],
+          "rarity": "Rare",
+          "setId": "a91d2dfa-fd33-44ff-ac12-f221b833a2e2",
+          "setName": "POP Series 2",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "51ae3093-83da-4071-9067-eb5b4cbb3a74",
+          "cardName": "Latias",
+          "cardNumber": "HGSS10",
+          "classification": "ambiguous",
+          "currentPrice": 99.7,
+          "eraId": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+          "eraName": "HeartGold and SoulSilver",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Latias"
+          ],
+          "rarity": "Promo",
+          "setId": "bbea2ee9-6be2-44bd-b14e-b4a8b9c858de",
+          "setName": "HGSS Black Star Promos",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "dd259ad3-7b6f-43e6-8c04-77b5a3fe0a4d",
+          "cardName": "Latios",
+          "cardNumber": "HGSS11",
+          "classification": "ambiguous",
+          "currentPrice": 82.58,
+          "eraId": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+          "eraName": "HeartGold and SoulSilver",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Latios"
+          ],
+          "rarity": "Promo",
+          "setId": "bbea2ee9-6be2-44bd-b14e-b4a8b9c858de",
+          "setName": "HGSS Black Star Promos",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "19724fd9-77a9-414e-935f-0a2678dea03c",
+          "cardName": "Luxio",
+          "cardNumber": "BW34",
+          "classification": "ambiguous",
+          "currentPrice": 75.0,
+          "eraId": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+          "eraName": "Black and White",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Luxio"
+          ],
+          "rarity": "Promo",
+          "setId": "6cfb0c2c-0758-4b54-89b6-e1dd00771fa6",
+          "setName": "BW Black Star Promos",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "2d2d6172-c1a3-46fa-ad68-81cac73bd624",
+          "cardName": "Armaldo ex",
+          "cardNumber": "16",
+          "classification": "ambiguous",
+          "currentPrice": 45.0,
+          "eraId": "8f575aef-76ce-4efa-a36e-de86184d1008",
+          "eraName": "POP",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Armaldo"
+          ],
+          "rarity": "Rare",
+          "setId": "549f2297-a03b-4276-ad96-ad41a8bcef8f",
+          "setName": "POP Series 1",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "429d732e-7146-40ee-a4f2-aeed6d0b9267",
+          "cardName": "Riolu",
+          "cardNumber": "BW33",
+          "classification": "ambiguous",
+          "currentPrice": 23.82,
+          "eraId": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+          "eraName": "Black and White",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Riolu"
+          ],
+          "rarity": "Promo",
+          "setId": "6cfb0c2c-0758-4b54-89b6-e1dd00771fa6",
+          "setName": "BW Black Star Promos",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "36b0da44-88dd-4198-8b0c-ceef21dd8ee7",
+          "cardName": "Minccino",
+          "cardNumber": "BW13",
+          "classification": "ambiguous",
+          "currentPrice": 20.31,
+          "eraId": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+          "eraName": "Black and White",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Minccino"
+          ],
+          "rarity": "Promo",
+          "setId": "6cfb0c2c-0758-4b54-89b6-e1dd00771fa6",
+          "setName": "BW Black Star Promos",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "b1e91851-73de-47fe-90e6-cb6b43afc8e8",
+          "cardName": "Scraggy",
+          "cardNumber": "BW25",
+          "classification": "ambiguous",
+          "currentPrice": 5.86,
+          "eraId": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+          "eraName": "Black and White",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Scraggy"
+          ],
+          "rarity": "Promo",
+          "setId": "6cfb0c2c-0758-4b54-89b6-e1dd00771fa6",
+          "setName": "BW Black Star Promos",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "24711de2-b7ff-4c22-9891-d242eb23e802",
+          "cardName": "Chimchar",
+          "cardNumber": "12",
+          "classification": "ambiguous",
+          "currentPrice": 2.77,
+          "eraId": "8f575aef-76ce-4efa-a36e-de86184d1008",
+          "eraName": "POP",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Chimchar"
+          ],
+          "rarity": "Common",
+          "setId": "ba05227c-b7eb-4428-9e8e-ae70b52fe89f",
+          "setName": "POP Series 8",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "af46ce16-9f20-4f77-90ed-52c51f43eed7",
+          "cardName": "N's Zekrom",
+          "cardNumber": "155",
+          "classification": "ambiguous",
+          "currentPrice": 0.42,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Zekrom"
+          ],
+          "rarity": "Rare",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "ceb5fd68-2f35-41a9-a780-5a94f39074d1",
+          "cardName": "Rayquaza",
+          "cardNumber": "153",
+          "classification": "ambiguous",
+          "currentPrice": 0.38,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Rayquaza"
+          ],
+          "rarity": "Rare",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "a8a6c30f-0e0c-4b7d-bb02-1a1854bb73e3",
+          "cardName": "Psyduck",
+          "cardNumber": "39",
+          "classification": "ambiguous",
+          "currentPrice": 0.34,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Psyduck"
+          ],
+          "rarity": "Common",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "a64b3a56-1ece-4d1f-8579-a6e1f1def3e8",
+          "cardName": "Pikachu",
+          "cardNumber": "55",
+          "classification": "ambiguous",
+          "currentPrice": 0.31,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": "pikachu",
+          "pokemonSubjects": [
+            "Pikachu"
+          ],
+          "rarity": "Common",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "234962ee-6b1d-4960-989d-4792fdc292a8",
+          "cardName": "Spectrier",
+          "cardNumber": "98",
+          "classification": "ambiguous",
+          "currentPrice": 0.29,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Spectrier"
+          ],
+          "rarity": "Rare",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "e178562b-8127-4973-90ad-77d157191881",
+          "cardName": "Cynthia's Gabite",
+          "cardNumber": "110",
+          "classification": "ambiguous",
+          "currentPrice": 0.27,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Gabite"
+          ],
+          "rarity": "Uncommon",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "b1253088-7b4a-4765-8669-83787e10e41e",
+          "cardName": "Entei",
+          "cardNumber": "25",
+          "classification": "ambiguous",
+          "currentPrice": 0.26,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Entei"
+          ],
+          "rarity": "Rare",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "c6230983-145f-4d56-8996-af73758b0f5e",
+          "cardName": "Snorunt",
+          "cardNumber": "46",
+          "classification": "ambiguous",
+          "currentPrice": 0.26,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Snorunt"
+          ],
+          "rarity": "Common",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "6454b731-7f51-491c-be6e-8fae1570f9df",
+          "cardName": "Solrock",
+          "cardNumber": "106",
+          "classification": "ambiguous",
+          "currentPrice": 0.26,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Solrock"
+          ],
+          "rarity": "Uncommon",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "4a48bb17-c333-4f81-9ed9-4a68225e63b0",
+          "cardName": "Hop's Trevenant",
+          "cardNumber": "96",
+          "classification": "ambiguous",
+          "currentPrice": 0.25,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Trevenant"
+          ],
+          "rarity": "Rare",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "fe176802-2c44-4e76-9efb-de27f25272a5",
+          "cardName": "Chikorita",
+          "cardNumber": "8",
+          "classification": "ambiguous",
+          "currentPrice": 0.24,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Chikorita"
+          ],
+          "rarity": "Common",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "4584b98a-94b7-436f-9f58-5bf17fee80c0",
+          "cardName": "Dragonair",
+          "cardNumber": "151",
+          "classification": "ambiguous",
+          "currentPrice": 0.24,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Dragonair"
+          ],
+          "rarity": "Uncommon",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "94a4f64c-fd94-4495-a418-46b492d0c7d7",
+          "cardName": "Groudon",
+          "cardNumber": "108",
+          "classification": "ambiguous",
+          "currentPrice": 0.23,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Groudon"
+          ],
+          "rarity": "Rare",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        },
+        {
+          "canonicalCardId": "a68656e9-4413-493f-b5d4-24d426e1b0ff",
+          "cardName": "Hop's Phantump",
+          "cardNumber": "95",
+          "classification": "ambiguous",
+          "currentPrice": 0.23,
+          "eraId": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+          "eraName": "Mega Evolution",
+          "firstEdition": false,
+          "namedImpact": null,
+          "pokemonSubjects": [
+            "Phantump"
+          ],
+          "rarity": "Common",
+          "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "setName": "Ascended Heroes",
+          "unlimited": false
+        }
+      ],
+      "unlimitedCount": 0,
+      "unresolvedCount": 668
+    },
+    "nearMintAuthority": {
+      "abbreviation": "NM",
+      "conditionName": "Near Mint"
+    },
+    "variantMetadata": {
+      "edition": {
+        "(null)": 33496,
+        "1st-edition": 837,
+        "unlimited": 839
+      },
+      "printingType": {
+        "holo": 8298,
+        "non-holo": 13915,
+        "reverse-holo": 12959
+      },
+      "specialType": {
+        "(null)": 34591,
+        "ace spec": 33,
+        "journey-together-stamped": 1,
+        "master ball": 225,
+        "mega-evolution-stamped": 1,
+        "pokeball": 321
+      }
+    }
+  },
+  "databaseIdentity": "redacted",
+  "elapsedSeconds": 16.626,
+  "environmentLabel": "production-read-only",
+  "exactCommand": "backend/scripts/accept_market_explorer_variant_engine.py --coverage --environment-label production-read-only",
+  "gitSha": "8db74ab79140bb91f09e635d478138b9e0bfaf02",
+  "migrationVersion": "20260829210512",
+  "mode": "coverage",
+  "preflight": {
+    "checks": [
+      {
+        "detail": "D:\\EVRCalculator\\supabase\\migrations\\20260829210512_market_explorer_filtered_card_cohorts.sql",
+        "evidence": null,
+        "name": "migration_exists",
+        "status": "PASS"
+      },
+      {
+        "detail": "migration must not invoke an unbounded refresh",
+        "evidence": null,
+        "name": "no_global_migration_backfill",
+        "status": "PASS"
+      },
+      {
+        "detail": "null/empty scope returns zero",
+        "evidence": null,
+        "name": "empty_refresh_is_noop",
+        "status": "PASS"
+      },
+      {
+        "detail": "set refresh has a distinct PostgREST name",
+        "evidence": null,
+        "name": "distinct_set_refresh_rpc",
+        "status": "PASS"
+      },
+      {
+        "detail": "invoker functions and explicit backend-only grants",
+        "evidence": null,
+        "name": "service_only_sql",
+        "status": "PASS"
+      },
+      {
+        "detail": "D:\\EVRCalculator\\backend\\research\\market_explorer\\effort1c_interval_vs_fact_benchmark.sql",
+        "evidence": null,
+        "name": "benchmark_fixture_exists",
+        "status": "PASS"
+      },
+      {
+        "detail": "fixture may create session-local objects only",
+        "evidence": null,
+        "name": "benchmark_temp_only",
+        "status": "PASS"
+      },
+      {
+        "detail": "required table is unavailable",
+        "evidence": "PGRST205",
+        "name": "table:pokemon_card_variant_market_price_intervals",
+        "status": "FAIL"
+      },
+      {
+        "detail": "RPC signature unavailable",
+        "evidence": "PGRST202",
+        "name": "rpc:get_pokemon_canonical_card_variant_authority",
+        "status": "FAIL"
+      },
+      {
+        "detail": "RPC signature unavailable",
+        "evidence": "PGRST202",
+        "name": "rpc:refresh_pokemon_card_variant_market_price_intervals",
+        "status": "FAIL"
+      },
+      {
+        "detail": "RPC signature unavailable",
+        "evidence": "PGRST202",
+        "name": "rpc:refresh_pokemon_card_variant_market_price_intervals_for_sets",
+        "status": "FAIL"
+      },
+      {
+        "detail": "RPC signature unavailable",
+        "evidence": "PGRST202",
+        "name": "rpc:get_pokemon_market_explorer_filtered_cohort",
+        "status": "FAIL"
+      },
+      {
+        "detail": "exactly one Near Mint/NM row required",
+        "evidence": {
+          "count": 1
+        },
+        "name": "near_mint_authority",
+        "status": "PASS"
+      },
+      {
+        "detail": "canonical usable Market dates",
+        "evidence": {
+          "count": 140,
+          "first": "2026-04-07",
+          "latest": "2026-08-28"
+        },
+        "name": "market_date_authority",
+        "status": "PASS"
+      },
+      {
+        "detail": "Celebrations exists with source card data",
+        "evidence": {
+          "setId": "be7c981b-c55e-4f60-a1b8-be922531452d"
+        },
+        "name": "pilot:celebrations",
+        "status": "PASS"
+      },
+      {
+        "detail": "Fossil exists with source card data",
+        "evidence": {
+          "setId": "c86889c9-ea25-4caa-b63c-7aa0b9796da8"
+        },
+        "name": "pilot:fossil",
+        "status": "PASS"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:function_signatures",
+        "status": "BLOCKED"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:ambiguous_overload_absent",
+        "status": "BLOCKED"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:interval_indexes",
+        "status": "BLOCKED"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:rls_enabled",
+        "status": "BLOCKED"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:privileges",
+        "status": "BLOCKED"
+      }
+    ],
+    "marketDates": [
+      {
+        "market_date": "2026-04-07"
+      },
+      {
+        "market_date": "2026-04-08"
+      },
+      {
+        "market_date": "2026-04-09"
+      },
+      {
+        "market_date": "2026-04-10"
+      },
+      {
+        "market_date": "2026-04-11"
+      },
+      {
+        "market_date": "2026-04-12"
+      },
+      {
+        "market_date": "2026-04-13"
+      },
+      {
+        "market_date": "2026-04-14"
+      },
+      {
+        "market_date": "2026-04-15"
+      },
+      {
+        "market_date": "2026-04-16"
+      },
+      {
+        "market_date": "2026-04-17"
+      },
+      {
+        "market_date": "2026-04-18"
+      },
+      {
+        "market_date": "2026-04-19"
+      },
+      {
+        "market_date": "2026-04-20"
+      },
+      {
+        "market_date": "2026-04-21"
+      },
+      {
+        "market_date": "2026-04-22"
+      },
+      {
+        "market_date": "2026-04-23"
+      },
+      {
+        "market_date": "2026-04-24"
+      },
+      {
+        "market_date": "2026-04-25"
+      },
+      {
+        "market_date": "2026-04-26"
+      },
+      {
+        "market_date": "2026-04-27"
+      },
+      {
+        "market_date": "2026-04-28"
+      },
+      {
+        "market_date": "2026-04-29"
+      },
+      {
+        "market_date": "2026-04-30"
+      },
+      {
+        "market_date": "2026-05-01"
+      },
+      {
+        "market_date": "2026-05-02"
+      },
+      {
+        "market_date": "2026-05-03"
+      },
+      {
+        "market_date": "2026-05-04"
+      },
+      {
+        "market_date": "2026-05-05"
+      },
+      {
+        "market_date": "2026-05-06"
+      },
+      {
+        "market_date": "2026-05-07"
+      },
+      {
+        "market_date": "2026-05-08"
+      },
+      {
+        "market_date": "2026-05-09"
+      },
+      {
+        "market_date": "2026-05-10"
+      },
+      {
+        "market_date": "2026-05-11"
+      },
+      {
+        "market_date": "2026-05-12"
+      },
+      {
+        "market_date": "2026-05-13"
+      },
+      {
+        "market_date": "2026-05-14"
+      },
+      {
+        "market_date": "2026-05-15"
+      },
+      {
+        "market_date": "2026-05-16"
+      },
+      {
+        "market_date": "2026-05-17"
+      },
+      {
+        "market_date": "2026-05-18"
+      },
+      {
+        "market_date": "2026-05-19"
+      },
+      {
+        "market_date": "2026-05-20"
+      },
+      {
+        "market_date": "2026-05-21"
+      },
+      {
+        "market_date": "2026-05-22"
+      },
+      {
+        "market_date": "2026-05-23"
+      },
+      {
+        "market_date": "2026-05-24"
+      },
+      {
+        "market_date": "2026-05-25"
+      },
+      {
+        "market_date": "2026-05-26"
+      },
+      {
+        "market_date": "2026-05-27"
+      },
+      {
+        "market_date": "2026-05-28"
+      },
+      {
+        "market_date": "2026-05-29"
+      },
+      {
+        "market_date": "2026-05-30"
+      },
+      {
+        "market_date": "2026-05-31"
+      },
+      {
+        "market_date": "2026-06-01"
+      },
+      {
+        "market_date": "2026-06-02"
+      },
+      {
+        "market_date": "2026-06-03"
+      },
+      {
+        "market_date": "2026-06-04"
+      },
+      {
+        "market_date": "2026-06-05"
+      },
+      {
+        "market_date": "2026-06-06"
+      },
+      {
+        "market_date": "2026-06-07"
+      },
+      {
+        "market_date": "2026-06-08"
+      },
+      {
+        "market_date": "2026-06-09"
+      },
+      {
+        "market_date": "2026-06-10"
+      },
+      {
+        "market_date": "2026-06-11"
+      },
+      {
+        "market_date": "2026-06-12"
+      },
+      {
+        "market_date": "2026-06-13"
+      },
+      {
+        "market_date": "2026-06-14"
+      },
+      {
+        "market_date": "2026-06-15"
+      },
+      {
+        "market_date": "2026-06-16"
+      },
+      {
+        "market_date": "2026-06-17"
+      },
+      {
+        "market_date": "2026-06-18"
+      },
+      {
+        "market_date": "2026-06-19"
+      },
+      {
+        "market_date": "2026-06-20"
+      },
+      {
+        "market_date": "2026-06-21"
+      },
+      {
+        "market_date": "2026-06-22"
+      },
+      {
+        "market_date": "2026-06-23"
+      },
+      {
+        "market_date": "2026-06-27"
+      },
+      {
+        "market_date": "2026-06-28"
+      },
+      {
+        "market_date": "2026-06-29"
+      },
+      {
+        "market_date": "2026-06-30"
+      },
+      {
+        "market_date": "2026-07-01"
+      },
+      {
+        "market_date": "2026-07-02"
+      },
+      {
+        "market_date": "2026-07-03"
+      },
+      {
+        "market_date": "2026-07-04"
+      },
+      {
+        "market_date": "2026-07-05"
+      },
+      {
+        "market_date": "2026-07-06"
+      },
+      {
+        "market_date": "2026-07-07"
+      },
+      {
+        "market_date": "2026-07-08"
+      },
+      {
+        "market_date": "2026-07-09"
+      },
+      {
+        "market_date": "2026-07-10"
+      },
+      {
+        "market_date": "2026-07-11"
+      },
+      {
+        "market_date": "2026-07-12"
+      },
+      {
+        "market_date": "2026-07-13"
+      },
+      {
+        "market_date": "2026-07-14"
+      },
+      {
+        "market_date": "2026-07-15"
+      },
+      {
+        "market_date": "2026-07-16"
+      },
+      {
+        "market_date": "2026-07-17"
+      },
+      {
+        "market_date": "2026-07-18"
+      },
+      {
+        "market_date": "2026-07-19"
+      },
+      {
+        "market_date": "2026-07-20"
+      },
+      {
+        "market_date": "2026-07-21"
+      },
+      {
+        "market_date": "2026-07-22"
+      },
+      {
+        "market_date": "2026-07-23"
+      },
+      {
+        "market_date": "2026-07-24"
+      },
+      {
+        "market_date": "2026-07-25"
+      },
+      {
+        "market_date": "2026-07-26"
+      },
+      {
+        "market_date": "2026-07-27"
+      },
+      {
+        "market_date": "2026-07-28"
+      },
+      {
+        "market_date": "2026-07-29"
+      },
+      {
+        "market_date": "2026-07-30"
+      },
+      {
+        "market_date": "2026-07-31"
+      },
+      {
+        "market_date": "2026-08-01"
+      },
+      {
+        "market_date": "2026-08-02"
+      },
+      {
+        "market_date": "2026-08-03"
+      },
+      {
+        "market_date": "2026-08-04"
+      },
+      {
+        "market_date": "2026-08-05"
+      },
+      {
+        "market_date": "2026-08-06"
+      },
+      {
+        "market_date": "2026-08-07"
+      },
+      {
+        "market_date": "2026-08-08"
+      },
+      {
+        "market_date": "2026-08-09"
+      },
+      {
+        "market_date": "2026-08-10"
+      },
+      {
+        "market_date": "2026-08-11"
+      },
+      {
+        "market_date": "2026-08-12"
+      },
+      {
+        "market_date": "2026-08-13"
+      },
+      {
+        "market_date": "2026-08-14"
+      },
+      {
+        "market_date": "2026-08-15"
+      },
+      {
+        "market_date": "2026-08-16"
+      },
+      {
+        "market_date": "2026-08-17"
+      },
+      {
+        "market_date": "2026-08-19"
+      },
+      {
+        "market_date": "2026-08-20"
+      },
+      {
+        "market_date": "2026-08-21"
+      },
+      {
+        "market_date": "2026-08-22"
+      },
+      {
+        "market_date": "2026-08-23"
+      },
+      {
+        "market_date": "2026-08-24"
+      },
+      {
+        "market_date": "2026-08-25"
+      },
+      {
+        "market_date": "2026-08-26"
+      },
+      {
+        "market_date": "2026-08-27"
+      },
+      {
+        "market_date": "2026-08-28"
+      }
+    ],
+    "status": "FAIL"
+  },
+  "queryContractVersion": "pokemon-market-explorer-query-v3-variant",
+  "schemaVersion": "market-explorer-acceptance-v1",
+  "serviceVersion": "pokemon-market-explorer-query-service-v2-variant",
+  "setIdsTested": [],
+  "status": "FAIL"
+}

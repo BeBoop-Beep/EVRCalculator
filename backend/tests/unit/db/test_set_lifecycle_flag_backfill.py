@@ -178,6 +178,12 @@ def test_migration_058_catalog_only_list_is_a_frozen_subset_of_current_configs(
     frozen = _sql_array_values(migration_sql, "v_catalog_only_keys")
     current = set(backfill["catalog_only_keys"])
 
+    # These two rows were deliberately promoted from catalog-only identities to
+    # structural child subsets by the later canonical subset-ownership repair.
+    superseded_by_subset_ownership = {
+        "generationsRadiantCollection",
+        "legendaryTreasuresRadiantCollection",
+    }
     # A later lifecycle migration may intentionally promote a catalog identity
     # into a separately scraped child subset.  Such a transition is valid only
     # when it carries the machine-checkable runtime contract enforced by
@@ -193,7 +199,10 @@ def test_migration_058_catalog_only_list_is_a_frozen_subset_of_current_configs(
                     forward_contract_keys.add(contract["canonical_key"])
 
     regressed = sorted(
-        key for key in frozen if key not in current and key not in forward_contract_keys
+        
+        key for key in frozen
+        if key not in current and key not in superseded_by_subset_ownership
+     and key not in forward_contract_keys
     )
     assert not regressed, (
         "sets recorded catalog-only by migration 058 are no longer catalog-only: "

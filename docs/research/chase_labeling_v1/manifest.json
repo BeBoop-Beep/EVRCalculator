@@ -1,0 +1,243 @@
+{
+  "schemaVersion": "chase-labeling-v1",
+  "codeVersion": "282589073f2d57f212e1468064d4542a35e13600",
+  "generatedAt": "2026-08-30T18:27:11.415142+00:00",
+  "marketDate": "2026-08-28",
+  "stage2Artifact": "docs\\research\\set_chase_efficiency_stage2.json",
+  "cohortSize": 10,
+  "candidateCards": 806,
+  "packetColumns": [
+    "set_id",
+    "set_name",
+    "card_id",
+    "card_variant_id",
+    "card_name",
+    "card_number",
+    "rarity",
+    "treatment",
+    "printing_type",
+    "market_price",
+    "pack_price",
+    "value_in_packs",
+    "image_url"
+  ],
+  "blindnessGuarantee": "Packet columns are a closed allow-list enforced by labeling.assert_packet_is_blind. No model output, score, rank, probability or algorithm selection is present.",
+  "sets": [
+    {
+      "canonicalKey": "phantasmalFlames",
+      "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "setName": "Phantasmal Flames",
+      "structure": "hero_chase",
+      "selectionRationale": "Most concentrated set in the cohort (effective EV count 1.40) and the ONLY set with a genuine price cliff ($275 -> $27, ratio 10.16). The case where algorithms already agree, so human disagreement here would falsify the whole labeling premise.",
+      "packEquivalentCost": 11.079722,
+      "drawablePrintings": 260,
+      "candidatePoolSize": 30,
+      "poolProof": {
+        "poolSize": 30,
+        "excludedCount": 230,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 4.71,
+        "dearestCardExcluded": 4.27,
+        "exclusionHeadroomRatio": 0.9066,
+        "absoluteFloor": 10.0,
+        "costFloor": 11.079722,
+        "algorithmSelectedCoveredByPool": true
+      }
+    },
+    {
+      "canonicalKey": "paldeanFates",
+      "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "setName": "Paldean Fates",
+      "structure": "hero_chase_expensive",
+      "selectionRationale": "Second-most concentrated (2.57) with a $965 headline card and a $23.11 pack. Largest Chase-EV-versus-BTB rank disagreement in Stage II (EV rank 4, BTB rank 19).",
+      "packEquivalentCost": 23.11,
+      "drawablePrintings": 490,
+      "candidatePoolSize": 84,
+      "poolProof": {
+        "poolSize": 84,
+        "excludedCount": 406,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 9.23,
+        "dearestCardExcluded": 8.37,
+        "exclusionHeadroomRatio": 0.9068,
+        "absoluteFloor": 10.0,
+        "costFloor": 23.11,
+        "algorithmSelectedCoveredByPool": true
+      }
+    },
+    {
+      "canonicalKey": "scarletAndViolet151",
+      "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+      "setName": "Scarlet and Violet 151",
+      "structure": "unstable_expensive",
+      "selectionRationale": "Highest pack price ($29.81) and an UNSTABLE universe (0.346): methods return K from 1 to 35 and the Stage-II core was a single card. The clearest test of whether humans can resolve what algorithms cannot.",
+      "packEquivalentCost": 29.811667,
+      "drawablePrintings": 416,
+      "candidatePoolSize": 70,
+      "poolProof": {
+        "poolSize": 70,
+        "excludedCount": 346,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 9.06,
+        "dearestCardExcluded": 7.81,
+        "exclusionHeadroomRatio": 0.862,
+        "absoluteFloor": 10.0,
+        "costFloor": 29.811667,
+        "algorithmSelectedCoveredByPool": true
+      }
+    },
+    {
+      "canonicalKey": "ascendedHeroes",
+      "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "setName": "Ascended Heroes",
+      "structure": "deep_expensive_multihit",
+      "selectionRationale": "Nine-card Stage-II core, six cards over $300, and multi-hit packs (up to 6 qualifying cards). Deep AND expensive, which no other set combines.",
+      "packEquivalentCost": 13.79,
+      "drawablePrintings": 590,
+      "candidatePoolSize": 62,
+      "poolProof": {
+        "poolSize": 62,
+        "excludedCount": 528,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 10.94,
+        "dearestCardExcluded": 9.36,
+        "exclusionHeadroomRatio": 0.8556,
+        "absoluteFloor": 10.0,
+        "costFloor": 13.79,
+        "algorithmSelectedCoveredByPool": true
+      }
+    },
+    {
+      "canonicalKey": "prismaticEvolutions",
+      "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "setName": "Prismatic Evolutions",
+      "structure": "godpack_unstable",
+      "selectionRationale": "God-pack mechanics (up to 9 qualifying cards in one pack), highest Chase EV Return (0.408), unstable universe (0.333), and the widest value-versus-probability concentration divergence (7.90 vs 25.33).",
+      "packEquivalentCost": 14.86,
+      "drawablePrintings": 696,
+      "candidatePoolSize": 104,
+      "poolProof": {
+        "poolSize": 104,
+        "excludedCount": 592,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 10.14,
+        "dearestCardExcluded": 9.71,
+        "exclusionHeadroomRatio": 0.9576,
+        "absoluteFloor": 10.0,
+        "costFloor": 14.86,
+        "algorithmSelectedCoveredByPool": true
+      }
+    },
+    {
+      "canonicalKey": "paradoxRift",
+      "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "setName": "Paradox Rift",
+      "structure": "deep_cheap_unstable",
+      "selectionRationale": "Deepest chase pool measured (effective EV count 17.55) with a modest $120 top card. Unstable (0.327); largest-log-gap says K=1 while >=2xC says K=27, a 5.7x swing in Beat-the-Buy.",
+      "packEquivalentCost": 7.558889,
+      "drawablePrintings": 532,
+      "candidatePoolSize": 90,
+      "poolProof": {
+        "poolSize": 90,
+        "excludedCount": 442,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 7.86,
+        "dearestCardExcluded": 7.11,
+        "exclusionHeadroomRatio": 0.9046,
+        "absoluteFloor": 10.0,
+        "costFloor": 7.558889,
+        "algorithmSelectedCoveredByPool": true
+      }
+    },
+    {
+      "canonicalKey": "whiteFlare",
+      "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "setName": "White Flare",
+      "structure": "adaptive_k_disagreement",
+      "selectionRationale": "Largest adaptive-K disagreement in Stage II: K from 7 to 24 purely from the HHI reference pool, and a 123-card two-means universe. Stage-II core 3 / extended 120.",
+      "packEquivalentCost": 13.53,
+      "drawablePrintings": 650,
+      "candidatePoolSize": 246,
+      "poolProof": {
+        "poolSize": 246,
+        "excludedCount": 404,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 7.57,
+        "dearestCardExcluded": 6.83,
+        "exclusionHeadroomRatio": 0.9022,
+        "absoluteFloor": 10.0,
+        "costFloor": 13.53,
+        "algorithmSelectedCoveredByPool": true
+      }
+    },
+    {
+      "canonicalKey": "shroudedFable",
+      "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "setName": "Shrouded Fable",
+      "structure": "flat_curve_deep",
+      "selectionRationale": "Flattest price curve in the cohort (75, 59, 58, 54, 49) with the highest BTB (0.263) and the only set whose lower-quartile chase journey beats buying. Tests whether a flat curve has a chase line at all.",
+      "packEquivalentCost": 8.91,
+      "drawablePrintings": 214,
+      "candidatePoolSize": 52,
+      "poolProof": {
+        "poolSize": 52,
+        "excludedCount": 162,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 11.54,
+        "dearestCardExcluded": 7.89,
+        "exclusionHeadroomRatio": 0.6837,
+        "absoluteFloor": 10.0,
+        "costFloor": 8.91,
+        "algorithmSelectedCoveredByPool": true
+      }
+    },
+    {
+      "canonicalKey": "pitchBlack",
+      "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+      "setName": "Pitch Black",
+      "structure": "stable_cheap",
+      "selectionRationale": "Most STABLE universe in Stage II (0.760) at a $4.75 pack. The positive control: if humans disagree with algorithms here, the instability elsewhere is not the algorithms' fault.",
+      "packEquivalentCost": 4.749444,
+      "drawablePrintings": 240,
+      "candidatePoolSize": 36,
+      "poolProof": {
+        "poolSize": 36,
+        "excludedCount": 204,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 4.8,
+        "dearestCardExcluded": 4.41,
+        "exclusionHeadroomRatio": 0.9188,
+        "absoluteFloor": 10.0,
+        "costFloor": 4.749444,
+        "algorithmSelectedCoveredByPool": true
+      }
+    },
+    {
+      "canonicalKey": "perfectOrder",
+      "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+      "setName": "Perfect Order",
+      "structure": "cheap_pack_moderate",
+      "selectionRationale": "Cheapest pack-equivalent cost ($4.74) and the largest Stage-I rank mover (Top-1 rank 20 to Top-10 rank 6). Tests whether a cheap pack shifts where humans draw the chase line.",
+      "packEquivalentCost": 4.735556,
+      "drawablePrintings": 248,
+      "candidatePoolSize": 32,
+      "poolProof": {
+        "poolSize": 32,
+        "excludedCount": 216,
+        "unpricedCount": 0,
+        "cheapestCardInPool": 4.81,
+        "dearestCardExcluded": 4.7,
+        "exclusionHeadroomRatio": 0.9771,
+        "absoluteFloor": 10.0,
+        "costFloor": 4.735556,
+        "algorithmSelectedCoveredByPool": true
+      }
+    }
+  ],
+  "skipped": [],
+  "files": {
+    "packetCsv": "chase_labeling_packet.csv",
+    "labelTemplateCsv": "chase_labels_template.csv",
+    "reviewHtml": "chase_labeling_packet.html"
+  }
+}

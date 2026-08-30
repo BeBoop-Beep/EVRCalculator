@@ -277,8 +277,8 @@ test("the signal rail follows the active asset lens without card fallbacks", () 
   const rail = componentSource("SetSignalsRail");
   assert.ok(section.includes('resolvedSegmentKey === "sealed"'));
   assert.ok(section.includes("setPageConsumerMarket?.marketBreadth"));
-  assert.ok(section.includes('sealedState.status === "loading"'));
-  assert.ok(section.includes('sealedState.status === "error"'));
+  assert.ok(section.includes('["idle", "loading", "error"].includes(sealedSummaryState.status)'));
+  assert.ok(section.includes('sealedSummaryState.status === "error"'));
   assert.ok(rail.includes('activeSegmentKey === "cards" || activeSegmentKey === "sealed"'));
   assert.ok(rail.includes('title={activeSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}'));
   assert.match(rail, /activeSegmentKey === "cards"[\s\S]*?<ChaseConcentrationSignal/);
