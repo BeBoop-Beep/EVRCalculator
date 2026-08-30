@@ -3,6 +3,24 @@ from pathlib import Path
 
 SQL = (Path(__file__).resolve().parents[4] / "supabase" / "migrations" /
        "20260829210512_market_explorer_filtered_card_cohorts.sql").read_text(encoding="utf-8")
+ACL_SQL = (Path(__file__).resolve().parents[4] / "supabase" / "migrations" /
+           "20260830190812_harden_market_explorer_variant_interval_acl.sql").read_text(encoding="utf-8")
+
+
+def test_variant_interval_acl_chain_revokes_defaults_before_least_privilege_grant():
+    normalized = " ".join(ACL_SQL.lower().split())
+    table = "public.pokemon_card_variant_market_price_intervals"
+    revoke = (
+        f"revoke all privileges on table {table} "
+        "from public, anon, authenticated, service_role;"
+    )
+    grant = f"grant select, insert, delete on table {table} to service_role;"
+
+    assert revoke in normalized
+    assert grant in normalized
+    assert normalized.index(revoke) < normalized.index(grant)
+    for privilege in ("update", "truncate", "references", "trigger"):
+        assert f"grant {privilege}" not in normalized
 
 
 def test_filtered_cohort_rpc_is_service_only_and_invoker_safe():

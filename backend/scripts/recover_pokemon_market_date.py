@@ -10,6 +10,7 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Sequence
 
 from backend.db.clients.supabase_client import supabase
+from backend.db.services.pokemon_scrape_runtime_preflight import run_runtime_preflight
 
 
 def _dates(start: str, end: str) -> List[str]:
@@ -19,7 +20,7 @@ def _dates(start: str, end: str) -> List[str]:
     return [(first + timedelta(days=offset)).isoformat() for offset in range((last - first).days + 1)]
 
 
-def verify_complete_batch(client: Any, market_date: str) -> Dict[str, Any]:
+def verify_complete_batch(client: Any, market_date: str, approved_preflight: Any) -> Dict[str, Any]:
     rows = list((client.table("pokemon_scrape_batches")
                  .select("id,market_date,status,expected_set_count,succeeded_set_count,missing_set_count,"
                          "promoted_at,runtime_git_sha,runtime_registry_hash")
@@ -30,6 +31,18 @@ def verify_complete_batch(client: Any, market_date: str) -> Dict[str, Any]:
     if (batch.get("status") != "complete" or int(batch.get("missing_set_count") or 0) != 0
             or int(batch.get("succeeded_set_count") or 0) < int(batch.get("expected_set_count") or 0)):
         raise RuntimeError(f"scrape batch for {market_date} is not complete: {batch}")
+    approved_count = int(approved_preflight.database_cohort_count)
+    approved_hash = approved_preflight.database_cohort_hash
+    if int(batch.get("expected_set_count") or 0) != approved_count:
+        raise RuntimeError(
+            f"scrape batch for {market_date} has stale cohort count: "
+            f"batch={batch.get('expected_set_count')} approved={approved_count}"
+        )
+    if not approved_hash or batch.get("runtime_registry_hash") != approved_hash:
+        raise RuntimeError(
+            f"scrape batch for {market_date} has stale registry hash: "
+            f"batch={batch.get('runtime_registry_hash')} approved={approved_hash}"
+        )
     return batch
 
 
@@ -45,12 +58,25 @@ def _run(command: List[str], runner: Any) -> Dict[str, Any]:
 
 
 def recover_range(client: Any, *, start: str, end: str, commit: bool,
-                  runner: Any = subprocess.run) -> Dict[str, Any]:
+                  runner: Any = subprocess.run, preflight_runner: Any = run_runtime_preflight) -> Dict[str, Any]:
+    approved = preflight_runner()
+    if not approved.ok or not approved.registry_hashes_match:
+        raise RuntimeError(f"current runtime/database registry preflight is not approved: {approved.to_dict()}")
     results = []
-    for market_date in _dates(start, end):
-        batch = verify_complete_batch(client, market_date)
+    recovery_dates = _dates(start, end)
+    # Validate the entire range before the first mutating subprocess.
+    approved_batches = {
+        market_date: verify_complete_batch(client, market_date, approved)
+        for market_date in recovery_dates
+    }
+    for market_date in recovery_dates:
+        batch = approved_batches[market_date]
         if not commit:
-            results.append({"market_date": market_date, "batch_complete": True, "mode": "dry_run"})
+            preview = _run([sys.executable, "backend/scripts/repair_pokemon_set_value_history.py",
+                            "--start-date", market_date, "--end-date", market_date, "--all"], runner)
+            results.append({"market_date": market_date, "batch_complete": True,
+                            "registry_provenance_approved": True, "mode": "dry_run",
+                            "repair_preview": preview})
             continue
         repair = _run([sys.executable, "backend/scripts/repair_pokemon_set_value_history.py",
                        "--start-date", market_date, "--end-date", market_date, "--all", "--commit"], runner)
