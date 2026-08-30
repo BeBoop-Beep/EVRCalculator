@@ -10,6 +10,12 @@ MIGRATION = (
 )
 SQL = MIGRATION.read_text(encoding="utf-8")
 NORMALIZED = " ".join(SQL.lower().split())
+DATE_CONTRACT_SQL = " ".join((
+    Path(__file__).resolve().parents[4]
+    / "supabase"
+    / "migrations"
+    / "20260830201610_preserve_market_explorer_observed_date_contract.sql"
+).read_text(encoding="utf-8").lower().split())
 
 
 def _series(dates, rows, top_n=None):
@@ -94,6 +100,13 @@ def test_eligible_count_precedes_top_n_and_metadata_is_latest_only():
     panel = NORMALIZED[NORMALIZED.index("panel as materialized"):NORMALIZED.index("eligible as materialized")]
     for wide_field in ("card_name", "card_number", "image_url", "edition", "printing_type", "special_type"):
         assert wide_field not in panel
+
+
+def test_forward_fix_preserves_observed_rows_but_uses_canonical_previous_date():
+    assert "observed_dates as materialized" in DATE_CONTRACT_SQL
+    assert "from date_context dates join (select distinct panel.market_date from panel) observed" in DATE_CONTRACT_SQL
+    assert "from observed_dates dates left join eligible" in DATE_CONTRACT_SQL
+    assert "state.prev_seen_date = dates.previous_market_date" in DATE_CONTRACT_SQL
 
 
 def test_consecutive_presence_and_missing_prior_date():
