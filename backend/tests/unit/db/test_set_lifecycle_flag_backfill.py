@@ -177,7 +177,16 @@ def test_migration_058_catalog_only_list_is_a_frozen_subset_of_current_configs(
     frozen = _sql_array_values(migration_sql, "v_catalog_only_keys")
     current = set(backfill["catalog_only_keys"])
 
-    regressed = sorted(key for key in frozen if key not in current)
+    # These two rows were deliberately promoted from catalog-only identities to
+    # structural child subsets by the later canonical subset-ownership repair.
+    superseded_by_subset_ownership = {
+        "generationsRadiantCollection",
+        "legendaryTreasuresRadiantCollection",
+    }
+    regressed = sorted(
+        key for key in frozen
+        if key not in current and key not in superseded_by_subset_ownership
+    )
     assert not regressed, (
         "sets recorded catalog-only by migration 058 are no longer catalog-only: "
         f"{regressed}"

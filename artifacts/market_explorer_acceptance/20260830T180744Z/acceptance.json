@@ -1,0 +1,715 @@
+{
+  "checks": [
+    {
+      "detail": "D:\\EVRCalculator\\supabase\\migrations\\20260829210512_market_explorer_filtered_card_cohorts.sql",
+      "evidence": null,
+      "name": "migration_exists",
+      "status": "PASS"
+    },
+    {
+      "detail": "migration must not invoke an unbounded refresh",
+      "evidence": null,
+      "name": "no_global_migration_backfill",
+      "status": "PASS"
+    },
+    {
+      "detail": "null/empty scope returns zero",
+      "evidence": null,
+      "name": "empty_refresh_is_noop",
+      "status": "PASS"
+    },
+    {
+      "detail": "set refresh has a distinct PostgREST name",
+      "evidence": null,
+      "name": "distinct_set_refresh_rpc",
+      "status": "PASS"
+    },
+    {
+      "detail": "invoker functions and explicit backend-only grants",
+      "evidence": null,
+      "name": "service_only_sql",
+      "status": "PASS"
+    },
+    {
+      "detail": "D:\\EVRCalculator\\backend\\research\\market_explorer\\effort1c_interval_vs_fact_benchmark.sql",
+      "evidence": null,
+      "name": "benchmark_fixture_exists",
+      "status": "PASS"
+    },
+    {
+      "detail": "fixture may create session-local objects only",
+      "evidence": null,
+      "name": "benchmark_temp_only",
+      "status": "PASS"
+    },
+    {
+      "detail": "required table is unavailable",
+      "evidence": "PGRST205",
+      "name": "table:pokemon_card_variant_market_price_intervals",
+      "status": "FAIL"
+    },
+    {
+      "detail": "RPC signature unavailable",
+      "evidence": "PGRST202",
+      "name": "rpc:get_pokemon_canonical_card_variant_authority",
+      "status": "FAIL"
+    },
+    {
+      "detail": "RPC signature unavailable",
+      "evidence": "PGRST202",
+      "name": "rpc:refresh_pokemon_card_variant_market_price_intervals",
+      "status": "FAIL"
+    },
+    {
+      "detail": "RPC signature unavailable",
+      "evidence": "PGRST202",
+      "name": "rpc:refresh_pokemon_card_variant_market_price_intervals_for_sets",
+      "status": "FAIL"
+    },
+    {
+      "detail": "RPC signature unavailable",
+      "evidence": "PGRST202",
+      "name": "rpc:get_pokemon_market_explorer_filtered_cohort",
+      "status": "FAIL"
+    },
+    {
+      "detail": "exactly one Near Mint/NM row required",
+      "evidence": {
+        "count": 1
+      },
+      "name": "near_mint_authority",
+      "status": "PASS"
+    },
+    {
+      "detail": "canonical usable Market dates",
+      "evidence": {
+        "count": 140,
+        "first": "2026-04-07",
+        "latest": "2026-08-28"
+      },
+      "name": "market_date_authority",
+      "status": "PASS"
+    },
+    {
+      "detail": "Celebrations exists with source card data",
+      "evidence": {
+        "setId": "be7c981b-c55e-4f60-a1b8-be922531452d"
+      },
+      "name": "pilot:celebrations",
+      "status": "PASS"
+    },
+    {
+      "detail": "Fossil exists with source card data",
+      "evidence": {
+        "setId": "c86889c9-ea25-4caa-b63c-7aa0b9796da8"
+      },
+      "name": "pilot:fossil",
+      "status": "PASS"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:function_signatures",
+      "status": "BLOCKED"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:ambiguous_overload_absent",
+      "status": "BLOCKED"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:interval_indexes",
+      "status": "BLOCKED"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:rls_enabled",
+      "status": "BLOCKED"
+    },
+    {
+      "detail": "direct PostgreSQL catalog access was not supplied",
+      "evidence": null,
+      "name": "catalog:privileges",
+      "status": "BLOCKED"
+    }
+  ],
+  "databaseIdentity": "redacted",
+  "elapsedSeconds": 0.979,
+  "environmentLabel": "production-read-only",
+  "exactCommand": "backend/scripts/accept_market_explorer_variant_engine.py --preflight --environment-label production-read-only",
+  "gitSha": "8db74ab79140bb91f09e635d478138b9e0bfaf02",
+  "migrationVersion": "20260829210512",
+  "mode": "preflight",
+  "preflight": {
+    "checks": [
+      {
+        "detail": "D:\\EVRCalculator\\supabase\\migrations\\20260829210512_market_explorer_filtered_card_cohorts.sql",
+        "evidence": null,
+        "name": "migration_exists",
+        "status": "PASS"
+      },
+      {
+        "detail": "migration must not invoke an unbounded refresh",
+        "evidence": null,
+        "name": "no_global_migration_backfill",
+        "status": "PASS"
+      },
+      {
+        "detail": "null/empty scope returns zero",
+        "evidence": null,
+        "name": "empty_refresh_is_noop",
+        "status": "PASS"
+      },
+      {
+        "detail": "set refresh has a distinct PostgREST name",
+        "evidence": null,
+        "name": "distinct_set_refresh_rpc",
+        "status": "PASS"
+      },
+      {
+        "detail": "invoker functions and explicit backend-only grants",
+        "evidence": null,
+        "name": "service_only_sql",
+        "status": "PASS"
+      },
+      {
+        "detail": "D:\\EVRCalculator\\backend\\research\\market_explorer\\effort1c_interval_vs_fact_benchmark.sql",
+        "evidence": null,
+        "name": "benchmark_fixture_exists",
+        "status": "PASS"
+      },
+      {
+        "detail": "fixture may create session-local objects only",
+        "evidence": null,
+        "name": "benchmark_temp_only",
+        "status": "PASS"
+      },
+      {
+        "detail": "required table is unavailable",
+        "evidence": "PGRST205",
+        "name": "table:pokemon_card_variant_market_price_intervals",
+        "status": "FAIL"
+      },
+      {
+        "detail": "RPC signature unavailable",
+        "evidence": "PGRST202",
+        "name": "rpc:get_pokemon_canonical_card_variant_authority",
+        "status": "FAIL"
+      },
+      {
+        "detail": "RPC signature unavailable",
+        "evidence": "PGRST202",
+        "name": "rpc:refresh_pokemon_card_variant_market_price_intervals",
+        "status": "FAIL"
+      },
+      {
+        "detail": "RPC signature unavailable",
+        "evidence": "PGRST202",
+        "name": "rpc:refresh_pokemon_card_variant_market_price_intervals_for_sets",
+        "status": "FAIL"
+      },
+      {
+        "detail": "RPC signature unavailable",
+        "evidence": "PGRST202",
+        "name": "rpc:get_pokemon_market_explorer_filtered_cohort",
+        "status": "FAIL"
+      },
+      {
+        "detail": "exactly one Near Mint/NM row required",
+        "evidence": {
+          "count": 1
+        },
+        "name": "near_mint_authority",
+        "status": "PASS"
+      },
+      {
+        "detail": "canonical usable Market dates",
+        "evidence": {
+          "count": 140,
+          "first": "2026-04-07",
+          "latest": "2026-08-28"
+        },
+        "name": "market_date_authority",
+        "status": "PASS"
+      },
+      {
+        "detail": "Celebrations exists with source card data",
+        "evidence": {
+          "setId": "be7c981b-c55e-4f60-a1b8-be922531452d"
+        },
+        "name": "pilot:celebrations",
+        "status": "PASS"
+      },
+      {
+        "detail": "Fossil exists with source card data",
+        "evidence": {
+          "setId": "c86889c9-ea25-4caa-b63c-7aa0b9796da8"
+        },
+        "name": "pilot:fossil",
+        "status": "PASS"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:function_signatures",
+        "status": "BLOCKED"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:ambiguous_overload_absent",
+        "status": "BLOCKED"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:interval_indexes",
+        "status": "BLOCKED"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:rls_enabled",
+        "status": "BLOCKED"
+      },
+      {
+        "detail": "direct PostgreSQL catalog access was not supplied",
+        "evidence": null,
+        "name": "catalog:privileges",
+        "status": "BLOCKED"
+      }
+    ],
+    "marketDates": [
+      {
+        "market_date": "2026-04-07"
+      },
+      {
+        "market_date": "2026-04-08"
+      },
+      {
+        "market_date": "2026-04-09"
+      },
+      {
+        "market_date": "2026-04-10"
+      },
+      {
+        "market_date": "2026-04-11"
+      },
+      {
+        "market_date": "2026-04-12"
+      },
+      {
+        "market_date": "2026-04-13"
+      },
+      {
+        "market_date": "2026-04-14"
+      },
+      {
+        "market_date": "2026-04-15"
+      },
+      {
+        "market_date": "2026-04-16"
+      },
+      {
+        "market_date": "2026-04-17"
+      },
+      {
+        "market_date": "2026-04-18"
+      },
+      {
+        "market_date": "2026-04-19"
+      },
+      {
+        "market_date": "2026-04-20"
+      },
+      {
+        "market_date": "2026-04-21"
+      },
+      {
+        "market_date": "2026-04-22"
+      },
+      {
+        "market_date": "2026-04-23"
+      },
+      {
+        "market_date": "2026-04-24"
+      },
+      {
+        "market_date": "2026-04-25"
+      },
+      {
+        "market_date": "2026-04-26"
+      },
+      {
+        "market_date": "2026-04-27"
+      },
+      {
+        "market_date": "2026-04-28"
+      },
+      {
+        "market_date": "2026-04-29"
+      },
+      {
+        "market_date": "2026-04-30"
+      },
+      {
+        "market_date": "2026-05-01"
+      },
+      {
+        "market_date": "2026-05-02"
+      },
+      {
+        "market_date": "2026-05-03"
+      },
+      {
+        "market_date": "2026-05-04"
+      },
+      {
+        "market_date": "2026-05-05"
+      },
+      {
+        "market_date": "2026-05-06"
+      },
+      {
+        "market_date": "2026-05-07"
+      },
+      {
+        "market_date": "2026-05-08"
+      },
+      {
+        "market_date": "2026-05-09"
+      },
+      {
+        "market_date": "2026-05-10"
+      },
+      {
+        "market_date": "2026-05-11"
+      },
+      {
+        "market_date": "2026-05-12"
+      },
+      {
+        "market_date": "2026-05-13"
+      },
+      {
+        "market_date": "2026-05-14"
+      },
+      {
+        "market_date": "2026-05-15"
+      },
+      {
+        "market_date": "2026-05-16"
+      },
+      {
+        "market_date": "2026-05-17"
+      },
+      {
+        "market_date": "2026-05-18"
+      },
+      {
+        "market_date": "2026-05-19"
+      },
+      {
+        "market_date": "2026-05-20"
+      },
+      {
+        "market_date": "2026-05-21"
+      },
+      {
+        "market_date": "2026-05-22"
+      },
+      {
+        "market_date": "2026-05-23"
+      },
+      {
+        "market_date": "2026-05-24"
+      },
+      {
+        "market_date": "2026-05-25"
+      },
+      {
+        "market_date": "2026-05-26"
+      },
+      {
+        "market_date": "2026-05-27"
+      },
+      {
+        "market_date": "2026-05-28"
+      },
+      {
+        "market_date": "2026-05-29"
+      },
+      {
+        "market_date": "2026-05-30"
+      },
+      {
+        "market_date": "2026-05-31"
+      },
+      {
+        "market_date": "2026-06-01"
+      },
+      {
+        "market_date": "2026-06-02"
+      },
+      {
+        "market_date": "2026-06-03"
+      },
+      {
+        "market_date": "2026-06-04"
+      },
+      {
+        "market_date": "2026-06-05"
+      },
+      {
+        "market_date": "2026-06-06"
+      },
+      {
+        "market_date": "2026-06-07"
+      },
+      {
+        "market_date": "2026-06-08"
+      },
+      {
+        "market_date": "2026-06-09"
+      },
+      {
+        "market_date": "2026-06-10"
+      },
+      {
+        "market_date": "2026-06-11"
+      },
+      {
+        "market_date": "2026-06-12"
+      },
+      {
+        "market_date": "2026-06-13"
+      },
+      {
+        "market_date": "2026-06-14"
+      },
+      {
+        "market_date": "2026-06-15"
+      },
+      {
+        "market_date": "2026-06-16"
+      },
+      {
+        "market_date": "2026-06-17"
+      },
+      {
+        "market_date": "2026-06-18"
+      },
+      {
+        "market_date": "2026-06-19"
+      },
+      {
+        "market_date": "2026-06-20"
+      },
+      {
+        "market_date": "2026-06-21"
+      },
+      {
+        "market_date": "2026-06-22"
+      },
+      {
+        "market_date": "2026-06-23"
+      },
+      {
+        "market_date": "2026-06-27"
+      },
+      {
+        "market_date": "2026-06-28"
+      },
+      {
+        "market_date": "2026-06-29"
+      },
+      {
+        "market_date": "2026-06-30"
+      },
+      {
+        "market_date": "2026-07-01"
+      },
+      {
+        "market_date": "2026-07-02"
+      },
+      {
+        "market_date": "2026-07-03"
+      },
+      {
+        "market_date": "2026-07-04"
+      },
+      {
+        "market_date": "2026-07-05"
+      },
+      {
+        "market_date": "2026-07-06"
+      },
+      {
+        "market_date": "2026-07-07"
+      },
+      {
+        "market_date": "2026-07-08"
+      },
+      {
+        "market_date": "2026-07-09"
+      },
+      {
+        "market_date": "2026-07-10"
+      },
+      {
+        "market_date": "2026-07-11"
+      },
+      {
+        "market_date": "2026-07-12"
+      },
+      {
+        "market_date": "2026-07-13"
+      },
+      {
+        "market_date": "2026-07-14"
+      },
+      {
+        "market_date": "2026-07-15"
+      },
+      {
+        "market_date": "2026-07-16"
+      },
+      {
+        "market_date": "2026-07-17"
+      },
+      {
+        "market_date": "2026-07-18"
+      },
+      {
+        "market_date": "2026-07-19"
+      },
+      {
+        "market_date": "2026-07-20"
+      },
+      {
+        "market_date": "2026-07-21"
+      },
+      {
+        "market_date": "2026-07-22"
+      },
+      {
+        "market_date": "2026-07-23"
+      },
+      {
+        "market_date": "2026-07-24"
+      },
+      {
+        "market_date": "2026-07-25"
+      },
+      {
+        "market_date": "2026-07-26"
+      },
+      {
+        "market_date": "2026-07-27"
+      },
+      {
+        "market_date": "2026-07-28"
+      },
+      {
+        "market_date": "2026-07-29"
+      },
+      {
+        "market_date": "2026-07-30"
+      },
+      {
+        "market_date": "2026-07-31"
+      },
+      {
+        "market_date": "2026-08-01"
+      },
+      {
+        "market_date": "2026-08-02"
+      },
+      {
+        "market_date": "2026-08-03"
+      },
+      {
+        "market_date": "2026-08-04"
+      },
+      {
+        "market_date": "2026-08-05"
+      },
+      {
+        "market_date": "2026-08-06"
+      },
+      {
+        "market_date": "2026-08-07"
+      },
+      {
+        "market_date": "2026-08-08"
+      },
+      {
+        "market_date": "2026-08-09"
+      },
+      {
+        "market_date": "2026-08-10"
+      },
+      {
+        "market_date": "2026-08-11"
+      },
+      {
+        "market_date": "2026-08-12"
+      },
+      {
+        "market_date": "2026-08-13"
+      },
+      {
+        "market_date": "2026-08-14"
+      },
+      {
+        "market_date": "2026-08-15"
+      },
+      {
+        "market_date": "2026-08-16"
+      },
+      {
+        "market_date": "2026-08-17"
+      },
+      {
+        "market_date": "2026-08-19"
+      },
+      {
+        "market_date": "2026-08-20"
+      },
+      {
+        "market_date": "2026-08-21"
+      },
+      {
+        "market_date": "2026-08-22"
+      },
+      {
+        "market_date": "2026-08-23"
+      },
+      {
+        "market_date": "2026-08-24"
+      },
+      {
+        "market_date": "2026-08-25"
+      },
+      {
+        "market_date": "2026-08-26"
+      },
+      {
+        "market_date": "2026-08-27"
+      },
+      {
+        "market_date": "2026-08-28"
+      }
+    ],
+    "status": "FAIL"
+  },
+  "queryContractVersion": "pokemon-market-explorer-query-v3-variant",
+  "schemaVersion": "market-explorer-acceptance-v1",
+  "serviceVersion": "pokemon-market-explorer-query-service-v2-variant",
+  "setIdsTested": [],
+  "status": "FAIL"
+}

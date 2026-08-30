@@ -1976,6 +1976,16 @@ def get_pokemon_set_consumer_sealed_market(set_id: str):
                 content={"message": "Consumer sealed market is unavailable", "code": "POKEMON_SET_CONSUMER_SEALED_UNAVAILABLE"},
                 status_code=404,
             )
+        if not isinstance(row.get("setPageConsumerMarket"), dict):
+            return JSONResponse(
+                content={
+                    "message": "Consumer sealed market publication is incomplete",
+                    "code": "POKEMON_SET_CONSUMER_SEALED_INCOMPLETE",
+                    "retryable": True,
+                },
+                status_code=503,
+                headers={"Cache-Control": "no-store"},
+            )
         return {
             "set": {"id": resolved_set_id, "name": resolved_set.get("name"), "slug": resolved_set.get("canonical_key")},
             "marketDate": row.get("marketDate"),

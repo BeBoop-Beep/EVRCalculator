@@ -2,6 +2,7 @@
 
 import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { buildPokemonCardHref, resolvePokemonPublicSetSlug } from "@/lib/pokemon/pokemonCardDetailClient";
 import { buildSealedProductHref } from "@/components/explore/setProductComparison.mjs";
@@ -46,8 +47,6 @@ import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/Sealed
 import SetMarketMobile from "@/components/pokemon/set-page/Market/SetMarketMobile";
 import { ChaseConcentrationSignal, MarketBreadthSignal, useSetMarketSignalAccess } from "@/components/pokemon/set-page/Market/SetMarketSignals";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
-import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
-import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
 import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";
 import InDexLogoLoader from "@/components/brand/InDexLogoLoader";
 import SectionBoundary from "@/components/ui/SectionBoundary";
@@ -154,12 +153,6 @@ import {
   getInterpretationTone,
   getRipTierPresentation,
 } from "@/lib/explore/interpretationTone";
-import {
-  getCachedPokemonSetCards,
-  getPokemonSetCardsPage,
-  prefetchPokemonSetCardsPage,
-  getPokemonSetCardsValidation,
-} from "@/lib/pokemon/pokemonSetCardsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
 import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSummary";
@@ -191,7 +184,6 @@ import {
   buildTopSealedModel,
   readCardHeroImageUrl,
 } from "@/components/pokemon/set-page/Market/setMarketMobileModel.mjs";
-import { getPokemonSetPullRates } from "@/lib/pokemon/pokemonSetPullRatesClient";
 import { getPokemonSetInsightsCritical } from "@/lib/pokemon/pokemonSetInsightsCriticalClient";
 import { getPokemonSetInsightsSecondary } from "@/lib/pokemon/pokemonSetInsightsSecondaryClient";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
@@ -246,6 +238,21 @@ import {
   adaptSetValueHistoriesFromSources,
 } from "@/lib/pokemon/set-page/setPageAdapters.mjs";
 import { selectRequestedPokemonSetTarget, selectSameSetSimulationEvidence } from "@/lib/pokemon/pokemonSetSimulationEvidence.mjs";
+
+// The canonical Set route now owns Cards and Pull Rates in independent lazy
+// tab modules. Explore still reaches these helpers through legacy paths, so
+// keep that behavior without statically attaching either endpoint client to
+// the RIP/Market fallback graph.
+const loadCardsClient = () => import("@/lib/pokemon/pokemonSetCardsClient");
+const getPokemonSetCardsPage = (...args) => loadCardsClient().then((client) => client.getPokemonSetCardsPage(...args));
+const prefetchPokemonSetCardsPage = (...args) => loadCardsClient().then((client) => client.prefetchPokemonSetCardsPage(...args));
+const getPokemonSetCardsValidation = (...args) => loadCardsClient().then((client) => client.getPokemonSetCardsValidation(...args));
+// The old synchronous cache probe is diagnostic/seed-only. The extracted
+// Cards runtime owns the useful successful-scope cache and revisit behavior.
+const getCachedPokemonSetCards = () => null;
+const getPokemonSetPullRates = (...args) => import("@/lib/pokemon/pokemonSetPullRatesClient").then((client) => client.getPokemonSetPullRates(...args));
+const PullRateAssumptionsCard = dynamic(() => import("@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard"));
+const PullRatesTab = dynamic(() => import("@/components/pokemon/set-page/PullRates/PullRatesTab"));
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -3790,6 +3797,7 @@ function MarketValueTrendPanel({
   trend,
   onWindowChange,
   windowLabel,
+  statusMessage = null,
 }) {
   const chartKey = `${setId || "set"}-${activeSegmentKey}-${trend.effectiveWindowKey || "window"}-${trend.series.length}`;
   const details = useMemo(() => buildSupportingDetails(trend), [trend]);
@@ -3826,7 +3834,11 @@ function MarketValueTrendPanel({
           ))}
         </div>
 
-        {trend.available ? (
+        {statusMessage ? (
+          <div data-market-sealed-request-state className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
+            {statusMessage}
+          </div>
+        ) : trend.available ? (
           <>
             <div data-market-trend-summary className="min-w-0">
               <MarketValueChange
@@ -3958,12 +3970,12 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     () => ({ cards: cardsTrend, sealed: sealedTrend, graded: gradedTrend }),
     [cardsTrend, gradedTrend, sealedTrend]
   );
-  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedSummaryState.status)
+  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["idle", "loading", "error"].includes(sealedSummaryState.status)
     ? "sealed"
     : resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
   const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
   const segmentRows = useMemo(
-    () => buildMarketSegmentRows(trendsByKey).map((row) => row.key === "sealed" && sealedSummaryState.status === "loading" ? { ...row, selectable: true } : row),
+    () => buildMarketSegmentRows(trendsByKey).map((row) => row.key === "sealed" && ["idle", "loading", "error"].includes(sealedSummaryState.status) ? { ...row, selectable: true, unavailableReason: sealedSummaryState.status === "error" ? sealedSummaryState.error : "Loading Sealed marketâ€¦" } : row),
     [sealedSummaryState.status, trendsByKey]
   );
   const effectiveWindowKey = activeTrend.effectiveWindowKey || selectedWindowKey;
@@ -4008,6 +4020,11 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
           trend={activeTrend}
           onWindowChange={setSelectedWindowKey}
           windowLabel={windowLabel}
+          statusMessage={resolvedSegmentKey === "sealed" && ["idle", "loading"].includes(sealedSummaryState.status)
+            ? "Loading Sealed marketâ€¦"
+            : resolvedSegmentKey === "sealed" && sealedSummaryState.status === "error"
+            ? sealedSummaryState.error || "Unable to load Sealed market summary"
+            : null}
         />
       </div>
       <div className="min-w-0">
@@ -11473,15 +11490,8 @@ export default function RipStatisticsPageClient({
   );
   const desktopSealedSummaryState = usePokemonSetSealedSummary(
     setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
-    { enabled: false }
+    { enabled: setDetailTab === "market" && isDesktopHeroComposition }
   );
-  const loadDesktopSealedSummary = desktopSealedSummaryState.load;
-  useEffect(() => {
-    const marketCriticalSettled =
-      ["success", "success_stale", "error", "empty"].includes(activeOverviewState.status) &&
-      ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
-    if (setDetailTab === "market" && isDesktopHeroComposition && marketCriticalSettled) loadDesktopSealedSummary();
-  }, [setDetailTab, isDesktopHeroComposition, resolvedSetResourceId, activeOverviewState.status, activeMarketMoversState.status, loadDesktopSealedSummary]);
   useEffect(() => {
     const settled = (status) => ["success", "success_stale", "error", "empty", "unavailable"].includes(status);
     if (

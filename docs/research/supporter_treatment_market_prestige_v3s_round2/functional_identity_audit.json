@@ -1,0 +1,7970 @@
+[
+  {
+    "functionalId": "aaron s collection",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Rising Rivals"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "ace trainer",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Ancient Origins"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "acerola",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Burning Shadows"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "acerola s mischief",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Mega Evolution"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "acerola s premonition",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars",
+      "Brilliant Stars Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "adaman",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Astral Radiance",
+      "Crown Zenith Galarian Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "adventurer s discovery",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Fusion Strike",
+      "Lost Origin Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "aether foundation employee",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Hidden Fates Shiny Vault",
+      "Lost Thunder"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "agatha",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "allister",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance Trainer Gallery",
+      "Vivid Voltage"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "amarys",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "common",
+      "special_illustration_rare",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "anthea concordia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "apricorn maker",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Celestial Storm",
+      "Skyridge"
+    ],
+    "eras": [
+      "E-Card",
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "archie",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Team Magma vs Team Aqua"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "archie s ace in the hole",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Primal Clash"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "arezu",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Origin"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "aroma lady",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Evolving Skies"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "arven",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Obsidian Flames",
+      "Paldean Fates",
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "atticus",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paldean Fates",
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "avery",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "az",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Phantom Forces"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "az s tranquility",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Chaos Rising"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "ball guy",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Shining Fates"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "barry",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "battle reporter",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Furious Fists"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "bea",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance Trainer Gallery",
+      "Crown Zenith",
+      "Vivid Voltage"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "beauty",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Vivid Voltage"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "bebe s search",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Mysterious Treasures",
+      "Rising Rivals",
+      "Secret Wonders"
+    ],
+    "eras": [
+      "Diamond and Pearl",
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "bede",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Champion's Path",
+      "Crown Zenith",
+      "Sword & Shield"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "bellelba brycen man",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "bertha s warmth",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Rising Rivals"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "bianca",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Boundaries Crossed",
+      "Emerging Powers",
+      "Legendary Treasures"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "bianca s devotion",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Temporal Forces"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "bill",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "HeartGold & SoulSilver"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "bill s analysis",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare",
+      "rare_holo"
+    ],
+    "sets": [
+      "Hidden Fates",
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "bill s maintenance",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 6,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Celestial Storm",
+      "Crystal Guardians",
+      "Expedition Base Set",
+      "FireRed & LeafGreen",
+      "POP Series 5"
+    ],
+    "eras": [
+      "E-Card",
+      "EX",
+      "POP",
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "bill s transfer",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Scarlet and Violet 151"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "billy o nare",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "common"
+    ],
+    "sets": [
+      "Journey Together"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "bird keeper",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Darkness Ablaze",
+      "Shining Fates"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "black belt",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "HS\u2014Triumphant"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "black belt s training",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 8,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Journey Together",
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "blacksmith",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Flashfire"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "blaine s last stand",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare",
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Dragon Majesty",
+      "Hidden Fates"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "blaine s quiz show",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Unified Minds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "blanche",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_rainbow",
+      "uncommon"
+    ],
+    "sets": [
+      "Pok\u00e9mon GO"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "blue s tactics",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unified Minds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "bonnie",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Forbidden Light"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "boss s orders",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 9,
+    "treatments": [
+      "rare",
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Brilliant Stars",
+      "Lost Origin Trainer Gallery",
+      "Mega Evolution",
+      "Rebel Clash",
+      "Shining Fates"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "boss s orders ghetsis",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Paldea Evolved"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "brandon",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Silver Tempest"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "brassius",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Obsidian Flames",
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "brawly",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "briar",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Stellar Crown"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "brigette",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKthrough"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "brock s grit",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Evolutions",
+      "Hidden Fates",
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon",
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "brock s scouting",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Journey Together"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "brock s training",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "rare_holo"
+    ],
+    "sets": [
+      "Hidden Fates"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "bruno",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Battle Styles"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "buck s training",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Legends Awakened"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "bug catcher",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Fusion Strike",
+      "Unified Minds"
+    ],
+    "eras": [
+      "Sun and Moon",
+      "Sword and Shield"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "caf master",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars",
+      "Brilliant Stars Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "caitlin",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign",
+      "Plasma Blast"
+    ],
+    "eras": [
+      "Black and White",
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "canari",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "candela",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_rainbow",
+      "uncommon"
+    ],
+    "sets": [
+      "Pok\u00e9mon GO"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "candice",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Silver Tempest"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cara liss",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Shining Fates",
+      "Vivid Voltage"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "caretaker",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Twilight Masquerade"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "carmine",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Twilight Masquerade"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cassiopeia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Shrouded Fable"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cassius",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "XY"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "castaway",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Crystal Guardians"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "cedric juniper",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Legendary Treasures"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "celio s network",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Crystal Guardians",
+      "FireRed & LeafGreen"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "channeler",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unified Minds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "charon s choice",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "rare"
+    ],
+    "sets": [
+      "Rising Rivals"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "cheerleader s cheer",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Call of Legends",
+      "HS\u2014Unleashed"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "cheren",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_ultra",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Boundaries Crossed",
+      "Dark Explorers",
+      "Emerging Powers",
+      "White Flare"
+    ],
+    "eras": [
+      "Black and White",
+      "Mega Evolution",
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "cheren s care",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars",
+      "Crown Zenith Galarian Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cheryl",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Battle Styles"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "chili cilan cress",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Fusion Strike"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "choy",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cilan",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Next Destinies"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "ciphermaniac s codebreaking",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Temporal Forces"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "clavell",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Paldea Evolved"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "clay",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "clemont",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Generations"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "clemont s quick wit",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Surging Sparks"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "clive",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paldean Fates"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "coach trainer",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unified Minds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "colress",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Plasma Storm"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "colress s experiment",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Crown Zenith Galarian Gallery",
+      "Lost Origin"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "colress s tenacity",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Shrouded Fable"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cook",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Fusion Strike",
+      "Lost Origin Trainer Gallery",
+      "Twilight Masquerade"
+    ],
+    "eras": [
+      "Scarlet and Violet",
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "copycat",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 10,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Call of Legends",
+      "Celestial Storm",
+      "Dragon Frontiers",
+      "Evolving Skies",
+      "Expedition Base Set",
+      "HeartGold & SoulSilver",
+      "Team Rocket Returns"
+    ],
+    "eras": [
+      "E-Card",
+      "EX",
+      "HeartGold and SoulSilver",
+      "Sun and Moon",
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "crasher wake",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Forbidden Light"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "crispin",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Stellar Crown"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cyllene",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cynthia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Hidden Fates Shiny Vault",
+      "Ultra Prism"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cynthia caitlin",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cynthia s ambition",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars",
+      "Crown Zenith Galarian Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cynthia s feelings",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Legends Awakened"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "cynthia s guidance",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Supreme Victors"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "cyrano",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Surging Sparks"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "cyrus",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "rare_prism_star"
+    ],
+    "sets": [
+      "Ultra Prism"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "cyrus s conspiracy",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Platinum"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "cyrus s initiative",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Supreme Victors"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "daisy s help",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Scarlet and Violet 151"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "dan",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Rebel Clash"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "dana",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "dancer",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Fusion Strike"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "dawn",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Phantasmal Flames"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "delinquent",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKpoint"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "dendra",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paldea Evolved"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "department store girl",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Arceus"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "desert shaman",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Skyridge"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "diantha",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Forbidden Light"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "digging duo",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Crown Zenith"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "doctor",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "drasna",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Surging Sparks"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "drayton",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Surging Sparks"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "elesa",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "common"
+    ],
+    "sets": [
+      "Legendary Treasures: Radiant Collection"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "elesa s sparkle",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Crown Zenith",
+      "Fusion Strike"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "emcee s chatter",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "HS\u2014Unleashed"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "emcee s hype",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Destined Rivals"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "emma",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Chaos Rising"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "engineer s adjustments",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "HS\u2014Unleashed"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "eri",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Temporal Forces"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "erika",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "erika s hospitality",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare",
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Hidden Fates",
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "erika s invitation",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Scarlet and Violet 151"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "ethan s adventure",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Destined Rivals"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "evelyn",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "explorer s guidance",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Temporal Forces"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "faba",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Thunder"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "falkner",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paldea Evolved"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "fantina",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Origin"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "felicity s drawing",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Great Encounters"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "fennel",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Black Bolt"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "fieldworker",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Legend Maker"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "firebreather",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Phantasmal Flames"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "fisherman",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKthrough",
+      "Celestial Storm",
+      "HeartGold & SoulSilver",
+      "Hidden Fates Shiny Vault",
+      "Skyridge"
+    ],
+    "eras": [
+      "E-Card",
+      "HeartGold and SoulSilver",
+      "Sun and Moon",
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "flannery",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "flint s willpower",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Rising Rivals"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "flower shop lady",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "HS\u2014Undaunted"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "forest guardian",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Aquapolis"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "fossil excavator",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Majestic Dawn",
+      "Mysterious Treasures"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "fossil researcher",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Furious Fists"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "friends in galar",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars",
+      "Silver Tempest Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "friends in hisui",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Crown Zenith"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "friends in paldea",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "friends in sinnoh",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Crown Zenith"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "furisode girl",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Silver Tempest"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "gardenia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Ultra Prism"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "gardenia s vigor",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance",
+      "Crown Zenith Galarian Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "geeta",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Obsidian Flames"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "ghetsis",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Plasma Freeze"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "giacomo",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paldea Evolved",
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "giovanni s charisma",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Scarlet and Violet 151"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "giovanni s exile",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Hidden Fates",
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "giovanni s scheme",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKthrough"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "gladion",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Crimson Invasion"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "gladion s final battle",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Pitch Black"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "gloria",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars",
+      "Brilliant Stars Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "gordie",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Evolving Skies",
+      "Silver Tempest Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "grant",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance",
+      "Crown Zenith Galarian Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "green s exploration",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "grimsley",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unified Minds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "grimsley s move",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Phantasmal Flames"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "grusha",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paldea Evolved"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "guzma",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Burning Shadows",
+      "Hidden Fates Shiny Vault"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "guzma hala",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "gwynn",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Pitch Black"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "gym trainer",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Shining Fates",
+      "Silver Tempest"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "hala",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Guardians Rising"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "hapu",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Unified Minds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "harlequin",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "White Flare"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "hassel",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Twilight Masquerade"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "hau",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Celestial Storm",
+      "Guardians Rising",
+      "Shining Legends",
+      "Sun & Moon"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "here comes team rocket",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_secret"
+    ],
+    "sets": [
+      "Evolutions",
+      "Team Rocket Returns"
+    ],
+    "eras": [
+      "EX",
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "hex maniac",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Ancient Origins"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "hiker",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Celestial Storm",
+      "Hidden Fates Shiny Vault"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "hilda",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "White Flare"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "holon adventurer",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Holon Phantoms"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "holon farmer",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Delta Species"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "holon lass",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Delta Species"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "holon mentor",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Delta Species",
+      "Dragon Frontiers"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "holon researcher",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Delta Species"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "holon scientist",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Delta Species"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "honey",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "hooligans jim cas",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Dark Explorers"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "hop",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_holo",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Champion's Path",
+      "Crown Zenith",
+      "Sword & Shield"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "hugh",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Boundaries Crossed"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "ilima",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Sun & Moon"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "imakuni",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Generations"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "ingo emmet",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "interviewer s questions",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Call of Legends",
+      "HS\u2014Unleashed"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "iono",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paldea Evolved",
+      "Paldean Fates"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "irida",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Astral Radiance",
+      "Crown Zenith Galarian Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "iris",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Plasma Blast"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "iris s fighting spirit",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Journey Together"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "iscan",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Origin"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "island hermit",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Dragon Frontiers"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "jacinthe",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Perfect Order"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "jacq",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "janine",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "janine s secret art",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Shrouded Fable"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "jasmine",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "jasmine s gaze",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Surging Sparks"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "jessie james",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Hidden Fates"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "jett",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Pitch Black"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "judge",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 11,
+    "treatments": [
+      "rare_ultra",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKthrough",
+      "Destined Rivals",
+      "Forbidden Light",
+      "Fusion Strike",
+      "HS\u2014Unleashed",
+      "Lost Thunder",
+      "Paldean Fates",
+      "Perfect Order",
+      "Scarlet and Violet Base Set",
+      "Silver Tempest Trainer Gallery"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver",
+      "Mega Evolution",
+      "Scarlet and Violet",
+      "Sun and Moon",
+      "Sword and Shield",
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "juggler",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Aquapolis"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "kabu",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Champion's Path",
+      "Darkness Ablaze",
+      "Lost Origin Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "kahili",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Thunder"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "kamado",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "karen",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "promo"
+    ],
+    "sets": [
+      "XY Black Star Promos"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "karen s conviction",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "katy",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "kiawe",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Burning Shadows"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "kieran",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Twilight Masquerade"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "kindler",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "klara",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "kofu",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Stellar Crown"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "koga s trap",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Hidden Fates",
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "korrina",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Furious Fists"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "korrina s focus",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Battle Styles"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lacey",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Stellar Crown"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lady",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Forbidden Light",
+      "Hidden Fates Shiny Vault",
+      "Lost Origin"
+    ],
+    "eras": [
+      "Sun and Moon",
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lady outing",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Deoxys",
+      "Ruby & Sapphire"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "lana",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Burning Shadows",
+      "Ultra Prism"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "lana s aid",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Twilight Masquerade"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lanette s net search",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Emerald",
+      "Sandstorm"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "larry",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Paradox Rift"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "larry s skill",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lass s special",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Fates Collide"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "league staff",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Vivid Voltage"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "leon",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Crown Zenith",
+      "Vivid Voltage"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lillie",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Shining Legends",
+      "Sun & Moon",
+      "Ultra Prism"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lillie s determination",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Mega Evolution"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lillie s full force",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lisia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Celestial Storm"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lisia s appeal",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Surging Sparks"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "looker",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Ultra Prism"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "looker s investigation",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Platinum"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "lt surge s bargain",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Mega Evolution"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lt surge s strategy",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Hidden Fates",
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "lucian",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Twilight Masquerade"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "lucian s assignment",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Rising Rivals"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "lysandre s trump card",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Phantom Forces"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "mallow",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Guardians Rising"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "mallow lana",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "marley s request",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Stormfront"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "marnie",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Champion's Path",
+      "Sword & Shield"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "marnie s pride",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "mars",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Ultra Prism"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "mary s impulse",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Expedition Base Set"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "mary s request",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Unseen Forces"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "maxie",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Team Magma vs Team Aqua"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "maxie s hidden ball trick",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Primal Clash"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "mela",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paradox Rift",
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "melony",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance Trainer Gallery",
+      "Chilling Reign",
+      "Crown Zenith Galarian Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "milo",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance Trainer Gallery",
+      "Champion's Path",
+      "Rebel Clash"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "mina",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Thunder"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "miriam",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "miss fortune sisters",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Origin"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "misty lorelei",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "misty s determination",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKpoint",
+      "Evolutions",
+      "Hidden Fates"
+    ],
+    "eras": [
+      "Sun and Moon",
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "misty s favor",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unified Minds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "misty s vitality",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Pitch Black"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "misty s water command",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "rare_holo"
+    ],
+    "sets": [
+      "Hidden Fates"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "molayne",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "mom s kindness",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Majestic Dawn"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "morgan",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "morty",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Thunder"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "morty s conviction",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Temporal Forces"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "mr briney s compassion",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Dragon",
+      "POP Series 2"
+    ],
+    "eras": [
+      "EX",
+      "POP"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "mr stone s project",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Dragon Frontiers",
+      "Emerald",
+      "Holon Phantoms"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "n",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "promo",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "BW Black Star Promos",
+      "Dark Explorers",
+      "Fates Collide",
+      "Noble Victories"
+    ],
+    "eras": [
+      "Black and White",
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "n s plan",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Black Bolt"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "n s resolve",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "nanu",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "naveen",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Perfect Order"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "nemona",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "common",
+      "special_illustration_rare",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Paldean Fates",
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "nessa",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Crown Zenith",
+      "Lost Origin Trainer Gallery",
+      "Vivid Voltage"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "ninja boy",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Steam Siege"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "nita",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "norman",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paradox Rift"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "oleana",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Rebel Clash"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "olivia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Burning Shadows",
+      "Crimson Invasion"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "olympia",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Generations"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "opal",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Origin Trainer Gallery",
+      "Vivid Voltage"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "oracle",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Skyridge"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "ortega",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Obsidian Flames",
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "paldean student",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Paldean Fates"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "palmer s contribution",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Supreme Victors"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "parasol lady",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "common",
+      "special_illustration_rare",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Paradox Rift"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "penny",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paldean Fates",
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "peonia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "peony",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "perrin",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Twilight Masquerade"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "philippe",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Chaos Rising"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "phoebe",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Battle Styles"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "piers",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 6,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance Trainer Gallery",
+      "Champion's Path",
+      "Darkness Ablaze",
+      "Shining Fates"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "plumeria",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Burning Shadows"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "pok kid",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Shining Fates",
+      "Sword & Shield"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "pok maniac",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unified Minds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "pok mon breeder",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Shining Legends"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "pok mon breeder s nurturing",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Darkness Ablaze"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "pok mon center lady",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 8,
+    "treatments": [
+      "common",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Champion's Path",
+      "Flashfire",
+      "Generations",
+      "Hidden Fates",
+      "Mega Evolution",
+      "Sword & Shield",
+      "Vivid Voltage"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Sun and Moon",
+      "Sword and Shield",
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "pok mon collector",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "HeartGold & SoulSilver"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "pok mon fan club",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 8,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Aquapolis",
+      "Fates Collide",
+      "Flashfire",
+      "Generations",
+      "POP Series 4",
+      "Ultra Prism"
+    ],
+    "eras": [
+      "E-Card",
+      "POP",
+      "Sun and Moon",
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "pok mon nurse",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Expedition Base Set"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "pok mon ranger",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Steam Siege"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "poppy",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Obsidian Flames"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "prof oak s research",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "FireRed & LeafGreen"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor birch",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Emerald",
+      "Power Keepers",
+      "Ruby & Sapphire"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor birch s observations",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Primal Clash"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor burnet",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "rare_ultra"
+    ],
+    "sets": [
+      "Silver Tempest Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor cozmo s discovery",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Deoxys",
+      "Holon Phantoms"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor elm s lecture",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Thunder"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor elm s training method",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Call of Legends",
+      "Dragon Frontiers",
+      "Expedition Base Set",
+      "HeartGold & SoulSilver",
+      "Unseen Forces"
+    ],
+    "eras": [
+      "E-Card",
+      "EX",
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor juniper",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Black & White",
+      "Dark Explorers",
+      "Plasma Blast",
+      "Plasma Freeze"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor kukui",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Sun & Moon"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor laventon",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Silver Tempest"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor oak s hint",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Evolutions"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor oak s new theory",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Call of Legends",
+      "HeartGold & SoulSilver"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor oak s research",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Dragon Frontiers",
+      "Expedition Base Set"
+    ],
+    "eras": [
+      "E-Card",
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor oak s setup",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor oak s visit",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Arceus",
+      "Secret Wonders"
+    ],
+    "eras": [
+      "Diamond and Pearl",
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor rowan",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Diamond & Pearl",
+      "Secret Wonders"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor s research",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 13,
+    "treatments": [
+      "common",
+      "rare",
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Black Bolt",
+      "Brilliant Stars",
+      "Crown Zenith",
+      "Journey Together",
+      "Paldean Fates",
+      "Pok\u00e9mon GO",
+      "Prismatic Evolutions",
+      "Shining Fates"
+    ],
+    "eras": [
+      "Scarlet and Violet",
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor s research professor magnolia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Champion's Path",
+      "Sword & Shield"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor s research professor oak",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Celebrations"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor s research professor sada",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor s research professor turo",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor sada s vitality",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paradox Rift",
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "professor sycamore",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKpoint",
+      "Phantom Forces",
+      "Steam Siege",
+      "XY"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "professor turo s scenario",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paradox Rift",
+      "Prismatic Evolutions"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "psychic s third eye",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKpoint"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "raifort",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Twilight Masquerade"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "raihan",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 6,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Crown Zenith",
+      "Crown Zenith Galarian Gallery",
+      "Evolving Skies",
+      "Silver Tempest Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "rapid strike style mustard",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Battle Styles",
+      "Brilliant Stars Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "red blue",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "red s challenge",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "relic hunter",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Skyridge"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "rika",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paradox Rift"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "riley",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Origin"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "rival",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Diamond & Pearl",
+      "Secret Wonders"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "roark",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paradox Rift"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "rocket s admin",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "classic_collection",
+      "uncommon"
+    ],
+    "sets": [
+      "Celebrations: Classic Collection",
+      "Team Rocket Returns"
+    ],
+    "eras": [
+      "EX",
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "rocket s mission",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Team Rocket Returns"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "roller skater",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "rosa",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "rosa s encouragement",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Perfect Order"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "rose",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Darkness Ablaze",
+      "Shining Fates"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "roseanne s backup",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "roseanne s research",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "POP Series 8",
+      "Secret Wonders"
+    ],
+    "eras": [
+      "Diamond and Pearl",
+      "POP"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "roxanne",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance",
+      "Crown Zenith Galarian Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "roxie",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "roxie s performance",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Chaos Rising"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "ruffian",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Journey Together"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "rust syndicate grunt",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Pitch Black"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "ryme",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "common",
+      "ultra_rare"
+    ],
+    "sets": [
+      "Obsidian Flames"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "sabrina brycen",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "promo"
+    ],
+    "sets": [
+      "SM Black Star Promos"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "sabrina s suggestion",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Hidden Fates",
+      "Team Up"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "sage s training",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Call of Legends",
+      "HS\u2014Undaunted"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "saguaro",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paldea Evolved"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "salvatore",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Temporal Forces"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "samson oak",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "schoolboy",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Fusion Strike"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "schoolgirl",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Fusion Strike"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "scott",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Emerald",
+      "Power Keepers"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "seeker",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "HS\u2014Triumphant"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "seer",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Aquapolis"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "serena",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Silver Tempest"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "shadow triad",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Plasma Freeze"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "shauna",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 7,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Fates Collide",
+      "Fusion Strike",
+      "Generations",
+      "Phantom Forces",
+      "XY"
+    ],
+    "eras": [
+      "Sword and Shield",
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "shauntal",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paradox Rift"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "sidney",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Fusion Strike"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "siebold",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Chilling Reign"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "sightseer",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Thunder"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "single strike style mustard",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Battle Styles",
+      "Brilliant Stars Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "skyla",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 6,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKpoint",
+      "BREAKthrough",
+      "Boundaries Crossed",
+      "Rebel Clash",
+      "Shining Fates"
+    ],
+    "eras": [
+      "Black and White",
+      "Sword and Shield",
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "sonia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Champion's Path",
+      "Rebel Clash"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "sophocles",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Burning Shadows",
+      "Shining Legends"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "sordward shielbert",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Battle Styles",
+      "Silver Tempest Trainer Gallery"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "spark",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_rainbow",
+      "uncommon"
+    ],
+    "sets": [
+      "Pok\u00e9mon GO"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "steven",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Ancient Origins",
+      "Roaring Skies"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "steven s advice",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Hidden Legends",
+      "Power Keepers"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "steven s resolve",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Celestial Storm"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "surfer",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "common",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Surging Sparks"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "tarragon",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Perfect Order"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "tate liza",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Celestial Storm"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team aqua admin",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Double Crisis"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team aqua conspirator",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Team Magma vs Team Aqua"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team aqua grunt",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Double Crisis"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team aqua schemer",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "common"
+    ],
+    "sets": [
+      "Team Magma vs Team Aqua"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team flare grunt",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Generations",
+      "XY"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team galactic s mars",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Secret Wonders"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team galactic s wager",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Mysterious Treasures"
+    ],
+    "eras": [
+      "Diamond and Pearl"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team magma admin",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Double Crisis"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team magma conspirator",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Team Magma vs Team Aqua"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team magma grunt",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Double Crisis"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team magma schemer",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "common"
+    ],
+    "sets": [
+      "Team Magma vs Team Aqua"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team plasma grunt",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Plasma Storm"
+    ],
+    "eras": [
+      "Black and White"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team rocket s archer",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Destined Rivals"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team rocket s ariana",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Destined Rivals"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team rocket s giovanni",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Destined Rivals"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team rocket s handiwork",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Fates Collide"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team rocket s petrel",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Destined Rivals"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team rocket s proton",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes",
+      "Destined Rivals"
+    ],
+    "eras": [
+      "Mega Evolution",
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team rocket s trickery",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "HS\u2014Undaunted"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "team skull grunt",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Sun & Moon"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team star grunt",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Obsidian Flames",
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team yell grunt",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Champion's Path",
+      "Sword & Shield"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "team yell s cheer",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Brilliant Stars"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "teammates",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Primal Clash"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "the masked royal",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Celestial Storm"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "thorton",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Origin"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "tierno",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "BREAKpoint",
+      "Kalos Starter Set",
+      "Phantom Forces"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "town volunteers",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Aquapolis"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "traveling salesman",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Aquapolis"
+    ],
+    "eras": [
+      "E-Card"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "trevor",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "promo"
+    ],
+    "sets": [
+      "XY Black Star Promos"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "tulip",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Paradox Rift"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "tv reporter",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 5,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Celestial Storm",
+      "Dragon",
+      "Dragon Frontiers",
+      "POP Series 2"
+    ],
+    "eras": [
+      "EX",
+      "POP",
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "twins",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "HS\u2014Triumphant"
+    ],
+    "eras": [
+      "HeartGold and SoulSilver"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "tyme",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Prismatic Evolutions",
+      "Surging Sparks"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "ultra forest kartenvoy",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "ultra recon squad",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Forbidden Light"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "underground expedition",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Celestial Storm",
+      "Rising Rivals",
+      "Skyridge"
+    ],
+    "eras": [
+      "E-Card",
+      "Platinum",
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "urbain",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Ascended Heroes"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "volkner",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Ultra Prism"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "volkner s philosophy",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Rising Rivals"
+    ],
+    "eras": [
+      "Platinum"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "volo",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 4,
+    "treatments": [
+      "rare_holo",
+      "rare_rainbow",
+      "rare_ultra"
+    ],
+    "sets": [
+      "Crown Zenith",
+      "Lost Origin"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "waitress",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "common"
+    ],
+    "sets": [
+      "Ascended Heroes"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "wallace",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Silver Tempest"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "wally",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Generations: Radiant Collection",
+      "Roaring Skies"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "wally s compassion",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Mega Evolution"
+    ],
+    "eras": [
+      "Mega Evolution"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "wally s training",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Emerald",
+      "Sandstorm"
+    ],
+    "eras": [
+      "EX"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "welder",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Unbroken Bonds"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "whitney",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Lost Thunder"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "wicke",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Burning Shadows"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "will",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Cosmic Eclipse"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "winona",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Roaring Skies"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "worker",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Silver Tempest"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "xerosic",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Phantom Forces"
+    ],
+    "eras": [
+      "XY"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "xerosic s machinations",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "sets": [
+      "Shrouded Fable"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "youngster",
+    "classification": "SAFE_FUNCTIONAL_IDENTITY",
+    "cards": 1,
+    "treatments": [
+      "uncommon"
+    ],
+    "sets": [
+      "Scarlet and Violet Base Set"
+    ],
+    "eras": [
+      "Scarlet and Violet"
+    ],
+    "crossTreatment": false,
+    "withinSetCrossTreatment": false
+  },
+  {
+    "functionalId": "zinnia",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 2,
+    "treatments": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Dragon Majesty"
+    ],
+    "eras": [
+      "Sun and Moon"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "zinnia s resolve",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Evolving Skies"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  },
+  {
+    "functionalId": "zisu",
+    "classification": "FUNCTIONAL_REPRINT_FAMILY",
+    "cards": 3,
+    "treatments": [
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "sets": [
+      "Astral Radiance"
+    ],
+    "eras": [
+      "Sword and Shield"
+    ],
+    "crossTreatment": true,
+    "withinSetCrossTreatment": true
+  }
+]

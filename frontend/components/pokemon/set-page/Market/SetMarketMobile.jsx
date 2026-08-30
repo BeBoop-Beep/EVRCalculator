@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 
 import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
 import SetMarketMobileMovers from "./SetMarketMobileMovers.jsx";
@@ -60,12 +60,7 @@ export default function SetMarketMobile({
   topChase,
 }) {
   const sealedProductsState = usePokemonSetSealedMarket(setId, { enabled: false });
-  const sealedSummaryState = usePokemonSetSealedSummary(setId, { enabled: false });
-  const loadSealedSummary = sealedSummaryState.load;
-  useEffect(() => {
-    const settled = (status) => ["success", "success_stale", "error", "empty"].includes(status);
-    if (settled(setValue?.status) && settled(movers?.status)) loadSealedSummary();
-  }, [setId, setValue?.status, movers?.status, loadSealedSummary]);
+  const sealedSummaryState = usePokemonSetSealedSummary(setId, { enabled: Boolean(setId) });
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
   const seededSignals = useMemo(() => setValue?.cardsMarket?.marketBreadth ? {
     set: { id: setId }, marketBreadth: setValue.cardsMarket.marketBreadth,

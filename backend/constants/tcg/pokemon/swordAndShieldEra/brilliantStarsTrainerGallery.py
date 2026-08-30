@@ -1,6 +1,12 @@
 from .baseConfig import BaseSetConfig
 
 class SetBrilliantStarsTrainerGalleryConfig(BaseSetConfig):
+    PARENT_OPENING_SET_KEY = "brilliantStars"
+    IS_SUBSET = True
+    SUBSET_TYPE = "trainer_gallery"
+    COUNTS_TOWARD_PARENT_SET_VALUE = True
+    COUNTS_TOWARD_PARENT_OPENING = True
+    SUPPORTS_OPENING_SIMULATION = False
     SET_NAME = 'Brilliant Stars Trainer Gallery'
     SET_ABBREVIATION = 'BRS'
 

@@ -33,6 +33,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from backend.db.services.pokemon_set_lifecycle_flags import (
     normalize_details_url,
+    resolve_config_lifecycle_flags,
     supports_opening_simulation,
 )
 
@@ -224,7 +225,9 @@ def load_database_cohort_rows() -> List[Dict[str, Any]]:
             supabase.table("sets")
             .select(
                 "id,name,canonical_key,card_details_url,has_card_details_url,"
-                "ready_for_daily_scrape,catalog_only,supports_opening_simulation"
+                "sealed_details_url,ready_for_daily_scrape,catalog_only,"
+                "supports_opening_simulation,parent_opening_set_id,is_subset,subset_type,"
+                "counts_toward_parent_set_value,counts_toward_parent_opening"
             )
             .eq("ready_for_daily_scrape", True)
             .eq("has_card_details_url", True)
@@ -240,8 +243,22 @@ def load_database_cohort_rows() -> List[Dict[str, Any]]:
         page = list((result.data if result else []) or [])
         rows.extend(page)
         if len(page) < page_size:
-            return rows
+            break
         offset += page_size
+
+    # parent_set_id is intentionally not backed by a PostgREST-visible FK in
+    # production, so resolve ownership with a second read instead of relying on
+    # an embedded self-relationship.
+    parent_ids = {str(row.get("parent_opening_set_id")) for row in rows if row.get("parent_opening_set_id")}
+    if parent_ids:
+        parent_result = supabase.table("sets").select("id,canonical_key").execute()
+        parent_keys = {
+            str(row.get("id")): row.get("canonical_key")
+            for row in list((parent_result.data if parent_result else []) or [])
+        }
+        for row in rows:
+            row["parent_canonical_key"] = parent_keys.get(str(row.get("parent_opening_set_id")))
+    return rows
 
 
 def run_runtime_preflight(
@@ -344,6 +361,19 @@ def run_runtime_preflight(
                 }
             )
 
+        db_sealed_url = normalize_details_url(row.get("sealed_details_url"))
+        config_sealed_url = normalize_details_url(getattr(config_cls, "SEALED_DETAILS_URL", None))
+        if db_sealed_url != config_sealed_url:
+            report.url_mismatches.append(
+                {
+                    "canonical_key": canonical_key,
+                    "url_kind": "sealed_details_url",
+                    "database_url": row.get("sealed_details_url"),
+                    "config_url": getattr(config_cls, "SEALED_DETAILS_URL", None),
+                }
+            )
+
+        resolved_flags = resolve_config_lifecycle_flags(config_cls)
         for field_name, db_value, config_value in (
             ("ready_for_daily_scrape", row.get("ready_for_daily_scrape"), True),
             ("catalog_only", row.get("catalog_only"), False),
@@ -352,12 +382,25 @@ def run_runtime_preflight(
                 row.get("supports_opening_simulation"),
                 supports_opening_simulation(config_cls),
             ),
+            ("parent_canonical_key", row.get("parent_canonical_key"), resolved_flags["parent_canonical_key"]),
+            ("is_subset", row.get("is_subset"), resolved_flags["is_subset"]),
+            ("subset_type", row.get("subset_type"), resolved_flags["subset_type"]),
+            (
+                "counts_toward_parent_set_value",
+                row.get("counts_toward_parent_set_value"),
+                resolved_flags["counts_toward_parent_set_value"],
+            ),
+            (
+                "counts_toward_parent_opening",
+                row.get("counts_toward_parent_opening"),
+                resolved_flags["counts_toward_parent_opening"],
+            ),
         ):
             # Absent columns are not asserted against: a runtime predating
             # migration 058 must not report phantom mismatches.
             if db_value is None:
                 continue
-            if bool(db_value) != bool(config_value):
+            if db_value != config_value:
                 report.lifecycle_flag_mismatches.append(
                     {
                         "canonical_key": canonical_key,
