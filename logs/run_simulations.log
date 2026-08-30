@@ -28373,3 +28373,90 @@ HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/calculation_h
 HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/simulation_run_summary?select=calculation_run_id&calculation_run_id=in.%28e9ccb779-bd84-4729-9746-850291092523%2Cde0aee28-b39a-4286-9b97-e03ffd3097b0%2C28ffeb1c-09e5-4ffa-b960-3e093c713140%2Cc2b02b6a-8aae-467f-88ea-4e935dea2e19%2Cbcbbe948-c6d5-47b2-a604-9700f6b33238%2C2925570c-5580-4903-b8dc-c08ea52cd79f%2Cfa64ac79-78be-478e-bb73-ecbf107952b5%2Cdb55e9c3-a7e5-4a35-aea2-1c9231df4251%2Cf1506299-38a2-4874-a2ce-291ee14fc09f%2Ca804197e-2fa9-44a7-91c8-f65ed4e0301f%2Cc1fb0c2a-1990-4a6b-ae5f-2b3221b1fd86%2Cbf4498c2-8743-4b7d-aad1-59118f5ec74b%2C9d63b06a-37b6-4803-8d7a-31fddf2139ef%2C3e1940e7-6dd6-4dcf-a59c-739dc754be34%2Cb20e3796-86c1-4024-9a5f-ee5b815469ea%2Cfef3dc93-9bf1-4536-a0bc-d36ce4883bec%2C7893e94d-197e-4eb3-8b8a-94dfab7afd8b%2Cf2ed9183-1159-4782-b168-585a63397870%2Ca0be1d95-d185-4a42-9312-a21d20de8d9c%2C716ef97d-1d85-4e8d-89d6-923c97507ac8%2C5b8ff5dd-efbf-4e9f-b221-33aa1fcf58d4%2C7603944e-bbe6-4d1b-a97a-175b3ac277b9%29 "HTTP/2 200 OK"
 [budget-ranking] {"status": "UPSTREAM_NOT_READY", "previous_price_as_of": "2026-08-27", "selected_price_as_of": null, "snapshot_id": null, "row_count": null, "failed_gate": "opening_freshness", "warnings": [], "duration_ms": 2369}
 [budget-ranking] status=UPSTREAM_NOT_READY price_as_of=None snapshot=None rows=None warnings=0
+[publication-checkout] mode=local repo=/d/EVRCalculator branch=fix/public-rankings-entitlement-regression head=dd8a422d89e0ec179195d3032878c17b3220258d working_tree=modified
+[publication-environment] repo=/d/EVRCalculator python=\EVRCalculator\.venv/Scripts/python supabase_project=zwxzxuuawalvwioadhmf mode=local
+INFO HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cmissing_set_count%2Cexpected_set_count%2Csucceeded_set_count%2Cfailed_set_count&status=eq.complete&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+INFO HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cmissing_set_count%2Cexpected_set_count%2Csucceeded_set_count%2Cfailed_set_count&market_date=eq.2026-08-28&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+INFO [publication-gate] promotion ALLOWED — batch 2026-08-28 is complete (promoted_at=2026-08-28T09:00:21.560798+00:00, expected=163, missing=0)
+INFO HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cmissing_set_count%2Cexpected_set_count%2Csucceeded_set_count%2Cfailed_set_count&market_date=eq.2026-08-28&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+INFO [publication-gate] promotion ALLOWED — batch 2026-08-28 is complete (promoted_at=2026-08-28T09:00:21.560798+00:00, expected=163, missing=0)
+INFO [scrape-runner] loaded config map: 210 sets across 17 era(s): baseWotcEra, blackAndWhiteEra, diamondAndPearlEra, eCardEra, exEra, gymEra, heartGoldAndSoulSilverEra, megaEvolutionEra, neoEra, npEra, otherEra, platinumEra, popEra, scarletAndVioletEra, sunAndMoonEra, swordAndShieldEra, xyEra
+INFO HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/sets?select=id%2Cname%2Ccanonical_key%2Ccatalog_only%2Csupports_opening_simulation&canonical_key=in.%28ascendedHeroes%2CblackBolt%2CchaosRising%2CdestinedRivals%2CjourneyTogether%2CmegaEvolution%2CobsidianFlames%2CpaldeaEvolved%2CpaldeanFates%2CparadoxRift%2CperfectOrder%2CphantasmalFlames%2CpitchBlack%2CprismaticEvolutions%2CscarletAndViolet151%2CscarletAndVioletBase%2CshroudedFable%2CstellarCrown%2CsurgingSparks%2CtemporalForces%2CtwilightMasquerade%2CwhiteFlare%29 "HTTP/2 200 OK"
+INFO HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/calculation_history_trend?select=snapshot_date%2Ctarget_id%2Ccalculation_run_id%2Csimulated_mean_pack_value_vs_pack_cost%2Csimulated_median_pack_value_vs_pack_cost&target_type=eq.set&target_id=in.%280f7e51e2-5a78-4500-9c9c-f690e934a069%2Ccb68bfe9-53a6-4345-b0e3-f6cd6c33383b%2C41a0ac1c-27ca-444b-8665-8ba35e583a3b%2Cde291399-ead5-41dc-bc12-e7c587684f85%2Cf59f25a2-d3da-4100-a918-901271a99925%2C142d3869-9d39-48b6-a810-751af2aac748%2Cb4b34b61-ce48-4fc4-bd91-201a350b2600%2C202518a0-5e86-4949-b1cd-c1c8ad95b616%2Cfd1538dd-36b9-4d02-98dc-fd65a5230d27%2C5d3d5c23-7098-4393-ad63-6ad9372aee30%2C7a3dd188-4375-41af-94de-c5247fe0b1a6%2Cd001d563-988b-4f8e-904f-acb926748e22%2C4b15f040-4351-41ea-90e1-c07eb1b2f4d6%2C5e99f658-39f0-4845-9228-db8db3965f32%2C3c459327-59d0-41d5-b21e-aae36361cc77%2C5bdbfae1-3f2e-44e7-b8c9-1035ad45b896%2C3b753fb6-a465-4e68-8ad9-4e34e114d4b7%2C91442900-3949-4ba4-8398-9e3dc2db1fa6%2Cc38df164-ea0d-4e9e-bae6-4c3a517beb8f%2C75cd439d-aaa2-41cb-86f3-2fefa5b26e29%2C472f851c-2e41-4c80-b6fc-8478d1d92730%2Cb3c96740-a4a9-4c3d-a8f6-81ed4584549d%29&order=snapshot_date.asc&offset=0&limit=1000 "HTTP/2 200 OK"
+INFO HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/calculation_history_trend?select=snapshot_date%2Ctarget_id%2Ccalculation_run_id%2Csimulated_mean_pack_value_vs_pack_cost%2Csimulated_median_pack_value_vs_pack_cost&target_type=eq.set&target_id=in.%280f7e51e2-5a78-4500-9c9c-f690e934a069%2Ccb68bfe9-53a6-4345-b0e3-f6cd6c33383b%2C41a0ac1c-27ca-444b-8665-8ba35e583a3b%2Cde291399-ead5-41dc-bc12-e7c587684f85%2Cf59f25a2-d3da-4100-a918-901271a99925%2C142d3869-9d39-48b6-a810-751af2aac748%2Cb4b34b61-ce48-4fc4-bd91-201a350b2600%2C202518a0-5e86-4949-b1cd-c1c8ad95b616%2Cfd1538dd-36b9-4d02-98dc-fd65a5230d27%2C5d3d5c23-7098-4393-ad63-6ad9372aee30%2C7a3dd188-4375-41af-94de-c5247fe0b1a6%2Cd001d563-988b-4f8e-904f-acb926748e22%2C4b15f040-4351-41ea-90e1-c07eb1b2f4d6%2C5e99f658-39f0-4845-9228-db8db3965f32%2C3c459327-59d0-41d5-b21e-aae36361cc77%2C5bdbfae1-3f2e-44e7-b8c9-1035ad45b896%2C3b753fb6-a465-4e68-8ad9-4e34e114d4b7%2C91442900-3949-4ba4-8398-9e3dc2db1fa6%2Cc38df164-ea0d-4e9e-bae6-4c3a517beb8f%2C75cd439d-aaa2-41cb-86f3-2fefa5b26e29%2C472f851c-2e41-4c80-b6fc-8478d1d92730%2Cb3c96740-a4a9-4c3d-a8f6-81ed4584549d%29&order=snapshot_date.asc&offset=1000&limit=1000 "HTTP/2 200 OK"
+INFO HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/simulation_run_summary?select=calculation_run_id&calculation_run_id=in.%28e9ccb779-bd84-4729-9746-850291092523%2C7603944e-bbe6-4d1b-a97a-175b3ac277b9%2Cc2b02b6a-8aae-467f-88ea-4e935dea2e19%2Ca804197e-2fa9-44a7-91c8-f65ed4e0301f%2C9d63b06a-37b6-4803-8d7a-31fddf2139ef%2C2925570c-5580-4903-b8dc-c08ea52cd79f%2Cdb55e9c3-a7e5-4a35-aea2-1c9231df4251%2C28ffeb1c-09e5-4ffa-b960-3e093c713140%2C7893e94d-197e-4eb3-8b8a-94dfab7afd8b%2C3e1940e7-6dd6-4dcf-a59c-739dc754be34%2Cde0aee28-b39a-4286-9b97-e03ffd3097b0%2C5b8ff5dd-efbf-4e9f-b221-33aa1fcf58d4%2Cfef3dc93-9bf1-4536-a0bc-d36ce4883bec%2Ca0be1d95-d185-4a42-9312-a21d20de8d9c%2Cbcbbe948-c6d5-47b2-a604-9700f6b33238%2Cbf4498c2-8743-4b7d-aad1-59118f5ec74b%2Cc1fb0c2a-1990-4a6b-ae5f-2b3221b1fd86%2Cfa64ac79-78be-478e-bb73-ecbf107952b5%2C716ef97d-1d85-4e8d-89d6-923c97507ac8%2Cf2ed9183-1159-4782-b168-585a63397870%2Cb20e3796-86c1-4024-9a5f-ee5b815469ea%2Cf1506299-38a2-4874-a2ce-291ee14fc09f%29 "HTTP/2 200 OK"
+INFO HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_public_rip_leaderboard_snapshots?select=id%2Cmarket_date&publication_status=eq.complete&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+INFO HTTP Request: POST https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_rankings_publication_attempts "HTTP/2 201 Created"
+INFO HTTP Request: PATCH https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_rankings_publication_attempts?id=eq.06183f27-2c1a-4217-b215-a422cbe6f4a1 "HTTP/2 200 OK"
+[daily-opening-publication] market_date=2026-08-28 eligible=22 pending=1
+[daily-opening-publication] ===== daily opening publication summary =====
+[daily-opening-publication] market_date=2026-08-28
+[daily-opening-publication] eligible_sets=22
+[daily-opening-publication] simulations_succeeded=0
+[daily-opening-publication] simulations_failed=0
+[daily-opening-publication] skipped_sets=21
+[daily-opening-publication]   skipped set=ascendedHeroes reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=blackBolt reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=chaosRising reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=journeyTogether reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=megaEvolution reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=obsidianFlames reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=paldeaEvolved reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=paldeanFates reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=paradoxRift reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=perfectOrder reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=phantasmalFlames reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=pitchBlack reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=prismaticEvolutions reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=scarletAndViolet151 reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=scarletAndVioletBase reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=shroudedFable reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=stellarCrown reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=surgingSparks reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=temporalForces reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=twilightMasquerade reason=already current for 2026-08-28
+[daily-opening-publication]   skipped set=whiteFlare reason=already current for 2026-08-28
+[daily-opening-publication] latest_simulation_date_by_set:
+[daily-opening-publication]   ascendedHeroes=2026-08-28
+[daily-opening-publication]   blackBolt=2026-08-28
+[daily-opening-publication]   chaosRising=2026-08-28
+[daily-opening-publication]   destinedRivals=2026-08-29
+[daily-opening-publication]   journeyTogether=2026-08-28
+[daily-opening-publication]   megaEvolution=2026-08-28
+[daily-opening-publication]   obsidianFlames=2026-08-28
+[daily-opening-publication]   paldeaEvolved=2026-08-28
+[daily-opening-publication]   paldeanFates=2026-08-28
+[daily-opening-publication]   paradoxRift=2026-08-28
+[daily-opening-publication]   perfectOrder=2026-08-28
+[daily-opening-publication]   phantasmalFlames=2026-08-28
+[daily-opening-publication]   pitchBlack=2026-08-28
+[daily-opening-publication]   prismaticEvolutions=2026-08-28
+[daily-opening-publication]   scarletAndViolet151=2026-08-28
+[daily-opening-publication]   scarletAndVioletBase=2026-08-28
+[daily-opening-publication]   shroudedFable=2026-08-28
+[daily-opening-publication]   stellarCrown=2026-08-28
+[daily-opening-publication]   surgingSparks=2026-08-28
+[daily-opening-publication]   temporalForces=2026-08-28
+[daily-opening-publication]   twilightMasquerade=2026-08-28
+[daily-opening-publication]   whiteFlare=2026-08-28
+[daily-opening-publication] sealed_product_finalization_status=not_attempted
+[daily-opening-publication] rankings_publication_status=deferred
+[daily-opening-publication] rankings_readiness_reason_code=DEFERRED_SIMULATION_DATE_ROLLOVER
+[daily-opening-publication] snapshot_publication_status=not_attempted
+[daily-opening-publication] chase_snapshot_publication_status=not_attempted
+[daily-opening-publication] chase_efficiency_publication_status=not_attempted
+[daily-opening-publication] chase_audit_status=not_attempted
+[daily-opening-publication] rip_stats_publication_status=not_attempted
+[daily-opening-publication] ev_representativeness_status=not_attempted
+[daily-opening-publication] rip_stats_audit_status=not_attempted
+[daily-opening-publication] rip_stats_market_date=None
+[daily-opening-publication] rankings_market_date=None
+[daily-opening-publication] simulation_execution_date=2026-08-30
+[daily-opening-publication] rip_stats_set_count=0
+[daily-opening-publication] rip_stats_source_run_fingerprint=None
+[daily-opening-publication] verification_passed=False
+[daily-opening-publication] publication_audit_status=not_attempted
+[daily-opening-publication] market_audit_status=not_attempted
+[daily-opening-publication] rip_contract_audit_status=not_attempted
+[daily-opening-publication] error=promoted market date 2026-08-28 cannot be repaired by simulations executed on 2026-08-30 because calculation history is dated from actual execution time and simulations cannot be backdated; waiting for promoted market date 2026-08-30; current=21/22; pending=destinedRivals
+[daily-opening-publication] exit_code=3

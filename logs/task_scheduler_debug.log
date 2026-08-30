@@ -32,3 +32,12 @@ Expected branch:
 [publication-environment] repo=/d/EVRCalculator python=\EVRCalculator\.venv/Scripts/python supabase_project=zwxzxuuawalvwioadhmf mode=local
 Task finished at Fri 08/28/2026 12:33:45.34 with exit code 1 
 ================================ 
+================================ 
+Task started at Sun 08/30/2026 10:00:03.24 
+Current dir: D:\EVRCalculator 
+Checkout mode: local 
+Expected branch:  
+[publication-checkout] mode=local repo=/d/EVRCalculator branch=fix/public-rankings-entitlement-regression head=dd8a422d89e0ec179195d3032878c17b3220258d working_tree=modified
+[publication-environment] repo=/d/EVRCalculator python=\EVRCalculator\.venv/Scripts/python supabase_project=zwxzxuuawalvwioadhmf mode=local
+Task finished at Sun 08/30/2026 10:01:39.41 with exit code 1 
+================================ 

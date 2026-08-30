@@ -31,6 +31,20 @@ def test_dispatcher_ignores_suppressed_rows(monkeypatch):
     assert ("is", "suppressed_at", "null") in client.last.filters
 
 
+def test_pending_queue_read_failure_is_not_reported_as_empty(monkeypatch):
+    class _BrokenClient:
+        def table(self, _name):
+            raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(dispatcher, "supabase", _BrokenClient())
+    try:
+        dispatcher.fetch_pending_alerts(25)
+    except RuntimeError as exc:
+        assert "could not be read" in str(exc)
+    else:
+        raise AssertionError("database failure must propagate to a nonzero dispatcher exit")
+
+
 def test_health_check_never_returns_webhook_secret(monkeypatch):
     old = (datetime.now(timezone.utc) - timedelta(minutes=12)).isoformat()
     monkeypatch.setattr(dispatcher, "supabase", _Client([{"id": "a", "sent": False,
@@ -41,6 +55,27 @@ def test_health_check_never_returns_webhook_secret(monkeypatch):
     assert health["slack_webhook_configured"] is True
     assert "secret.example" not in str(health)
     assert health["oldest_pending_age_minutes"] >= 11
+
+
+def test_health_is_unhealthy_when_alerts_disabled_or_webhook_missing(monkeypatch):
+    monkeypatch.setattr(dispatcher, "supabase", _Client([]))
+    monkeypatch.setenv("ALERTS_ENABLED", "false")
+    monkeypatch.delenv("SLACK_ALERT_WEBHOOK_URL", raising=False)
+    assert dispatcher.get_dispatcher_health()["healthy"] is False
+    monkeypatch.setenv("ALERTS_ENABLED", "true")
+    assert dispatcher.get_dispatcher_health()["healthy"] is False
+
+
+def test_required_schedule_health_is_fail_closed(monkeypatch):
+    monkeypatch.setattr(dispatcher, "supabase", _Client([]))
+    monkeypatch.setenv("ALERTS_ENABLED", "true")
+    monkeypatch.setenv("SLACK_ALERT_WEBHOOK_URL", "configured-not-printed")
+    monkeypatch.setenv("ALERT_SCHEDULES_REQUIRED", "true")
+    monkeypatch.setenv("ALERT_DISPATCHER_SCHEDULED", "true")
+    monkeypatch.setenv("MARKET_FRESHNESS_WATCHDOG_SCHEDULED", "false")
+    assert dispatcher.get_dispatcher_health()["healthy"] is False
+    monkeypatch.setenv("MARKET_FRESHNESS_WATCHDOG_SCHEDULED", "true")
+    assert dispatcher.get_dispatcher_health()["healthy"] is True
 
 
 def test_slack_failure_does_not_mark_and_success_marks_once(monkeypatch):
@@ -54,6 +89,34 @@ def test_slack_failure_does_not_mark_and_success_marks_once(monkeypatch):
     assert dispatcher.send_pending_alerts()["failed_count"] == 1 and marked == []
     monkeypatch.setattr(dispatcher, "send_slack_alert", lambda *a: True)
     assert dispatcher.send_pending_alerts()["sent_count"] == 1 and marked == ["a"]
+
+
+def test_disabled_dispatcher_never_fetches(monkeypatch):
+    monkeypatch.setenv("ALERTS_ENABLED", "false")
+    monkeypatch.setattr(dispatcher, "fetch_pending_alerts", lambda _n: (_ for _ in ()).throw(AssertionError("fetched")))
+    assert dispatcher.send_pending_alerts()["fetched_count"] == 0
+
+
+def test_enabled_dispatcher_rejects_missing_webhook(monkeypatch):
+    monkeypatch.setenv("ALERTS_ENABLED", "true")
+    monkeypatch.delenv("SLACK_ALERT_WEBHOOK_URL", raising=False)
+    try:
+        dispatcher.send_pending_alerts()
+    except ValueError as exc:
+        assert "SLACK_ALERT_WEBHOOK_URL" in str(exc)
+    else:
+        raise AssertionError("missing webhook must fail")
+
+
+def test_http_200_is_success_and_non_200_is_failure(monkeypatch):
+    class _Response:
+        def __init__(self, status):
+            self.status_code, self.text = status, "response"
+
+    monkeypatch.setattr(dispatcher.requests, "post", lambda *a, **k: _Response(200))
+    assert dispatcher.send_slack_alert({"id": "a"}, "configured-secret") is True
+    monkeypatch.setattr(dispatcher.requests, "post", lambda *a, **k: _Response(503))
+    assert dispatcher.send_slack_alert({"id": "a"}, "configured-secret") is False
 
 
 def test_formatter_allowlists_fields_and_excludes_secrets():

@@ -503,6 +503,9 @@ Required env vars:
 - `ALERTS_ENABLED=true`
 - `SLACK_ALERT_WEBHOOK_URL=...`
 - `ALERT_BATCH_SIZE=25`
+- `ALERT_SCHEDULES_REQUIRED=true`
+- `ALERT_DISPATCHER_SCHEDULED=true`
+- `MARKET_FRESHNESS_WATCHDOG_SCHEDULED=true`
 
 Optional controls:
 
@@ -530,8 +533,14 @@ Check configuration and the unsent, unsuppressed backlog without revealing the
 webhook URL:
 
 ```bash
-python -m backend.alerts.dispatcher --health-check
+python -m backend.alerts.dispatcher --health
 ```
+
+This command exits nonzero when alerts are disabled, the webhook is absent, or
+required scheduler declarations are absent. Its JSON reports only booleans,
+pending count, oldest pending age, and `last_sent_at`; it never prints the URL.
+Use it as a mandatory scraper-VM deploy preflight after loading the same
+`backend/.env` that cron loads.
 
 Only when intentionally validating Slack delivery, send one test message:
 
@@ -549,8 +558,43 @@ The dispatcher must run independently every minute. `flock` prevents overlapping
 processes if a webhook call is slow:
 
 ```cron
-* * * * * flock -n /tmp/evr-alert-dispatcher.lock sh -c 'cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python -m backend.alerts.dispatcher >> alert_dispatcher.log 2>&1'
+* * * * * flock -n /tmp/evr-alert-dispatcher.lock sh -c 'cd /home/ubuntu/repos/EVRCalculator && set -a && . backend/.env && set +a && ALERT_DISPATCHER_SCHEDULED=true MARKET_FRESHNESS_WATCHDOG_SCHEDULED=true ALERT_SCHEDULES_REQUIRED=true ./.venv/bin/python -m backend.alerts.dispatcher' >> /home/ubuntu/repos/EVRCalculator/alert_dispatcher.log 2>&1
 ```
+
+Install the watchdog as a separate cron entry. It must not be chained after the
+03:00 batch creator or publication command it supervises:
+
+```cron
+*/5 * * * * flock -n /tmp/evr-market-watchdog.lock sh -c 'cd /home/ubuntu/repos/EVRCalculator && set -a && . backend/.env && set +a && ./.venv/bin/python -m backend.alerts.market_freshness_watchdog' >> /home/ubuntu/repos/EVRCalculator/market_freshness_watchdog.log 2>&1
+```
+
+The watchdog uses fixed America/Phoenix business time and independently checks:
+
+- no daily batch after `MARKET_BATCH_DEADLINE_AZ` (default `03:10`);
+- a pending/running batch with no progress for `MARKET_BATCH_STALL_MINUTES`
+  (default `120`);
+- accepted Market Quality older than today after
+  `MARKET_PUBLICATION_DEADLINE_AZ` (default `07:00`);
+- disagreement among accepted quality, standard Set Value, set dashboards,
+  sealed snapshots, and the global market index.
+
+Each failure uses `alert_type:market_date:failure_class` as its deterministic
+dedupe key. Repeated five-minute runs reuse the existing row. The watchdog only
+queues alerts and never changes scrape, quality, publication, or simulation state.
+
+Deployment verification:
+
+```bash
+set -a; . backend/.env; set +a
+export ALERT_SCHEDULES_REQUIRED=true
+export ALERT_DISPATCHER_SCHEDULED=true
+export MARKET_FRESHNESS_WATCHDOG_SCHEDULED=true
+python -m backend.alerts.dispatcher --health
+crontab -l | grep -E 'backend.alerts.(dispatcher|market_freshness_watchdog)'
+python backend/scripts/validate_alerting_deployment.py
+```
+
+Both commands must succeed before the VM deployment is considered alert-capable.
 
 Inspect it with `tail -f /home/ubuntu/repos/EVRCalculator/alert_dispatcher.log`.
 
@@ -589,8 +633,9 @@ Production activation order:
 3. Run the historical suppression dry-run and review its breakdown.
 4. Commit suppression with the reviewed cutoff and reason.
 5. Run `--health-check`; confirm pending unsuppressed count is expected.
-6. Set the webhook secret and run the explicit `--send-test` command once.
-7. Install the flocked dispatcher cron.
+6. Set the webhook secret and run the explicit `--send-test` command once. This
+   actually posts one test message; it never marks a queued alert sent.
+7. Install both independent flocked cron entries and verify them with `crontab -l`.
 8. Set `ALERTS_ENABLED=true` and monitor `alert_dispatcher.log`.
 
 ---
