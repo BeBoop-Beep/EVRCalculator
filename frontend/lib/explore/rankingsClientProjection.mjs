@@ -191,6 +191,16 @@ export function projectRankingsClientBase(targets) {
     : [];
 }
 
+export function projectRankingsClientPublicSetLeaderboard(targets) {
+  if (!Array.isArray(targets)) return [];
+  return targets.map((target) => {
+    const projected = projectLeaves(target, BASE_SCALAR_FIELDS) || {};
+    const setRip = projectLeaves(target?.setRipV1, BLOCK_LEAVES.setRipV1);
+    if (setRip !== undefined) projected.setRipV1 = setRip;
+    return projected;
+  });
+}
+
 export function projectRankingsClientPlus(targets) {
   return Array.isArray(targets) ? targets.map(projectTarget) : [];
 }

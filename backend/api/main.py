@@ -57,6 +57,7 @@ from backend.domain.access.index_plan_access import (
     project_insights_critical_response,
     project_product_rankings_response,
     project_product_family_rankings_response,
+    project_public_era_rankings_response,
     project_opening_economics_response,
     project_rankings_response,
     project_sealed_market_response,
@@ -762,7 +763,7 @@ def get_explore_rankings_lens(
             return _tiered_response({
                 "meta": {key: (payload.get("meta") or {})[key] for key in ("source", "updatedAt", "warnings", "snapshot", "limit") if key in (payload.get("meta") or {})},
                 "access": {"rankingsIntelligence": entitled, "requiredPlan": "plus"},
-                **({"eraSetStrengthV1": payload.get("eraSetStrengthV1")} if entitled else {}),
+                "eraSetStrengthV1": project_public_era_rankings_response(payload),
             })
         if normalized_lens == "products":
             payload = {

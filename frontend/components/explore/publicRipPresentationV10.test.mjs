@@ -34,7 +34,7 @@ test("public score formatting uses deterministic half-up boundaries", () => {
   );
 });
 
-test("canonical V10 owns the headline while Set RIP V1 remains distinct", () => {
+test("Set RIP sorting uses the public Set RIP V1 leaderboard score", () => {
   const row = target("Synthetic", 2, 88.77, "A", 8, 97);
   const overall = readCanonicalOverallRipV10(row);
   assert.deepEqual(
@@ -42,16 +42,16 @@ test("canonical V10 owns the headline while Set RIP V1 remains distinct", () => 
     { rank: 2, score: "8.9", tier: "A" },
   );
   assert.equal(formatPublicRipScore(row.setRipV1.score), "9.7");
-  assert.equal(readSortValue(row, "setRip"), 88.77);
+  assert.equal(readSortValue(row, "setRip"), 97);
 });
 
-test("missing V10 never falls back to Set RIP V1", () => {
+test("public Set RIP sorting does not require the paid V10 block", () => {
   const row = { setRipV1: { rank: 1, score: 100, cohortSize: 20 } };
   const overall = readCanonicalOverallRipV10(row);
   assert.equal(overall.rank, null);
   assert.equal(overall.publicScore, null);
   assert.equal(overall.tier, null);
-  assert.equal(readSortValue(row, "setRip"), null);
+  assert.equal(readSortValue(row, "setRip"), 100);
 });
 
 test("default order follows canonical V10 rank despite opposing Format Strength", () => {

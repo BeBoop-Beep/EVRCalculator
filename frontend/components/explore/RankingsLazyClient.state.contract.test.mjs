@@ -24,8 +24,9 @@ test("hover, focus, and click intent escalates the selected lens", () => {
   for (const lens of ["eras", "sets", "products", "cards"]) assert.ok(lazy.includes(`onIntent: () => signalIntent("${lens}")`));
 });
 
-test("auth transitions are identity-scoped and distinguish locked data", () => {
-  assert.match(lazy, /authStatus !== "resolved"/);
-  assert.match(lazy, /status: "locked"/);
-  assert.match(lazy, /Index Plus or Premium/);
+test("Era Rankings is public while paid lenses remain entitlement aware", () => {
+  const loader = lazy.slice(lazy.indexOf("const loadEra"), lazy.indexOf("const loadSets"));
+  assert.doesNotMatch(loader, /canViewRankingsIntelligence|status: "locked"/);
+  assert.match(lazy, /canViewCardChaseEfficiency/);
+  assert.match(lazy, /canViewRankingsIntelligence=\{canViewRankingsIntelligence\}/);
 });

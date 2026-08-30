@@ -55,7 +55,7 @@ import {
   formatModeScore,
   SCORE_KIND_PUBLIC,
 } from "@/constants/exploreRankingConfig";
-import { PUBLIC_SCORE_SCALE_NOTE, readCanonicalOverallRipV10 } from "./canonicalRipV7.mjs";
+import { PUBLIC_SCORE_SCALE_NOTE } from "./canonicalRipV7.mjs";
 import {
   RANKINGS_DEFAULT_SORT,
   RANKINGS_SORT_COLUMNS,
@@ -452,6 +452,17 @@ function RankingInsight({ setRip }) {
   return <div data-ranking-insight className="flex max-w-[15rem] items-start gap-2.5"><span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border border-[var(--ex-rank-accent,var(--accent))]" /><span><strong className="block text-xs leading-tight text-[var(--text-primary)]">{heading}</strong><span className="mt-1 block text-[10.5px] leading-[1.35] text-[var(--text-secondary)]">{explanation}</span></span></div>;
 }
 
+function readPublicSetRip(target) {
+  const block = target?.setRipV1 || {};
+  const score = Number(block.score);
+  const rank = Number(block.rank);
+  return {
+    publicScore: Number.isFinite(score) ? score : null,
+    rank: Number.isFinite(rank) ? rank : null,
+    tier: block.tier || null,
+  };
+}
+
 /**
  * A quantitative column heading that is also its own sort control.
  *
@@ -508,8 +519,8 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
   // re-reads the network, and a header click only re-runs the memo on the line
   // after this one.
   const canonicalTargets = useMemo(() => [...targets].sort((left, right) => {
-    const leftRank = readCanonicalOverallRipV10(left).rank;
-    const rightRank = readCanonicalOverallRipV10(right).rank;
+    const leftRank = readPublicSetRip(left).rank;
+    const rightRank = readPublicSetRip(right).rank;
     if (leftRank !== null && rightRank !== null && leftRank !== rightRank) return leftRank - rightRank;
     if (leftRank !== null) return -1;
     if (rightRank !== null) return 1;
@@ -860,7 +871,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
               </thead>
               <tbody>
                 {displayedTargets.map((target, index) => {
-                  const canonicalOverall = readCanonicalOverallRipV10(target);
+                  const canonicalOverall = readPublicSetRip(target);
                   const tier = canonicalOverall.tier;
                   const modeRank = canonicalOverall.rank;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
@@ -898,7 +909,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
           <div className="md:hidden">
             <div className="space-y-2 px-3 py-2 sm:px-4">
             {visibleMobileTargets.map((target, index) => {
-              const canonicalOverall = readCanonicalOverallRipV10(target);
+              const canonicalOverall = readPublicSetRip(target);
               const activeRank = canonicalOverall.rank;
               const tier = canonicalOverall.tier;
               const tierTone = tier ? getTierTone(tier) : null;
