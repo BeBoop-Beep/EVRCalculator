@@ -5,6 +5,13 @@ import { buildCardsRequestKey } from "../tabs/cardsRequestKey.mjs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
+test("Pokemon Set entrypoint preserves the established rich Set UI", () => {
+  const entrypoint = read("../PokemonSetPageClient.jsx");
+  assert.match(entrypoint, /dynamic\(\s*\(\) => import\(["']@\/components\/explore\/RipStatisticsPageClient["']\)/);
+  assert.match(entrypoint, /<RipStatisticsPageClient \{\.\.\.props\} setDetailMode \/>/);
+  assert.doesNotMatch(entrypoint, /PokemonSetRuntimeShell/);
+});
+
 test("Set runtime shell remains dependency-light and tabs own endpoint imports", () => {
   const shell = read("./PokemonSetRuntimeShell.jsx");
   const fallback = read("../../../explore/RipStatisticsPageClient.jsx");
