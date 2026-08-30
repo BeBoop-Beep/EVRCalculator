@@ -44,7 +44,7 @@ from backend.domain.pokemon.market_index import (
     deterministic_fingerprint,
 )
 
-MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v2"
+MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v3-variant"
 
 FILTER_AXIS_SCOPE = "scope"
 FILTER_AXIS_SEGMENT = "segment"
@@ -64,7 +64,7 @@ SUPPORTED_MODES = (MODE_ALL, MODE_CHASE)
 #: stays asset-neutral; only this table knows the difference, which is what
 #: keeps "rank the survivors" from being written twice.
 ASSET_CONSTITUENT_ID_FIELD = {
-    ASSET_CARDS: "canonicalCardId",
+    ASSET_CARDS: "cardVariantId",
     ASSET_SEALED: "sealedProductId",
 }
 
@@ -352,7 +352,7 @@ def rank_constituents(
     constituents: Iterable[Mapping[str, Any]],
     top_n: int,
     *,
-    id_field: str = "canonicalCardId",
+    id_field: str = "cardVariantId",
 ) -> list[dict[str, Any]]:
     """The top_n most valuable constituents, ranked and rank-stamped.
 
@@ -384,7 +384,7 @@ def rank_chase_constituents(
     constituents: Iterable[Mapping[str, Any]], top_n: int,
 ) -> list[dict[str, Any]]:
     """Card-shaped alias of :func:`rank_constituents`, kept for its callers."""
-    return rank_constituents(constituents, top_n, id_field="canonicalCardId")
+    return rank_constituents(constituents, top_n, id_field="cardVariantId")
 
 
 def build_chain_linked_history_from_cohorts(
@@ -467,7 +467,7 @@ def build_query_observations(
     *,
     mode: str,
     top_n: int | None,
-    id_field: str = "canonicalCardId",
+    id_field: str = "cardVariantId",
 ) -> list[dict[str, Any]]:
     """One index observation per market date, with per-date chase membership.
 
@@ -478,8 +478,9 @@ def build_query_observations(
     module -- that shape is the bug this design exists to prevent.
 
     Output uses the shared index contract's setId/setValue field names. As in
-    the set-level cards index, setId here carries a CANONICAL CARD ID; the
-    naming is legacy to the generic primitive and is not reinterpreted locally.
+    the set-level cards index, setId here carries the traded instrument ID. For
+    Raw Cards that is a CARD VARIANT ID; canonical card identity is metadata,
+    never the chain-link or ranking key.
     """
     if mode not in SUPPORTED_MODES:
         raise MarketExplorerQueryError(f"unsupported market mode: {mode!r}")

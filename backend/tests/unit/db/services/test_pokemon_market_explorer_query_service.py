@@ -112,7 +112,12 @@ def _panel(prices, set_ids, card_ids):
                 price = price.get(market_date)
             if price is None:
                 continue
-            rows.append({"canonical_card_id": card["id"], "set_id": card["set_id"],
+            rows.append({"card_variant_id": f"variant-{card['id']}",
+                         "canonical_card_id": card["id"], "legacy_card_id": f"legacy-{card['id']}",
+                         "set_id": card["set_id"], "card_name": card["name"],
+                         "card_number": card["number"], "rarity": card["rarity"],
+                         "edition": None, "printing_type": "holo", "special_type": None,
+                         "image_url": card["image_small_url"],
                          "market_date": market_date, "market_price": price})
     return rows
 
@@ -144,27 +149,32 @@ class FakeClient:
             return _RpcResult(rows)
 
         if name == svc.FILTERED_COHORT_RPC:
+            segment_ids = set(payload.get("p_segment_ids") or [])
             price_segments = set(payload.get("p_price_segment_ids") or [])
             release_cohorts = set(payload.get("p_release_age_cohort_ids") or [])
             releases = {row["id"]: row["release_date"] for row in SETS}
             normalized = []
             for row in rows:
+                card = next(card for card in CARDS if card["id"] == row["canonical_card_id"])
+                segment = ("specialIllustrationRare"
+                           if card["rarity"] == "Special Illustration Rare"
+                           else "hyperRare" if card["rarity"] == "Hyper Rare" else None)
                 price = float(row["market_price"])
                 price_segment = "obtainable" if price < 10 else "intermediate" if price < 100 else "premium"
                 age = (__import__("datetime").date.fromisoformat(row["market_date"]) - __import__("datetime").date.fromisoformat(releases[row["set_id"]])).days
                 release = "new" if age <= 180 else "recent" if age <= 730 else "established" if age <= 1825 else "legacy"
-                if (not price_segments or price_segment in price_segments) and (not release_cohorts or release in release_cohorts):
+                if (not segment_ids or segment in segment_ids) and (not price_segments or price_segment in price_segments) and (not release_cohorts or release in release_cohorts):
                     normalized.append(row)
             by_date = {}
             for row in normalized:
                 by_date.setdefault(row["market_date"], []).append(row)
             output, previous = [], None
             for market_date in sorted(by_date):
-                universe = sorted(by_date[market_date], key=lambda row: (-float(row["market_price"]), row["canonical_card_id"]))
+                universe = sorted(by_date[market_date], key=lambda row: (-float(row["market_price"]), row["card_variant_id"]))
                 selected = universe[:payload["p_top_n"]] if payload.get("p_top_n") else universe
-                current = {row["canonical_card_id"]: float(row["market_price"]) for row in selected}
+                current = {row["card_variant_id"]: float(row["market_price"]) for row in selected}
                 common = set() if previous is None else previous.keys() & current.keys()
-                output.append({"market_date": market_date, "constituent_count": len(current), "eligible_universe_count": len(universe), "basket_value": sum(current.values()), "common_count": len(common), "common_current_value": sum(current[key] for key in common), "common_previous_value": sum(previous[key] for key in common) if previous else 0, "current_constituents": [{"canonical_card_id": row["canonical_card_id"], "set_id": row["set_id"], "market_date": market_date, "market_price": row["market_price"], "rank": rank} for rank, row in enumerate(selected, 1)]})
+                output.append({"market_date": market_date, "constituent_count": len(current), "eligible_universe_count": len(universe), "basket_value": sum(current.values()), "common_count": len(common), "common_current_value": sum(current[key] for key in common), "common_previous_value": sum(previous[key] for key in common) if previous else 0, "current_constituents": [{**row, "rank": rank} for rank, row in enumerate(selected, 1)]})
                 previous = current
             return _RpcResult(output)
 
@@ -177,9 +187,9 @@ class FakeClient:
         output, previous = [], None
         for market_date in sorted(by_date):
             universe = sorted(by_date[market_date],
-                              key=lambda row: (-float(row["market_price"]), row["canonical_card_id"]))
+                              key=lambda row: (-float(row["market_price"]), row["card_variant_id"]))
             selected = universe[:top_n] if top_n else universe
-            current = {row["canonical_card_id"]: float(row["market_price"]) for row in selected}
+            current = {row["card_variant_id"]: float(row["market_price"]) for row in selected}
             common = set() if previous is None else previous.keys() & current.keys()
             output.append({
                 "market_date": market_date,
@@ -226,7 +236,8 @@ def _stub_constituent_rpc(monkeypatch):
                     price = price.get(market_date)
                 if price is None:
                     continue
-                rows.append({"canonical_card_id": card["id"], "market_date": market_date,
+                rows.append({"card_variant_id": f"variant-{card['id']}",
+                             "canonical_card_id": card["id"], "market_date": market_date,
                              "market_price": price})
         return rows
 
@@ -346,12 +357,14 @@ def _reference_series(prices, *, set_ids, card_ids, mode, top_n):
     test_served_and_reference_paths_agree.
     """
     rows = [
-        {"canonical_card_id": row["canonical_card_id"], "market_date": row["market_date"],
+        {"card_variant_id": row["card_variant_id"],
+         "canonical_card_id": row["canonical_card_id"], "market_date": row["market_date"],
          "market_price": row["market_price"]}
         for row in _panel(prices, set_ids, card_ids)
     ]
-    metadata = {card["id"]: {"setId": card["set_id"], "cardName": card["name"],
-                             "rarity": card["rarity"]} for card in CARDS}
+    metadata = {f"variant-{card['id']}": {"canonicalCardId": card["id"],
+                "setId": card["set_id"], "cardName": card["name"],
+                "rarity": card["rarity"]} for card in CARDS}
     return svc.build_query_series(rows, metadata, mode=mode, top_n=top_n)
 
 
@@ -370,8 +383,8 @@ def test_membership_changes_between_days_without_rewriting_history():
     day_one, day_two = [entry["constituentIds"] for entry in series["membershipByDate"]]
     # Today's champion is NOT projected backward: on day one pe-sir-0 was worth
     # 500 and ah-sir-0 was the top SIR, and the history says exactly that.
-    assert day_one == ["ah-sir-0"]
-    assert day_two == ["pe-sir-0"]
+    assert day_one == ["variant-ah-sir-0"]
+    assert day_two == ["variant-pe-sir-0"]
 
 
 def test_a_pure_roster_swap_does_not_move_the_index():
@@ -388,8 +401,8 @@ def test_a_pure_roster_swap_does_not_move_the_index():
                                mode=MODE_CHASE, top_n=5)
 
     day_one, day_two = [entry["constituentIds"] for entry in series["membershipByDate"]]
-    assert "ah-sir-4" in day_one and "ah-sir-4" not in day_two
-    assert "pe-sir-0" in day_two and "pe-sir-0" not in day_one
+    assert "variant-ah-sir-4" in day_one and "variant-ah-sir-4" not in day_two
+    assert "variant-pe-sir-0" in day_two and "variant-pe-sir-0" not in day_one
 
     index_day_one, index_day_two = (point[1] for point in series["trend"])
     assert index_day_two == pytest.approx(index_day_one)
@@ -415,7 +428,7 @@ def test_served_and_reference_paths_agree():
     assert [point[1] for point in served["trend"]] == pytest.approx(
         [point[1] for point in reference["trend"]]
     )
-    assert _ids(served) == [row["canonicalCardId"] for row in reference["currentConstituents"]]
+    assert [row["cardVariantId"] for row in served["currentConstituents"]] == [row["cardVariantId"] for row in reference["currentConstituents"]]
     assert (served["reconciliation"]["actualConstituentCount"]
             == reference["reconciliation"]["actualConstituentCount"])
 
@@ -441,7 +454,7 @@ def test_filtered_database_cohort_matches_legacy_row_path(query, reference_sets)
     assert served["trackedValue"] == pytest.approx(reference["trackedValue"])
     assert served["indexValue"] == pytest.approx(reference["indexValue"])
     assert [point[1] for point in served["trend"]] == pytest.approx([point[1] for point in reference["trend"]])
-    assert _ids(served) == [row["canonicalCardId"] for row in reference["currentConstituents"]]
+    assert [row["cardVariantId"] for row in served["currentConstituents"]] == [row["cardVariantId"] for row in reference["currentConstituents"]]
 
 
 def _ids_by_day(result):
@@ -468,45 +481,40 @@ def test_constituents_publish_the_section_24_contract():
     result = _run(mode=MODE_CHASE, set_ids=["set-ah"],
                   segment_ids=["specialIllustrationRare"], top_n=10)
     row = result["currentConstituents"][0]
-    for field in ("rank", "canonicalCardId", "cardName", "setId", "setName",
+    for field in ("rank", "cardVariantId", "canonicalCardId", "cardName", "setId", "setName",
                   "rarity", "marketPrice", "imageUrl", "asOf", "queryMembershipReason"):
         assert field in row, f"missing published constituent field: {field}"
     assert row["setName"] == "Ascended Heroes"
 
 
-def test_an_unranked_universe_beyond_the_cohort_limit_is_refused_not_attempted():
-    """A too-large "All Constituents" query must say so, not time out.
-
-    Global Illustration Rare (492 cards) used to reach the database, spend 60
-    seconds hitting the statement timeout, and surface as a generic 500. The
-    limit is a property of the unranked cohort panel, so the refusal happens
-    before any round trip and names what to do instead.
-    """
-    calls = []
-
-    class Client:
-        def rpc(self, *args, **kwargs):
-            calls.append(args)
-            raise AssertionError("an oversized unranked query must not reach the database")
-
-    oversized = [f"card-{index}" for index in range(svc.COHORT_MAX_UNRANKED_CARDS + 1)]
-    try:
-        svc.load_daily_cohort_rows(
-            Client(), ["set-a"], start_date="2026-01-01", end_date="2026-06-01",
-            card_ids=oversized, top_n=None,
-        )
-    except svc.MarketExplorerQueryUnavailable as exc:
-        message = str(exc)
-    else:  # pragma: no cover - the call above must raise
-        raise AssertionError("expected svc.MarketExplorerQueryUnavailable")
-
-    assert calls == []
-    assert str(len(oversized)) in message
-    assert "Top 10" in message
+def test_one_canonical_card_can_publish_first_and_unlimited_constituents():
+    cohorts = [{"marketDate": "2026-01-01", "constituentCount": 2,
+                "eligibleUniverseCount": 2, "basketValue": 600,
+                "commonCount": 0, "commonCurrentValue": 0,
+                "commonPreviousValue": 0}]
+    basket = [
+        {"cardVariantId": "dragonite-first", "canonicalCardId": "dragonite-9",
+         "legacyCardId": "legacy-dragonite", "setId": "base",
+         "cardName": "Dragonite", "edition": "1st-edition",
+         "printingType": "holo", "marketPrice": 500, "rank": 1},
+        {"cardVariantId": "dragonite-unlimited", "canonicalCardId": "dragonite-9",
+         "legacyCardId": "legacy-dragonite", "setId": "base",
+         "cardName": "Dragonite", "edition": "unlimited",
+         "printingType": "holo", "marketPrice": 100, "rank": 2},
+    ]
+    series = svc.build_query_series_from_cohorts(
+        cohorts, basket, {}, mode=MODE_ALL, top_n=None,
+    )
+    assert [row["cardVariantId"] for row in series["currentConstituents"]] == [
+        "dragonite-first", "dragonite-unlimited",
+    ]
+    assert [row["canonicalCardId"] for row in series["currentConstituents"]] == [
+        "dragonite-9", "dragonite-9",
+    ]
 
 
-def test_the_same_universe_ranked_is_not_refused():
-    """`top_n` is ranked inside the database, so the cap must not apply to it."""
+def test_a_broad_unranked_universe_is_sent_to_the_database():
+    """Universe size is not a normal product-level rejection reason."""
     seen = {}
 
     class Client:
@@ -514,17 +522,77 @@ def test_the_same_universe_ranked_is_not_refused():
             seen["payload"] = payload
             return _RpcResult([])
 
-    oversized = [f"card-{index}" for index in range(svc.COHORT_MAX_UNRANKED_CARDS + 1)]
+    oversized = [f"card-{index}" for index in range(5_000)]
     rows = svc.load_daily_cohort_rows(
         Client(), ["set-a"], start_date="2026-01-01", end_date="2026-01-05",
-        card_ids=oversized, top_n=10,
+        card_ids=oversized, top_n=None,
     )
     assert rows == []
-    assert seen["payload"]["p_top_n"] == 10
+    assert seen["payload"]["p_card_ids"] == oversized
+    assert seen["payload"]["p_top_n"] is None
 
 
-def test_a_statement_timeout_is_reported_as_unavailable_not_as_a_crash():
-    """The backstop for a universe under the cap that still exceeds the budget."""
+def test_all_filter_axes_are_sent_to_one_variant_cohort_rpc():
+    seen = {}
+
+    class Client:
+        def rpc(self, name, payload):
+            seen["name"], seen["payload"] = name, payload
+            return _RpcResult([])
+
+    svc.load_filtered_daily_cohort_rows(
+        Client(), ["set-a", "set-b"], start_date="2026-01-01",
+        end_date="2026-01-02", card_ids=None,
+        segment_ids=["rareHolo"], pokemon_ids=["149"],
+        price_segment_ids=["premium"],
+        release_age_cohort_ids=["legacy"], top_n=10,
+    )
+    assert seen["name"] == svc.FILTERED_COHORT_RPC
+    assert seen["payload"] == {
+        "p_set_ids": ["set-a", "set-b"], "p_start_date": "2026-01-01",
+        "p_end_date": "2026-01-02", "p_card_ids": None,
+        "p_segment_ids": ["rareHolo"], "p_pokemon_ids": [149],
+        "p_price_segment_ids": ["premium"],
+        "p_release_age_cohort_ids": ["legacy"], "p_top_n": 10,
+    }
+
+
+def test_filtered_cohort_chunks_overlap_once_without_dropping_dates():
+    calls = []
+
+    class Client:
+        def rpc(self, _name, payload):
+            calls.append((payload["p_start_date"], payload["p_end_date"]))
+            from datetime import date, timedelta
+            cursor, end = date.fromisoformat(payload["p_start_date"]), date.fromisoformat(payload["p_end_date"])
+            rows = []
+            while cursor <= end:
+                rows.append({"market_date": cursor.isoformat(), "constituent_count": 1,
+                             "eligible_universe_count": 1, "basket_value": 10,
+                             "common_count": 1 if rows else 0,
+                             "common_current_value": 10 if rows else 0,
+                             "common_previous_value": 10 if rows else 0,
+                             "current_constituents": [{"card_variant_id": "variant-a",
+                                "canonical_card_id": "card-a", "legacy_card_id": "legacy-a",
+                                "set_id": "set-a", "market_date": cursor.isoformat(),
+                                "market_price": 10, "rank": 1}]})
+                cursor += timedelta(days=1)
+            return _RpcResult(rows)
+
+    cohorts, basket = svc.load_filtered_daily_cohort_rows(
+        Client(), ["set-a"], start_date="2026-01-01", end_date="2026-01-05",
+        card_ids=None, chunk_days=2,
+    )
+    assert calls == [("2026-01-01", "2026-01-02"),
+                     ("2026-01-02", "2026-01-04"),
+                     ("2026-01-04", "2026-01-05")]
+    assert [row["marketDate"] for row in cohorts] == [
+        "2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05",
+    ]
+    assert basket[0]["cardVariantId"] == "variant-a"
+
+
+def test_a_statement_timeout_remains_plan_evidence_not_a_size_rejection():
 
     class Timeout(Exception):
         code = "57014"
@@ -533,15 +601,11 @@ def test_a_statement_timeout_is_reported_as_unavailable_not_as_a_crash():
         def rpc(self, *_args, **_kwargs):
             raise Timeout("canceling statement due to statement timeout")
 
-    try:
+    with pytest.raises(Timeout):
         svc.load_daily_cohort_rows(
             Client(), ["set-a"], start_date="2026-01-01", end_date="2026-01-05",
             card_ids=["card-1"], top_n=None,
         )
-    except svc.MarketExplorerQueryUnavailable as exc:
-        assert "too large" in str(exc)
-    else:  # pragma: no cover
-        raise AssertionError("expected svc.MarketExplorerQueryUnavailable")
 
 
 def test_an_unrelated_database_error_still_propagates():
