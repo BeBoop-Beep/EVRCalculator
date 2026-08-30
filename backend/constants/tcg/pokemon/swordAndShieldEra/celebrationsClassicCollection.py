@@ -1,6 +1,12 @@
 from .baseConfig import BaseSetConfig
 
 class SetCelebrationsClassicCollectionConfig(BaseSetConfig):
+    PARENT_SET_KEY = "celebrations"
+    IS_SUBSET = True
+    SUBSET_TYPE = "classic_collection"
+    COUNTS_TOWARD_PARENT_SET_VALUE = True
+    COUNTS_TOWARD_PARENT_OPENING = True
+    SUPPORTS_OPENING_SIMULATION = False
     SET_NAME = 'Celebrations: Classic Collection'
     SET_ABBREVIATION = 'CEL'
 

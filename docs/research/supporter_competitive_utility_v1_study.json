@@ -1,0 +1,1818 @@
+{
+  "studyId": "supporter-competitive-utility-v1-4ae28e4118139e56",
+  "competitivePlayDemandDecision": "COMPETITIVE_PLAY_DEMAND_PARTIALLY_VALIDATED",
+  "tournamentsIngested": 15,
+  "decklistsIngested": 5818,
+  "competitiveDateRange": [
+    "2026-08-01",
+    "2026-08-24"
+  ],
+  "competitiveScores": [
+    {
+      "functionalId": "lillie s determination",
+      "fieldUsageDemand": 85.53503180676934,
+      "weightedInclusionRate": 0.8549523704986208,
+      "weightedCopiesPerDeck": 3.2047698124108166,
+      "weightedArchetypeBreadth": 0.9472052166189656,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "boss s orders",
+      "fieldUsageDemand": 83.58907714788408,
+      "weightedInclusionRate": 0.9111704239499782,
+      "weightedCopiesPerDeck": 2.3462820061146945,
+      "weightedArchetypeBreadth": 0.9503059448445702,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "pok pad",
+      "fieldUsageDemand": 82.27694364722562,
+      "weightedInclusionRate": 0.8277133868782252,
+      "weightedCopiesPerDeck": 2.9568542479969557,
+      "weightedArchetypeBreadth": 0.9422534256367429,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "ultra ball",
+      "fieldUsageDemand": 78.56239168434276,
+      "weightedInclusionRate": 0.8108764353538986,
+      "weightedCopiesPerDeck": 2.5184877574007856,
+      "weightedArchetypeBreadth": 0.9446171386235955,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "night stretcher",
+      "fieldUsageDemand": 76.413510236598,
+      "weightedInclusionRate": 0.8639407636892676,
+      "weightedCopiesPerDeck": 1.6591614859843598,
+      "weightedArchetypeBreadth": 0.947153675189313,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "buddy buddy poffin",
+      "fieldUsageDemand": 72.88049580132201,
+      "weightedInclusionRate": 0.7244545605708067,
+      "weightedCopiesPerDeck": 2.4791663435543203,
+      "weightedArchetypeBreadth": 0.9278955013239407,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "special red card",
+      "fieldUsageDemand": 50.35537034960533,
+      "weightedInclusionRate": 0.5485027275750681,
+      "weightedCopiesPerDeck": 0.565430320832508,
+      "weightedArchetypeBreadth": 0.9274178126598716,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "rare candy",
+      "fieldUsageDemand": 38.449828094636686,
+      "weightedInclusionRate": 0.3356700307150111,
+      "weightedCopiesPerDeck": 0.8162923783757573,
+      "weightedArchetypeBreadth": 0.8805199257925022,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "crispin",
+      "fieldUsageDemand": 36.591015020238345,
+      "weightedInclusionRate": 0.3216578356203275,
+      "weightedCopiesPerDeck": 0.7696445779100944,
+      "weightedArchetypeBreadth": 0.8320844180720403,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "air balloon",
+      "fieldUsageDemand": 36.44990037189001,
+      "weightedInclusionRate": 0.3299442114891709,
+      "weightedCopiesPerDeck": 0.4898631317900524,
+      "weightedArchetypeBreadth": 0.9061068739234616,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "team rocket s petrel",
+      "fieldUsageDemand": 33.27882706626283,
+      "weightedInclusionRate": 0.2611000944121738,
+      "weightedCopiesPerDeck": 0.72293711261457,
+      "weightedArchetypeBreadth": 0.8729642965127559,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "unfair stamp",
+      "fieldUsageDemand": 32.12148346238683,
+      "weightedInclusionRate": 0.29449166086549383,
+      "weightedCopiesPerDeck": 0.29449166086549383,
+      "weightedArchetypeBreadth": 0.8407607286698574,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "switch",
+      "fieldUsageDemand": 32.11028147283847,
+      "weightedInclusionRate": 0.2752771954357675,
+      "weightedCopiesPerDeck": 0.34180600499531344,
+      "weightedArchetypeBreadth": 0.8971574810314478,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "dawn",
+      "fieldUsageDemand": 28.95266441216735,
+      "weightedInclusionRate": 0.22628266878602618,
+      "weightedCopiesPerDeck": 0.48070490411624994,
+      "weightedArchetypeBreadth": 0.8247532422852815,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "secret box",
+      "fieldUsageDemand": 28.77020216271582,
+      "weightedInclusionRate": 0.24343199860980383,
+      "weightedCopiesPerDeck": 0.24343199860980383,
+      "weightedArchetypeBreadth": 0.8428554836544212,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "hilda",
+      "fieldUsageDemand": 28.69100027034533,
+      "weightedInclusionRate": 0.2057846040010573,
+      "weightedCopiesPerDeck": 0.5317270431483417,
+      "weightedArchetypeBreadth": 0.8680420007069838,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "pok gear 3 0",
+      "fieldUsageDemand": 25.53641141094292,
+      "weightedInclusionRate": 0.1729553545939369,
+      "weightedCopiesPerDeck": 0.3507844335762178,
+      "weightedArchetypeBreadth": 0.8644458283636899,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "ciphermaniac s codebreaking",
+      "fieldUsageDemand": 23.950378528014447,
+      "weightedInclusionRate": 0.16604550435470086,
+      "weightedCopiesPerDeck": 0.35509158811052716,
+      "weightedArchetypeBreadth": 0.7845550560694401,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "judge",
+      "fieldUsageDemand": 22.886188943807944,
+      "weightedInclusionRate": 0.1334957327893931,
+      "weightedCopiesPerDeck": 0.16979902241010436,
+      "weightedArchetypeBreadth": 0.9210134057587471,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "lana s aid",
+      "fieldUsageDemand": 22.855651714869065,
+      "weightedInclusionRate": 0.16216929935482086,
+      "weightedCopiesPerDeck": 0.16665775474590147,
+      "weightedArchetypeBreadth": 0.8055921857611954,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "energy switch",
+      "fieldUsageDemand": 21.805568789495705,
+      "weightedInclusionRate": 0.11897633668289495,
+      "weightedCopiesPerDeck": 0.3087014865304742,
+      "weightedArchetypeBreadth": 0.849173619847103,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "area zero underdepths",
+      "fieldUsageDemand": 21.78536929105047,
+      "weightedInclusionRate": 0.13056978235023084,
+      "weightedCopiesPerDeck": 0.32658626015779846,
+      "weightedArchetypeBreadth": 0.794001214936692,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "team rocket s watchtower",
+      "fieldUsageDemand": 21.31220503335397,
+      "weightedInclusionRate": 0.13558563218326933,
+      "weightedCopiesPerDeck": 0.1701817637360378,
+      "weightedArchetypeBreadth": 0.8075620719338382,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "kieran",
+      "fieldUsageDemand": 20.70421040896285,
+      "weightedInclusionRate": 0.14945551964185963,
+      "weightedCopiesPerDeck": 0.17841568970261729,
+      "weightedArchetypeBreadth": 0.7081187446539944,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "risky ruins",
+      "fieldUsageDemand": 20.453384251084366,
+      "weightedInclusionRate": 0.1477039200168858,
+      "weightedCopiesPerDeck": 0.25046988213413224,
+      "weightedArchetypeBreadth": 0.6683808191155262,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "crushing hammer",
+      "fieldUsageDemand": 19.85554681838625,
+      "weightedInclusionRate": 0.13002133715225198,
+      "weightedCopiesPerDeck": 0.4767709993988488,
+      "weightedArchetypeBreadth": 0.6049631895338886,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "hero s cape",
+      "fieldUsageDemand": 19.725779001063557,
+      "weightedInclusionRate": 0.11091146669213522,
+      "weightedCopiesPerDeck": 0.11091146669213522,
+      "weightedArchetypeBreadth": 0.8251929555139735,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "sacred ash",
+      "fieldUsageDemand": 19.50841245508052,
+      "weightedInclusionRate": 0.1387523457418561,
+      "weightedCopiesPerDeck": 0.14318827152791702,
+      "weightedArchetypeBreadth": 0.6858896675679781,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "brave bangle",
+      "fieldUsageDemand": 19.459669372287813,
+      "weightedInclusionRate": 0.1284758826657827,
+      "weightedCopiesPerDeck": 0.19946022218858878,
+      "weightedArchetypeBreadth": 0.7002993349108115,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "bug catching set",
+      "fieldUsageDemand": 19.020569153511396,
+      "weightedInclusionRate": 0.10733939400485844,
+      "weightedCopiesPerDeck": 0.3445209917612012,
+      "weightedArchetypeBreadth": 0.6951299543141589,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "battle cage",
+      "fieldUsageDemand": 18.685951955691213,
+      "weightedInclusionRate": 0.09995459588117314,
+      "weightedCopiesPerDeck": 0.2204360695760678,
+      "weightedArchetypeBreadth": 0.7540633845313601,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "gravity mountain",
+      "fieldUsageDemand": 17.871715778684898,
+      "weightedInclusionRate": 0.10006063513409955,
+      "weightedCopiesPerDeck": 0.14234684795073202,
+      "weightedArchetypeBreadth": 0.7318939913964566,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "xerosic s machinations",
+      "fieldUsageDemand": 17.87085378024656,
+      "weightedInclusionRate": 0.06917959471862067,
+      "weightedCopiesPerDeck": 0.08358896410735837,
+      "weightedArchetypeBreadth": 0.879843138097222,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "wally s compassion",
+      "fieldUsageDemand": 17.762057880735767,
+      "weightedInclusionRate": 0.06671141501918916,
+      "weightedCopiesPerDeck": 0.1184647914834745,
+      "weightedArchetypeBreadth": 0.8679312021875136,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "cyrano",
+      "fieldUsageDemand": 17.539296461615056,
+      "weightedInclusionRate": 0.11335813969048554,
+      "weightedCopiesPerDeck": 0.20572855469256723,
+      "weightedArchetypeBreadth": 0.6301336408904921,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "fighting gong",
+      "fieldUsageDemand": 17.162084363944153,
+      "weightedInclusionRate": 0.06924502161402706,
+      "weightedCopiesPerDeck": 0.2581286431406673,
+      "weightedArchetypeBreadth": 0.7596052698315573,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "forest of vitality",
+      "fieldUsageDemand": 16.876193801878156,
+      "weightedInclusionRate": 0.062199000967675847,
+      "weightedCopiesPerDeck": 0.17779162598117557,
+      "weightedArchetypeBreadth": 0.8022037387623505,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "team rocket s transceiver",
+      "fieldUsageDemand": 16.752160149329775,
+      "weightedInclusionRate": 0.08146838647433455,
+      "weightedCopiesPerDeck": 0.27059353346184956,
+      "weightedArchetypeBreadth": 0.6781898251155428,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "rosa s encouragement",
+      "fieldUsageDemand": 16.424419854580577,
+      "weightedInclusionRate": 0.12388757296000832,
+      "weightedCopiesPerDeck": 0.12436178010063809,
+      "weightedArchetypeBreadth": 0.547593623423406,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "gwynn",
+      "fieldUsageDemand": 16.120932112092955,
+      "weightedInclusionRate": 0.09144611721792735,
+      "weightedCopiesPerDeck": 0.23783983245724638,
+      "weightedArchetypeBreadth": 0.6098444084106351,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "jamming tower",
+      "fieldUsageDemand": 15.350017076553065,
+      "weightedInclusionRate": 0.07555379459046592,
+      "weightedCopiesPerDeck": 0.08161515777640198,
+      "weightedArchetypeBreadth": 0.6871129776681733,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "tool scrapper",
+      "fieldUsageDemand": 14.974130297160333,
+      "weightedInclusionRate": 0.07425059792415806,
+      "weightedCopiesPerDeck": 0.07425059792415806,
+      "weightedArchetypeBreadth": 0.6703352123123242,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "prime catcher",
+      "fieldUsageDemand": 14.77250776440382,
+      "weightedInclusionRate": 0.038649024678437185,
+      "weightedCopiesPerDeck": 0.038649024678437185,
+      "weightedArchetypeBreadth": 0.8141339919638239,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "team rocket s factory",
+      "fieldUsageDemand": 14.720854569672362,
+      "weightedInclusionRate": 0.0382935632168294,
+      "weightedCopiesPerDeck": 0.07441456263629823,
+      "weightedArchetypeBreadth": 0.7972099840123823,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "handheld fan",
+      "fieldUsageDemand": 14.642058240408229,
+      "weightedInclusionRate": 0.0769619326892215,
+      "weightedCopiesPerDeck": 0.12779674043766892,
+      "weightedArchetypeBreadth": 0.6150408434213007,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "energy recycler",
+      "fieldUsageDemand": 14.480249653044524,
+      "weightedInclusionRate": 0.09320088917848317,
+      "weightedCopiesPerDeck": 0.1134491643079183,
+      "weightedArchetypeBreadth": 0.545275935027403,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "jumbo ice cream",
+      "fieldUsageDemand": 14.20608621484839,
+      "weightedInclusionRate": 0.0942469588623082,
+      "weightedCopiesPerDeck": 0.25769585291600594,
+      "weightedArchetypeBreadth": 0.46271130682565753,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "colress s tenacity",
+      "fieldUsageDemand": 14.002343911460406,
+      "weightedInclusionRate": 0.028885088545791766,
+      "weightedCopiesPerDeck": 0.047904331041450976,
+      "weightedArchetypeBreadth": 0.7979891019802554,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "wondrous patch",
+      "fieldUsageDemand": 13.997155580277754,
+      "weightedInclusionRate": 0.08998829887311624,
+      "weightedCopiesPerDeck": 0.2386287076266018,
+      "weightedArchetypeBreadth": 0.4737618816816347,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "energy search",
+      "fieldUsageDemand": 13.947965811679378,
+      "weightedInclusionRate": 0.023826152903296153,
+      "weightedCopiesPerDeck": 0.029071058379747418,
+      "weightedArchetypeBreadth": 0.8224468348405459,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "premium power pro",
+      "fieldUsageDemand": 13.492325276473455,
+      "weightedInclusionRate": 0.04860631457660118,
+      "weightedCopiesPerDeck": 0.16880640651255108,
+      "weightedArchetypeBreadth": 0.6347270907449294,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "energy retrieval",
+      "fieldUsageDemand": 13.226984480435517,
+      "weightedInclusionRate": 0.02679124025740791,
+      "weightedCopiesPerDeck": 0.036989924273495955,
+      "weightedArchetypeBreadth": 0.7592215358854463,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "precious trolley",
+      "fieldUsageDemand": 13.21135848836593,
+      "weightedInclusionRate": 0.054169453790673956,
+      "weightedCopiesPerDeck": 0.054169453790673956,
+      "weightedArchetypeBreadth": 0.6415088116489187,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "salvatore",
+      "fieldUsageDemand": 12.971347827876222,
+      "weightedInclusionRate": 0.020546549000758575,
+      "weightedCopiesPerDeck": 0.029067510537161768,
+      "weightedArchetypeBreadth": 0.7704588631315633,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "lucky helmet",
+      "fieldUsageDemand": 12.83115793133447,
+      "weightedInclusionRate": 0.05832043432601054,
+      "weightedCopiesPerDeck": 0.06798101422382205,
+      "weightedArchetypeBreadth": 0.5938033688583298,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "mega signal",
+      "fieldUsageDemand": 12.826526713869338,
+      "weightedInclusionRate": 0.022760923814907418,
+      "weightedCopiesPerDeck": 0.04547425501655191,
+      "weightedArchetypeBreadth": 0.7451104794080963,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "az s tranquility",
+      "fieldUsageDemand": 12.664212832923566,
+      "weightedInclusionRate": 0.023603803668475854,
+      "weightedCopiesPerDeck": 0.025270724092531532,
+      "weightedArchetypeBreadth": 0.7393361724824461,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "brock s scouting",
+      "fieldUsageDemand": 12.18497123697925,
+      "weightedInclusionRate": 0.036680406018534846,
+      "weightedCopiesPerDeck": 0.0820364764131114,
+      "weightedArchetypeBreadth": 0.6314279265523476,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "prism tower",
+      "fieldUsageDemand": 12.023782461543025,
+      "weightedInclusionRate": 0.0530095113889567,
+      "weightedCopiesPerDeck": 0.12515386359013678,
+      "weightedArchetypeBreadth": 0.537400008717818,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "surfer",
+      "fieldUsageDemand": 11.635134046536985,
+      "weightedInclusionRate": 0.019013447026555347,
+      "weightedCopiesPerDeck": 0.02165524527205524,
+      "weightedArchetypeBreadth": 0.690598796132888,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "maximum belt",
+      "fieldUsageDemand": 11.318089060637588,
+      "weightedInclusionRate": 0.020378319017639895,
+      "weightedCopiesPerDeck": 0.020378319017639895,
+      "weightedArchetypeBreadth": 0.6645350283812631,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "surfing beach",
+      "fieldUsageDemand": 11.225445316611099,
+      "weightedInclusionRate": 0.021548411680129675,
+      "weightedCopiesPerDeck": 0.03965630680603227,
+      "weightedArchetypeBreadth": 0.6456459132177078,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "briar",
+      "fieldUsageDemand": 11.222720838821253,
+      "weightedInclusionRate": 0.025363125564308843,
+      "weightedCopiesPerDeck": 0.025363125564308843,
+      "weightedArchetypeBreadth": 0.6361609180123863,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "dark bell",
+      "fieldUsageDemand": 11.07992559687063,
+      "weightedInclusionRate": 0.030531877311769286,
+      "weightedCopiesPerDeck": 0.04833569641819,
+      "weightedArchetypeBreadth": 0.5963943237033857,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "black belt s training",
+      "fieldUsageDemand": 10.642772697341124,
+      "weightedInclusionRate": 0.06735976839640602,
+      "weightedCopiesPerDeck": 0.07484538161316898,
+      "weightedArchetypeBreadth": 0.4088935305649638,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "lillie s pearl",
+      "fieldUsageDemand": 10.284641610938781,
+      "weightedInclusionRate": 0.015057096722926704,
+      "weightedCopiesPerDeck": 0.026293858362850718,
+      "weightedArchetypeBreadth": 0.6144586128530242,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "lumiose city",
+      "fieldUsageDemand": 10.050027162304895,
+      "weightedInclusionRate": 0.016642255601411145,
+      "weightedCopiesPerDeck": 0.026477808334227134,
+      "weightedArchetypeBreadth": 0.5924003682754204,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "eri",
+      "fieldUsageDemand": 9.653756128858799,
+      "weightedInclusionRate": 0.02544228762258184,
+      "weightedCopiesPerDeck": 0.028573996606460983,
+      "weightedArchetypeBreadth": 0.5299087595142339,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "janine s secret art",
+      "fieldUsageDemand": 9.569525735845673,
+      "weightedInclusionRate": 0.024083704047256488,
+      "weightedCopiesPerDeck": 0.043489652719300546,
+      "weightedArchetypeBreadth": 0.5235128775676438,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "glass trumpet",
+      "fieldUsageDemand": 9.486441187308685,
+      "weightedInclusionRate": 0.04298463692734711,
+      "weightedCopiesPerDeck": 0.07592888277107354,
+      "weightedArchetypeBreadth": 0.4288538302899099,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "dusk ball",
+      "fieldUsageDemand": 9.381581579395698,
+      "weightedInclusionRate": 0.013184563521814699,
+      "weightedCopiesPerDeck": 0.04107450307777737,
+      "weightedArchetypeBreadth": 0.5555861415900472,
+      "events": 11,
+      "decksRepresented": 4730
+    },
+    {
+      "functionalId": "powerglass",
+      "fieldUsageDemand": 9.35481205448085,
+      "weightedInclusionRate": 0.010933759271469515,
+      "weightedCopiesPerDeck": 0.014011600867362627,
+      "weightedArchetypeBreadth": 0.5740809328514443,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "nighttime mine",
+      "fieldUsageDemand": 9.314958986830247,
+      "weightedInclusionRate": 0.04554794902702518,
+      "weightedCopiesPerDeck": 0.10135782976408113,
+      "weightedArchetypeBreadth": 0.3965730406122152,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "tera orb",
+      "fieldUsageDemand": 9.294966981056376,
+      "weightedInclusionRate": 0.010660370171595376,
+      "weightedCopiesPerDeck": 0.016916346857784648,
+      "weightedArchetypeBreadth": 0.5699745068599668,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "antique armor fossil",
+      "fieldUsageDemand": 8.994301475439109,
+      "weightedInclusionRate": 0.00996074801055638,
+      "weightedCopiesPerDeck": 0.029389713262331547,
+      "weightedArchetypeBreadth": 0.547531392461077,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "fossil quarry",
+      "fieldUsageDemand": 8.668692043689587,
+      "weightedInclusionRate": 0.010048056763166727,
+      "weightedCopiesPerDeck": 0.027639047227073166,
+      "weightedArchetypeBreadth": 0.5262043061820251,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "pok mon catcher",
+      "fieldUsageDemand": 8.514684416479511,
+      "weightedInclusionRate": 0.011150379474839163,
+      "weightedCopiesPerDeck": 0.024719143995766895,
+      "weightedArchetypeBreadth": 0.5127444665343746,
+      "events": 13,
+      "decksRepresented": 5313
+    },
+    {
+      "functionalId": "sparkling crystal",
+      "fieldUsageDemand": 8.458399212139616,
+      "weightedInclusionRate": 0.011674321732569822,
+      "weightedCopiesPerDeck": 0.011674321732569822,
+      "weightedArchetypeBreadth": 0.5123316931571245,
+      "events": 14,
+      "decksRepresented": 5581
+    },
+    {
+      "functionalId": "morty s conviction",
+      "fieldUsageDemand": 8.37057264773989,
+      "weightedInclusionRate": 0.009924605235938534,
+      "weightedCopiesPerDeck": 0.014492480879092828,
+      "weightedArchetypeBreadth": 0.5123012218726165,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "redeemable ticket",
+      "fieldUsageDemand": 8.209591540699202,
+      "weightedInclusionRate": 0.015302723633251664,
+      "weightedCopiesPerDeck": 0.015302723633251664,
+      "weightedArchetypeBreadth": 0.4797190733330854,
+      "events": 13,
+      "decksRepresented": 5248
+    },
+    {
+      "functionalId": "festival grounds",
+      "fieldUsageDemand": 8.209295805656772,
+      "weightedInclusionRate": 0.06540043771224209,
+      "weightedCopiesPerDeck": 0.2304290751727539,
+      "weightedArchetypeBreadth": 0.18967252153950231,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "hassel",
+      "fieldUsageDemand": 8.021093981702206,
+      "weightedInclusionRate": 0.010668292916133588,
+      "weightedCopiesPerDeck": 0.018251375845029325,
+      "weightedArchetypeBreadth": 0.4844616871801838,
+      "events": 12,
+      "decksRepresented": 5078
+    },
+    {
+      "functionalId": "scoop up cyclone",
+      "fieldUsageDemand": 7.940807425199058,
+      "weightedInclusionRate": 0.009258104723856056,
+      "weightedCopiesPerDeck": 0.009258104723856056,
+      "weightedArchetypeBreadth": 0.48849719914957296,
+      "events": 13,
+      "decksRepresented": 5265
+    },
+    {
+      "functionalId": "enhanced hammer",
+      "fieldUsageDemand": 7.678803481200355,
+      "weightedInclusionRate": 0.05567582147187125,
+      "weightedCopiesPerDeck": 0.07959945258478572,
+      "weightedArchetypeBreadth": 0.25605050761554465,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "grand tree",
+      "fieldUsageDemand": 7.603790167692338,
+      "weightedInclusionRate": 0.014783324324269934,
+      "weightedCopiesPerDeck": 0.014783324324269934,
+      "weightedArchetypeBreadth": 0.441626328747297,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "team rocket s proton",
+      "fieldUsageDemand": 7.379381452997256,
+      "weightedInclusionRate": 0.017110255774094012,
+      "weightedCopiesPerDeck": 0.058469793256139845,
+      "weightedArchetypeBreadth": 0.39915532658004943,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "team rocket s ariana",
+      "fieldUsageDemand": 7.3361121030090235,
+      "weightedInclusionRate": 0.016916688558773707,
+      "weightedCopiesPerDeck": 0.06499396942775892,
+      "weightedArchetypeBreadth": 0.39432656537060723,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "team rocket s giovanni",
+      "fieldUsageDemand": 7.307046693035324,
+      "weightedInclusionRate": 0.016916688558773707,
+      "weightedCopiesPerDeck": 0.06034350383196705,
+      "weightedArchetypeBreadth": 0.39432656537060723,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "ruffian",
+      "fieldUsageDemand": 7.268302074952369,
+      "weightedInclusionRate": 0.012803516684201094,
+      "weightedCopiesPerDeck": 0.012803516684201094,
+      "weightedArchetypeBreadth": 0.42800460630826975,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "brilliant blender",
+      "fieldUsageDemand": 7.0166161456919065,
+      "weightedInclusionRate": 0.016628511845134215,
+      "weightedCopiesPerDeck": 0.016628511845134215,
+      "weightedArchetypeBreadth": 0.3943318157301176,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "binding mochi",
+      "fieldUsageDemand": 6.907353592486334,
+      "weightedInclusionRate": 0.05647397873500873,
+      "weightedCopiesPerDeck": 0.10659581382507896,
+      "weightedArchetypeBreadth": 0.19017940213193782,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "carmine",
+      "fieldUsageDemand": 6.854982146975819,
+      "weightedInclusionRate": 0.011473105524063942,
+      "weightedCopiesPerDeck": 0.03617939702551302,
+      "weightedArchetypeBreadth": 0.3960316389415017,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "team rocket s archer",
+      "fieldUsageDemand": 6.802952659169337,
+      "weightedInclusionRate": 0.015316665389557248,
+      "weightedCopiesPerDeck": 0.04781634529532009,
+      "weightedArchetypeBreadth": 0.3723400385133434,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "max rod",
+      "fieldUsageDemand": 6.792594022445003,
+      "weightedInclusionRate": 0.008153287399930625,
+      "weightedCopiesPerDeck": 0.008153287399930625,
+      "weightedArchetypeBreadth": 0.4168292488133067,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "explorer s guidance",
+      "fieldUsageDemand": 6.604266021439054,
+      "weightedInclusionRate": 0.013162806861188552,
+      "weightedCopiesPerDeck": 0.033967407268693066,
+      "weightedArchetypeBreadth": 0.37348008762256063,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "larry s skill",
+      "fieldUsageDemand": 6.533933273750517,
+      "weightedInclusionRate": 0.007385386810613694,
+      "weightedCopiesPerDeck": 0.015941231796366504,
+      "weightedArchetypeBreadth": 0.3994118244257603,
+      "events": 13,
+      "decksRepresented": 4982
+    },
+    {
+      "functionalId": "antique sail fossil",
+      "fieldUsageDemand": 6.526460945825428,
+      "weightedInclusionRate": 0.004535379488004472,
+      "weightedCopiesPerDeck": 0.010767069972896743,
+      "weightedArchetypeBreadth": 0.4124695992809704,
+      "events": 4,
+      "decksRepresented": 1748
+    },
+    {
+      "functionalId": "light ball",
+      "fieldUsageDemand": 6.400364555722922,
+      "weightedInclusionRate": 0.005356431027836762,
+      "weightedCopiesPerDeck": 0.005609325604606888,
+      "weightedArchetypeBreadth": 0.4029280272682616,
+      "events": 5,
+      "decksRepresented": 2461
+    },
+    {
+      "functionalId": "iris s fighting spirit",
+      "fieldUsageDemand": 6.348440316198623,
+      "weightedInclusionRate": 0.00614485571281138,
+      "weightedCopiesPerDeck": 0.011717531420799461,
+      "weightedArchetypeBreadth": 0.3937676268033296,
+      "events": 13,
+      "decksRepresented": 5313
+    },
+    {
+      "functionalId": "academy at night",
+      "fieldUsageDemand": 6.256338437069619,
+      "weightedInclusionRate": 0.0646802323099102,
+      "weightedCopiesPerDeck": 0.2536105229893664,
+      "weightedArchetypeBreadth": 0.05269724865276451,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "counter gain",
+      "fieldUsageDemand": 6.088970085351661,
+      "weightedInclusionRate": 0.007520236310118275,
+      "weightedCopiesPerDeck": 0.008412692168668174,
+      "weightedArchetypeBreadth": 0.37234510537935916,
+      "events": 12,
+      "decksRepresented": 4765
+    },
+    {
+      "functionalId": "tarragon",
+      "fieldUsageDemand": 6.082261531279557,
+      "weightedInclusionRate": 0.0065080325772142525,
+      "weightedCopiesPerDeck": 0.011145287526557178,
+      "weightedArchetypeBreadth": 0.37480810197371467,
+      "events": 14,
+      "decksRepresented": 5574
+    },
+    {
+      "functionalId": "transformation tome",
+      "fieldUsageDemand": 5.747454552609581,
+      "weightedInclusionRate": 0.044740714015043336,
+      "weightedCopiesPerDeck": 0.17485743621527086,
+      "weightedArchetypeBreadth": 0.13134351569076919,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "community center",
+      "fieldUsageDemand": 5.722787855879963,
+      "weightedInclusionRate": 0.007699702031646897,
+      "weightedCopiesPerDeck": 0.008858285537295306,
+      "weightedArchetypeBreadth": 0.3470294299582036,
+      "events": 13,
+      "decksRepresented": 5299
+    },
+    {
+      "functionalId": "n s pp up",
+      "fieldUsageDemand": 5.327096948657804,
+      "weightedInclusionRate": 0.059239992118151535,
+      "weightedCopiesPerDeck": 0.17922957383418797,
+      "weightedArchetypeBreadth": 0.04350083900700246,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "levincia",
+      "fieldUsageDemand": 5.081211531243866,
+      "weightedInclusionRate": 0.004395857770729699,
+      "weightedCopiesPerDeck": 0.010475556733962216,
+      "weightedArchetypeBreadth": 0.3167991890275214,
+      "events": 9,
+      "decksRepresented": 4145
+    },
+    {
+      "functionalId": "spikemuth gym",
+      "fieldUsageDemand": 4.991520724562751,
+      "weightedInclusionRate": 0.04699549319700602,
+      "weightedCopiesPerDeck": 0.1739938361623547,
+      "weightedArchetypeBreadth": 0.07228864378184487,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "lively stadium",
+      "fieldUsageDemand": 4.9660069122381305,
+      "weightedInclusionRate": 0.005879223099422219,
+      "weightedCopiesPerDeck": 0.010364988924703345,
+      "weightedArchetypeBreadth": 0.3032314896995601,
+      "events": 12,
+      "decksRepresented": 5076
+    },
+    {
+      "functionalId": "megaton blower",
+      "fieldUsageDemand": 4.7818078830725765,
+      "weightedInclusionRate": 0.0038756419469829825,
+      "weightedCopiesPerDeck": 0.0038756419469829825,
+      "weightedArchetypeBreadth": 0.3016697736056636,
+      "events": 2,
+      "decksRepresented": 785
+    },
+    {
+      "functionalId": "n s castle",
+      "fieldUsageDemand": 4.7693473919753835,
+      "weightedInclusionRate": 0.05961408113467973,
+      "weightedCopiesPerDeck": 0.11160048522837082,
+      "weightedArchetypeBreadth": 0.03299996608115215,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "jacinthe",
+      "fieldUsageDemand": 4.700358985290267,
+      "weightedInclusionRate": 0.005427748965397483,
+      "weightedCopiesPerDeck": 0.007702621013709549,
+      "weightedArchetypeBreadth": 0.28843684440204886,
+      "events": 9,
+      "decksRepresented": 4298
+    },
+    {
+      "functionalId": "gladion s final battle",
+      "fieldUsageDemand": 4.690980524890702,
+      "weightedInclusionRate": 0.0578238412200274,
+      "weightedCopiesPerDeck": 0.11906653580305973,
+      "weightedArchetypeBreadth": 0.0318256135279957,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "accompanying flute",
+      "fieldUsageDemand": 4.688057019750338,
+      "weightedInclusionRate": 0.004821607186680099,
+      "weightedCopiesPerDeck": 0.009473191857873618,
+      "weightedArchetypeBreadth": 0.2893035426291881,
+      "events": 10,
+      "decksRepresented": 4152
+    },
+    {
+      "functionalId": "fennel",
+      "fieldUsageDemand": 4.632332849004492,
+      "weightedInclusionRate": 0.0024852314609600345,
+      "weightedCopiesPerDeck": 0.0024852314609600345,
+      "weightedArchetypeBreadth": 0.29784575098105937,
+      "events": 3,
+      "decksRepresented": 2080
+    },
+    {
+      "functionalId": "punk helmet",
+      "fieldUsageDemand": 4.581916001247946,
+      "weightedInclusionRate": 0.005508543232371551,
+      "weightedCopiesPerDeck": 0.010131847769510073,
+      "weightedArchetypeBreadth": 0.279205290583081,
+      "events": 12,
+      "decksRepresented": 4976
+    },
+    {
+      "functionalId": "philippe",
+      "fieldUsageDemand": 4.497473542531118,
+      "weightedInclusionRate": 0.007421831485777842,
+      "weightedCopiesPerDeck": 0.010054592173856918,
+      "weightedArchetypeBreadth": 0.2659548301531895,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "backtrack badge",
+      "fieldUsageDemand": 4.388669807652074,
+      "weightedInclusionRate": 0.007120650037937797,
+      "weightedCopiesPerDeck": 0.014587337360806847,
+      "weightedArchetypeBreadth": 0.25801732979138425,
+      "events": 12,
+      "decksRepresented": 4687
+    },
+    {
+      "functionalId": "lisia s appeal",
+      "fieldUsageDemand": 4.233291173253016,
+      "weightedInclusionRate": 0.005586605123592104,
+      "weightedCopiesPerDeck": 0.008943431667596709,
+      "weightedArchetypeBreadth": 0.256146561194334,
+      "events": 12,
+      "decksRepresented": 4937
+    },
+    {
+      "functionalId": "iron defender",
+      "fieldUsageDemand": 4.231546729988206,
+      "weightedInclusionRate": 0.006182594781462304,
+      "weightedCopiesPerDeck": 0.010323337657802207,
+      "weightedArchetypeBreadth": 0.2530713455159469,
+      "events": 9,
+      "decksRepresented": 3391
+    },
+    {
+      "functionalId": "lucian",
+      "fieldUsageDemand": 4.20294086390064,
+      "weightedInclusionRate": 0.0049881692701631355,
+      "weightedCopiesPerDeck": 0.007276625145126284,
+      "weightedArchetypeBreadth": 0.2572114533689208,
+      "events": 12,
+      "decksRepresented": 4772
+    },
+    {
+      "functionalId": "neutralization zone",
+      "fieldUsageDemand": 4.069253557250101,
+      "weightedInclusionRate": 0.004259984121072444,
+      "weightedCopiesPerDeck": 0.004259984121072444,
+      "weightedArchetypeBreadth": 0.2524686406152701,
+      "events": 9,
+      "decksRepresented": 3626
+    },
+    {
+      "functionalId": "hop s choice band",
+      "fieldUsageDemand": 4.055539954587783,
+      "weightedInclusionRate": 0.007811978307664141,
+      "weightedCopiesPerDeck": 0.031003006644340147,
+      "weightedArchetypeBreadth": 0.2262034976400539,
+      "events": 13,
+      "decksRepresented": 5322
+    },
+    {
+      "functionalId": "postwick",
+      "fieldUsageDemand": 4.053858407742754,
+      "weightedInclusionRate": 0.007811978307664141,
+      "weightedCopiesPerDeck": 0.030733959149135483,
+      "weightedArchetypeBreadth": 0.2262034976400539,
+      "events": 13,
+      "decksRepresented": 5322
+    },
+    {
+      "functionalId": "kofu",
+      "fieldUsageDemand": 4.053117342931703,
+      "weightedInclusionRate": 0.004190952042662762,
+      "weightedCopiesPerDeck": 0.008515942146993938,
+      "weightedArchetypeBreadth": 0.24989570546354836,
+      "events": 12,
+      "decksRepresented": 4991
+    },
+    {
+      "functionalId": "naveen",
+      "fieldUsageDemand": 4.0277383462688325,
+      "weightedInclusionRate": 0.005370189439680148,
+      "weightedCopiesPerDeck": 0.008682720674080881,
+      "weightedArchetypeBreadth": 0.24341733171166788,
+      "events": 14,
+      "decksRepresented": 5557
+    },
+    {
+      "functionalId": "hop s bag",
+      "fieldUsageDemand": 3.9633823814280253,
+      "weightedInclusionRate": 0.007811978307664141,
+      "weightedCopiesPerDeck": 0.016257794938779005,
+      "weightedArchetypeBreadth": 0.2262034976400539,
+      "events": 13,
+      "decksRepresented": 5322
+    },
+    {
+      "functionalId": "miracle headset",
+      "fieldUsageDemand": 3.8141680858158193,
+      "weightedInclusionRate": 0.011352433196246427,
+      "weightedCopiesPerDeck": 0.011352433196246427,
+      "weightedArchetypeBreadth": 0.20413795910429958,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "great haul net",
+      "fieldUsageDemand": 3.6929274126015232,
+      "weightedInclusionRate": 0.005456659013920224,
+      "weightedCopiesPerDeck": 0.007251972101054468,
+      "weightedArchetypeBreadth": 0.2213468697423146,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "mystery garden",
+      "fieldUsageDemand": 3.626861413768767,
+      "weightedInclusionRate": 0.006099092895182036,
+      "weightedCopiesPerDeck": 0.01499039869414005,
+      "weightedArchetypeBreadth": 0.21114838988129797,
+      "events": 13,
+      "decksRepresented": 5299
+    },
+    {
+      "functionalId": "babiri berry",
+      "fieldUsageDemand": 3.487479447569905,
+      "weightedInclusionRate": 0.011912302649285163,
+      "weightedCopiesPerDeck": 0.013498803413505917,
+      "weightedArchetypeBreadth": 0.1792249178185589,
+      "events": 14,
+      "decksRepresented": 5557
+    },
+    {
+      "functionalId": "canari",
+      "fieldUsageDemand": 3.461414833262645,
+      "weightedInclusionRate": 0.008415799493888857,
+      "weightedCopiesPerDeck": 0.019432990238036428,
+      "weightedArchetypeBreadth": 0.18900071164277243,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "dangerous laser",
+      "fieldUsageDemand": 3.251396638771426,
+      "weightedInclusionRate": 0.003820794196020925,
+      "weightedCopiesPerDeck": 0.003820794196020925,
+      "weightedArchetypeBreadth": 0.199884601552336,
+      "events": 6,
+      "decksRepresented": 2697
+    },
+    {
+      "functionalId": "n s plan",
+      "fieldUsageDemand": 3.1785546366719535,
+      "weightedInclusionRate": 0.011772076748021791,
+      "weightedCopiesPerDeck": 0.012589657351956003,
+      "weightedArchetypeBreadth": 0.15956964488939474,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "acerola s mischief",
+      "fieldUsageDemand": 3.1314689307521375,
+      "weightedInclusionRate": 0.0038222816988076076,
+      "weightedCopiesPerDeck": 0.005531868087555706,
+      "weightedArchetypeBreadth": 0.1911705235517639,
+      "events": 7,
+      "decksRepresented": 3715
+    },
+    {
+      "functionalId": "core memory",
+      "fieldUsageDemand": 3.10667785144129,
+      "weightedInclusionRate": 0.0038537012552888037,
+      "weightedCopiesPerDeck": 0.005140897927946147,
+      "weightedArchetypeBreadth": 0.18955501093828656,
+      "events": 6,
+      "decksRepresented": 2937
+    },
+    {
+      "functionalId": "roto stick",
+      "fieldUsageDemand": 3.021038374732147,
+      "weightedInclusionRate": 0.012034312395344544,
+      "weightedCopiesPerDeck": 0.04262701768344668,
+      "weightedArchetypeBreadth": 0.1355040513659955,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "hand trimmer",
+      "fieldUsageDemand": 2.9383561515014067,
+      "weightedInclusionRate": 0.00466636281132281,
+      "weightedCopiesPerDeck": 0.006626516471887822,
+      "weightedArchetypeBreadth": 0.17446391032484931,
+      "events": 14,
+      "decksRepresented": 5581
+    },
+    {
+      "functionalId": "repel",
+      "fieldUsageDemand": 2.8516962993308517,
+      "weightedInclusionRate": 0.003004192731012103,
+      "weightedCopiesPerDeck": 0.003004192731012103,
+      "weightedArchetypeBreadth": 0.17684456872675333,
+      "events": 3,
+      "decksRepresented": 1694
+    },
+    {
+      "functionalId": "grimsley s move",
+      "fieldUsageDemand": 2.8018632186258365,
+      "weightedInclusionRate": 0.002921927185938335,
+      "weightedCopiesPerDeck": 0.0063471380245646095,
+      "weightedArchetypeBreadth": 0.1724585316544005,
+      "events": 3,
+      "decksRepresented": 1559
+    },
+    {
+      "functionalId": "drayton",
+      "fieldUsageDemand": 2.7943212817104643,
+      "weightedInclusionRate": 0.0039060644396845838,
+      "weightedCopiesPerDeck": 0.007450723837127801,
+      "weightedArchetypeBreadth": 0.16755935942315603,
+      "events": 3,
+      "decksRepresented": 1479
+    },
+    {
+      "functionalId": "heavy baton",
+      "fieldUsageDemand": 2.779761900759365,
+      "weightedInclusionRate": 0.004850122552262902,
+      "weightedCopiesPerDeck": 0.007957136506447731,
+      "weightedArchetypeBreadth": 0.1626014962972195,
+      "events": 10,
+      "decksRepresented": 4429
+    },
+    {
+      "functionalId": "rust syndicate grunt",
+      "fieldUsageDemand": 2.751808572250118,
+      "weightedInclusionRate": 0.007387197272858367,
+      "weightedCopiesPerDeck": 0.009075274989740718,
+      "weightedArchetypeBreadth": 0.15012375114618243,
+      "events": 11,
+      "decksRepresented": 4581
+    },
+    {
+      "functionalId": "full metal lab",
+      "fieldUsageDemand": 2.639197935247123,
+      "weightedInclusionRate": 0.004752922999127255,
+      "weightedCopiesPerDeck": 0.008718714273812692,
+      "weightedArchetypeBreadth": 0.15330203940587725,
+      "events": 14,
+      "decksRepresented": 5557
+    },
+    {
+      "functionalId": "bianca s devotion",
+      "fieldUsageDemand": 2.3911606582040026,
+      "weightedInclusionRate": 0.006416744090493674,
+      "weightedCopiesPerDeck": 0.006648660185583973,
+      "weightedArchetypeBreadth": 0.13097345910763217,
+      "events": 12,
+      "decksRepresented": 4765
+    },
+    {
+      "functionalId": "pok mon center lady",
+      "fieldUsageDemand": 2.322104856792318,
+      "weightedInclusionRate": 0.005629949495699089,
+      "weightedCopiesPerDeck": 0.005629949495699089,
+      "weightedArchetypeBreadth": 0.12994138018015022,
+      "events": 13,
+      "decksRepresented": 5283
+    },
+    {
+      "functionalId": "lacey",
+      "fieldUsageDemand": 2.0337630717110433,
+      "weightedInclusionRate": 0.0043150615884863285,
+      "weightedCopiesPerDeck": 0.006990519437346322,
+      "weightedArchetypeBreadth": 0.11541124199456326,
+      "events": 8,
+      "decksRepresented": 3593
+    },
+    {
+      "functionalId": "waitress",
+      "fieldUsageDemand": 1.925261670799271,
+      "weightedInclusionRate": 0.0026153071452003672,
+      "weightedCopiesPerDeck": 0.004124420143872803,
+      "weightedArchetypeBreadth": 0.11617104107920294,
+      "events": 4,
+      "decksRepresented": 1993
+    },
+    {
+      "functionalId": "gravity gemstone",
+      "fieldUsageDemand": 1.8788044246303988,
+      "weightedInclusionRate": 0.004155068792271887,
+      "weightedCopiesPerDeck": 0.006358693162618452,
+      "weightedArchetypeBreadth": 0.10598389765518136,
+      "events": 13,
+      "decksRepresented": 5084
+    },
+    {
+      "functionalId": "ethan s adventure",
+      "fieldUsageDemand": 1.8712110670544215,
+      "weightedInclusionRate": 0.009774260609216344,
+      "weightedCopiesPerDeck": 0.03856029229279477,
+      "weightedArchetypeBreadth": 0.06958357357809823,
+      "events": 12,
+      "decksRepresented": 4983
+    },
+    {
+      "functionalId": "team rocket s venture bomb",
+      "fieldUsageDemand": 1.795931519623286,
+      "weightedInclusionRate": 0.003981836737045132,
+      "weightedCopiesPerDeck": 0.00780549311212823,
+      "weightedArchetypeBreadth": 0.10054913222998511,
+      "events": 10,
+      "decksRepresented": 3452
+    },
+    {
+      "functionalId": "super potion",
+      "fieldUsageDemand": 1.6827678682343667,
+      "weightedInclusionRate": 0.006697051750124791,
+      "weightedCopiesPerDeck": 0.00694778639728572,
+      "weightedArchetypeBreadth": 0.08250140654958957,
+      "events": 13,
+      "decksRepresented": 5307
+    },
+    {
+      "functionalId": "misty s vitality",
+      "fieldUsageDemand": 1.3044033643609636,
+      "weightedInclusionRate": 0.004155973611779851,
+      "weightedCopiesPerDeck": 0.012418695481596376,
+      "weightedArchetypeBreadth": 0.06516187339294635,
+      "events": 10,
+      "decksRepresented": 3978
+    },
+    {
+      "functionalId": "cynthia s power weight",
+      "fieldUsageDemand": 1.0932850925974722,
+      "weightedInclusionRate": 0.013714276279201808,
+      "weightedCopiesPerDeck": 0.043268562535258175,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 15,
+      "decksRepresented": 5818
+    },
+    {
+      "functionalId": "firebreather",
+      "fieldUsageDemand": 0.4750209423845034,
+      "weightedInclusionRate": 0.006572541054370657,
+      "weightedCopiesPerDeck": 0.012906956659562228,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 5,
+      "decksRepresented": 1576
+    },
+    {
+      "functionalId": "granite cave",
+      "fieldUsageDemand": 0.3227459016393443,
+      "weightedInclusionRate": 0.004098360655737705,
+      "weightedCopiesPerDeck": 0.012295081967213116,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 244
+    },
+    {
+      "functionalId": "caretaker",
+      "fieldUsageDemand": 0.30405405405405406,
+      "weightedInclusionRate": 0.0038610038610038607,
+      "weightedCopiesPerDeck": 0.011583011583011584,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 259
+    },
+    {
+      "functionalId": "potion",
+      "fieldUsageDemand": 0.3017241379310345,
+      "weightedInclusionRate": 0.0038314176245210726,
+      "weightedCopiesPerDeck": 0.011494252873563218,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 261
+    },
+    {
+      "functionalId": "antique skull fossil",
+      "fieldUsageDemand": 0.30141843971631205,
+      "weightedInclusionRate": 0.003546099290780142,
+      "weightedCopiesPerDeck": 0.014184397163120569,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 282
+    },
+    {
+      "functionalId": "antique jaw fossil",
+      "fieldUsageDemand": 0.2884524195568673,
+      "weightedInclusionRate": 0.0036282313661066996,
+      "weightedCopiesPerDeck": 0.011321366014474447,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 4,
+      "decksRepresented": 1435
+    },
+    {
+      "functionalId": "call bell",
+      "fieldUsageDemand": 0.2819804289212416,
+      "weightedInclusionRate": 0.003899006743026946,
+      "weightedCopiesPerDeck": 0.007686403894339972,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 3,
+      "decksRepresented": 763
+    },
+    {
+      "functionalId": "antique plume fossil",
+      "fieldUsageDemand": 0.27593957104182887,
+      "weightedInclusionRate": 0.003246347894609752,
+      "weightedCopiesPerDeck": 0.012985391578439007,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 628
+    },
+    {
+      "functionalId": "rescue board",
+      "fieldUsageDemand": 0.2570921985815603,
+      "weightedInclusionRate": 0.003546099290780142,
+      "weightedCopiesPerDeck": 0.007092198581560284,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 282
+    },
+    {
+      "functionalId": "antique root fossil",
+      "fieldUsageDemand": 0.25394363940156167,
+      "weightedInclusionRate": 0.003185418403191804,
+      "weightedCopiesPerDeck": 0.010050965633608553,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 3,
+      "decksRepresented": 1285
+    },
+    {
+      "functionalId": "billy o nare",
+      "fieldUsageDemand": 0.25383141762452105,
+      "weightedInclusionRate": 0.0038314176245210726,
+      "weightedCopiesPerDeck": 0.0038314176245210726,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 261
+    },
+    {
+      "functionalId": "lumiose galette",
+      "fieldUsageDemand": 0.24682827008860164,
+      "weightedInclusionRate": 0.00372570973718644,
+      "weightedCopiesPerDeck": 0.00372570973718644,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 4,
+      "decksRepresented": 1413
+    },
+    {
+      "functionalId": "cook",
+      "fieldUsageDemand": 0.24623075579020332,
+      "weightedInclusionRate": 0.003716690653437032,
+      "weightedCopiesPerDeck": 0.003716690653437032,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 532
+    },
+    {
+      "functionalId": "deduction kit",
+      "fieldUsageDemand": 0.2456647398843931,
+      "weightedInclusionRate": 0.0028901734104046246,
+      "weightedCopiesPerDeck": 0.011560693641618498,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 346
+    },
+    {
+      "functionalId": "antique cover fossil",
+      "fieldUsageDemand": 0.23903570619247466,
+      "weightedInclusionRate": 0.0028121847787349963,
+      "weightedCopiesPerDeck": 0.011248739114939985,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 4,
+      "decksRepresented": 1796
+    },
+    {
+      "functionalId": "pok ball",
+      "fieldUsageDemand": 0.23869051230530539,
+      "weightedInclusionRate": 0.0033260279161652366,
+      "weightedCopiesPerDeck": 0.006260613973662591,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 3,
+      "decksRepresented": 916
+    },
+    {
+      "functionalId": "energy swatter",
+      "fieldUsageDemand": 0.23854857828604606,
+      "weightedInclusionRate": 0.0031647875257972908,
+      "weightedCopiesPerDeck": 0.007785812278113377,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 4,
+      "decksRepresented": 1355
+    },
+    {
+      "functionalId": "love ball",
+      "fieldUsageDemand": 0.2349290780141844,
+      "weightedInclusionRate": 0.003546099290780142,
+      "weightedCopiesPerDeck": 0.003546099290780142,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 282
+    },
+    {
+      "functionalId": "team rocket s great ball",
+      "fieldUsageDemand": 0.2349290780141844,
+      "weightedInclusionRate": 0.003546099290780142,
+      "weightedCopiesPerDeck": 0.003546099290780142,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 282
+    },
+    {
+      "functionalId": "energy search pro",
+      "fieldUsageDemand": 0.23003472222222224,
+      "weightedInclusionRate": 0.003472222222222222,
+      "weightedCopiesPerDeck": 0.003472222222222222,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 288
+    },
+    {
+      "functionalId": "pok vital a",
+      "fieldUsageDemand": 0.23003472222222224,
+      "weightedInclusionRate": 0.003472222222222222,
+      "weightedCopiesPerDeck": 0.003472222222222222,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 288
+    },
+    {
+      "functionalId": "survival brace",
+      "fieldUsageDemand": 0.2259639341680374,
+      "weightedInclusionRate": 0.003410776364800565,
+      "weightedCopiesPerDeck": 0.003410776364800565,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 6,
+      "decksRepresented": 2162
+    },
+    {
+      "functionalId": "deluxe bomb",
+      "fieldUsageDemand": 0.21938131942158423,
+      "weightedInclusionRate": 0.0033114161422125926,
+      "weightedCopiesPerDeck": 0.0033114161422125926,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 611
+    },
+    {
+      "functionalId": "boxed order",
+      "fieldUsageDemand": 0.2092855350853798,
+      "weightedInclusionRate": 0.002657594096322283,
+      "weightedCopiesPerDeck": 0.00797278228896685,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 830
+    },
+    {
+      "functionalId": "hyper aroma",
+      "fieldUsageDemand": 0.20622332030764368,
+      "weightedInclusionRate": 0.0031128048348323576,
+      "weightedCopiesPerDeck": 0.0031128048348323576,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 6,
+      "decksRepresented": 2279
+    },
+    {
+      "functionalId": "lt surge s bargain",
+      "fieldUsageDemand": 0.19765756455526745,
+      "weightedInclusionRate": 0.002905296163010733,
+      "weightedCopiesPerDeck": 0.0037343671639397612,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 4,
+      "decksRepresented": 1667
+    },
+    {
+      "functionalId": "harlequin",
+      "fieldUsageDemand": 0.19450456416809264,
+      "weightedInclusionRate": 0.002796509938268677,
+      "weightedCopiesPerDeck": 0.004274234859515523,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 4,
+      "decksRepresented": 1904
+    },
+    {
+      "functionalId": "payapa berry",
+      "fieldUsageDemand": 0.19444278561074857,
+      "weightedInclusionRate": 0.0029349854431811105,
+      "weightedCopiesPerDeck": 0.0029349854431811105,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 779
+    },
+    {
+      "functionalId": "scramble switch",
+      "fieldUsageDemand": 0.19285688040558524,
+      "weightedInclusionRate": 0.0029110472514050603,
+      "weightedCopiesPerDeck": 0.0029110472514050603,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 7,
+      "decksRepresented": 2730
+    },
+    {
+      "functionalId": "tremendous bomb",
+      "fieldUsageDemand": 0.189714241466278,
+      "weightedInclusionRate": 0.002734170604172554,
+      "weightedCopiesPerDeck": 0.004106240834547959,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 6,
+      "decksRepresented": 2597
+    },
+    {
+      "functionalId": "jasmine s gaze",
+      "fieldUsageDemand": 0.18933998202672436,
+      "weightedInclusionRate": 0.0026919783183502193,
+      "weightedCopiesPerDeck": 0.004451405268113793,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 3,
+      "decksRepresented": 1444
+    },
+    {
+      "functionalId": "haban berry",
+      "fieldUsageDemand": 0.18770985495227435,
+      "weightedInclusionRate": 0.002833356301166405,
+      "weightedCopiesPerDeck": 0.002833356301166405,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 3,
+      "decksRepresented": 1104
+    },
+    {
+      "functionalId": "perilous jungle",
+      "fieldUsageDemand": 0.1796433643086917,
+      "weightedInclusionRate": 0.002571714234818542,
+      "weightedCopiesPerDeck": 0.0040544816351326726,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 4,
+      "decksRepresented": 1673
+    },
+    {
+      "functionalId": "sacred charm",
+      "fieldUsageDemand": 0.17178782071408585,
+      "weightedInclusionRate": 0.0025134791142231855,
+      "weightedCopiesPerDeck": 0.003356651817711153,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 8,
+      "decksRepresented": 3768
+    },
+    {
+      "functionalId": "blowtorch",
+      "fieldUsageDemand": 0.1683176146368947,
+      "weightedInclusionRate": 0.0025406432398021846,
+      "weightedCopiesPerDeck": 0.0025406432398021846,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 6,
+      "decksRepresented": 3017
+    },
+    {
+      "functionalId": "roxie s performance",
+      "fieldUsageDemand": 0.15920785518293087,
+      "weightedInclusionRate": 0.002211442135471213,
+      "weightedCopiesPerDeck": 0.004243412328745296,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 3,
+      "decksRepresented": 1391
+    },
+    {
+      "functionalId": "amulet of hope",
+      "fieldUsageDemand": 0.15201746729688967,
+      "weightedInclusionRate": 0.0022946032799530517,
+      "weightedCopiesPerDeck": 0.0022946032799530517,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 894
+    },
+    {
+      "functionalId": "perrin",
+      "fieldUsageDemand": 0.1386681183467254,
+      "weightedInclusionRate": 0.0020931036731581193,
+      "weightedCopiesPerDeck": 0.0020931036731581193,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 4,
+      "decksRepresented": 2300
+    },
+    {
+      "functionalId": "strange timepiece",
+      "fieldUsageDemand": 0.12889105058365757,
+      "weightedInclusionRate": 0.0019455252918287936,
+      "weightedCopiesPerDeck": 0.0019455252918287936,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 514
+    },
+    {
+      "functionalId": "meddling memo",
+      "fieldUsageDemand": 0.12089416058394162,
+      "weightedInclusionRate": 0.0018248175182481753,
+      "weightedCopiesPerDeck": 0.0018248175182481753,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 548
+    },
+    {
+      "functionalId": "cheren",
+      "fieldUsageDemand": 0.1163945741166968,
+      "weightedInclusionRate": 0.0016956229380888908,
+      "weightedCopiesPerDeck": 0.0023451516530181384,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 1205
+    },
+    {
+      "functionalId": "ogre s mask",
+      "fieldUsageDemand": 0.1015061372150856,
+      "weightedInclusionRate": 0.001288966821778865,
+      "weightedCopiesPerDeck": 0.0038669004653365947,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 1566
+    },
+    {
+      "functionalId": "adversity policy",
+      "fieldUsageDemand": 0.10083713850837137,
+      "weightedInclusionRate": 0.0015220700152207,
+      "weightedCopiesPerDeck": 0.0015220700152207,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 657
+    },
+    {
+      "functionalId": "dizzying valley",
+      "fieldUsageDemand": 0.09934928765415575,
+      "weightedInclusionRate": 0.0014372107214110112,
+      "weightedCopiesPerDeck": 0.0020986630991192143,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 1423
+    },
+    {
+      "functionalId": "emma",
+      "fieldUsageDemand": 0.0934500945789677,
+      "weightedInclusionRate": 0.001288966821778865,
+      "weightedCopiesPerDeck": 0.00257793364355773,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 2,
+      "decksRepresented": 1566
+    },
+    {
+      "functionalId": "hole digging shovel",
+      "fieldUsageDemand": 0.08663366336633663,
+      "weightedInclusionRate": 0.0011001100110011,
+      "weightedCopiesPerDeck": 0.0033003300330033004,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 909
+    },
+    {
+      "functionalId": "colbur berry",
+      "fieldUsageDemand": 0.07288228822882288,
+      "weightedInclusionRate": 0.0011001100110011,
+      "weightedCopiesPerDeck": 0.0011001100110011,
+      "weightedArchetypeBreadth": 0.0,
+      "events": 1,
+      "decksRepresented": 909
+    }
+  ],
+  "sourceAudit": {
+    "decision": "LIMITLESS_API_PLUS_PUBLIC_EVENT_DATA_REQUIRED",
+    "apiRoot": "https://play.limitlesstcg.com/api"
+  },
+  "reconstructedForRound2": true,
+  "rowsPersisted": 0
+}

@@ -1,6 +1,12 @@
 from .baseConfig import BaseSetConfig
 
 class SetHiddenFatesShinyVaultConfig(BaseSetConfig):
+    PARENT_SET_KEY = "hiddenFates"
+    IS_SUBSET = True
+    SUBSET_TYPE = "shiny_vault"
+    COUNTS_TOWARD_PARENT_SET_VALUE = True
+    COUNTS_TOWARD_PARENT_OPENING = True
+    SUPPORTS_OPENING_SIMULATION = False
     SET_NAME = 'Hidden Fates Shiny Vault'
     SET_ABBREVIATION = 'HIF'
 

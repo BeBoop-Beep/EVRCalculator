@@ -1,0 +1,4101 @@
+{
+  "studyId": "supporter-treatment-market-prestige-v3s-r2-f42e77b048feb1d3",
+  "builtAt": "2026-08-30T18:41:55.364167+00:00",
+  "contract": {
+    "semantics": "SUPERTYPE_RELATIVE_WITHIN_ERA",
+    "estimand": "Adjusted market association of a Supporter collectible treatment while holding exact functional card identity constant.",
+    "minimumCrossTreatmentIdentities": 20,
+    "minimumCardsPerTreatment": 25,
+    "minimumSetsPerTreatment": 3,
+    "minimumCheckpointCoverage": 0.95,
+    "minimumCheckpoints": 4,
+    "maximumAdjacentCoefficientDrift": 0.5,
+    "maximumFullWindowCoefficientDrift": 1.0,
+    "maximumLeaveOneSetOutShift": 1.0,
+    "maximumCoefficientIntervalWidth": 1.5,
+    "playDemandStrata": "tertiles of the frozen V1 functional-card score distribution, calculated before treatment gaps",
+    "interactionRule": "retain only if rank identified, >=20 competitive identities, lower CV RMSE, and coefficient direction is leave-one-set-out stable",
+    "priceOutcomeUsedForArchitecture": false
+  },
+  "frozenCohort": {
+    "cards": 1132,
+    "hash": "5a6f484449b24a88c63fbde581c9163ac48d0bc98fd4fb1b87f53abb22b27ab1",
+    "source": "docs\\research\\treatment_market_prestige_v3_round5_frozen\\cohort.json",
+    "competitiveSourceStudy": "supporter-competitive-utility-v1-4ae28e4118139e56"
+  },
+  "identityAudit": {
+    "totalFunctionalIdentities": 454,
+    "safeFunctionalIdentities": 451,
+    "crossTreatmentIdentities": 315,
+    "crossTreatmentObservations": 949,
+    "withinSetCrossTreatmentIdentities": 287,
+    "crossTreatmentByEra": {
+      "Black and White": 9,
+      "E-Card": 6,
+      "EX": 2,
+      "HeartGold and SoulSilver": 1,
+      "Mega Evolution": 21,
+      "Scarlet and Violet": 87,
+      "Sun and Moon": 73,
+      "Sword and Shield": 94,
+      "XY": 22
+    },
+    "crossTreatmentBySubtype": {
+      "SUPPORTER": 315
+    },
+    "treatmentCells": {
+      "Black and White": {
+        "promo": 1,
+        "rare_holo": 1,
+        "rare_ultra": 8,
+        "uncommon": 13
+      },
+      "E-Card": {
+        "uncommon": 6
+      },
+      "EX": {
+        "uncommon": 7
+      },
+      "HeartGold and SoulSilver": {
+        "uncommon": 4
+      },
+      "Mega Evolution": {
+        "common": 2,
+        "special_illustration_rare": 14,
+        "ultra_rare": 24,
+        "uncommon": 32
+      },
+      "POP": {
+        "uncommon": 3
+      },
+      "Platinum": {
+        "uncommon": 1
+      },
+      "Scarlet and Violet": {
+        "common": 26,
+        "rare": 6,
+        "special_illustration_rare": 51,
+        "ultra_rare": 94,
+        "uncommon": 88
+      },
+      "Sun and Moon": {
+        "rare": 3,
+        "rare_holo": 8,
+        "rare_ultra": 84,
+        "uncommon": 85
+      },
+      "Sword and Shield": {
+        "classic_collection": 1,
+        "rare": 2,
+        "rare_holo": 18,
+        "rare_rainbow": 79,
+        "rare_ultra": 127,
+        "uncommon": 101
+      },
+      "XY": {
+        "rare_ultra": 23,
+        "uncommon": 37
+      }
+    }
+  },
+  "treatmentOntology": {
+    "Black and White": {
+      "rawTreatments": {
+        "Common": 1,
+        "Promo": 1,
+        "Rare Holo": 1,
+        "Rare Ultra": 8,
+        "Uncommon": 19
+      },
+      "normalizedTreatments": {
+        "common": 1,
+        "promo": 1,
+        "rare_holo": 1,
+        "rare_ultra": 8,
+        "uncommon": 19
+      },
+      "finishes": {
+        "holo": 11,
+        "non_holo": 19
+      },
+      "specialTreatments": {
+        "__NONE__": 30
+      },
+      "sets": 12,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "Diamond and Pearl": {
+      "rawTreatments": {
+        "Uncommon": 17
+      },
+      "normalizedTreatments": {
+        "uncommon": 17
+      },
+      "finishes": {
+        "non_holo": 17
+      },
+      "specialTreatments": {
+        "__NONE__": 17
+      },
+      "sets": 7,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "E-Card": {
+      "rawTreatments": {
+        "Uncommon": 18
+      },
+      "normalizedTreatments": {
+        "uncommon": 18
+      },
+      "finishes": {
+        "non_holo": 18
+      },
+      "specialTreatments": {
+        "__NONE__": 18
+      },
+      "sets": 3,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "EX": {
+      "rawTreatments": {
+        "Common": 2,
+        "Rare Secret": 1,
+        "Uncommon": 48
+      },
+      "normalizedTreatments": {
+        "common": 2,
+        "rare_secret": 1,
+        "uncommon": 48
+      },
+      "finishes": {
+        "holo": 1,
+        "non_holo": 50
+      },
+      "specialTreatments": {
+        "__NONE__": 51
+      },
+      "sets": 16,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "HeartGold and SoulSilver": {
+      "rawTreatments": {
+        "Uncommon": 23
+      },
+      "normalizedTreatments": {
+        "uncommon": 23
+      },
+      "finishes": {
+        "non_holo": 23
+      },
+      "specialTreatments": {
+        "__NONE__": 23
+      },
+      "sets": 5,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "Mega Evolution": {
+      "rawTreatments": {
+        "Common": 3,
+        "Special Illustration Rare": 14,
+        "Ultra Rare": 24,
+        "Uncommon": 34
+      },
+      "normalizedTreatments": {
+        "common": 3,
+        "special_illustration_rare": 14,
+        "ultra_rare": 24,
+        "uncommon": 34
+      },
+      "finishes": {
+        "holo": 38,
+        "non_holo": 37
+      },
+      "specialTreatments": {
+        "__NONE__": 75
+      },
+      "sets": 6,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "POP": {
+      "rawTreatments": {
+        "Uncommon": 5
+      },
+      "normalizedTreatments": {
+        "uncommon": 5
+      },
+      "finishes": {
+        "non_holo": 5
+      },
+      "specialTreatments": {
+        "__NONE__": 5
+      },
+      "sets": 4,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "Platinum": {
+      "rawTreatments": {
+        "Rare": 1,
+        "Uncommon": 14
+      },
+      "normalizedTreatments": {
+        "rare": 1,
+        "uncommon": 14
+      },
+      "finishes": {
+        "non_holo": 14,
+        "reverse_holo": 1
+      },
+      "specialTreatments": {
+        "__NONE__": 15
+      },
+      "sets": 4,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "Scarlet and Violet": {
+      "rawTreatments": {
+        "Common": 27,
+        "Rare": 6,
+        "Special Illustration Rare": 51,
+        "Ultra Rare": 94,
+        "Uncommon": 89
+      },
+      "normalizedTreatments": {
+        "common": 27,
+        "rare": 6,
+        "special_illustration_rare": 51,
+        "ultra_rare": 94,
+        "uncommon": 89
+      },
+      "finishes": {
+        "holo": 151,
+        "non_holo": 116
+      },
+      "specialTreatments": {
+        "__NONE__": 267
+      },
+      "sets": 16,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "Sun and Moon": {
+      "rawTreatments": {
+        "Promo": 1,
+        "Rare": 3,
+        "Rare Holo": 10,
+        "Rare Prism Star": 4,
+        "Rare Ultra": 86,
+        "Uncommon": 101
+      },
+      "normalizedTreatments": {
+        "promo": 1,
+        "rare": 3,
+        "rare_holo": 10,
+        "rare_prism_star": 4,
+        "rare_ultra": 86,
+        "uncommon": 101
+      },
+      "finishes": {
+        "holo": 100,
+        "non_holo": 105
+      },
+      "specialTreatments": {
+        "__NONE__": 205
+      },
+      "sets": 17,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "Sword and Shield": {
+      "rawTreatments": {
+        "Classic Collection": 1,
+        "Rare": 2,
+        "Rare Holo": 18,
+        "Rare Rainbow": 80,
+        "Rare Ultra": 129,
+        "Uncommon": 109
+      },
+      "normalizedTreatments": {
+        "classic_collection": 1,
+        "rare": 2,
+        "rare_holo": 18,
+        "rare_rainbow": 80,
+        "rare_ultra": 129,
+        "uncommon": 109
+      },
+      "finishes": {
+        "holo": 228,
+        "non_holo": 111
+      },
+      "specialTreatments": {
+        "__NONE__": 339
+      },
+      "sets": 23,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    },
+    "XY": {
+      "rawTreatments": {
+        "None": 1,
+        "Promo": 2,
+        "Rare Secret": 1,
+        "Rare Ultra": 24,
+        "Uncommon": 59
+      },
+      "normalizedTreatments": {
+        "__UNMAPPED__": 1,
+        "promo": 2,
+        "rare_secret": 1,
+        "rare_ultra": 24,
+        "uncommon": 59
+      },
+      "finishes": {
+        "holo": 25,
+        "non_holo": 62
+      },
+      "specialTreatments": {
+        "__NONE__": 87
+      },
+      "sets": 17,
+      "architecture": "SUPERTYPE_RELATIVE_WITHIN_ERA"
+    }
+  },
+  "comparisonUniverseArchitecture": "SUPERTYPE_RELATIVE_WITHIN_ERA",
+  "eraModels": {
+    "Black and White": {
+      "era": "Black and White",
+      "cards": 0,
+      "crossTreatmentIdentities": 0,
+      "treatmentCounts": {},
+      "setSupport": {},
+      "identification": "INSUFFICIENT_CROSS_TREATMENT_VARIATION",
+      "status": "UNAVAILABLE"
+    },
+    "Diamond and Pearl": {
+      "era": "Diamond and Pearl",
+      "cards": 0,
+      "crossTreatmentIdentities": 0,
+      "treatmentCounts": {},
+      "setSupport": {},
+      "identification": "INSUFFICIENT_CROSS_TREATMENT_VARIATION",
+      "status": "UNAVAILABLE"
+    },
+    "E-Card": {
+      "era": "E-Card",
+      "cards": 0,
+      "crossTreatmentIdentities": 0,
+      "treatmentCounts": {},
+      "setSupport": {},
+      "identification": "INSUFFICIENT_CROSS_TREATMENT_VARIATION",
+      "status": "UNAVAILABLE"
+    },
+    "EX": {
+      "era": "EX",
+      "cards": 0,
+      "crossTreatmentIdentities": 0,
+      "treatmentCounts": {},
+      "setSupport": {},
+      "identification": "INSUFFICIENT_CROSS_TREATMENT_VARIATION",
+      "status": "UNAVAILABLE"
+    },
+    "HeartGold and SoulSilver": {
+      "era": "HeartGold and SoulSilver",
+      "cards": 0,
+      "crossTreatmentIdentities": 0,
+      "treatmentCounts": {},
+      "setSupport": {},
+      "identification": "INSUFFICIENT_CROSS_TREATMENT_VARIATION",
+      "status": "UNAVAILABLE"
+    },
+    "Mega Evolution": {
+      "era": "Mega Evolution",
+      "cards": 0,
+      "crossTreatmentIdentities": 0,
+      "treatmentCounts": {},
+      "setSupport": {
+        "uncommon": 0
+      },
+      "identification": "INSUFFICIENT_CROSS_TREATMENT_VARIATION",
+      "status": "UNAVAILABLE"
+    },
+    "POP": {
+      "era": "POP",
+      "cards": 0,
+      "crossTreatmentIdentities": 0,
+      "treatmentCounts": {},
+      "setSupport": {},
+      "identification": "INSUFFICIENT_CROSS_TREATMENT_VARIATION",
+      "status": "UNAVAILABLE"
+    },
+    "Platinum": {
+      "era": "Platinum",
+      "cards": 0,
+      "crossTreatmentIdentities": 0,
+      "treatmentCounts": {},
+      "setSupport": {},
+      "identification": "INSUFFICIENT_CROSS_TREATMENT_VARIATION",
+      "status": "UNAVAILABLE"
+    },
+    "Scarlet and Violet": {
+      "era": "Scarlet and Violet",
+      "cards": 218,
+      "crossTreatmentIdentities": 76,
+      "treatmentCounts": {
+        "ultra_rare": 82,
+        "uncommon": 85,
+        "special_illustration_rare": 51
+      },
+      "setSupport": {
+        "special_illustration_rare": 15,
+        "ultra_rare": 16,
+        "uncommon": 16
+      },
+      "identification": "TREATMENT_IDENTIFIABLE",
+      "current": {
+        "n": 218,
+        "matrixColumns": 93,
+        "matrixRank": 89,
+        "rankDeficiency": 4,
+        "treatmentColumns": 2,
+        "treatmentRankIncrement": 2,
+        "baselineTreatment": "uncommon",
+        "treatmentResidualVariance": 0.17652909630677677,
+        "coefficients": {
+          "special_illustration_rare": {
+            "coefficient": 4.682186863935707,
+            "interval": [
+              4.469624644327411,
+              4.894749083544003
+            ],
+            "multiplicativeAssociation": 108.00600894279826,
+            "standardError": 0.10845011204504883
+          },
+          "ultra_rare": {
+            "coefficient": 2.7436804000006365,
+            "interval": [
+              2.567636772482743,
+              2.91972402751853
+            ],
+            "multiplicativeAssociation": 15.544088413365378,
+            "standardError": 0.08981817730504779
+          }
+        },
+        "interactions": {},
+        "rmse": 0.42347358849419153,
+        "aic": -196.639161406163
+      },
+      "temporal": [
+        {
+          "date": "2026-05-31",
+          "coverage": 1.0,
+          "model": {
+            "n": 218,
+            "matrixColumns": 93,
+            "matrixRank": 89,
+            "rankDeficiency": 4,
+            "treatmentColumns": 2,
+            "treatmentRankIncrement": 2,
+            "baselineTreatment": "uncommon",
+            "treatmentResidualVariance": 0.17652909630677677,
+            "coefficients": {
+              "special_illustration_rare": {
+                "coefficient": 4.937470290997297,
+                "interval": [
+                  4.714835364542515,
+                  5.160105217452078
+                ],
+                "multiplicativeAssociation": 139.41711834930214,
+                "standardError": 0.11358924819121521
+              },
+              "ultra_rare": {
+                "coefficient": 3.05986087209756,
+                "interval": [
+                  2.8754750478551148,
+                  3.244246696340005
+                ],
+                "multiplicativeAssociation": 21.324590110139418,
+                "standardError": 0.09407440012369656
+              }
+            },
+            "interactions": {},
+            "rmse": 0.44354077316130636,
+            "aic": -176.45297826680735
+          }
+        },
+        {
+          "date": "2026-06-30",
+          "coverage": 1.0,
+          "model": {
+            "n": 218,
+            "matrixColumns": 93,
+            "matrixRank": 89,
+            "rankDeficiency": 4,
+            "treatmentColumns": 2,
+            "treatmentRankIncrement": 2,
+            "baselineTreatment": "uncommon",
+            "treatmentResidualVariance": 0.17652909630677677,
+            "coefficients": {
+              "special_illustration_rare": {
+                "coefficient": 4.888194993560977,
+                "interval": [
+                  4.677946315203863,
+                  5.098443671918091
+                ],
+                "multiplicativeAssociation": 132.713808448355,
+                "standardError": 0.10726973385567024
+              },
+              "ultra_rare": {
+                "coefficient": 2.9756620619710157,
+                "interval": [
+                  2.801534504933666,
+                  3.149789619008365
+                ],
+                "multiplicativeAssociation": 19.602597088444835,
+                "standardError": 0.08884059032517838
+              }
+            },
+            "interactions": {},
+            "rmse": 0.41886447396023146,
+            "aic": -201.4106280720223
+          }
+        },
+        {
+          "date": "2026-07-30",
+          "coverage": 1.0,
+          "model": {
+            "n": 218,
+            "matrixColumns": 93,
+            "matrixRank": 89,
+            "rankDeficiency": 4,
+            "treatmentColumns": 2,
+            "treatmentRankIncrement": 2,
+            "baselineTreatment": "uncommon",
+            "treatmentResidualVariance": 0.17652909630677677,
+            "coefficients": {
+              "special_illustration_rare": {
+                "coefficient": 4.775647161492078,
+                "interval": [
+                  4.560168746446155,
+                  4.991125576538001
+                ],
+                "multiplicativeAssociation": 118.58703475524055,
+                "standardError": 0.10993796686016483
+              },
+              "ultra_rare": {
+                "coefficient": 2.8418733308301953,
+                "interval": [
+                  2.6634145157764495,
+                  3.020332145883941
+                ],
+                "multiplicativeAssociation": 17.147859079934914,
+                "standardError": 0.09105041584374794
+              }
+            },
+            "interactions": {},
+            "rmse": 0.4292833309263046,
+            "aic": -190.69822598900822
+          }
+        },
+        {
+          "date": "2026-08-29",
+          "coverage": 1.0,
+          "model": {
+            "n": 218,
+            "matrixColumns": 93,
+            "matrixRank": 89,
+            "rankDeficiency": 4,
+            "treatmentColumns": 2,
+            "treatmentRankIncrement": 2,
+            "baselineTreatment": "uncommon",
+            "treatmentResidualVariance": 0.17652909630677677,
+            "coefficients": {
+              "special_illustration_rare": {
+                "coefficient": 4.682186863935707,
+                "interval": [
+                  4.469624644327411,
+                  4.894749083544003
+                ],
+                "multiplicativeAssociation": 108.00600894279826,
+                "standardError": 0.10845011204504883
+              },
+              "ultra_rare": {
+                "coefficient": 2.7436804000006365,
+                "interval": [
+                  2.567636772482743,
+                  2.91972402751853
+                ],
+                "multiplicativeAssociation": 15.544088413365378,
+                "standardError": 0.08981817730504779
+              }
+            },
+            "interactions": {},
+            "rmse": 0.42347358849419153,
+            "aic": -196.639161406163
+          }
+        }
+      ],
+      "temporalDrift": {
+        "ultra_rare": {
+          "maximumAdjacent": 0.13378873114082035,
+          "fullWindow": 0.31618047209692346
+        },
+        "special_illustration_rare": {
+          "maximumAdjacent": 0.11254783206889929,
+          "fullWindow": 0.25528342706159
+        }
+      },
+      "leaveOneSetOut": [
+        {
+          "omittedSetId": "142d3869-9d39-48b6-a810-751af2aac748",
+          "maximumShift": 0.04031297899356101
+        },
+        {
+          "omittedSetId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "maximumShift": 0.026716378212279235
+        },
+        {
+          "omittedSetId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "maximumShift": 0.04757008067741575
+        },
+        {
+          "omittedSetId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "maximumShift": 0.0951086682195399
+        },
+        {
+          "omittedSetId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+          "maximumShift": 0.019882053300766422
+        },
+        {
+          "omittedSetId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+          "maximumShift": 0.012325116579258832
+        },
+        {
+          "omittedSetId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+          "maximumShift": 0.09186374854539459
+        },
+        {
+          "omittedSetId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "maximumShift": 0.057815177553892205
+        },
+        {
+          "omittedSetId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+          "maximumShift": 0.048425224615548323
+        },
+        {
+          "omittedSetId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+          "maximumShift": 0.05667818994146501
+        },
+        {
+          "omittedSetId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "maximumShift": 0.02127919451292115
+        },
+        {
+          "omittedSetId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+          "maximumShift": 0.08702879959914078
+        },
+        {
+          "omittedSetId": "d001d563-988b-4f8e-904f-acb926748e22",
+          "maximumShift": 0.025058831809789073
+        },
+        {
+          "omittedSetId": "de291399-ead5-41dc-bc12-e7c587684f85",
+          "maximumShift": 0.009372374000127692
+        },
+        {
+          "omittedSetId": "f59f25a2-d3da-4100-a918-901271a99925",
+          "maximumShift": 0.04977199865587645
+        },
+        {
+          "omittedSetId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+          "maximumShift": 0.05864254782040934
+        }
+      ],
+      "status": "AVAILABLE"
+    },
+    "Sun and Moon": {
+      "era": "Sun and Moon",
+      "cards": 163,
+      "crossTreatmentIdentities": 75,
+      "treatmentCounts": {
+        "rare_ultra": 79,
+        "uncommon": 84
+      },
+      "setSupport": {
+        "rare_ultra": 16,
+        "uncommon": 15
+      },
+      "identification": "TREATMENT_IDENTIFIABLE",
+      "current": {
+        "n": 163,
+        "matrixColumns": 91,
+        "matrixRank": 87,
+        "rankDeficiency": 4,
+        "treatmentColumns": 1,
+        "treatmentRankIncrement": 1,
+        "baselineTreatment": "uncommon",
+        "treatmentResidualVariance": 0.216162955539804,
+        "coefficients": {
+          "rare_ultra": {
+            "coefficient": 4.856272404608976,
+            "interval": [
+              4.610740671434948,
+              5.101804137783004
+            ],
+            "multiplicativeAssociation": 128.54414736705291,
+            "standardError": 0.12527129243572857
+          }
+        },
+        "interactions": {},
+        "rmse": 0.5077488975325793,
+        "aic": -46.9524494361045
+      },
+      "temporal": [
+        {
+          "date": "2026-05-31",
+          "coverage": 1.0,
+          "model": {
+            "n": 163,
+            "matrixColumns": 91,
+            "matrixRank": 87,
+            "rankDeficiency": 4,
+            "treatmentColumns": 1,
+            "treatmentRankIncrement": 1,
+            "baselineTreatment": "uncommon",
+            "treatmentResidualVariance": 0.216162955539804,
+            "coefficients": {
+              "rare_ultra": {
+                "coefficient": 4.904819963711778,
+                "interval": [
+                  4.668662434937051,
+                  5.140977492486504
+                ],
+                "multiplicativeAssociation": 134.93861397259482,
+                "standardError": 0.12048853508914638
+              }
+            },
+            "interactions": {},
+            "rmse": 0.4883634523705213,
+            "aic": -59.64269091072069
+          }
+        },
+        {
+          "date": "2026-06-30",
+          "coverage": 1.0,
+          "model": {
+            "n": 163,
+            "matrixColumns": 91,
+            "matrixRank": 87,
+            "rankDeficiency": 4,
+            "treatmentColumns": 1,
+            "treatmentRankIncrement": 1,
+            "baselineTreatment": "uncommon",
+            "treatmentResidualVariance": 0.216162955539804,
+            "coefficients": {
+              "rare_ultra": {
+                "coefficient": 4.886447716720678,
+                "interval": [
+                  4.64584345578423,
+                  5.127051977657126
+                ],
+                "multiplicativeAssociation": 132.4821231525852,
+                "standardError": 0.12275727598798343
+              }
+            },
+            "interactions": {},
+            "rmse": 0.4975591002142809,
+            "aic": -53.56134482252523
+          }
+        },
+        {
+          "date": "2026-07-30",
+          "coverage": 1.0,
+          "model": {
+            "n": 163,
+            "matrixColumns": 91,
+            "matrixRank": 87,
+            "rankDeficiency": 4,
+            "treatmentColumns": 1,
+            "treatmentRankIncrement": 1,
+            "baselineTreatment": "uncommon",
+            "treatmentResidualVariance": 0.216162955539804,
+            "coefficients": {
+              "rare_ultra": {
+                "coefficient": 4.8863943046853295,
+                "interval": [
+                  4.643379983717211,
+                  5.129408625653448
+                ],
+                "multiplicativeAssociation": 132.4750472017125,
+                "standardError": 0.12398689845312144
+              }
+            },
+            "interactions": {},
+            "rmse": 0.5025429990702415,
+            "aic": -50.31214760917976
+          }
+        },
+        {
+          "date": "2026-08-29",
+          "coverage": 1.0,
+          "model": {
+            "n": 163,
+            "matrixColumns": 91,
+            "matrixRank": 87,
+            "rankDeficiency": 4,
+            "treatmentColumns": 1,
+            "treatmentRankIncrement": 1,
+            "baselineTreatment": "uncommon",
+            "treatmentResidualVariance": 0.216162955539804,
+            "coefficients": {
+              "rare_ultra": {
+                "coefficient": 4.856272404608976,
+                "interval": [
+                  4.610740671434948,
+                  5.101804137783004
+                ],
+                "multiplicativeAssociation": 128.54414736705291,
+                "standardError": 0.12527129243572857
+              }
+            },
+            "interactions": {},
+            "rmse": 0.5077488975325793,
+            "aic": -46.9524494361045
+          }
+        }
+      ],
+      "temporalDrift": {
+        "rare_ultra": {
+          "maximumAdjacent": 0.030121900076353292,
+          "fullWindow": 0.04854755910280151
+        }
+      },
+      "leaveOneSetOut": [
+        {
+          "omittedSetId": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+          "maximumShift": 0.01766556205560299
+        },
+        {
+          "omittedSetId": "212383a2-ed84-4a5e-af37-50814247a437",
+          "maximumShift": 0.019067592921032883
+        },
+        {
+          "omittedSetId": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+          "maximumShift": 0.003945542013413572
+        },
+        {
+          "omittedSetId": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+          "maximumShift": 0.0021451896988171626
+        },
+        {
+          "omittedSetId": "528c1630-0565-427c-98a3-0ad3d85da32e",
+          "maximumShift": 0.016234266089738547
+        },
+        {
+          "omittedSetId": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+          "maximumShift": 0.0283111915606451
+        },
+        {
+          "omittedSetId": "7c998bc2-6073-4461-8873-64d1b3e78930",
+          "maximumShift": 0.01972432453031736
+        },
+        {
+          "omittedSetId": "8158d0ae-0255-48f0-b189-d134035b72b0",
+          "maximumShift": 0.07869007748225698
+        },
+        {
+          "omittedSetId": "8938c853-2282-46d8-ba44-87584fa2c168",
+          "maximumShift": 0.06021232821919753
+        },
+        {
+          "omittedSetId": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+          "maximumShift": 0.04598573073373213
+        },
+        {
+          "omittedSetId": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+          "maximumShift": 0.07063430730086484
+        },
+        {
+          "omittedSetId": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+          "maximumShift": 0.02209664530958033
+        },
+        {
+          "omittedSetId": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+          "maximumShift": 0.009535608030829756
+        },
+        {
+          "omittedSetId": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+          "maximumShift": 0.022880537451754
+        },
+        {
+          "omittedSetId": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+          "maximumShift": 0.05145233686437045
+        },
+        {
+          "omittedSetId": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+          "maximumShift": 0.02262374520064636
+        }
+      ],
+      "status": "AVAILABLE"
+    },
+    "Sword and Shield": {
+      "era": "Sword and Shield",
+      "cards": 309,
+      "crossTreatmentIdentities": 101,
+      "treatmentCounts": {
+        "rare_ultra": 127,
+        "uncommon": 102,
+        "rare_rainbow": 80
+      },
+      "setSupport": {
+        "rare_rainbow": 14,
+        "rare_ultra": 21,
+        "uncommon": 16
+      },
+      "identification": "TREATMENT_IDENTIFIABLE",
+      "current": {
+        "n": 309,
+        "matrixColumns": 123,
+        "matrixRank": 123,
+        "rankDeficiency": 0,
+        "treatmentColumns": 2,
+        "treatmentRankIncrement": 2,
+        "baselineTreatment": "rare_ultra",
+        "treatmentResidualVariance": 0.17255580879798535,
+        "coefficients": {
+          "rare_rainbow": {
+            "coefficient": 0.28904676925649087,
+            "interval": [
+              0.14416314953303466,
+              0.43393038897994707
+            ],
+            "multiplicativeAssociation": 1.335154171236187,
+            "standardError": 0.07392021414462051
+          },
+          "uncommon": {
+            "coefficient": -3.568779346681903,
+            "interval": [
+              -3.709682695896941,
+              -3.427875997466865
+            ],
+            "multiplicativeAssociation": 0.02819024320109013,
+            "standardError": 0.07188946388522342
+          }
+        },
+        "interactions": {},
+        "rmse": 0.3611968124146212,
+        "aic": -383.32935056365
+      },
+      "temporal": [
+        {
+          "date": "2026-05-31",
+          "coverage": 1.0,
+          "model": {
+            "n": 309,
+            "matrixColumns": 123,
+            "matrixRank": 123,
+            "rankDeficiency": 0,
+            "treatmentColumns": 2,
+            "treatmentRankIncrement": 2,
+            "baselineTreatment": "rare_ultra",
+            "treatmentResidualVariance": 0.17255580879798535,
+            "coefficients": {
+              "rare_rainbow": {
+                "coefficient": 0.28206530258733287,
+                "interval": [
+                  0.13587929286432465,
+                  0.4282513123103411
+                ],
+                "multiplicativeAssociation": 1.3258652995943434,
+                "standardError": 0.0745846988382695
+              },
+              "uncommon": {
+                "coefficient": -3.6203349750873755,
+                "interval": [
+                  -3.7625049347948303,
+                  -3.4781650153799206
+                ],
+                "multiplicativeAssociation": 0.026773706465691563,
+                "standardError": 0.0725356937282932
+              }
+            },
+            "interactions": {},
+            "rmse": 0.3644436881984867,
+            "aic": -377.7988361446028
+          }
+        },
+        {
+          "date": "2026-06-30",
+          "coverage": 1.0,
+          "model": {
+            "n": 309,
+            "matrixColumns": 123,
+            "matrixRank": 123,
+            "rankDeficiency": 0,
+            "treatmentColumns": 2,
+            "treatmentRankIncrement": 2,
+            "baselineTreatment": "rare_ultra",
+            "treatmentResidualVariance": 0.17255580879798535,
+            "coefficients": {
+              "rare_rainbow": {
+                "coefficient": 0.2864364412439131,
+                "interval": [
+                  0.1310752506361399,
+                  0.4417976318516863
+                ],
+                "multiplicativeAssociation": 1.3316735256915544,
+                "standardError": 0.07926591357539449
+              },
+              "uncommon": {
+                "coefficient": -3.752553732279255,
+                "interval": [
+                  -3.9036468105475572,
+                  -3.6014606540109524
+                ],
+                "multiplicativeAssociation": 0.023457764450105147,
+                "standardError": 0.0770883052389298
+              }
+            },
+            "interactions": {},
+            "rmse": 0.3873175375351494,
+            "aic": -340.17943459144885
+          }
+        },
+        {
+          "date": "2026-07-30",
+          "coverage": 0.9838187702265372,
+          "model": {
+            "n": 304,
+            "matrixColumns": 121,
+            "matrixRank": 120,
+            "rankDeficiency": 1,
+            "treatmentColumns": 2,
+            "treatmentRankIncrement": 2,
+            "baselineTreatment": "rare_ultra",
+            "treatmentResidualVariance": 0.17374916091637327,
+            "coefficients": {
+              "rare_rainbow": {
+                "coefficient": 0.2752520220683239,
+                "interval": [
+                  0.10981962447750021,
+                  0.44068441965914756
+                ],
+                "multiplicativeAssociation": 1.31686251146463,
+                "standardError": 0.08440428448511413
+              },
+              "uncommon": {
+                "coefficient": -3.7629188366942135,
+                "interval": [
+                  -3.922246959856985,
+                  -3.603590713531442
+                ],
+                "multiplicativeAssociation": 0.023215878026848078,
+                "standardError": 0.08128985875651602
+              }
+            },
+            "interactions": {},
+            "rmse": 0.4083150083883563,
+            "aic": -304.5955244415843
+          }
+        },
+        {
+          "date": "2026-08-29",
+          "coverage": 0.9838187702265372,
+          "model": {
+            "n": 304,
+            "matrixColumns": 121,
+            "matrixRank": 120,
+            "rankDeficiency": 1,
+            "treatmentColumns": 2,
+            "treatmentRankIncrement": 2,
+            "baselineTreatment": "rare_ultra",
+            "treatmentResidualVariance": 0.17374916091637327,
+            "coefficients": {
+              "rare_rainbow": {
+                "coefficient": 0.28047603120038334,
+                "interval": [
+                  0.13397912541973875,
+                  0.4269729369810279
+                ],
+                "multiplicativeAssociation": 1.3237598133484387,
+                "standardError": 0.07474331927583908
+              },
+              "uncommon": {
+                "coefficient": -3.5728181474591434,
+                "interval": [
+                  -3.713909477737235,
+                  -3.431726817181052
+                ],
+                "multiplicativeAssociation": 0.028076618034098947,
+                "standardError": 0.07198537259086303
+              }
+            },
+            "interactions": {},
+            "rmse": 0.36157902674324843,
+            "aic": -378.5029892729118
+          }
+        }
+      ],
+      "temporalDrift": {
+        "uncommon": {
+          "maximumAdjacent": 0.19010068923507006,
+          "fullWindow": 0.04751682762823206
+        },
+        "rare_rainbow": {
+          "maximumAdjacent": 0.01118441917558921,
+          "fullWindow": 0.0015892713869495312
+        }
+      },
+      "leaveOneSetOut": [
+        {
+          "omittedSetId": "01b45c4b-c606-41f7-9669-0137cd4aafaf",
+          "maximumShift": 0.0018123619333778596
+        },
+        {
+          "omittedSetId": "03764ded-825a-45c0-8b15-ce100cff9552",
+          "maximumShift": 0.014032129993172215
+        },
+        {
+          "omittedSetId": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+          "maximumShift": 0.03174262504573022
+        },
+        {
+          "omittedSetId": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+          "maximumShift": 0.048221463488127725
+        },
+        {
+          "omittedSetId": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+          "maximumShift": 0.10191440861877377
+        },
+        {
+          "omittedSetId": "1f5a156b-2335-4803-a82c-803976263e8b",
+          "maximumShift": 0.003877164853513193
+        },
+        {
+          "omittedSetId": "26fedb88-87d7-487a-9f01-528d603c682e",
+          "maximumShift": 0.049744877377696284
+        },
+        {
+          "omittedSetId": "2d6ec108-70b2-4698-a21a-1af39828004f",
+          "maximumShift": 0.06377990324359528
+        },
+        {
+          "omittedSetId": "3836457c-77dc-44b0-a72f-779b6dd78884",
+          "maximumShift": 0.040359936831000365
+        },
+        {
+          "omittedSetId": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+          "maximumShift": 0.01236864880036137
+        },
+        {
+          "omittedSetId": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+          "maximumShift": 0.0737151248997443
+        },
+        {
+          "omittedSetId": "532d2ad5-32b3-434d-9772-2159fcdfbd5b",
+          "maximumShift": 0.0020355723262128755
+        },
+        {
+          "omittedSetId": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+          "maximumShift": 0.016068442883733658
+        },
+        {
+          "omittedSetId": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+          "maximumShift": 0.013976040550319091
+        },
+        {
+          "omittedSetId": "759c09f8-8a1b-4212-be89-66088afa6893",
+          "maximumShift": 0.03961446387300471
+        },
+        {
+          "omittedSetId": "7b44aba2-0e04-4b04-a1c7-9b6273daf3d5",
+          "maximumShift": 0.004327311185194027
+        },
+        {
+          "omittedSetId": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+          "maximumShift": 0.04500083852667286
+        },
+        {
+          "omittedSetId": "93212749-ce0e-498e-975e-7d947a3448ce",
+          "maximumShift": 0.018871120774222594
+        },
+        {
+          "omittedSetId": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+          "maximumShift": 0.03123877714904122
+        },
+        {
+          "omittedSetId": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+          "maximumShift": 0.008860119762892138
+        },
+        {
+          "omittedSetId": "fc711667-a178-41c9-afbc-7e7d88bfe593",
+          "maximumShift": 0.005360823352250854
+        }
+      ],
+      "status": "AVAILABLE"
+    },
+    "XY": {
+      "era": "XY",
+      "cards": 0,
+      "crossTreatmentIdentities": 0,
+      "treatmentCounts": {},
+      "setSupport": {
+        "uncommon": 0
+      },
+      "identification": "INSUFFICIENT_CROSS_TREATMENT_VARIATION",
+      "status": "UNAVAILABLE"
+    }
+  },
+  "supportedTreatmentContrasts": {
+    "Scarlet and Violet": [
+      "special_illustration_rare",
+      "ultra_rare"
+    ],
+    "Sun and Moon": [
+      "rare_ultra"
+    ],
+    "Sword and Shield": [
+      "rare_rainbow",
+      "uncommon"
+    ]
+  },
+  "magnitudeScore": {
+    "status": "FEASIBLE",
+    "frozenCenter": 2.7436804000006365,
+    "frozenScale": 4.393140094679216,
+    "scores": {
+      "Scarlet and Violet": {
+        "special_illustration_rare": 6.085586513243911,
+        "ultra_rare": 5.0
+      },
+      "Sun and Moon": {
+        "rare_ultra": 6.179566624979813
+      },
+      "Sword and Shield": {
+        "rare_rainbow": 3.638384944856394,
+        "uncommon": 1.9202738805177693
+      }
+    },
+    "crossSupertypeComparable": false
+  },
+  "competitivePlayDemandRanking": [
+    {
+      "functionalId": "lillie s determination",
+      "score": 85.53503180676934,
+      "inclusion": 0.8549523704986208,
+      "copies": 3.2047698124108166,
+      "breadth": 0.9472052166189656,
+      "rank": 1,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "boss s orders",
+      "score": 83.58907714788408,
+      "inclusion": 0.9111704239499782,
+      "copies": 2.3462820061146945,
+      "breadth": 0.9503059448445702,
+      "rank": 2,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "pok pad",
+      "score": 82.27694364722562,
+      "inclusion": 0.8277133868782252,
+      "copies": 2.9568542479969557,
+      "breadth": 0.9422534256367429,
+      "rank": 3,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "ultra ball",
+      "score": 78.56239168434276,
+      "inclusion": 0.8108764353538986,
+      "copies": 2.5184877574007856,
+      "breadth": 0.9446171386235955,
+      "rank": 4,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "night stretcher",
+      "score": 76.413510236598,
+      "inclusion": 0.8639407636892676,
+      "copies": 1.6591614859843598,
+      "breadth": 0.947153675189313,
+      "rank": 5,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "buddy buddy poffin",
+      "score": 72.88049580132201,
+      "inclusion": 0.7244545605708067,
+      "copies": 2.4791663435543203,
+      "breadth": 0.9278955013239407,
+      "rank": 6,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "special red card",
+      "score": 50.35537034960533,
+      "inclusion": 0.5485027275750681,
+      "copies": 0.565430320832508,
+      "breadth": 0.9274178126598716,
+      "rank": 7,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "rare candy",
+      "score": 38.449828094636686,
+      "inclusion": 0.3356700307150111,
+      "copies": 0.8162923783757573,
+      "breadth": 0.8805199257925022,
+      "rank": 8,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "crispin",
+      "score": 36.591015020238345,
+      "inclusion": 0.3216578356203275,
+      "copies": 0.7696445779100944,
+      "breadth": 0.8320844180720403,
+      "rank": 9,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "air balloon",
+      "score": 36.44990037189001,
+      "inclusion": 0.3299442114891709,
+      "copies": 0.4898631317900524,
+      "breadth": 0.9061068739234616,
+      "rank": 10,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "team rocket s petrel",
+      "score": 33.27882706626283,
+      "inclusion": 0.2611000944121738,
+      "copies": 0.72293711261457,
+      "breadth": 0.8729642965127559,
+      "rank": 11,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "unfair stamp",
+      "score": 32.12148346238683,
+      "inclusion": 0.29449166086549383,
+      "copies": 0.29449166086549383,
+      "breadth": 0.8407607286698574,
+      "rank": 12,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "switch",
+      "score": 32.11028147283847,
+      "inclusion": 0.2752771954357675,
+      "copies": 0.34180600499531344,
+      "breadth": 0.8971574810314478,
+      "rank": 13,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "dawn",
+      "score": 28.95266441216735,
+      "inclusion": 0.22628266878602618,
+      "copies": 0.48070490411624994,
+      "breadth": 0.8247532422852815,
+      "rank": 14,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "secret box",
+      "score": 28.77020216271582,
+      "inclusion": 0.24343199860980383,
+      "copies": 0.24343199860980383,
+      "breadth": 0.8428554836544212,
+      "rank": 15,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "hilda",
+      "score": 28.69100027034533,
+      "inclusion": 0.2057846040010573,
+      "copies": 0.5317270431483417,
+      "breadth": 0.8680420007069838,
+      "rank": 16,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "pok gear 3 0",
+      "score": 25.53641141094292,
+      "inclusion": 0.1729553545939369,
+      "copies": 0.3507844335762178,
+      "breadth": 0.8644458283636899,
+      "rank": 17,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "ciphermaniac s codebreaking",
+      "score": 23.950378528014447,
+      "inclusion": 0.16604550435470086,
+      "copies": 0.35509158811052716,
+      "breadth": 0.7845550560694401,
+      "rank": 18,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "judge",
+      "score": 22.886188943807944,
+      "inclusion": 0.1334957327893931,
+      "copies": 0.16979902241010436,
+      "breadth": 0.9210134057587471,
+      "rank": 19,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "lana s aid",
+      "score": 22.855651714869065,
+      "inclusion": 0.16216929935482086,
+      "copies": 0.16665775474590147,
+      "breadth": 0.8055921857611954,
+      "rank": 20,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "energy switch",
+      "score": 21.805568789495705,
+      "inclusion": 0.11897633668289495,
+      "copies": 0.3087014865304742,
+      "breadth": 0.849173619847103,
+      "rank": 21,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "area zero underdepths",
+      "score": 21.78536929105047,
+      "inclusion": 0.13056978235023084,
+      "copies": 0.32658626015779846,
+      "breadth": 0.794001214936692,
+      "rank": 22,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "team rocket s watchtower",
+      "score": 21.31220503335397,
+      "inclusion": 0.13558563218326933,
+      "copies": 0.1701817637360378,
+      "breadth": 0.8075620719338382,
+      "rank": 23,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "kieran",
+      "score": 20.70421040896285,
+      "inclusion": 0.14945551964185963,
+      "copies": 0.17841568970261729,
+      "breadth": 0.7081187446539944,
+      "rank": 24,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "risky ruins",
+      "score": 20.453384251084366,
+      "inclusion": 0.1477039200168858,
+      "copies": 0.25046988213413224,
+      "breadth": 0.6683808191155262,
+      "rank": 25,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "crushing hammer",
+      "score": 19.85554681838625,
+      "inclusion": 0.13002133715225198,
+      "copies": 0.4767709993988488,
+      "breadth": 0.6049631895338886,
+      "rank": 26,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "hero s cape",
+      "score": 19.725779001063557,
+      "inclusion": 0.11091146669213522,
+      "copies": 0.11091146669213522,
+      "breadth": 0.8251929555139735,
+      "rank": 27,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "sacred ash",
+      "score": 19.50841245508052,
+      "inclusion": 0.1387523457418561,
+      "copies": 0.14318827152791702,
+      "breadth": 0.6858896675679781,
+      "rank": 28,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "brave bangle",
+      "score": 19.459669372287813,
+      "inclusion": 0.1284758826657827,
+      "copies": 0.19946022218858878,
+      "breadth": 0.7002993349108115,
+      "rank": 29,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "bug catching set",
+      "score": 19.020569153511396,
+      "inclusion": 0.10733939400485844,
+      "copies": 0.3445209917612012,
+      "breadth": 0.6951299543141589,
+      "rank": 30,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "battle cage",
+      "score": 18.685951955691213,
+      "inclusion": 0.09995459588117314,
+      "copies": 0.2204360695760678,
+      "breadth": 0.7540633845313601,
+      "rank": 31,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "gravity mountain",
+      "score": 17.871715778684898,
+      "inclusion": 0.10006063513409955,
+      "copies": 0.14234684795073202,
+      "breadth": 0.7318939913964566,
+      "rank": 32,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "xerosic s machinations",
+      "score": 17.87085378024656,
+      "inclusion": 0.06917959471862067,
+      "copies": 0.08358896410735837,
+      "breadth": 0.879843138097222,
+      "rank": 33,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "wally s compassion",
+      "score": 17.762057880735767,
+      "inclusion": 0.06671141501918916,
+      "copies": 0.1184647914834745,
+      "breadth": 0.8679312021875136,
+      "rank": 34,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "cyrano",
+      "score": 17.539296461615056,
+      "inclusion": 0.11335813969048554,
+      "copies": 0.20572855469256723,
+      "breadth": 0.6301336408904921,
+      "rank": 35,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "fighting gong",
+      "score": 17.162084363944153,
+      "inclusion": 0.06924502161402706,
+      "copies": 0.2581286431406673,
+      "breadth": 0.7596052698315573,
+      "rank": 36,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "forest of vitality",
+      "score": 16.876193801878156,
+      "inclusion": 0.062199000967675847,
+      "copies": 0.17779162598117557,
+      "breadth": 0.8022037387623505,
+      "rank": 37,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "team rocket s transceiver",
+      "score": 16.752160149329775,
+      "inclusion": 0.08146838647433455,
+      "copies": 0.27059353346184956,
+      "breadth": 0.6781898251155428,
+      "rank": 38,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "rosa s encouragement",
+      "score": 16.424419854580577,
+      "inclusion": 0.12388757296000832,
+      "copies": 0.12436178010063809,
+      "breadth": 0.547593623423406,
+      "rank": 39,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "gwynn",
+      "score": 16.120932112092955,
+      "inclusion": 0.09144611721792735,
+      "copies": 0.23783983245724638,
+      "breadth": 0.6098444084106351,
+      "rank": 40,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "jamming tower",
+      "score": 15.350017076553065,
+      "inclusion": 0.07555379459046592,
+      "copies": 0.08161515777640198,
+      "breadth": 0.6871129776681733,
+      "rank": 41,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "tool scrapper",
+      "score": 14.974130297160333,
+      "inclusion": 0.07425059792415806,
+      "copies": 0.07425059792415806,
+      "breadth": 0.6703352123123242,
+      "rank": 42,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "prime catcher",
+      "score": 14.77250776440382,
+      "inclusion": 0.038649024678437185,
+      "copies": 0.038649024678437185,
+      "breadth": 0.8141339919638239,
+      "rank": 43,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "team rocket s factory",
+      "score": 14.720854569672362,
+      "inclusion": 0.0382935632168294,
+      "copies": 0.07441456263629823,
+      "breadth": 0.7972099840123823,
+      "rank": 44,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "handheld fan",
+      "score": 14.642058240408229,
+      "inclusion": 0.0769619326892215,
+      "copies": 0.12779674043766892,
+      "breadth": 0.6150408434213007,
+      "rank": 45,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "energy recycler",
+      "score": 14.480249653044524,
+      "inclusion": 0.09320088917848317,
+      "copies": 0.1134491643079183,
+      "breadth": 0.545275935027403,
+      "rank": 46,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "jumbo ice cream",
+      "score": 14.20608621484839,
+      "inclusion": 0.0942469588623082,
+      "copies": 0.25769585291600594,
+      "breadth": 0.46271130682565753,
+      "rank": 47,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "colress s tenacity",
+      "score": 14.002343911460406,
+      "inclusion": 0.028885088545791766,
+      "copies": 0.047904331041450976,
+      "breadth": 0.7979891019802554,
+      "rank": 48,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "wondrous patch",
+      "score": 13.997155580277754,
+      "inclusion": 0.08998829887311624,
+      "copies": 0.2386287076266018,
+      "breadth": 0.4737618816816347,
+      "rank": 49,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "energy search",
+      "score": 13.947965811679378,
+      "inclusion": 0.023826152903296153,
+      "copies": 0.029071058379747418,
+      "breadth": 0.8224468348405459,
+      "rank": 50,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "premium power pro",
+      "score": 13.492325276473455,
+      "inclusion": 0.04860631457660118,
+      "copies": 0.16880640651255108,
+      "breadth": 0.6347270907449294,
+      "rank": 51,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "energy retrieval",
+      "score": 13.226984480435517,
+      "inclusion": 0.02679124025740791,
+      "copies": 0.036989924273495955,
+      "breadth": 0.7592215358854463,
+      "rank": 52,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "precious trolley",
+      "score": 13.21135848836593,
+      "inclusion": 0.054169453790673956,
+      "copies": 0.054169453790673956,
+      "breadth": 0.6415088116489187,
+      "rank": 53,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "salvatore",
+      "score": 12.971347827876222,
+      "inclusion": 0.020546549000758575,
+      "copies": 0.029067510537161768,
+      "breadth": 0.7704588631315633,
+      "rank": 54,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "lucky helmet",
+      "score": 12.83115793133447,
+      "inclusion": 0.05832043432601054,
+      "copies": 0.06798101422382205,
+      "breadth": 0.5938033688583298,
+      "rank": 55,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "mega signal",
+      "score": 12.826526713869338,
+      "inclusion": 0.022760923814907418,
+      "copies": 0.04547425501655191,
+      "breadth": 0.7451104794080963,
+      "rank": 56,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "az s tranquility",
+      "score": 12.664212832923566,
+      "inclusion": 0.023603803668475854,
+      "copies": 0.025270724092531532,
+      "breadth": 0.7393361724824461,
+      "rank": 57,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "brock s scouting",
+      "score": 12.18497123697925,
+      "inclusion": 0.036680406018534846,
+      "copies": 0.0820364764131114,
+      "breadth": 0.6314279265523476,
+      "rank": 58,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "prism tower",
+      "score": 12.023782461543025,
+      "inclusion": 0.0530095113889567,
+      "copies": 0.12515386359013678,
+      "breadth": 0.537400008717818,
+      "rank": 59,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "surfer",
+      "score": 11.635134046536985,
+      "inclusion": 0.019013447026555347,
+      "copies": 0.02165524527205524,
+      "breadth": 0.690598796132888,
+      "rank": 60,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "maximum belt",
+      "score": 11.318089060637588,
+      "inclusion": 0.020378319017639895,
+      "copies": 0.020378319017639895,
+      "breadth": 0.6645350283812631,
+      "rank": 61,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "surfing beach",
+      "score": 11.225445316611099,
+      "inclusion": 0.021548411680129675,
+      "copies": 0.03965630680603227,
+      "breadth": 0.6456459132177078,
+      "rank": 62,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "briar",
+      "score": 11.222720838821253,
+      "inclusion": 0.025363125564308843,
+      "copies": 0.025363125564308843,
+      "breadth": 0.6361609180123863,
+      "rank": 63,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "dark bell",
+      "score": 11.07992559687063,
+      "inclusion": 0.030531877311769286,
+      "copies": 0.04833569641819,
+      "breadth": 0.5963943237033857,
+      "rank": 64,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "black belt s training",
+      "score": 10.642772697341124,
+      "inclusion": 0.06735976839640602,
+      "copies": 0.07484538161316898,
+      "breadth": 0.4088935305649638,
+      "rank": 65,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "lillie s pearl",
+      "score": 10.284641610938781,
+      "inclusion": 0.015057096722926704,
+      "copies": 0.026293858362850718,
+      "breadth": 0.6144586128530242,
+      "rank": 66,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    {
+      "functionalId": "lumiose city",
+      "score": 10.050027162304895,
+      "inclusion": 0.016642255601411145,
+      "copies": 0.026477808334227134,
+      "breadth": 0.5924003682754204,
+      "rank": 67,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "eri",
+      "score": 9.653756128858799,
+      "inclusion": 0.02544228762258184,
+      "copies": 0.028573996606460983,
+      "breadth": 0.5299087595142339,
+      "rank": 68,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "janine s secret art",
+      "score": 9.569525735845673,
+      "inclusion": 0.024083704047256488,
+      "copies": 0.043489652719300546,
+      "breadth": 0.5235128775676438,
+      "rank": 69,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "glass trumpet",
+      "score": 9.486441187308685,
+      "inclusion": 0.04298463692734711,
+      "copies": 0.07592888277107354,
+      "breadth": 0.4288538302899099,
+      "rank": 70,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "dusk ball",
+      "score": 9.381581579395698,
+      "inclusion": 0.013184563521814699,
+      "copies": 0.04107450307777737,
+      "breadth": 0.5555861415900472,
+      "rank": 71,
+      "events": 11,
+      "decks": 4730,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "powerglass",
+      "score": 9.35481205448085,
+      "inclusion": 0.010933759271469515,
+      "copies": 0.014011600867362627,
+      "breadth": 0.5740809328514443,
+      "rank": 72,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "nighttime mine",
+      "score": 9.314958986830247,
+      "inclusion": 0.04554794902702518,
+      "copies": 0.10135782976408113,
+      "breadth": 0.3965730406122152,
+      "rank": 73,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "tera orb",
+      "score": 9.294966981056376,
+      "inclusion": 0.010660370171595376,
+      "copies": 0.016916346857784648,
+      "breadth": 0.5699745068599668,
+      "rank": 74,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "antique armor fossil",
+      "score": 8.994301475439109,
+      "inclusion": 0.00996074801055638,
+      "copies": 0.029389713262331547,
+      "breadth": 0.547531392461077,
+      "rank": 75,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "fossil quarry",
+      "score": 8.668692043689587,
+      "inclusion": 0.010048056763166727,
+      "copies": 0.027639047227073166,
+      "breadth": 0.5262043061820251,
+      "rank": 76,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "pok mon catcher",
+      "score": 8.514684416479511,
+      "inclusion": 0.011150379474839163,
+      "copies": 0.024719143995766895,
+      "breadth": 0.5127444665343746,
+      "rank": 77,
+      "events": 13,
+      "decks": 5313,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "sparkling crystal",
+      "score": 8.458399212139616,
+      "inclusion": 0.011674321732569822,
+      "copies": 0.011674321732569822,
+      "breadth": 0.5123316931571245,
+      "rank": 78,
+      "events": 14,
+      "decks": 5581,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "morty s conviction",
+      "score": 8.37057264773989,
+      "inclusion": 0.009924605235938534,
+      "copies": 0.014492480879092828,
+      "breadth": 0.5123012218726165,
+      "rank": 79,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "redeemable ticket",
+      "score": 8.209591540699202,
+      "inclusion": 0.015302723633251664,
+      "copies": 0.015302723633251664,
+      "breadth": 0.4797190733330854,
+      "rank": 80,
+      "events": 13,
+      "decks": 5248,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "festival grounds",
+      "score": 8.209295805656772,
+      "inclusion": 0.06540043771224209,
+      "copies": 0.2304290751727539,
+      "breadth": 0.18967252153950231,
+      "rank": 81,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "hassel",
+      "score": 8.021093981702206,
+      "inclusion": 0.010668292916133588,
+      "copies": 0.018251375845029325,
+      "breadth": 0.4844616871801838,
+      "rank": 82,
+      "events": 12,
+      "decks": 5078,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "scoop up cyclone",
+      "score": 7.940807425199058,
+      "inclusion": 0.009258104723856056,
+      "copies": 0.009258104723856056,
+      "breadth": 0.48849719914957296,
+      "rank": 83,
+      "events": 13,
+      "decks": 5265,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "enhanced hammer",
+      "score": 7.678803481200355,
+      "inclusion": 0.05567582147187125,
+      "copies": 0.07959945258478572,
+      "breadth": 0.25605050761554465,
+      "rank": 84,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "grand tree",
+      "score": 7.603790167692338,
+      "inclusion": 0.014783324324269934,
+      "copies": 0.014783324324269934,
+      "breadth": 0.441626328747297,
+      "rank": 85,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "team rocket s proton",
+      "score": 7.379381452997256,
+      "inclusion": 0.017110255774094012,
+      "copies": 0.058469793256139845,
+      "breadth": 0.39915532658004943,
+      "rank": 86,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "team rocket s ariana",
+      "score": 7.3361121030090235,
+      "inclusion": 0.016916688558773707,
+      "copies": 0.06499396942775892,
+      "breadth": 0.39432656537060723,
+      "rank": 87,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "team rocket s giovanni",
+      "score": 7.307046693035324,
+      "inclusion": 0.016916688558773707,
+      "copies": 0.06034350383196705,
+      "breadth": 0.39432656537060723,
+      "rank": 88,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "ruffian",
+      "score": 7.268302074952369,
+      "inclusion": 0.012803516684201094,
+      "copies": 0.012803516684201094,
+      "breadth": 0.42800460630826975,
+      "rank": 89,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "brilliant blender",
+      "score": 7.0166161456919065,
+      "inclusion": 0.016628511845134215,
+      "copies": 0.016628511845134215,
+      "breadth": 0.3943318157301176,
+      "rank": 90,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "binding mochi",
+      "score": 6.907353592486334,
+      "inclusion": 0.05647397873500873,
+      "copies": 0.10659581382507896,
+      "breadth": 0.19017940213193782,
+      "rank": 91,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "carmine",
+      "score": 6.854982146975819,
+      "inclusion": 0.011473105524063942,
+      "copies": 0.03617939702551302,
+      "breadth": 0.3960316389415017,
+      "rank": 92,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "team rocket s archer",
+      "score": 6.802952659169337,
+      "inclusion": 0.015316665389557248,
+      "copies": 0.04781634529532009,
+      "breadth": 0.3723400385133434,
+      "rank": 93,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "max rod",
+      "score": 6.792594022445003,
+      "inclusion": 0.008153287399930625,
+      "copies": 0.008153287399930625,
+      "breadth": 0.4168292488133067,
+      "rank": 94,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "explorer s guidance",
+      "score": 6.604266021439054,
+      "inclusion": 0.013162806861188552,
+      "copies": 0.033967407268693066,
+      "breadth": 0.37348008762256063,
+      "rank": 95,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "larry s skill",
+      "score": 6.533933273750517,
+      "inclusion": 0.007385386810613694,
+      "copies": 0.015941231796366504,
+      "breadth": 0.3994118244257603,
+      "rank": 96,
+      "events": 13,
+      "decks": 4982,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "antique sail fossil",
+      "score": 6.526460945825428,
+      "inclusion": 0.004535379488004472,
+      "copies": 0.010767069972896743,
+      "breadth": 0.4124695992809704,
+      "rank": 97,
+      "events": 4,
+      "decks": 1748,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "light ball",
+      "score": 6.400364555722922,
+      "inclusion": 0.005356431027836762,
+      "copies": 0.005609325604606888,
+      "breadth": 0.4029280272682616,
+      "rank": 98,
+      "events": 5,
+      "decks": 2461,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "iris s fighting spirit",
+      "score": 6.348440316198623,
+      "inclusion": 0.00614485571281138,
+      "copies": 0.011717531420799461,
+      "breadth": 0.3937676268033296,
+      "rank": 99,
+      "events": 13,
+      "decks": 5313,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "academy at night",
+      "score": 6.256338437069619,
+      "inclusion": 0.0646802323099102,
+      "copies": 0.2536105229893664,
+      "breadth": 0.05269724865276451,
+      "rank": 100,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "counter gain",
+      "score": 6.088970085351661,
+      "inclusion": 0.007520236310118275,
+      "copies": 0.008412692168668174,
+      "breadth": 0.37234510537935916,
+      "rank": 101,
+      "events": 12,
+      "decks": 4765,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "tarragon",
+      "score": 6.082261531279557,
+      "inclusion": 0.0065080325772142525,
+      "copies": 0.011145287526557178,
+      "breadth": 0.37480810197371467,
+      "rank": 102,
+      "events": 14,
+      "decks": 5574,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "transformation tome",
+      "score": 5.747454552609581,
+      "inclusion": 0.044740714015043336,
+      "copies": 0.17485743621527086,
+      "breadth": 0.13134351569076919,
+      "rank": 103,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "community center",
+      "score": 5.722787855879963,
+      "inclusion": 0.007699702031646897,
+      "copies": 0.008858285537295306,
+      "breadth": 0.3470294299582036,
+      "rank": 104,
+      "events": 13,
+      "decks": 5299,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "n s pp up",
+      "score": 5.327096948657804,
+      "inclusion": 0.059239992118151535,
+      "copies": 0.17922957383418797,
+      "breadth": 0.04350083900700246,
+      "rank": 105,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "levincia",
+      "score": 5.081211531243866,
+      "inclusion": 0.004395857770729699,
+      "copies": 0.010475556733962216,
+      "breadth": 0.3167991890275214,
+      "rank": 106,
+      "events": 9,
+      "decks": 4145,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "spikemuth gym",
+      "score": 4.991520724562751,
+      "inclusion": 0.04699549319700602,
+      "copies": 0.1739938361623547,
+      "breadth": 0.07228864378184487,
+      "rank": 107,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "lively stadium",
+      "score": 4.9660069122381305,
+      "inclusion": 0.005879223099422219,
+      "copies": 0.010364988924703345,
+      "breadth": 0.3032314896995601,
+      "rank": 108,
+      "events": 12,
+      "decks": 5076,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "megaton blower",
+      "score": 4.7818078830725765,
+      "inclusion": 0.0038756419469829825,
+      "copies": 0.0038756419469829825,
+      "breadth": 0.3016697736056636,
+      "rank": 109,
+      "events": 2,
+      "decks": 785,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "n s castle",
+      "score": 4.7693473919753835,
+      "inclusion": 0.05961408113467973,
+      "copies": 0.11160048522837082,
+      "breadth": 0.03299996608115215,
+      "rank": 110,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "jacinthe",
+      "score": 4.700358985290267,
+      "inclusion": 0.005427748965397483,
+      "copies": 0.007702621013709549,
+      "breadth": 0.28843684440204886,
+      "rank": 111,
+      "events": 9,
+      "decks": 4298,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "gladion s final battle",
+      "score": 4.690980524890702,
+      "inclusion": 0.0578238412200274,
+      "copies": 0.11906653580305973,
+      "breadth": 0.0318256135279957,
+      "rank": 112,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "accompanying flute",
+      "score": 4.688057019750338,
+      "inclusion": 0.004821607186680099,
+      "copies": 0.009473191857873618,
+      "breadth": 0.2893035426291881,
+      "rank": 113,
+      "events": 10,
+      "decks": 4152,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "fennel",
+      "score": 4.632332849004492,
+      "inclusion": 0.0024852314609600345,
+      "copies": 0.0024852314609600345,
+      "breadth": 0.29784575098105937,
+      "rank": 114,
+      "events": 3,
+      "decks": 2080,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "punk helmet",
+      "score": 4.581916001247946,
+      "inclusion": 0.005508543232371551,
+      "copies": 0.010131847769510073,
+      "breadth": 0.279205290583081,
+      "rank": 115,
+      "events": 12,
+      "decks": 4976,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "philippe",
+      "score": 4.497473542531118,
+      "inclusion": 0.007421831485777842,
+      "copies": 0.010054592173856918,
+      "breadth": 0.2659548301531895,
+      "rank": 116,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "backtrack badge",
+      "score": 4.388669807652074,
+      "inclusion": 0.007120650037937797,
+      "copies": 0.014587337360806847,
+      "breadth": 0.25801732979138425,
+      "rank": 117,
+      "events": 12,
+      "decks": 4687,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "lisia s appeal",
+      "score": 4.233291173253016,
+      "inclusion": 0.005586605123592104,
+      "copies": 0.008943431667596709,
+      "breadth": 0.256146561194334,
+      "rank": 118,
+      "events": 12,
+      "decks": 4937,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "iron defender",
+      "score": 4.231546729988206,
+      "inclusion": 0.006182594781462304,
+      "copies": 0.010323337657802207,
+      "breadth": 0.2530713455159469,
+      "rank": 119,
+      "events": 9,
+      "decks": 3391,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "lucian",
+      "score": 4.20294086390064,
+      "inclusion": 0.0049881692701631355,
+      "copies": 0.007276625145126284,
+      "breadth": 0.2572114533689208,
+      "rank": 120,
+      "events": 12,
+      "decks": 4772,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "neutralization zone",
+      "score": 4.069253557250101,
+      "inclusion": 0.004259984121072444,
+      "copies": 0.004259984121072444,
+      "breadth": 0.2524686406152701,
+      "rank": 121,
+      "events": 9,
+      "decks": 3626,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "hop s choice band",
+      "score": 4.055539954587783,
+      "inclusion": 0.007811978307664141,
+      "copies": 0.031003006644340147,
+      "breadth": 0.2262034976400539,
+      "rank": 122,
+      "events": 13,
+      "decks": 5322,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "postwick",
+      "score": 4.053858407742754,
+      "inclusion": 0.007811978307664141,
+      "copies": 0.030733959149135483,
+      "breadth": 0.2262034976400539,
+      "rank": 123,
+      "events": 13,
+      "decks": 5322,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "kofu",
+      "score": 4.053117342931703,
+      "inclusion": 0.004190952042662762,
+      "copies": 0.008515942146993938,
+      "breadth": 0.24989570546354836,
+      "rank": 124,
+      "events": 12,
+      "decks": 4991,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "naveen",
+      "score": 4.0277383462688325,
+      "inclusion": 0.005370189439680148,
+      "copies": 0.008682720674080881,
+      "breadth": 0.24341733171166788,
+      "rank": 125,
+      "events": 14,
+      "decks": 5557,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "hop s bag",
+      "score": 3.9633823814280253,
+      "inclusion": 0.007811978307664141,
+      "copies": 0.016257794938779005,
+      "breadth": 0.2262034976400539,
+      "rank": 126,
+      "events": 13,
+      "decks": 5322,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "miracle headset",
+      "score": 3.8141680858158193,
+      "inclusion": 0.011352433196246427,
+      "copies": 0.011352433196246427,
+      "breadth": 0.20413795910429958,
+      "rank": 127,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "great haul net",
+      "score": 3.6929274126015232,
+      "inclusion": 0.005456659013920224,
+      "copies": 0.007251972101054468,
+      "breadth": 0.2213468697423146,
+      "rank": 128,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "mystery garden",
+      "score": 3.626861413768767,
+      "inclusion": 0.006099092895182036,
+      "copies": 0.01499039869414005,
+      "breadth": 0.21114838988129797,
+      "rank": 129,
+      "events": 13,
+      "decks": 5299,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "babiri berry",
+      "score": 3.487479447569905,
+      "inclusion": 0.011912302649285163,
+      "copies": 0.013498803413505917,
+      "breadth": 0.1792249178185589,
+      "rank": 130,
+      "events": 14,
+      "decks": 5557,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "canari",
+      "score": 3.461414833262645,
+      "inclusion": 0.008415799493888857,
+      "copies": 0.019432990238036428,
+      "breadth": 0.18900071164277243,
+      "rank": 131,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "dangerous laser",
+      "score": 3.251396638771426,
+      "inclusion": 0.003820794196020925,
+      "copies": 0.003820794196020925,
+      "breadth": 0.199884601552336,
+      "rank": 132,
+      "events": 6,
+      "decks": 2697,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "n s plan",
+      "score": 3.1785546366719535,
+      "inclusion": 0.011772076748021791,
+      "copies": 0.012589657351956003,
+      "breadth": 0.15956964488939474,
+      "rank": 133,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "MEDIUM"
+    },
+    {
+      "functionalId": "acerola s mischief",
+      "score": 3.1314689307521375,
+      "inclusion": 0.0038222816988076076,
+      "copies": 0.005531868087555706,
+      "breadth": 0.1911705235517639,
+      "rank": 134,
+      "events": 7,
+      "decks": 3715,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "core memory",
+      "score": 3.10667785144129,
+      "inclusion": 0.0038537012552888037,
+      "copies": 0.005140897927946147,
+      "breadth": 0.18955501093828656,
+      "rank": 135,
+      "events": 6,
+      "decks": 2937,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "roto stick",
+      "score": 3.021038374732147,
+      "inclusion": 0.012034312395344544,
+      "copies": 0.04262701768344668,
+      "breadth": 0.1355040513659955,
+      "rank": 136,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "hand trimmer",
+      "score": 2.9383561515014067,
+      "inclusion": 0.00466636281132281,
+      "copies": 0.006626516471887822,
+      "breadth": 0.17446391032484931,
+      "rank": 137,
+      "events": 14,
+      "decks": 5581,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "repel",
+      "score": 2.8516962993308517,
+      "inclusion": 0.003004192731012103,
+      "copies": 0.003004192731012103,
+      "breadth": 0.17684456872675333,
+      "rank": 138,
+      "events": 3,
+      "decks": 1694,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "grimsley s move",
+      "score": 2.8018632186258365,
+      "inclusion": 0.002921927185938335,
+      "copies": 0.0063471380245646095,
+      "breadth": 0.1724585316544005,
+      "rank": 139,
+      "events": 3,
+      "decks": 1559,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "drayton",
+      "score": 2.7943212817104643,
+      "inclusion": 0.0039060644396845838,
+      "copies": 0.007450723837127801,
+      "breadth": 0.16755935942315603,
+      "rank": 140,
+      "events": 3,
+      "decks": 1479,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "heavy baton",
+      "score": 2.779761900759365,
+      "inclusion": 0.004850122552262902,
+      "copies": 0.007957136506447731,
+      "breadth": 0.1626014962972195,
+      "rank": 141,
+      "events": 10,
+      "decks": 4429,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "rust syndicate grunt",
+      "score": 2.751808572250118,
+      "inclusion": 0.007387197272858367,
+      "copies": 0.009075274989740718,
+      "breadth": 0.15012375114618243,
+      "rank": 142,
+      "events": 11,
+      "decks": 4581,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "full metal lab",
+      "score": 2.639197935247123,
+      "inclusion": 0.004752922999127255,
+      "copies": 0.008718714273812692,
+      "breadth": 0.15330203940587725,
+      "rank": 143,
+      "events": 14,
+      "decks": 5557,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "bianca s devotion",
+      "score": 2.3911606582040026,
+      "inclusion": 0.006416744090493674,
+      "copies": 0.006648660185583973,
+      "breadth": 0.13097345910763217,
+      "rank": 144,
+      "events": 12,
+      "decks": 4765,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "pok mon center lady",
+      "score": 2.322104856792318,
+      "inclusion": 0.005629949495699089,
+      "copies": 0.005629949495699089,
+      "breadth": 0.12994138018015022,
+      "rank": 145,
+      "events": 13,
+      "decks": 5283,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "lacey",
+      "score": 2.0337630717110433,
+      "inclusion": 0.0043150615884863285,
+      "copies": 0.006990519437346322,
+      "breadth": 0.11541124199456326,
+      "rank": 146,
+      "events": 8,
+      "decks": 3593,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "waitress",
+      "score": 1.925261670799271,
+      "inclusion": 0.0026153071452003672,
+      "copies": 0.004124420143872803,
+      "breadth": 0.11617104107920294,
+      "rank": 147,
+      "events": 4,
+      "decks": 1993,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "gravity gemstone",
+      "score": 1.8788044246303988,
+      "inclusion": 0.004155068792271887,
+      "copies": 0.006358693162618452,
+      "breadth": 0.10598389765518136,
+      "rank": 148,
+      "events": 13,
+      "decks": 5084,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "ethan s adventure",
+      "score": 1.8712110670544215,
+      "inclusion": 0.009774260609216344,
+      "copies": 0.03856029229279477,
+      "breadth": 0.06958357357809823,
+      "rank": 149,
+      "events": 12,
+      "decks": 4983,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "team rocket s venture bomb",
+      "score": 1.795931519623286,
+      "inclusion": 0.003981836737045132,
+      "copies": 0.00780549311212823,
+      "breadth": 0.10054913222998511,
+      "rank": 150,
+      "events": 10,
+      "decks": 3452,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "super potion",
+      "score": 1.6827678682343667,
+      "inclusion": 0.006697051750124791,
+      "copies": 0.00694778639728572,
+      "breadth": 0.08250140654958957,
+      "rank": 151,
+      "events": 13,
+      "decks": 5307,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "misty s vitality",
+      "score": 1.3044033643609636,
+      "inclusion": 0.004155973611779851,
+      "copies": 0.012418695481596376,
+      "breadth": 0.06516187339294635,
+      "rank": 152,
+      "events": 10,
+      "decks": 3978,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "cynthia s power weight",
+      "score": 1.0932850925974722,
+      "inclusion": 0.013714276279201808,
+      "copies": 0.043268562535258175,
+      "breadth": 0.0,
+      "rank": 153,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "firebreather",
+      "score": 0.4750209423845034,
+      "inclusion": 0.006572541054370657,
+      "copies": 0.012906956659562228,
+      "breadth": 0.0,
+      "rank": 154,
+      "events": 5,
+      "decks": 1576,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "granite cave",
+      "score": 0.3227459016393443,
+      "inclusion": 0.004098360655737705,
+      "copies": 0.012295081967213116,
+      "breadth": 0.0,
+      "rank": 155,
+      "events": 1,
+      "decks": 244,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "caretaker",
+      "score": 0.30405405405405406,
+      "inclusion": 0.0038610038610038607,
+      "copies": 0.011583011583011584,
+      "breadth": 0.0,
+      "rank": 156,
+      "events": 1,
+      "decks": 259,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "potion",
+      "score": 0.3017241379310345,
+      "inclusion": 0.0038314176245210726,
+      "copies": 0.011494252873563218,
+      "breadth": 0.0,
+      "rank": 157,
+      "events": 1,
+      "decks": 261,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "antique skull fossil",
+      "score": 0.30141843971631205,
+      "inclusion": 0.003546099290780142,
+      "copies": 0.014184397163120569,
+      "breadth": 0.0,
+      "rank": 158,
+      "events": 1,
+      "decks": 282,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "antique jaw fossil",
+      "score": 0.2884524195568673,
+      "inclusion": 0.0036282313661066996,
+      "copies": 0.011321366014474447,
+      "breadth": 0.0,
+      "rank": 159,
+      "events": 4,
+      "decks": 1435,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "call bell",
+      "score": 0.2819804289212416,
+      "inclusion": 0.003899006743026946,
+      "copies": 0.007686403894339972,
+      "breadth": 0.0,
+      "rank": 160,
+      "events": 3,
+      "decks": 763,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "antique plume fossil",
+      "score": 0.27593957104182887,
+      "inclusion": 0.003246347894609752,
+      "copies": 0.012985391578439007,
+      "breadth": 0.0,
+      "rank": 161,
+      "events": 2,
+      "decks": 628,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "rescue board",
+      "score": 0.2570921985815603,
+      "inclusion": 0.003546099290780142,
+      "copies": 0.007092198581560284,
+      "breadth": 0.0,
+      "rank": 162,
+      "events": 1,
+      "decks": 282,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "antique root fossil",
+      "score": 0.25394363940156167,
+      "inclusion": 0.003185418403191804,
+      "copies": 0.010050965633608553,
+      "breadth": 0.0,
+      "rank": 163,
+      "events": 3,
+      "decks": 1285,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "billy o nare",
+      "score": 0.25383141762452105,
+      "inclusion": 0.0038314176245210726,
+      "copies": 0.0038314176245210726,
+      "breadth": 0.0,
+      "rank": 164,
+      "events": 1,
+      "decks": 261,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "lumiose galette",
+      "score": 0.24682827008860164,
+      "inclusion": 0.00372570973718644,
+      "copies": 0.00372570973718644,
+      "breadth": 0.0,
+      "rank": 165,
+      "events": 4,
+      "decks": 1413,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "cook",
+      "score": 0.24623075579020332,
+      "inclusion": 0.003716690653437032,
+      "copies": 0.003716690653437032,
+      "breadth": 0.0,
+      "rank": 166,
+      "events": 2,
+      "decks": 532,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "deduction kit",
+      "score": 0.2456647398843931,
+      "inclusion": 0.0028901734104046246,
+      "copies": 0.011560693641618498,
+      "breadth": 0.0,
+      "rank": 167,
+      "events": 1,
+      "decks": 346,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "antique cover fossil",
+      "score": 0.23903570619247466,
+      "inclusion": 0.0028121847787349963,
+      "copies": 0.011248739114939985,
+      "breadth": 0.0,
+      "rank": 168,
+      "events": 4,
+      "decks": 1796,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "pok ball",
+      "score": 0.23869051230530539,
+      "inclusion": 0.0033260279161652366,
+      "copies": 0.006260613973662591,
+      "breadth": 0.0,
+      "rank": 169,
+      "events": 3,
+      "decks": 916,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "energy swatter",
+      "score": 0.23854857828604606,
+      "inclusion": 0.0031647875257972908,
+      "copies": 0.007785812278113377,
+      "breadth": 0.0,
+      "rank": 170,
+      "events": 4,
+      "decks": 1355,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "love ball",
+      "score": 0.2349290780141844,
+      "inclusion": 0.003546099290780142,
+      "copies": 0.003546099290780142,
+      "breadth": 0.0,
+      "rank": 171,
+      "events": 1,
+      "decks": 282,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "team rocket s great ball",
+      "score": 0.2349290780141844,
+      "inclusion": 0.003546099290780142,
+      "copies": 0.003546099290780142,
+      "breadth": 0.0,
+      "rank": 172,
+      "events": 1,
+      "decks": 282,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "energy search pro",
+      "score": 0.23003472222222224,
+      "inclusion": 0.003472222222222222,
+      "copies": 0.003472222222222222,
+      "breadth": 0.0,
+      "rank": 173,
+      "events": 1,
+      "decks": 288,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "pok vital a",
+      "score": 0.23003472222222224,
+      "inclusion": 0.003472222222222222,
+      "copies": 0.003472222222222222,
+      "breadth": 0.0,
+      "rank": 174,
+      "events": 1,
+      "decks": 288,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "survival brace",
+      "score": 0.2259639341680374,
+      "inclusion": 0.003410776364800565,
+      "copies": 0.003410776364800565,
+      "breadth": 0.0,
+      "rank": 175,
+      "events": 6,
+      "decks": 2162,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "deluxe bomb",
+      "score": 0.21938131942158423,
+      "inclusion": 0.0033114161422125926,
+      "copies": 0.0033114161422125926,
+      "breadth": 0.0,
+      "rank": 176,
+      "events": 2,
+      "decks": 611,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "boxed order",
+      "score": 0.2092855350853798,
+      "inclusion": 0.002657594096322283,
+      "copies": 0.00797278228896685,
+      "breadth": 0.0,
+      "rank": 177,
+      "events": 2,
+      "decks": 830,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "hyper aroma",
+      "score": 0.20622332030764368,
+      "inclusion": 0.0031128048348323576,
+      "copies": 0.0031128048348323576,
+      "breadth": 0.0,
+      "rank": 178,
+      "events": 6,
+      "decks": 2279,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "lt surge s bargain",
+      "score": 0.19765756455526745,
+      "inclusion": 0.002905296163010733,
+      "copies": 0.0037343671639397612,
+      "breadth": 0.0,
+      "rank": 179,
+      "events": 4,
+      "decks": 1667,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "harlequin",
+      "score": 0.19450456416809264,
+      "inclusion": 0.002796509938268677,
+      "copies": 0.004274234859515523,
+      "breadth": 0.0,
+      "rank": 180,
+      "events": 4,
+      "decks": 1904,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "payapa berry",
+      "score": 0.19444278561074857,
+      "inclusion": 0.0029349854431811105,
+      "copies": 0.0029349854431811105,
+      "breadth": 0.0,
+      "rank": 181,
+      "events": 2,
+      "decks": 779,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "scramble switch",
+      "score": 0.19285688040558524,
+      "inclusion": 0.0029110472514050603,
+      "copies": 0.0029110472514050603,
+      "breadth": 0.0,
+      "rank": 182,
+      "events": 7,
+      "decks": 2730,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "tremendous bomb",
+      "score": 0.189714241466278,
+      "inclusion": 0.002734170604172554,
+      "copies": 0.004106240834547959,
+      "breadth": 0.0,
+      "rank": 183,
+      "events": 6,
+      "decks": 2597,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "jasmine s gaze",
+      "score": 0.18933998202672436,
+      "inclusion": 0.0026919783183502193,
+      "copies": 0.004451405268113793,
+      "breadth": 0.0,
+      "rank": 184,
+      "events": 3,
+      "decks": 1444,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "haban berry",
+      "score": 0.18770985495227435,
+      "inclusion": 0.002833356301166405,
+      "copies": 0.002833356301166405,
+      "breadth": 0.0,
+      "rank": 185,
+      "events": 3,
+      "decks": 1104,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "perilous jungle",
+      "score": 0.1796433643086917,
+      "inclusion": 0.002571714234818542,
+      "copies": 0.0040544816351326726,
+      "breadth": 0.0,
+      "rank": 186,
+      "events": 4,
+      "decks": 1673,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "sacred charm",
+      "score": 0.17178782071408585,
+      "inclusion": 0.0025134791142231855,
+      "copies": 0.003356651817711153,
+      "breadth": 0.0,
+      "rank": 187,
+      "events": 8,
+      "decks": 3768,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "blowtorch",
+      "score": 0.1683176146368947,
+      "inclusion": 0.0025406432398021846,
+      "copies": 0.0025406432398021846,
+      "breadth": 0.0,
+      "rank": 188,
+      "events": 6,
+      "decks": 3017,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "roxie s performance",
+      "score": 0.15920785518293087,
+      "inclusion": 0.002211442135471213,
+      "copies": 0.004243412328745296,
+      "breadth": 0.0,
+      "rank": 189,
+      "events": 3,
+      "decks": 1391,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "amulet of hope",
+      "score": 0.15201746729688967,
+      "inclusion": 0.0022946032799530517,
+      "copies": 0.0022946032799530517,
+      "breadth": 0.0,
+      "rank": 190,
+      "events": 2,
+      "decks": 894,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "perrin",
+      "score": 0.1386681183467254,
+      "inclusion": 0.0020931036731581193,
+      "copies": 0.0020931036731581193,
+      "breadth": 0.0,
+      "rank": 191,
+      "events": 4,
+      "decks": 2300,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "strange timepiece",
+      "score": 0.12889105058365757,
+      "inclusion": 0.0019455252918287936,
+      "copies": 0.0019455252918287936,
+      "breadth": 0.0,
+      "rank": 192,
+      "events": 1,
+      "decks": 514,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "meddling memo",
+      "score": 0.12089416058394162,
+      "inclusion": 0.0018248175182481753,
+      "copies": 0.0018248175182481753,
+      "breadth": 0.0,
+      "rank": 193,
+      "events": 1,
+      "decks": 548,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "cheren",
+      "score": 0.1163945741166968,
+      "inclusion": 0.0016956229380888908,
+      "copies": 0.0023451516530181384,
+      "breadth": 0.0,
+      "rank": 194,
+      "events": 2,
+      "decks": 1205,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "ogre s mask",
+      "score": 0.1015061372150856,
+      "inclusion": 0.001288966821778865,
+      "copies": 0.0038669004653365947,
+      "breadth": 0.0,
+      "rank": 195,
+      "events": 2,
+      "decks": 1566,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "adversity policy",
+      "score": 0.10083713850837137,
+      "inclusion": 0.0015220700152207,
+      "copies": 0.0015220700152207,
+      "breadth": 0.0,
+      "rank": 196,
+      "events": 1,
+      "decks": 657,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "dizzying valley",
+      "score": 0.09934928765415575,
+      "inclusion": 0.0014372107214110112,
+      "copies": 0.0020986630991192143,
+      "breadth": 0.0,
+      "rank": 197,
+      "events": 2,
+      "decks": 1423,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "emma",
+      "score": 0.0934500945789677,
+      "inclusion": 0.001288966821778865,
+      "copies": 0.00257793364355773,
+      "breadth": 0.0,
+      "rank": 198,
+      "events": 2,
+      "decks": 1566,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "hole digging shovel",
+      "score": 0.08663366336633663,
+      "inclusion": 0.0011001100110011,
+      "copies": 0.0033003300330033004,
+      "breadth": 0.0,
+      "rank": 199,
+      "events": 1,
+      "decks": 909,
+      "stratum": "LOW"
+    },
+    {
+      "functionalId": "colbur berry",
+      "score": 0.07288228822882288,
+      "inclusion": 0.0011001100110011,
+      "copies": 0.0011001100110011,
+      "breadth": 0.0,
+      "rank": 200,
+      "events": 1,
+      "decks": 909,
+      "stratum": "LOW"
+    }
+  ],
+  "playDemandStrata": {
+    "boundaries": {
+      "lowMaximum": 3.1314689307521375,
+      "mediumMaximum": 10.050027162304895
+    },
+    "summary": {
+      "LOW": {
+        "identities": 19,
+        "meanRawGap": 1.6901669153747136
+      },
+      "MEDIUM": {
+        "identities": 24,
+        "meanRawGap": 1.408334222153129
+      },
+      "HIGH": {
+        "identities": 22,
+        "meanRawGap": 2.7149036334179417
+      }
+    }
+  },
+  "treatmentPremiumByStratum": {
+    "LOW": {
+      "identities": 19,
+      "meanRawGap": 1.6901669153747136
+    },
+    "MEDIUM": {
+      "identities": 24,
+      "meanRawGap": 1.408334222153129
+    },
+    "HIGH": {
+      "identities": 22,
+      "meanRawGap": 2.7149036334179417
+    }
+  },
+  "twoStageInteraction": {
+    "status": "DIAGNOSTIC_ONLY",
+    "identities": 65,
+    "playDemandSlope": 0.012410033753361442,
+    "weightedRmse": 2.3691012823668975,
+    "warning": "Raw identity gaps can retain set/context confounding; this is not the primary estimator."
+  },
+  "hierarchicalInteraction": {
+    "status": "NOT_SUPPORTED",
+    "model": {
+      "n": 140,
+      "matrixColumns": 83,
+      "matrixRank": 74,
+      "rankDeficiency": 9,
+      "treatmentColumns": 7,
+      "treatmentRankIncrement": 5,
+      "baselineTreatment": "uncommon",
+      "treatmentResidualVariance": 0.04197799537024719,
+      "coefficients": {
+        "common": {
+          "coefficient": 1.1617854497757023,
+          "interval": [
+            -2.062654670441808,
+            4.386225569993212
+          ],
+          "multiplicativeAssociation": 3.1956338292798487,
+          "standardError": 1.6451225103150562
+        },
+        "rare": {
+          "coefficient": -0.007932095353320338,
+          "interval": [
+            -0.07136480591120928,
+            0.05550061520456861
+          ],
+          "multiplicativeAssociation": 0.9920992807009343,
+          "standardError": 0.032363627835657625
+        },
+        "rare_holo": {
+          "coefficient": 0.007963168692175643,
+          "interval": [
+            -0.08429337153353675,
+            0.10021970891788803
+          ],
+          "multiplicativeAssociation": 1.0079949590479476,
+          "standardError": 0.047069663380465504
+        },
+        "rare_rainbow": {
+          "coefficient": 0.20108085821043328,
+          "interval": [
+            0.10715039240526757,
+            0.295011324015599
+          ],
+          "multiplicativeAssociation": 1.2227236350713069,
+          "standardError": 0.0479237070434519
+        },
+        "rare_ultra": {
+          "coefficient": 3.2999009906188173,
+          "interval": [
+            2.5519222730507867,
+            4.047879708186848
+          ],
+          "multiplicativeAssociation": 27.109954647942406,
+          "standardError": 0.3816217946775665
+        },
+        "special_illustration_rare": {
+          "coefficient": 4.922181886744565,
+          "interval": [
+            4.644604233454662,
+            5.199759540034468
+          ],
+          "multiplicativeAssociation": 137.30186371881783,
+          "standardError": 0.14162125167852183
+        },
+        "ultra_rare": {
+          "coefficient": 2.758520661752297,
+          "interval": [
+            2.5388389252234935,
+            2.9782023982811
+          ],
+          "multiplicativeAssociation": 15.776486916274491,
+          "standardError": 0.11208251863714455
+        }
+      },
+      "interactions": {
+        "common": {
+          "coefficient": 0.7162358541700361,
+          "interval": [
+            -4.540078638298958,
+            5.97255034663903
+          ],
+          "multiplicativeAssociation": 2.0467145606169206,
+          "standardError": 2.681793108402548
+        },
+        "rare": {
+          "coefficient": -0.0319835966456474,
+          "interval": [
+            -0.28775538685369506,
+            0.2237881935624003
+          ],
+          "multiplicativeAssociation": 0.968522468966155,
+          "standardError": 0.1304958113306366
+        },
+        "rare_holo": {
+          "coefficient": 0.03210888978596782,
+          "interval": [
+            -0.33988562605105255,
+            0.4041034056229882
+          ],
+          "multiplicativeAssociation": 1.032629942036774,
+          "standardError": 0.1897931203250104
+        },
+        "rare_rainbow": {
+          "coefficient": 0.8107932110864234,
+          "interval": [
+            0.4320491343669278,
+            1.1895372878059192
+          ],
+          "multiplicativeAssociation": 2.249691759573455,
+          "standardError": 0.19323677383647736
+        },
+        "rare_ultra": {
+          "coefficient": 0.13571940228835933,
+          "interval": [
+            -0.2556783711606306,
+            0.5271171757373492
+          ],
+          "multiplicativeAssociation": 1.145360462975708,
+          "standardError": 0.1996927415556071
+        },
+        "special_illustration_rare": {
+          "coefficient": -0.4228094642116075,
+          "interval": [
+            -0.8919137886146544,
+            0.046294860191439524
+          ],
+          "multiplicativeAssociation": 0.6552034609273308,
+          "standardError": 0.23933894102196276
+        },
+        "ultra_rare": {
+          "coefficient": 0.2750238122863413,
+          "interval": [
+            -0.11563503728338576,
+            0.6656826618560684
+          ],
+          "multiplicativeAssociation": 1.3165620248462846,
+          "standardError": 0.19931573957639137
+        }
+      },
+      "rmse": 0.3295500466251193,
+      "aic": -162.80757400062976
+    }
+  },
+  "modelA": {
+    "specification": "functional identity FE + treatment + set FE",
+    "results": {
+      "Scarlet and Violet": {
+        "n": 218,
+        "matrixColumns": 93,
+        "matrixRank": 89,
+        "rankDeficiency": 4,
+        "treatmentColumns": 2,
+        "treatmentRankIncrement": 2,
+        "baselineTreatment": "uncommon",
+        "treatmentResidualVariance": 0.17652909630677677,
+        "coefficients": {
+          "special_illustration_rare": {
+            "coefficient": 4.682186863935707,
+            "interval": [
+              4.469624644327411,
+              4.894749083544003
+            ],
+            "multiplicativeAssociation": 108.00600894279826,
+            "standardError": 0.10845011204504883
+          },
+          "ultra_rare": {
+            "coefficient": 2.7436804000006365,
+            "interval": [
+              2.567636772482743,
+              2.91972402751853
+            ],
+            "multiplicativeAssociation": 15.544088413365378,
+            "standardError": 0.08981817730504779
+          }
+        },
+        "interactions": {},
+        "rmse": 0.42347358849419153,
+        "aic": -196.639161406163
+      },
+      "Sun and Moon": {
+        "n": 163,
+        "matrixColumns": 91,
+        "matrixRank": 87,
+        "rankDeficiency": 4,
+        "treatmentColumns": 1,
+        "treatmentRankIncrement": 1,
+        "baselineTreatment": "uncommon",
+        "treatmentResidualVariance": 0.216162955539804,
+        "coefficients": {
+          "rare_ultra": {
+            "coefficient": 4.856272404608976,
+            "interval": [
+              4.610740671434948,
+              5.101804137783004
+            ],
+            "multiplicativeAssociation": 128.54414736705291,
+            "standardError": 0.12527129243572857
+          }
+        },
+        "interactions": {},
+        "rmse": 0.5077488975325793,
+        "aic": -46.9524494361045
+      },
+      "Sword and Shield": {
+        "n": 309,
+        "matrixColumns": 123,
+        "matrixRank": 123,
+        "rankDeficiency": 0,
+        "treatmentColumns": 2,
+        "treatmentRankIncrement": 2,
+        "baselineTreatment": "rare_ultra",
+        "treatmentResidualVariance": 0.17255580879798535,
+        "coefficients": {
+          "rare_rainbow": {
+            "coefficient": 0.28904676925649087,
+            "interval": [
+              0.14416314953303466,
+              0.43393038897994707
+            ],
+            "multiplicativeAssociation": 1.335154171236187,
+            "standardError": 0.07392021414462051
+          },
+          "uncommon": {
+            "coefficient": -3.568779346681903,
+            "interval": [
+              -3.709682695896941,
+              -3.427875997466865
+            ],
+            "multiplicativeAssociation": 0.02819024320109013,
+            "standardError": 0.07188946388522342
+          }
+        },
+        "interactions": {},
+        "rmse": 0.3611968124146212,
+        "aic": -383.32935056365
+      }
+    }
+  },
+  "modelB": {
+    "specification": "Model A + treatment x frozen Competitive Play Demand",
+    "result": {
+      "status": "NOT_SUPPORTED",
+      "model": {
+        "n": 140,
+        "matrixColumns": 83,
+        "matrixRank": 74,
+        "rankDeficiency": 9,
+        "treatmentColumns": 7,
+        "treatmentRankIncrement": 5,
+        "baselineTreatment": "uncommon",
+        "treatmentResidualVariance": 0.04197799537024719,
+        "coefficients": {
+          "common": {
+            "coefficient": 1.1617854497757023,
+            "interval": [
+              -2.062654670441808,
+              4.386225569993212
+            ],
+            "multiplicativeAssociation": 3.1956338292798487,
+            "standardError": 1.6451225103150562
+          },
+          "rare": {
+            "coefficient": -0.007932095353320338,
+            "interval": [
+              -0.07136480591120928,
+              0.05550061520456861
+            ],
+            "multiplicativeAssociation": 0.9920992807009343,
+            "standardError": 0.032363627835657625
+          },
+          "rare_holo": {
+            "coefficient": 0.007963168692175643,
+            "interval": [
+              -0.08429337153353675,
+              0.10021970891788803
+            ],
+            "multiplicativeAssociation": 1.0079949590479476,
+            "standardError": 0.047069663380465504
+          },
+          "rare_rainbow": {
+            "coefficient": 0.20108085821043328,
+            "interval": [
+              0.10715039240526757,
+              0.295011324015599
+            ],
+            "multiplicativeAssociation": 1.2227236350713069,
+            "standardError": 0.0479237070434519
+          },
+          "rare_ultra": {
+            "coefficient": 3.2999009906188173,
+            "interval": [
+              2.5519222730507867,
+              4.047879708186848
+            ],
+            "multiplicativeAssociation": 27.109954647942406,
+            "standardError": 0.3816217946775665
+          },
+          "special_illustration_rare": {
+            "coefficient": 4.922181886744565,
+            "interval": [
+              4.644604233454662,
+              5.199759540034468
+            ],
+            "multiplicativeAssociation": 137.30186371881783,
+            "standardError": 0.14162125167852183
+          },
+          "ultra_rare": {
+            "coefficient": 2.758520661752297,
+            "interval": [
+              2.5388389252234935,
+              2.9782023982811
+            ],
+            "multiplicativeAssociation": 15.776486916274491,
+            "standardError": 0.11208251863714455
+          }
+        },
+        "interactions": {
+          "common": {
+            "coefficient": 0.7162358541700361,
+            "interval": [
+              -4.540078638298958,
+              5.97255034663903
+            ],
+            "multiplicativeAssociation": 2.0467145606169206,
+            "standardError": 2.681793108402548
+          },
+          "rare": {
+            "coefficient": -0.0319835966456474,
+            "interval": [
+              -0.28775538685369506,
+              0.2237881935624003
+            ],
+            "multiplicativeAssociation": 0.968522468966155,
+            "standardError": 0.1304958113306366
+          },
+          "rare_holo": {
+            "coefficient": 0.03210888978596782,
+            "interval": [
+              -0.33988562605105255,
+              0.4041034056229882
+            ],
+            "multiplicativeAssociation": 1.032629942036774,
+            "standardError": 0.1897931203250104
+          },
+          "rare_rainbow": {
+            "coefficient": 0.8107932110864234,
+            "interval": [
+              0.4320491343669278,
+              1.1895372878059192
+            ],
+            "multiplicativeAssociation": 2.249691759573455,
+            "standardError": 0.19323677383647736
+          },
+          "rare_ultra": {
+            "coefficient": 0.13571940228835933,
+            "interval": [
+              -0.2556783711606306,
+              0.5271171757373492
+            ],
+            "multiplicativeAssociation": 1.145360462975708,
+            "standardError": 0.1996927415556071
+          },
+          "special_illustration_rare": {
+            "coefficient": -0.4228094642116075,
+            "interval": [
+              -0.8919137886146544,
+              0.046294860191439524
+            ],
+            "multiplicativeAssociation": 0.6552034609273308,
+            "standardError": 0.23933894102196276
+          },
+          "ultra_rare": {
+            "coefficient": 0.2750238122863413,
+            "interval": [
+              -0.11563503728338576,
+              0.6656826618560684
+            ],
+            "multiplicativeAssociation": 1.3165620248462846,
+            "standardError": 0.19931573957639137
+          }
+        },
+        "rmse": 0.3295500466251193,
+        "aic": -162.80757400062976
+      }
+    }
+  },
+  "modelComparison": {
+    "crossValidation": {
+      "Scarlet and Violet": {
+        "modelA": {
+          "folds": 5,
+          "heldOutUnit": "functional identity",
+          "centeredOutcome": true,
+          "rmse": 0.47290058753343084,
+          "observations": 218
+        },
+        "modelB": {
+          "folds": 5,
+          "heldOutUnit": "functional identity",
+          "centeredOutcome": true,
+          "rmse": 0.4295203470792118,
+          "observations": 110
+        }
+      },
+      "Sun and Moon": {
+        "modelA": {
+          "folds": 5,
+          "heldOutUnit": "functional identity",
+          "centeredOutcome": true,
+          "rmse": 0.6464103415482018,
+          "observations": 163
+        },
+        "modelB": {
+          "status": "INSUFFICIENT_COMPETITIVE_IDENTITIES"
+        }
+      },
+      "Sword and Shield": {
+        "modelA": {
+          "folds": 5,
+          "heldOutUnit": "functional identity",
+          "centeredOutcome": true,
+          "rmse": 0.45026059983297156,
+          "observations": 309
+        },
+        "modelB": {
+          "status": "INSUFFICIENT_COMPETITIVE_IDENTITIES"
+        }
+      }
+    },
+    "interactionSelectionRule": "retain only if rank identified, >=20 competitive identities, lower CV RMSE, and coefficient direction is leave-one-set-out stable",
+    "decision": "MODEL_A_RETAINED"
+  },
+  "interactionStatus": "PLAYABILITY_INTERACTION_NOT_SUPPORTED",
+  "characterDemand": {
+    "limitation": "Authoritative character identity/popularity metadata remains absent and may confound some treatment gaps.",
+    "sensitivity": "NOT_RUN_NO_INDEPENDENTLY_DEFINED_CHARACTER_HEAVY_SUBGROUP"
+  },
+  "bossOrdersCaseStudy": {
+    "supported": true,
+    "functionalLayer": {
+      "functionalId": "boss s orders",
+      "score": 83.58907714788408,
+      "inclusion": 0.9111704239499782,
+      "copies": 2.3462820061146945,
+      "breadth": 0.9503059448445702,
+      "rank": 2,
+      "events": 15,
+      "decks": 5818,
+      "stratum": "HIGH"
+    },
+    "treatmentLayer": {
+      "rawIdentityGap": {
+        "functionalId": "boss s orders",
+        "playDemand": 83.58907714788408,
+        "stratum": "HIGH",
+        "baseline": "rare_holo",
+        "rawWithinIdentityGap": 1.344629633555527,
+        "observations": 9
+      },
+      "supportedEraEffects": {
+        "Sword and Shield": {
+          "baseline": "rare_ultra",
+          "effects": {
+            "rare_rainbow": {
+              "coefficient": 0.28904676925649087,
+              "interval": [
+                0.14416314953303466,
+                0.43393038897994707
+              ],
+              "multiplicativeAssociation": 1.335154171236187,
+              "standardError": 0.07392021414462051
+            }
+          }
+        }
+      }
+    },
+    "printings": 9
+  },
+  "additionalExamples": [
+    {
+      "functionalId": "lillie s determination",
+      "ranking": {
+        "functionalId": "lillie s determination",
+        "score": 85.53503180676934,
+        "inclusion": 0.8549523704986208,
+        "copies": 3.2047698124108166,
+        "breadth": 0.9472052166189656,
+        "rank": 1,
+        "events": 15,
+        "decks": 5818,
+        "stratum": "HIGH"
+      },
+      "gap": {
+        "functionalId": "lillie s determination",
+        "playDemand": 85.53503180676934,
+        "stratum": "HIGH",
+        "baseline": "uncommon",
+        "rawWithinIdentityGap": 4.77560172986829,
+        "observations": 4
+      }
+    },
+    {
+      "functionalId": "counter gain",
+      "ranking": {
+        "functionalId": "counter gain",
+        "score": 6.088970085351661,
+        "inclusion": 0.007520236310118275,
+        "copies": 0.008412692168668174,
+        "breadth": 0.37234510537935916,
+        "rank": 101,
+        "events": 12,
+        "decks": 4765,
+        "stratum": "MEDIUM"
+      },
+      "gap": null
+    },
+    {
+      "functionalId": "colbur berry",
+      "ranking": {
+        "functionalId": "colbur berry",
+        "score": 0.07288228822882288,
+        "inclusion": 0.0011001100110011,
+        "copies": 0.0011001100110011,
+        "breadth": 0.0,
+        "rank": 200,
+        "events": 1,
+        "decks": 909,
+        "stratum": "LOW"
+      },
+      "gap": null
+    }
+  ],
+  "treatmentIdentificationStatus": "SUPPORTER_TREATMENT_EFFECT_PARTIALLY_IDENTIFIED",
+  "supporterV3Status": "SUPPORTER_TREATMENT_MARKET_PRESTIGE_PARTIALLY_VALIDATED",
+  "recovery": {
+    "safeFunctionalIdentities": 451,
+    "crossTreatmentIdentities": 315,
+    "modelIdentifiableCards": 690,
+    "temporallyValidatedCards": 690,
+    "treatmentEligibleCards": 690,
+    "universeEligibleCards": 690,
+    "finalDownstreamValidCards": 690
+  },
+  "coverage": {
+    "starting": 9485,
+    "incremental": 690,
+    "updated": 10175,
+    "percentage": 0.5126719403436287,
+    "remainingTo70": 3718,
+    "decision": "SUPPORTER_RECOVERY_MATERIAL"
+  },
+  "weeklyRetentionRecommendation": "Freeze versioned weekly Competitive Play Demand snapshots with reference date, window, metrics, event/deck counts, provenance, and content hash for future functional-card x date panels.",
+  "correctedV1Interpretation": "Competitive Play Demand main-effect absorption by functional identity FE remains correct; it does not imply treatment-effect non-identification. Round 2 separately tests within-functional-identity treatment contrasts.",
+  "rowsPersisted": 0,
+  "productionBehavior": "Unchanged and paused; research artifacts only. No migrations, score publication, UI, V1/V2, appeal, RIP, or ranking changes.",
+  "filesChanged": [
+    "D:\\EVRCalculator\\backend\\scripts\\build_supporter_treatment_market_prestige_v3s_round2.py",
+    "docs\\research\\supporter_treatment_market_prestige_v3s_round2_study.json",
+    "docs\\research\\SUPPORTER_TREATMENT_MARKET_PRESTIGE_V3S_ROUND2_RESULTS.md",
+    "docs\\research\\supporter_treatment_market_prestige_v3s_round2\\frozen_supporter_cohort.json",
+    "docs\\research\\supporter_treatment_market_prestige_v3s_round2\\functional_identity_audit.json",
+    "docs\\research\\supporter_treatment_market_prestige_v3s_round2\\manifest.json"
+  ],
+  "testsExecuted": [
+    "cohort conservation/hash",
+    "within-identity rank audit",
+    "four-checkpoint temporal validation",
+    "leave-one-set-out validation",
+    "interaction diagnostics",
+    "coverage arithmetic",
+    "full V3 regression"
+  ],
+  "remainingLimitations": [
+    "character-demand control unavailable",
+    "Competitive Play Demand covers 67 Supporter identities only",
+    "V1 source excludes a documented comprehensive major/offline corpus",
+    "cross-sectional prices are observational",
+    "unsupported eras fail closed"
+  ],
+  "recommendedNextTask": "Retain weekly Competitive Play Demand snapshots and acquire independent character metadata; production remains paused. Extend only failed Supporter eras with preregistered structural regimes or more history, without weakening gates."
+}

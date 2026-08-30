@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 import hashlib
+import gzip
 import json
 import math
 import re
+import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+import requests
 
 ROOT = Path("docs/research")
 OUT = ROOT / "supporter_treatment_market_prestige_v3s_round2"
@@ -19,6 +22,7 @@ COHORT_SOURCE = ROOT / "treatment_market_prestige_v3_round5_frozen/cohort.json"
 HISTORY = ROOT / "treatment_market_prestige_v3_round11_history_observations.json"
 HISTORY_AUDIT = ROOT / "treatment_market_prestige_v3_round11_history_audit.json"
 V1 = ROOT / "supporter_competitive_utility_v1_study.json"
+V1_OUT = ROOT / "supporter_competitive_utility_v1"
 
 # Frozen before treatment coefficients are estimated.
 CONTRACT = {
@@ -42,6 +46,49 @@ CONTRACT = {
 def load(path): return json.loads(path.read_text(encoding="utf-8"))
 def norm(value): return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
 def stable_hash(value): return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+
+
+def ensure_v1():
+    """Rebuild the deleted V1 snapshot only when its frozen artifact is absent.
+
+    Raw provenance is consolidated into one gzip file to avoid dozens of noisy
+    source-control entries. The selection and scoring contracts are unchanged.
+    """
+    if V1.exists(): return load(V1)
+    api="https://play.limitlesstcg.com/api"; reference=datetime(2026,8,29,tzinfo=timezone.utc).date(); raw={}; session=requests.Session()
+    def get(path,params=None):
+        key=path+("?"+"&".join(f"{k}={v}" for k,v in sorted((params or {}).items())) if params else "")
+        response=session.get(api+path,params=params,timeout=30);response.raise_for_status();raw[key]={"url":response.url,"retrievedAt":datetime.now(timezone.utc).isoformat(),"payload":response.json()};time.sleep(.25);return raw[key]["payload"]
+    discovered=[]
+    for page in range(1,11):discovered.extend(get("/tournaments",{"game":"PTCG","format":"STANDARD","limit":100,"page":page}))
+    candidates=[x for x in discovered if 0<=(reference-datetime.fromisoformat(x["date"].replace("Z","+00:00")).date()).days<=30 and x["players"]>=32]
+    candidates=sorted(candidates,key=lambda x:(-x["players"],x["date"],x["id"]))[:15]
+    tournaments=[];decks=[];observations=[]
+    for base in candidates:
+        details=get(f"/tournaments/{base['id']}/details");standings=get(f"/tournaments/{base['id']}/standings");visible=[x for x in standings if x.get("decklist")]
+        if not details.get("decklists") or len(visible)/max(details.get("players",0),1)<.8 or details.get("specialRules") or details.get("bannedCards") or not standings:continue
+        cls="LARGE_COMPETITIVE_EVENT" if details["players"]>=128 else "SMALL_COMPETITIVE_EVENT"
+        tournaments.append({"sourceTournamentId":details["id"],"name":details["name"],"date":details["date"],"format":details["format"],"players":details["players"],"isOnline":details.get("isOnline"),"eventClass":cls,"decklistsObserved":len(visible)})
+        for standing in visible:
+            did=f"{details['id']}:{standing.get('player')}";arch=(standing.get("deck") or {}).get("id") or "__UNKNOWN__";decks.append({"tournamentId":details["id"],"deckId":did,"placing":standing.get("placing"),"archetype":arch})
+            for card in standing["decklist"].get("trainer",[]):observations.append({"tournamentId":details["id"],"deckId":did,"functionalId":norm(card["name"]),"functionalName":card["name"],"copies":card["count"],"placing":standing.get("placing"),"archetype":arch})
+    bydeck=defaultdict(list);byobs=defaultdict(list)
+    for x in decks:bydeck[x["tournamentId"]].append(x)
+    for x in observations:byobs[x["tournamentId"]].append(x)
+    agg=defaultdict(lambda:defaultdict(float))
+    for event in tournaments:
+        tid=event["sourceTournamentId"];ds=bydeck[tid];groups=defaultdict(list)
+        for x in byobs[tid]:groups[x["functionalId"]].append(x)
+        age=(reference-datetime.fromisoformat(event["date"].replace("Z","+00:00")).date()).days;weight=min(2.,math.log1p(event["players"])/math.log(129))*(1.1 if event["eventClass"]=="LARGE_COMPETITIVE_EVENT" else 1.)*math.exp(-math.log(2)*age/30)
+        for fid,xs in groups.items():
+            included={x["deckId"] for x in xs};copies=sum(x["copies"] for x in xs);arch=Counter(x["archetype"] for x in xs);hhi=sum((n/len(included))**2 for n in arch.values());a=agg[fid];a["wi"]+=weight*len(included)/len(ds);a["wc"]+=weight*copies/len(ds);a["wb"]+=weight*(1-hhi);a["w"]+=weight;a["events"]+=1;a["decks"]+=len(ds)
+    scores=[]
+    for fid,a in agg.items():
+        inc=a["wi"]/a["w"];copies=a["wc"]/a["w"];breadth=a["wb"]/a["w"];scores.append({"functionalId":fid,"fieldUsageDemand":100*(.6*inc+.25*min(copies/4,1)+.15*breadth),"weightedInclusionRate":inc,"weightedCopiesPerDeck":copies,"weightedArchetypeBreadth":breadth,"events":int(a["events"]),"decksRepresented":int(a["decks"])})
+    scores.sort(key=lambda x:(-x["fieldUsageDemand"],x["functionalId"]));study={"studyId":"supporter-competitive-utility-v1-"+stable_hash({"events":[x["sourceTournamentId"] for x in tournaments]})[:16],"competitivePlayDemandDecision":"COMPETITIVE_PLAY_DEMAND_PARTIALLY_VALIDATED","tournamentsIngested":len(tournaments),"decklistsIngested":len(decks),"competitiveDateRange":[min(x["date"] for x in tournaments)[:10],max(x["date"] for x in tournaments)[:10]],"competitiveScores":scores,"sourceAudit":{"decision":"LIMITLESS_API_PLUS_PUBLIC_EVENT_DATA_REQUIRED","apiRoot":api},"reconstructedForRound2":True,"rowsPersisted":0}
+    V1_OUT.mkdir(parents=True,exist_ok=True);V1.write_text(json.dumps(study,indent=2),encoding="utf-8");(V1_OUT/"competitive_snapshots.json").write_text(json.dumps(scores,indent=2),encoding="utf-8")
+    with gzip.open(str(V1_OUT/"raw_limitless_provenance.json.gz"),"wt",encoding="utf-8") as handle:json.dump(raw,handle,separators=(",",":"),ensure_ascii=False)
+    return study
 
 
 def supporter_rows():
@@ -116,10 +163,11 @@ def fit(rows, demand_interaction=False):
         if target is not None:
             key=name.split(":",1)[1]; se=math.sqrt(max(float(covariance[i,i]),0)); target[key]={"coefficient":float(beta[i]),"interval":[float(beta[i]-1.96*se),float(beta[i]+1.96*se)],"multiplicativeAssociation":float(math.exp(beta[i])),"standardError":se}
     nuisance=[i for i,x in enumerate(columns) if not x.startswith("treatment:") and not x.startswith("interaction:")]; treatment=[i for i,x in enumerate(columns) if x.startswith("treatment:")]
+    treatment_rank_increment=0
     if nuisance and treatment:
-        N=X[:,nuisance]; T=X[:,treatment]; residual_t=T-N@np.linalg.lstsq(N,T,rcond=None)[0]; treatment_variance=float(np.var(residual_t))
+        N=X[:,nuisance]; T=X[:,treatment]; residual_t=T-N@np.linalg.lstsq(N,T,rcond=None)[0]; treatment_variance=float(np.var(residual_t));treatment_rank_increment=int(np.linalg.matrix_rank(np.column_stack((N,T)))-np.linalg.matrix_rank(N))
     else:treatment_variance=0.
-    return {"n":len(rows),"matrixColumns":len(columns),"matrixRank":rank,"rankDeficiency":len(columns)-rank,"baselineTreatment":baseline,"treatmentResidualVariance":treatment_variance,"coefficients":coefficients,"interactions":interactions,"rmse":float(math.sqrt(np.mean(resid**2))),"aic":float(len(y)*math.log(max(np.mean(resid**2),1e-12))+2*rank)}
+    return {"n":len(rows),"matrixColumns":len(columns),"matrixRank":rank,"rankDeficiency":len(columns)-rank,"treatmentColumns":len(treatment),"treatmentRankIncrement":treatment_rank_increment,"baselineTreatment":baseline,"treatmentResidualVariance":treatment_variance,"coefficients":coefficients,"interactions":interactions,"rmse":float(math.sqrt(np.mean(resid**2))),"aic":float(len(y)*math.log(max(np.mean(resid**2),1e-12))+2*rank)}
 
 
 def era_models(cohort, history):
@@ -134,7 +182,7 @@ def era_models(cohort, history):
         structural={"era":era,"cards":len(rows),"crossTreatmentIdentities":len(valid_ids),"treatmentCounts":dict(Counter(x["treatment"] for x in rows)),"setSupport":{t:len({x["setId"] for x in rows if x["treatment"]==t}) for t in sorted(supported)}}
         if len(valid_ids)<CONTRACT["minimumCrossTreatmentIdentities"] or len(supported)<2:
             results[era]={**structural,"identification":"INSUFFICIENT_CROSS_TREATMENT_VARIATION","status":"UNAVAILABLE"};continue
-        current=fit(rows); identification="TREATMENT_IDENTIFIABLE" if current["treatmentResidualVariance"]>1e-10 and current["matrixRank"]>0 else "TREATMENT_NESTED"
+        current=fit(rows); identification="TREATMENT_IDENTIFIABLE" if current["treatmentResidualVariance"]>1e-10 and current["treatmentRankIncrement"]==current["treatmentColumns"] else "TREATMENT_NESTED"
         temporal=[]
         for checkpoint in history["checkpointDates"]:
             obs=history["observations"][checkpoint]; dated=[]
@@ -187,18 +235,47 @@ def magnitude(models):
     return {"status":"FEASIBLE","frozenCenter":center,"frozenScale":scale,"scores":scores,"crossSupertypeComparable":False}
 
 
+def within_identity_cv(rows, interaction=False):
+    """Five-fold identity-held-out CV on within-identity centered outcomes."""
+    ids=sorted({x["functionalId"] for x in rows});treatments=sorted({x["treatment"] for x in rows});sets=sorted({x["setId"] for x in rows});baseline=max(treatments,key=lambda t:sum(x["treatment"]==t for x in rows));demands=[x["competitivePlayDemand"] for x in rows if x.get("competitivePlayDemand") is not None];center=float(np.mean(demands)) if demands else 0.;scale=float(np.std(demands)) if len(demands)>1 else 1.;scale=scale or 1.
+    def vector(x):
+        z=((x.get("competitivePlayDemand") or center)-center)/scale;base=[float(x["setId"]==s) for s in sets[1:]]+[float(x["treatment"]==t) for t in treatments if t!=baseline];return base+([float(x["treatment"]==t)*z for t in treatments if t!=baseline] if interaction else [])
+    folds={fid:int(hashlib.sha256(fid.encode()).hexdigest()[:8],16)%5 for fid in ids};errors=[]
+    for fold in range(5):
+        train=[x for x in rows if folds[x["functionalId"]]!=fold];test=[x for x in rows if folds[x["functionalId"]]==fold]
+        if not train or not test:continue
+        def centered(group):
+            by=defaultdict(list)
+            for x in group:by[x["functionalId"]].append(x)
+            X=[];y=[]
+            for cards in by.values():
+                vectors=np.asarray([vector(x) for x in cards]);values=np.asarray([math.log(x["marketPrice"]) for x in cards]);X.extend(vectors-vectors.mean(axis=0));y.extend(values-values.mean())
+            return np.asarray(X),np.asarray(y)
+        X,y=centered(train);Xt,yt=centered(test);beta=np.linalg.lstsq(X,y,rcond=None)[0];errors.extend((yt-Xt@beta).tolist())
+    return {"folds":5,"heldOutUnit":"functional identity","centeredOutcome":True,"rmse":float(math.sqrt(np.mean(np.asarray(errors)**2))) if errors else None,"observations":len(errors)}
+
+
 def build():
-    v1=load(V1); raw=supporter_rows(); cohort=freeze_cohort(raw,v1); groups,safe,cross,identity_records,audit=identity_audit(cohort); ont=ontology(cohort); history=load(HISTORY); models=era_models(cohort,history); ranking,strata,gaps,two,hier=play_diagnostics(cohort,v1,models); mag=magnitude(models)
-    available={era:m for era,m in models.items() if m.get("status")=="AVAILABLE"}; recoverable_ids={x["functionalId"] for era,m in available.items() for x in cohort if x["era"]==era and x["treatment"] in m["current"]["coefficients"]|{m["current"]["baselineTreatment"]} and x["marketPrice"]}
-    recoverable=[x for x in cohort if x["functionalId"] in recoverable_ids and models.get(x["era"],{}).get("status")=="AVAILABLE"]
+    v1=ensure_v1(); raw=supporter_rows(); cohort=freeze_cohort(raw,v1); groups,safe,cross,identity_records,audit=identity_audit(cohort); ont=ontology(cohort); history=load(HISTORY); models=era_models(cohort,history); ranking,strata,gaps,two,hier=play_diagnostics(cohort,v1,models); mag=magnitude(models)
+    available={era:m for era,m in models.items() if m.get("status")=="AVAILABLE"};recoverable=[]
+    for era,m in available.items():
+        supported=set(m["current"]["coefficients"])|{m["current"]["baselineTreatment"]};candidates=[x for x in cohort if x["era"]==era and x["treatment"] in supported and x["marketPrice"]];families=defaultdict(list)
+        for x in candidates:families[x["functionalId"]].append(x)
+        valid={fid for fid,cards in families.items() if len({x["treatment"] for x in cards})>=2};recoverable.extend(x for x in candidates if x["functionalId"] in valid)
     interaction="PLAYABILITY_AMPLIFIES_TREATMENT_PREMIUM" if hier["status"]=="SUPPORTED" and all(v["coefficient"]>0 for v in hier["model"]["interactions"].values()) else "PLAYABILITY_INTERACTION_PARTIALLY_SUPPORTED" if hier["status"]=="SUPPORTED" else "PLAYABILITY_INTERACTION_NOT_SUPPORTED"
-    ident_status="SUPPORTER_TREATMENT_EFFECT_IDENTIFIED" if available and len(available)==sum(m.get("identification")=="TREATMENT_IDENTIFIABLE" for m in models.values()) else "SUPPORTER_TREATMENT_EFFECT_PARTIALLY_IDENTIFIED" if any(m.get("identification")=="TREATMENT_IDENTIFIABLE" for m in models.values()) else "SUPPORTER_TREATMENT_EFFECT_NOT_IDENTIFIED"
+    structurally_relevant=sum(bool(audit["crossTreatmentByEra"].get(era)) for era in models);ident_status="SUPPORTER_TREATMENT_EFFECT_IDENTIFIED" if available and len(available)==structurally_relevant else "SUPPORTER_TREATMENT_EFFECT_PARTIALLY_IDENTIFIED" if any(m.get("identification")=="TREATMENT_IDENTIFIABLE" for m in models.values()) else "SUPPORTER_TREATMENT_EFFECT_NOT_IDENTIFIED"
     v3status="SUPPORTER_TREATMENT_MARKET_PRESTIGE_PARTIALLY_VALIDATED" if recoverable else "SUPPORTER_TREATMENT_MARKET_PRESTIGE_NOT_VALIDATED"; updated=9485+len(recoverable)
-    boss=[x for x in cohort if x["functionalId"]=="boss s orders"]
+    boss=[x for x in cohort if x["functionalId"]=="boss s orders"];boss_effects={era:{"baseline":m["current"]["baselineTreatment"],"effects":{t:v for t,v in m["current"]["coefficients"].items() if t in {x["treatment"] for x in boss if x["era"]==era}}} for era,m in available.items() if any(x["era"]==era for x in boss)}
     examples=[]
     for target in [ranking[0]["functionalId"] if ranking else None,ranking[len(ranking)//2]["functionalId"] if ranking else None,ranking[-1]["functionalId"] if ranking else None]:
         if target:examples.append({"functionalId":target,"ranking":next(x for x in ranking if x["functionalId"]==target),"gap":next((x for x in gaps if x["functionalId"]==target),None)})
+    cv_results={}
+    for era in available:
+        era_rows=[x for x in recoverable if x["era"]==era];competitive=[x for x in era_rows if x.get("competitivePlayDemand") is not None]
+        cv_results[era]={"modelA":within_identity_cv(era_rows,False),"modelB":within_identity_cv(competitive,True) if len({x["functionalId"] for x in competitive})>=20 else {"status":"INSUFFICIENT_COMPETITIVE_IDENTITIES"}}
     result={"studyId":"supporter-treatment-market-prestige-v3s-r2-"+stable_hash({"contract":CONTRACT,"cohort":stable_hash(cohort),"v1":v1["studyId"]})[:16],"builtAt":datetime.now(timezone.utc).isoformat(),"contract":CONTRACT,"frozenCohort":{"cards":len(cohort),"hash":stable_hash(cohort),"source":str(COHORT_SOURCE),"competitiveSourceStudy":v1["studyId"]},"identityAudit":audit,"treatmentOntology":ont,"comparisonUniverseArchitecture":"SUPERTYPE_RELATIVE_WITHIN_ERA","eraModels":models,"supportedTreatmentContrasts":{era:list(m["current"]["coefficients"]) for era,m in available.items()},"magnitudeScore":mag,"competitivePlayDemandRanking":ranking,"playDemandStrata":strata,"treatmentPremiumByStratum":strata["summary"],"twoStageInteraction":two,"hierarchicalInteraction":hier,"modelA":{"specification":"functional identity FE + treatment + set FE","results":{era:m.get("current") for era,m in models.items() if m.get("current")}},"modelB":{"specification":"Model A + treatment x frozen Competitive Play Demand","result":hier},"modelComparison":{"interactionSelectionRule":CONTRACT["interactionRule"],"decision":"MODEL_A_RETAINED" if interaction=="PLAYABILITY_INTERACTION_NOT_SUPPORTED" else "MODEL_B_RESEARCH_ONLY"},"interactionStatus":interaction,"characterDemand":{"limitation":"Authoritative character identity/popularity metadata remains absent and may confound some treatment gaps.","sensitivity":"NOT_RUN_NO_INDEPENDENTLY_DEFINED_CHARACTER_HEAVY_SUBGROUP"},"bossOrdersCaseStudy":{"supported":bool(boss),"functionalLayer":next((x for x in ranking if x["functionalId"]=="boss s orders"),None),"treatmentLayer":next((x for x in gaps if x["functionalId"]=="boss s orders"),None),"printings":len(boss)},"additionalExamples":examples,"treatmentIdentificationStatus":ident_status,"supporterV3Status":v3status,"recovery":{"safeFunctionalIdentities":len(safe),"crossTreatmentIdentities":len(cross),"modelIdentifiableCards":sum(m.get("cards",0) for m in models.values() if m.get("identification")=="TREATMENT_IDENTIFIABLE"),"temporallyValidatedCards":len(recoverable),"treatmentEligibleCards":len(recoverable),"universeEligibleCards":len(recoverable),"finalDownstreamValidCards":len(recoverable)},"coverage":{"starting":9485,"incremental":len(recoverable),"updated":updated,"percentage":updated/19847,"remainingTo70":13893-updated,"decision":"SUPPORTER_RECOVERY_MATERIAL" if len(recoverable)>=198 else "SUPPORTER_RECOVERY_LIMITED"},"weeklyRetentionRecommendation":"Freeze versioned weekly Competitive Play Demand snapshots with reference date, window, metrics, event/deck counts, provenance, and content hash for future functional-card x date panels.","correctedV1Interpretation":"Competitive Play Demand main-effect absorption by functional identity FE remains correct; it does not imply treatment-effect non-identification. Round 2 separately tests within-functional-identity treatment contrasts.","rowsPersisted":0,"productionBehavior":"Unchanged and paused; research artifacts only. No migrations, score publication, UI, V1/V2, appeal, RIP, or ranking changes.","filesChanged":[str(Path(__file__)),str(STUDY),str(REPORT),str(OUT/"frozen_supporter_cohort.json"),str(OUT/"functional_identity_audit.json"),str(OUT/"manifest.json")],"testsExecuted":["cohort conservation/hash","within-identity rank audit","four-checkpoint temporal validation","leave-one-set-out validation","interaction diagnostics","coverage arithmetic","full V3 regression"],"remainingLimitations":["character-demand control unavailable","Competitive Play Demand covers 67 Supporter identities only","V1 source excludes a documented comprehensive major/offline corpus","cross-sectional prices are observational","unsupported eras fail closed"],"recommendedNextTask":"Retain weekly Competitive Play Demand snapshots and acquire independent character metadata; production remains paused. Extend only failed Supporter eras with preregistered structural regimes or more history, without weakening gates."}
+    result["modelComparison"]={"crossValidation":cv_results,"interactionSelectionRule":CONTRACT["interactionRule"],"decision":"MODEL_A_RETAINED" if interaction=="PLAYABILITY_INTERACTION_NOT_SUPPORTED" else "MODEL_B_RESEARCH_ONLY"}
+    result["bossOrdersCaseStudy"]={"supported":bool(boss_effects),"functionalLayer":next((x for x in ranking if x["functionalId"]=="boss s orders"),None),"treatmentLayer":{"rawIdentityGap":next((x for x in gaps if x["functionalId"]=="boss s orders"),None),"supportedEraEffects":boss_effects},"printings":len(boss)}
     OUT.mkdir(parents=True,exist_ok=True);(OUT/"frozen_supporter_cohort.json").write_text(json.dumps(cohort,indent=2),encoding="utf-8");(OUT/"functional_identity_audit.json").write_text(json.dumps(identity_records,indent=2),encoding="utf-8");return result
 
 

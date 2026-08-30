@@ -143,7 +143,7 @@ export default function SetMarketMobileSetValue({
     () => ({ cards: cardsTrend, sealed: sealedTrend, graded: gradedTrend }),
     [cardsTrend, gradedTrend, sealedTrend]
   );
-  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedSummaryState.status)
+  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["idle", "loading", "error"].includes(sealedSummaryState.status)
     ? "sealed"
     : resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
   const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
@@ -156,7 +156,7 @@ export default function SetMarketMobileSetValue({
       buildMarketSegmentRows(trendsByKey).map((row) => ({
         value: row.key,
         label: row.label,
-        disabled: row.key === "sealed" && sealedSummaryState.status === "loading" ? false : !row.selectable,
+        disabled: row.key === "sealed" && ["idle", "loading", "error"].includes(sealedSummaryState.status) ? false : !row.selectable,
       })),
     [sealedSummaryState.status, trendsByKey]
   );
@@ -217,7 +217,11 @@ export default function SetMarketMobileSetValue({
             mobileFullWidth
           />
 
-          {activeTrend.available ? (
+          {resolvedSegmentKey === "sealed" && ["idle", "loading", "error"].includes(sealedSummaryState.status) && !sealedSummaryState.payload ? (
+            <div data-market-mobile-sealed-request-state className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-6 text-center text-[13px] text-[var(--text-secondary)]">
+              {["idle", "loading"].includes(sealedSummaryState.status) ? "Loading Sealed marketâ€¦" : sealedSummaryState.error}
+            </div>
+          ) : activeTrend.available ? (
             <>
               <div data-market-mobile-set-value-summary className="min-w-0">
                 <MarketValueChange

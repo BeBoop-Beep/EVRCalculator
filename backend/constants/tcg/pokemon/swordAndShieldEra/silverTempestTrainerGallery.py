@@ -1,6 +1,12 @@
 from .baseConfig import BaseSetConfig
 
 class SetSilverTempestTrainerGalleryConfig(BaseSetConfig):
+    PARENT_SET_KEY = "silverTempest"
+    IS_SUBSET = True
+    SUBSET_TYPE = "trainer_gallery"
+    COUNTS_TOWARD_PARENT_SET_VALUE = True
+    COUNTS_TOWARD_PARENT_OPENING = True
+    SUPPORTS_OPENING_SIMULATION = False
     SET_NAME = 'Silver Tempest Trainer Gallery'
     SET_ABBREVIATION = 'SIT'
 

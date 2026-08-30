@@ -1,6 +1,12 @@
 from .baseConfig import BaseSetConfig
 
 class SetAstralRadianceTrainerGalleryConfig(BaseSetConfig):
+    PARENT_SET_KEY = "astralRadiance"
+    IS_SUBSET = True
+    SUBSET_TYPE = "trainer_gallery"
+    COUNTS_TOWARD_PARENT_SET_VALUE = True
+    COUNTS_TOWARD_PARENT_OPENING = True
+    SUPPORTS_OPENING_SIMULATION = False
     SET_NAME = 'Astral Radiance Trainer Gallery'
     SET_ABBREVIATION = 'ASR'
 
