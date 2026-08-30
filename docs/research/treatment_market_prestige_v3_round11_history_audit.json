@@ -1,0 +1,100 @@
+{
+  "readOnly": true,
+  "source": {
+    "relation": "public.card_variant_price_observations",
+    "identity": "card_variant_id -> immutable Round 5 canonical card/variant mapping",
+    "condition": "Near Mint condition_id resolved canonically from public.conditions",
+    "price": "positive finite USD market_price",
+    "market_date": "captured_at/captured_date",
+    "retention": "daily observations; unique by variant, condition, source, captured_date; latest scrape wins within day",
+    "checkpoint": "latest authoritative observation in fixed seven-day window ending at reference date; no interpolation",
+    "publication": "observations, not reconstructed current prices"
+  },
+  "conditionId": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+  "checkpointDates": [
+    "2026-05-31",
+    "2026-06-30",
+    "2026-07-30",
+    "2026-08-29"
+  ],
+  "selectedVariants": 5832,
+  "summary": {
+    "EX": {
+      "cards": 1701,
+      "perDateAvailable": {
+        "2026-05-31": 1678,
+        "2026-06-30": 1673,
+        "2026-07-30": 1673,
+        "2026-08-29": 1638
+      },
+      "perDateCoverage": {
+        "2026-05-31": 0.9864785420340976,
+        "2026-06-30": 0.9835390946502057,
+        "2026-07-30": 0.9835390946502057,
+        "2026-08-29": 0.9629629629629629
+      },
+      "allFourCards": 1620,
+      "allFourCoverage": 0.9523809523809523,
+      "anyHistoryCards": 1693,
+      "missingAllHistoryCards": 8
+    },
+    "Black and White": {
+      "cards": 1447,
+      "perDateAvailable": {
+        "2026-05-31": 1404,
+        "2026-06-30": 1401,
+        "2026-07-30": 1408,
+        "2026-08-29": 1428
+      },
+      "perDateCoverage": {
+        "2026-05-31": 0.9702833448514168,
+        "2026-06-30": 0.9682100898410505,
+        "2026-07-30": 0.9730476848652384,
+        "2026-08-29": 0.986869384934347
+      },
+      "allFourCards": 1387,
+      "allFourCoverage": 0.9585348997926745,
+      "anyHistoryCards": 1442,
+      "missingAllHistoryCards": 5
+    },
+    "Trainer": {
+      "cards": 2718,
+      "perDateAvailable": {
+        "2026-05-31": 2646,
+        "2026-06-30": 2670,
+        "2026-07-30": 2650,
+        "2026-08-29": 2694
+      },
+      "perDateCoverage": {
+        "2026-05-31": 0.9735099337748344,
+        "2026-06-30": 0.9823399558498896,
+        "2026-07-30": 0.9749816041206769,
+        "2026-08-29": 0.9911699779249448
+      },
+      "allFourCards": 2623,
+      "allFourCoverage": 0.9650478292862399,
+      "anyHistoryCards": 2717,
+      "missingAllHistoryCards": 1
+    },
+    "Energy": {
+      "cards": 371,
+      "perDateAvailable": {
+        "2026-05-31": 358,
+        "2026-06-30": 360,
+        "2026-07-30": 358,
+        "2026-08-29": 367
+      },
+      "perDateCoverage": {
+        "2026-05-31": 0.9649595687331537,
+        "2026-06-30": 0.9703504043126685,
+        "2026-07-30": 0.9649595687331537,
+        "2026-08-29": 0.9892183288409704
+      },
+      "allFourCards": 355,
+      "allFourCoverage": 0.9568733153638814,
+      "anyHistoryCards": 371,
+      "missingAllHistoryCards": 0
+    }
+  },
+  "observationIdentityHash": "f3e98c177c41ffb8045f9d22463420a91b92d28ced0ecfab0e6929696fcb4404"
+}

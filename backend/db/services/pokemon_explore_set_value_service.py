@@ -30,6 +30,13 @@ MARKET_PAGE_OVERVIEW_FIELDS = (
     "contractVersion", "windowSemantics", "comparisonWindows",
     "comparisonWindowContractVersion", "sourceGenerationFingerprint",
 )
+INITIAL_SELECTED_SET_MOVERS_LIMIT = 10
+INITIAL_SELECTED_SET_MOVER_FIELDS = (
+    "canonicalCardId", "cardVariantId", "conditionId", "setId", "name",
+    "rarity", "cardNumber", "imageSmallUrl", "marketPrice", "changeAmount",
+    "changePercent", "window", "windowDays", "startDate", "endDate",
+    "reliable", "reliability", "fullWindowCoverage", "isPartialWindow",
+)
 
 
 class ExploreSetValueUnavailable(Exception):
@@ -41,6 +48,30 @@ class ExploreSetValueUnavailable(Exception):
 def _text(value: Any) -> Optional[str]:
     value = str(value or "").strip()
     return value or None
+
+
+def read_initial_selected_set_movers(client: Any, selected: Mapping[str, Any]) -> Dict[str, Any]:
+    """Read the canonical prepared 7D mover list for one selected Set."""
+    set_id = str(selected.get("setId") or "")
+    if not set_id:
+        return {}
+    result = (client.table("pokemon_set_cards_snapshot_latest")
+        .select("updated_at,snapshot_meta:payload_json->meta->snapshot,items:payload_json->canonicalMarketMoversByWindow->7D->all")
+        .eq("set_id", set_id).limit(1).execute())
+    source = (result.data or [{}])[0]
+    items = [
+        {key: card.get(key) for key in INITIAL_SELECTED_SET_MOVER_FIELDS if card.get(key) is not None}
+        for card in (source.get("items") or [])[:INITIAL_SELECTED_SET_MOVERS_LIMIT]
+        if isinstance(card, dict)
+    ]
+    snapshot = source.get("snapshot_meta") if isinstance(source.get("snapshot_meta"), dict) else {}
+    return {
+        "setId": set_id,
+        "window": "7D",
+        "marketDate": snapshot.get("marketAsOfDate") or selected.get("setValueAsOf"),
+        "items": items,
+        "meta": {"source": "canonical_cards_published_movers"},
+    }
 
 
 def _number(value: Any) -> Optional[float]:
@@ -263,6 +294,11 @@ def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segm
     if not rows:
         raise ExploreSetValueUnavailable("global Market Set Value snapshot is unavailable")
     payload = dict(rows[0].get("payload_json") or {})
+    published_sets = payload.get("sets") if isinstance(payload.get("sets"), list) else []
+    if not isinstance(payload.get("initialSelectedSetMovers"), Mapping) and published_sets:
+        # Compatibility for the currently deployed publication. Future builds
+        # persist this block, keeping the normal path to one snapshot read.
+        payload["initialSelectedSetMovers"] = read_initial_selected_set_movers(active, published_sets[0])
     overview = payload.get("marketOverview")
     if isinstance(overview, Mapping) and not include_explorer_segments:
         # The persisted publication also contains deep card/sealed segment

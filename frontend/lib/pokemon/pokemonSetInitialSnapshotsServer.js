@@ -193,10 +193,7 @@ export async function getPokemonSetMarketBootstrapInitialSnapshot(setId, { windo
   return loadInitialSnapshot(url, {
     moduleName: "market bootstrap",
     normalizePayload: normalizeOverviewPayload,
-    nextCacheOptions: {
-      revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S,
-      tags: [`pokemon-set-market-bootstrap:${resolvedSetId}:${normalizedWindow}`],
-    },
+    entitlementSensitive: true,
     timeoutMs: getOverviewTimeoutMs(),
   });
 }
@@ -354,11 +351,16 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   const resolvedTab = resolveSetDetailTab(tab);
   const wantsMarketSeed = resolvedTab === "market";
   const wantsRipBootstrap = resolvedTab === "overview";
+  const marketBootstrapPromise = wantsMarketSeed
+    ? getPokemonSetMarketBootstrapInitialSnapshot(setId)
+    : Promise.resolve(EMPTY_INITIAL_SNAPSHOT);
   const [shell, cards, marketDashboard, overview, marketMovers, ripBootstrap] = await Promise.all([
     getPokemonSetShellInitialSnapshot(setId),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
-    wantsMarketSeed ? getPokemonSetTopChaseInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
-    wantsMarketSeed ? getPokemonSetMarketBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    // The bootstrap carries a compact Top 10 preview. Full per-card histories
+    // are progressive and must not block the Market route's first paint.
+    marketBootstrapPromise,
+    marketBootstrapPromise,
     wantsMarketSeed ? getPokemonSetMarketMoversInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     wantsRipBootstrap ? getPokemonSetRipBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
   ]);

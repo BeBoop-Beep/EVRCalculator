@@ -19,6 +19,21 @@ test("locked Cards is discoverable but cannot fetch Premium rows", () => {
   assert.match(cards, /data-card-chase-efficiency-locked/);
 });
 
+test("locked Cards preview contains no ranked or numeric Premium intelligence", () => {
+  const previewStart = cards.indexOf("data-card-chase-efficiency-locked-preview");
+  const previewEnd = cards.indexOf('<p className="mt-5', previewStart);
+  assert.ok(previewStart >= 0, "locked preview test boundary exists");
+  assert.ok(previewEnd > previewStart, "locked preview has a stable scoped end boundary");
+  const preview = cards.slice(previewStart, previewEnd);
+
+  for (const priorLeak of ["#1", "#2", "#3", "$700", "$965", "$1,400", "1 in 400", "2.7×", "CE 0.0864"]) {
+    assert.equal(preview.includes(priorLeak), false, priorLeak);
+  }
+  for (const analyticalPattern of [/\$\s*\d/, /#\s*\d/, /\b1\s+in\s+\d/i, /\bCE\s+\d/i, /\d+(?:\.\d+)?\s*[×x]\b/i]) {
+    assert.doesNotMatch(preview, analyticalPattern);
+  }
+});
+
 test("filters and sorting are sent to the backend and rows are never re-ranked locally", () => {
   for (const key of ["search", "era", "set", "rarity", "min_price", "max_price", "sort", "direction", "page", "page_size"]) assert.ok(cards.includes(key), key);
   assert.match(cards, /fetch\(`\/api\/explore\/card-chase-efficiency\?\$\{params\}`/);

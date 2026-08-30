@@ -9,11 +9,27 @@ const TTL = 120_000;
 // reconstruction below must carry all three — an earlier version rebuilt only
 // { sets, meta } and silently dropped the published Market Overview, so the
 // page had no way to render it without inventing the numbers itself.
-const unavailable = (stale = null) => stale
+export const unavailableExploreSetValueMarket = (stale = null) => stale
   ? { ...stale, marketOverview: stale.marketOverview ?? null, meta: { ...(stale.meta || {}), stale: true, requestFailed: true } }
   : { marketOverview: null, sets: [], meta: { requestFailed: true, warnings: ["Global Set Value snapshot unavailable"] } };
 
+export function normalizeExploreSetValueMarket(payload) {
+  return {
+    marketOverview: payload?.marketOverview && typeof payload.marketOverview === "object" ? payload.marketOverview : null,
+    sets: Array.isArray(payload?.sets) ? payload.sets : [],
+    initialSelectedSetMovers:
+      payload?.initialSelectedSetMovers && typeof payload.initialSelectedSetMovers === "object"
+        ? payload.initialSelectedSetMovers
+        : null,
+    meta: payload?.meta || {},
+  };
+}
+
 export const getExploreSetValueMarket = cache(async function getExploreSetValueMarket() {
+  // Keep the public fallback in scope for both non-OK responses and transport
+  // exceptions. The previous declaration lived inside `try`, so the catch path
+  // itself threw a ReferenceError and discarded an otherwise valid stale seed.
+  const cached = processCache.get("public-market");
   try {
     const cookieHeader = (await cookies()).toString();
     const preparedResponse = await fetch(`${getBackendApiBaseUrl()}/market/explorer/snapshot`, {
@@ -25,23 +41,14 @@ export const getExploreSetValueMarket = cache(async function getExploreSetValueM
     const response = preparedResponse.ok
       ? preparedResponse
       : await fetch(`${getBackendApiBaseUrl()}/explore/set-value-market`, { cache: "no-store" });
-    const cached = processCache.get("public-market");
-    if (!response.ok) return unavailable(cached?.data);
+    if (!response.ok) return unavailableExploreSetValueMarket(cached?.data);
     const payload = await response.json();
-    const data = {
-      marketOverview: payload?.marketOverview && typeof payload.marketOverview === "object" ? payload.marketOverview : null,
-      sets: Array.isArray(payload?.sets) ? payload.sets : [],
-      initialSelectedSetMovers:
-        payload?.initialSelectedSetMovers && typeof payload.initialSelectedSetMovers === "object"
-          ? payload.initialSelectedSetMovers
-          : null,
-      meta: payload?.meta || {},
-    };
+    const data = normalizeExploreSetValueMarket(payload);
     if (!preparedResponse.ok) {
       processCache.set("public-market", { data, expiresAt: Date.now() + TTL });
     }
     return data;
   } catch {
-    return unavailable(cached?.data);
+    return unavailableExploreSetValueMarket(cached?.data);
   }
 });

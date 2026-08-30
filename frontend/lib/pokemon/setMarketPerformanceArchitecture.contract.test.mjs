@@ -17,7 +17,7 @@ test("Market and RIP routes use the slim route directory", () => {
 test("Market server seed uses the dedicated bootstrap projection", () => {
   assert.match(snapshots, /market\/bootstrap/);
   assert.match(snapshots, /getPokemonSetMarketBootstrapInitialSnapshot/);
-  assert.match(snapshots, /wantsMarketSeed \? getPokemonSetMarketBootstrapInitialSnapshot/);
+  assert.match(snapshots, /marketBootstrapPromise = wantsMarketSeed[\s\S]*getPokemonSetMarketBootstrapInitialSnapshot/);
 });
 
 test("a valid Market bootstrap seed suppresses immediate duplicate overview fetch", () => {
@@ -25,9 +25,10 @@ test("a valid Market bootstrap seed suppresses immediate duplicate overview fetc
   assert.match(client, /overview\.seed_satisfied_initial_resource/);
 });
 
-test("the visible 365d Top Chase preview is seeded and suppresses its first duplicate fetch", () => {
-  assert.match(snapshots, /market\/top-chase[\s\S]*url\.searchParams\.set\("window", "365d"\)[\s\S]*url\.searchParams\.set\("limit", "10"\)/);
-  assert.match(client, /if \(seededTopChasePayload && topChaseRetryNonce === 0\) return undefined/);
+test("compact Top Chase preview rides bootstrap while full histories remain progressive", () => {
+  assert.match(snapshots, /marketBootstrapPromise/);
+  assert.doesNotMatch(snapshots, /wantsMarketSeed \? getPokemonSetTopChaseInitialSnapshot/);
+  assert.match(client, /topChasePreviewOnly !== true/);
 });
 
 test("consumer sealed is opt-in and uses a bounded completed-resource cache", () => {
@@ -49,6 +50,11 @@ test("paid Market signals use a separate authenticated no-store request", () => 
   assert.match(signalsHook, /getPokemonSetMarketSignals/);
   assert.match(marketClient, /market\/signals/);
   assert.match(marketClient, /cache: "no-store"/);
+});
+
+test("bootstrap breadth seeds both responsive compositions without an initial duplicate", () => {
+  assert.match(client, /initialPayload: seededSignals/);
+  assert.match(signalsHook, /validSeed && requestVersion === 0/);
 });
 
 test("desktop and mobile share the bounded Market Signals retry hook", () => {

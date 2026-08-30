@@ -12,8 +12,6 @@ from typing import Any, Dict, Mapping, Optional
 
 from backend.db.clients.supabase_client import supabase
 from backend.desirability.treatment_market_prestige_v3 import normalize_label, stable_json_hash
-from backend.scripts.build_treatment_market_prestige_v3_round7 import load_freeze
-from backend.scripts.build_treatment_market_prestige_v3_round8 import matrices, rerun, verify_inputs
 
 ROOT = Path("docs/research")
 R4 = ROOT / "treatment_market_prestige_v3_round4_study.json"
@@ -41,6 +39,12 @@ def _rows(query: Any) -> list[dict[str, Any]]:
 
 def build_candidate_payload(*, bootstrap_draws: int = 399) -> dict[str, Any]:
     """Recompute one deterministic candidate from the validated frozen inputs."""
+    from backend.scripts.build_treatment_market_prestige_v3_round8 import (
+        matrices,
+        rerun,
+        verify_inputs,
+    )
+
     if bootstrap_draws != 399:
         raise ValueError("the validated production contract requires exactly 399 bootstrap draws")
     r4, r5, r6, r7, r8 = (_json(p) for p in (R4, R5, R6, R7, R8))

@@ -67,7 +67,13 @@ export default function SetMarketMobile({
     if (settled(setValue?.status) && settled(movers?.status)) loadSealedSummary();
   }, [setId, setValue?.status, movers?.status, loadSealedSummary]);
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
-  const signalsState = usePokemonSetMarketSignals(setId, { enabled: canViewSetMarketSignals });
+  const seededSignals = useMemo(() => setValue?.cardsMarket?.marketBreadth ? {
+    set: { id: setId }, marketBreadth: setValue.cardsMarket.marketBreadth,
+  } : null, [setId, setValue?.cardsMarket?.marketBreadth]);
+  const signalsState = usePokemonSetMarketSignals(setId, {
+    enabled: canViewSetMarketSignals,
+    initialPayload: seededSignals,
+  });
   const entitledSetValue = useMemo(() => ({
     ...setValue,
     cardsMarket: setValue?.cardsMarket

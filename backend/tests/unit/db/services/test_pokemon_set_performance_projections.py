@@ -13,6 +13,8 @@ def test_market_bootstrap_projection_never_selects_full_dashboard_payload():
     assert "payload_json->cardsMarket" in columns
     assert "set_value_histories_json->standard" in columns
     assert "set_value_histories_json->top10" in columns
+    assert "top_chase_cards_json" in columns
+    assert "top_chase_card_histories_json" not in columns
     assert "performance_vs_cost_history_json" not in columns
     assert ",payload_json," not in f",{columns},"
 
@@ -67,18 +69,28 @@ def test_market_bootstrap_does_not_publish_summary_top10_as_history():
     assert '"chaseConcentration"' in builder
 
 
-def test_public_bootstrap_and_paid_signal_boundary_are_separate():
+def test_bootstrap_projects_optional_paid_breadth_server_side():
     source = (ROOT / "backend/api/main.py").read_text()
     bootstrap_start = source.index("def get_pokemon_set_market_bootstrap(")
     signals_start = source.index("def get_pokemon_set_market_signals(")
     bootstrap = source[bootstrap_start:signals_start]
     signals = source[signals_start:source.index("\n\n@app.get(", signals_start)]
-    assert "filter_set_market_signal_access(payload, None)" in bootstrap
-    assert "authorization" not in bootstrap
-    assert "has_index_plus_access(plan)" in signals
-    assert 'status_code=403' in signals
+    assert "_resolve_index_plan(authorization, token_cookie)" in bootstrap
+    assert "filter_set_market_signal_access(payload, plan)" in bootstrap
+    assert '"Cache-Control": "private, no-store"' in bootstrap
+    assert "_require_index_feature(" in signals
     assert "get_pokemon_set_market_signals_snapshot_payload" in signals
     assert '"Cache-Control": "no-store"' in signals
+
+
+def test_market_bootstrap_embeds_compact_chase_preview_without_histories():
+    source = (ROOT / "backend/db/services/pokemon_public_snapshot_service.py").read_text()
+    start = source.index("def get_pokemon_set_market_bootstrap_snapshot_payload")
+    end = source.index("\ndef ", start + 10)
+    builder = source[start:end]
+    assert '"topChaseCards": _compact_top_chase_preview' in builder
+    assert "top_chase_card_histories_json" not in builder
+    assert '"topChasePreviewOnly": True' in builder
 
 
 def test_market_signals_projection_is_breadth_only():

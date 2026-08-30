@@ -14,7 +14,7 @@ test("Rankings owns one publication and identity scoped session cache", () => {
 test("idle warming is sequential, conservative, and entitlement aware", () => {
   assert.match(lazy, /requestIdleCallback/);
   assert.match(lazy, /navigator\.connection\?\.saveData/);
-  const order = ["lensModules.eraEconomics", "loadEra()", "loadSets()", "warmProducts()", "warmCards()"];
+  const order = ["lensModules.eras", "lensModules.eraEconomics", "loadEra()", "loadSets()", "warmProducts()", "warmCards()"];
   let cursor = -1;
   for (const item of order) { cursor = lazy.indexOf(item, cursor + 1); assert.ok(cursor >= 0, item); }
   assert.match(lazy, /canViewCardChaseEfficiency \? Promise\.all/);

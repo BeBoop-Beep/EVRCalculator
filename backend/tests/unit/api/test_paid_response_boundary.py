@@ -156,6 +156,26 @@ def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
     ))
 
 
+def test_rankings_lens_resolves_canonical_profile_once(monkeypatch):
+    calls = 0
+
+    def me(_token):
+        nonlocal calls
+        calls += 1
+        return {"user": {"id": "user-plus", "index_plan": "plus"}}, 200
+
+    monkeypatch.setattr(main, "get_me", me)
+    monkeypatch.setattr(main, "decode_token", lambda _token: ({"id": "user-plus"}, None))
+    monkeypatch.setattr(main, "get_pokemon_explore_rankings_lens_payload", lambda lens, limit=None: {
+        "eraSetStrengthV1": {"methodologyVersion": "era-v1", "eras": []}, "meta": {}
+    })
+    response = TestClient(main.app).get(
+        "/explore/rankings/lens/eras", headers=_headers("plus-token")
+    )
+    assert response.status_code == 200
+    assert calls == 1
+
+
 def test_public_opening_economics_stays_public_but_detailed_pack_values_are_plus(monkeypatch):
     _install_auth(monkeypatch)
     fixture = {
