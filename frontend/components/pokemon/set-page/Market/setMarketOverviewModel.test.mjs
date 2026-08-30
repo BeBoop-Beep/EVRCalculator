@@ -32,6 +32,32 @@ test("history normalization speaks one vocabulary for cards and sealed", () => {
   assert.equal(sealed[0].setValue, 10, "the sealed snapshot's marketPrice must fold into setValue");
 });
 
+test("every analytical set with prepared consumer history resolves Sealed as available and selectable", () => {
+  const analyticalSets = [
+    "Ascended Heroes",
+    "Paldea Evolved",
+    "White Flare",
+    "Prismatic Evolutions",
+    "Surging Sparks",
+    "Scarlet and Violet 151",
+    "Mega Evolution",
+    "Temporal Forces",
+  ];
+  for (const name of analyticalSets) {
+    const valueHistory = dailyHistory([100, name === "Paldea Evolved" ? 2436.85 : name === "White Flare" ? 740.93 : 125], { valueKey: "marketPrice" });
+    const marketIndex = {
+      currentValue: 101,
+      history: dailyHistory([100, 101], { valueKey: "indexValue" }),
+      movements: { "7D": { available: true, percent: 1 } },
+    };
+    const sealed = selectPreparedSegmentTrend({ valueHistory, marketIndex, trackedItemCount: 4 });
+    const row = buildMarketSegmentRows({ sealed }).find((candidate) => candidate.key === "sealed");
+    assert.equal(sealed.available, true, `${name} has a Sealed trend`);
+    assert.equal(row.selectable, true, `${name} has a selectable Sealed lens`);
+    assert.notEqual(row.unavailableReason, SEGMENT_UNAVAILABLE_TEXT);
+  }
+});
+
 test("history normalization sorts and drops undated points", () => {
   const points = normalizeSegmentHistory([
     { date: "2026-01-03", setValue: 3 },
