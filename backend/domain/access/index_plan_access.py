@@ -265,6 +265,7 @@ _BASE_MARKET_TOP_LEVEL = frozenset({
     "availableScopes", "available_scopes", "setValueHistoriesByScope",
     "set_value_histories_by_scope", "performanceVsCostHistory",
     "performance_vs_cost_history", "topChaseCards", "top_chase_cards",
+    "chaseConcentration", "chase_concentration",
     "topChaseCardHistories", "top_chase_card_histories", "marketMovers",
     "market_movers", "marketMoversByWindow", "market_movers_by_window", "meta",
 })

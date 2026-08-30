@@ -154,8 +154,15 @@ export default function RankingsLazyClient({
       else setTimeout(run, 180);
     });
     (async () => {
-      await idle(() => Promise.all([lensModules.eraEconomics(), lensModules.setEconomics()]));
-      await idle(() => canViewRankingsIntelligence ? loadEra() : null);
+      // Era is the first non-default interaction. Its tiny prepared response
+      // and rendering chunk warm together in the first safe idle slot so a
+      // click never serially pays module + API latency.
+      await idle(() => Promise.all([
+        lensModules.eras(),
+        lensModules.eraEconomics(),
+        lensModules.setEconomics(),
+        canViewRankingsIntelligence ? loadEra() : Promise.resolve(null),
+      ]));
       await idle(() => loadSets());
       await idle(() => warmProducts());
       await idle(() => canViewCardChaseEfficiency ? Promise.all([lensModules.cards(), warmCards()]) : null);

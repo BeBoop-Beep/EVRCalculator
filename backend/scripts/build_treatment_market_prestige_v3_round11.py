@@ -39,7 +39,7 @@ def structures(rows,setmap):
 
 def older_models(rows,obs,struct):
  results={}
- for era in ("EX","Black and White"):
+ for era in struct:
   for reg in struct[era]["universes"]:
    setids=set(reg["setIds"]);series=[];current=[]
    for date in obs["checkpointDates"]:
