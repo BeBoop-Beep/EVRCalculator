@@ -1,0 +1,4103 @@
+{
+  "readOnly": true,
+  "era": "E-Card",
+  "eligibleCards": 415,
+  "missingCardDates": 454,
+  "rootCauses": {
+    "HISTORICAL_OBSERVATIONS_NEVER_RETAINED": 273,
+    "PRICE_CONDITION_MISMATCH": 26,
+    "INCOMPLETE_SOURCE_INGESTION": 155
+  },
+  "safeRepairedObservations": 0,
+  "repairedAllFourCoverage": 0.6265060240963856,
+  "reason": "Observations outside the fixed seven-day checkpoint window cannot be substituted or interpolated.",
+  "records": [
+    {
+      "canonicalCardId": "b660bdba-88d2-4995-8ac5-e619980991d2",
+      "variantId": "475875d2-944d-40d7-b975-6a376d3e8ab3",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "de2ff97b-1227-4555-aa29-cc2f35166fea",
+      "variantId": "fb78ea62-207e-46e0-961c-96dd4eef864f",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1a09541a-ad0e-4774-b7e0-e9b5e7c8f982",
+      "variantId": "300a3ccc-a311-48f5-9e41-17b4c5128e84",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0f00b55f-fe35-4d16-b735-ac70830cbf86",
+      "variantId": "5793dfa7-af14-46c4-937c-229e626830aa",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2b672366-c6f2-48ac-ba5a-418eca5be4b0",
+      "variantId": "41b529c9-619f-4366-87b5-4df075463a4c",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6386668e-07f6-482a-ad70-8f68d72bbcda",
+      "variantId": "cc76d360-3944-41d2-947c-1babe6594ac1",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4094866c-310c-4685-ba4f-89f25fc80270",
+      "variantId": "33508edc-6e82-4b20-b94c-1f9a3a4fee8d",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e1dc5fd6-3042-4533-a22c-4be32299101d",
+      "variantId": "fcd9efdd-aa9d-4f0d-9257-f4856a19184b",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d9e8e8ea-037b-404c-86d9-327cb2ae3d49",
+      "variantId": "0c7ce1fc-f13b-44fe-9725-6c7d45fc06bb",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "701876e4-3bfb-477b-8575-fa02824536a1",
+      "variantId": "0d456e65-043a-4d95-8ce0-597ec422299c",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "28795448-5728-4b4b-8dd3-ce0e85120fb6",
+      "variantId": "fb55263c-b066-4d0c-a1f0-8b5cc665fbff",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bf520a64-01f6-4447-bf12-afd268b5596d",
+      "variantId": "035dcb54-89b0-4075-8c6e-154de4cf0d01",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e7710510-a674-40f5-be20-c56a91b0edc1",
+      "variantId": "71e018ff-cad7-49eb-adc0-95e1cb4678e5",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8929e121-52c3-4753-9ed4-a088e2527a86",
+      "variantId": "4bcd254e-1ac8-4e79-8f09-cfc68f4a3dcb",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "845c1f94-e7e0-4da2-bd26-5cc5c9341288",
+      "variantId": "473ad189-0133-4b4b-8d28-e79ab29d7293",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6c4bf1ee-5810-474b-addd-44baa596e431",
+      "variantId": "67ddeda0-d36a-4c4d-96d6-01666d55feff",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dfe79949-53dc-4481-8138-642d880f1a35",
+      "variantId": "042de8a9-123f-490a-bc4c-2c34ee489cc6",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ccad56f5-0091-451d-9895-16e5959959b0",
+      "variantId": "615be6d7-12b5-4e71-875f-35cb0d07933c",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c7c8e4b3-807e-44e1-8d98-b63dd0dadcb7",
+      "variantId": "eb265a16-2090-4cea-922f-24ff069ff7fc",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "009e388e-7425-45a2-a9db-26f5a4c25cd8",
+      "variantId": "79bc08fd-797c-4c21-93e9-752a525c309d",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "83b3445a-730c-42b1-af24-1f1274a4a557",
+      "variantId": "679d573b-c3b2-441b-af3e-884ee55af5ed",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1aba44c1-ccd0-4c13-a707-7ef0670515b6",
+      "variantId": "6be5c021-6f52-4254-9318-990e9161b9de",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f0c06f81-4b0a-4c15-9e0f-7f6e5cce8111",
+      "variantId": "f4df876a-e9d8-424c-b0a8-0fb320621888",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "3998d880-3659-4896-ad2f-6782548b9282",
+      "variantId": "e2b2ac45-8bc4-4fa5-be0a-3221e00b27c6",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "460e6a2d-2ca0-41d3-b2ff-7f87e3753cad",
+      "variantId": "580d55f8-9031-4261-ba0c-27eb729d6404",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4795f295-cb81-409d-8b4c-c8330781ae02",
+      "variantId": "19520681-ef0f-4535-8e0d-15ab0c50d054",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "918dfc2c-a50c-44f0-b14b-73e8a1339959",
+      "variantId": "2c81e517-1c0d-4c8c-ae1b-e70ae04e8125",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "02464bcd-5e97-4d9b-a991-a92ac55d6cb9",
+      "variantId": "d79739b7-3580-4427-8aa9-26152eb72358",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "afe63def-e317-4f19-9fbc-b711e430bcdc",
+      "variantId": "2e0e02d5-4924-46f3-b84e-994517bb3c63",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "06ed854d-7ae2-414e-bcf3-98253bb8604d",
+      "variantId": "24220f53-77d1-4cd4-ae94-e8c8ad0dc2ae",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a5c6782b-f780-4188-b136-1d83720a2bd6",
+      "variantId": "0fb91d14-546e-4efa-ad49-c2a30a11a2b9",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "55c7b5dc-1a93-4637-845b-ec98cc0454a9",
+      "variantId": "8c5f2c60-28de-49b5-a6ef-66aa3e219924",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7dd8d8a2-f085-44cb-9c16-f35347c6b526",
+      "variantId": "400c0eae-6643-416e-a70e-6fe6525e674e",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d74ad2c6-0512-45d4-bee6-5f79c5d8f6fa",
+      "variantId": "92116086-e3a1-4381-8375-8b194f25312f",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "497c2d78-0a51-4ec0-9782-02fdb4730cc2",
+      "variantId": "99fd29c6-aaeb-4a81-9013-5c31493b5508",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ef9007bc-dce4-4532-ae65-73f62b981959",
+      "variantId": "50d9fdfc-1e67-4926-b710-6e60eb20cf32",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "825684b7-c15f-4563-ab89-ec3ba1bfebcf",
+      "variantId": "8f9249b4-b9e3-4985-bcab-9a5e6a3c5375",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "3c4db5fa-6831-4129-881c-fbf10a8d204c",
+      "variantId": "779f1ff8-a2de-441a-947f-0e0cd7547010",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "790a6892-6be2-46a2-92de-94524512d469",
+      "variantId": "7d625373-fd27-4513-9609-db45a8d1600c",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "56fc7ed0-9aaa-405e-ac7d-7ba6c73a307d",
+      "variantId": "a48f1859-3709-4ef6-be68-afd282e53338",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7e4b92ec-fe91-4b50-80e4-47d67525ad6e",
+      "variantId": "e74d3e31-883d-4b6e-80d2-4ebd8c483a07",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "98856063-190f-4172-b0bb-869e28577abd",
+      "variantId": "159bdf73-3622-4f2b-a3e1-ebb517c1e9a0",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0c293021-ebf5-44e9-be54-c1d04ff2f0e8",
+      "variantId": "49b8862d-6ef3-480f-ad16-4d967797acbc",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "633b164a-cc52-4029-89a0-8535fd1fa6d0",
+      "variantId": "fccf66c3-114c-4fc9-85ae-72578eba87aa",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "acd6cc27-cc18-40da-b026-c48bcb72b947",
+      "variantId": "34de6238-307b-477f-9909-c0cf171ca13f",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e4150993-ae27-4a14-a9cd-b5e6c4d52a25",
+      "variantId": "b9328f31-4f52-4bd6-9459-8aea2cb65dc6",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ff2a54bb-5cde-4065-b3b6-d50b5c91d8c0",
+      "variantId": "8574f2ef-cd09-4ceb-bd1b-b1fd7a0956a6",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8e6a93e7-9e81-4308-ac4e-bd73b20046c1",
+      "variantId": "3af79bb6-6812-41f4-a63f-cb1c78490455",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ff6ba9d2-c422-43b9-8c86-8ed554807e4d",
+      "variantId": "d82ee759-ad8b-4a1a-a6e6-9a285daf6c9f",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "95d31cf6-29e0-4af9-ab9b-b2c1558238b0",
+      "variantId": "26e590e7-173b-4731-904e-960b65934fcc",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ef9de4c6-c47a-45ac-867a-c01867d7bc05",
+      "variantId": "e6da60e3-92a0-4056-b59a-3da744d8f99e",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8c26d3f0-b289-4a08-bf4e-9744718c6f5b",
+      "variantId": "136f78f5-36c1-417e-bf8e-21f588e71840",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "563197b2-3b91-406e-bcf6-c6ad32034a75",
+      "variantId": "4891f0cd-6231-40f9-a9fe-3ddefc74553b",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "08de3f5d-0c72-4fd1-b49d-5e05eedefd0f",
+      "variantId": "b8f1a126-cac6-4ca6-859d-4f81afd40d35",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "04197996-c62e-4fd0-83c4-dfa29c232123",
+      "variantId": "5ecca85f-84a9-40b6-808f-2d2f41543d95",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a73c374e-66fc-4dd9-9e5c-610aa04c95ad",
+      "variantId": "0a6bfade-75fa-422f-94b0-d2d6b8d5e365",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "306aee34-36fb-4230-8dc9-3747d1bdca3b",
+      "variantId": "db8b69c3-6a8a-43c1-917b-266a9c8efe21",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7fa92bfa-0d6e-445b-abf0-88aeecb0e5b7",
+      "variantId": "461ad591-0444-4223-abee-e198debcb527",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b14c0de5-7241-46b3-beb1-2edd0bfe5e7d",
+      "variantId": "55db7529-0fa3-4023-b33e-730418a52c02",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "aa5a0fd0-d48e-4698-98c6-bd32a60c05c8",
+      "variantId": "3ee2c1ce-e821-4d17-93f7-1b84938adb5a",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b545199b-08c7-442a-8314-ba8588228bf2",
+      "variantId": "c2739d1f-56d0-4efd-a4bd-c96ac7cf5ce2",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e663f0e3-2ed3-495a-8cc3-3f895ff0031a",
+      "variantId": "197ce000-8d39-4066-b3ca-67171c8388b5",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ede81c80-555d-4d7e-a0cb-c165ef09fed4",
+      "variantId": "e152065b-0834-4ab0-9c92-06bc46819d27",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "da072055-0bb5-42fe-b694-3b0874ad3638",
+      "variantId": "44aaaf37-808f-4ff7-b4d1-46a8bee34d40",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1851a98f-d071-4600-91fe-cabd908ec317",
+      "variantId": "113eb90d-7df7-4bb5-84a6-e5035330d55c",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "9e4924ff-c8eb-4e46-9fea-cac1592ee7fa",
+      "variantId": "2a28773e-b638-461f-ae21-72e47fc7ed44",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "df2b66c5-40da-4601-bb7a-90710fa8f11e",
+      "variantId": "19e149a3-a248-4152-ae82-8cc488a9ef29",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "cc95f1e0-2065-4d7d-bc3a-a6ec730ff1f5",
+      "variantId": "786a8f60-e46a-4bea-a4b2-86cd8f8e7601",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7287577a-7476-4438-8b6f-a7781ecb4bac",
+      "variantId": "b416faf0-2cab-49b3-83d7-fdac017740f2",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e460bc4a-7ac9-4be1-ba81-265726330b32",
+      "variantId": "0f8f2283-af1d-4881-a0b2-ca578d044657",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8280e68c-a987-4eb0-9e37-b4e39f551586",
+      "variantId": "88ab5463-7a5d-47dd-99ef-b9821dddc1e6",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "efd19b43-3bc8-41b6-9d46-f350f1973749",
+      "variantId": "325e4a50-9b7c-4cda-b919-948ce7964711",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "397800d8-2b98-46df-99f9-b6f7714461bf",
+      "variantId": "9cedc65d-2ba6-457a-b712-b34cfdcc25ed",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "9be367d6-8acb-407b-9d09-ced5918b02ca",
+      "variantId": "fe568c0f-a4fd-4960-8e07-dd8ac91c0bbf",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6c28eebb-2550-4b4b-8357-950893339f8d",
+      "variantId": "47e75e29-9dfa-44eb-84aa-ab007e55aace",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "86fb7e76-4299-4bb9-917a-b44203c432e3",
+      "variantId": "50a5dcc4-0daa-4f63-9ecf-edfd3cd2d8ea",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "afacb657-2e0c-4b5f-b46c-686d626f3b62",
+      "variantId": "47b6bcb7-c252-4508-9adf-81965b2240d2",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "fcf5993a-c1a4-4d51-84af-eda006289ea8",
+      "variantId": "2a09b7bb-509f-4108-a281-d9ad065c211a",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e0483576-8a1d-4f6d-a732-cba65e6e61db",
+      "variantId": "658f29d6-ebd7-4026-a430-5d6660ae79d5",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1a5c8216-fa59-4118-a364-3518a7e57e59",
+      "variantId": "37c02af1-7216-497d-9735-8895e906ea49",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7447e80b-0246-463e-8102-2cf482e61360",
+      "variantId": "43e62f9b-8548-4349-845e-1ff8216b5e96",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a409a56b-f629-492d-b13e-0d2082777c09",
+      "variantId": "b88841be-ed5a-4ed2-8556-47aa5ca124c7",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4cf1a518-9bd4-4cf9-9e17-063f02ba6ec1",
+      "variantId": "578f59ac-3670-44d7-b5c1-0830530a4425",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dfcb36f8-d913-4166-8db4-8ad217023238",
+      "variantId": "923c732e-e9e7-49d2-b982-11375e4c388b",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4dd2b6e7-0838-41e6-9f68-469151f4be96",
+      "variantId": "ac3bcf15-3838-4fde-97c8-44641904a29f",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "407616bc-4c67-45a9-93c9-ac68f1f6b58a",
+      "variantId": "a1670296-5fc6-45a5-a803-2ca4604b511c",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a26f20a7-5707-4690-962f-4df282585e7f",
+      "variantId": "1bcf329c-0605-488e-bba8-839fd58942f4",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "04e8cbb1-a85c-4ee3-bcdd-9cf1cad152a4",
+      "variantId": "dd0a3407-c591-48a3-b2b6-60950e7c3e81",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "08d95359-7605-4321-b744-11470d2ac936",
+      "variantId": "6dff9618-b3f2-4411-9d79-91b659fffc04",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f20dcd6f-8147-4a11-9fbf-d7026ef5efbb",
+      "variantId": "2682a1e0-7ba5-4a36-9e86-263287e63355",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "5d04396c-304f-427f-814d-7dc9697e178d",
+      "variantId": "daaaab2c-a530-49e4-be08-48f02c52ccb8",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "50037907-767e-4122-9d64-63d5db853407",
+      "variantId": "0d1f4447-3108-47e5-8eac-46a1404503e0",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "495e86cc-120a-4723-a710-1ae4bb0911db",
+      "variantId": "43eb85cc-2cdf-4ead-9acc-d3fa30cd0e8d",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "5c3fdbaa-fdd7-4918-b47c-52ac2341c3d2",
+      "variantId": "2df6ba4d-27e1-49eb-8a26-9f6ffc8f0494",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a7cd55e6-906d-4492-ba19-c8361009f6fb",
+      "variantId": "cb8465e8-5c59-4254-b1b3-a316710c22be",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "3ca49c23-c8d7-4aa8-8602-4bd19638c418",
+      "variantId": "71af0dcf-a609-442a-a982-7701e042b6e9",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "9fbaf60c-b46a-4257-96d5-e619ead4053a",
+      "variantId": "ea674925-b2c5-465b-bf6b-2bef6a964d65",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b2d187e8-78db-438c-9894-06a973f983e9",
+      "variantId": "1c66b980-3743-4370-b9ef-9fbc925e97ff",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "aafbd2a9-c941-4677-800f-ab0c9109fac1",
+      "variantId": "fac523b6-e075-4957-8713-8bc45339ea5f",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b66e4ed0-0032-4cc7-b659-f3067b546963",
+      "variantId": "0f401912-c6c4-4065-a5cf-ca20373e814e",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0b386256-b8c1-460f-8aa6-0bc47f18d279",
+      "variantId": "2a3f9e17-427b-4394-8e05-ad6596f5abd2",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4a0a4e24-192d-461e-ab37-c5bd317f796f",
+      "variantId": "14809a61-631c-48be-ac6b-79e2eadc03fe",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "06fca899-6d04-4c04-a06a-be94a6bca324",
+      "variantId": "ca0a67a8-dd14-40ae-8088-52149a777cdd",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "81f6c3c5-dc40-4208-bb5b-22512b39110d",
+      "variantId": "952bd236-20f7-4943-96a1-79c6c8bba133",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "82c33898-d753-45a6-9297-580cee98bee9",
+      "variantId": "90a75bf6-3146-4d8c-b26c-2562ce9be474",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c1efe14b-d93e-4600-b8e3-77e94ef8b84b",
+      "variantId": "123afd2b-5b0b-4972-8356-de11cf143bb2",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7d0800bd-6b32-4536-9001-0134243ee8e1",
+      "variantId": "6367f2de-5547-41cb-8a3c-a55c837b5f0f",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0a654809-dc4d-4ff7-995a-7225e54356a3",
+      "variantId": "86df4eb7-ad19-4407-b4d1-5449f2a15a08",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "5e8aa60f-b4e9-439c-abf6-ffe7e0780759",
+      "variantId": "7cf67fb9-85a4-4078-b7d7-d82e567fce78",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7ba72c18-7078-4610-989d-c4d80a835465",
+      "variantId": "0b4c1a1f-d751-40e9-9dbf-7e541254bcd9",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "045f85d6-c372-4a16-bd31-5d558e6ec93e",
+      "variantId": "335a1917-3116-457e-9dfa-180dad436e27",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "23d5f83b-9f4a-464b-a8b1-1374b6521f76",
+      "variantId": "f7a4cf46-0f12-41ca-8c9f-eef44a00f199",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b1a828a5-baff-4b52-ba49-1aace79bdde3",
+      "variantId": "63e6852d-5911-4aee-b2cf-6d2dd5779970",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "152a7dcd-3288-45e5-9c93-45666f033f51",
+      "variantId": "ed8cf7e6-036f-4db0-9efb-b2786f58a276",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2d053544-2838-42b7-92c2-8c8faa7dc7a9",
+      "variantId": "4a751341-ae5c-466a-8419-e10ee8b6d45b",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "437d73ac-5096-4848-b46b-bda7401bb288",
+      "variantId": "e1c68dd7-1aa4-4852-ba75-404001a3ff21",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2a17c46c-abd1-4319-8305-2957375fa8d0",
+      "variantId": "10775071-326c-4fb6-910f-93adfbfb5abc",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "cd8159e7-2678-474f-a135-9cd799c092df",
+      "variantId": "e43fa5f0-220b-4abe-b020-7ed1232a9190",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "190b9a82-c5eb-4fc6-9c12-8e64dd5e3430",
+      "variantId": "2b25b2bb-6da6-46f3-9f19-e5d6a13387e9",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bae9eb01-e8e2-49c2-a0ff-c6feb05f417d",
+      "variantId": "da433110-1a97-4ba2-842f-e6bf8a24cc12",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b1a0e538-c1d0-44bd-8c55-dcb40ed9f7d8",
+      "variantId": "4d123611-a71c-492b-bdff-b459949f95ff",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "35b9f69b-678f-4b78-8365-e85ce732c8ea",
+      "variantId": "a751d740-e5a5-4eed-b3c1-29c5c1127494",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "11a557fe-dc7e-4a21-827d-33f3df0096dc",
+      "variantId": "e267264d-6fc8-479a-9e77-d0281e9d7977",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "347ca394-2694-4165-ae59-600519124dac",
+      "variantId": "e3e41d49-96d1-4c4d-9be4-5e5d1bacee8c",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c43384f0-8d40-4f81-b5c0-24ee419819ee",
+      "variantId": "c48db37b-04b8-4c50-8c3b-8c3b3327e7e2",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "242d2711-1ebd-4df3-836b-8389e8a85011",
+      "variantId": "09896415-ab3c-429a-a5f5-de2583a9914f",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "61abe846-cee3-47b8-bae9-b64c0ad58a18",
+      "variantId": "b9814fcc-bddd-46cb-af8a-53f7c9cfbb6f",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "29eda232-ad80-439b-8f5d-4b5625690c89",
+      "variantId": "b670ddc1-c90f-4df5-ad94-9c85f8730bc8",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c91646c0-1701-42a1-a4fe-4e7d2af2cd8a",
+      "variantId": "4bc5364e-d301-4a69-8327-32965f243eb0",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a694efe4-c30c-4100-883e-76ae2aeffe01",
+      "variantId": "3e9fc72a-5905-46b6-abfa-5d474b1055a6",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f9dda08d-49e1-4bdd-8660-c051fc8146ac",
+      "variantId": "1684bc08-45f8-4e3b-846b-9fa038271a84",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ca4ae94a-838d-4220-bcf1-a6d15fcfd684",
+      "variantId": "4290d30c-cdc0-4723-8a23-49be23e213a3",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "15ec2afc-ea97-417f-82af-8b6bf1e90e16",
+      "variantId": "90770c70-99fb-4e77-a388-a03fffb52395",
+      "checkpoint": "2026-05-31",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "95827231-abc7-4f05-8dac-d8d7536a9cfb",
+      "variantId": "7db91c71-a6fa-4451-823e-21f539a9c024",
+      "checkpoint": "2026-05-31",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 59,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "60402015-ba94-43f0-a36b-e887c709d388",
+      "variantId": "f99634c6-8312-4709-8d6c-d637af72202e",
+      "checkpoint": "2026-05-31",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 230,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ddc31615-bd92-4cbd-8002-39f02cdb7e3c",
+      "variantId": "c408f698-2a71-46ca-89c4-54fda104087a",
+      "checkpoint": "2026-05-31",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 1,
+      "otherConditionObservationsWithin30Days": 118,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "947acfdc-599b-45ef-9f84-3875d1dc1683",
+      "variantId": "a47c0a08-a5e3-411b-af1c-31f262ed4558",
+      "checkpoint": "2026-05-31",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 230,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bb5e7bbe-73c4-4252-87c4-95598aebd005",
+      "variantId": "b4774167-f688-44d4-8862-06a6f5f928ed",
+      "checkpoint": "2026-05-31",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 236,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "00c328e3-0dd0-47b6-8828-d0af539c3ec8",
+      "variantId": "98621c4a-26a3-46a4-889a-6baee4438ce7",
+      "checkpoint": "2026-05-31",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 132,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d45280c9-e70c-4494-975a-4f89ceca6db5",
+      "variantId": "6593800a-ee5f-4853-a465-3a5840fd179c",
+      "checkpoint": "2026-05-31",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 236,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2d8c9de0-eaad-4e31-bc0a-782c6258eb7a",
+      "variantId": "2a61bc6e-0369-4f47-b566-d4da1b293a76",
+      "checkpoint": "2026-05-31",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 3,
+      "otherConditionObservationsWithin30Days": 18,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6fe2e9b7-dae4-43b0-9ddb-81c71364d586",
+      "variantId": "a145d558-7f08-44f6-8927-01409661706f",
+      "checkpoint": "2026-05-31",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 13,
+      "otherConditionObservationsWithin30Days": 20,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ade66751-0bfa-4dee-903f-822dcb10a8fb",
+      "variantId": "1f979829-9bad-4354-abf6-cc0650760eaf",
+      "checkpoint": "2026-05-31",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 80,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c4ba01e6-35fb-4b50-bf51-e0a539190a60",
+      "variantId": "b9b23105-caec-4ef7-8b34-3936afa731b6",
+      "checkpoint": "2026-05-31",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 124,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dad35b31-e01c-4757-895f-5a167a294292",
+      "variantId": "70105868-23e3-4051-ac20-a1ae1be045f0",
+      "checkpoint": "2026-05-31",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 3,
+      "otherConditionObservationsWithin30Days": 49,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b660bdba-88d2-4995-8ac5-e619980991d2",
+      "variantId": "475875d2-944d-40d7-b975-6a376d3e8ab3",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "de2ff97b-1227-4555-aa29-cc2f35166fea",
+      "variantId": "fb78ea62-207e-46e0-961c-96dd4eef864f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1a09541a-ad0e-4774-b7e0-e9b5e7c8f982",
+      "variantId": "300a3ccc-a311-48f5-9e41-17b4c5128e84",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0f00b55f-fe35-4d16-b735-ac70830cbf86",
+      "variantId": "5793dfa7-af14-46c4-937c-229e626830aa",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2b672366-c6f2-48ac-ba5a-418eca5be4b0",
+      "variantId": "41b529c9-619f-4366-87b5-4df075463a4c",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6386668e-07f6-482a-ad70-8f68d72bbcda",
+      "variantId": "cc76d360-3944-41d2-947c-1babe6594ac1",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4094866c-310c-4685-ba4f-89f25fc80270",
+      "variantId": "33508edc-6e82-4b20-b94c-1f9a3a4fee8d",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e1dc5fd6-3042-4533-a22c-4be32299101d",
+      "variantId": "fcd9efdd-aa9d-4f0d-9257-f4856a19184b",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d9e8e8ea-037b-404c-86d9-327cb2ae3d49",
+      "variantId": "0c7ce1fc-f13b-44fe-9725-6c7d45fc06bb",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "701876e4-3bfb-477b-8575-fa02824536a1",
+      "variantId": "0d456e65-043a-4d95-8ce0-597ec422299c",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "28795448-5728-4b4b-8dd3-ce0e85120fb6",
+      "variantId": "fb55263c-b066-4d0c-a1f0-8b5cc665fbff",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bf520a64-01f6-4447-bf12-afd268b5596d",
+      "variantId": "035dcb54-89b0-4075-8c6e-154de4cf0d01",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e7710510-a674-40f5-be20-c56a91b0edc1",
+      "variantId": "71e018ff-cad7-49eb-adc0-95e1cb4678e5",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8929e121-52c3-4753-9ed4-a088e2527a86",
+      "variantId": "4bcd254e-1ac8-4e79-8f09-cfc68f4a3dcb",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "845c1f94-e7e0-4da2-bd26-5cc5c9341288",
+      "variantId": "473ad189-0133-4b4b-8d28-e79ab29d7293",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6c4bf1ee-5810-474b-addd-44baa596e431",
+      "variantId": "67ddeda0-d36a-4c4d-96d6-01666d55feff",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dfe79949-53dc-4481-8138-642d880f1a35",
+      "variantId": "042de8a9-123f-490a-bc4c-2c34ee489cc6",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ccad56f5-0091-451d-9895-16e5959959b0",
+      "variantId": "615be6d7-12b5-4e71-875f-35cb0d07933c",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c7c8e4b3-807e-44e1-8d98-b63dd0dadcb7",
+      "variantId": "eb265a16-2090-4cea-922f-24ff069ff7fc",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "009e388e-7425-45a2-a9db-26f5a4c25cd8",
+      "variantId": "79bc08fd-797c-4c21-93e9-752a525c309d",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "83b3445a-730c-42b1-af24-1f1274a4a557",
+      "variantId": "679d573b-c3b2-441b-af3e-884ee55af5ed",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1aba44c1-ccd0-4c13-a707-7ef0670515b6",
+      "variantId": "6be5c021-6f52-4254-9318-990e9161b9de",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f0c06f81-4b0a-4c15-9e0f-7f6e5cce8111",
+      "variantId": "f4df876a-e9d8-424c-b0a8-0fb320621888",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "3998d880-3659-4896-ad2f-6782548b9282",
+      "variantId": "e2b2ac45-8bc4-4fa5-be0a-3221e00b27c6",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "460e6a2d-2ca0-41d3-b2ff-7f87e3753cad",
+      "variantId": "580d55f8-9031-4261-ba0c-27eb729d6404",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4795f295-cb81-409d-8b4c-c8330781ae02",
+      "variantId": "19520681-ef0f-4535-8e0d-15ab0c50d054",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "918dfc2c-a50c-44f0-b14b-73e8a1339959",
+      "variantId": "2c81e517-1c0d-4c8c-ae1b-e70ae04e8125",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "02464bcd-5e97-4d9b-a991-a92ac55d6cb9",
+      "variantId": "d79739b7-3580-4427-8aa9-26152eb72358",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "afe63def-e317-4f19-9fbc-b711e430bcdc",
+      "variantId": "2e0e02d5-4924-46f3-b84e-994517bb3c63",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "06ed854d-7ae2-414e-bcf3-98253bb8604d",
+      "variantId": "24220f53-77d1-4cd4-ae94-e8c8ad0dc2ae",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a5c6782b-f780-4188-b136-1d83720a2bd6",
+      "variantId": "0fb91d14-546e-4efa-ad49-c2a30a11a2b9",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "55c7b5dc-1a93-4637-845b-ec98cc0454a9",
+      "variantId": "8c5f2c60-28de-49b5-a6ef-66aa3e219924",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7dd8d8a2-f085-44cb-9c16-f35347c6b526",
+      "variantId": "400c0eae-6643-416e-a70e-6fe6525e674e",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d74ad2c6-0512-45d4-bee6-5f79c5d8f6fa",
+      "variantId": "92116086-e3a1-4381-8375-8b194f25312f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "497c2d78-0a51-4ec0-9782-02fdb4730cc2",
+      "variantId": "99fd29c6-aaeb-4a81-9013-5c31493b5508",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ef9007bc-dce4-4532-ae65-73f62b981959",
+      "variantId": "50d9fdfc-1e67-4926-b710-6e60eb20cf32",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "825684b7-c15f-4563-ab89-ec3ba1bfebcf",
+      "variantId": "8f9249b4-b9e3-4985-bcab-9a5e6a3c5375",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "3c4db5fa-6831-4129-881c-fbf10a8d204c",
+      "variantId": "779f1ff8-a2de-441a-947f-0e0cd7547010",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "790a6892-6be2-46a2-92de-94524512d469",
+      "variantId": "7d625373-fd27-4513-9609-db45a8d1600c",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "56fc7ed0-9aaa-405e-ac7d-7ba6c73a307d",
+      "variantId": "a48f1859-3709-4ef6-be68-afd282e53338",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7e4b92ec-fe91-4b50-80e4-47d67525ad6e",
+      "variantId": "e74d3e31-883d-4b6e-80d2-4ebd8c483a07",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "98856063-190f-4172-b0bb-869e28577abd",
+      "variantId": "159bdf73-3622-4f2b-a3e1-ebb517c1e9a0",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0c293021-ebf5-44e9-be54-c1d04ff2f0e8",
+      "variantId": "49b8862d-6ef3-480f-ad16-4d967797acbc",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "633b164a-cc52-4029-89a0-8535fd1fa6d0",
+      "variantId": "fccf66c3-114c-4fc9-85ae-72578eba87aa",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "acd6cc27-cc18-40da-b026-c48bcb72b947",
+      "variantId": "34de6238-307b-477f-9909-c0cf171ca13f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e4150993-ae27-4a14-a9cd-b5e6c4d52a25",
+      "variantId": "b9328f31-4f52-4bd6-9459-8aea2cb65dc6",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ff2a54bb-5cde-4065-b3b6-d50b5c91d8c0",
+      "variantId": "8574f2ef-cd09-4ceb-bd1b-b1fd7a0956a6",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8e6a93e7-9e81-4308-ac4e-bd73b20046c1",
+      "variantId": "3af79bb6-6812-41f4-a63f-cb1c78490455",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ff6ba9d2-c422-43b9-8c86-8ed554807e4d",
+      "variantId": "d82ee759-ad8b-4a1a-a6e6-9a285daf6c9f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "95d31cf6-29e0-4af9-ab9b-b2c1558238b0",
+      "variantId": "26e590e7-173b-4731-904e-960b65934fcc",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ef9de4c6-c47a-45ac-867a-c01867d7bc05",
+      "variantId": "e6da60e3-92a0-4056-b59a-3da744d8f99e",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8c26d3f0-b289-4a08-bf4e-9744718c6f5b",
+      "variantId": "136f78f5-36c1-417e-bf8e-21f588e71840",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "563197b2-3b91-406e-bcf6-c6ad32034a75",
+      "variantId": "4891f0cd-6231-40f9-a9fe-3ddefc74553b",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "08de3f5d-0c72-4fd1-b49d-5e05eedefd0f",
+      "variantId": "b8f1a126-cac6-4ca6-859d-4f81afd40d35",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "04197996-c62e-4fd0-83c4-dfa29c232123",
+      "variantId": "5ecca85f-84a9-40b6-808f-2d2f41543d95",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a73c374e-66fc-4dd9-9e5c-610aa04c95ad",
+      "variantId": "0a6bfade-75fa-422f-94b0-d2d6b8d5e365",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "306aee34-36fb-4230-8dc9-3747d1bdca3b",
+      "variantId": "db8b69c3-6a8a-43c1-917b-266a9c8efe21",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7fa92bfa-0d6e-445b-abf0-88aeecb0e5b7",
+      "variantId": "461ad591-0444-4223-abee-e198debcb527",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b14c0de5-7241-46b3-beb1-2edd0bfe5e7d",
+      "variantId": "55db7529-0fa3-4023-b33e-730418a52c02",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "aa5a0fd0-d48e-4698-98c6-bd32a60c05c8",
+      "variantId": "3ee2c1ce-e821-4d17-93f7-1b84938adb5a",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b545199b-08c7-442a-8314-ba8588228bf2",
+      "variantId": "c2739d1f-56d0-4efd-a4bd-c96ac7cf5ce2",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e663f0e3-2ed3-495a-8cc3-3f895ff0031a",
+      "variantId": "197ce000-8d39-4066-b3ca-67171c8388b5",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ede81c80-555d-4d7e-a0cb-c165ef09fed4",
+      "variantId": "e152065b-0834-4ab0-9c92-06bc46819d27",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "da072055-0bb5-42fe-b694-3b0874ad3638",
+      "variantId": "44aaaf37-808f-4ff7-b4d1-46a8bee34d40",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1851a98f-d071-4600-91fe-cabd908ec317",
+      "variantId": "113eb90d-7df7-4bb5-84a6-e5035330d55c",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "9e4924ff-c8eb-4e46-9fea-cac1592ee7fa",
+      "variantId": "2a28773e-b638-461f-ae21-72e47fc7ed44",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "df2b66c5-40da-4601-bb7a-90710fa8f11e",
+      "variantId": "19e149a3-a248-4152-ae82-8cc488a9ef29",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "cc95f1e0-2065-4d7d-bc3a-a6ec730ff1f5",
+      "variantId": "786a8f60-e46a-4bea-a4b2-86cd8f8e7601",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7287577a-7476-4438-8b6f-a7781ecb4bac",
+      "variantId": "b416faf0-2cab-49b3-83d7-fdac017740f2",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e460bc4a-7ac9-4be1-ba81-265726330b32",
+      "variantId": "0f8f2283-af1d-4881-a0b2-ca578d044657",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8280e68c-a987-4eb0-9e37-b4e39f551586",
+      "variantId": "88ab5463-7a5d-47dd-99ef-b9821dddc1e6",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "efd19b43-3bc8-41b6-9d46-f350f1973749",
+      "variantId": "325e4a50-9b7c-4cda-b919-948ce7964711",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "397800d8-2b98-46df-99f9-b6f7714461bf",
+      "variantId": "9cedc65d-2ba6-457a-b712-b34cfdcc25ed",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "9be367d6-8acb-407b-9d09-ced5918b02ca",
+      "variantId": "fe568c0f-a4fd-4960-8e07-dd8ac91c0bbf",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6c28eebb-2550-4b4b-8357-950893339f8d",
+      "variantId": "47e75e29-9dfa-44eb-84aa-ab007e55aace",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "86fb7e76-4299-4bb9-917a-b44203c432e3",
+      "variantId": "50a5dcc4-0daa-4f63-9ecf-edfd3cd2d8ea",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "afacb657-2e0c-4b5f-b46c-686d626f3b62",
+      "variantId": "47b6bcb7-c252-4508-9adf-81965b2240d2",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "fcf5993a-c1a4-4d51-84af-eda006289ea8",
+      "variantId": "2a09b7bb-509f-4108-a281-d9ad065c211a",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e0483576-8a1d-4f6d-a732-cba65e6e61db",
+      "variantId": "658f29d6-ebd7-4026-a430-5d6660ae79d5",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1a5c8216-fa59-4118-a364-3518a7e57e59",
+      "variantId": "37c02af1-7216-497d-9735-8895e906ea49",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7447e80b-0246-463e-8102-2cf482e61360",
+      "variantId": "43e62f9b-8548-4349-845e-1ff8216b5e96",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a409a56b-f629-492d-b13e-0d2082777c09",
+      "variantId": "b88841be-ed5a-4ed2-8556-47aa5ca124c7",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4cf1a518-9bd4-4cf9-9e17-063f02ba6ec1",
+      "variantId": "578f59ac-3670-44d7-b5c1-0830530a4425",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dfcb36f8-d913-4166-8db4-8ad217023238",
+      "variantId": "923c732e-e9e7-49d2-b982-11375e4c388b",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4dd2b6e7-0838-41e6-9f68-469151f4be96",
+      "variantId": "ac3bcf15-3838-4fde-97c8-44641904a29f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "407616bc-4c67-45a9-93c9-ac68f1f6b58a",
+      "variantId": "a1670296-5fc6-45a5-a803-2ca4604b511c",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a26f20a7-5707-4690-962f-4df282585e7f",
+      "variantId": "1bcf329c-0605-488e-bba8-839fd58942f4",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "04e8cbb1-a85c-4ee3-bcdd-9cf1cad152a4",
+      "variantId": "dd0a3407-c591-48a3-b2b6-60950e7c3e81",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "08d95359-7605-4321-b744-11470d2ac936",
+      "variantId": "6dff9618-b3f2-4411-9d79-91b659fffc04",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f20dcd6f-8147-4a11-9fbf-d7026ef5efbb",
+      "variantId": "2682a1e0-7ba5-4a36-9e86-263287e63355",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "5d04396c-304f-427f-814d-7dc9697e178d",
+      "variantId": "daaaab2c-a530-49e4-be08-48f02c52ccb8",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "50037907-767e-4122-9d64-63d5db853407",
+      "variantId": "0d1f4447-3108-47e5-8eac-46a1404503e0",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "495e86cc-120a-4723-a710-1ae4bb0911db",
+      "variantId": "43eb85cc-2cdf-4ead-9acc-d3fa30cd0e8d",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "5c3fdbaa-fdd7-4918-b47c-52ac2341c3d2",
+      "variantId": "2df6ba4d-27e1-49eb-8a26-9f6ffc8f0494",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a7cd55e6-906d-4492-ba19-c8361009f6fb",
+      "variantId": "cb8465e8-5c59-4254-b1b3-a316710c22be",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "3ca49c23-c8d7-4aa8-8602-4bd19638c418",
+      "variantId": "71af0dcf-a609-442a-a982-7701e042b6e9",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "9fbaf60c-b46a-4257-96d5-e619ead4053a",
+      "variantId": "ea674925-b2c5-465b-bf6b-2bef6a964d65",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b2d187e8-78db-438c-9894-06a973f983e9",
+      "variantId": "1c66b980-3743-4370-b9ef-9fbc925e97ff",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "aafbd2a9-c941-4677-800f-ab0c9109fac1",
+      "variantId": "fac523b6-e075-4957-8713-8bc45339ea5f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b66e4ed0-0032-4cc7-b659-f3067b546963",
+      "variantId": "0f401912-c6c4-4065-a5cf-ca20373e814e",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0b386256-b8c1-460f-8aa6-0bc47f18d279",
+      "variantId": "2a3f9e17-427b-4394-8e05-ad6596f5abd2",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4a0a4e24-192d-461e-ab37-c5bd317f796f",
+      "variantId": "14809a61-631c-48be-ac6b-79e2eadc03fe",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "06fca899-6d04-4c04-a06a-be94a6bca324",
+      "variantId": "ca0a67a8-dd14-40ae-8088-52149a777cdd",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "81f6c3c5-dc40-4208-bb5b-22512b39110d",
+      "variantId": "952bd236-20f7-4943-96a1-79c6c8bba133",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "82c33898-d753-45a6-9297-580cee98bee9",
+      "variantId": "90a75bf6-3146-4d8c-b26c-2562ce9be474",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c1efe14b-d93e-4600-b8e3-77e94ef8b84b",
+      "variantId": "123afd2b-5b0b-4972-8356-de11cf143bb2",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7d0800bd-6b32-4536-9001-0134243ee8e1",
+      "variantId": "6367f2de-5547-41cb-8a3c-a55c837b5f0f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0a654809-dc4d-4ff7-995a-7225e54356a3",
+      "variantId": "86df4eb7-ad19-4407-b4d1-5449f2a15a08",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "5e8aa60f-b4e9-439c-abf6-ffe7e0780759",
+      "variantId": "7cf67fb9-85a4-4078-b7d7-d82e567fce78",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7ba72c18-7078-4610-989d-c4d80a835465",
+      "variantId": "0b4c1a1f-d751-40e9-9dbf-7e541254bcd9",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "045f85d6-c372-4a16-bd31-5d558e6ec93e",
+      "variantId": "335a1917-3116-457e-9dfa-180dad436e27",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "23d5f83b-9f4a-464b-a8b1-1374b6521f76",
+      "variantId": "f7a4cf46-0f12-41ca-8c9f-eef44a00f199",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b1a828a5-baff-4b52-ba49-1aace79bdde3",
+      "variantId": "63e6852d-5911-4aee-b2cf-6d2dd5779970",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "152a7dcd-3288-45e5-9c93-45666f033f51",
+      "variantId": "ed8cf7e6-036f-4db0-9efb-b2786f58a276",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2d053544-2838-42b7-92c2-8c8faa7dc7a9",
+      "variantId": "4a751341-ae5c-466a-8419-e10ee8b6d45b",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "437d73ac-5096-4848-b46b-bda7401bb288",
+      "variantId": "e1c68dd7-1aa4-4852-ba75-404001a3ff21",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2a17c46c-abd1-4319-8305-2957375fa8d0",
+      "variantId": "10775071-326c-4fb6-910f-93adfbfb5abc",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "cd8159e7-2678-474f-a135-9cd799c092df",
+      "variantId": "e43fa5f0-220b-4abe-b020-7ed1232a9190",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "190b9a82-c5eb-4fc6-9c12-8e64dd5e3430",
+      "variantId": "2b25b2bb-6da6-46f3-9f19-e5d6a13387e9",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bae9eb01-e8e2-49c2-a0ff-c6feb05f417d",
+      "variantId": "da433110-1a97-4ba2-842f-e6bf8a24cc12",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b1a0e538-c1d0-44bd-8c55-dcb40ed9f7d8",
+      "variantId": "4d123611-a71c-492b-bdff-b459949f95ff",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "35b9f69b-678f-4b78-8365-e85ce732c8ea",
+      "variantId": "a751d740-e5a5-4eed-b3c1-29c5c1127494",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "11a557fe-dc7e-4a21-827d-33f3df0096dc",
+      "variantId": "e267264d-6fc8-479a-9e77-d0281e9d7977",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "347ca394-2694-4165-ae59-600519124dac",
+      "variantId": "e3e41d49-96d1-4c4d-9be4-5e5d1bacee8c",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c43384f0-8d40-4f81-b5c0-24ee419819ee",
+      "variantId": "c48db37b-04b8-4c50-8c3b-8c3b3327e7e2",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "242d2711-1ebd-4df3-836b-8389e8a85011",
+      "variantId": "09896415-ab3c-429a-a5f5-de2583a9914f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "61abe846-cee3-47b8-bae9-b64c0ad58a18",
+      "variantId": "b9814fcc-bddd-46cb-af8a-53f7c9cfbb6f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "29eda232-ad80-439b-8f5d-4b5625690c89",
+      "variantId": "b670ddc1-c90f-4df5-ad94-9c85f8730bc8",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c91646c0-1701-42a1-a4fe-4e7d2af2cd8a",
+      "variantId": "4bc5364e-d301-4a69-8327-32965f243eb0",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a694efe4-c30c-4100-883e-76ae2aeffe01",
+      "variantId": "3e9fc72a-5905-46b6-abfa-5d474b1055a6",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f9dda08d-49e1-4bdd-8660-c051fc8146ac",
+      "variantId": "1684bc08-45f8-4e3b-846b-9fa038271a84",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ca4ae94a-838d-4220-bcf1-a6d15fcfd684",
+      "variantId": "4290d30c-cdc0-4723-8a23-49be23e213a3",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "15ec2afc-ea97-417f-82af-8b6bf1e90e16",
+      "variantId": "90770c70-99fb-4e77-a388-a03fffb52395",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "95827231-abc7-4f05-8dac-d8d7536a9cfb",
+      "variantId": "7db91c71-a6fa-4451-823e-21f539a9c024",
+      "checkpoint": "2026-06-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 14,
+      "otherConditionObservationsWithin30Days": 64,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "60402015-ba94-43f0-a36b-e887c709d388",
+      "variantId": "f99634c6-8312-4709-8d6c-d637af72202e",
+      "checkpoint": "2026-06-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 5,
+      "otherConditionObservationsWithin30Days": 219,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ddc31615-bd92-4cbd-8002-39f02cdb7e3c",
+      "variantId": "c408f698-2a71-46ca-89c4-54fda104087a",
+      "checkpoint": "2026-06-30",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 141,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "947acfdc-599b-45ef-9f84-3875d1dc1683",
+      "variantId": "a47c0a08-a5e3-411b-af1c-31f262ed4558",
+      "checkpoint": "2026-06-30",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 223,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bb5e7bbe-73c4-4252-87c4-95598aebd005",
+      "variantId": "b4774167-f688-44d4-8862-06a6f5f928ed",
+      "checkpoint": "2026-06-30",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 228,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "000718fc-e90f-4243-b601-6330060a16f3",
+      "variantId": "4300cb03-b062-403c-bcb8-e3918de18dba",
+      "checkpoint": "2026-06-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 15,
+      "otherConditionObservationsWithin30Days": 226,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d45280c9-e70c-4494-975a-4f89ceca6db5",
+      "variantId": "6593800a-ee5f-4853-a465-3a5840fd179c",
+      "checkpoint": "2026-06-30",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 228,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2d8c9de0-eaad-4e31-bc0a-782c6258eb7a",
+      "variantId": "2a61bc6e-0369-4f47-b566-d4da1b293a76",
+      "checkpoint": "2026-06-30",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 9,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6fe2e9b7-dae4-43b0-9ddb-81c71364d586",
+      "variantId": "a145d558-7f08-44f6-8927-01409661706f",
+      "checkpoint": "2026-06-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ade66751-0bfa-4dee-903f-822dcb10a8fb",
+      "variantId": "1f979829-9bad-4354-abf6-cc0650760eaf",
+      "checkpoint": "2026-06-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 28,
+      "otherConditionObservationsWithin30Days": 106,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c4ba01e6-35fb-4b50-bf51-e0a539190a60",
+      "variantId": "b9b23105-caec-4ef7-8b34-3936afa731b6",
+      "checkpoint": "2026-06-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 20,
+      "otherConditionObservationsWithin30Days": 142,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dad35b31-e01c-4757-895f-5a167a294292",
+      "variantId": "70105868-23e3-4051-ac20-a1ae1be045f0",
+      "checkpoint": "2026-06-30",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 19,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b660bdba-88d2-4995-8ac5-e619980991d2",
+      "variantId": "475875d2-944d-40d7-b975-6a376d3e8ab3",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "de2ff97b-1227-4555-aa29-cc2f35166fea",
+      "variantId": "fb78ea62-207e-46e0-961c-96dd4eef864f",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1a09541a-ad0e-4774-b7e0-e9b5e7c8f982",
+      "variantId": "300a3ccc-a311-48f5-9e41-17b4c5128e84",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0f00b55f-fe35-4d16-b735-ac70830cbf86",
+      "variantId": "5793dfa7-af14-46c4-937c-229e626830aa",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 3,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2b672366-c6f2-48ac-ba5a-418eca5be4b0",
+      "variantId": "41b529c9-619f-4366-87b5-4df075463a4c",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6386668e-07f6-482a-ad70-8f68d72bbcda",
+      "variantId": "cc76d360-3944-41d2-947c-1babe6594ac1",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4094866c-310c-4685-ba4f-89f25fc80270",
+      "variantId": "33508edc-6e82-4b20-b94c-1f9a3a4fee8d",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e1dc5fd6-3042-4533-a22c-4be32299101d",
+      "variantId": "fcd9efdd-aa9d-4f0d-9257-f4856a19184b",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d9e8e8ea-037b-404c-86d9-327cb2ae3d49",
+      "variantId": "0c7ce1fc-f13b-44fe-9725-6c7d45fc06bb",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "701876e4-3bfb-477b-8575-fa02824536a1",
+      "variantId": "0d456e65-043a-4d95-8ce0-597ec422299c",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "28795448-5728-4b4b-8dd3-ce0e85120fb6",
+      "variantId": "fb55263c-b066-4d0c-a1f0-8b5cc665fbff",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bf520a64-01f6-4447-bf12-afd268b5596d",
+      "variantId": "035dcb54-89b0-4075-8c6e-154de4cf0d01",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 3,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e7710510-a674-40f5-be20-c56a91b0edc1",
+      "variantId": "71e018ff-cad7-49eb-adc0-95e1cb4678e5",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8929e121-52c3-4753-9ed4-a088e2527a86",
+      "variantId": "4bcd254e-1ac8-4e79-8f09-cfc68f4a3dcb",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "845c1f94-e7e0-4da2-bd26-5cc5c9341288",
+      "variantId": "473ad189-0133-4b4b-8d28-e79ab29d7293",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6c4bf1ee-5810-474b-addd-44baa596e431",
+      "variantId": "67ddeda0-d36a-4c4d-96d6-01666d55feff",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dfe79949-53dc-4481-8138-642d880f1a35",
+      "variantId": "042de8a9-123f-490a-bc4c-2c34ee489cc6",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ccad56f5-0091-451d-9895-16e5959959b0",
+      "variantId": "615be6d7-12b5-4e71-875f-35cb0d07933c",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c7c8e4b3-807e-44e1-8d98-b63dd0dadcb7",
+      "variantId": "eb265a16-2090-4cea-922f-24ff069ff7fc",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "009e388e-7425-45a2-a9db-26f5a4c25cd8",
+      "variantId": "79bc08fd-797c-4c21-93e9-752a525c309d",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "83b3445a-730c-42b1-af24-1f1274a4a557",
+      "variantId": "679d573b-c3b2-441b-af3e-884ee55af5ed",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1aba44c1-ccd0-4c13-a707-7ef0670515b6",
+      "variantId": "6be5c021-6f52-4254-9318-990e9161b9de",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f0c06f81-4b0a-4c15-9e0f-7f6e5cce8111",
+      "variantId": "f4df876a-e9d8-424c-b0a8-0fb320621888",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "3998d880-3659-4896-ad2f-6782548b9282",
+      "variantId": "e2b2ac45-8bc4-4fa5-be0a-3221e00b27c6",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "460e6a2d-2ca0-41d3-b2ff-7f87e3753cad",
+      "variantId": "580d55f8-9031-4261-ba0c-27eb729d6404",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4795f295-cb81-409d-8b4c-c8330781ae02",
+      "variantId": "19520681-ef0f-4535-8e0d-15ab0c50d054",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "918dfc2c-a50c-44f0-b14b-73e8a1339959",
+      "variantId": "2c81e517-1c0d-4c8c-ae1b-e70ae04e8125",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "02464bcd-5e97-4d9b-a991-a92ac55d6cb9",
+      "variantId": "d79739b7-3580-4427-8aa9-26152eb72358",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "afe63def-e317-4f19-9fbc-b711e430bcdc",
+      "variantId": "2e0e02d5-4924-46f3-b84e-994517bb3c63",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "06ed854d-7ae2-414e-bcf3-98253bb8604d",
+      "variantId": "24220f53-77d1-4cd4-ae94-e8c8ad0dc2ae",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a5c6782b-f780-4188-b136-1d83720a2bd6",
+      "variantId": "0fb91d14-546e-4efa-ad49-c2a30a11a2b9",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "55c7b5dc-1a93-4637-845b-ec98cc0454a9",
+      "variantId": "8c5f2c60-28de-49b5-a6ef-66aa3e219924",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7dd8d8a2-f085-44cb-9c16-f35347c6b526",
+      "variantId": "400c0eae-6643-416e-a70e-6fe6525e674e",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d74ad2c6-0512-45d4-bee6-5f79c5d8f6fa",
+      "variantId": "92116086-e3a1-4381-8375-8b194f25312f",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "497c2d78-0a51-4ec0-9782-02fdb4730cc2",
+      "variantId": "99fd29c6-aaeb-4a81-9013-5c31493b5508",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ef9007bc-dce4-4532-ae65-73f62b981959",
+      "variantId": "50d9fdfc-1e67-4926-b710-6e60eb20cf32",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "825684b7-c15f-4563-ab89-ec3ba1bfebcf",
+      "variantId": "8f9249b4-b9e3-4985-bcab-9a5e6a3c5375",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "3c4db5fa-6831-4129-881c-fbf10a8d204c",
+      "variantId": "779f1ff8-a2de-441a-947f-0e0cd7547010",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "790a6892-6be2-46a2-92de-94524512d469",
+      "variantId": "7d625373-fd27-4513-9609-db45a8d1600c",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "56fc7ed0-9aaa-405e-ac7d-7ba6c73a307d",
+      "variantId": "a48f1859-3709-4ef6-be68-afd282e53338",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7e4b92ec-fe91-4b50-80e4-47d67525ad6e",
+      "variantId": "e74d3e31-883d-4b6e-80d2-4ebd8c483a07",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "98856063-190f-4172-b0bb-869e28577abd",
+      "variantId": "159bdf73-3622-4f2b-a3e1-ebb517c1e9a0",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0c293021-ebf5-44e9-be54-c1d04ff2f0e8",
+      "variantId": "49b8862d-6ef3-480f-ad16-4d967797acbc",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "633b164a-cc52-4029-89a0-8535fd1fa6d0",
+      "variantId": "fccf66c3-114c-4fc9-85ae-72578eba87aa",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "acd6cc27-cc18-40da-b026-c48bcb72b947",
+      "variantId": "34de6238-307b-477f-9909-c0cf171ca13f",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e4150993-ae27-4a14-a9cd-b5e6c4d52a25",
+      "variantId": "b9328f31-4f52-4bd6-9459-8aea2cb65dc6",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ff2a54bb-5cde-4065-b3b6-d50b5c91d8c0",
+      "variantId": "8574f2ef-cd09-4ceb-bd1b-b1fd7a0956a6",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8e6a93e7-9e81-4308-ac4e-bd73b20046c1",
+      "variantId": "3af79bb6-6812-41f4-a63f-cb1c78490455",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ff6ba9d2-c422-43b9-8c86-8ed554807e4d",
+      "variantId": "d82ee759-ad8b-4a1a-a6e6-9a285daf6c9f",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "95d31cf6-29e0-4af9-ab9b-b2c1558238b0",
+      "variantId": "26e590e7-173b-4731-904e-960b65934fcc",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ef9de4c6-c47a-45ac-867a-c01867d7bc05",
+      "variantId": "e6da60e3-92a0-4056-b59a-3da744d8f99e",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8c26d3f0-b289-4a08-bf4e-9744718c6f5b",
+      "variantId": "136f78f5-36c1-417e-bf8e-21f588e71840",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "563197b2-3b91-406e-bcf6-c6ad32034a75",
+      "variantId": "4891f0cd-6231-40f9-a9fe-3ddefc74553b",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "08de3f5d-0c72-4fd1-b49d-5e05eedefd0f",
+      "variantId": "b8f1a126-cac6-4ca6-859d-4f81afd40d35",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "04197996-c62e-4fd0-83c4-dfa29c232123",
+      "variantId": "5ecca85f-84a9-40b6-808f-2d2f41543d95",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a73c374e-66fc-4dd9-9e5c-610aa04c95ad",
+      "variantId": "0a6bfade-75fa-422f-94b0-d2d6b8d5e365",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "306aee34-36fb-4230-8dc9-3747d1bdca3b",
+      "variantId": "db8b69c3-6a8a-43c1-917b-266a9c8efe21",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7fa92bfa-0d6e-445b-abf0-88aeecb0e5b7",
+      "variantId": "461ad591-0444-4223-abee-e198debcb527",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b14c0de5-7241-46b3-beb1-2edd0bfe5e7d",
+      "variantId": "55db7529-0fa3-4023-b33e-730418a52c02",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "aa5a0fd0-d48e-4698-98c6-bd32a60c05c8",
+      "variantId": "3ee2c1ce-e821-4d17-93f7-1b84938adb5a",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b545199b-08c7-442a-8314-ba8588228bf2",
+      "variantId": "c2739d1f-56d0-4efd-a4bd-c96ac7cf5ce2",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e663f0e3-2ed3-495a-8cc3-3f895ff0031a",
+      "variantId": "197ce000-8d39-4066-b3ca-67171c8388b5",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ede81c80-555d-4d7e-a0cb-c165ef09fed4",
+      "variantId": "e152065b-0834-4ab0-9c92-06bc46819d27",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "da072055-0bb5-42fe-b694-3b0874ad3638",
+      "variantId": "44aaaf37-808f-4ff7-b4d1-46a8bee34d40",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1851a98f-d071-4600-91fe-cabd908ec317",
+      "variantId": "113eb90d-7df7-4bb5-84a6-e5035330d55c",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "9e4924ff-c8eb-4e46-9fea-cac1592ee7fa",
+      "variantId": "2a28773e-b638-461f-ae21-72e47fc7ed44",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "df2b66c5-40da-4601-bb7a-90710fa8f11e",
+      "variantId": "19e149a3-a248-4152-ae82-8cc488a9ef29",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "cc95f1e0-2065-4d7d-bc3a-a6ec730ff1f5",
+      "variantId": "786a8f60-e46a-4bea-a4b2-86cd8f8e7601",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7287577a-7476-4438-8b6f-a7781ecb4bac",
+      "variantId": "b416faf0-2cab-49b3-83d7-fdac017740f2",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e460bc4a-7ac9-4be1-ba81-265726330b32",
+      "variantId": "0f8f2283-af1d-4881-a0b2-ca578d044657",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "8280e68c-a987-4eb0-9e37-b4e39f551586",
+      "variantId": "88ab5463-7a5d-47dd-99ef-b9821dddc1e6",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "efd19b43-3bc8-41b6-9d46-f350f1973749",
+      "variantId": "325e4a50-9b7c-4cda-b919-948ce7964711",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "397800d8-2b98-46df-99f9-b6f7714461bf",
+      "variantId": "9cedc65d-2ba6-457a-b712-b34cfdcc25ed",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "9be367d6-8acb-407b-9d09-ced5918b02ca",
+      "variantId": "fe568c0f-a4fd-4960-8e07-dd8ac91c0bbf",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6c28eebb-2550-4b4b-8357-950893339f8d",
+      "variantId": "47e75e29-9dfa-44eb-84aa-ab007e55aace",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "86fb7e76-4299-4bb9-917a-b44203c432e3",
+      "variantId": "50a5dcc4-0daa-4f63-9ecf-edfd3cd2d8ea",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "afacb657-2e0c-4b5f-b46c-686d626f3b62",
+      "variantId": "47b6bcb7-c252-4508-9adf-81965b2240d2",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "fcf5993a-c1a4-4d51-84af-eda006289ea8",
+      "variantId": "2a09b7bb-509f-4108-a281-d9ad065c211a",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "e0483576-8a1d-4f6d-a732-cba65e6e61db",
+      "variantId": "658f29d6-ebd7-4026-a430-5d6660ae79d5",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "1a5c8216-fa59-4118-a364-3518a7e57e59",
+      "variantId": "37c02af1-7216-497d-9735-8895e906ea49",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7447e80b-0246-463e-8102-2cf482e61360",
+      "variantId": "43e62f9b-8548-4349-845e-1ff8216b5e96",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a409a56b-f629-492d-b13e-0d2082777c09",
+      "variantId": "b88841be-ed5a-4ed2-8556-47aa5ca124c7",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4cf1a518-9bd4-4cf9-9e17-063f02ba6ec1",
+      "variantId": "578f59ac-3670-44d7-b5c1-0830530a4425",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dfcb36f8-d913-4166-8db4-8ad217023238",
+      "variantId": "923c732e-e9e7-49d2-b982-11375e4c388b",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4dd2b6e7-0838-41e6-9f68-469151f4be96",
+      "variantId": "ac3bcf15-3838-4fde-97c8-44641904a29f",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "407616bc-4c67-45a9-93c9-ac68f1f6b58a",
+      "variantId": "a1670296-5fc6-45a5-a803-2ca4604b511c",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a26f20a7-5707-4690-962f-4df282585e7f",
+      "variantId": "1bcf329c-0605-488e-bba8-839fd58942f4",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "04e8cbb1-a85c-4ee3-bcdd-9cf1cad152a4",
+      "variantId": "dd0a3407-c591-48a3-b2b6-60950e7c3e81",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "08d95359-7605-4321-b744-11470d2ac936",
+      "variantId": "6dff9618-b3f2-4411-9d79-91b659fffc04",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f20dcd6f-8147-4a11-9fbf-d7026ef5efbb",
+      "variantId": "2682a1e0-7ba5-4a36-9e86-263287e63355",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "5d04396c-304f-427f-814d-7dc9697e178d",
+      "variantId": "daaaab2c-a530-49e4-be08-48f02c52ccb8",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "50037907-767e-4122-9d64-63d5db853407",
+      "variantId": "0d1f4447-3108-47e5-8eac-46a1404503e0",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "495e86cc-120a-4723-a710-1ae4bb0911db",
+      "variantId": "43eb85cc-2cdf-4ead-9acc-d3fa30cd0e8d",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "5c3fdbaa-fdd7-4918-b47c-52ac2341c3d2",
+      "variantId": "2df6ba4d-27e1-49eb-8a26-9f6ffc8f0494",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a7cd55e6-906d-4492-ba19-c8361009f6fb",
+      "variantId": "cb8465e8-5c59-4254-b1b3-a316710c22be",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "3ca49c23-c8d7-4aa8-8602-4bd19638c418",
+      "variantId": "71af0dcf-a609-442a-a982-7701e042b6e9",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "9fbaf60c-b46a-4257-96d5-e619ead4053a",
+      "variantId": "ea674925-b2c5-465b-bf6b-2bef6a964d65",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b2d187e8-78db-438c-9894-06a973f983e9",
+      "variantId": "1c66b980-3743-4370-b9ef-9fbc925e97ff",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "aafbd2a9-c941-4677-800f-ab0c9109fac1",
+      "variantId": "fac523b6-e075-4957-8713-8bc45339ea5f",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b66e4ed0-0032-4cc7-b659-f3067b546963",
+      "variantId": "0f401912-c6c4-4065-a5cf-ca20373e814e",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0b386256-b8c1-460f-8aa6-0bc47f18d279",
+      "variantId": "2a3f9e17-427b-4394-8e05-ad6596f5abd2",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "4a0a4e24-192d-461e-ab37-c5bd317f796f",
+      "variantId": "14809a61-631c-48be-ac6b-79e2eadc03fe",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "06fca899-6d04-4c04-a06a-be94a6bca324",
+      "variantId": "ca0a67a8-dd14-40ae-8088-52149a777cdd",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "81f6c3c5-dc40-4208-bb5b-22512b39110d",
+      "variantId": "952bd236-20f7-4943-96a1-79c6c8bba133",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "82c33898-d753-45a6-9297-580cee98bee9",
+      "variantId": "90a75bf6-3146-4d8c-b26c-2562ce9be474",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c1efe14b-d93e-4600-b8e3-77e94ef8b84b",
+      "variantId": "123afd2b-5b0b-4972-8356-de11cf143bb2",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7d0800bd-6b32-4536-9001-0134243ee8e1",
+      "variantId": "6367f2de-5547-41cb-8a3c-a55c837b5f0f",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "0a654809-dc4d-4ff7-995a-7225e54356a3",
+      "variantId": "86df4eb7-ad19-4407-b4d1-5449f2a15a08",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "5e8aa60f-b4e9-439c-abf6-ffe7e0780759",
+      "variantId": "7cf67fb9-85a4-4078-b7d7-d82e567fce78",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "7ba72c18-7078-4610-989d-c4d80a835465",
+      "variantId": "0b4c1a1f-d751-40e9-9dbf-7e541254bcd9",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "045f85d6-c372-4a16-bd31-5d558e6ec93e",
+      "variantId": "335a1917-3116-457e-9dfa-180dad436e27",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "23d5f83b-9f4a-464b-a8b1-1374b6521f76",
+      "variantId": "f7a4cf46-0f12-41ca-8c9f-eef44a00f199",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b1a828a5-baff-4b52-ba49-1aace79bdde3",
+      "variantId": "63e6852d-5911-4aee-b2cf-6d2dd5779970",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "152a7dcd-3288-45e5-9c93-45666f033f51",
+      "variantId": "ed8cf7e6-036f-4db0-9efb-b2786f58a276",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2d053544-2838-42b7-92c2-8c8faa7dc7a9",
+      "variantId": "4a751341-ae5c-466a-8419-e10ee8b6d45b",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "437d73ac-5096-4848-b46b-bda7401bb288",
+      "variantId": "e1c68dd7-1aa4-4852-ba75-404001a3ff21",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2a17c46c-abd1-4319-8305-2957375fa8d0",
+      "variantId": "10775071-326c-4fb6-910f-93adfbfb5abc",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "cd8159e7-2678-474f-a135-9cd799c092df",
+      "variantId": "e43fa5f0-220b-4abe-b020-7ed1232a9190",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "190b9a82-c5eb-4fc6-9c12-8e64dd5e3430",
+      "variantId": "2b25b2bb-6da6-46f3-9f19-e5d6a13387e9",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bae9eb01-e8e2-49c2-a0ff-c6feb05f417d",
+      "variantId": "da433110-1a97-4ba2-842f-e6bf8a24cc12",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "b1a0e538-c1d0-44bd-8c55-dcb40ed9f7d8",
+      "variantId": "4d123611-a71c-492b-bdff-b459949f95ff",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "35b9f69b-678f-4b78-8365-e85ce732c8ea",
+      "variantId": "a751d740-e5a5-4eed-b3c1-29c5c1127494",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "11a557fe-dc7e-4a21-827d-33f3df0096dc",
+      "variantId": "e267264d-6fc8-479a-9e77-d0281e9d7977",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "347ca394-2694-4165-ae59-600519124dac",
+      "variantId": "e3e41d49-96d1-4c4d-9be4-5e5d1bacee8c",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c43384f0-8d40-4f81-b5c0-24ee419819ee",
+      "variantId": "c48db37b-04b8-4c50-8c3b-8c3b3327e7e2",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "242d2711-1ebd-4df3-836b-8389e8a85011",
+      "variantId": "09896415-ab3c-429a-a5f5-de2583a9914f",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "61abe846-cee3-47b8-bae9-b64c0ad58a18",
+      "variantId": "b9814fcc-bddd-46cb-af8a-53f7c9cfbb6f",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "29eda232-ad80-439b-8f5d-4b5625690c89",
+      "variantId": "b670ddc1-c90f-4df5-ad94-9c85f8730bc8",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "c91646c0-1701-42a1-a4fe-4e7d2af2cd8a",
+      "variantId": "4bc5364e-d301-4a69-8327-32965f243eb0",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "a694efe4-c30c-4100-883e-76ae2aeffe01",
+      "variantId": "3e9fc72a-5905-46b6-abfa-5d474b1055a6",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f9dda08d-49e1-4bdd-8660-c051fc8146ac",
+      "variantId": "1684bc08-45f8-4e3b-846b-9fa038271a84",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ca4ae94a-838d-4220-bcf1-a6d15fcfd684",
+      "variantId": "4290d30c-cdc0-4723-8a23-49be23e213a3",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "15ec2afc-ea97-417f-82af-8b6bf1e90e16",
+      "variantId": "90770c70-99fb-4e77-a388-a03fffb52395",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 8,
+      "otherConditionObservationsWithin30Days": 4,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f031d2ed-b508-4cdc-ad9a-619568bac37e",
+      "variantId": "37c93e44-3714-4b42-b2c9-89827cd9e5c8",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 19,
+      "otherConditionObservationsWithin30Days": 186,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "35bb8f28-a310-4c96-9fee-e5682c772965",
+      "variantId": "1a2ca55e-eb22-4f98-8cb4-4c8b9e70d0c4",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 19,
+      "otherConditionObservationsWithin30Days": 94,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "ddc31615-bd92-4cbd-8002-39f02cdb7e3c",
+      "variantId": "c408f698-2a71-46ca-89c4-54fda104087a",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 1,
+      "otherConditionObservationsWithin30Days": 139,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "947acfdc-599b-45ef-9f84-3875d1dc1683",
+      "variantId": "a47c0a08-a5e3-411b-af1c-31f262ed4558",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 15,
+      "otherConditionObservationsWithin30Days": 188,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bb5e7bbe-73c4-4252-87c4-95598aebd005",
+      "variantId": "b4774167-f688-44d4-8862-06a6f5f928ed",
+      "checkpoint": "2026-07-30",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 188,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "70bfbf6a-ecd5-4cc3-b991-e25d39b29636",
+      "variantId": "f98d868c-da01-4f40-8d40-0350cbecd7db",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 21,
+      "otherConditionObservationsWithin30Days": 188,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "000718fc-e90f-4243-b601-6330060a16f3",
+      "variantId": "4300cb03-b062-403c-bcb8-e3918de18dba",
+      "checkpoint": "2026-07-30",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 187,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "00c328e3-0dd0-47b6-8828-d0af539c3ec8",
+      "variantId": "98621c4a-26a3-46a4-889a-6baee4438ce7",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 1,
+      "otherConditionObservationsWithin30Days": 127,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "62a1ef8a-32d1-402d-bc5f-9b71fa64b04b",
+      "variantId": "847d9afd-f8f2-4787-9c67-fde9320db14c",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 21,
+      "otherConditionObservationsWithin30Days": 188,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d45280c9-e70c-4494-975a-4f89ceca6db5",
+      "variantId": "6593800a-ee5f-4853-a465-3a5840fd179c",
+      "checkpoint": "2026-07-30",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 188,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2d8c9de0-eaad-4e31-bc0a-782c6258eb7a",
+      "variantId": "2a61bc6e-0369-4f47-b566-d4da1b293a76",
+      "checkpoint": "2026-07-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6fe2e9b7-dae4-43b0-9ddb-81c71364d586",
+      "variantId": "a145d558-7f08-44f6-8927-01409661706f",
+      "checkpoint": "2026-07-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bc8ba2d2-10c4-4885-b9a0-5d4bb1d247c4",
+      "variantId": "566e6149-ccc1-4985-9f04-abfd90df887e",
+      "checkpoint": "2026-07-30",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 7,
+      "otherConditionObservationsWithin30Days": 83,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dad35b31-e01c-4757-895f-5a167a294292",
+      "variantId": "70105868-23e3-4051-ac20-a1ae1be045f0",
+      "checkpoint": "2026-07-30",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "75aad231-a37f-4e36-b188-aeb573ba1d1f",
+      "variantId": "277c9684-de9b-4a59-b226-8730008dc625",
+      "checkpoint": "2026-08-29",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 4,
+      "otherConditionObservationsWithin30Days": 76,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "95827231-abc7-4f05-8dac-d8d7536a9cfb",
+      "variantId": "7db91c71-a6fa-4451-823e-21f539a9c024",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 43,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "60402015-ba94-43f0-a36b-e887c709d388",
+      "variantId": "f99634c6-8312-4709-8d6c-d637af72202e",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 69,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "f031d2ed-b508-4cdc-ad9a-619568bac37e",
+      "variantId": "37c93e44-3714-4b42-b2c9-89827cd9e5c8",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 74,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "51a0b656-1b48-4a4a-8e25-c1e116e9a3bd",
+      "variantId": "248536e0-398d-45a8-8964-44f6fd3b08de",
+      "checkpoint": "2026-08-29",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 17,
+      "otherConditionObservationsWithin30Days": 76,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "35bb8f28-a310-4c96-9fee-e5682c772965",
+      "variantId": "1a2ca55e-eb22-4f98-8cb4-4c8b9e70d0c4",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 38,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bb5e7bbe-73c4-4252-87c4-95598aebd005",
+      "variantId": "b4774167-f688-44d4-8862-06a6f5f928ed",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 76,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "70bfbf6a-ecd5-4cc3-b991-e25d39b29636",
+      "variantId": "f98d868c-da01-4f40-8d40-0350cbecd7db",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 76,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "000718fc-e90f-4243-b601-6330060a16f3",
+      "variantId": "4300cb03-b062-403c-bcb8-e3918de18dba",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 76,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "88640285-cfe5-4f7d-920f-54136455aa4d",
+      "variantId": "b68aba1a-b9d9-4fda-bef7-e4163e0c7528",
+      "checkpoint": "2026-08-29",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 3,
+      "otherConditionObservationsWithin30Days": 76,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "62a1ef8a-32d1-402d-bc5f-9b71fa64b04b",
+      "variantId": "847d9afd-f8f2-4787-9c67-fde9320db14c",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 76,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "d45280c9-e70c-4494-975a-4f89ceca6db5",
+      "variantId": "6593800a-ee5f-4853-a465-3a5840fd179c",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 76,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "2d8c9de0-eaad-4e31-bc0a-782c6258eb7a",
+      "variantId": "2a61bc6e-0369-4f47-b566-d4da1b293a76",
+      "checkpoint": "2026-08-29",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "6fe2e9b7-dae4-43b0-9ddb-81c71364d586",
+      "variantId": "a145d558-7f08-44f6-8927-01409661706f",
+      "checkpoint": "2026-08-29",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "cfd63b7a-be09-475c-ab33-415c48565382",
+      "variantId": "8570d87a-be3f-4c0f-8509-e320f9240528",
+      "checkpoint": "2026-08-29",
+      "cause": "INCOMPLETE_SOURCE_INGESTION",
+      "nearMintObservationsWithin30Days": 14,
+      "otherConditionObservationsWithin30Days": 56,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "bc8ba2d2-10c4-4885-b9a0-5d4bb1d247c4",
+      "variantId": "566e6149-ccc1-4985-9f04-abfd90df887e",
+      "checkpoint": "2026-08-29",
+      "cause": "PRICE_CONDITION_MISMATCH",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 38,
+      "safeCheckpointRepair": false
+    },
+    {
+      "canonicalCardId": "dad35b31-e01c-4757-895f-5a167a294292",
+      "variantId": "70105868-23e3-4051-ac20-a1ae1be045f0",
+      "checkpoint": "2026-08-29",
+      "cause": "HISTORICAL_OBSERVATIONS_NEVER_RETAINED",
+      "nearMintObservationsWithin30Days": 0,
+      "otherConditionObservationsWithin30Days": 0,
+      "safeCheckpointRepair": false
+    }
+  ],
+  "auditHash": "ed721c2ddf1462c38893a5f76e0cbd4c0b3b0a1c7ac29656fbb6579c4a25bd2c"
+}

@@ -1,0 +1,672 @@
+{
+  "study_id": "treatment-market-prestige-v3-r13-feaec64cf9c0bb6f",
+  "built_at": "2026-08-30T04:14:36.940911+00:00",
+  "startingCoverage": {
+    "cards": 9202,
+    "coverage": 0.4636468987756336
+  },
+  "target": {
+    "cards": 13893,
+    "coverage": 0.7
+  },
+  "startingGap": 4691,
+  "functionalTrainer": {
+    "preregisteredModel": {
+      "estimand": "How strongly does the market value a functional Trainer card's treatment package relative to comparable functional Trainer treatments in its era, controlling exactly for canonical functional-card identity and set through within-identity-by-set contrasts?",
+      "semantics": "TRAINER_SUPERTYPE_RELATIVE_WITHIN_ERA_OR_REGIME",
+      "minimum_cards_per_treatment": 25,
+      "minimum_cross_treatment_identities": 20,
+      "minimum_within_identity_set_pairs": 20,
+      "minimum_sets": 3,
+      "minimum_checkpoints": 4,
+      "minimum_span_days": 85,
+      "minimum_checkpoint_coverage": 0.95,
+      "maximum_adjacent_score_drift": 0.5,
+      "maximum_90_day_score_drift": 1.0,
+      "maximum_prediction_interval_width": 4.0,
+      "maximum_loso_shift": 1.0,
+      "bootstrap_draws": 399,
+      "frozen_before_coefficients": true
+    },
+    "identificationGates": {
+      "estimand": "How strongly does the market value a functional Trainer card's treatment package relative to comparable functional Trainer treatments in its era, controlling exactly for canonical functional-card identity and set through within-identity-by-set contrasts?",
+      "semantics": "TRAINER_SUPERTYPE_RELATIVE_WITHIN_ERA_OR_REGIME",
+      "minimum_cards_per_treatment": 25,
+      "minimum_cross_treatment_identities": 20,
+      "minimum_within_identity_set_pairs": 20,
+      "minimum_sets": 3,
+      "minimum_checkpoints": 4,
+      "minimum_span_days": 85,
+      "minimum_checkpoint_coverage": 0.95,
+      "maximum_adjacent_score_drift": 0.5,
+      "maximum_90_day_score_drift": 1.0,
+      "maximum_prediction_interval_width": 4.0,
+      "maximum_loso_shift": 1.0,
+      "bootstrap_draws": 399,
+      "frozen_before_coefficients": true
+    },
+    "totalCards": 1072,
+    "pilots": [
+      {
+        "era": "Sun and Moon",
+        "domain": "ITEM",
+        "comparisonUniverse": "TRAINER_SUPERTYPE_RELATIVE_WITHIN_ERA",
+        "design": {
+          "treatmentCounts": {
+            "uncommon": 93,
+            "rare_secret": 47
+          },
+          "crossTreatmentIdentities": 40,
+          "withinIdentitySetPairs": 40,
+          "sets": 13,
+          "checkpoints": 4
+        },
+        "gates": {
+          "cards": true,
+          "identities": true,
+          "pairs": true,
+          "sets": true,
+          "history": true
+        },
+        "series": [
+          {
+            "date": "2026-05-31",
+            "coverage": 1.0,
+            "model": {
+              "pairCount": 40,
+              "setCount": 13,
+              "difference": 3.433801736934992,
+              "betweenSetVariance": 0.05642899399297545,
+              "scores": {
+                "uncommon": 4.0162059953505125,
+                "rare_secret": 5.9837940046494875
+              },
+              "scoreIntervals": {
+                "uncommon": [
+                  3.96537188824513,
+                  4.0735231273063865
+                ],
+                "rare_secret": [
+                  5.9264768726936135,
+                  6.03462811175487
+                ]
+              },
+              "predictionIntervals": {
+                "uncommon": [
+                  3.8777576875988156,
+                  4.1572095375860325
+                ],
+                "rare_secret": [
+                  5.8427904624139675,
+                  6.122242312401185
+                ]
+              },
+              "maximumLosoShift": 0.018354232576284435
+            }
+          },
+          {
+            "date": "2026-06-30",
+            "coverage": 1.0,
+            "model": {
+              "pairCount": 40,
+              "setCount": 13,
+              "difference": 3.4776320936184844,
+              "betweenSetVariance": 0.034676366148822545,
+              "scores": {
+                "uncommon": 4.0041707010063465,
+                "rare_secret": 5.9958292989936535
+              },
+              "scoreIntervals": {
+                "uncommon": [
+                  3.9638543433271805,
+                  4.071474089989472
+                ],
+                "rare_secret": [
+                  5.928525910010528,
+                  6.0361456566728195
+                ]
+              },
+              "predictionIntervals": {
+                "uncommon": [
+                  3.892956832798159,
+                  4.1170505035768565
+                ],
+                "rare_secret": [
+                  5.8829494964231435,
+                  6.107043167201841
+                ]
+              },
+              "maximumLosoShift": 0.014507741070859836
+            }
+          },
+          {
+            "date": "2026-07-30",
+            "coverage": 1.0,
+            "model": {
+              "pairCount": 40,
+              "setCount": 13,
+              "difference": 3.4550828615686426,
+              "betweenSetVariance": 0.040443499436462534,
+              "scores": {
+                "uncommon": 4.0103600675768565,
+                "rare_secret": 5.9896399324231435
+              },
+              "scoreIntervals": {
+                "uncommon": [
+                  3.9650637736536343,
+                  4.076663447098988
+                ],
+                "rare_secret": [
+                  5.923336552901013,
+                  6.034936226346367
+                ]
+              },
+              "predictionIntervals": {
+                "uncommon": [
+                  3.889792763460459,
+                  4.132873779345855
+                ],
+                "rare_secret": [
+                  5.8671262206541455,
+                  6.11020723653954
+                ]
+              },
+              "maximumLosoShift": 0.01889904187390945
+            }
+          },
+          {
+            "date": "2026-08-29",
+            "coverage": 1.0,
+            "model": {
+              "pairCount": 40,
+              "setCount": 13,
+              "difference": 3.4196580228148297,
+              "betweenSetVariance": 0.039186620147928154,
+              "scores": {
+                "uncommon": 4.020093753247059,
+                "rare_secret": 5.979906246752941
+              },
+              "scoreIntervals": {
+                "uncommon": [
+                  3.975201044738871,
+                  4.076807104111817
+                ],
+                "rare_secret": [
+                  5.923192895888184,
+                  6.024798955261129
+                ]
+              },
+              "predictionIntervals": {
+                "uncommon": [
+                  3.8998842850642808,
+                  4.142216186566229
+                ],
+                "rare_secret": [
+                  5.857783813433772,
+                  6.100115714935719
+                ]
+              },
+              "maximumLosoShift": 0.023250282050960358
+            }
+          }
+        ],
+        "temporal": {
+          "uncommon": {
+            "maximumAdjacentDrift": 0.012035294344165948,
+            "ninetyDayDrift": 0.0038877578965461623
+          },
+          "rare_secret": {
+            "maximumAdjacentDrift": 0.012035294344165948,
+            "ninetyDayDrift": 0.0038877578965461623
+          }
+        },
+        "heterogeneityPass": true,
+        "status": "AVAILABLE",
+        "recoverableCards": 140
+      },
+      {
+        "era": "Sword and Shield",
+        "domain": "ITEM",
+        "comparisonUniverse": "TRAINER_SUPERTYPE_RELATIVE_WITHIN_ERA",
+        "design": {
+          "treatmentCounts": {
+            "uncommon": 116,
+            "rare_secret": 27
+          },
+          "crossTreatmentIdentities": 22,
+          "withinIdentitySetPairs": 22,
+          "sets": 13,
+          "checkpoints": 4
+        },
+        "gates": {
+          "cards": true,
+          "identities": true,
+          "pairs": true,
+          "sets": true,
+          "history": true
+        },
+        "series": [
+          {
+            "date": "2026-05-31",
+            "coverage": 1.0,
+            "model": {
+              "pairCount": 22,
+              "setCount": 13,
+              "difference": 3.35216835034142,
+              "betweenSetVariance": 0.01571652399790672,
+              "scores": {
+                "uncommon": 2.2488690927332646,
+                "rare_secret": 7.7511309072667345
+              },
+              "scoreIntervals": {
+                "uncommon": [
+                  2.158759107123409,
+                  2.351279731027459
+                ],
+                "rare_secret": [
+                  7.64872026897254,
+                  7.841240892876591
+                ]
+              },
+              "predictionIntervals": {
+                "uncommon": [
+                  2.0961836626868644,
+                  2.4184522423459933
+                ],
+                "rare_secret": [
+                  7.581547757654007,
+                  7.903816337313136
+                ]
+              },
+              "maximumLosoShift": 0.07686532144818337
+            }
+          },
+          {
+            "date": "2026-06-30",
+            "coverage": 1.0,
+            "model": {
+              "pairCount": 22,
+              "setCount": 13,
+              "difference": 3.348213504525487,
+              "betweenSetVariance": 0.0,
+              "scores": {
+                "uncommon": 2.2509687140103583,
+                "rare_secret": 7.749031285989642
+              },
+              "scoreIntervals": {
+                "uncommon": [
+                  2.1439639582373777,
+                  2.348123762590461
+                ],
+                "rare_secret": [
+                  7.651876237409539,
+                  7.856036041762622
+                ]
+              },
+              "predictionIntervals": {
+                "uncommon": [
+                  2.2012514206518903,
+                  2.3023495361329145
+                ],
+                "rare_secret": [
+                  7.697650463867086,
+                  7.79874857934811
+                ]
+              },
+              "maximumLosoShift": 0.00763814608743596
+            }
+          },
+          {
+            "date": "2026-07-30",
+            "coverage": 1.0,
+            "model": {
+              "pairCount": 22,
+              "setCount": 13,
+              "difference": 3.2753392238002323,
+              "betweenSetVariance": 0.12725226544061513,
+              "scores": {
+                "uncommon": 2.2901738530685907,
+                "rare_secret": 7.709826146931409
+              },
+              "scoreIntervals": {
+                "uncommon": [
+                  2.081222628157342,
+                  2.515213579183504
+                ],
+                "rare_secret": [
+                  7.484786420816495,
+                  7.918777371842658
+                ]
+              },
+              "predictionIntervals": {
+                "uncommon": [
+                  1.9191752170508418,
+                  2.773411891751156
+                ],
+                "rare_secret": [
+                  7.226588108248845,
+                  8.080824782949158
+                ]
+              },
+              "maximumLosoShift": 0.06773307267381679
+            }
+          },
+          {
+            "date": "2026-08-29",
+            "coverage": 1.0,
+            "model": {
+              "pairCount": 22,
+              "setCount": 13,
+              "difference": 3.103643892269534,
+              "betweenSetVariance": 0.09378288418145146,
+              "scores": {
+                "uncommon": 2.386460213095718,
+                "rare_secret": 7.6135397869042825
+              },
+              "scoreIntervals": {
+                "uncommon": [
+                  2.2969392970348306,
+                  2.637488648297623
+                ],
+                "rare_secret": [
+                  7.362511351702377,
+                  7.703060702965169
+                ]
+              },
+              "predictionIntervals": {
+                "uncommon": [
+                  2.043064179625389,
+                  2.8134396291875508
+                ],
+                "rare_secret": [
+                  7.186560370812449,
+                  7.956935820374611
+                ]
+              },
+              "maximumLosoShift": 0.031796914615527694
+            }
+          }
+        ],
+        "temporal": {
+          "uncommon": {
+            "maximumAdjacentDrift": 0.09628636002712732,
+            "ninetyDayDrift": 0.13759112036245336
+          },
+          "rare_secret": {
+            "maximumAdjacentDrift": 0.09628636002712643,
+            "ninetyDayDrift": 0.13759112036245202
+          }
+        },
+        "heterogeneityPass": true,
+        "status": "AVAILABLE",
+        "recoverableCards": 143
+      }
+    ],
+    "temporalResults": {
+      "Sun and Moon": {
+        "uncommon": {
+          "maximumAdjacentDrift": 0.012035294344165948,
+          "ninetyDayDrift": 0.0038877578965461623
+        },
+        "rare_secret": {
+          "maximumAdjacentDrift": 0.012035294344165948,
+          "ninetyDayDrift": 0.0038877578965461623
+        }
+      },
+      "Sword and Shield": {
+        "uncommon": {
+          "maximumAdjacentDrift": 0.09628636002712732,
+          "ninetyDayDrift": 0.13759112036245336
+        },
+        "rare_secret": {
+          "maximumAdjacentDrift": 0.09628636002712643,
+          "ninetyDayDrift": 0.13759112036245202
+        }
+      }
+    },
+    "modelEligibleCards": 283,
+    "recoverableCards": 283
+  },
+  "Supporter": {
+    "cards": 1132,
+    "ontology": {
+      "CANONICAL_CHARACTER_IDENTITY": 0,
+      "CANONICAL_CARD_FAMILY_IDENTITY": 0,
+      "GENERIC_ROLE_IDENTITY": 0,
+      "AMBIGUOUS": 1132,
+      "NO_SAFE_IDENTITY": 0
+    },
+    "safeIdentityCount": 0,
+    "crossTreatmentSafeIdentities": 0,
+    "feasibility": "SUPPORTER_V3_REQUIRES_EXTERNAL_IDENTITY_DATA",
+    "potentialRecovery": 0,
+    "reason": "No authoritative depicted-character or canonical Trainer entity field exists; exact names cannot safely resolve character/title aliases."
+  },
+  "ECard": {
+    "missingHistoryRootCause": {
+      "HISTORICAL_OBSERVATIONS_NEVER_RETAINED": 273,
+      "PRICE_CONDITION_MISMATCH": 26,
+      "INCOMPLETE_SOURCE_INGESTION": 155
+    },
+    "repairedHistoryCoverage": 0.6265060240963856,
+    "modelResult": "NOT_RUN_HISTORY_BELOW_GATE",
+    "recoverableCards": 0
+  },
+  "BaseWOTC": {
+    "cards": 441,
+    "sets": {
+      "Base": 102,
+      "Base Set 2": 130,
+      "Fossil": 62,
+      "Jungle": 64,
+      "Team Rocket": 83
+    },
+    "editionMix": {
+      "__UNMAPPED__": 231,
+      "unlimited": 110,
+      "1st_edition": 100
+    },
+    "finishMix": {
+      "holo": 85,
+      "non_holo": 356
+    },
+    "architecture": "ERA_RELATIVE; price-blind Jaccard rule yields no valid >=3-set boundary. Base Set 2 alone cannot form a regime.",
+    "treatmentUniverses": [
+      "common",
+      "rare",
+      "rare_holo",
+      "uncommon"
+    ],
+    "temporalFailures": {
+      "common": "MODEL_INSTABILITY",
+      "rare": "MODEL_INSTABILITY",
+      "rare_holo": "MODEL_INSTABILITY",
+      "uncommon": "AVAILABLE"
+    },
+    "causes": [
+      "genuine checkpoint score drift under current universe",
+      "edition-status mixture is canonical but not represented in rarity-only treatment identity",
+      "only one eligible treatment leaves insufficient universe support"
+    ],
+    "pilot": "PRESERVED_ROUND12_FAIL_CLOSED",
+    "recoverableCards": 0
+  },
+  "POP": {
+    "cards": 153,
+    "eligiblePokemonCards": 135,
+    "status": "INSUFFICIENT_ERA_SUPPORT",
+    "treatments": {
+      "common": "AVAILABLE",
+      "rare": "MODEL_INSTABILITY",
+      "uncommon": "MODEL_INSTABILITY"
+    },
+    "nearTieRule": "already similarity-aware; not causal",
+    "recoverableCards": 0
+  },
+  "Gym": {
+    "cards": 265,
+    "eligiblePokemonCards": 186,
+    "status": "INSUFFICIENT_MULTI_SET_SUPPORT",
+    "sets": 2
+  },
+  "NP": {
+    "cards": 74,
+    "eligiblePokemonCards": 0,
+    "status": "INSUFFICIENT_TREATMENT_SUPPORT",
+    "cause": "single promo set; promo ambiguity removes the canonical eligible cohort; no multi-treatment, multi-set comparison"
+  },
+  "Other": {
+    "cards": 271,
+    "sets": {
+      "Legendary Collection": 110,
+      "Southern Islands": 18,
+      "Pok\u00e9mon Rumble": 13,
+      "McDonald's Collection 2011": 12,
+      "McDonald's Collection 2012": 12,
+      "McDonald's Collection 2014": 12,
+      "McDonald's Collection 2015": 12,
+      "McDonald's Collection 2016": 6,
+      "McDonald's Collection 2017": 12,
+      "McDonald's Collection 2018": 12,
+      "McDonald's Collection 2019": 12,
+      "McDonald's Collection 2021": 25,
+      "McDonald's Collection 2022": 15
+    },
+    "assessment": "Artificial miscellaneous catalog bucket mixing Legendary Collection, Southern Islands, Pok\u00e9mon Rumble, and unrelated McDonald's releases; no safe cross-set comparison universe.",
+    "safeReassignments": 0,
+    "recoverableCards": 0
+  },
+  "legitimatelyRecoveredInstabilityCards": 0,
+  "Energy": {
+    "cards": 371,
+    "status": "ENERGY_V3_ESTIMAND_REQUIRES_MORE_DATA",
+    "lowCostSubclassFound": false
+  },
+  "waterfall": [
+    {
+      "project": "Functional Trainer S&M Items",
+      "incrementalCards": 140,
+      "cumulativeCards": 9342,
+      "catalogCoverage": 0.47070086159117247,
+      "remainingTo70": 4551
+    },
+    {
+      "project": "Functional Trainer SWSH Items",
+      "incrementalCards": 143,
+      "cumulativeCards": 9485,
+      "catalogCoverage": 0.4779059807527586,
+      "remainingTo70": 4408
+    },
+    {
+      "project": "Supporters",
+      "incrementalCards": 0,
+      "cumulativeCards": 9485,
+      "catalogCoverage": 0.4779059807527586,
+      "remainingTo70": 4408
+    },
+    {
+      "project": "E-Card retention repair",
+      "incrementalCards": 0,
+      "cumulativeCards": 9485,
+      "catalogCoverage": 0.4779059807527586,
+      "remainingTo70": 4408
+    },
+    {
+      "project": "Base/WOTC",
+      "incrementalCards": 0,
+      "cumulativeCards": 9485,
+      "catalogCoverage": 0.4779059807527586,
+      "remainingTo70": 4408
+    },
+    {
+      "project": "POP",
+      "incrementalCards": 0,
+      "cumulativeCards": 9485,
+      "catalogCoverage": 0.4779059807527586,
+      "remainingTo70": 4408
+    },
+    {
+      "project": "Other",
+      "incrementalCards": 0,
+      "cumulativeCards": 9485,
+      "catalogCoverage": 0.4779059807527586,
+      "remainingTo70": 4408
+    }
+  ],
+  "domainCoverage": {
+    "catalog": {
+      "cards": 9485,
+      "denominator": 19847,
+      "coverage": 0.4779059807527586
+    },
+    "pokemon": {
+      "cards": 9202,
+      "denominator": 16459,
+      "coverage": 0.559086214229297
+    },
+    "trainer": {
+      "cards": 283,
+      "denominator": 2718,
+      "coverage": 0.10412067696835908
+    },
+    "energy": {
+      "cards": 0,
+      "denominator": 371,
+      "coverage": 0
+    }
+  },
+  "coverageEstimates": {
+    "conservative": {
+      "cards": 9202,
+      "coverage": 0.4636468987756336
+    },
+    "likely": {
+      "cards": 9485,
+      "coverage": 0.4779059807527586
+    },
+    "optimisticDefensible": {
+      "cards": 9485,
+      "coverage": 0.4779059807527586
+    }
+  },
+  "remainingTo70": 4408,
+  "minimumProjectSetFor70": {
+    "conservative": null,
+    "likely": null,
+    "optimisticDefensible": null,
+    "reason": "All named downstream-valid and bounded plausible projects remain below 13,893."
+  },
+  "eightyPercentFeasibility": "NOT_FEASIBLE_FROM_CURRENT_NAMED_PROJECTS",
+  "trainerDecision": "FUNCTIONAL_TRAINER_V3_PARTIALLY_VALIDATED",
+  "ecardDecision": "ECARD_RETENTION_REPAIR_REQUIRED",
+  "baseDecision": "BASE_WOTC_RECOVERY_LOW_VALUE",
+  "seventyPercentDecision": "70_PERCENT_PATH_REMAINS_UNPROVEN",
+  "productionPaused": true,
+  "rowsPersisted": 0,
+  "productionBehavior": "Research-only; no migrations, approved candidates, production score rows, UI/Card Detail, V1/V2, appeal, RIP, or ranking changes.",
+  "filesChanged": [
+    "backend/scripts/audit_treatment_market_prestige_v3_round13_ecard.py",
+    "backend/scripts/build_treatment_market_prestige_v3_round13.py",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round13.py",
+    "docs\\research\\treatment_market_prestige_v3_round13_ecard_retention_audit.json",
+    "docs\\research\\treatment_market_prestige_v3_round13_study.json",
+    "docs\\research\\TREATMENT_MARKET_PRESTIGE_V3_ROUND13_RESULTS.md",
+    "docs\\research\\treatment_market_prestige_v3_round13_closure\\manifest.json"
+  ],
+  "testsExecuted": [
+    "functional Trainer preregistration/design gates",
+    "paired identity\u00d7set temporal pilots",
+    "E-Card retention audit",
+    "older-era fail-closed decomposition",
+    "coverage mathematics",
+    "full V3 regression"
+  ],
+  "limitations": [
+    "Supporter character identity metadata is absent",
+    "only two functional Item universes pass identification gates",
+    "E-Card missing checkpoint prices cannot be reconstructed",
+    "Base/WOTC edition-aware ontology is unresolved",
+    "research-supported coverage is not production approval"
+  ],
+  "exactNextTask": "Round 14 should not resume production: build an authoritative Supporter character identity source or import one with provenance, repair E-Card checkpoint ingestion from source evidence, and resolve modern unsupported SWSH/S&M treatment regimes; the current named projects do not reach 70%."
+}
