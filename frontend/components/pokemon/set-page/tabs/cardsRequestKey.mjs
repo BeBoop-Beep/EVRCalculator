@@ -1,4 +1,4 @@
-import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
+import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "../../../../lib/pokemon/pricingSnapshotContract.mjs";
 
 export function buildCardsRequestKey({ setId, section, sort, sortDirection, query, rarity, movementFilter, movementSort, movementMetric, page, pageSize = 60, pricingContractVersion = PRICING_SNAPSHOT_CONTRACT_VERSION }) {
   return JSON.stringify({
@@ -12,11 +12,11 @@ export function buildCardsRequestKey({ setId, section, sort, sortDirection, quer
     movementFilter: movementFilter || null,
     movementSort: movementSort || null,
     movementMetric: movementMetric || null,
-    page: Number(page) || 1,
+    page: Number.isFinite(Number(page)) ? Number(page) : 1,
     pageSize: Number(pageSize) || 60,
   });
 }
 
 export function buildCardsScopeKey(request) {
-  return buildCardsRequestKey({ ...request, page: 0 }).replace('"page":1', '"page":0');
+  return buildCardsRequestKey({ ...request, page: 0 });
 }
