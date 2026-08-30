@@ -17,6 +17,7 @@ import sys
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
@@ -329,20 +330,23 @@ def compare_parity(old_rows: Sequence[Mapping[str, Any]], new_rows: Sequence[Map
                 **row, "daily_return": daily_return, "normalized_index": index_value,
             }
         return result
-    fields = ("basket_value", "common_current_value", "common_previous_value",
-              "daily_return", "normalized_index")
+    fields = ("constituent_count", "eligible_universe_count", "basket_value", "common_count",
+              "common_current_value", "common_previous_value", "daily_return", "normalized_index")
     old, new = derived(old_rows), derived(new_rows)
     dates = sorted(set(old) & set(new))
     absolute, relative = [], []
+    per_field: dict[str, float] = {field: 0.0 for field in fields}
     for market_date in dates:
         for field in fields:
             a, b = float(old[market_date].get(field) or 0), float(new[market_date].get(field) or 0)
             difference = abs(a - b)
             absolute.append(difference)
             relative.append(difference / max(abs(a), abs(b), 1.0))
+            per_field[field] = max(per_field[field], difference)
     max_abs, max_rel = max(absolute, default=0.0), max(relative, default=0.0)
     return {"rowsCompared": len(dates), "numericTolerance": tolerance,
             "maxAbsoluteDifference": max_abs, "maxRelativeDifference": max_rel,
+            "perFieldMaxAbsoluteDifference": per_field,
             "status": "PASS" if dates and max_abs <= tolerance and max_rel <= tolerance else "FAIL"}
 
 
@@ -393,6 +397,132 @@ def build_canonical_legacy_cohort(
         })
         previous_usable_market_date = market_date
     return result
+
+
+def select_variant_source_winners(
+    rows: Sequence[Mapping[str, Any]], condition_id: str,
+) -> list[dict[str, Any]]:
+    """Apply the interval publisher's same-day winner contract independently.
+
+    For each variant/source date: newest non-null ``created_at`` wins, followed
+    by greatest observation UUID; null creation timestamps sort last.
+    """
+    winners: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for row in rows:
+        if (str(row.get("condition_id")) != str(condition_id)
+                or str(row.get("currency") or "").strip('"').upper() != "USD"
+                or Decimal(str(row.get("market_price") or 0)) <= 0
+                or not row.get("captured_at")):
+            continue
+        key = (str(row["card_variant_id"]), str(row["captured_at"])[:10])
+        ordering = (row.get("created_at") is not None, str(row.get("created_at") or ""),
+                    str(row.get("id") or ""))
+        current = winners.get(key)
+        current_ordering = ((current.get("created_at") is not None,
+                             str(current.get("created_at") or ""), str(current.get("id") or ""))
+                            if current else None)
+        if current_ordering is None or ordering > current_ordering:
+            winners[key] = row
+    return [dict(row) for _, row in sorted(
+        winners.items(), key=lambda item: (item[0][0], item[0][1], str(item[1].get("id")))
+    )]
+
+
+def reconstruct_variant_source_states(
+    winners: Sequence[Mapping[str, Any]], canonical_market_dates: Sequence[str],
+) -> list[dict[str, Any]]:
+    """Carry independent source winners forward over approved Market dates."""
+    dates = sorted({str(value)[:10] for value in canonical_market_dates})
+    by_variant: dict[str, list[Mapping[str, Any]]] = {}
+    for row in winners:
+        by_variant.setdefault(str(row["card_variant_id"]), []).append(row)
+    states: list[dict[str, Any]] = []
+    for variant_id, observations in sorted(by_variant.items()):
+        observations.sort(key=lambda row: (str(row["captured_at"])[:10], str(row["id"])))
+        cursor, current = 0, None
+        for market_date in dates:
+            while cursor < len(observations) and str(observations[cursor]["captured_at"])[:10] <= market_date:
+                current = observations[cursor]
+                cursor += 1
+            if current is not None:
+                states.append({"card_variant_id": variant_id, "market_date": market_date,
+                    "market_price": Decimal(str(current["market_price"])),
+                    "source_date": str(current["captured_at"])[:10],
+                    "observation_id": str(current["id"]),
+                    "condition_id": str(current["condition_id"]),
+                    "currency": str(current.get("currency") or "").strip('"').upper()})
+    return states
+
+
+def expand_interval_states(
+    interval_rows: Sequence[Mapping[str, Any]], canonical_market_dates: Sequence[str],
+) -> list[dict[str, Any]]:
+    dates = sorted({str(value)[:10] for value in canonical_market_dates})
+    states = []
+    for row in interval_rows:
+        start = str(row["valid_from"])[:10]
+        end = str(row["valid_to"])[:10] if row.get("valid_to") else None
+        for market_date in dates:
+            if market_date >= start and (end is None or market_date < end):
+                states.append({"card_variant_id": str(row["card_variant_id"]),
+                    "market_date": market_date,
+                    "market_price": Decimal(str(row["market_price"])),
+                    "source_date": str(row["source_date"])[:10],
+                    "observation_id": str(row["observation_id"]),
+                    "condition_ok": bool(row.get("condition_ok")),
+                    "currency_ok": bool(row.get("currency_ok"))})
+    return states
+
+
+def reconcile_variant_states(
+    expected: Sequence[Mapping[str, Any]], actual: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    key = lambda row: (str(row["card_variant_id"]), str(row["market_date"])[:10])
+    expected_by_key, actual_by_key = {key(row): row for row in expected}, {key(row): row for row in actual}
+    shared = set(expected_by_key) & set(actual_by_key)
+    price = sum(expected_by_key[k]["market_price"] != actual_by_key[k]["market_price"] for k in shared)
+    source = sum(str(expected_by_key[k]["source_date"]) != str(actual_by_key[k]["source_date"]) for k in shared)
+    identity = sum(not actual_by_key[k].get("condition_ok") or not actual_by_key[k].get("currency_ok")
+                   or str(expected_by_key[k]["observation_id"]) != str(actual_by_key[k]["observation_id"])
+                   for k in shared)
+    result = {"variantDatesExpected": len(expected_by_key), "variantDatesCompared": len(shared),
+              "missingFromIntervals": len(set(expected_by_key) - set(actual_by_key)),
+              "unexpectedInIntervals": len(set(actual_by_key) - set(expected_by_key)),
+              "priceMismatches": price, "sourceDateMismatches": source,
+              "identityMismatches": identity}
+    result["status"] = "PASS" if not any(result[name] for name in (
+        "missingFromIntervals", "unexpectedInIntervals", "priceMismatches",
+        "sourceDateMismatches", "identityMismatches")) else "FAIL"
+    return result
+
+
+def build_variant_market_series(states: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    panel: dict[str, dict[str, float]] = {}
+    for row in states:
+        panel.setdefault(str(row["market_date"])[:10], {})[str(row["card_variant_id"])] = float(row["market_price"])
+    rows, previous = [], {}
+    for market_date in sorted(panel):
+        current = panel[market_date]
+        common = set(current) & set(previous)
+        rows.append({"market_date": market_date, "constituent_count": len(current),
+            "eligible_universe_count": len(current), "basket_value": sum(current.values()),
+            "common_count": len(common), "common_current_value": sum(current[k] for k in common),
+            "common_previous_value": sum(previous[k] for k in common)})
+        previous = current
+    return rows
+
+
+def pilot_correctness_passes(integrity: Mapping[str, int] | None,
+                             cohort: Mapping[str, Any] | None,
+                             legacy_parity: Mapping[str, Any] | None,
+                             source_reconciliation: Mapping[str, Any] | None,
+                             source_series_parity: Mapping[str, Any] | None) -> bool:
+    return bool(integrity is not None and not any(integrity.values())
+                and cohort and cohort.get("currentBasketValid")
+                and legacy_parity and legacy_parity.get("status") in {"PASS", "NOT_APPLICABLE"}
+                and source_reconciliation and source_reconciliation.get("status") == "PASS"
+                and source_series_parity
+                and source_series_parity.get("status") == "VARIANT_SOURCE_PARITY_PASS")
 
 
 def classify_high_impact(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -502,6 +632,8 @@ def run_pilot(client: Any, pilot_key: str, *, commit: bool, verify_existing: boo
     current_examples = []
     cohort = None
     parity = None
+    source_reconciliation = None
+    source_series_parity = None
     if inspect_intervals:
         latest_by_variant = {}
         for row in interval_rows:
@@ -537,6 +669,36 @@ def run_pilot(client: Any, pilot_key: str, *, commit: bool, verify_existing: boo
                       "eligibleConstituents": cohort_rows[-1]["eligibleUniverseCount"] if cohort_rows else 0,
                       "currentBasketValid": bool(cohort_rows) and
                       len(basket) == int(cohort_rows[-1]["constituentCount"] or 0)}
+            canonical_market_dates = [str(row["market_date"])[:10] for row in market_dates]
+            source_rows = []
+            for batch in _chunks(variants):
+                source_rows.extend(_paged(lambda batch=batch: client.table("card_variant_price_observations")
+                    .select("id,card_variant_id,condition_id,currency,market_price,captured_at,created_at,source")
+                    .in_("card_variant_id", batch).order("card_variant_id").order("captured_at")
+                    .order("created_at").order("id")))
+            winners = select_variant_source_winners(source_rows, nm_id)
+            expected_states = reconstruct_variant_source_states(winners, canonical_market_dates)
+            actual_states = expand_interval_states(interval_rows, canonical_market_dates)
+            source_reconciliation = reconcile_variant_states(expected_states, actual_states)
+            # Reuse the timeout-safe chunked cohort already loaded above.  A
+            # second unchunked full-history RPC can exceed the production
+            # statement timeout for a variant-dense vintage set such as Fossil.
+            variant_rpc_rows = [{
+                "market_date": row["marketDate"],
+                "constituent_count": row["constituentCount"],
+                "eligible_universe_count": row["eligibleUniverseCount"],
+                "basket_value": row["basketValue"],
+                "common_count": row["commonCount"],
+                "common_current_value": row["commonCurrentValue"],
+                "common_previous_value": row["commonPreviousValue"],
+            } for row in cohort_rows]
+            source_series_parity = compare_parity(
+                build_variant_market_series(expected_states), variant_rpc_rows,
+            )
+            source_series_parity["status"] = (
+                "VARIANT_SOURCE_PARITY_PASS" if source_series_parity["status"] == "PASS"
+                else "VARIANT_SOURCE_PARITY_FAIL"
+            )
             by_canonical_all: dict[str, list[str]] = {}
             for row in authority:
                 by_canonical_all.setdefault(str(row["canonical_card_id"]), []).append(str(row["card_variant_id"]))
@@ -547,7 +709,6 @@ def run_pilot(client: Any, pilot_key: str, *, commit: bool, verify_existing: boo
                     "p_set_ids": [pilot["setId"]], "p_start_date": start_date, "p_end_date": end_date,
                     "p_card_ids": parity_cards,
                 }))
-                canonical_market_dates = [str(row["market_date"])[:10] for row in market_dates]
                 old_rows = build_canonical_legacy_cohort(
                     legacy_constituents, canonical_market_dates,
                 )
@@ -556,15 +717,16 @@ def run_pilot(client: Any, pilot_key: str, *, commit: bool, verify_existing: boo
                     "p_card_ids": parity_cards, "p_segment_ids": None, "p_pokemon_ids": None,
                     "p_price_segment_ids": None, "p_release_age_cohort_ids": None, "p_top_n": None,
                 }).execute().data or [])
-                parity = compare_parity(old_rows, new_rows)
+                parity = {"applicable": True, **compare_parity(old_rows, new_rows)}
             else:
-                parity = {"status": "FAIL", "reason": "no one-variant compatibility cohort"}
+                parity = {"applicable": False, "status": "NOT_APPLICABLE",
+                          "reason": "no canonical cards have exactly one eligible variant"}
         else:
             cohort = {"rows": 0, "currentBasketValid": False}
             parity = {"status": "FAIL", "reason": "no canonical Market dates"}
     pilot_failed = bool(backfill.get("failures")) or (
-        integrity is not None and any(integrity.values())) or (
-        inspect_intervals and (not cohort or not cohort.get("currentBasketValid") or parity.get("status") != "PASS"))
+        inspect_intervals and not pilot_correctness_passes(
+            integrity, cohort, parity, source_reconciliation, source_series_parity))
     return {"pilot": pilot, "commit": commit, "canonicalCards": canonical_count,
             "canonicalCardsResolved": len(canonical),
             "variants": len(variants), "variantsWithNmUsdHistory": len(history_variants),
@@ -574,6 +736,8 @@ def run_pilot(client: Any, pilot_key: str, *, commit: bool, verify_existing: boo
             "specialTypes": sum(bool(row.get("special_type")) for row in authority)},
             "multiVariantCurrentExamples": current_examples[:25],
             "cohort": cohort, "legacyParity": parity,
+            "variantSourceReconciliation": source_reconciliation,
+            "variantSourceSeriesParity": source_series_parity,
             "status": "FAIL" if pilot_failed else "PASS"}
 
 

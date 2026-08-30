@@ -99,8 +99,53 @@ def test_legacy_parity_uses_previous_usable_date_across_consecutive_degraded_dat
         "numericTolerance": 1e-8,
         "maxAbsoluteDifference": 0.0,
         "maxRelativeDifference": 0.0,
+        "perFieldMaxAbsoluteDifference": {
+            "constituent_count": 0.0, "eligible_universe_count": 0.0,
+            "basket_value": 0.0, "common_count": 0.0,
+            "common_current_value": 0.0, "common_previous_value": 0.0,
+            "daily_return": 0.0, "normalized_index": 0.0,
+        },
         "status": "PASS",
     }
+
+
+def test_multi_variant_source_reconstruction_is_independent_deterministic_and_carry_forward():
+    rows = [
+        {"id": "a1", "card_variant_id": "first", "condition_id": "nm", "currency": "USD",
+         "market_price": "10", "captured_at": "2026-01-01", "created_at": "2026-01-01T01:00:00Z"},
+        {"id": "a2", "card_variant_id": "first", "condition_id": "nm", "currency": "USD",
+         "market_price": "11", "captured_at": "2026-01-01", "created_at": "2026-01-01T02:00:00Z"},
+        {"id": "b1", "card_variant_id": "unlimited", "condition_id": "nm", "currency": '"USD"',
+         "market_price": "4", "captured_at": "2026-01-01", "created_at": None},
+        {"id": "c1", "card_variant_id": "unspecified", "condition_id": "nm", "currency": "USD",
+         "market_price": "6", "captured_at": "2026-01-03", "created_at": "2026-01-03T01:00:00Z"},
+    ]
+    winners = acceptance.select_variant_source_winners(rows, "nm")
+    assert {row["id"] for row in winners} == {"a2", "b1", "c1"}
+
+    # 2026-01-02 is DEGRADED and deliberately absent from the canonical cadence.
+    states = acceptance.reconstruct_variant_source_states(
+        winners, ["2026-01-01", "2026-01-03", "2026-01-04"]
+    )
+    by_key = {(row["card_variant_id"], row["market_date"]): row for row in states}
+    assert not any(row["market_date"] == "2026-01-02" for row in states)
+    assert by_key[("first", "2026-01-04")]["market_price"] == 11
+    assert by_key[("unlimited", "2026-01-04")]["market_price"] == 4
+    assert by_key[("unspecified", "2026-01-04")]["market_price"] == 6
+    assert acceptance.build_variant_market_series(states)[-1]["common_count"] == 3
+
+
+def test_not_applicable_legacy_parity_passes_only_with_source_reconciliation():
+    integrity = {"overlap": 0}
+    cohort = {"currentBasketValid": True}
+    not_applicable = {"applicable": False, "status": "NOT_APPLICABLE"}
+    source = {"status": "PASS"}
+    series = {"status": "VARIANT_SOURCE_PARITY_PASS"}
+    assert acceptance.pilot_correctness_passes(integrity, cohort, not_applicable, source, series)
+    assert not acceptance.pilot_correctness_passes(
+        integrity, cohort, {"applicable": True, "status": "FAIL"}, source, series)
+    assert not acceptance.pilot_correctness_passes(
+        integrity, cohort, not_applicable, {"status": "FAIL"}, series)
 
 
 def test_high_impact_gap_classification_is_price_sorted_and_named():
