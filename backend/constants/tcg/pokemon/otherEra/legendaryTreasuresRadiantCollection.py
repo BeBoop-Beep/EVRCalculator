@@ -21,9 +21,13 @@ class SetLegendaryTreasuresRadiantCollectionConfig(BaseSetConfig):
     SEALED_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/1465/cards/?rows=5000&productTypeID=25'
     PRICE_ENDPOINTS = {}
 
-    # Historical catalog identity added for market/card coverage only.
-    # It is NOT an approved pack-simulation product.
-    CATALOG_ONLY = True
+    # Separately scraped child subset of Legendary Treasures.  Structural subset
+    # state, rather than catalog_only, keeps it out of root-expansion lists.
+    CATALOG_ONLY = False
+    PARENT_OPENING_SET_KEY = "legendaryTreasures"
+    SUBSET_TYPE = "radiant_collection"
+    COUNTS_TOWARD_PARENT_SET_VALUE = True
+    COUNTS_TOWARD_PARENT_OPENING = True
     SUPPORTS_OPENING_SIMULATION = False
     USE_MONTE_CARLO_V2 = False
     PULL_MODEL_STATUS = "unsupported"

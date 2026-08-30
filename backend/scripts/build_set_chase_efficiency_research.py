@@ -26,13 +26,6 @@ from typing import Any, Dict, List, Optional, Sequence
 
 TAG = "[SET_CHASE_EFFICIENCY_STAGE1]"
 
-#: Product families whose pack-equivalent cost is usable. Mirrors the rule the
-#: card-level publication applies in ``chase_efficiency_service``: a product
-#: only supplies a pack-equivalent cost if its random pack count is known and
-#: its composition is verified.
-_STAGE1_FAMILIES = {"booster_pack", "loose_booster_pack", "booster_bundle"}
-
-
 def _rows(response: Any) -> List[Dict[str, Any]]:
     return list((getattr(response, "data", None) or []))
 

@@ -7,6 +7,7 @@ so these tests fail if the committed SQL drifts from the real SET_CONFIG_MAP.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -177,7 +178,23 @@ def test_migration_058_catalog_only_list_is_a_frozen_subset_of_current_configs(
     frozen = _sql_array_values(migration_sql, "v_catalog_only_keys")
     current = set(backfill["catalog_only_keys"])
 
-    regressed = sorted(key for key in frozen if key not in current)
+    # A later lifecycle migration may intentionally promote a catalog identity
+    # into a separately scraped child subset.  Such a transition is valid only
+    # when it carries the machine-checkable runtime contract enforced by
+    # test_set_lifecycle_migration_contract.py.
+    forward_contract_keys = set()
+    supabase_migrations = _MIGRATIONS_DIR.parents[2] / "supabase" / "migrations"
+    contract_prefix = "-- pokemon-runtime-lifecycle-contract: "
+    for path in supabase_migrations.glob("*.sql"):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.startswith(contract_prefix):
+                contract = json.loads(line[len(contract_prefix):])
+                if contract.get("catalog_only") is False:
+                    forward_contract_keys.add(contract["canonical_key"])
+
+    regressed = sorted(
+        key for key in frozen if key not in current and key not in forward_contract_keys
+    )
     assert not regressed, (
         "sets recorded catalog-only by migration 058 are no longer catalog-only: "
         f"{regressed}"

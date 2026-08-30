@@ -33,16 +33,14 @@ not the authoritative run, and its mean is not the published mean.
 from __future__ import annotations
 
 import hashlib
-import math
 import time
 from collections import Counter, defaultdict
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
-from .baskets import Basket, ChaseCandidate, build_baskets, partition_universe
+from .baskets import Basket, build_baskets, partition_universe
 from .metrics import (
-    CHASE_HORIZONS,
     binomial_standard_error,
     chase_efficiency,
     concentration,

@@ -120,6 +120,12 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path = ''
 AS $function$
 DECLARE v_nm uuid; v_inserted bigint;
 BEGIN
+  -- A missing scope is deliberately a no-op. Historical publication is driven
+  -- by the resumable backend script in bounded batches; this function must
+  -- never turn an omitted PostgREST argument into a full-market transaction.
+  IF p_card_variant_ids IS NULL OR cardinality(p_card_variant_ids) = 0 THEN
+    RETURN 0;
+  END IF;
   SELECT id INTO v_nm FROM public.conditions
    WHERE lower(name) = 'near mint' AND upper(abbreviation) = 'NM'
    ORDER BY id LIMIT 1;
@@ -127,12 +133,21 @@ BEGIN
     RAISE EXCEPTION 'Market Explorer requires authoritative Near Mint (NM) condition';
   END IF;
   DELETE FROM public.pokemon_card_variant_market_price_intervals interval_row
-   WHERE p_card_variant_ids IS NULL OR cardinality(p_card_variant_ids) = 0
-      OR interval_row.card_variant_id = ANY(p_card_variant_ids);
-  WITH authority AS MATERIALIZED (
-    SELECT * FROM public.get_pokemon_canonical_card_variant_authority(NULL::uuid[])
-     WHERE p_card_variant_ids IS NULL OR cardinality(p_card_variant_ids) = 0
-        OR card_variant_id = ANY(p_card_variant_ids)
+   WHERE interval_row.card_variant_id = ANY(p_card_variant_ids);
+  WITH requested_variants AS MATERIALIZED (
+    SELECT DISTINCT variant.id card_variant_id, card.set_id
+    FROM public.card_variants variant
+    JOIN public.cards card ON card.id = variant.card_id
+    WHERE variant.id = ANY(p_card_variant_ids)
+  ), requested_sets AS MATERIALIZED (
+    SELECT array_agg(DISTINCT set_id ORDER BY set_id) set_ids
+    FROM requested_variants
+  ), authority AS MATERIALIZED (
+    SELECT authority.*
+    FROM requested_sets scope
+    CROSS JOIN LATERAL public.get_pokemon_canonical_card_variant_authority(scope.set_ids) authority
+    JOIN requested_variants requested
+      ON requested.card_variant_id = authority.card_variant_id
   ), candidates AS (
     SELECT authority.*, observation.id observation_id,
            observation.condition_id, observation.market_price,
@@ -170,6 +185,28 @@ $function$;
 REVOKE ALL ON FUNCTION public.refresh_pokemon_card_variant_market_price_intervals(uuid[])
  FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.refresh_pokemon_card_variant_market_price_intervals(uuid[]) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.refresh_pokemon_card_variant_market_price_intervals_for_sets(
+    p_set_ids uuid[]
+) RETURNS bigint
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = ''
+AS $function$
+DECLARE v_variant_ids uuid[];
+BEGIN
+  IF p_set_ids IS NULL OR cardinality(p_set_ids) = 0 THEN
+    RETURN 0;
+  END IF;
+  SELECT array_agg(authority.card_variant_id ORDER BY authority.card_variant_id)
+    INTO v_variant_ids
+  FROM public.get_pokemon_canonical_card_variant_authority(p_set_ids) authority;
+  RETURN public.refresh_pokemon_card_variant_market_price_intervals(v_variant_ids);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.refresh_pokemon_card_variant_market_price_intervals_for_sets(uuid[])
+ FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.refresh_pokemon_card_variant_market_price_intervals_for_sets(uuid[])
+ TO service_role;
 
 -- A preview environment may have installed the superseded pending signature;
 -- remove it so PostgREST cannot expose two ambiguous cohort overloads.
@@ -260,6 +297,8 @@ GRANT EXECUTE ON FUNCTION public.get_pokemon_canonical_card_variant_authority(uu
 GRANT EXECUTE ON FUNCTION public.market_explorer_rarity_segment(text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_pokemon_market_explorer_filtered_cohort(uuid[],date,date,uuid[],text[],bigint[],text[],text[],integer) TO service_role;
 
--- Initial publication backfill; later runs may refresh only changed variants.
-SELECT public.refresh_pokemon_card_variant_market_price_intervals(NULL::uuid[]);
+-- Historical population is intentionally NOT part of this migration. Production
+-- history exceeds one statement's safe deployment budget. Publish it afterward
+-- with backend/scripts/backfill_market_explorer_variant_intervals.py, beginning
+-- with one small set and using bounded, resumable variant batches.
 COMMIT;

@@ -76,11 +76,107 @@ Exact IDs and reproducible current counts are emitted by
 
 ## Deployment and performance status
 
-The corrected `20260829210512` migration remains unapplied. Production access
-available to this worktree is REST/service-role only; there is no linked CLI
-project, direct PostgreSQL URL, `psql`, Docker, or Podman. Consequently the new
-table cannot be backfilled safely and the new RPC cannot be benchmarked or
-examined with `EXPLAIN (ANALYZE, BUFFERS)` here.
+### Effort 1B deployment-safe publication
+
+The `20260829210512` migration now deploys schema and RPCs only. It contains no
+historical refresh. An omitted or empty variant scope is a no-op, so a missing
+PostgREST argument cannot accidentally rebuild the catalog. A bounded refresh:
+
+1. deletes intervals only for `card_variant_id = ANY(p_card_variant_ids)`;
+2. limits canonical authority work to the requested variants' owning sets;
+3. chooses one same-day winner by `(created_at DESC, observation UUID DESC)`;
+4. rebuilds `[valid_from, valid_to)` independently per variant; and
+5. inserts nothing, without failing, for a requested variant with no positive
+   Near Mint USD history.
+
+`refresh_pokemon_card_variant_market_price_intervals_for_sets(uuid[])` is a
+distinct service-only convenience RPC for bounded operational/daily set refresh.
+It is intentionally not an overload of the variant RPC.
+
+Historical publication uses
+`backend/scripts/backfill_market_explorer_variant_intervals.py`. It orders sets,
+then variants, by UUID and commits one variant batch per RPC call. The default
+batch size is 100. Every successful batch logs elapsed time and a deterministic
+`SET_UUID:VARIANT_UUID` cursor. `--resume-after` skips only durable successes.
+The runner stops on its first failure and prints the exact failed variant IDs,
+so a later resume cannot silently jump over them. Re-running a batch replaces
+only that batch and is idempotent.
+
+Examples (run from repository root):
+
+```powershell
+# Read-only plan for one deliberately small set.
+python backend/scripts/backfill_market_explorer_variant_intervals.py `
+  --dry-run --set-id <SMALL_SET_UUID> --batch-size 25
+
+# Publish that pilot in separate transactions.
+python backend/scripts/backfill_market_explorer_variant_intervals.py `
+  --commit --set-id <SMALL_SET_UUID> --batch-size 25
+
+# Resume the catalog after the last durable cursor printed by a prior run.
+python backend/scripts/backfill_market_explorer_variant_intervals.py `
+  --commit --batch-size 100 --resume-after <SET_UUID:VARIANT_UUID>
+```
+
+The script requires backend service-role credentials. It grants no frontend or
+public access and dry-run never calls the refresh RPC.
+
+### Daily incremental integration point
+
+The smallest integration is in
+`backend/db/repositories/card_variant_prices_repository.py`, inside
+`_refresh_pokemon_set_value_history_for_price_rows`. That function already runs
+only after `insert_card_variant_prices_batch_with_stats` has successfully
+reconciled writes, and its `changed_rows` already contains the exact affected
+variant IDs. After the existing set-value and canonical-latest refresh calls,
+invoke `refresh_pokemon_card_variant_market_price_intervals` with that same
+deduplicated `variant_ids` list. Keep its existing warning/retry posture so a
+derived-read-model refresh is observable but cannot reinterpret a failed price
+write as successful. This is the preferred daily path; the set-scoped RPC is an
+operator fallback when replaying or repairing a whole set.
+
+No scraper integration was added in Effort 1B. The alternative postcondition
+hook is immediately after `verify_tcgplayer_source_variant_persistence` succeeds
+in `backend/scripts/run_pokemon_set_scrape.py`, but that is less precise because
+it refreshes every variant in the set rather than only changed price rows.
+
+### Exact safe deployment and acceptance order
+
+1. Deploy only
+   `supabase/migrations/20260829210512_market_explorer_filtered_card_cohorts.sql`
+   through the repository's normal migration pipeline. Do not append a refresh
+   statement and do not run a catalog backfill from migration tooling.
+2. Verify the interval table has RLS enabled; `anon` and `authenticated` have no
+   table privileges or function execution; `service_role` alone can select,
+   insert, delete, and execute the three operational/query RPCs.
+3. Dry-run one small set, then commit it with batch size 25.
+4. Inspect interval counts, distinct variants, min/max validity, condition,
+   currency-source expectations, and variant-specific `valid_to` chains.
+5. Execute the variant cohort RPC for that set and compare a cohort containing
+   only one compatible variant per canonical card with the legacy RPC.
+6. Repeat for Fusion Strike and Evolving Skies before catalog publication.
+7. Run the full backfill in batches of 100, retaining logs and the last cursor.
+8. Reconcile coverage, then run the requested cold-ish/warm benchmark matrix and
+   `EXPLAIN (ANALYZE, BUFFERS)` directly over representative SQL.
+
+Acceptance reporting must include canonical/resolved cards and variants,
+variants with Near Mint USD history, interval rows and date extent, sets,
+edition/printing/special counts, plus named/high-value analysis of the 668
+unresolved and 151 ambiguous mappings. Benchmark scopes are: small set, Fusion
+Strike, Evolving Skies, their union, 3 and 10 selected sets, full Sword & Shield,
+full Scarlet & Violet, all Raw Cards, Dragonite global, global rarity, era plus
+rarity, Dragonite plus era plus rarity, global price/release-age segments, and a
+broad Top 10. Record cold-ish DB time, subsequent DB time, returned rows, API
+wall time, and plans/buffers; targets remain 2–3 seconds common and 3–5 seconds
+for broad interactive queries.
+
+### Environment status
+
+The migration remains unapplied. Production access available to this worktree
+is REST/service-role only; there is no Supabase CLI, linked project, direct
+PostgreSQL URL, `psql`, Docker, or Podman. Consequently no representative schema
+deployment, backfill timing, post-backfill coverage, cohort parity,
+`EXPLAIN (ANALYZE, BUFFERS)`, or performance benchmark is claimed here.
 
 Do not deploy the frontend identity treatment until a representative database
 has applied the migration through the normal deployment path, recorded the

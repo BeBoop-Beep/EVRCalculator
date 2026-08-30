@@ -69,6 +69,19 @@ def resolve_config_lifecycle_flags(config_cls: Any) -> Dict[str, Any]:
             card_details_url=card_details_url,
             catalog_only=catalog_only,
         ),
+        # Structural identity is part of the same registry/database contract.
+        # In particular, catalog_only must never be used as a proxy for subset.
+        "parent_opening_set_key": _clean_url(
+            getattr(config_cls, "PARENT_OPENING_SET_KEY", None)
+        ),
+        "is_subset": bool(_clean_url(getattr(config_cls, "PARENT_OPENING_SET_KEY", None))),
+        "subset_type": _clean_url(getattr(config_cls, "SUBSET_TYPE", None)),
+        "counts_toward_parent_set_value": bool(
+            getattr(config_cls, "COUNTS_TOWARD_PARENT_SET_VALUE", False)
+        ),
+        "counts_toward_parent_opening": bool(
+            getattr(config_cls, "COUNTS_TOWARD_PARENT_OPENING", False)
+        ),
     }
 
 

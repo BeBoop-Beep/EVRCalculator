@@ -9,7 +9,7 @@ asked of the SAME canonical card market:
 * Market Index   -- how has the common market moved?   (performance)
 * Market Breadth -- how broadly are cards moving?      (participation)
 
-All three therefore read one authority: the ``get_pokemon_set_daily_card_constituents``
+All three therefore read one authority: the ``get_pokemon_cards_daily_constituents``
 RPC, whose per-card daily Near Mint values sum EXACTLY to the ``standard`` scope
 of ``pokemon_set_value_daily_history`` for the same set and date. That RPC
 carries its own ``TimeZone=America/Phoenix`` function configuration, so the
@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 CARDS_MARKET_ANALYTICS_CONTRACT_VERSION = "pokemon-set-cards-market-v1"
 CARDS_MARKET_METHODOLOGY_VERSION = "chain_linked_common_cohort_v1"
-CARD_CONSTITUENT_RPC = "get_pokemon_set_daily_card_constituents"
+CARD_CONSTITUENT_RPC = "get_pokemon_cards_daily_constituents"
 
 # PostgREST caps every response at db-max-rows (1000 on this project, a global
 # server setting no role config can raise). A full-history read for one set is
@@ -156,9 +156,10 @@ def _call_constituent_rpc(client: Any, set_id: str, start: date, end: date) -> L
     result = client.rpc(
         CARD_CONSTITUENT_RPC,
         {
-            "p_set_id": set_id,
+            "p_set_ids": [set_id],
             "p_start_date": start.isoformat(),
             "p_end_date": end.isoformat(),
+            "p_card_ids": None,
         },
     ).execute()
     return list(getattr(result, "data", None) or [])

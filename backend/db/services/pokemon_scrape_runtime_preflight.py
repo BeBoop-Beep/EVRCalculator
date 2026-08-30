@@ -33,6 +33,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from backend.db.services.pokemon_set_lifecycle_flags import (
     normalize_details_url,
+    resolve_config_lifecycle_flags,
     supports_opening_simulation,
 )
 
@@ -224,7 +225,9 @@ def load_database_cohort_rows() -> List[Dict[str, Any]]:
             supabase.table("sets")
             .select(
                 "id,name,canonical_key,card_details_url,has_card_details_url,"
-                "ready_for_daily_scrape,catalog_only,supports_opening_simulation"
+                "ready_for_daily_scrape,catalog_only,supports_opening_simulation,"
+                "parent_opening_set_id,subset_type,counts_toward_parent_set_value,"
+                "counts_toward_parent_opening"
             )
             .eq("ready_for_daily_scrape", True)
             .eq("has_card_details_url", True)
@@ -344,6 +347,7 @@ def run_runtime_preflight(
                 }
             )
 
+        resolved = resolve_config_lifecycle_flags(config_cls)
         for field_name, db_value, config_value in (
             ("ready_for_daily_scrape", row.get("ready_for_daily_scrape"), True),
             ("catalog_only", row.get("catalog_only"), False),
@@ -352,12 +356,29 @@ def run_runtime_preflight(
                 row.get("supports_opening_simulation"),
                 supports_opening_simulation(config_cls),
             ),
+            ("is_subset", row.get("parent_opening_set_id") is not None, resolved["is_subset"]),
+            ("subset_type", row.get("subset_type"), resolved["subset_type"]),
+            (
+                "counts_toward_parent_set_value",
+                row.get("counts_toward_parent_set_value"),
+                resolved["counts_toward_parent_set_value"],
+            ),
+            (
+                "counts_toward_parent_opening",
+                row.get("counts_toward_parent_opening"),
+                resolved["counts_toward_parent_opening"],
+            ),
         ):
             # Absent columns are not asserted against: a runtime predating
             # migration 058 must not report phantom mismatches.
             if db_value is None:
                 continue
-            if bool(db_value) != bool(config_value):
+            values_match = (
+                str(db_value) == str(config_value)
+                if field_name == "subset_type"
+                else bool(db_value) == bool(config_value)
+            )
+            if not values_match:
                 report.lifecycle_flag_mismatches.append(
                     {
                         "canonical_key": canonical_key,

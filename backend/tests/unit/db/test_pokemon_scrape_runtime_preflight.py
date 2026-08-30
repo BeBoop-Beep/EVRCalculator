@@ -202,6 +202,48 @@ def test_preflight_uses_shared_resolver_when_explicit_simulation_flag_is_absent(
     assert report.lifecycle_flag_mismatches == []
 
 
+@pytest.mark.parametrize(
+    ("overrides", "field"),
+    [
+        ({"ready_for_daily_scrape": False}, "ready_for_daily_scrape"),
+        ({"card_details_url": "https://www.tcgplayer.com/wrong"}, "url"),
+        ({"parent_opening_set_id": None}, "is_subset"),
+        ({"subset_type": "trainer_gallery"}, "subset_type"),
+        ({"counts_toward_parent_set_value": False}, "counts_toward_parent_set_value"),
+        ({"counts_toward_parent_opening": False}, "counts_toward_parent_opening"),
+    ],
+)
+def test_preflight_rejects_lifecycle_or_subset_drift(overrides, field):
+    class _ChildConfig:
+        CARD_DETAILS_URL = "https://www.tcgplayer.com/child"
+        CATALOG_ONLY = False
+        SUPPORTS_OPENING_SIMULATION = False
+        PARENT_OPENING_SET_KEY = "parent"
+        SUBSET_TYPE = "radiant_collection"
+        COUNTS_TOWARD_PARENT_SET_VALUE = True
+        COUNTS_TOWARD_PARENT_OPENING = True
+
+    config = _ChildConfig()
+    db_fields = {
+        "parent_opening_set_id": "parent-uuid",
+        "subset_type": "radiant_collection",
+        "counts_toward_parent_set_value": True,
+        "counts_toward_parent_opening": True,
+    }
+    db_fields.update(overrides)
+    row = _db_row("child", config, **db_fields)
+    report = run_runtime_preflight(
+        registry_loader=lambda: _registry({"child": config}),
+        cohort_loader=lambda: [row],
+    )
+
+    assert report.ok is False
+    if field == "url":
+        assert report.url_mismatches
+    else:
+        assert any(item["field"] == field for item in report.lifecycle_flag_mismatches)
+
+
 # --- batch creation must refuse to run on a failed preflight -----------------
 def test_batch_rpc_is_not_called_when_preflight_fails(monkeypatch):
     from backend.scripts import create_daily_scrape_batch as module

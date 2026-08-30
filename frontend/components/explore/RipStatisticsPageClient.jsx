@@ -3923,14 +3923,21 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
   const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
 
   const cardsTrend = useMemo(
-    () =>
-      selectPreparedSegmentTrend({
+    () => {
+      if (cardsMarket?.available === false) {
+        return unavailableSegmentTrend({
+          reason: cardsMarket.reason || cardsMarket.status || SEGMENT_UNAVAILABLE_TEXT,
+          trackedItemNoun: "Cards",
+        });
+      }
+      return selectPreparedSegmentTrend({
         valueHistory: cardsHistory,
         marketIndex: cardsMarket?.marketIndex || cardsMarket?.market_index,
         selectedWindowKey,
         trackedItemCount: cardsTrackedCount,
         trackedItemNoun: "Cards",
-      }),
+      });
+    },
     [cardsHistory, cardsMarket, cardsTrackedCount, selectedWindowKey]
   );
 

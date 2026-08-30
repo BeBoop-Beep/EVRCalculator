@@ -1,0 +1,685 @@
+{
+  "study_id": "treatment-market-prestige-v3-r14-8f9651e7bd8afd8d",
+  "built_at": "2026-08-30T17:36:52.691460+00:00",
+  "startingLikelyCoverage": {
+    "cards": 9485,
+    "coverage": 0.4779059807527586
+  },
+  "uncoveredCards": 10362,
+  "terminalBlockerTable": {
+    "CANONICAL_MAPPING_UNSAFE": 158,
+    "ECARD_HISTORY_MISSING": 415,
+    "ENERGY_INSUFFICIENT_IDENTIFYING_VARIATION": 371,
+    "FUNCTIONAL_TRAINER_UNSUPPORTED_UNIVERSE": 1303,
+    "INSUFFICIENT_MULTI_SET_SUPPORT": 186,
+    "MODEL_INSTABILITY": 1716,
+    "NO_VALID_COMPARISON_UNIVERSE": 301,
+    "PROMO_STRUCTURE_UNRESOLVED": 737,
+    "SUPPORTER_IDENTITY_UNRESOLVED": 1132,
+    "TAXONOMY_UNMAPPED": 194,
+    "UNSUPPORTED_TREATMENT": 3357,
+    "VINTAGE_TEMPORAL_INSTABILITY": 492
+  },
+  "terminalBlockerPercentages": {
+    "CANONICAL_MAPPING_UNSAFE": 0.007960900891822442,
+    "ECARD_HISTORY_MISSING": 0.020909961203204513,
+    "ENERGY_INSUFFICIENT_IDENTIFYING_VARIATION": 0.018693001461178013,
+    "FUNCTIONAL_TRAINER_UNSUPPORTED_UNIVERSE": 0.06565223963319393,
+    "INSUFFICIENT_MULTI_SET_SUPPORT": 0.009371693454930215,
+    "MODEL_INSTABILITY": 0.08646142993903361,
+    "NO_VALID_COMPARISON_UNIVERSE": 0.015166020053408575,
+    "PROMO_STRUCTURE_UNRESOLVED": 0.037134075678943924,
+    "SUPPORTER_IDENTITY_UNRESOLVED": 0.05703632790850002,
+    "TAXONOMY_UNMAPPED": 0.00977477704438958,
+    "UNSUPPORTED_TREATMENT": 0.16914395122688566,
+    "VINTAGE_TEMPORAL_INSTABILITY": 0.024789640751750896
+  },
+  "secondaryDependencies": {
+    "authoritative_long_history": 492,
+    "canonical_era_reassignment": 100,
+    "canonical_identity_research": 158,
+    "energy_identity_data": 371,
+    "external_supporter_identity": 1132,
+    "forward_retention_or_verified_external_history": 415,
+    "promo_ontology": 737,
+    "structurally_unavailable": 186,
+    "taxonomy_mapping": 194,
+    "trainer_ontology": 1303,
+    "treatment_research": 3357,
+    "upstream_change_then_retest": 1716,
+    "upstream_treatment_recovery": 201
+  },
+  "residualFile": "docs\\research\\treatment_market_prestige_v3_round14_feasibility\\remaining_card_universe.json",
+  "Supporter": {
+    "internalIdentitySources": {
+      "sourcesAudited": [
+        "Round 5 canonical cohort exact card_name",
+        "mechanic_or_card_form Supporter subtype",
+        "set/era/treatment/variant identity",
+        "repository migrations and backend domain models"
+      ],
+      "characterIdCoverage": 0,
+      "cardToCharacterCoverage": 0,
+      "aliasTableCoverage": 0,
+      "conclusion": "No authoritative internal character identity source."
+    },
+    "externalIdentityRequirements": {
+      "requiredFields": [
+        "canonical character/trainer ID",
+        "canonical name",
+        "aliases/titles",
+        "source card ID",
+        "card-to-character mapping",
+        "provenance/license",
+        "version/effective dates",
+        "deterministic canonical-card join"
+      ],
+      "sourceStatus": "EXTERNAL_IDENTITY_SOURCE_STILL_UNKNOWN",
+      "candidateType": "licensed or human-curated Pok\u00e9mon Trainer character ontology; no verified obtainable source was identified"
+    },
+    "safelyMapped": 0,
+    "crossTreatmentIdentities": 0,
+    "preregisteredModel": null,
+    "pilot": "NOT_RUN_IDENTIFICATION_GATE_FAILED",
+    "conservative": 0,
+    "likely": 0,
+    "optimistic": 0,
+    "affected": 1132
+  },
+  "ECard": {
+    "preservedAudit": {
+      "round13Preserved": {
+        "eligibleCards": 415,
+        "missingCardDates": 454,
+        "safeRepairedObservations": 0,
+        "allFourCoverage": 0.6265060240963856,
+        "rootCauses": {
+          "HISTORICAL_OBSERVATIONS_NEVER_RETAINED": 273,
+          "PRICE_CONDITION_MISMATCH": 26,
+          "INCOMPLETE_SOURCE_INGESTION": 155
+        }
+      },
+      "forwardRetention": {
+        "earliestApproximateEligibilityDate": "2026-11-28",
+        "cardsWithPotentialHistory": 415,
+        "modelValidated": false,
+        "likelyRecoverableToday": 0
+      },
+      "externalHistory": {
+        "contract": "four positive USD Near Mint transaction-derived market checkpoints spanning >=85 days, canonical variant identity, source and mapping provenance, >=95% treatment/universe coverage",
+        "sourceStatus": "LICENSED_HISTORICAL_MARKET_SOURCE_NOT_VERIFIED_OBTAINABLE",
+        "likelyRecoverable": 0
+      },
+      "alternateCheckpoints": {
+        "result": "NO_PREREGISTERABLE_INTERNAL_FOUR_DATE_SERIES_AT_>=95_PERCENT",
+        "likelyRecoverable": 0
+      }
+    },
+    "likelyRecovery": 0
+  },
+  "matureVintageDefinition": {
+    "rule": "era final canonical set release is at least 15 years before 2026-08-29",
+    "cutoff": "2011-08-29",
+    "definedBeforeOutcomeInspection": true
+  },
+  "temporalHorizons": {
+    "90_DAY": [
+      "2026-05-31",
+      "2026-06-30",
+      "2026-07-30",
+      "2026-08-29"
+    ],
+    "180_DAY": [
+      "2026-03-02",
+      "2026-05-01",
+      "2026-06-30",
+      "2026-08-29"
+    ],
+    "365_DAY": [
+      "2025-08-29",
+      "2025-12-29",
+      "2026-04-29",
+      "2026-08-29"
+    ]
+  },
+  "BaseWOTC": {
+    "ninetyDay": {
+      "perDateAvailable": {
+        "2026-05-31": 356,
+        "2026-06-30": 356,
+        "2026-07-30": 356,
+        "2026-08-29": 356
+      },
+      "perDateCoverage": {
+        "2026-05-31": 0.9971988795518207,
+        "2026-06-30": 0.9971988795518207,
+        "2026-07-30": 0.9971988795518207,
+        "2026-08-29": 0.9971988795518207
+      },
+      "allFourCards": 356,
+      "allFourCoverage": 0.9971988795518207,
+      "historyReady": true
+    },
+    "oneEightyDay": {
+      "perDateAvailable": {
+        "2026-03-02": 0,
+        "2026-05-01": 356,
+        "2026-06-30": 356,
+        "2026-08-29": 356
+      },
+      "perDateCoverage": {
+        "2026-03-02": 0.0,
+        "2026-05-01": 0.9971988795518207,
+        "2026-06-30": 0.9971988795518207,
+        "2026-08-29": 0.9971988795518207
+      },
+      "allFourCards": 0,
+      "allFourCoverage": 0.0,
+      "historyReady": false
+    },
+    "threeSixtyFiveDay": {
+      "perDateAvailable": {
+        "2025-08-29": 0,
+        "2025-12-29": 0,
+        "2026-04-29": 356,
+        "2026-08-29": 356
+      },
+      "perDateCoverage": {
+        "2025-08-29": 0.0,
+        "2025-12-29": 0.0,
+        "2026-04-29": 0.9971988795518207,
+        "2026-08-29": 0.9971988795518207
+      },
+      "allFourCards": 0,
+      "allFourCoverage": 0.0,
+      "historyReady": false
+    },
+    "likelyRecovery": 0
+  },
+  "vintageTemporalDecision": "VINTAGE_TEMPORAL_CONTRACT_UNRESOLVED",
+  "otherVintageRecovery": 0,
+  "taxonomyGaps": {
+    "unsupportedTreatment": 3357,
+    "taxonomyUnmapped": 194,
+    "missingRawTreatment": 194,
+    "ambiguousPromo": 737,
+    "highestValueFamilies": [
+      {
+        "era": "Sword and Shield",
+        "treatment": "common",
+        "cards": 458,
+        "sets": 10,
+        "rawLabels": {
+          "Common": 458
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "promo",
+        "cards": 305,
+        "sets": 1,
+        "rawLabels": {
+          "Promo": 305
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": false,
+        "ontologyIssue": "PROMO_STRUCTURE_UNRESOLVED",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "uncommon",
+        "cards": 277,
+        "sets": 10,
+        "rawLabels": {
+          "Uncommon": 277
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare",
+        "cards": 224,
+        "sets": 10,
+        "rawLabels": {
+          "Rare": 224
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "common",
+        "cards": 220,
+        "sets": 5,
+        "rawLabels": {
+          "Common": 220
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "XY",
+        "treatment": "promo",
+        "cards": 217,
+        "sets": 2,
+        "rawLabels": {
+          "Promo": 217
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": false,
+        "ontologyIssue": "PROMO_STRUCTURE_UNRESOLVED",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_holo",
+        "cards": 166,
+        "sets": 11,
+        "rawLabels": {
+          "Rare Holo": 166
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_ultra",
+        "cards": 166,
+        "sets": 9,
+        "rawLabels": {
+          "Rare Ultra": 166
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Other",
+        "treatment": "__UNMAPPED__",
+        "cards": 160,
+        "sets": 12,
+        "rawLabels": {
+          "None": 160
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "TAXONOMY_UNMAPPED",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare",
+        "cards": 133,
+        "sets": 5,
+        "rawLabels": {
+          "Rare": 133
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "uncommon",
+        "cards": 122,
+        "sets": 5,
+        "rawLabels": {
+          "Uncommon": 122
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "shiny_rare",
+        "cards": 120,
+        "sets": 1,
+        "rawLabels": {
+          "Shiny Rare": 120
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": false,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Black and White",
+        "treatment": "promo",
+        "cards": 111,
+        "sets": 1,
+        "rawLabels": {
+          "Promo": 111
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": false,
+        "ontologyIssue": "PROMO_STRUCTURE_UNRESOLVED",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_shiny",
+        "cards": 104,
+        "sets": 1,
+        "rawLabels": {
+          "Rare Shiny": 104
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": false,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Platinum",
+        "treatment": "uncommon",
+        "cards": 102,
+        "sets": 4,
+        "rawLabels": {
+          "Uncommon": 102
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_rainbow",
+        "cards": 100,
+        "sets": 15,
+        "rawLabels": {
+          "Rare Rainbow": 100
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Neo",
+        "treatment": "common",
+        "cards": 99,
+        "sets": 4,
+        "rawLabels": {
+          "Common": 99
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "trainer_gallery_rare_holo",
+        "cards": 80,
+        "sets": 5,
+        "rawLabels": {
+          "Trainer Gallery Rare Holo": 80
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "NP",
+        "treatment": "promo",
+        "cards": 71,
+        "sets": 1,
+        "rawLabels": {
+          "Promo": 71
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": false,
+        "ontologyIssue": "PROMO_STRUCTURE_UNRESOLVED",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sun and Moon",
+        "treatment": "rare_holo",
+        "cards": 66,
+        "sets": 4,
+        "rawLabels": {
+          "Rare Holo": 66
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Neo",
+        "treatment": "rare_holo",
+        "cards": 64,
+        "sets": 4,
+        "rawLabels": {
+          "Rare Holo": 64
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Black and White",
+        "treatment": "rare_holo_ex",
+        "cards": 56,
+        "sets": 8,
+        "rawLabels": {
+          "Rare Holo EX": 56
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Black and White",
+        "treatment": "rare_ultra",
+        "cards": 52,
+        "sets": 11,
+        "rawLabels": {
+          "Rare Ultra": 52
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Sword and Shield",
+        "treatment": "rare_secret",
+        "cards": 45,
+        "sets": 21,
+        "rawLabels": {
+          "Rare Secret": 45
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "ultra_rare",
+        "cards": 45,
+        "sets": 6,
+        "rawLabels": {
+          "Ultra Rare": 45
+        },
+        "historyCoverage": "see frozen era checkpoint audit",
+        "multiSetSupport": true,
+        "ontologyIssue": "UNSUPPORTED_TREATMENT",
+        "downstreamFeasibility": "UNVALIDATED"
+      }
+    ]
+  },
+  "promo": {
+    "affected": 737,
+    "decision": "PROMO_STRUCTURE_UNRESOLVED",
+    "rationale": "Promo spans unrelated era mechanics and often single-set catalogs; neither era assignment nor a generic promo universe is structurally validated.",
+    "likelyRecovery": 0
+  },
+  "Energy": {
+    "status": "ENERGY_DEPRIORITIZED_FOR_70_PERCENT_PATH",
+    "likelyRecovery": 0
+  },
+  "projectRecoveryTable": [
+    {
+      "project": "Supporter identity + model",
+      "affected": 1132,
+      "conservative": 0,
+      "likely": 0,
+      "optimistic": 0,
+      "external": true,
+      "researchCost": "high",
+      "scientificRisk": "high",
+      "engineeringCost": "medium"
+    },
+    {
+      "project": "E-Card forward/external history",
+      "affected": 415,
+      "conservative": 0,
+      "likely": 0,
+      "optimistic": 415,
+      "external": "optional/unverified",
+      "researchCost": "medium",
+      "scientificRisk": "medium",
+      "engineeringCost": "medium"
+    },
+    {
+      "project": "Vintage temporal contract / Base-WOTC",
+      "affected": 492,
+      "conservative": 0,
+      "likely": 0,
+      "optimistic": 0,
+      "external": true,
+      "researchCost": "high",
+      "scientificRisk": "high",
+      "engineeringCost": "medium"
+    },
+    {
+      "project": "Unsupported treatment families",
+      "affected": 3357,
+      "conservative": 0,
+      "likely": 0,
+      "optimistic": 0,
+      "external": false,
+      "researchCost": "high",
+      "scientificRisk": "high",
+      "engineeringCost": "medium"
+    },
+    {
+      "project": "Taxonomy and promo research",
+      "affected": 931,
+      "conservative": 0,
+      "likely": 0,
+      "optimistic": 0,
+      "external": "possibly",
+      "researchCost": "high",
+      "scientificRisk": "high",
+      "engineeringCost": "high"
+    },
+    {
+      "project": "Energy",
+      "affected": 371,
+      "conservative": 0,
+      "likely": 0,
+      "optimistic": 0,
+      "external": true,
+      "researchCost": "high",
+      "scientificRisk": "high",
+      "engineeringCost": "medium"
+    }
+  ],
+  "coverage": {
+    "conservative": {
+      "cards": 9485,
+      "coverage": 0.4779059807527586
+    },
+    "likely": {
+      "cards": 9485,
+      "coverage": 0.4779059807527586
+    },
+    "optimisticDefensible": {
+      "cards": 9900,
+      "coverage": 0.4988159419559631
+    },
+    "remainingLikelyGap": 4408
+  },
+  "minimumNamedProjectSetFor70": null,
+  "externalDataDependencies": [
+    {
+      "requiredFields": [
+        "canonical character/trainer ID",
+        "canonical name",
+        "aliases/titles",
+        "source card ID",
+        "card-to-character mapping",
+        "provenance/license",
+        "version/effective dates",
+        "deterministic canonical-card join"
+      ],
+      "sourceStatus": "EXTERNAL_IDENTITY_SOURCE_STILL_UNKNOWN",
+      "candidateType": "licensed or human-curated Pok\u00e9mon Trainer character ontology; no verified obtainable source was identified"
+    },
+    {
+      "project": "E-Card",
+      "status": "LICENSED_HISTORICAL_MARKET_SOURCE_NOT_VERIFIED_OBTAINABLE"
+    },
+    {
+      "project": "Vintage 180/365",
+      "status": "AUTHORITATIVE_HISTORY_ABSENT_INTERNAL; EXTERNAL_SOURCE_UNVERIFIED"
+    }
+  ],
+  "finalDecision": "70_PERCENT_PATH_REMAINS_UNPROVEN",
+  "eightyPercentFeasibility": "80_PERCENT_ANALYSIS_PREMATURE",
+  "researchStopRecommendation": "Stop incremental modeling. Keep V3 research-only and production paused. Resume only after a provenance-backed Supporter identity dataset or licensed historical market dataset is actually acquired, or after product leadership changes the 70% catalog requirement.",
+  "productionPaused": true,
+  "rowsPersisted": 0,
+  "productionBehavior": "Unchanged; read-only audits and local artifacts only. No migration, approved run, score publication, UI/Card Detail, V1/V2, appeal, RIP, or ranking changes.",
+  "filesChanged": [
+    "backend/scripts/audit_treatment_market_prestige_v3_round14_vintage.py",
+    "backend/scripts/build_treatment_market_prestige_v3_round14.py",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round14.py",
+    "docs\\research\\treatment_market_prestige_v3_round14_vintage_history_audit.json",
+    "docs\\research\\treatment_market_prestige_v3_round14_vintage_observations.json",
+    "docs\\research\\treatment_market_prestige_v3_round14_study.json",
+    "docs\\research\\TREATMENT_MARKET_PRESTIGE_V3_ROUND14_RESULTS.md",
+    "docs\\research\\treatment_market_prestige_v3_round14_feasibility\\remaining_card_universe.json",
+    "docs\\research\\treatment_market_prestige_v3_round14_feasibility\\manifest.json"
+  ],
+  "testsExecuted": [
+    "9,485-card reconciliation",
+    "10,362-card terminal blocker exhaustiveness",
+    "Supporter identity fail-closed audit",
+    "vintage horizon evidence audit",
+    "no-double-count recovery table",
+    "full V3 regression"
+  ],
+  "remainingLimitations": [
+    "No authoritative Supporter character identity source",
+    "no internal 180/365-day mature-vintage checkpoint series",
+    "E-Card external source availability unverified",
+    "unsupported treatment projects lack downstream validation",
+    "research-supported scores remain unapproved"
+  ],
+  "recommendedNextAction": "Pause Treatment Market Prestige V3 as a catalog product. Do not start Round 15 modeling. Reopen only when a verified external Supporter identity ontology or licensed historical market dataset is in hand, or formally revise the 70% product gate while keeping scientific eligibility unchanged."
+}

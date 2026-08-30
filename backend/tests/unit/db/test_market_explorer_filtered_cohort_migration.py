@@ -42,6 +42,36 @@ def test_variant_interval_authority_is_near_mint_usd_and_not_condition_exploded(
     assert "card_variant_id is the traded instrument" in normalized
 
 
+def test_schema_migration_never_launches_a_global_historical_refresh():
+    executable = "\n".join(
+        line for line in SQL.splitlines() if not line.lstrip().startswith("--")
+    )
+    assert "SELECT public.refresh_pokemon_card_variant_market_price_intervals(NULL" not in executable
+    assert "Historical population is intentionally NOT part of this migration" in SQL
+
+
+def test_variant_refresh_is_bounded_noop_safe_and_variant_partitioned():
+    normalized = " ".join(SQL.lower().split())
+    assert "if p_card_variant_ids is null or cardinality(p_card_variant_ids) = 0 then return 0" in normalized
+    assert "interval_row.card_variant_id = any(p_card_variant_ids)" in normalized
+    assert "delete from public.pokemon_card_variant_market_price_intervals" in normalized
+    assert "join requested_variants requested on requested.card_variant_id = authority.card_variant_id" in normalized
+    assert "partition by authority.card_variant_id, observation.captured_at" in normalized
+    assert "partition by card_variant_id order by source_date" in normalized
+    assert "observation.condition_id = v_nm" in normalized
+    assert "observation.market_price > 0" in normalized
+    assert "upper(coalesce(observation.currency, ''))" in normalized
+    assert "= 'usd'" in normalized
+
+
+def test_set_refresh_has_a_distinct_backend_only_rpc_name():
+    normalized = " ".join(SQL.lower().split())
+    name = "refresh_pokemon_card_variant_market_price_intervals_for_sets(uuid[])"
+    assert name in normalized
+    assert f"revoke all on function public.{name} from public, anon, authenticated" in normalized
+    assert f"grant execute on function public.{name} to service_role" in normalized
+
+
 def test_canonical_to_variant_authority_prefers_verified_identity_paths():
     normalized = " ".join(SQL.lower().split())
     explicit = normalized.index("explicit_legacy_identity_link")

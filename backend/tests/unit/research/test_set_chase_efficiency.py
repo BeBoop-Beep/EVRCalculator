@@ -1,10 +1,14 @@
 """Stage-I sanity tests for Set Chase Efficiency.
 
 These encode the properties the brief demands the candidate metric satisfy
-BEFORE any ranking is interpreted. Several are deliberately written to be able
-to FAIL - in particular the near-worthless-padding test, which is the metric's
-most plausible pathology and is asserted here as a measured direction rather
-than an assumed safety property.
+BEFORE any ranking is interpreted.
+
+One of those properties DOES NOT HOLD, and the suite says so out loud rather
+than quietly omitting the check:
+``test_conditional_mean_chase_efficiency_is_monotone_under_basket_expansion``
+asserts the pathology in the direction it was measured, so the defect cannot be
+reintroduced unnoticed once a non-degenerate ``V_S`` replaces the conditional
+mean. See ``docs/research/SET_CHASE_EFFICIENCY_STAGE1.md`` section 5.1.
 """
 
 from __future__ import annotations
