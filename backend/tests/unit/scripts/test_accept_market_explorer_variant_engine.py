@@ -68,6 +68,41 @@ def test_parity_uses_explicit_tolerance_and_chain_link_math():
     assert acceptance.compare_parity(old, close, tolerance=1e-8)["status"] == "FAIL"
 
 
+def test_legacy_parity_uses_previous_usable_date_across_consecutive_degraded_dates():
+    constituents = [
+        {"market_date": day, "canonical_card_id": card_id, "market_price": price}
+        for day, prices in (
+            ("2026-01-01", {"a": 40, "b": 60}),       # READY
+            ("2026-01-02", {"a": 50, "b": 60}),       # DEGRADED
+            ("2026-01-03", {"a": 90, "b": 60}),       # DEGRADED
+            ("2026-01-04", {"a": 55, "b": 65}),       # READY
+            ("2026-01-05", {"a": 60, "b": 66}),       # READY
+        )
+        for card_id, price in prices.items()
+    ]
+
+    rows = acceptance.build_canonical_legacy_cohort(
+        constituents, ["2026-01-01", "2026-01-04", "2026-01-05"]
+    )
+
+    assert [row["market_date"] for row in rows] == [
+        "2026-01-01", "2026-01-04", "2026-01-05"
+    ]
+    assert rows[1]["previous_usable_market_date"] == "2026-01-01"
+    assert rows[1]["common_current_value"] == 120
+    assert rows[1]["common_previous_value"] == 100
+    assert rows[2]["previous_usable_market_date"] == "2026-01-04"
+    assert rows[2]["common_current_value"] == 126
+    assert rows[2]["common_previous_value"] == 120
+    assert acceptance.compare_parity(rows, rows, tolerance=1e-8) == {
+        "rowsCompared": 3,
+        "numericTolerance": 1e-8,
+        "maxAbsoluteDifference": 0.0,
+        "maxRelativeDifference": 0.0,
+        "status": "PASS",
+    }
+
+
 def test_high_impact_gap_classification_is_price_sorted_and_named():
     result = acceptance.classify_high_impact([
         {"cardName": "Pikachu", "currentPrice": 50},

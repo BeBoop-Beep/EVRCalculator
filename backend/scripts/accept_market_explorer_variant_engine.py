@@ -346,6 +346,55 @@ def compare_parity(old_rows: Sequence[Mapping[str, Any]], new_rows: Sequence[Map
             "status": "PASS" if dates and max_abs <= tolerance and max_rel <= tolerance else "FAIL"}
 
 
+def build_canonical_legacy_cohort(
+    constituent_rows: Sequence[Mapping[str, Any]],
+    canonical_market_dates: Sequence[str],
+) -> list[dict[str, Any]]:
+    """Rebuild legacy card-level parity on canonical usable Market dates.
+
+    The legacy aggregate RPC includes DEGRADED dates and therefore carries a
+    different predecessor into ``common_previous_value``.  Build from the
+    underlying canonical-card panel so both engines use the same previous
+    usable Market date before common-cohort and chain-link math are compared.
+    """
+    usable_dates = sorted({str(value)[:10] for value in canonical_market_dates})
+    usable_set = set(usable_dates)
+    panel: dict[str, dict[str, float]] = {market_date: {} for market_date in usable_dates}
+    for row in constituent_rows:
+        market_date = str(row.get("market_date"))[:10]
+        if market_date not in usable_set:
+            continue
+        canonical_card_id = str(row.get("canonical_card_id") or "")
+        if not canonical_card_id:
+            raise ValueError("legacy constituent is missing canonical_card_id")
+        if canonical_card_id in panel[market_date]:
+            raise ValueError(
+                f"duplicate legacy constituent for {canonical_card_id} on {market_date}"
+            )
+        panel[market_date][canonical_card_id] = float(row.get("market_price") or 0)
+
+    result: list[dict[str, Any]] = []
+    previous_usable_market_date: str | None = None
+    for market_date in usable_dates:
+        current = panel[market_date]
+        if not current:
+            continue
+        previous = panel.get(previous_usable_market_date or "", {})
+        common_ids = set(current) & set(previous)
+        result.append({
+            "market_date": market_date,
+            "constituent_count": len(current),
+            "eligible_universe_count": len(current),
+            "basket_value": sum(current.values()),
+            "common_count": len(common_ids),
+            "common_current_value": sum(current[card_id] for card_id in common_ids),
+            "common_previous_value": sum(previous[card_id] for card_id in common_ids),
+            "previous_usable_market_date": previous_usable_market_date,
+        })
+        previous_usable_market_date = market_date
+    return result
+
+
 def classify_high_impact(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     def price(row):
         try: return float(row.get("currentPrice") or row.get("market_price") or 0)
@@ -494,10 +543,14 @@ def run_pilot(client: Any, pilot_key: str, *, commit: bool, verify_existing: boo
             parity_cards = sorted(card_id for card_id, ids in by_canonical_all.items()
                                   if len(ids) == 1 and ids[0] in history_variants)
             if parity_cards:
-                old_rows = list(client.rpc("get_pokemon_market_explorer_daily_cohort", {
+                legacy_constituents = _paged(lambda: client.rpc("get_pokemon_cards_daily_constituents", {
                     "p_set_ids": [pilot["setId"]], "p_start_date": start_date, "p_end_date": end_date,
-                    "p_card_ids": parity_cards, "p_top_n": None,
-                }).execute().data or [])
+                    "p_card_ids": parity_cards,
+                }))
+                canonical_market_dates = [str(row["market_date"])[:10] for row in market_dates]
+                old_rows = build_canonical_legacy_cohort(
+                    legacy_constituents, canonical_market_dates,
+                )
                 new_rows = list(client.rpc("get_pokemon_market_explorer_filtered_cohort", {
                     "p_set_ids": [pilot["setId"]], "p_start_date": start_date, "p_end_date": end_date,
                     "p_card_ids": parity_cards, "p_segment_ids": None, "p_pokemon_ids": None,
