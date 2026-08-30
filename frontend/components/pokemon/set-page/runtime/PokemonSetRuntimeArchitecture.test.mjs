@@ -7,6 +7,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("Set runtime shell remains dependency-light and tabs own endpoint imports", () => {
   const shell = read("./PokemonSetRuntimeShell.jsx");
+  const fallback = read("../../../explore/RipStatisticsPageClient.jsx");
   const cards = read("../tabs/CardsSetTab.jsx");
   const pullRates = read("../tabs/PullRatesSetTab.jsx");
   assert.doesNotMatch(shell, /from ["']recharts["']/);
@@ -16,6 +17,8 @@ test("Set runtime shell remains dependency-light and tabs own endpoint imports",
   assert.match(pullRates, /from ["']@\/lib\/pokemon\/pokemonSetPullRatesClient["']/);
   assert.match(shell, /dynamic\(\(\) => import\(["']\.\.\/tabs\/CardsSetTab["']\)/);
   assert.match(shell, /dynamic\(\(\) => import\(["']\.\.\/tabs\/PullRatesSetTab["']\)/);
+  assert.doesNotMatch(fallback, /from ["']@\/lib\/pokemon\/pokemonSetCardsClient["']/);
+  assert.doesNotMatch(fallback, /from ["']@\/lib\/pokemon\/pokemonSetPullRatesClient["']/);
 });
 
 test("Cards request identity includes every result-changing control", () => {
