@@ -280,6 +280,10 @@ def analyse_set_products(*, config: Any, dataframe: Any, set_id: str,
             "excludedByReason": dict(exclusion_counts),
             "highestExcludedValue": max(excluded_prices) if excluded_prices else None,
             "distinctEligibleIdentities": len({e.card_variant_id for e in eligible}),
+            # Full sorted eligible price vector. Price shocks (Phase 15) are
+            # recomputable from the artifact without re-simulating, because a
+            # +x% card shock is exactly a threshold divided by (1+x).
+            "eligiblePrices": sorted((float(e.price) for e in eligible), reverse=True),
         },
         "products": scored,
         "unsupportedProducts": unsupported,
