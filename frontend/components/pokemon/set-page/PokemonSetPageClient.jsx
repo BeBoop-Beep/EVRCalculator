@@ -3,8 +3,8 @@
 import dynamic from "next/dynamic";
 import InDexLogoLoader from "@/components/brand/InDexLogoLoader";
 
-const RipStatisticsPageClient = dynamic(
-  () => import("@/components/explore/RipStatisticsPageClient"),
+const PokemonSetRichPageClient = dynamic(
+  () => import("@/components/pokemon/set-page/PokemonSetRichPageClient"),
   {
     ssr: false,
     loading: () => (
@@ -20,5 +20,5 @@ const RipStatisticsPageClient = dynamic(
 );
 
 export default function PokemonSetPageClient(props) {
-  return <RipStatisticsPageClient {...props} setDetailMode />;
+  return <PokemonSetRichPageClient {...props} />;
 }

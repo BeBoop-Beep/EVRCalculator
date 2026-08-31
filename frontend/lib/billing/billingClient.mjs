@@ -8,6 +8,6 @@ async function request(path, init = {}) {
   if (!response.ok) { const detail = payload?.detail || payload; throw new BillingClientError("Billing request could not be completed.", response.status, detail?.code || "BILLING_REQUEST_FAILED"); }
   return payload;
 }
-export function getBillingStatus() { return request("/api/billing/me"); }
+export function getBillingStatus(options = {}) { return request("/api/billing/me", { signal: options.signal }); }
 export function createCheckoutSession(offerKey) { return request("/api/billing/checkout-session", { method: "POST", body: JSON.stringify({ offerKey }) }); }
 export function createCustomerPortalSession() { return request("/api/billing/customer-portal", { method: "POST" }); }

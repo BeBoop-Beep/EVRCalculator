@@ -262,11 +262,20 @@ def classify_reversals(*, rows: Sequence[Mapping[str, Any]], low: WeightPoint,
             cross_set_reversals += 1
             if rows[i]["family"] == rows[j]["family"]:
                 same_family_cross_set += 1
-        if block["collectorIdentical"]:
+        # ATTRIBUTION BY DOMINANCE, not by mere presence of a Collector gap.
+        #
+        # change = delta * (dC - dF). A pair can have differing Collector scores
+        # and still flip because Financial lost weight; crediting that to
+        # Collector would be exactly the self-deception this module exists to
+        # prevent. A reversal is Collector-caused only when the direct term is
+        # the larger of the two.
+        if block["collectorIdentical"] or abs(block["reallocation"]) >= abs(block["directCollector"]):
             reallocation_only += 1
         else:
             collector_caused += 1
             examples.append({
+                "directTerm": block["directCollector"],
+                "reallocationTerm": block["reallocation"],
                 "winner": rows[j]["productName"] if block["gapHigh"] < 0
                           else rows[i]["productName"],
                 "loser": rows[i]["productName"] if block["gapHigh"] < 0
@@ -281,7 +290,7 @@ def classify_reversals(*, rows: Sequence[Mapping[str, Any]], low: WeightPoint,
         "from": low.key, "to": high.key,
         "totalReversals": collector_caused + reallocation_only,
         "collectorCaused": collector_caused,
-        "reallocationOnly": reallocation_only,
+        "reallocationDominant": reallocation_only,
         "sameSetReversals": same_set_reversals,
         "crossSetReversals": cross_set_reversals,
         "sameFamilyCrossSetReversals": same_family_cross_set,
@@ -296,16 +305,29 @@ def classify_reversals(*, rows: Sequence[Mapping[str, Any]], low: WeightPoint,
 # --------------------------------------------------------------------------
 
 def rbo(left: Sequence[str], right: Sequence[str], p: float = 0.9) -> float:
-    """Rank-biased overlap, the depth-weighted measure the V4 study introduced."""
+    """Rank-biased overlap, the depth-weighted measure the V4 study introduced.
+
+    NORMALISED FOR TRUNCATION. The textbook ``(1-p) * sum(A_d * p^(d-1))`` is
+    defined over infinite lists; evaluated to a finite depth ``k`` it can only
+    reach ``1 - p^k``, so two IDENTICAL five-item rankings would score 0.41
+    rather than 1.0. Dividing by that achievable maximum makes the statistic a
+    proper weighted average of the per-depth agreements, and identical lists
+    score exactly 1.0 at any depth. At the 131-product depth used in the report
+    ``p^k`` is about 1e-6 and the correction is immaterial - but a measure that
+    is wrong on short lists cannot be trusted on long ones.
+    """
+    depth = min(len(left), len(right))
+    if depth == 0:
+        return 1.0
     total = 0.0
     seen_left: set = set()
     seen_right: set = set()
-    depth = min(len(left), len(right))
     for d in range(depth):
         seen_left.add(left[d])
         seen_right.add(right[d])
         total += (len(seen_left & seen_right) / (d + 1)) * (p ** d)
-    return (1.0 - p) * total
+    achievable = (1.0 - p ** depth) / (1.0 - p)
+    return total / achievable if achievable else 1.0
 
 
 def inherited_guardrails(*, baseline: Sequence[float], candidate: Sequence[float],
@@ -328,7 +350,30 @@ def inherited_guardrails(*, baseline: Sequence[float], candidate: Sequence[float
     rho = spearman(list(baseline), list(candidate))
     mean_move = float(movement.mean())
     share5 = float(np.mean(movement >= 5))
+    # COHORT-SCALE NORMALISATION.
+    #
+    # The two movement guardrails are absolute rank counts calibrated on the
+    # ~21-SET cohort the V4 study ran on. They are not scale-free: "5 ranks out
+    # of 21" is a quarter of the field, while "5 ranks out of 131" is under 4%
+    # of it. Applied verbatim to a 131-product cohort they fail even at the
+    # SHIPPING production weight, which is a statement about cohort size and not
+    # about the weight. Both forms are therefore reported, and the report says
+    # which one it is gating on.
+    n = float(movement.size)
+    historical_n = 21.0
+    scaled_mean_threshold = thresholds["max_mean_absolute_rank_movement"] * n / historical_n
+    scaled_rank_step = max(1.0, round(5.0 * n / historical_n))
+    share_scaled = float(np.mean(movement >= scaled_rank_step))
     return {
+        "cohortSize": int(n),
+        "meanMovementAsShareOfCohort": mean_move / n,
+        "historicalMeanThresholdAsShareOfCohort":
+            thresholds["max_mean_absolute_rank_movement"] / historical_n,
+        "scaledMeanThreshold": scaled_mean_threshold,
+        "scaledRankStep": scaled_rank_step,
+        "shareMovingScaledStep": share_scaled,
+        "passMeanMovementScaled": mean_move <= scaled_mean_threshold,
+        "passShare5Scaled": share_scaled <= thresholds["max_share_moving_5_plus_ranks"],
         "spearman": rho,
         "top5Overlap": overlaps["top5"],
         "top7Overlap": overlaps["top7"],

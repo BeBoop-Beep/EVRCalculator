@@ -495,12 +495,23 @@ def _billing_portal_return_url() -> str:
     return f"{origin}/account-settings?section=billing"
 
 
+def _enforce_billing_post_origin(request: Request) -> None:
+    """Reject browser cross-site POSTs while preserving non-browser bearer clients."""
+    fetch_site = (request.headers.get("sec-fetch-site") or "").lower()
+    origin = (request.headers.get("origin") or "").rstrip("/")
+    trusted = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").strip().rstrip("/")
+    if fetch_site == "cross-site" or (origin and origin != trusted):
+        raise HTTPException(status_code=403, detail={"code": "BILLING_CROSS_SITE_REQUEST_REJECTED"})
+
+
 @app.post("/billing/checkout-session")
 def create_billing_checkout_session(
     payload: BillingCheckoutRequest,
+    request: Request,
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
+    _enforce_billing_post_origin(request)
     user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
     success_url, cancel_url = _billing_redirect_urls()
     try:
@@ -530,9 +541,11 @@ def get_billing_me(
 
 @app.post("/billing/customer-portal")
 def create_billing_customer_portal(
+    request: Request,
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
+    _enforce_billing_post_origin(request)
     user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
     try:
         portal_url = BillingService().create_customer_portal(

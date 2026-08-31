@@ -72,6 +72,10 @@ class BillingService:
         if isinstance(customer_id, dict): customer_id = customer_id.get("id")
         customer = self.repository.find_customer_by_provider_id(customer_id)
         if not customer: raise BillingOwnershipError("Stripe customer has no trusted inDex mapping")
+        return self.reconcile_subscription_snapshot(customer, subscription)
+
+    def subscription_row(self, customer, subscription):
+        subscription = _plain(subscription)
         items = ((subscription.get("items") or {}).get("data") or [])
         recurring = [item for item in items if (item.get("price") or {}).get("id")]
         recognized = [(item, offer_for_price_id((item.get("price") or {}).get("id"), self.offers)) for item in recurring]
@@ -82,7 +86,7 @@ class BillingService:
         price = (recurring[0].get("price") or {}) if len(recurring) == 1 else {}
         product_id = price.get("product")
         if isinstance(product_id, dict): product_id = product_id.get("id")
-        row = {"user_id": customer["user_id"], "billing_customer_id": customer["id"], "provider": "stripe",
+        return {"user_id": customer["user_id"], "billing_customer_id": customer["id"], "provider": "stripe",
             "provider_subscription_id": subscription["id"], "provider_product_id": product_id,
             "provider_price_id": price.get("id"), "offer_key": offer.offer_key if offer else None,
             "plan": offer.plan if offer else None, "status": subscription.get("status") or "unknown",
@@ -92,8 +96,17 @@ class BillingService:
             "canceled_at": _iso(subscription.get("canceled_at")), "ended_at": _iso(subscription.get("ended_at")),
             "commercial_mapping_status": mapping, "last_reconciled_at": datetime.now(timezone.utc).isoformat(),
             "reconciliation_error_code": None if mapping == "mapped" else mapping.upper()}
-        persisted = self.repository.upsert_subscription(row)
-        resolved = self.repository.recompute_effective_plan(customer["user_id"])
+
+    def reconcile_subscription_snapshot(self, customer, subscription):
+        row = self.subscription_row(customer, subscription)
+        if hasattr(self.repository, "persist_subscription_and_recompute"):
+            persisted = self.repository.persist_subscription_and_recompute(row)
+            resolved = self.repository.get_profile(customer["user_id"]).get("index_plan") if hasattr(self.repository, "get_profile") else None
+        else:  # Lightweight repository fakes retain the same domain contract.
+            persisted = self.repository.upsert_subscription(row)
+            resolved = self.repository.recompute_effective_plan(customer["user_id"])
+        mapping = row["commercial_mapping_status"]
+        subscription = _plain(subscription)
         if mapping != "mapped": logger.warning("billing.price.unmapped user_id=%s subscription_id=%s", customer["user_id"], subscription["id"])
         logger.info("billing.subscription.reconciled user_id=%s subscription_id=%s plan=%s mapping=%s",
                     customer["user_id"], subscription["id"], resolved, mapping)

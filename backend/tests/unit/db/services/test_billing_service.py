@@ -2,6 +2,7 @@ from dataclasses import replace
 import pytest
 from backend.db.services.billing_service import BillingService
 from backend.domain.billing.catalog import CommercialOffer, BillingOfferNotConfigured
+from backend.domain.billing.errors import BillingProviderError, BillingSubscriptionAlreadyManaged
 
 class Repo:
     def __init__(self): self.customer=None; self.rows=[]; self.claims={}; self.recomputed=[]
@@ -47,6 +48,33 @@ def test_checkout_uses_only_server_offer_customer_and_urls():
     svc,_,provider=service(); url=svc.create_checkout(user_id="u1",offer_key="plus_monthly",success_url="https://index/s",cancel_url="https://index/c")
     assert url.startswith("https://checkout.stripe.test/")
     assert provider.checkout["price_id"]=="price_plus" and provider.checkout["customer_id"]=="cus_1"
+
+@pytest.mark.parametrize("status", ["trialing", "active", "past_due"])
+def test_existing_provisionable_subscription_blocks_checkout_server_side(status):
+    svc,repo,provider=service(); repo.rows=[{"provider_subscription_id":"sub_existing","status":status,"plan":"plus"}]
+    with pytest.raises(BillingSubscriptionAlreadyManaged):
+        svc.create_checkout(user_id="u1",offer_key="premium_monthly",success_url="a",cancel_url="b")
+    assert provider.checkout is None
+
+def test_provider_outage_never_grants_entitlement():
+    svc,repo,provider=service()
+    provider.create_checkout_session=lambda **kwargs: (_ for _ in ()).throw(BillingProviderError())
+    with pytest.raises(BillingProviderError): svc.create_checkout(user_id="u1",offer_key="plus_monthly",success_url="a",cancel_url="b")
+    assert repo.recomputed==[]
+
+def test_orphan_customer_retry_uses_stable_provider_idempotency_key():
+    repo=Repo(); provider=Provider(); svc=BillingService(repo,provider,OFFERS)
+    attempts=[]
+    provider.create_customer=lambda **kwargs: attempts.append(kwargs["idempotency_key"]) or {"id":"cus_stable"}
+    original=repo.create_customer_mapping
+    failures={"remaining":1}
+    def persist(**kwargs):
+        if failures["remaining"]: failures["remaining"]-=1; raise RuntimeError("db unavailable")
+        return original(**kwargs)
+    repo.create_customer_mapping=persist
+    with pytest.raises(RuntimeError): svc.ensure_customer(user_id="u1",email="safe@example.com")
+    assert svc.ensure_customer(user_id="u1",email="safe@example.com")["provider_customer_id"]=="cus_stable"
+    assert attempts==["index-customer:u1","index-customer:u1"]
 
 def test_portal_uses_persisted_customer_and_server_return_url_only():
     svc,_,provider=service(); url=svc.create_customer_portal(user_id="u1",return_url="https://index.test/account-settings?section=billing")

@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import stripe
 
-from backend.domain.billing.errors import BillingNotConfigured, BillingProviderError, InvalidWebhookSignature
+from backend.domain.billing.errors import BillingNotConfigured, BillingProviderError, InvalidWebhookSignature, StripeCustomerMissing
 
 
 class StripeProvider:
@@ -46,6 +46,27 @@ class StripeProvider:
         except BillingNotConfigured: raise
         except Exception as exc: raise BillingProviderError("Stripe subscription retrieval failed") from exc
 
+    def retrieve_customer(self, customer_id: str):
+        try:
+            return self._client().v1.customers.retrieve(customer_id)
+        except BillingNotConfigured:
+            raise
+        except stripe.InvalidRequestError as exc:
+            if getattr(exc, "code", None) == "resource_missing":
+                raise StripeCustomerMissing("Persisted Stripe customer does not exist") from exc
+            raise BillingProviderError("Stripe customer retrieval failed") from exc
+        except Exception as exc:
+            raise BillingProviderError("Stripe customer retrieval failed") from exc
+
+    def list_customer_subscriptions(self, customer_id: str):
+        try:
+            result = self._client().v1.subscriptions.list({"customer": customer_id, "status": "all", "limit": 100})
+            return list(getattr(result, "data", None) or _mapping_data(result))
+        except BillingNotConfigured:
+            raise
+        except Exception as exc:
+            raise BillingProviderError("Stripe subscription listing failed") from exc
+
     def create_customer_portal_session(self, *, customer_id: str, return_url: str):
         try:
             return self._client().v1.billing_portal.sessions.create({
@@ -61,3 +82,11 @@ class StripeProvider:
         try: return stripe.Webhook.construct_event(raw_body, signature, self.webhook_secret)
         except (ValueError, stripe.SignatureVerificationError) as exc:
             raise InvalidWebhookSignature("Invalid Stripe webhook signature") from exc
+
+
+def _mapping_data(value):
+    if hasattr(value, "to_dict_recursive"):
+        return value.to_dict_recursive().get("data", [])
+    if isinstance(value, dict):
+        return value.get("data", [])
+    return []

@@ -7,9 +7,22 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("Pokemon Set entrypoint preserves the established rich Set UI", () => {
   const entrypoint = read("../PokemonSetPageClient.jsx");
-  assert.match(entrypoint, /dynamic\(\s*\(\) => import\(["']@\/components\/explore\/RipStatisticsPageClient["']\)/);
-  assert.match(entrypoint, /<RipStatisticsPageClient \{\.\.\.props\} setDetailMode \/>/);
+  assert.match(entrypoint, /dynamic\(\s*\(\) => import\(["']@\/components\/pokemon\/set-page\/PokemonSetRichPageClient["']\)/);
+  assert.match(entrypoint, /<PokemonSetRichPageClient \{\.\.\.props\} \/>/);
+  assert.doesNotMatch(entrypoint, /RipStatisticsPageClient/);
   assert.doesNotMatch(entrypoint, /PokemonSetRuntimeShell/);
+});
+
+test("canonical rich Set parent lazy-loads only the active tab and owns no tab controllers", () => {
+  const parent = read("../PokemonSetRichPageClient.jsx");
+  for (const tab of ["RichRipSetTab", "RichMarketSetTab", "RichCardsSetTab", "RichPullRatesSetTab"]) {
+    assert.match(parent, new RegExp(`dynamic\\(\\(\\) => import\\(["']\\.\\/rich\\/${tab}["']\\)`));
+  }
+  for (const controller of ["useSetRipProgressiveController", "useSetMarketController", "useSetCardsController", "useSetPullRatesController"]) {
+    assert.doesNotMatch(parent, new RegExp(controller));
+  }
+  assert.doesNotMatch(parent, /RipStatisticsPageClient/);
+  assert.doesNotMatch(parent, /PokemonSetRuntimeShell/);
 });
 
 test("Set runtime shell remains dependency-light and tabs own endpoint imports", () => {

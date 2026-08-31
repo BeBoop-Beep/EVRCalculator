@@ -1,6 +1,10 @@
 from fastapi.testclient import TestClient
 from backend.api import main
 from backend.domain.billing.catalog import BillingOfferNotConfigured
+import hashlib
+import hmac
+import time
+from backend.domain.billing.providers.stripe_provider import StripeProvider
 
 client=TestClient(main.app)
 
@@ -22,6 +26,14 @@ def auth(monkeypatch): monkeypatch.setattr(main,"decode_token",lambda token: ({"
 
 def test_anonymous_checkout_denied(monkeypatch):
     auth(monkeypatch); assert client.post("/billing/checkout-session",json={"offerKey":"plus_monthly"}).status_code==401
+
+def test_cross_site_billing_posts_are_rejected_before_provider_calls(monkeypatch):
+    auth(monkeypatch); monkeypatch.setattr(main,"BillingService",FakeService)
+    headers={"Authorization":"Bearer good","Origin":"https://evil.test","Sec-Fetch-Site":"cross-site"}
+    before_checkout, before_portal = len(FakeService.checkout_calls), len(FakeService.portal_calls)
+    assert client.post("/billing/checkout-session",json={"offerKey":"plus_monthly"},headers=headers).status_code==403
+    assert client.post("/billing/customer-portal",headers=headers).status_code==403
+    assert (len(FakeService.checkout_calls),len(FakeService.portal_calls))==(before_checkout,before_portal)
 
 def test_checkout_rejects_every_client_authority_field(monkeypatch):
     auth(monkeypatch); monkeypatch.setattr(main,"BillingService",FakeService)
@@ -52,3 +64,20 @@ def test_portal_requires_auth_and_uses_server_owned_identity_and_return(monkeypa
     response=client.post("/billing/customer-portal",json={"customerId":"cus_other","returnUrl":"https://evil.test"},headers={"Authorization":"Bearer good"})
     assert response.status_code==200 and response.json()=={"portalUrl":"https://billing.stripe.test/session"}
     assert FakeService.portal_calls==[{"user_id":"user-a","return_url":"http://localhost:3000/account-settings?section=billing"}]
+
+def test_framework_boundary_preserves_exact_raw_body_for_stripe_signature(monkeypatch):
+    secret = "whsec_boundary_test"
+    accepted = []
+    class BoundaryService:
+        provider = StripeProvider(secret_key="", webhook_secret=secret)
+        def handle_event(self, event): accepted.append(event); return "processed"
+    monkeypatch.setattr(main, "BillingService", BoundaryService)
+    payload = b'{"id":"evt_raw","object":"event","type":"unhandled","data":{"object":{}}}'
+    timestamp = int(time.time())
+    digest = hmac.new(secret.encode(), f"{timestamp}.".encode() + payload, hashlib.sha256).hexdigest()
+    signature = f"t={timestamp},v1={digest}"
+    assert client.post("/billing/stripe/webhook", content=payload, headers={"Stripe-Signature":signature}).status_code == 200
+    assert len(accepted) == 1
+    assert client.post("/billing/stripe/webhook", content=payload+b" ", headers={"Stripe-Signature":signature}).status_code == 400
+    assert client.post("/billing/stripe/webhook", content=b'{"object":"event","type":"unhandled","id":"evt_raw","data":{"object":{}}}', headers={"Stripe-Signature":signature}).status_code == 400
+    assert len(accepted) == 1

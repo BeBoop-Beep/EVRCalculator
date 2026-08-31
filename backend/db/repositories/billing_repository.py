@@ -16,6 +16,10 @@ class BillingRepository:
                     .eq("user_id", user_id).execute())
         return list(response.data or [])
 
+    def list_customers(self) -> list[dict]:
+        response = supabase.table("billing_customers").select("*").eq("provider", "stripe").execute()
+        return list(response.data or [])
+
     def find_customer_by_provider_id(self, provider_customer_id: str, provider: str = "stripe") -> dict | None:
         response = (supabase.table("billing_customers").select("*")
                     .eq("provider", provider).eq("provider_customer_id", provider_customer_id).limit(1).execute())
@@ -38,6 +42,16 @@ class BillingRepository:
             row, on_conflict="provider,provider_subscription_id").execute()
         return response.data[0]
 
+    def persist_subscription_and_recompute(self, row: dict) -> dict:
+        response = supabase.rpc("persist_billing_subscription_and_recompute", {"p_subscription": row}).execute()
+        return response.data
+
+    def mark_missing_subscriptions_and_recompute(self, user_id: str, current_ids: list[str]) -> int:
+        response = supabase.rpc("mark_missing_billing_subscriptions_and_recompute", {
+            "p_user_id": user_id, "p_current_provider_subscription_ids": current_ids,
+        }).execute()
+        return int(response.data or 0)
+
     def manual_plan(self, user_id: str) -> str | None:
         response = (supabase.table("billing_manual_entitlements").select("plan")
                     .eq("user_id", user_id).limit(1).execute())
@@ -51,30 +65,23 @@ class BillingRepository:
         return (response.data or [None])[0]
 
     def claim_webhook_event(self, *, event_id: str, event_type: str, stale_after_seconds: int = 300) -> str:
-        now = datetime.now(timezone.utc)
-        try:
-            supabase.table("billing_webhook_events").insert({
-                "provider": "stripe", "provider_event_id": event_id, "event_type": event_type,
-                "processing_status": "processing", "processing_attempts": 1,
-                "processing_started_at": now.isoformat(), "updated_at": now.isoformat(),
-            }).execute()
-            return "claimed"
-        except Exception:
-            response = (supabase.table("billing_webhook_events").select("*")
-                        .eq("provider", "stripe").eq("provider_event_id", event_id).limit(1).execute())
-            row = (response.data or [None])[0]
-            if not row: raise
-            if row.get("processing_status") == "processed": return "duplicate"
-            started = row.get("processing_started_at")
-            stale = not started or datetime.fromisoformat(started.replace("Z", "+00:00")) < now - timedelta(seconds=stale_after_seconds)
-            if row.get("processing_status") == "failed" or stale:
-                supabase.table("billing_webhook_events").update({
-                    "processing_status": "processing", "processing_started_at": now.isoformat(),
-                    "processing_attempts": int(row.get("processing_attempts") or 0) + 1,
-                    "updated_at": now.isoformat(), "error_code": None, "error_summary": None,
-                }).eq("id", row["id"]).execute()
-                return "claimed"
-            return "busy"
+        stale_before = datetime.now(timezone.utc) - timedelta(seconds=stale_after_seconds)
+        response = supabase.rpc("claim_billing_webhook_event", {
+            "p_provider_event_id": event_id,
+            "p_event_type": event_type,
+            "p_stale_before": stale_before.isoformat(),
+        }).execute()
+        return response.data
+
+    def webhook_diagnostics(self, *, stale_after_seconds: int = 300) -> dict:
+        stale_before = (datetime.now(timezone.utc) - timedelta(seconds=stale_after_seconds)).isoformat()
+        failed = (supabase.table("billing_webhook_events").select(
+            "provider_event_id,event_type,processing_attempts,error_code,error_summary,updated_at"
+        ).eq("processing_status", "failed").order("updated_at", desc=True).limit(100).execute())
+        stale = (supabase.table("billing_webhook_events").select("provider_event_id", count="exact")
+                 .eq("processing_status", "processing").lt("processing_started_at", stale_before).execute())
+        return {"failed": list(failed.data or []), "failedCount": failed.count or len(failed.data or []),
+                "staleProcessingCount": stale.count or 0}
 
     def finish_webhook_event(self, event_id: str) -> None:
         now = datetime.now(timezone.utc).isoformat()

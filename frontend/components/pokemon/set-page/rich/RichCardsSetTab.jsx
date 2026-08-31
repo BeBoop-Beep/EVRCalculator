@@ -14,6 +14,8 @@ import {
   resolveCardsRequest,
 } from "@/components/pokemon/set-page/Cards/cardsControls.mjs";
 import useSetCardsController from "@/hooks/pokemon/useSetCardsController";
+import RichChecklistCardTile from "./RichChecklistCardTile";
+import RichSetSectionTabs from "./RichSetSectionTabs";
 
 export default function RichCardsSetTab({
   cardsSection,
@@ -21,9 +23,9 @@ export default function RichCardsSetTab({
   setId,
   canFetch,
   activeSetSlug,
-  CardTile,
-  SectionTabs,
 }) {
+  const CardTile = RichChecklistCardTile;
+  const SectionTabs = RichSetSectionTabs;
   const cardsSubTab = "checklist";
   const [selectedTimeframe, setSelectedTimeframe] = useState("7D");
   const [cardSortMode, setCardSortMode] = useState("set-number");
