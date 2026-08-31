@@ -14,6 +14,7 @@
     "perf:set-visual": "node .perf-audit/set-rich-fixture-runner.mjs --verify",
     "perf:set-live-contract": "node .perf-audit/set-rich-live-contract.mjs",
     "perf:set-live-smoke": "node .perf-audit/set-rich-live-smoke.mjs",
+    "perf:set-navigation": "node .perf-audit/set-rich-navigation.mjs",
     "test:frontend": "tsx --test \"app/**/*.test.{js,mjs,jsx}\" \"components/**/*.test.{js,mjs,jsx}\" \"hooks/**/*.test.{js,mjs,jsx}\" \"lib/**/*.test.{js,mjs,jsx}\" \"constants/**/*.test.{js,mjs,jsx}\" \"*.test.{js,mjs,jsx}\"",
     "perf:p0-soak": "node .perf-audit/p0-renderer-soak.mjs"
   },

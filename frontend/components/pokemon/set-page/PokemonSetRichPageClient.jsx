@@ -2,11 +2,13 @@
 
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import ReturnToTopButton from "@/components/ui/ReturnToTopButton";
+import InDexLogoLoader from "@/components/brand/InDexLogoLoader";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import useSetRipBootstrapController from "@/hooks/pokemon/useSetRipBootstrapController";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import { optimizedImageUrl, SET_LOGO_WIDTH } from "@/lib/images/remoteImageDelivery.mjs";
 import { resolvePokemonPublicSetSlug } from "@/lib/pokemon/pokemonCardDetailClient";
@@ -19,11 +21,16 @@ import { getRipTierPresentation } from "@/lib/explore/interpretationTone";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import { selectSetRichSharedViewModel } from "./rich/setRichSharedViewModel.mjs";
 import RichSetContextChrome from "./rich/RichSetContextChrome";
+import { buildSameSetViewUrl, normalizeSetViewTab } from "./setViewUrl.mjs";
 
-const RichRipSetTab = dynamic(() => import("./rich/RichRipSetTab"), { ssr: false });
-const RichMarketSetTab = dynamic(() => import("./rich/RichMarketSetTab"), { ssr: false });
-const RichCardsSetTab = dynamic(() => import("./rich/RichCardsSetTab"), { ssr: false });
-const RichPullRatesSetTab = dynamic(() => import("./rich/RichPullRatesSetTab"), { ssr: false });
+const loadRichRipSetTab = () => import("./rich/RichRipSetTab");
+const loadRichMarketSetTab = () => import("./rich/RichMarketSetTab");
+const loadRichCardsSetTab = () => import("./rich/RichCardsSetTab");
+const loadRichPullRatesSetTab = () => import("./rich/RichPullRatesSetTab");
+const RichRipSetTab = dynamic(loadRichRipSetTab, { ssr: false });
+const RichMarketSetTab = dynamic(loadRichMarketSetTab, { ssr: false });
+const RichCardsSetTab = dynamic(loadRichCardsSetTab, { ssr: false });
+const RichPullRatesSetTab = dynamic(loadRichPullRatesSetTab, { ssr: false });
 
 const MOBILE_SET_MENU_HIDE_DISTANCE_PX = 10;
 const MOBILE_SET_MENU_REVEAL_DISTANCE_PX = 56;
@@ -32,15 +39,13 @@ const MOBILE_SET_MENU_TOP_BOUNDARY_PX = 20;
 const MOBILE_SET_MENU_BOTTOM_EDGE_PX = 64;
 const MOBILE_SET_MENU_GESTURE_NOISE_PX = 4;
 const MOBILE_RETURN_TO_TOP_THRESHOLD_PX = 12;
-const TABS = new Set(["overview", "market", "cards", "pull-rates"]);
-const normalizeTab = (value) => { const raw = String(value || "").trim().toLowerCase(); const alias = { rip: "overview", analysis: "overview", analytics: "overview" }[raw] || raw; return TABS.has(alias) ? alias : "overview"; };
 const number = (value) => { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; };
-function hrefWithState(pathname, searchParams, tab, section = null, extra = {}) { const params = new URLSearchParams(searchParams?.toString() || ""); params.set("tab", normalizeTab(tab)); section ? params.set("section", section) : params.delete("section"); Object.entries(extra).forEach(([key, value]) => value === null ? params.delete(key) : params.set(key, value)); return `${pathname}?${params.toString()}`; }
+function hrefWithState(pathname, searchParams, tab, section = null, extra = {}) { return buildSameSetViewUrl({ pathname, searchParams, tab, section, extra }); }
 
 export default function PokemonSetRichPageClient({ targetsPayload, selectedTarget, requestedTargetType, requestedTargetId, explorePayload = null, shellPayload = null, initialModuleSnapshots = null, pageError, profileBaseHref = "/Explore/rip-statistics", targetHrefById = null }) {
   const router = useRouter(); const pathname = usePathname(); const searchParams = useSearchParams();
   const { canViewRankingsIntelligence: canViewProductRipIntelligence } = useRankingsAccess();
-  const [isPending, startTransition] = useTransition(); const [isTabNavPending, startTabTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const [pickerOpen, setPickerOpen] = useState(false); const [mobileContextHidden, setMobileContextHidden] = useState(false); const [showReturnToTop, setShowReturnToTop] = useState(false); const mobileContextRef = useRef(null);
   const mobileContextHiddenRef = useRef(false);
   const mobileContextScrollRef = useRef({ currentNormalizedY: 0, maxNormalizedY: 0, previousNormalizedY: 0, cumulativeDownwardPx: 0, cumulativeUpwardPx: 0, direction: "none", nearTop: true, pickerOpen: false });
@@ -48,8 +53,10 @@ export default function PokemonSetRichPageClient({ targetsPayload, selectedTarge
   const activeTarget = selectRequestedPokemonSetTarget(rawTargets, requestedTargetId, selectedTarget);
   const switcherTargets = rawTargets.filter((target) => isPublicAnalyticsEligiblePokemonSet(target) || String(target?.target_id || "") === String(requestedTargetId || ""));
   const setId = requestedTargetId || activeTarget?.target_id || activeTarget?.setId || shellPayload?.set?.id || null;
-  const activeTab = normalizeTab(searchParams?.get?.("tab")); const cardsSection = activeTab === "cards" && searchParams?.get?.("section") === "market-movers" ? "market-movers" : "all-cards";
-  const ripBootstrap = initialModuleSnapshots?.ripBootstrapPayload || null;
+  const activeTab = normalizeSetViewTab(searchParams?.get?.("tab")); const cardsSection = activeTab === "cards" && searchParams?.get?.("section") === "market-movers" ? "market-movers" : "all-cards";
+  const serverRipBootstrap = initialModuleSnapshots?.ripBootstrapPayload || null;
+  const ripBootstrapController = useSetRipBootstrapController({ setId, initialPayload: serverRipBootstrap, enabled: activeTab === "overview" });
+  const ripBootstrap = ripBootstrapController.payload;
   const summary = useMemo(() => ({ ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}), ...(ripBootstrap?.summary || {}) }), [shellPayload?.summary, explorePayload?.summary, ripBootstrap?.summary]);
   const canonical = useMemo(() => resolveCanonicalRipV7(ripBootstrap?.canonicalSource, explorePayload, shellPayload, activeTarget, summary), [ripBootstrap?.canonicalSource, explorePayload, shellPayload, activeTarget, summary]);
   const ripScore = selectRipHeroScoreMode({ canonical });
@@ -90,8 +97,10 @@ export default function PokemonSetRichPageClient({ targetsPayload, selectedTarge
   useEffect(() => { setShowReturnToTop(false); setMobileContextHidden(false); }, [pathname, searchParams, requestedTargetId, activeTab]);
   const handlePickerKeyDown = (event) => { if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return; const options = Array.from(event.currentTarget.querySelectorAll('[role="option"]:not(:disabled)')); if (!options.length) return; event.preventDefault(); const current = options.indexOf(document.activeElement); const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : event.key === "ArrowDown" ? (current + 1 + options.length) % options.length : (current - 1 + options.length) % options.length; options[next]?.focus(); };
   const selectTarget = (target) => { const id = String(target?.target_id || ""); if (!id || id === String(requestedTargetId || "")) { setPickerOpen(false); return; } const base = targetHrefById?.[id]; if (!base) return; const [path, query = ""] = String(base).split("?"); const params = new URLSearchParams(query); params.set("tab", activeTab); setPickerOpen(false); startTransition(() => router.push(`${path}?${params.toString()}`)); };
-  const selectTab = (tab) => startTabTransition(() => router.push(hrefWithState(pathname, searchParams, tab), { scroll: false }));
-  const selectCardsSection = ({ tab, section }) => startTabTransition(() => router.push(hrefWithState(pathname, searchParams, tab, section), { scroll: false }));
+  const pushSameSetView = (href) => { const current = `${window.location.pathname}${window.location.search}`; if (href !== current) window.history.pushState(null, "", href); };
+  const selectTab = (tab) => { const nextTab = normalizeSetViewTab(tab); if (nextTab === activeTab) return; pushSameSetView(hrefWithState(pathname, searchParams, nextTab)); };
+  const selectCardsSection = ({ tab, section }) => { const href = hrefWithState(pathname, searchParams, tab, section); pushSameSetView(href); };
+  const tabIntent = (tab, intentType) => { const nextTab = normalizeSetViewTab(tab); if (nextTab === activeTab) return; ({ overview: loadRichRipSetTab, market: loadRichMarketSetTab, cards: loadRichCardsSetTab, "pull-rates": loadRichPullRatesSetTab }[nextTab])?.(); if (nextTab === "overview" && (!(navigator.connection?.saveData) || intentType === "pointerdown")) ripBootstrapController.preload(); };
   const targetIntent = (id) => { const href = targetHrefById?.[String(id || "")]; if (href) router.prefetch(href); };
   const canFetch = Boolean(setId);
   const overviewSeed = initialModuleSnapshots?.overviewPayload || initialModuleSnapshots?.marketDashboardPayload || null;
@@ -106,9 +115,11 @@ export default function PokemonSetRichPageClient({ targetsPayload, selectedTarge
         {ambientUrl ? <PageArtworkAtmosphere src={ambientUrl} dataAttribute="data-set-ambient-artwork" visibilityClassName="hidden sm:block" /> : null}
         {pageError ? <section className="rounded-2xl border border-red-500/30 bg-[var(--surface-panel)] p-5 sm:p-6"><p className="text-base font-semibold text-[var(--text-primary)]">RIP Statistics unavailable</p><p className="mt-2 text-sm text-red-300">{pageError}</p></section> : null}
         {canRender ? <>
-          <RichSetContextChrome activeTab={activeTab} onTabChange={selectTab} onTabIntent={() => {}} isTabNavPending={isTabNavPending} mobileContextHidden={mobileContextHidden} mobileContextRef={mobileContextRef} mobileHeroModel={mobileHeroModel} pickerOpen={pickerOpen} setPickerOpen={isDesktop && pickerOpen} onTogglePicker={() => setPickerOpen((open) => !open)} onSelectTarget={selectTarget} onPickerKeyDown={handlePickerKeyDown} onTargetIntent={targetIntent} targets={switcherTargets} selectedTargetId={requestedTargetId} pickerDisabled={isPending || !switcherTargets.length} isDesktop={isDesktop} logoUrl={logoUrl} selectedName={activeTarget?.name || requestedTargetId || "Selected Set"} selectedTarget={activeTarget} cardCount={cardCount} ripPresentation={ripPresentation} ripTier={ripTier} ripRank={ripRank} ripCohort={ripCohort} />
-          {activeTab === "overview" ? <RichRipSetTab canonical={canonical} summary={summary} ripDecision={ripBootstrap?.ripDecision ?? explorePayload?.ripDecision ?? null} setId={setId} calculationRunId={ripBootstrap?.calculationRunId} activeCalculationRunId={ripBootstrap?.calculationRunId ?? activeTarget?.calculation_run_id ?? activeTarget?.calculationRunId ?? null} canonicalSource={ripBootstrap?.canonicalSource} canViewProductRipIntelligence={canViewProductRipIntelligence} setName={activeTarget?.name ?? activeTarget?.set_name ?? null} setSlug={activeSetSlug} cardCount={cardCount} pullRatesHref={hrefWithState(pathname, searchParams, "pull-rates")} productImage={resolvePokemonBoosterPackAsset(activeTarget?.canonical_key ?? activeTarget?.canonicalKey)} initialProductId={searchParams?.get?.("sealedProduct") || null} familyFilter={null} /> : null}
-          {activeTab === "market" ? <RichMarketSetTab isDesktopHeroComposition={isDesktop} resolvedSetResourceId={setId} activeSetSlug={activeSetSlug} canFetch={canFetch} destinationSeedPending={isTabNavPending && initialModuleSnapshots?.resolvedTab !== "market"} overviewSeed={overviewSeed} moversSeed={moversSeed} topChaseSeed={topChaseSeed} moversTickerHref={moversHref} authoritativeSetCardCount={cardCount} topChaseRowHref={chaseHref} /> : null}
+          <RichSetContextChrome activeTab={activeTab} onTabChange={selectTab} onTabIntent={tabIntent} isTabNavPending={false} mobileContextHidden={mobileContextHidden} mobileContextRef={mobileContextRef} mobileHeroModel={mobileHeroModel} pickerOpen={pickerOpen} setPickerOpen={isDesktop && pickerOpen} onTogglePicker={() => setPickerOpen((open) => !open)} onSelectTarget={selectTarget} onPickerKeyDown={handlePickerKeyDown} onTargetIntent={targetIntent} targets={switcherTargets} selectedTargetId={requestedTargetId} pickerDisabled={isPending || !switcherTargets.length} isDesktop={isDesktop} logoUrl={logoUrl} selectedName={activeTarget?.name || requestedTargetId || "Selected Set"} selectedTarget={activeTarget} cardCount={cardCount} ripPresentation={ripPresentation} ripTier={ripTier} ripRank={ripRank} ripCohort={ripCohort} />
+          {activeTab === "overview" && ripBootstrap ? <RichRipSetTab canonical={canonical} summary={summary} ripDecision={ripBootstrap?.ripDecision ?? explorePayload?.ripDecision ?? null} setId={setId} calculationRunId={ripBootstrap?.calculationRunId} activeCalculationRunId={ripBootstrap?.calculationRunId ?? activeTarget?.calculation_run_id ?? activeTarget?.calculationRunId ?? null} canonicalSource={ripBootstrap?.canonicalSource} canViewProductRipIntelligence={canViewProductRipIntelligence} setName={activeTarget?.name ?? activeTarget?.set_name ?? null} setSlug={activeSetSlug} cardCount={cardCount} pullRatesHref={hrefWithState(pathname, searchParams, "pull-rates")} productImage={resolvePokemonBoosterPackAsset(activeTarget?.canonical_key ?? activeTarget?.canonicalKey)} initialProductId={searchParams?.get?.("sealedProduct") || null} familyFilter={null} /> : null}
+          {activeTab === "overview" && !ripBootstrap && ripBootstrapController.state.status !== "error" ? <div className="flex min-h-[40vh] items-center justify-center" aria-busy="true" aria-label="Loading RIP intelligence"><InDexLogoLoader label="Loading RIP intelligence" /></div> : null}
+          {activeTab === "overview" && !ripBootstrap && ripBootstrapController.state.status === "error" ? <section className="rounded-2xl border border-red-500/30 bg-[var(--surface-panel)] p-5 sm:p-6"><p className="text-base font-semibold text-[var(--text-primary)]">RIP Statistics unavailable</p><p className="mt-2 text-sm text-red-300">{ripBootstrapController.state.error}</p><button type="button" onClick={ripBootstrapController.retry} className="mt-4 rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">Retry</button></section> : null}
+          {activeTab === "market" ? <RichMarketSetTab isDesktopHeroComposition={isDesktop} resolvedSetResourceId={setId} activeSetSlug={activeSetSlug} canFetch={canFetch} destinationSeedPending={false} overviewSeed={overviewSeed} moversSeed={moversSeed} topChaseSeed={topChaseSeed} moversTickerHref={moversHref} authoritativeSetCardCount={cardCount} topChaseRowHref={chaseHref} /> : null}
           {activeTab === "cards" ? <RichCardsSetTab cardsSection={cardsSection} handleSetDetailNavSelect={selectCardsSection} setId={setId} canFetch={canFetch} activeSetSlug={activeSetSlug} /> : null}
           {activeTab === "pull-rates" ? <RichPullRatesSetTab setId={setId} canFetch={canFetch} fallbackAssumptions={explorePayload?.pull_rate_assumptions || explorePayload?.pullRateAssumptions || null} /> : null}
           <ReturnToTopButton visible={!isDesktop && showReturnToTop} onActivate={() => { setMobileContextHidden(false); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hidden desk:bottom-6 desk:left-auto desk:right-6 desk:inline-flex desk:translate-x-0" />

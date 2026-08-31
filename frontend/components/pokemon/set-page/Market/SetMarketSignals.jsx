@@ -54,7 +54,7 @@ export function SetMarketSignalLock({ description }) {
           <LockIcon /> Index Plus
         </span>
         {lock.actionHref ? (
-          <Link href={lock.actionHref} className={actionClassName}>{lock.actionLabel}</Link>
+          <Link href={lock.actionHref} prefetch={false} className={actionClassName}>{lock.actionLabel}</Link>
         ) : (
           <span className={actionClassName}>{lock.actionLabel}</span>
         )}

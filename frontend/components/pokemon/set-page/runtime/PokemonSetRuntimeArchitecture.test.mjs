@@ -16,13 +16,30 @@ test("Pokemon Set entrypoint preserves the established rich Set UI", () => {
 test("canonical rich Set parent lazy-loads only the active tab and owns no tab controllers", () => {
   const parent = read("../PokemonSetRichPageClient.jsx");
   for (const tab of ["RichRipSetTab", "RichMarketSetTab", "RichCardsSetTab", "RichPullRatesSetTab"]) {
-    assert.match(parent, new RegExp(`dynamic\\(\\(\\) => import\\(["']\\.\\/rich\\/${tab}["']\\)`));
+    assert.match(parent, new RegExp(`const load${tab} = \\(\\) => import\\(["']\\.\\/rich\\/${tab}["']\\)`));
+    assert.match(parent, new RegExp(`dynamic\\(load${tab},`));
   }
   for (const controller of ["useSetRipProgressiveController", "useSetMarketController", "useSetCardsController", "useSetPullRatesController"]) {
     assert.doesNotMatch(parent, new RegExp(controller));
   }
   assert.doesNotMatch(parent, /RipStatisticsPageClient/);
   assert.doesNotMatch(parent, /PokemonSetRuntimeShell/);
+});
+
+test("same-Set views use native history while different-Set selection remains Next navigation", () => {
+  const parent = read("../PokemonSetRichPageClient.jsx");
+  const tabs = read("../rich/RichSetSectionTabs.jsx");
+  const segmented = read("../../../ui/SegmentedControl.jsx");
+  assert.match(parent, /window\.history\.pushState\(/);
+  assert.match(parent, /buildSameSetViewUrl/);
+  assert.doesNotMatch(parent, /selectTab[^;]+router\.push/);
+  assert.match(parent, /startTransition\(\(\) => router\.push\(/);
+  assert.match(parent, /onTabIntent=\{tabIntent\}/);
+  assert.match(parent, /ripBootstrapController\.preload\(\)/);
+  assert.match(tabs, /onOptionIntent\?\.\(option\.value, intentType\)/);
+  assert.match(segmented, /onPointerEnter=\{\(\) => option\?\.onIntent\?\.\("pointerenter"\)\}/);
+  assert.match(segmented, /onFocus=\{\(\) => option\?\.onIntent\?\.\("focus"\)\}/);
+  assert.match(segmented, /onPointerDown=\{\(\) => option\?\.onIntent\?\.\("pointerdown"\)\}/);
 });
 
 test("Set runtime shell remains dependency-light and tabs own endpoint imports", () => {

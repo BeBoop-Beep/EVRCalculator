@@ -9,7 +9,7 @@ export default function RichSetSectionTabs({ value, onChange, onOptionIntent, op
   if (variant === "primary") {
     const sharedOptions = tabOptions.map((option) => ({
       ...option,
-      onIntent: () => onOptionIntent?.(option.value),
+      onIntent: (intentType) => onOptionIntent?.(option.value, intentType),
       label: <span className="flex min-w-0 items-center justify-center gap-1.5">
         {option.icon ? <SetPageIcon name={option.icon} className={`h-3.5 w-3.5 flex-none ${option.hideIconOnMobile ? "max-desk:hidden" : ""}`} /> : null}
         <span className="whitespace-nowrap">{option.mobileLabel ? <><span className="max-desk:hidden">{option.label}</span><span className="hidden max-desk:inline">{option.mobileLabel}</span></> : option.label}</span>
