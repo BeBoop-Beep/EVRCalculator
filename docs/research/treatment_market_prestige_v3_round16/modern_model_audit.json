@@ -1,0 +1,614 @@
+{
+  "Scarlet and Violet": {
+    "era": "Scarlet and Violet",
+    "modelsActuallyRun": [
+      "common",
+      "double_rare",
+      "illustration_rare",
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "treatments": {
+      "common": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 1038,
+        "sets": 16,
+        "score": 5.012027261014038,
+        "interval": [
+          4.986775172439103,
+          5.040968619973565
+        ]
+      },
+      "double_rare": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 209,
+        "sets": 15,
+        "score": 3.7087790709314636,
+        "interval": [
+          3.664685665577026,
+          3.7636887258866176
+        ]
+      },
+      "illustration_rare": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 381,
+        "sets": 14,
+        "score": 5.396307361447457,
+        "interval": [
+          5.300197594003299,
+          5.510337965955647
+        ]
+      },
+      "rare": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 250,
+        "sets": 16,
+        "score": 2.839503513843664,
+        "interval": [
+          2.7944405681543047,
+          2.877217170655044
+        ]
+      },
+      "special_illustration_rare": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 82,
+        "sets": 10,
+        "score": 6.1432587159898455,
+        "interval": [
+          6.033806405403593,
+          6.2674351622173585
+        ]
+      },
+      "ultra_rare": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 139,
+        "sets": 13,
+        "score": 4.37380775907147,
+        "interval": [
+          4.276741985972896,
+          4.464004653429624
+        ]
+      },
+      "uncommon": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 539,
+        "sets": 16,
+        "score": 4.972896016867434,
+        "interval": [
+          4.937721086143335,
+          4.996509651880858
+        ]
+      }
+    },
+    "checkpointRows": [
+      2824,
+      2824,
+      2824,
+      2824
+    ]
+  },
+  "Mega Evolution": {
+    "era": "Mega Evolution",
+    "modelsActuallyRun": [
+      "common",
+      "double_rare",
+      "illustration_rare",
+      "rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "treatments": {
+      "common": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 288,
+        "sets": 6,
+        "score": 4.997539801214917,
+        "interval": [
+          4.986648273906818,
+          5.009171936999136
+        ]
+      },
+      "double_rare": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 88,
+        "sets": 6,
+        "score": 2.86662482489956,
+        "interval": [
+          2.7800766208838237,
+          2.9359391698520882
+        ]
+      },
+      "illustration_rare": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 101,
+        "sets": 6,
+        "score": 7.331355374980519,
+        "interval": [
+          7.3008377628281345,
+          7.352346671239635
+        ]
+      },
+      "rare": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 72,
+        "sets": 6,
+        "score": 5.493771971010635,
+        "interval": [
+          5.489248294486427,
+          5.502938739123012
+        ]
+      },
+      "ultra_rare": {
+        "status": "INSUFFICIENT_HISTORY",
+        "reasons": [
+          "history"
+        ],
+        "cards": 42,
+        "sets": 5,
+        "score": 3.7944007503093737,
+        "interval": [
+          3.7053349282615016,
+          3.8779281273553203
+        ]
+      },
+      "uncommon": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 138,
+        "sets": 6,
+        "score": 4.989059358763905,
+        "interval": [
+          4.964394476841794,
+          5.035198954695507
+        ]
+      }
+    },
+    "checkpointRows": [
+      596,
+      693,
+      693,
+      788
+    ]
+  },
+  "XY": {
+    "era": "XY",
+    "modelsActuallyRun": [
+      "common",
+      "rare",
+      "rare_break",
+      "rare_holo",
+      "rare_holo_ex",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "treatments": {
+      "common": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 433,
+        "sets": 15,
+        "score": 4.998512512880448,
+        "interval": [
+          4.963215522116892,
+          5.066775282280629
+        ]
+      },
+      "rare": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 241,
+        "sets": 13,
+        "score": 5.703140745899459,
+        "interval": [
+          5.6614942752578745,
+          5.726106825982217
+        ]
+      },
+      "rare_break": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 23,
+        "sets": 4,
+        "score": 5.087790951515672,
+        "interval": [
+          4.9280261032677295,
+          5.1924460971181245
+        ]
+      },
+      "rare_holo": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 143,
+        "sets": 14,
+        "score": 5.963846787117581,
+        "interval": [
+          5.8721587112606235,
+          6.06530137337938
+        ]
+      },
+      "rare_holo_ex": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 127,
+        "sets": 13,
+        "score": 3.362333301668031,
+        "interval": [
+          3.3245566350003823,
+          3.4075268465720665
+        ]
+      },
+      "rare_ultra": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 80,
+        "sets": 10,
+        "score": 4.50309530126623,
+        "interval": [
+          4.367512001555696,
+          4.644213985319778
+        ]
+      },
+      "uncommon": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 263,
+        "sets": 14,
+        "score": 5.294809435580869,
+        "interval": [
+          5.257596348906216,
+          5.322209687452833
+        ]
+      }
+    },
+    "checkpointRows": [
+      1321,
+      1321,
+      1321,
+      1351
+    ]
+  },
+  "sword_and_shield_r1": {
+    "era": "Sword and Shield",
+    "modelsActuallyRun": [
+      "common",
+      "rare",
+      "rare_holo",
+      "rare_holo_v",
+      "rare_holo_vmax",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "treatments": {
+      "common": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 243,
+        "sets": 6,
+        "score": 4.601663321005628,
+        "interval": [
+          4.590826732183581,
+          4.621607726230332
+        ]
+      },
+      "rare": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 137,
+        "sets": 5,
+        "score": 4.73728048601537,
+        "interval": [
+          4.703296705960684,
+          4.764297916537274
+        ]
+      },
+      "rare_holo": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 83,
+        "sets": 6,
+        "score": 2.8040640504747905,
+        "interval": [
+          2.7747649056314474,
+          2.830830231288857
+        ]
+      },
+      "rare_holo_v": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 77,
+        "sets": 6,
+        "score": 2.9939959967887146,
+        "interval": [
+          2.9709416902679786,
+          3.022688571798882
+        ]
+      },
+      "rare_holo_vmax": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 26,
+        "sets": 4,
+        "score": 3.5928664719919174,
+        "interval": [
+          3.505799555961955,
+          3.7080321944117136
+        ]
+      },
+      "rare_ultra": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 48,
+        "sets": 4,
+        "score": 3.7567780905580532,
+        "interval": [
+          3.7007949675330702,
+          3.8033603356037373
+        ]
+      },
+      "uncommon": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 132,
+        "sets": 6,
+        "score": 4.364000818799961,
+        "interval": [
+          4.336109868339372,
+          4.404365637599333
+        ]
+      }
+    },
+    "checkpointRows": [
+      802,
+      802,
+      802,
+      802
+    ]
+  },
+  "sword_and_shield_r2": {
+    "era": "Sword and Shield",
+    "modelsActuallyRun": [
+      "rare_holo_v",
+      "rare_holo_vmax"
+    ],
+    "treatments": {
+      "rare_holo_v": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 54,
+        "sets": 4,
+        "score": 9.0,
+        "interval": [
+          9.0,
+          9.0
+        ]
+      },
+      "rare_holo_vmax": {
+        "status": "MODEL_INSTABILITY",
+        "reasons": [
+          "temporal_instability"
+        ],
+        "cards": 36,
+        "sets": 4,
+        "score": 9.0,
+        "interval": [
+          9.0,
+          9.0
+        ]
+      }
+    },
+    "checkpointRows": [
+      629,
+      629,
+      629,
+      629
+    ]
+  },
+  "sword_and_shield_r3": {
+    "era": "Sword and Shield",
+    "modelsActuallyRun": [
+      "rare_holo_v"
+    ],
+    "treatments": {
+      "rare_holo_v": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 54,
+        "sets": 4,
+        "score": 2.504484285227715,
+        "interval": [
+          2.440433964718941,
+          2.6227332161305963
+        ]
+      }
+    },
+    "checkpointRows": [
+      491,
+      491,
+      491,
+      491
+    ]
+  },
+  "sword_and_shield_r4": {
+    "era": "Sword and Shield",
+    "modelsActuallyRun": [],
+    "treatments": {},
+    "checkpointRows": [
+      418,
+      418,
+      418,
+      416
+    ]
+  },
+  "sword_and_shield_r5": {
+    "era": "Sword and Shield",
+    "modelsActuallyRun": [
+      "rare_holo_v"
+    ],
+    "treatments": {
+      "rare_holo_v": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 55,
+        "sets": 5,
+        "score": 3.71816114756977,
+        "interval": [
+          3.6449308351832004,
+          3.8030903521166968
+        ]
+      }
+    },
+    "checkpointRows": [
+      408,
+      408,
+      408,
+      408
+    ]
+  },
+  "sun_and_moon_r1": {
+    "era": "Sun and Moon",
+    "modelsActuallyRun": [
+      "common",
+      "rare",
+      "rare_holo",
+      "rare_holo_gx",
+      "rare_rainbow",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "treatments": {
+      "common": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 422,
+        "sets": 11,
+        "score": 5.036824169355605,
+        "interval": [
+          5.012895441483918,
+          5.057391482647726
+        ]
+      },
+      "rare": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 220,
+        "sets": 9,
+        "score": 5.798869742383725,
+        "interval": [
+          5.7716876198220275,
+          5.840709000858252
+        ]
+      },
+      "rare_holo": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 155,
+        "sets": 11,
+        "score": 3.9303640102475708,
+        "interval": [
+          3.8321083570851515,
+          4.010982972381269
+        ]
+      },
+      "rare_holo_gx": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 94,
+        "sets": 10,
+        "score": 2.886186492127025,
+        "interval": [
+          2.8510385296151624,
+          2.931767185086735
+        ]
+      },
+      "rare_rainbow": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 84,
+        "sets": 8,
+        "score": 4.073919920294454,
+        "interval": [
+          3.996938884308174,
+          4.154510562783694
+        ]
+      },
+      "rare_ultra": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 81,
+        "sets": 8,
+        "score": 3.4253173082258934,
+        "interval": [
+          3.3717535793876316,
+          3.4806052509300125
+        ]
+      },
+      "uncommon": {
+        "status": "AVAILABLE",
+        "reasons": [],
+        "cards": 259,
+        "sets": 11,
+        "score": 5.3540061866476165,
+        "interval": [
+          5.316294299274422,
+          5.38613748309865
+        ]
+      }
+    },
+    "checkpointRows": [
+      1367,
+      1367,
+      1367,
+      1367
+    ]
+  },
+  "sun_and_moon_r2": {
+    "era": "Sun and Moon",
+    "modelsActuallyRun": [],
+    "treatments": {},
+    "checkpointRows": [
+      386,
+      386,
+      386,
+      386
+    ]
+  }
+}

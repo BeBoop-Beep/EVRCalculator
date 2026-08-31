@@ -59,3 +59,41 @@ test("rich Pull Rates resource ownership is isolated without moving its presenta
   assert.match(controller, /activeSetIdRef\.current !== setId/);
   assert.match(controller, /previous\.setId === setId && previous\.pullRateAssumptions \? "success_stale"/);
 });
+
+test("rich Cards resource ownership is isolated without moving its presentation", () => {
+  const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const controller = read("../../../../hooks/pokemon/useSetCardsController.js");
+  assert.match(rich, /useSetCardsController\(\{/);
+  assert.doesNotMatch(rich, /getPokemonSetCardsPage\(/);
+  assert.doesNotMatch(rich, /\[cardsPageState, setCardsPageState\]/);
+  assert.match(controller, /activeRequestKeyRef\.current !== requestKey/);
+  assert.match(controller, /activeSetIdRef\.current !== setId/);
+  assert.match(controller, /buildCardsRequestKey/);
+});
+
+test("rich Market resources are isolated without moving Market presentation", () => {
+  const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const controller = read("../../../../hooks/pokemon/useSetMarketController.js");
+  assert.match(rich, /useSetMarketController\(\{/);
+  assert.doesNotMatch(rich, /getPokemonSetOverview\(/);
+  assert.doesNotMatch(rich, /getPokemonSetTopChase\(/);
+  assert.doesNotMatch(rich, /getPokemonSetMarketMovers\(/);
+  assert.match(controller, /activeRequestKeyRef\.current !== requestKey/);
+  assert.match(controller, /activeSetIdRef\.current !== setId/);
+  assert.match(controller, /topChasePreviewOnly/);
+  assert.doesNotMatch(controller, /SetMarketMobile|SetMarketSignals/);
+});
+
+test("rich RIP progressive resources are isolated and retain same-run and access gates", () => {
+  const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const controller = read("../../../../hooks/pokemon/useSetRipProgressiveController.js");
+  assert.match(rich, /useSetRipProgressiveController\(\{/);
+  assert.doesNotMatch(rich, /getPokemonSetRipRankContext\(/);
+  assert.doesNotMatch(rich, /getPokemonSetRipSimulationEvidence\(/);
+  assert.doesNotMatch(rich, /getPokemonSetRipAdvanced\(/);
+  assert.match(controller, /activeIdentityRef\.current !== identity/);
+  assert.match(controller, /selectSameRunRipSimulation/);
+  assert.match(controller, /selectSameRunRipAdvanced/);
+  assert.match(controller, /!canViewProductRipIntelligence/);
+  assert.doesNotMatch(controller, /RipDecisionPage/);
+});

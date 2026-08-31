@@ -130,14 +130,7 @@ import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { PUBLIC_SCORE_SCALE_NOTE, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { resolvePokemonBoosterPackAsset } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
-import { getPokemonSetRipRankContext, selectSetRipRankContext } from "@/lib/pokemon/pokemonSetRipRankContextClient.mjs";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
-import {
-  getPokemonSetRipAdvanced,
-  getPokemonSetRipSimulationEvidence,
-  selectSameRunRipAdvanced,
-  selectSameRunRipSimulation,
-} from "@/lib/pokemon/pokemonSetRipProgressiveClient.mjs";
 import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
 // `selectOpeningExperiencePresentation` / `selectSetDesirabilityPresentation`
 // were imported from Insights/openingExperienceSelector.mjs for the removed
@@ -157,14 +150,14 @@ import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
 import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSummary";
 import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
+import useSetCardsController from "@/hooks/pokemon/useSetCardsController";
+import useSetMarketController from "@/hooks/pokemon/useSetMarketController";
 import useSetPullRatesController from "@/hooks/pokemon/useSetPullRatesController";
+import useSetRipProgressiveController from "@/hooks/pokemon/useSetRipProgressiveController";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
-  getPokemonSetMarketMovers,
   getPokemonSetConsumerSealedMarket,
-  getPokemonSetOverview,
-  getPokemonSetTopChase,
   getPokemonSetValueHistory,
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import {
@@ -245,8 +238,6 @@ import { selectRequestedPokemonSetTarget, selectSameSetSimulationEvidence } from
 // keep that behavior without statically attaching either endpoint client to
 // the RIP/Market fallback graph.
 const loadCardsClient = () => import("@/lib/pokemon/pokemonSetCardsClient");
-const getPokemonSetCardsPage = (...args) => loadCardsClient().then((client) => client.getPokemonSetCardsPage(...args));
-const prefetchPokemonSetCardsPage = (...args) => loadCardsClient().then((client) => client.prefetchPokemonSetCardsPage(...args));
 const getPokemonSetCardsValidation = (...args) => loadCardsClient().then((client) => client.getPokemonSetCardsValidation(...args));
 // The old synchronous cache probe is diagnostic/seed-only. The extracted
 // Cards runtime owns the useful successful-scope cache and revisit behavior.
@@ -9101,65 +9092,27 @@ export default function RipStatisticsPageClient({
   });
   const destinationSeedPending =
     setDetailTab === "market" && isTabNavPending && initialModuleSnapshots?.resolvedTab !== "market";
-  const [ripRankContextState, setRipRankContextState] = useState({
-    status: "idle",
-    setId: null,
-    expectedCalculationRunId: null,
-    payload: null,
-    error: null,
+  const {
+    rankContextState: ripRankContextState,
+    simulationState: ripSimulationState,
+    advancedState: ripAdvancedState,
+    rankContext: ripRankContext,
+    simulation: compatibleRipSimulation,
+    advanced: compatibleRipAdvanced,
+    loadRankContext: loadRipRankContext,
+    loadSimulation: loadRipSimulation,
+    loadAdvanced: loadRipAdvanced,
+  } = useSetRipProgressiveController({
+    setId: resolvedSetResourceId,
+    calculationRunId: ripBootstrap?.calculationRunId,
+    canonicalSource: ripBootstrap?.canonicalSource,
+    rankContextEnabled:
+      canViewProductRipIntelligence &&
+      setDetailMode &&
+      setDetailTab === "overview" &&
+      Boolean(resolvedSetResourceId && ripBootstrap?.calculationRunId),
+    canViewProductRipIntelligence,
   });
-  const [ripSimulationState, setRipSimulationState] = useState({ status: "idle", setId: null, calculationRunId: null, payload: null, error: null });
-  const [ripAdvancedState, setRipAdvancedState] = useState({ status: "idle", setId: null, calculationRunId: null, payload: null, error: null });
-  const loadRipRankContext = useCallback(({ force = false } = {}) => {
-    const setId = resolvedSetResourceId;
-    const expectedCalculationRunId = ripBootstrap?.calculationRunId;
-    if (!canViewProductRipIntelligence || !setId || !expectedCalculationRunId) return;
-    setRipRankContextState({ status: "loading", setId, expectedCalculationRunId, payload: null, error: null });
-    getPokemonSetRipRankContext(setId, expectedCalculationRunId, { force })
-      .then((payload) => {
-        const rankContext = selectSetRipRankContext(payload, { setId, calculationRunId: expectedCalculationRunId });
-        setRipRankContextState({ status: rankContext ? "success" : "error", setId, expectedCalculationRunId, payload: rankContext, error: rankContext ? null : "Rank context response was malformed." });
-      })
-      .catch((error) => setRipRankContextState({ status: "error", setId, expectedCalculationRunId, payload: null, error: error?.message || "Rank context unavailable." }));
-  }, [canViewProductRipIntelligence, resolvedSetResourceId, ripBootstrap?.calculationRunId]);
-  const loadRipSimulation = useCallback(({ force = false } = {}) => {
-    const setId = resolvedSetResourceId;
-    const calculationRunId = ripBootstrap?.calculationRunId;
-    if (!setId || !calculationRunId) return;
-    setRipSimulationState((current) => current.status === "loading" && !force ? current : { status: "loading", setId, calculationRunId, payload: null, error: null });
-    getPokemonSetRipSimulationEvidence(setId, calculationRunId, { force })
-      .then((payload) => {
-        const compatible = selectSameRunRipSimulation(payload, { setId, calculationRunId });
-        setRipSimulationState({ status: compatible ? "success" : "stale", setId, calculationRunId, payload: compatible, error: compatible ? null : "Simulation evidence is awaiting the current RIP publication." });
-      })
-      .catch((error) => setRipSimulationState({ status: "error", setId, calculationRunId, payload: null, error: error?.message || "Simulation evidence is unavailable." }));
-  }, [resolvedSetResourceId, ripBootstrap?.calculationRunId]);
-  const loadRipAdvanced = useCallback(({ force = false } = {}) => {
-    const setId = resolvedSetResourceId;
-    const calculationRunId = ripBootstrap?.calculationRunId;
-    if (!setId || !calculationRunId) return;
-    setRipAdvancedState((current) => current.status === "loading" && !force ? current : { status: "loading", setId, calculationRunId, payload: null, error: null });
-    getPokemonSetRipAdvanced(setId, calculationRunId, { force })
-      .then((payload) => {
-        const compatible = selectSameRunRipAdvanced(payload, { setId, calculationRunId, bootstrapCanonical: ripBootstrap?.canonicalSource });
-        setRipAdvancedState({ status: compatible ? "success" : "stale", setId, calculationRunId, payload: compatible, error: compatible ? null : "Advanced evidence is awaiting the current RIP publication." });
-      })
-      .catch((error) => setRipAdvancedState({ status: "error", setId, calculationRunId, payload: null, error: error?.message || "Advanced evidence is unavailable." }));
-  }, [resolvedSetResourceId, ripBootstrap?.calculationRunId, ripBootstrap?.canonicalSource]);
-  useEffect(() => {
-    if (!canViewProductRipIntelligence || !setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId || !ripBootstrap?.calculationRunId) {
-      return undefined;
-    }
-    loadRipRankContext();
-    return undefined;
-  }, [canViewProductRipIntelligence, setDetailMode, setDetailTab, resolvedSetResourceId, ripBootstrap?.calculationRunId, loadRipRankContext]);
-  const ripRankContext =
-    ripRankContextState.setId === resolvedSetResourceId &&
-    ripRankContextState.expectedCalculationRunId === ripBootstrap?.calculationRunId
-      ? ripRankContextState.payload
-      : null;
-  const compatibleRipSimulation = ripSimulationState.setId === resolvedSetResourceId && ripSimulationState.calculationRunId === ripBootstrap?.calculationRunId ? ripSimulationState.payload : null;
-  const compatibleRipAdvanced = ripAdvancedState.setId === resolvedSetResourceId && ripAdvancedState.calculationRunId === ripBootstrap?.calculationRunId ? ripAdvancedState.payload : null;
   // Keep this below the setDetailTab state declaration. Computing it earlier
   // reads setDetailTab during its temporal dead zone and crashes set routes.
   const hasActiveInsightsPayload =
@@ -9223,14 +9176,45 @@ export default function RipStatisticsPageClient({
   const [cardMovementMetric, setCardMovementMetric] = useState(DEFAULT_MARKET_MOVER_METRIC);
   const [cardSearchQuery, setCardSearchQuery] = useState("");
   const [cardRarityFilter, setCardRarityFilter] = useState("");
+  const cardsRequest = resolveCardsRequest({
+    selectedSubTab: cardsSection,
+    selectedTimeframe,
+    activeSortMode: cardSortMode,
+    activeSortDirection: cardSortDirection,
+    activeMovementMetric: cardMovementMetric,
+  });
+  const effectiveCardSortMode = cardsRequest.sort;
+  const effectiveCardMovementFilter = cardsRequest.movementFilter;
+  const effectiveCardMovementSort = cardsRequest.movementSort;
+  const effectiveCardMovementMetric = cardsRequest.movementMetric;
+  const effectiveCardRarityFilter = getEffectiveRarityFilter(cardsSection, cardRarityFilter);
+  const {
+    state: cardsPageState,
+    page: cardsPage,
+    setPage: setCardsPage,
+    retry: retryCardsPage,
+    prefetchPageOne: prefetchCardsPageOne,
+  } = useSetCardsController({
+    enabled: setDetailMode && setDetailTab === "cards" && cardsSubTab === "checklist",
+    canFetch: canFetchSetDetailModules,
+    setId: resolvedSetResourceId,
+    section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
+    sort: effectiveCardSortMode,
+    sortDirection: cardsRequest.sortDirection,
+    query: cardSearchQuery,
+    rarity: effectiveCardRarityFilter,
+    movementFilter: effectiveCardMovementFilter,
+    movementSort: effectiveCardMovementSort,
+    movementMetric: effectiveCardMovementMetric,
+    pageSize: CARDS_PAGE_SIZE,
+    pricingContractVersion: PRICING_SNAPSHOT_CONTRACT_VERSION,
+  });
   // Highest requested page for the current cards scope. Pages are appended
   // (infinite scroll) rather than swapped — the sentinel observer advances
   // this, and the scope-reset effect below rewinds it to 1.
-  const [cardsPage, setCardsPage] = useState(1);
   // Bumped by the bottom "Retry" button after a failed load-more so the fetch
   // effect re-runs without changing the page/scope (the request-key ref is
   // already cleared on error).
-  const [cardsPageRetryNonce, setCardsPageRetryNonce] = useState(0);
   // Cards tab reads from this slim, paginated state (getPokemonSetCardsPage)
   // instead of the checklistState below — checklistState is now reserved for
   // Insights' card validation chart, sourced from the slim
@@ -9238,17 +9222,6 @@ export default function RipStatisticsPageClient({
   // legacy /cards payload.
   // `cards` accumulates every loaded page for `scopeKey` (set + sort + search
   // + movement filter); `page` is the highest page merged into it.
-  const [cardsPageState, setCardsPageState] = useState(() => ({
-    status: "idle",
-    setId: resolvedSetResourceId,
-    scopeKey: null,
-    page: 1,
-    cards: [],
-    pagination: null,
-    filters: null,
-    meta: null,
-    error: null,
-  }));
   const initialSnapshotCards = initialSetPageDataSeed.cards;
   const initialSetValueLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
     (scope) =>
@@ -9288,41 +9261,27 @@ export default function RipStatisticsPageClient({
   // Hydrated from the route-level Market bootstrap. A valid current seed is
   // the completed initial resource; the effect below does not immediately
   // download the identical set/window again.
-  const [overviewState, dispatchOverview] = useReducer(
-    marketDashboardReducer,
-    {
-      status: seededOverviewPayload ? "success" : "idle",
-      setId: resolvedSetResourceId,
-      payload: seededOverviewPayload,
-      sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
-    },
-    createMarketDashboardState
-  );
   // Top Chase Cards and Market Movers each fetch their own slim endpoint
   // (/market/top-chase, /market/movers) instead of riding the monolithic
   // /market/dashboard fetch above; marketDashboardState stays as a temporary
   // seeded/cached fallback for both until these load (see
   // activeTopMarketCardsState below).
-  const [topChaseState, dispatchTopChase] = useReducer(
-    marketDashboardReducer,
-    {
-      status: seededTopChasePayload ? "success" : "idle",
-      setId: resolvedSetResourceId,
-      payload: seededTopChasePayload,
-      sourceWindow: DEFAULT_TOP_CHASE_MARKET_WINDOW,
-    },
-    createMarketDashboardState
-  );
-  const [marketMoversState, dispatchMarketMovers] = useReducer(
-    marketDashboardReducer,
-    {
-      status: seededMarketMoversPayload ? "success" : "idle",
-      setId: resolvedSetResourceId,
-      payload: seededMarketMoversPayload || null,
-      sourceWindow: MOVERS_TICKER_WINDOW,
-    },
-    createMarketDashboardState
-  );
+  const {
+    overviewState,
+    topChaseState,
+    marketMoversState,
+    retryOverview: retryOverviewModule,
+    retryTopChase: retryTopChaseModule,
+    retryMarketMovers: retryMarketMoversModule,
+  } = useSetMarketController({
+    setId: resolvedSetResourceId,
+    enabled: setDetailMode && setDetailTab === "market",
+    canFetch: canFetchSlimMarketModules,
+    destinationSeedPending,
+    overviewSeed: seededOverviewPayload,
+    moversSeed: seededMarketMoversPayload,
+    topChaseSeed: seededTopChasePayload,
+  });
   const [setValueHistoryState, setSetValueHistoryState] = useState(() =>
     createSetValueHistoryState({
       status: initialSetValueLoadedScopes.length > 0 ? "success" : "idle",
@@ -9352,8 +9311,6 @@ export default function RipStatisticsPageClient({
   // re-triggers the effect without the set/page/sort/filter actually
   // changing) doesn't refetch the exact same page. Cleared on error so a
   // genuine retry isn't permanently blocked.
-  const lastCardsPageRequestKeyRef = useRef(null);
-  const activeCardsPageRequestKeyRef = useRef(null);
   // Phase 6C: same request-key guard for the remaining per-tab module
   // fetches. Each ref holds the key of the request its effect last issued;
   // re-runs with an identical key (tab revisit, prop-identity churn after a
@@ -9362,9 +9319,6 @@ export default function RipStatisticsPageClient({
   // cleaned up mid-flight (so an ignored response can't strand its tab in a
   // permanent loading state).
   const lastCardsValidationRequestKeyRef = useRef(null);
-  const lastOverviewRequestKeyRef = useRef(null);
-  const lastTopChaseRequestKeyRef = useRef(null);
-  const lastMarketMoversRequestKeyRef = useRef(null);
   // Section-local retry for the three slim Overview modules. Each retry bumps
   // only its own nonce, so it re-runs only its own effect — a failed Movers
   // fetch never restarts Overview or Top Chase, and no retry shows the global
@@ -9374,9 +9328,6 @@ export default function RipStatisticsPageClient({
   // settled (including on timeout), so the retry issues a genuinely new
   // request instead of joining the one that failed. Nothing here loops
   // automatically — a retry only happens when the user asks for one.
-  const [overviewRetryNonce, setOverviewRetryNonce] = useState(0);
-  const [topChaseRetryNonce, setTopChaseRetryNonce] = useState(0);
-  const [marketMoversRetryNonce, setMarketMoversRetryNonce] = useState(0);
   const [isMobileSetContextHidden, setIsMobileSetContextHidden] = useState(false);
   const [showReturnToTop, setShowReturnToTop] = useState(false);
   const mobileSetContextRef = useRef(null);
@@ -9393,18 +9344,6 @@ export default function RipStatisticsPageClient({
   });
   const revealMobileSetContext = useCallback(() => {
     setIsMobileSetContextHidden(false);
-  }, []);
-  const retryOverviewModule = useCallback(() => {
-    lastOverviewRequestKeyRef.current = null;
-    setOverviewRetryNonce((nonce) => nonce + 1);
-  }, []);
-  const retryTopChaseModule = useCallback(() => {
-    lastTopChaseRequestKeyRef.current = null;
-    setTopChaseRetryNonce((nonce) => nonce + 1);
-  }, []);
-  const retryMarketMoversModule = useCallback(() => {
-    lastMarketMoversRequestKeyRef.current = null;
-    setMarketMoversRetryNonce((nonce) => nonce + 1);
   }, []);
   // Every GRAPH_SECTION_KEYS value is now a valid Simulation Results sub-view
   // (Outcome Distribution, Opening P vs C = historical-trend, Simulation
@@ -9505,15 +9444,6 @@ export default function RipStatisticsPageClient({
       marketDashboardPayload: initialMarketDashboardPayload,
       overviewPayload: initialOverviewPayload,
     });
-    if (seededMarketMoversPayload) {
-      lastMarketMoversRequestKeyRef.current = `${resolvedSetResourceId}|${MOVERS_TICKER_WINDOW}|${MOVERS_TICKER_FETCH_LIMIT}`;
-      dispatchMarketMovers({
-        type: "success",
-        setId: resolvedSetResourceId,
-        payload: seededMarketMoversPayload,
-        sourceWindow: MOVERS_TICKER_WINDOW,
-      });
-    }
     const seededCards = routeSeed.cards;
     setChecklistState((previous) => {
       const seededCorrelation = resolvePreferredCardAppealCorrelation({
@@ -11809,32 +11739,7 @@ export default function RipStatisticsPageClient({
   // defaults true while page one is cold so a route-selected 7D sort cannot
   // be replaced before the first request is made.
   const hasCardMovementData = activeCardsPageState.filters?.availableSorts?.includes("7d-movers") ?? true;
-  const cardsRequest = resolveCardsRequest({
-    selectedSubTab: cardsSection,
-    selectedTimeframe,
-    activeSortMode: cardSortMode,
-    activeSortDirection: cardSortDirection,
-    activeMovementMetric: cardMovementMetric,
-  });
-  const effectiveCardSortMode = cardsRequest.sort;
-  const effectiveCardMovementFilter = cardsRequest.movementFilter;
-  const effectiveCardMovementSort = cardsRequest.movementSort;
-  const effectiveCardMovementMetric = cardsRequest.movementMetric;
   const availableCardRarities = activeCardsPageState.filters?.availableRarities || [];
-  const effectiveCardRarityFilter = getEffectiveRarityFilter(cardsSection, cardRarityFilter);
-  useEffect(() => {
-    setCardsPage(1);
-  }, [
-    effectiveCardSortMode,
-    cardsRequest.sortDirection,
-    effectiveCardMovementSort,
-    effectiveCardMovementMetric,
-    effectiveCardMovementFilter,
-    cardSearchQuery,
-    effectiveCardRarityFilter,
-    cardsSection,
-    resolvedSetResourceId,
-  ]);
   // Preserve endpoint order verbatim. Sorting only the accumulated browser
   // pages would corrupt the global 7D ranking as infinite-scroll chunks append.
   const displayedChecklistCards = effectiveCardsPageCards;
@@ -12312,18 +12217,7 @@ export default function RipStatisticsPageClient({
     }
     cardsIntentPrefetchTimerRef.current = window.setTimeout(() => {
       cardsIntentPrefetchTimerRef.current = null;
-      prefetchPokemonSetCardsPage(setId, {
-        page: 1,
-        pageSize: CARDS_PAGE_SIZE,
-        sort: effectiveCardSortMode,
-        sortDirection: cardsRequest.sortDirection,
-        query: cardSearchQuery.trim() || null,
-        rarity: effectiveCardRarityFilter,
-        movementFilter: effectiveCardMovementFilter,
-        movementSort: effectiveCardMovementSort,
-        movementMetric: effectiveCardMovementMetric,
-        section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
-      });
+      prefetchCardsPageOne();
     }, 160);
   };
 
@@ -12621,252 +12515,6 @@ export default function RipStatisticsPageClient({
     initialCardsPayload,
     initialSetPageDataSeed,
     initialCardAppealMarketPriceCorrelation,
-  ]);
-
-  // Cards tab: slim, paginated fetch (getPokemonSetCardsPage) instead of the
-  // full /cards payload above. Refetches whenever the set, page, sort,
-  // movement filter, or search query changes. Pages beyond the first are
-  // appended to the accumulated list (infinite scroll) as long as they belong
-  // to the same scope (set + sort + search + movement filter); a scope change
-  // rewinds cardsPage to 1 and the page-1 response replaces the list.
-  useEffect(() => {
-    if (!setDetailMode) {
-      return undefined;
-    }
-
-    const setId = resolvedSetResourceId;
-    if (!setId) {
-      setCardsPageState({ status: "empty", setId: null, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, meta: null, error: null });
-      return undefined;
-    }
-    if (!canFetchSetDetailModules) {
-      setCardsPageState((previous) => ({
-        status: previous.setId === setId && previous.cards.length > 0 ? previous.status : "empty",
-        setId,
-        scopeKey: previous.setId === setId ? previous.scopeKey : null,
-        page: cardsPage,
-        cards: previous.setId === setId ? previous.cards : [],
-        pagination: previous.setId === setId ? previous.pagination : null,
-        filters: previous.setId === setId ? previous.filters : null,
-        meta: previous.setId === setId ? previous.meta : null,
-        error: null,
-      }));
-      return undefined;
-    }
-
-    const shouldRenderCardsPage = setDetailTab === "cards" && cardsSubTab === "checklist";
-    if (!shouldRenderCardsPage) {
-      return undefined;
-    }
-
-    const requestedPage = cardsPage;
-    const movementSortValue = effectiveCardMovementSort;
-    // Percent vs dollar ranking is resolved server-side, so it is part of the
-    // request scope: switching metric must restart the list at page one rather
-    // than append a differently-ranked chunk onto the loaded pages.
-    const movementMetricValue = effectiveCardMovementMetric;
-    // Market Movers is the SAME canonical Cards dataset with mover-membership
-    // filtering applied server-side (section=market-movers); All Cards keeps
-    // the complete checklist. Same snapshot, same normalization, same
-    // movement values — only the query mode differs.
-    const cardsSectionValue = cardsSection === "market-movers" ? "market-movers" : "all-cards";
-
-    // Everything except the page number — `cardsPageState.scopeKey` records
-    // which scope the accumulated cards belong to, so a late response can
-    // never append into a different set/sort/search/filter view (stale-scope
-    // guard on top of the effect-cleanup cancellation below).
-    const cardsPageScopeKey = [
-      setId,
-      PRICING_SNAPSHOT_CONTRACT_VERSION,
-      cardsSectionValue,
-      effectiveCardSortMode,
-      cardsRequest.sortDirection,
-      cardSearchQuery.trim(),
-      effectiveCardRarityFilter || "",
-      effectiveCardMovementFilter,
-      movementSortValue,
-      movementMetricValue || "",
-    ].join("|");
-    // Leaving Cards and coming back (or any other re-render that re-triggers
-    // this effect, e.g. a sibling tab's payload updating explorePayload)
-    // re-evaluates this effect even though the set/page/sort/filter/query
-    // haven't actually changed. Skip re-issuing the exact same request —
-    // getPokemonSetCardsPage's own in-flight join only catches concurrent
-    // duplicates, not these later, non-overlapping repeats. (A failed request
-    // clears the key, so the Retry nonce can re-enter with the same key.)
-    const cardsPageRequestKey = `${cardsPageScopeKey}|page:${requestedPage}`;
-    if (requestedPage > 1 && cardsLoadMoreGateRef.current.stateScopeKey !== cardsPageScopeKey) {
-      // Sort/search/filter just changed while the page counter still points
-      // into the previous scope — the scope-reset effect rewinds cardsPage to
-      // 1 in this same commit, so don't issue a page-N fetch of the new scope
-      // that would only be cancelled (or worse, render a mid-list chunk).
-      debugSetPagePerf("cards_page.tab_fetch_skipped_scope_change", { resolvedSetId: setId, requestKey: cardsPageRequestKey });
-      return undefined;
-    }
-    if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
-      debugSetPagePerf("cards_page.tab_fetch_skipped_duplicate", { resolvedSetId: setId, requestKey: cardsPageRequestKey });
-      return undefined;
-    }
-    lastCardsPageRequestKeyRef.current = cardsPageRequestKey;
-    activeCardsPageRequestKeyRef.current = cardsPageRequestKey;
-
-    let isCancelled = false;
-    let requestSettled = false;
-    debugSetPagePerf("cards_page.tab_fetch_start", {
-      resolvedSetId: setId,
-      page: requestedPage,
-      sort: effectiveCardSortMode,
-      sortDirection: cardsRequest.sortDirection,
-      movementFilter: effectiveCardMovementFilter,
-    });
-    setCardsPageState((previous) => {
-      const sameScope = previous.setId === setId && previous.scopeKey === cardsPageScopeKey;
-      if (requestedPage > 1 && sameScope && previous.cards.length > 0) {
-        // Loading a further chunk of the list already on screen — keep every
-        // rendered card in place and only surface the bottom loader.
-        return { ...previous, status: "loading_more", error: null };
-      }
-      return {
-        // Page one owns a complete request identity. Clear every page from
-        // the previous set/sort/search/rarity/movement scope immediately so
-        // stale prices or deltas cannot remain visible under fresh controls.
-        status: "loading",
-        setId,
-        scopeKey: cardsPageScopeKey,
-        page: requestedPage,
-        cards: [],
-        pagination: null,
-        filters: null,
-        meta: null,
-        error: null,
-      };
-    });
-
-    const cardsFetchStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-
-    getPokemonSetCardsPage(setId, {
-      page: requestedPage,
-      pageSize: CARDS_PAGE_SIZE,
-      sort: effectiveCardSortMode,
-      sortDirection: cardsRequest.sortDirection,
-      query: cardSearchQuery.trim() || null,
-      rarity: effectiveCardRarityFilter,
-      movementFilter: effectiveCardMovementFilter,
-      movementSort: movementSortValue,
-      movementMetric: movementMetricValue,
-      section: cardsSectionValue,
-    })
-      .then((payload) => {
-        requestSettled = true;
-        if (isCancelled) {
-          return;
-        }
-        if (activeCardsPageRequestKeyRef.current !== cardsPageRequestKey) {
-          debugSetPagePerf("cards_page.tab_fetch_stale_identity", { setId, requestKey: cardsPageRequestKey });
-          return;
-        }
-        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
-          debugSetPagePerf("cards_page.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
-          return;
-        }
-        setCardsPageState((previous) => {
-          if (activeCardsPageRequestKeyRef.current !== cardsPageRequestKey) {
-            return previous;
-          }
-          const shouldAppend =
-            requestedPage > 1 &&
-            previous.setId === setId &&
-            previous.scopeKey === cardsPageScopeKey &&
-            previous.cards.length > 0;
-          const mergedCards = shouldAppend
-            ? dedupeChecklistCards([...previous.cards, ...payload.cards])
-            : payload.cards;
-          return {
-            status: mergedCards.length > 0 ? "success" : "empty",
-            setId,
-            scopeKey: cardsPageScopeKey,
-            page: payload.pagination?.page ?? requestedPage,
-            cards: mergedCards,
-            pagination: payload.pagination,
-            filters: payload.filters,
-            meta: payload.meta || null,
-            error: null,
-          };
-        });
-        // Section-level timing (see lib/perf/sectionTiming.js): the first
-        // page load reports cardsFirstBatchMs (grid becomes usable), every
-        // subsequent IntersectionObserver-triggered page reports
-        // cardsNextBatchMs — a repeatable per-batch event, so this is logged
-        // directly here rather than through useSectionTiming (which reports
-        // a single-shot loading->settled transition per section).
-        const cardsBatchElapsedMs = Math.round(
-          (typeof performance !== "undefined" ? performance.now() : Date.now()) - cardsFetchStartedAt
-        );
-        const cardsBatchMetricName = requestedPage > 1 ? "cardsNextBatch" : "cardsFirstBatch";
-        markSectionTiming(`${cardsBatchMetricName}_success`, {
-          setId,
-          tab: "cards",
-          page: requestedPage,
-          elapsedMs: cardsBatchElapsedMs,
-        });
-        debugSectionTiming("[section-timing]", `${cardsBatchMetricName}Ms`, {
-          setId,
-          tab: "cards",
-          page: requestedPage,
-          elapsedMs: cardsBatchElapsedMs,
-        });
-      })
-      .catch((error) => {
-        requestSettled = true;
-        if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
-          lastCardsPageRequestKeyRef.current = null;
-        }
-        if (isCancelled) {
-          return;
-        }
-        if (activeCardsPageRequestKeyRef.current !== cardsPageRequestKey) {
-          return;
-        }
-        setCardsPageState((previous) => ({
-          status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "error",
-          setId,
-          scopeKey: previous.setId === setId ? previous.scopeKey : null,
-          page: requestedPage,
-          cards: previous.setId === setId ? previous.cards : [],
-          pagination: previous.setId === setId ? previous.pagination : null,
-          filters: previous.setId === setId ? previous.filters : null,
-          meta: previous.setId === setId ? previous.meta : null,
-          error: error?.message || "Unable to load cards for this set.",
-        }));
-      });
-
-    return () => {
-      isCancelled = true;
-      // An unsettled request's response will be ignored (isCancelled), so a
-      // revisit must be allowed to fetch again — otherwise the tab could sit
-      // on its loading state forever with the key still claimed.
-      if (!requestSettled && lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
-        lastCardsPageRequestKeyRef.current = null;
-      }
-    };
-  }, [
-    setDetailMode,
-    setDetailTab,
-    cardsSubTab,
-    requestedTargetId,
-    selectedTarget,
-    resolvedSetResourceId,
-    canFetchSetDetailModules,
-    cardsPage,
-    cardsPageRetryNonce,
-    cardsSection,
-    effectiveCardSortMode,
-    cardsRequest.sortDirection,
-    effectiveCardMovementSort,
-    effectiveCardMovementMetric,
-    effectiveCardMovementFilter,
-    cardSearchQuery,
-    effectiveCardRarityFilter,
   ]);
 
   // Pull Rates request, retry, timeout, and stale-good lifecycle now live in
@@ -13208,341 +12856,6 @@ export default function RipStatisticsPageClient({
     canFetchSetDetailModules,
     explorePayload,
     initialSetPageDataSeed,
-  ]);
-
-  // Slim /market/top-chase fetch — Top Chase Cards no longer depends on the
-  // monolithic /market/dashboard fetch.
-  useEffect(() => {
-    if (!setDetailMode) {
-      return undefined;
-    }
-
-    const setId = resolvedSetResourceId;
-    if (seededTopChasePayload && seededTopChasePayload?.meta?.topChasePreviewOnly !== true && topChaseRetryNonce === 0) return undefined;
-    const topChaseSourceWindow = DEFAULT_TOP_CHASE_MARKET_WINDOW;
-    if (!setId) {
-      dispatchTopChase({ type: "reset", status: "empty", sourceWindow: topChaseSourceWindow });
-      return undefined;
-    }
-    if (!canFetchSlimMarketModules) {
-      dispatchTopChase({
-        type: "reset",
-        status: "empty",
-        setId,
-        sourceWindow: topChaseSourceWindow,
-      });
-      return undefined;
-    }
-
-    // Market alone owns the Top 10 Chase market request. RIP uses the exact
-    // modeled top-chase contract already published inside ripDecision.
-    const marketCriticalSettled =
-      ["success", "success_stale", "error", "empty"].includes(activeOverviewState.status) &&
-      ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
-    const shouldFetchTopChase = setDetailTab === "market" && marketCriticalSettled;
-    if (!shouldFetchTopChase) {
-      return undefined;
-    }
-
-    const topChaseRequestKey = `${setId}|${topChaseSourceWindow}`;
-    const topChaseStateIsRenderable =
-      activeTopChaseState.status === "loading" ||
-      activeTopChaseState.status === "success" ||
-      activeTopChaseState.status === "success_stale";
-    if (lastTopChaseRequestKeyRef.current === topChaseRequestKey && topChaseStateIsRenderable) {
-      debugSetPagePerf("top_chase.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
-      return undefined;
-    }
-    if (lastTopChaseRequestKeyRef.current === topChaseRequestKey && !topChaseStateIsRenderable) {
-      lastTopChaseRequestKeyRef.current = null;
-    }
-    lastTopChaseRequestKeyRef.current = topChaseRequestKey;
-
-    let isCancelled = false;
-    let requestSettled = false;
-    dispatchTopChase({ type: "loading", setId, sourceWindow: topChaseSourceWindow });
-
-    getPokemonSetTopChase(setId, { window: topChaseSourceWindow, limit: 10 })
-      .then((payload) => {
-        requestSettled = true;
-        if (isCancelled) {
-          if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
-            lastTopChaseRequestKeyRef.current = null;
-          }
-          dispatchTopChase({ type: "reset", status: "empty", setId, sourceWindow: topChaseSourceWindow });
-          return;
-        }
-        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
-          debugSetPagePerf("top_chase.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
-          if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
-            lastTopChaseRequestKeyRef.current = null;
-          }
-          dispatchTopChase({ type: "reset", status: "empty", setId, sourceWindow: topChaseSourceWindow });
-          return;
-        }
-        dispatchTopChase({ type: "success", setId, payload, sourceWindow: topChaseSourceWindow });
-      })
-      .catch((error) => {
-        requestSettled = true;
-        if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
-          lastTopChaseRequestKeyRef.current = null;
-        }
-        if (isCancelled) {
-          dispatchTopChase({ type: "reset", status: "empty", setId, sourceWindow: topChaseSourceWindow });
-          return;
-        }
-        dispatchTopChase({
-          type: "error",
-          setId,
-          error: error?.message || "Unable to load top chase cards for this set.",
-          sourceWindow: topChaseSourceWindow,
-        });
-      });
-
-    return () => {
-      isCancelled = true;
-      // An unsettled request's response will be ignored (isCancelled), so a
-      // revisit must be allowed to fetch again.
-      if (!requestSettled && lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
-        lastTopChaseRequestKeyRef.current = null;
-      }
-    };
-  }, [
-    setDetailMode,
-    setDetailTab,
-    requestedTargetId,
-    selectedTarget,
-    resolvedSetResourceId,
-    canFetchSlimMarketModules,
-    activeOverviewState.status,
-    activeMarketMoversState.status,
-    // Section-local Retry: re-runs this effect only (see retryTopChaseModule).
-    topChaseRetryNonce,
-    seededTopChasePayload,
-  ]);
-
-  // Slim /market/movers fetch for the selected 1D/7D/30D window — Market
-  // Movers no longer depends on the monolithic /market/dashboard fetch
-  // either, and refetches whenever the selected window changes.
-  useEffect(() => {
-    if (!setDetailMode) {
-      return undefined;
-    }
-
-    const setId = resolvedSetResourceId;
-    // The slim movers fetch serves the fixed Market 7D ticker only. The Cards
-    // preset uses the paginated cards endpoint instead.
-    const isMarketMoversConsumer = setDetailTab === "market";
-    const moversSourceWindow = MOVERS_TICKER_WINDOW;
-    const moversFetchLimit = MOVERS_TICKER_FETCH_LIMIT;
-    if (!setId) {
-      dispatchMarketMovers({ type: "reset", status: "empty", sourceWindow: moversSourceWindow });
-      return undefined;
-    }
-    if (!canFetchSlimMarketModules) {
-      dispatchMarketMovers({
-        type: "reset",
-        status: "empty",
-        setId,
-        sourceWindow: moversSourceWindow,
-      });
-      return undefined;
-    }
-
-    if (!isMarketMoversConsumer) {
-      return undefined;
-    }
-    if (destinationSeedPending) return undefined;
-    if (seededMarketMoversPayload && marketMoversRetryNonce === 0) return undefined;
-
-    const marketMoversRequestKey = `${setId}|${moversSourceWindow}|${moversFetchLimit}`;
-    const marketMoversStateIsRenderable =
-      activeMarketMoversState.status === "loading" ||
-      activeMarketMoversState.status === "success" ||
-      activeMarketMoversState.status === "success_stale";
-    if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey && marketMoversStateIsRenderable) {
-      debugSetPagePerf("market_movers.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
-      return undefined;
-    }
-    if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey && !marketMoversStateIsRenderable) {
-      lastMarketMoversRequestKeyRef.current = null;
-    }
-    lastMarketMoversRequestKeyRef.current = marketMoversRequestKey;
-
-    let isCancelled = false;
-    let requestSettled = false;
-    dispatchMarketMovers({ type: "loading", setId, sourceWindow: moversSourceWindow });
-
-    getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: moversFetchLimit, surface: "set-page", metric: "absolute-percent" })
-      .then((payload) => {
-        requestSettled = true;
-        if (isCancelled) {
-          if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
-            lastMarketMoversRequestKeyRef.current = null;
-          }
-          dispatchMarketMovers({ type: "reset", status: "empty", setId, sourceWindow: moversSourceWindow });
-          return;
-        }
-        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
-          debugSetPagePerf("market_movers.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
-          if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
-            lastMarketMoversRequestKeyRef.current = null;
-          }
-          dispatchMarketMovers({ type: "reset", status: "empty", setId, sourceWindow: moversSourceWindow });
-          return;
-        }
-        dispatchMarketMovers({ type: "success", setId, payload, sourceWindow: moversSourceWindow });
-      })
-      .catch((error) => {
-        requestSettled = true;
-        if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
-          lastMarketMoversRequestKeyRef.current = null;
-        }
-        if (isCancelled) {
-          dispatchMarketMovers({ type: "reset", status: "empty", setId, sourceWindow: moversSourceWindow });
-          return;
-        }
-        dispatchMarketMovers({
-          type: "error",
-          setId,
-          error: error?.message || "Unable to load market movers for this set.",
-          sourceWindow: moversSourceWindow,
-        });
-      });
-
-    return () => {
-      isCancelled = true;
-      // An unsettled request's response will be ignored (isCancelled), so a
-      // revisit must be allowed to fetch again.
-      if (!requestSettled && lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
-        lastMarketMoversRequestKeyRef.current = null;
-      }
-    };
-  }, [
-    setDetailMode,
-    setDetailTab,
-    requestedTargetId,
-    selectedTarget,
-    resolvedSetResourceId,
-    canFetchSlimMarketModules,
-    // Section-local Retry: re-runs this effect only (see retryMarketMoversModule).
-    marketMoversRetryNonce,
-    destinationSeedPending,
-    seededMarketMoversPayload,
-  ]);
-
-  // Live fallback for a missing/invalid Market bootstrap, plus explicit Retry.
-  useEffect(() => {
-    if (!setDetailMode) {
-      return undefined;
-    }
-
-    const setId = resolvedSetResourceId;
-    const overviewSourceWindow = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW;
-    if (!setId) {
-      dispatchOverview({ type: "reset", status: "empty", sourceWindow: overviewSourceWindow });
-      return undefined;
-    }
-    if (!canFetchSlimMarketModules) {
-      dispatchOverview({
-        type: "reset",
-        status: "empty",
-        setId,
-        sourceWindow: overviewSourceWindow,
-      });
-      return undefined;
-    }
-
-    // Market-owned: the slim /overview payload backs Market's Set Value Trend
-    // (and the Set Value scopes it selects). RIP no longer renders any of it,
-    // so RIP must not pay for this request. Analysis reads set-page history
-    // from its own /insights payload and does not trigger this fetch either.
-    const shouldRenderMarketOverviewData = setDetailTab === "market";
-    if (!shouldRenderMarketOverviewData) {
-      // No background fetch for a tab the user isn't on — a tab that needs
-      // this data (or a future switch back to one) triggers this effect again.
-      return undefined;
-    }
-    if (destinationSeedPending) return undefined;
-
-    if (seededOverviewPayload && overviewRetryNonce === 0) {
-      lastOverviewRequestKeyRef.current = `${setId}|${overviewSourceWindow}`;
-      debugSetPagePerf("overview.seed_satisfied_initial_resource", { resolvedSetId: setId });
-      return undefined;
-    }
-
-    const overviewRequestKey = `${setId}|${overviewSourceWindow}`;
-    const overviewStateIsRenderable =
-      activeOverviewState.status === "loading" ||
-      activeOverviewState.status === "success" ||
-      activeOverviewState.status === "success_stale";
-    if (lastOverviewRequestKeyRef.current === overviewRequestKey && overviewStateIsRenderable) {
-      debugSetPagePerf("overview.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
-      return undefined;
-    }
-    if (lastOverviewRequestKeyRef.current === overviewRequestKey && !overviewStateIsRenderable) {
-      lastOverviewRequestKeyRef.current = null;
-    }
-    lastOverviewRequestKeyRef.current = overviewRequestKey;
-
-    let isCancelled = false;
-    let requestSettled = false;
-    dispatchOverview({ type: "loading", setId, sourceWindow: overviewSourceWindow });
-
-    getPokemonSetOverview(setId, { window: overviewSourceWindow })
-      .then((payload) => {
-        requestSettled = true;
-        if (isCancelled) {
-          if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
-            lastOverviewRequestKeyRef.current = null;
-          }
-          dispatchOverview({ type: "reset", status: "empty", setId, sourceWindow: overviewSourceWindow });
-          return;
-        }
-        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
-          if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
-            lastOverviewRequestKeyRef.current = null;
-          }
-          dispatchOverview({ type: "reset", status: "empty", setId, sourceWindow: overviewSourceWindow });
-          return;
-        }
-        dispatchOverview({ type: "success", setId, payload, sourceWindow: overviewSourceWindow });
-      })
-      .catch((error) => {
-        requestSettled = true;
-        if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
-          lastOverviewRequestKeyRef.current = null;
-        }
-        if (isCancelled) {
-          dispatchOverview({ type: "reset", status: "empty", setId, sourceWindow: overviewSourceWindow });
-          return;
-        }
-        dispatchOverview({
-          type: "error",
-          setId,
-          error: error?.message || "Unable to load set overview for this set.",
-          sourceWindow: overviewSourceWindow,
-        });
-      });
-
-    return () => {
-      isCancelled = true;
-      // An unsettled request's response will be ignored (isCancelled), so a
-      // revisit must be allowed to fetch again.
-      if (!requestSettled && lastOverviewRequestKeyRef.current === overviewRequestKey) {
-        lastOverviewRequestKeyRef.current = null;
-      }
-    };
-  }, [
-    setDetailMode,
-    setDetailTab,
-    requestedTargetId,
-    selectedTarget,
-    resolvedSetResourceId,
-    canFetchSlimMarketModules,
-    // Section-local Retry: re-runs this effect only (see retryOverviewModule).
-    overviewRetryNonce,
-    destinationSeedPending,
   ]);
 
   const desktopSidebarContent = (
@@ -14639,7 +13952,7 @@ export default function RipStatisticsPageClient({
                                 <p className="text-xs text-[var(--text-secondary)]">Couldn&apos;t load more cards.</p>
                                 <button
                                   type="button"
-                                  onClick={() => setCardsPageRetryNonce((nonce) => nonce + 1)}
+                                  onClick={retryCardsPage}
                                   className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
                                 >
                                   Retry

@@ -16,6 +16,12 @@ DATE_CONTRACT_SQL = " ".join((
     / "migrations"
     / "20260830201610_preserve_market_explorer_observed_date_contract.sql"
 ).read_text(encoding="utf-8").lower().split())
+FAST_PATH_SQL = " ".join((
+    Path(__file__).resolve().parents[4]
+    / "supabase"
+    / "migrations"
+    / "20260831021617_add_market_explorer_interval_range_fast_path.sql"
+).read_text(encoding="utf-8").lower().split())
 
 
 def _series(dates, rows, top_n=None):
@@ -107,6 +113,53 @@ def test_forward_fix_preserves_observed_rows_but_uses_canonical_previous_date():
     assert "from date_context dates join (select distinct panel.market_date from panel) observed" in DATE_CONTRACT_SQL
     assert "from observed_dates dates left join eligible" in DATE_CONTRACT_SQL
     assert "state.prev_seen_date = dates.previous_market_date" in DATE_CONTRACT_SQL
+
+
+def test_native_range_fast_path_has_no_extension_or_business_data_write():
+    assert "using gist (daterange(valid_from, valid_to, '[)'))" in FAST_PATH_SQL
+    assert "create extension" not in FAST_PATH_SQL
+    assert "insert into" not in FAST_PATH_SQL
+    assert "update " not in FAST_PATH_SQL
+    assert "delete from" not in FAST_PATH_SQL
+
+
+def test_dimension_free_panel_is_separate_from_custom_filter_authorities():
+    fast = FAST_PATH_SQL[
+        FAST_PATH_SQL.index("fast_panel as materialized"):
+        FAST_PATH_SQL.index("filtered_panel as materialized")
+    ]
+    filtered_start = FAST_PATH_SQL.index("filtered_panel as materialized")
+    filtered = FAST_PATH_SQL[
+        filtered_start:
+        FAST_PATH_SQL.index("), panel as materialized", filtered_start)
+    ]
+    assert "join public.sets" not in fast
+    assert "pokemon_card_desirability_links" not in fast
+    assert "market_explorer_rarity_segment" not in fast
+    assert "join public.sets" in filtered
+    assert "pokemon_card_desirability_links" in filtered
+    assert "market_explorer_rarity_segment" in filtered
+
+
+def test_range_panel_and_latest_primary_key_lookup_preserve_identity():
+    assert "daterange(fact.valid_from, fact.valid_to, '[)') @> dates.market_date" in FAST_PATH_SQL
+    assert "panel.observation_id" in FAST_PATH_SQL
+    assert "fact.observation_id = latest.observation_id" in FAST_PATH_SQL
+    assert "partition by selected.card_variant_id" in FAST_PATH_SQL
+    assert "state.prev_seen_date = dates.previous_market_date" in FAST_PATH_SQL
+
+
+def test_fast_path_signature_acl_and_top_n_contract_are_unchanged():
+    signature = (
+        "public.get_pokemon_market_explorer_filtered_cohort"
+        "(uuid[],date,date,uuid[],text[],bigint[],text[],text[],integer)"
+    )
+    assert signature in FAST_PATH_SQL
+    assert "security invoker" in FAST_PATH_SQL
+    assert f"revoke all on function {signature} from public, anon, authenticated" in FAST_PATH_SQL
+    assert f"grant execute on function {signature} to service_role" in FAST_PATH_SQL
+    assert "order by panel.market_price desc, panel.card_variant_id" in FAST_PATH_SQL
+    assert FAST_PATH_SQL.index("filtered_panel as materialized") < FAST_PATH_SQL.index("top_n_ranked as materialized")
 
 
 def test_consecutive_presence_and_missing_prior_date():

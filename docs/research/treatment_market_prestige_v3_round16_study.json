@@ -1,0 +1,2767 @@
+{
+  "studyId": "treatment-market-prestige-v3-r16-8b5572737dc6890c",
+  "builtAt": "2026-08-31T02:30:50.175877+00:00",
+  "branch": "fix/public-rankings-entitlement-regression",
+  "head": "573c1a13a8ef77818d1ad9ca6ef936c46f8c1bce",
+  "startingDenominator": 19847,
+  "startingDirectCoverage": 10175,
+  "startingUncoveredCards": 9672,
+  "ledgerFile": "docs\\research\\treatment_market_prestige_v3_round16\\card_coverage_ledger.json",
+  "Trainer": {
+    "total": 2718,
+    "trainerSpecificDirect": 973,
+    "normalTreatmentFallbackRecovered": 519,
+    "stillUnresolved": 1226,
+    "unresolvedReasons": {
+      "TRAINER_IDENTITY_UNRESOLVED": 392,
+      "TRAINER_TREATMENT_UNSUPPORTED": 834
+    }
+  },
+  "Energy": {
+    "total": 371,
+    "neutralCount": 371,
+    "premiumTreatmentCandidates": 60,
+    "premiumCandidateIds": [
+      "16a3fe25-d509-4d8b-8613-92b50e4b5470",
+      "23a2cecf-6539-4530-875d-41d393982931",
+      "25abafc6-5925-4004-a4fc-df4473cf2d19",
+      "261e1b8d-2f49-4182-9bae-f9ed4e4523bb",
+      "26c0ae86-7780-42f4-9b21-c67392769368",
+      "2928b09d-55d2-4f13-af5c-28f1b75dbfca",
+      "2afd17ee-1cbc-4f01-a279-93f54cee0f17",
+      "2ed9b51b-ca97-4ca4-a7be-dc5eeb951e72",
+      "30266b38-f85c-4eb9-84f9-6d6267d057a3",
+      "3087d07f-4946-4c06-ba85-a31990d2e2ea",
+      "3643ab94-ad75-43fc-926d-0fe66d52db24",
+      "4108fc1c-eb28-4366-a35c-7d80262b7890",
+      "4d8ac694-214e-4538-a767-30ecfb0ffce9",
+      "4def10b5-3d34-4d67-91fc-ccb5547196b0",
+      "4ed19d57-2078-4bdd-abe2-97fcc8e9b88b",
+      "50a2b63f-e193-4572-b73f-7b876e10fe9f",
+      "53272ac6-46ca-4c16-a100-751e78f8e0dd",
+      "5b3d11c8-1c76-4365-8328-a115dff1bedb",
+      "5cae9a4a-badc-4ca6-b3ac-9c329da3a6bc",
+      "657eb352-0012-4b00-91c6-10f08467f059",
+      "6a58b785-6826-414a-858c-e2f67d731e99",
+      "6c7cf976-5f9c-47f8-a4d7-ebc1a7f4ef1e",
+      "7418835e-adbd-4ee2-9975-8ae35e177366",
+      "75ec0c76-56fa-4f1d-a77f-8552fc908a0b",
+      "7960b357-71b3-4902-b35b-a294c7bc39dc",
+      "798a9109-8534-4251-82b6-883a67591798",
+      "81c67608-063a-4daa-bee2-ca3bd8403b80",
+      "852f84f9-9e43-4731-8701-d567cf893dce",
+      "8a01928a-9c35-40e8-af78-aad73a22caca",
+      "978ceeab-4116-434a-9486-5ea03975a3ae",
+      "a6d6c774-39cf-456f-9e07-2898bf2fb33f",
+      "ab829e09-2ab0-40df-b39a-81b7d0f45449",
+      "ad61a571-b5eb-4f3c-9b19-5bbe5e678a2b",
+      "af3e383f-e5ac-44f1-b411-e4e3dae6114c",
+      "b31b9444-2f06-455f-828d-2ccbb19a94fa",
+      "b36cbc4a-674c-4288-ab13-47326bf23edd",
+      "b77325d3-968c-44e9-b247-a990893dffd1",
+      "bde95505-6792-4c10-be4a-4461cd32d96b",
+      "bf3bb47c-eadc-4053-8930-8164f31b23d8",
+      "c149bdee-5161-437f-9d0b-925aca0e932c",
+      "c34528db-9776-4bb8-9b46-924ebe3aa014",
+      "c56d169f-bf1d-4fce-8409-c7b8566e0067",
+      "c8d6b245-3d0f-494c-8a95-96a701036cab",
+      "c8df3a04-2724-4831-91af-d703c893bd9b",
+      "ca0e6707-9ad9-4c07-b02e-120061914bf0",
+      "ca71bbe8-cba6-4d2c-b385-14de0e40a1e6",
+      "cf96bbfc-585f-4ba8-936b-c2764de6037e",
+      "d0c51dfb-14a6-4f24-817d-2e3f6db90151",
+      "d32aeabf-26ff-4065-b1f1-e87bbe5a31d7",
+      "d5954d48-d038-46d0-b7c9-9270889da0df",
+      "d8aa8dd2-c93a-47df-81f7-0f425b9296d9",
+      "da1d3638-a985-49cc-9a3a-aa8f94623661",
+      "e56f7697-d3be-4fbf-9098-b7578c151c1b",
+      "e9564445-2780-4d00-ab7f-5ca582e126f3",
+      "eaf93b8f-09cf-4349-ac68-b344eb1654c3",
+      "ec3d2254-1164-4849-b25e-c84896239db5",
+      "f705b572-8138-4045-8cd2-4c5a2cbc669a",
+      "fc772a5b-8086-467c-a89b-cb7fc7e7f809",
+      "fce62ebf-39f6-4294-baeb-66d5b9ff2a3b",
+      "fe919135-f425-4f71-a930-db6deff4c532"
+    ]
+  },
+  "previouslyUnresearchedBuckets": [
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "special_illustration_rare",
+      "cards": 41,
+      "sets": 6,
+      "rawLabels": {
+        "Special Illustration Rare": 41
+      },
+      "mechanics": {
+        "ex": 41,
+        "mega": 28,
+        "stage_2": 12,
+        "stage_1": 11,
+        "basic": 17
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "hyper_rare",
+      "cards": 32,
+      "sets": 12,
+      "rawLabels": {
+        "Hyper Rare": 32
+      },
+      "mechanics": {
+        "basic": 22,
+        "ex": 32,
+        "stage_2": 7,
+        "stage_1": 3
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "common",
+      "cards": 135,
+      "sets": 3,
+      "rawLabels": {
+        "Common": 135
+      },
+      "mechanics": {
+        "basic": 134,
+        "stage_1": 1
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare",
+      "cards": 83,
+      "sets": 3,
+      "rawLabels": {
+        "Rare": 83
+      },
+      "mechanics": {
+        "stage_2": 16,
+        "stage_1": 54,
+        "basic": 13
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "rare_rainbow",
+      "cards": 26,
+      "sets": 6,
+      "rawLabels": {
+        "Rare Rainbow": 26
+      },
+      "mechanics": {
+        "vmax": 26
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "common",
+      "cards": 126,
+      "sets": 3,
+      "rawLabels": {
+        "Common": 126
+      },
+      "mechanics": {
+        "basic": 126
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare",
+      "cards": 62,
+      "sets": 3,
+      "rawLabels": {
+        "Rare": 62
+      },
+      "mechanics": {
+        "stage_2": 16,
+        "stage_1": 33,
+        "basic": 13
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_holo",
+      "cards": 60,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo": 60
+      },
+      "mechanics": {
+        "stage_1": 19,
+        "basic": 20,
+        "stage_2": 21
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_rainbow",
+      "cards": 36,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Rainbow": 36
+      },
+      "mechanics": {
+        "vmax": 36
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_ultra",
+      "cards": 75,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Ultra": 75
+      },
+      "mechanics": {
+        "basic": 75,
+        "v": 75
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "uncommon",
+      "cards": 66,
+      "sets": 3,
+      "rawLabels": {
+        "Uncommon": 66
+      },
+      "mechanics": {
+        "stage_1": 58,
+        "basic": 8
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare",
+      "cards": 70,
+      "sets": 3,
+      "rawLabels": {
+        "Rare": 70
+      },
+      "mechanics": {
+        "basic": 28,
+        "stage_1": 29,
+        "stage_2": 13
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_holo",
+      "cards": 26,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo": 26
+      },
+      "mechanics": {
+        "basic": 6,
+        "stage_2": 13,
+        "stage_1": 7
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "common",
+      "cards": 111,
+      "sets": 3,
+      "rawLabels": {
+        "Common": 111
+      },
+      "mechanics": {
+        "basic": 107,
+        "stage_1": 4
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo",
+      "cards": 55,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo": 55
+      },
+      "mechanics": {
+        "stage_1": 15,
+        "basic": 19,
+        "stage_2": 21
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo_v",
+      "cards": 37,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo V": 37
+      },
+      "mechanics": {
+        "basic": 37,
+        "v": 37
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_ultra",
+      "cards": 45,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Ultra": 45
+      },
+      "mechanics": {
+        "basic": 45,
+        "v": 45
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "uncommon",
+      "cards": 68,
+      "sets": 3,
+      "rawLabels": {
+        "Uncommon": 68
+      },
+      "mechanics": {
+        "stage_1": 56,
+        "basic": 11,
+        "stage_2": 1
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "trainer_gallery_rare_holo",
+      "cards": 56,
+      "sets": 3,
+      "rawLabels": {
+        "Trainer Gallery Rare Holo": 56
+      },
+      "mechanics": {
+        "basic": 34,
+        "stage_1": 16,
+        "stage_2": 6
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    }
+  ],
+  "modelsRunForUnresearched": [
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "special_illustration_rare",
+      "cards": 41,
+      "sets": 6,
+      "rawLabels": {
+        "Special Illustration Rare": 41
+      },
+      "mechanics": {
+        "ex": 41,
+        "mega": 28,
+        "stage_2": 12,
+        "stage_1": 11,
+        "basic": 17
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "hyper_rare",
+      "cards": 32,
+      "sets": 12,
+      "rawLabels": {
+        "Hyper Rare": 32
+      },
+      "mechanics": {
+        "basic": 22,
+        "ex": 32,
+        "stage_2": 7,
+        "stage_1": 3
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "common",
+      "cards": 135,
+      "sets": 3,
+      "rawLabels": {
+        "Common": 135
+      },
+      "mechanics": {
+        "basic": 134,
+        "stage_1": 1
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare",
+      "cards": 83,
+      "sets": 3,
+      "rawLabels": {
+        "Rare": 83
+      },
+      "mechanics": {
+        "stage_2": 16,
+        "stage_1": 54,
+        "basic": 13
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "rare_rainbow",
+      "cards": 26,
+      "sets": 6,
+      "rawLabels": {
+        "Rare Rainbow": 26
+      },
+      "mechanics": {
+        "vmax": 26
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "common",
+      "cards": 126,
+      "sets": 3,
+      "rawLabels": {
+        "Common": 126
+      },
+      "mechanics": {
+        "basic": 126
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare",
+      "cards": 62,
+      "sets": 3,
+      "rawLabels": {
+        "Rare": 62
+      },
+      "mechanics": {
+        "stage_2": 16,
+        "stage_1": 33,
+        "basic": 13
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_holo",
+      "cards": 60,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo": 60
+      },
+      "mechanics": {
+        "stage_1": 19,
+        "basic": 20,
+        "stage_2": 21
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_rainbow",
+      "cards": 36,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Rainbow": 36
+      },
+      "mechanics": {
+        "vmax": 36
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_ultra",
+      "cards": 75,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Ultra": 75
+      },
+      "mechanics": {
+        "basic": 75,
+        "v": 75
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "uncommon",
+      "cards": 66,
+      "sets": 3,
+      "rawLabels": {
+        "Uncommon": 66
+      },
+      "mechanics": {
+        "stage_1": 58,
+        "basic": 8
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare",
+      "cards": 70,
+      "sets": 3,
+      "rawLabels": {
+        "Rare": 70
+      },
+      "mechanics": {
+        "basic": 28,
+        "stage_1": 29,
+        "stage_2": 13
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_holo",
+      "cards": 26,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo": 26
+      },
+      "mechanics": {
+        "basic": 6,
+        "stage_2": 13,
+        "stage_1": 7
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "common",
+      "cards": 111,
+      "sets": 3,
+      "rawLabels": {
+        "Common": 111
+      },
+      "mechanics": {
+        "basic": 107,
+        "stage_1": 4
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo",
+      "cards": 55,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo": 55
+      },
+      "mechanics": {
+        "stage_1": 15,
+        "basic": 19,
+        "stage_2": 21
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo_v",
+      "cards": 37,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo V": 37
+      },
+      "mechanics": {
+        "basic": 37,
+        "v": 37
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_ultra",
+      "cards": 45,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Ultra": 45
+      },
+      "mechanics": {
+        "basic": 45,
+        "v": 45
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "uncommon",
+      "cards": 68,
+      "sets": 3,
+      "rawLabels": {
+        "Uncommon": 68
+      },
+      "mechanics": {
+        "stage_1": 56,
+        "basic": 11,
+        "stage_2": 1
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "trainer_gallery_rare_holo",
+      "cards": 56,
+      "sets": 3,
+      "rawLabels": {
+        "Trainer Gallery Rare Holo": 56
+      },
+      "mechanics": {
+        "basic": 34,
+        "stage_1": 16,
+        "stage_2": 6
+      },
+      "rootCause": "NEW_TREATMENT_NOT_RESEARCHED",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "modelRun": false,
+      "result": {
+        "status": "NOT_ESTIMABLE_UNDER_UNCHANGED_MODEL",
+        "reasons": [
+          "no retained hierarchical effect after support/cell gates"
+        ]
+      },
+      "newlyDirect": false
+    }
+  ],
+  "cardsRecoveredByNewDirectResearch": 0,
+  "finiteTreatmentCandidates": [
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "mega_attack_rare",
+      "cards": 7,
+      "sets": 1,
+      "rawLabels": {
+        "MEGA_ATTACK_RARE": 7
+      },
+      "mechanics": {
+        "ex": 7,
+        "mega": 7,
+        "stage_1": 2,
+        "stage_2": 3,
+        "basic": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "black_white_rare",
+      "cards": 2,
+      "sets": 2,
+      "rawLabels": {
+        "Black White Rare": 2
+      },
+      "mechanics": {
+        "basic": 2,
+        "ex": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "shiny_rare",
+      "cards": 120,
+      "sets": 1,
+      "rawLabels": {
+        "Shiny Rare": 120
+      },
+      "mechanics": {
+        "basic": 67,
+        "stage_1": 43,
+        "stage_2": 10
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "shiny_ultra_rare",
+      "cards": 12,
+      "sets": 1,
+      "rawLabels": {
+        "Shiny Ultra Rare": 12
+      },
+      "mechanics": {
+        "ex": 12,
+        "stage_1": 7,
+        "stage_2": 3,
+        "basic": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "XY",
+      "treatmentKey": "rare_secret",
+      "cards": 21,
+      "sets": 9,
+      "rawLabels": {
+        "Rare Secret": 21
+      },
+      "mechanics": {
+        "ex": 17,
+        "mega": 10,
+        "basic": 10,
+        "stage_1": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r1",
+      "treatmentKey": "rare_prism_star",
+      "cards": 16,
+      "sets": 6,
+      "rawLabels": {
+        "Rare Prism Star": 16
+      },
+      "mechanics": {
+        "basic": 16
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r1",
+      "treatmentKey": "rare_shining",
+      "cards": 6,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Shining": 6
+      },
+      "mechanics": {
+        "basic": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_holo",
+      "cards": 42,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo": 42
+      },
+      "mechanics": {
+        "stage_2": 15,
+        "basic": 18,
+        "stage_1": 9
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_holo_gx",
+      "cards": 18,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo GX": 18
+      },
+      "mechanics": {
+        "gx": 18,
+        "stage_1": 7,
+        "stage_2": 2,
+        "basic": 9,
+        "tag_team": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_rainbow",
+      "cards": 16,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Rainbow": 16
+      },
+      "mechanics": {
+        "gx": 16,
+        "stage_1": 6,
+        "basic": 8,
+        "stage_2": 2,
+        "tag_team": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_ultra",
+      "cards": 21,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Ultra": 21
+      },
+      "mechanics": {
+        "stage_2": 3,
+        "basic": 12,
+        "gx": 17,
+        "stage_1": 6,
+        "tag_team": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "uncommon",
+      "cards": 71,
+      "sets": 2,
+      "rawLabels": {
+        "Uncommon": 71
+      },
+      "mechanics": {
+        "stage_1": 42,
+        "basic": 28,
+        "stage_2": 1
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "common",
+      "cards": 85,
+      "sets": 2,
+      "rawLabels": {
+        "Common": 85
+      },
+      "mechanics": {
+        "basic": 84,
+        "stage_1": 1
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare",
+      "cards": 50,
+      "sets": 2,
+      "rawLabels": {
+        "Rare": 50
+      },
+      "mechanics": {
+        "stage_2": 8,
+        "basic": 12,
+        "stage_1": 30
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_holo",
+      "cards": 24,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo": 24
+      },
+      "mechanics": {
+        "stage_1": 7,
+        "basic": 9,
+        "stage_2": 8
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_holo_gx",
+      "cards": 15,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo GX": 15
+      },
+      "mechanics": {
+        "basic": 5,
+        "gx": 15,
+        "stage_2": 3,
+        "stage_1": 7
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_rainbow",
+      "cards": 6,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Rainbow": 6
+      },
+      "mechanics": {
+        "gx": 6,
+        "stage_2": 2,
+        "stage_1": 3,
+        "basic": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_secret",
+      "cards": 16,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Secret": 16
+      },
+      "mechanics": {
+        "basic": 11,
+        "stage_1": 3,
+        "stage_2": 2,
+        "gx": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_shiny",
+      "cards": 45,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Shiny": 45
+      },
+      "mechanics": {
+        "basic": 32,
+        "stage_1": 11,
+        "stage_2": 2
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_shiny_gx",
+      "cards": 35,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Shiny GX": 35
+      },
+      "mechanics": {
+        "gx": 35,
+        "stage_1": 17,
+        "stage_2": 4,
+        "basic": 14
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_ultra",
+      "cards": 6,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Ultra": 6
+      },
+      "mechanics": {
+        "gx": 6,
+        "stage_2": 2,
+        "stage_1": 3,
+        "basic": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "uncommon",
+      "cards": 50,
+      "sets": 2,
+      "rawLabels": {
+        "Uncommon": 50
+      },
+      "mechanics": {
+        "stage_1": 30,
+        "basic": 20
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "amazing_rare",
+      "cards": 9,
+      "sets": 2,
+      "rawLabels": {
+        "Amazing Rare": 9
+      },
+      "mechanics": {
+        "basic": 9
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_shiny",
+      "cards": 104,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Shiny": 104
+      },
+      "mechanics": {
+        "basic": 51,
+        "stage_1": 42,
+        "stage_2": 11
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "classic_collection",
+      "cards": 22,
+      "sets": 1,
+      "rawLabels": {
+        "Classic Collection": 22
+      },
+      "mechanics": {
+        "stage_2": 4,
+        "basic": 11,
+        "stage_1": 3,
+        "ex": 5,
+        "level_up": 2,
+        "mega": 1,
+        "gx": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "common",
+      "cards": 131,
+      "sets": 2,
+      "rawLabels": {
+        "Common": 131
+      },
+      "mechanics": {
+        "basic": 131
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_holo_vmax",
+      "cards": 20,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Holo VMAX": 20
+      },
+      "mechanics": {
+        "vmax": 20
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_holo_vstar",
+      "cards": 4,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Holo VSTAR": 4
+      },
+      "mechanics": {
+        "vstar": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_rainbow",
+      "cards": 12,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Rainbow": 12
+      },
+      "mechanics": {
+        "vmax": 8,
+        "vstar": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_ultra",
+      "cards": 28,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Ultra": 28
+      },
+      "mechanics": {
+        "basic": 28,
+        "v": 28
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "trainer_gallery_rare_holo",
+      "cards": 24,
+      "sets": 2,
+      "rawLabels": {
+        "Trainer Gallery Rare Holo": 24
+      },
+      "mechanics": {
+        "stage_2": 4,
+        "stage_1": 14,
+        "basic": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "uncommon",
+      "cards": 87,
+      "sets": 2,
+      "rawLabels": {
+        "Uncommon": 87
+      },
+      "mechanics": {
+        "stage_1": 70,
+        "basic": 17
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare",
+      "cards": 49,
+      "sets": 2,
+      "rawLabels": {
+        "Rare": 49
+      },
+      "mechanics": {
+        "stage_1": 25,
+        "basic": 16,
+        "stage_2": 8
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo_vstar",
+      "cards": 15,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo VSTAR": 15
+      },
+      "mechanics": {
+        "vstar": 15
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_rainbow",
+      "cards": 19,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Rainbow": 19
+      },
+      "mechanics": {
+        "vstar": 15,
+        "vmax": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "common",
+      "cards": 90,
+      "sets": 2,
+      "rawLabels": {
+        "Common": 90
+      },
+      "mechanics": {
+        "basic": 90
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "radiant_rare",
+      "cards": 6,
+      "sets": 2,
+      "rawLabels": {
+        "Radiant Rare": 6
+      },
+      "mechanics": {
+        "basic": 6,
+        "radiant": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare",
+      "cards": 43,
+      "sets": 2,
+      "rawLabels": {
+        "Rare": 43
+      },
+      "mechanics": {
+        "stage_1": 22,
+        "basic": 12,
+        "stage_2": 9
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_holo",
+      "cards": 25,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo": 25
+      },
+      "mechanics": {
+        "stage_1": 3,
+        "basic": 14,
+        "stage_2": 8
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_holo_vmax",
+      "cards": 17,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Holo VMAX": 17
+      },
+      "mechanics": {
+        "vmax": 17
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_holo_vstar",
+      "cards": 24,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo VSTAR": 24
+      },
+      "mechanics": {
+        "vstar": 24
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_rainbow",
+      "cards": 7,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Rainbow": 7
+      },
+      "mechanics": {
+        "vstar": 6,
+        "vmax": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_ultra",
+      "cards": 18,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Ultra": 18
+      },
+      "mechanics": {
+        "basic": 18,
+        "v": 18
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "uncommon",
+      "cards": 56,
+      "sets": 2,
+      "rawLabels": {
+        "Uncommon": 56
+      },
+      "mechanics": {
+        "stage_1": 45,
+        "basic": 11
+      },
+      "rootCause": "INSUFFICIENT_SET_DIVERSITY",
+      "recoverability": "NEW_RESEARCH_REQUIRED",
+      "evaluation": "NOT_PARTIAL_VALIDATED",
+      "strongPartialEligible": false,
+      "reasons": [
+        "retained hierarchical estimator produced no fully supported treatment effect",
+        "finite-universe-specific bootstrap/influence contract not satisfied"
+      ]
+    }
+  ],
+  "finiteTreatmentValidationResults": {
+    "validated": 0,
+    "failed": 44,
+    "finding": "No candidate satisfied a retained finite-universe-specific bootstrap, influence, identity-diversity, and temporal contract without weakening evidence."
+  },
+  "cardsRecoveredStrongPartialFinite": 0,
+  "individualTreatmentsPreviouslyBlocked": [
+    {
+      "era": "Mega Evolution",
+      "treatment": "double_rare",
+      "model": {
+        "era": "Mega Evolution",
+        "regime": "Mega Evolution",
+        "supertype": "POKEMON",
+        "treatment": "double_rare",
+        "cardCount": 88,
+        "setCount": 6,
+        "identityCount": 83,
+        "effect": -3.5114044059083036,
+        "effectInterval": [
+          -3.6996967003983747,
+          -3.3227253684636016
+        ],
+        "magnitudeScore": 2.8666248249227766,
+        "scoreInterval": [
+          2.7874799055959083,
+          2.939635285355066
+        ],
+        "temporalStatus": "VALIDATED",
+        "hierarchicalHeterogeneity": 0.04497099262822395,
+        "modelStatus": "AVAILABLE",
+        "universeStatus": "INSUFFICIENT_ERA_SUPPORT",
+        "currentAvailabilityStatus": "AVAILABLE",
+        "failureReasons": [],
+        "exactPullScarcityCoverage": {
+          "cards": 88,
+          "eligibleCards": 88,
+          "coverage": 1.0,
+          "medianProbability": 0.019798
+        },
+        "scarcityNormalized": 0.0
+      }
+    },
+    {
+      "era": "Base/WOTC",
+      "treatment": "uncommon",
+      "model": {
+        "era": "Base/WOTC",
+        "regime": "Base/WOTC_r1",
+        "supertype": "POKEMON",
+        "treatment": "uncommon",
+        "cardCount": 100,
+        "setCount": 5,
+        "identityCount": 0,
+        "effect": 0.7310904028203651,
+        "effectInterval": [
+          0.632941071413764,
+          0.8292397342269662
+        ],
+        "magnitudeScore": 5.248888486947467,
+        "scoreInterval": [
+          5.197877132214911,
+          5.3241360836307425
+        ],
+        "temporalStatus": "VALIDATED",
+        "hierarchicalHeterogeneity": 0.008136701818027144,
+        "modelStatus": "AVAILABLE",
+        "universeStatus": "INSUFFICIENT_ERA_SUPPORT",
+        "currentAvailabilityStatus": "AVAILABLE",
+        "failureReasons": [],
+        "exactPullScarcityCoverage": {
+          "cards": 0,
+          "eligibleCards": 100,
+          "coverage": 0.0,
+          "medianProbability": null
+        }
+      }
+    },
+    {
+      "era": "POP",
+      "treatment": "common",
+      "model": {
+        "era": "POP",
+        "regime": "POP_r1",
+        "supertype": "POKEMON",
+        "treatment": "common",
+        "cardCount": 53,
+        "setCount": 9,
+        "identityCount": 0,
+        "effect": 0.005509424468203072,
+        "effectInterval": [
+          -0.014797237463279347,
+          0.02581608639968549
+        ],
+        "magnitudeScore": 4.590494154549372,
+        "scoreInterval": [
+          4.5658125680309265,
+          4.606508476051365
+        ],
+        "temporalStatus": "VALIDATED",
+        "hierarchicalHeterogeneity": 0.0,
+        "modelStatus": "AVAILABLE",
+        "universeStatus": "INSUFFICIENT_ERA_SUPPORT",
+        "currentAvailabilityStatus": "AVAILABLE",
+        "failureReasons": [],
+        "exactPullScarcityCoverage": {
+          "cards": 0,
+          "eligibleCards": 53,
+          "coverage": 0.0,
+          "medianProbability": null
+        }
+      }
+    }
+  ],
+  "individualPublicationFinding": "Treatment-level evidence is interpretable under its already-defined universe even when peers fail; only the validated treatment publishes.",
+  "cardsRecoveredUniverseCorrection": 242,
+  "sampleSizeFailureAudit": [
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "mega_attack_rare",
+      "cards": 7,
+      "sets": 1,
+      "rawLabels": {
+        "MEGA_ATTACK_RARE": 7
+      },
+      "mechanics": {
+        "ex": 7,
+        "mega": 7,
+        "stage_1": 2,
+        "stage_2": 3,
+        "basic": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Mega Evolution",
+      "treatmentKey": "mega_hyper_rare",
+      "cards": 8,
+      "sets": 6,
+      "rawLabels": {
+        "Mega Hyper Rare": 8
+      },
+      "mechanics": {
+        "ex": 8,
+        "mega": 8,
+        "stage_2": 5,
+        "stage_1": 1,
+        "basic": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "black_white_rare",
+      "cards": 2,
+      "sets": 2,
+      "rawLabels": {
+        "Black White Rare": 2
+      },
+      "mechanics": {
+        "basic": 2,
+        "ex": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "Scarlet and Violet",
+      "treatmentKey": "shiny_ultra_rare",
+      "cards": 12,
+      "sets": 1,
+      "rawLabels": {
+        "Shiny Ultra Rare": 12
+      },
+      "mechanics": {
+        "ex": 12,
+        "stage_1": 7,
+        "stage_2": 3,
+        "basic": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "XY",
+      "treatmentKey": "rare_secret",
+      "cards": 21,
+      "sets": 9,
+      "rawLabels": {
+        "Rare Secret": 21
+      },
+      "mechanics": {
+        "ex": 17,
+        "mega": 10,
+        "basic": 10,
+        "stage_1": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r1",
+      "treatmentKey": "rare_prism_star",
+      "cards": 16,
+      "sets": 6,
+      "rawLabels": {
+        "Rare Prism Star": 16
+      },
+      "mechanics": {
+        "basic": 16
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r1",
+      "treatmentKey": "rare_secret",
+      "cards": 4,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Secret": 4
+      },
+      "mechanics": {
+        "basic": 2,
+        "gx": 4,
+        "stage_2": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r1",
+      "treatmentKey": "rare_shining",
+      "cards": 6,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Shining": 6
+      },
+      "mechanics": {
+        "basic": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_holo_gx",
+      "cards": 18,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo GX": 18
+      },
+      "mechanics": {
+        "gx": 18,
+        "stage_1": 7,
+        "stage_2": 2,
+        "basic": 9,
+        "tag_team": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_rainbow",
+      "cards": 16,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Rainbow": 16
+      },
+      "mechanics": {
+        "gx": 16,
+        "stage_1": 6,
+        "basic": 8,
+        "stage_2": 2,
+        "tag_team": 2
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r2",
+      "treatmentKey": "rare_ultra",
+      "cards": 21,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Ultra": 21
+      },
+      "mechanics": {
+        "stage_2": 3,
+        "basic": 12,
+        "gx": 17,
+        "stage_1": 6,
+        "tag_team": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_holo",
+      "cards": 24,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo": 24
+      },
+      "mechanics": {
+        "stage_1": 7,
+        "basic": 9,
+        "stage_2": 8
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_holo_gx",
+      "cards": 15,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Holo GX": 15
+      },
+      "mechanics": {
+        "basic": 5,
+        "gx": 15,
+        "stage_2": 3,
+        "stage_1": 7
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_rainbow",
+      "cards": 6,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Rainbow": 6
+      },
+      "mechanics": {
+        "gx": 6,
+        "stage_2": 2,
+        "stage_1": 3,
+        "basic": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_secret",
+      "cards": 16,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Secret": 16
+      },
+      "mechanics": {
+        "basic": 11,
+        "stage_1": 3,
+        "stage_2": 2,
+        "gx": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sun_and_moon_r3",
+      "treatmentKey": "rare_ultra",
+      "cards": 6,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Ultra": 6
+      },
+      "mechanics": {
+        "gx": 6,
+        "stage_2": 2,
+        "stage_1": 3,
+        "basic": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "amazing_rare",
+      "cards": 9,
+      "sets": 2,
+      "rawLabels": {
+        "Amazing Rare": 9
+      },
+      "mechanics": {
+        "basic": 9
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r1",
+      "treatmentKey": "rare_secret",
+      "cards": 9,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Secret": 9
+      },
+      "mechanics": {
+        "basic": 4,
+        "v": 3,
+        "stage_1": 2,
+        "stage_2": 3
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r2",
+      "treatmentKey": "rare_secret",
+      "cards": 10,
+      "sets": 4,
+      "rawLabels": {
+        "Rare Secret": 10
+      },
+      "mechanics": {
+        "stage_1": 5,
+        "basic": 3,
+        "stage_2": 1,
+        "v": 1,
+        "vmax": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "classic_collection",
+      "cards": 22,
+      "sets": 1,
+      "rawLabels": {
+        "Classic Collection": 22
+      },
+      "mechanics": {
+        "stage_2": 4,
+        "basic": 11,
+        "stage_1": 3,
+        "ex": 5,
+        "level_up": 2,
+        "mega": 1,
+        "gx": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_holo_vmax",
+      "cards": 20,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Holo VMAX": 20
+      },
+      "mechanics": {
+        "vmax": 20
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_holo_vstar",
+      "cards": 4,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Holo VSTAR": 4
+      },
+      "mechanics": {
+        "vstar": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_rainbow",
+      "cards": 12,
+      "sets": 2,
+      "rawLabels": {
+        "Rare Rainbow": 12
+      },
+      "mechanics": {
+        "vmax": 8,
+        "vstar": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "rare_secret",
+      "cards": 9,
+      "sets": 4,
+      "rawLabels": {
+        "Rare Secret": 9
+      },
+      "mechanics": {
+        "stage_1": 1,
+        "basic": 3,
+        "v": 3,
+        "vstar": 1,
+        "vmax": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r3",
+      "treatmentKey": "trainer_gallery_rare_holo",
+      "cards": 24,
+      "sets": 2,
+      "rawLabels": {
+        "Trainer Gallery Rare Holo": 24
+      },
+      "mechanics": {
+        "stage_2": 4,
+        "stage_1": 14,
+        "basic": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "radiant_rare",
+      "cards": 9,
+      "sets": 3,
+      "rawLabels": {
+        "Radiant Rare": 9
+      },
+      "mechanics": {
+        "basic": 9,
+        "radiant": 9
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo_vmax",
+      "cards": 4,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo VMAX": 4
+      },
+      "mechanics": {
+        "vmax": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_holo_vstar",
+      "cards": 15,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo VSTAR": 15
+      },
+      "mechanics": {
+        "vstar": 15
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_rainbow",
+      "cards": 19,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Rainbow": 19
+      },
+      "mechanics": {
+        "vstar": 15,
+        "vmax": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r4",
+      "treatmentKey": "rare_secret",
+      "cards": 6,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Secret": 6
+      },
+      "mechanics": {
+        "vstar": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "radiant_rare",
+      "cards": 6,
+      "sets": 2,
+      "rawLabels": {
+        "Radiant Rare": 6
+      },
+      "mechanics": {
+        "basic": 6,
+        "radiant": 6
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_holo_vmax",
+      "cards": 17,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Holo VMAX": 17
+      },
+      "mechanics": {
+        "vmax": 17
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_holo_vstar",
+      "cards": 24,
+      "sets": 3,
+      "rawLabels": {
+        "Rare Holo VSTAR": 24
+      },
+      "mechanics": {
+        "vstar": 24
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_rainbow",
+      "cards": 7,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Rainbow": 7
+      },
+      "mechanics": {
+        "vstar": 6,
+        "vmax": 1
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_secret",
+      "cards": 11,
+      "sets": 5,
+      "rawLabels": {
+        "Rare Secret": 11
+      },
+      "mechanics": {
+        "vstar": 6,
+        "basic": 1,
+        "vmax": 4
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    },
+    {
+      "universeId": "sword_and_shield_r5",
+      "treatmentKey": "rare_ultra",
+      "cards": 18,
+      "sets": 1,
+      "rawLabels": {
+        "Rare Ultra": 18
+      },
+      "mechanics": {
+        "basic": 18,
+        "v": 18
+      },
+      "rootCause": "INSUFFICIENT_SAMPLE",
+      "recoverability": "NEW_RESEARCH_REQUIRED"
+    }
+  ],
+  "adaptiveSampleResult": "FIXED_SAMPLE_GATE_RETAINED",
+  "cardsRecoveredAdaptive": 0,
+  "ECard": {
+    "status": "DATA_UNAVAILABLE_FOR_TEMPORAL_VALIDATION",
+    "availableHistoryCoverage": 0.6265060240963856,
+    "missingCardDates": 454,
+    "rootCauses": {
+      "HISTORICAL_OBSERVATIONS_NEVER_RETAINED": 273,
+      "PRICE_CONDITION_MISMATCH": 26,
+      "INCOMPLETE_SOURCE_INGESTION": 155
+    },
+    "newAuthoritativeInternalData": false
+  },
+  "BaseWOTC": {
+    "cards": 441,
+    "editionFinishRarityCells": {
+      "__UNMAPPED__|holo|rare_holo": 35,
+      "__UNMAPPED__|non_holo|rare": 36,
+      "__UNMAPPED__|non_holo|uncommon": 74,
+      "__UNMAPPED__|non_holo|common": 74,
+      "__UNMAPPED__|non_holo|__UNMAPPED__": 12,
+      "unlimited|holo|rare_holo": 26,
+      "1st_edition|holo|rare_holo": 23,
+      "1st_edition|non_holo|rare": 28,
+      "unlimited|non_holo|rare": 20,
+      "unlimited|non_holo|uncommon": 33,
+      "1st_edition|non_holo|uncommon": 23,
+      "1st_edition|non_holo|common": 26,
+      "unlimited|non_holo|common": 30,
+      "unlimited|holo|rare_secret": 1
+    },
+    "editionMappedCoverage": 0.47619047619047616,
+    "result": "BASE_WOTC_REMAINS_UNSTABLE",
+    "reason": "Edition-aware cells remain incompletely mapped and authoritative 180/365-day evidence is absent; rarity-only instability is not overridden."
+  },
+  "baseCardsRecovered": 0,
+  "OtherReassignment": [
+    {
+      "setName": "Legendary Collection",
+      "cards": 110,
+      "structuralReassignment": "BASE_WOTC_SPECIAL_FINITE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2011",
+      "cards": 12,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2012",
+      "cards": 12,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2014",
+      "cards": 12,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2015",
+      "cards": 12,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2016",
+      "cards": 6,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2017",
+      "cards": 12,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2018",
+      "cards": 12,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2019",
+      "cards": 12,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2021",
+      "cards": 25,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "McDonald's Collection 2022",
+      "cards": 15,
+      "structuralReassignment": "PROMO_SPECIAL_RELEASE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "Pok\u00e9mon Rumble",
+      "cards": 13,
+      "structuralReassignment": "DP_SPECIAL_FINITE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    },
+    {
+      "setName": "Southern Islands",
+      "cards": 18,
+      "structuralReassignment": "NEO_SPECIAL_FINITE",
+      "recovered": 0,
+      "reason": "No validated target-universe treatment effect and temporal contract for reassigned product."
+    }
+  ],
+  "otherCardsRecovered": 0,
+  "Gym": {
+    "cards": 265,
+    "result": "FINITE_TREATMENT_FRAMEWORK_NOT_SUPPORTED",
+    "recovered": 0
+  },
+  "NP": {
+    "cards": 74,
+    "result": "PROMO_SPECIAL_RELEASE_DEFERRED",
+    "recovered": 0
+  },
+  "POP": {
+    "cards": 153,
+    "result": "COMMON_INDIVIDUAL_PUBLICATION_VALID; RARE_AND_UNCOMMON_UNCHANGED_INSTABILITY",
+    "recovered": 54
+  },
+  "promo": {
+    "cards": 765,
+    "status": "PROMO_SPECIAL_RELEASE",
+    "inheritedExistingTreatment": 0,
+    "recovered": 0
+  },
+  "canonicalMappingAssignment": {
+    "result": "ESTIMATION_AND_ASSIGNMENT_ELIGIBILITY_SEPARATED",
+    "cardsRecovered": 60,
+    "rule": "Canonical card, era/regime, and normalized treatment suffice to assign an independently validated treatment score; species remains required for estimation."
+  },
+  "newDirectEmpiricalCards": 821,
+  "newStrongPartialEmpiricalCards": 0,
+  "neutralTreatmentCards": 371,
+  "coverage": {
+    "direct": {
+      "cards": 10996,
+      "coverage": 0.554038393711896
+    },
+    "strongEvidence": {
+      "cards": 10996,
+      "coverage": 0.554038393711896
+    },
+    "usableScore": {
+      "cards": 11367,
+      "coverage": 0.572731395173074
+    },
+    "unresolved": 8480,
+    "remainingGapTo70Strong": 2897
+  },
+  "unresolvedByEra": {
+    "Base/WOTC": 297,
+    "Black and White": 275,
+    "Diamond and Pearl": 110,
+    "E-Card": 502,
+    "EX": 32,
+    "Gym": 253,
+    "HeartGold and SoulSilver": 106,
+    "Mega Evolution": 893,
+    "NP": 74,
+    "Neo": 216,
+    "Other": 269,
+    "POP": 94,
+    "Platinum": 161,
+    "Scarlet and Violet": 226,
+    "Sun and Moon": 1269,
+    "Sword and Shield": 2717,
+    "XY": 986
+  },
+  "unresolvedByTreatment": {
+    "__UNMAPPED__": 202,
+    "ace_spec_rare": 30,
+    "amazing_rare": 9,
+    "black_white_rare": 2,
+    "classic_collection": 25,
+    "common": 2239,
+    "holo_rare": 16,
+    "hyper_rare": 62,
+    "illustration_rare": 101,
+    "legend": 18,
+    "mega_attack_rare": 7,
+    "mega_hyper_rare": 8,
+    "promo": 764,
+    "radiant_rare": 15,
+    "rare": 908,
+    "rare_ace": 13,
+    "rare_holo": 630,
+    "rare_holo_ex": 56,
+    "rare_holo_gx": 56,
+    "rare_holo_lv_x": 30,
+    "rare_holo_star": 14,
+    "rare_holo_v": 204,
+    "rare_holo_vmax": 77,
+    "rare_holo_vstar": 43,
+    "rare_prism_star": 25,
+    "rare_rainbow": 142,
+    "rare_secret": 213,
+    "rare_shining": 15,
+    "rare_shiny": 149,
+    "rare_shiny_gx": 35,
+    "rare_ultra": 317,
+    "secret_rare": 2,
+    "shiny_rare": 120,
+    "shiny_ultra_rare": 12,
+    "special_illustration_rare": 55,
+    "trainer_gallery_rare_holo": 80,
+    "ultra_rare": 111,
+    "uncommon": 1675
+  },
+  "unresolvedByBlocker": {
+    "CANONICAL_MAPPING_UNSAFE": 145,
+    "ECARD_HISTORY_MISSING": 415,
+    "INSUFFICIENT_MULTI_SET_SUPPORT": 186,
+    "POKEMON_MODEL_INSTABILITY": 1716,
+    "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED": 3522,
+    "PROMO_STRUCTURE_UNRESOLVED": 737,
+    "TAXONOMY_UNMAPPED": 194,
+    "TRAINER_IDENTITY_UNRESOLVED": 392,
+    "TRAINER_TREATMENT_UNSUPPORTED": 834,
+    "VINTAGE_HISTORY_OR_STABILITY_MISSING": 339
+  },
+  "bestFitFuturePopulationFile": "docs\\research\\treatment_market_prestige_v3_round16\\future_best_fit_population.json",
+  "decisions": {
+    "trainerFallback": "TRAINER_NORMAL_TREATMENT_FALLBACK_VALIDATED",
+    "energy": "ENERGY_NEUTRAL_TREATMENT_VALIDATED",
+    "finite": "FINITE_TREATMENT_FRAMEWORK_NOT_SUPPORTED",
+    "universePublication": "INDIVIDUAL_TREATMENT_PUBLICATION_VALIDATED",
+    "sampleGate": "FIXED_SAMPLE_GATE_RETAINED",
+    "coverageExhaustion": "EMPIRICAL_COVERAGE_EXHAUSTION_MATERIAL",
+    "seventyPercent": "70_PERCENT_EMPIRICAL_PATH_REMAINS_UNPROVEN",
+    "bestFitReadiness": "BEST_FIT_RESEARCH_READY"
+  },
+  "productionPaused": true,
+  "rowsPersisted": 0,
+  "productionBehavior": "Research-only; no production scores, best-fit assignments, migrations, Card Detail, Collector Appeal, RIP, rankings, V1, or V2 changes.",
+  "filesChanged": [
+    "D:\\EVRCalculator\\backend\\scripts\\build_treatment_market_prestige_v3_round16.py",
+    "docs\\research\\treatment_market_prestige_v3_round16_study.json",
+    "docs\\research\\TREATMENT_MARKET_PRESTIGE_V3_ROUND16_RESULTS.md",
+    "docs\\research\\treatment_market_prestige_v3_round16\\card_coverage_ledger.json",
+    "docs\\research\\treatment_market_prestige_v3_round16\\future_best_fit_population.json",
+    "docs\\research\\treatment_market_prestige_v3_round16\\modern_model_audit.json",
+    "docs\\research\\treatment_market_prestige_v3_round16\\manifest.json"
+  ],
+  "testsExecuted": [
+    "Round 16 focused: 3 passed in 15.60s",
+    "Combined V3/Supporter/Trainer regression: 71 passed, 1785 deselected in 68.52s",
+    "One initial combined-run Supporter artifact-write failure passed immediately in isolation and on the clean combined rerun"
+  ],
+  "methodologicalLimitations": [
+    "No finite treatment passed a dedicated retained partial-evidence contract",
+    "unresearched treatments absent from hierarchical effects remain unresolved",
+    "E-Card checkpoint observations cannot be reconstructed",
+    "Base/WOTC edition ontology and long history remain incomplete",
+    "Other/promos require dedicated product taxonomy",
+    "usable neutral coverage is not empirical coverage"
+  ],
+  "recommendedRound17Scope": "Use only the frozen future_best_fit_population.json. Design deterministic best-fit inference without scarcity, rarity-ladder assumptions, or changes to direct/partial/neutral provenance; validate error and abstention behavior by era/regime/treatment before any product decision."
+}

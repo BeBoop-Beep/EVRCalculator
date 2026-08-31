@@ -266,6 +266,14 @@ def build(client: Any, *, out_dir: Path, stage2_path: Path,
             "Packet columns are a closed allow-list enforced by "
             "labeling.assert_packet_is_blind. No model output, score, rank, "
             "probability or algorithm selection is present.",
+        "uniquenessGuarantee":
+            "Every (set_id, card_variant_id) appears exactly once, enforced by "
+            "labeling.assert_packet_rows_are_unique on both writers. A reverse "
+            "printing is emitted only when its variant id genuinely differs "
+            "from the base variant id; the input service echoes the base id for "
+            "cards with no separate reverse printing.",
+        "distinctPrintings": len({(row["set_id"], row["card_variant_id"])
+                                  for row in all_rows}),
         "sets": per_set,
         "skipped": skipped,
         "files": {
