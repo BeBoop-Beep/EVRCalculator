@@ -14,6 +14,8 @@ from backend.db.services.market_explorer_query_planner import (
     PublicationWatermarkCache,
     merge_incremental_result,
     publication_scope_key,
+    resolve_cards_canonical_through,
+    resolve_canonical_through,
 )
 from backend.domain.pokemon.market_explorer_query import (
     MODE_ALL,
@@ -106,6 +108,73 @@ class GenerationClient:
         return type("Response", (), {"data": self.data})()
 
 
+class WatermarkQuery:
+    def __init__(self, rows, filters=(), order=None, limit_count=None):
+        self.rows = rows
+        self.filters = filters
+        self.ordering = order
+        self.limit_count = limit_count
+
+    def select(self, _columns):
+        return self
+
+    def eq(self, column, value):
+        return WatermarkQuery(self.rows, self.filters + ((column, "eq", value),),
+                              self.ordering, self.limit_count)
+
+    def in_(self, column, values):
+        return WatermarkQuery(self.rows, self.filters + ((column, "in", set(values)),),
+                              self.ordering, self.limit_count)
+
+    def lte(self, column, value):
+        return WatermarkQuery(self.rows, self.filters + ((column, "lte", value),),
+                              self.ordering, self.limit_count)
+
+    def order(self, column, desc=False, **_kwargs):
+        return WatermarkQuery(self.rows, self.filters, (column, desc), self.limit_count)
+
+    def limit(self, count):
+        return WatermarkQuery(self.rows, self.filters, self.ordering, count)
+
+    def execute(self):
+        rows = list(self.rows)
+        for column, operator, value in self.filters:
+            if operator == "eq":
+                rows = [row for row in rows if row.get(column) == value]
+            elif operator == "lte":
+                rows = [row for row in rows if str(row.get(column) or "") <= str(value)]
+            else:
+                rows = [row for row in rows if row.get(column) in value]
+        if self.ordering:
+            column, desc = self.ordering
+            rows.sort(key=lambda row: str(row.get(column) or ""), reverse=desc)
+        if self.limit_count is not None:
+            rows = rows[:self.limit_count]
+        return type("Response", (), {"data": rows})()
+
+
+class WatermarkClient:
+    def __init__(self, *, coverage_latest="2026-08-29", quality=None, has_history=True):
+        self.coverage_latest = coverage_latest
+        self.quality = quality or [
+            {"market_date": "2026-08-27", "tcg": "pokemon", "status": "READY"},
+            {"market_date": "2026-08-28", "tcg": "pokemon", "status": "READY"},
+        ]
+        self.has_history = has_history
+
+    def table(self, name):
+        if name == "pokemon_set_value_daily_history_coverage":
+            rows = ([{"set_id": "set-a", "has_history": True,
+                      "latest_snapshot_date": self.coverage_latest}]
+                    if self.has_history else [])
+            return WatermarkQuery(rows)
+        if name == "pokemon_market_date_quality":
+            return WatermarkQuery(self.quality)
+        if name == "sets":
+            return WatermarkQuery([])
+        raise AssertionError(name)
+
+
 def test_prepared_equivalence_precedes_both_caches_and_novel_engine():
     spec = normalize_query_spec(mode=MODE_ALL)
     registry = PreparedEquivalenceRegistry()
@@ -130,6 +199,83 @@ def test_persistent_repair_generation_read_failure_and_missing_row_are_unknown()
         GenerationClient(error=RuntimeError("transient"))
     ).repair_generation("cards") is None
     assert PersistentMarketExplorerCache(GenerationClient([])).repair_generation("cards") is None
+
+
+def test_cards_watermark_uses_quality_when_set_value_coverage_is_ahead():
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    assert resolve_canonical_through(
+        WatermarkClient(coverage_latest="2026-08-29"), spec
+    ) == "2026-08-28"
+
+
+def test_cards_historical_horizon_ignores_later_in_progress_dates():
+    quality = [
+        {"market_date": date, "tcg": "pokemon", "status": "READY"}
+        for date in ("2026-08-28", "2026-08-29", "2026-08-30")
+    ]
+    assert resolve_cards_canonical_through(
+        WatermarkClient(quality=quality), {"set-a"}, through_date="2026-08-28"
+    ) == "2026-08-28"
+
+
+def test_cards_watermark_skips_degraded_dates_but_accepts_later_ready_date():
+    quality = [
+        {"market_date": "2026-08-27", "tcg": "pokemon", "status": "READY"},
+        {"market_date": "2026-08-28", "tcg": "pokemon", "status": "DEGRADED"},
+        {"market_date": "2026-08-29", "tcg": "pokemon", "status": "READY"},
+    ]
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    assert resolve_canonical_through(WatermarkClient(quality=quality), spec) == "2026-08-29"
+
+
+def test_open_interval_ahead_does_not_advance_beyond_quality_authority():
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    client = WatermarkClient(coverage_latest="2026-08-30")
+    assert resolve_canonical_through(client, spec) == "2026-08-28"
+
+
+def test_cards_watermark_no_history_scope_does_not_invent_a_date():
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    with pytest.raises(RuntimeError, match="no scoped history"):
+        resolve_canonical_through(WatermarkClient(has_history=False), spec)
+
+
+def test_set_value_ahead_keeps_ready_d2_l2_as_true_hit():
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    client = WatermarkClient(coverage_latest="2026-08-29")
+    persistent = FakePersistent({"status": "ready", "computed_through": "2026-08-28",
+                                 "series_payload": payload("2026-08-28")})
+    result = planner().execute(
+        spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+        canonical_through=lambda: resolve_canonical_through(client, spec),
+        novel_builder=lambda *_: pytest.fail("D2 L2 is current"),
+    )
+    assert result.execution_source == "persistent_cache"
+
+
+def test_quality_forward_publication_moves_generation_and_appends_d1_d2():
+    now = [0.0]
+    quality = [{"market_date": "2026-08-27", "tcg": "pokemon", "status": "READY"}]
+    client = WatermarkClient(quality=quality)
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    persistent = FakePersistent({"status": "ready", "computed_through": "2026-08-27",
+                                 "series_payload": payload("2026-08-27", start="2026-08-26")})
+    instance = MarketExplorerQueryPlanner(
+        l1=MarketExplorerL1Cache(clock=lambda: now[0]),
+        watermarks=PublicationWatermarkCache(ttl_seconds=2, clock=lambda: now[0]),
+    )
+    first = instance.execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: resolve_canonical_through(client, spec),
+        novel_builder=lambda *_: pytest.fail("D1 L2 is current"))
+    quality.append({"market_date": "2026-08-28", "tcg": "pokemon", "status": "READY"})
+    now[0] = 2.001
+    calls = []
+    second = instance.execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: resolve_canonical_through(client, spec),
+        novel_builder=lambda start, end: calls.append((start, end)) or payload("2026-08-28", start="2026-08-27"))
+    assert first.execution_source == "persistent_cache"
+    assert second.execution_source == "cache_incremental"
+    assert calls == [("2026-08-27", "2026-08-28")]
 
 
 def test_near_equivalent_does_not_use_prepared_and_cards_sealed_never_collide():

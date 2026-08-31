@@ -412,6 +412,34 @@ GLOBAL_MARKET_EXPLORER_PLANNER = MarketExplorerQueryPlanner()
 GLOBAL_PREPARED_EQUIVALENCE_REGISTRY = PreparedEquivalenceRegistry()
 
 
+def resolve_cards_canonical_through(
+    client: Any, set_ids: set[str], *, through_date: str | None = None,
+) -> str:
+    """Latest Cards Market Explorer date, guarded by scoped history existence.
+
+    Set Value coverage answers whether the requested scope has any history; it
+    does not own Market Explorer publication freshness. The quality authority
+    is the same date gate consumed by the cohort engine, preventing an
+    in-progress Set Value publication from causing repeated incremental work.
+    """
+    coverage = (client.table("pokemon_set_value_daily_history_coverage")
+                .select("set_id").eq("has_history", True))
+    if set_ids:
+        coverage = coverage.in_("set_id", sorted(set_ids))
+    if not list(coverage.limit(1).execute().data or []):
+        raise RuntimeError("cards market publication has no scoped history")
+
+    quality = (client.table("pokemon_market_date_quality").select("market_date")
+               .eq("tcg", "pokemon").in_("status", ["READY", "LEGACY_VERIFIED"]))
+    if through_date:
+        quality = quality.lte("market_date", str(through_date)[:10])
+    rows = list(quality.order("market_date", desc=True).limit(1).execute().data or [])
+    through = str(rows[0].get("market_date") or "")[:10] if rows else ""
+    if not through:
+        raise RuntimeError("cards market publication has no usable date")
+    return through
+
+
 def resolve_canonical_through(client: Any, spec: Mapping[str, Any]) -> str:
     """Narrow metadata-only publication watermark (one call for common scopes)."""
     requested_sets = {str(value) for value in (spec.get("setIds") or ())}
@@ -423,13 +451,7 @@ def resolve_canonical_through(client: Any, spec: Mapping[str, Any]) -> str:
         requested_sets = requested_sets & era_sets if requested_sets else era_sets
 
     if spec["asset"] == "cards":
-        query = (client.table("pokemon_set_value_daily_history_coverage")
-                 .select("latest_snapshot_date").eq("has_history", True))
-        if requested_sets:
-            query = query.in_("set_id", sorted(requested_sets))
-        rows = list(query.order("latest_snapshot_date", desc=True, nullsfirst=False)
-                    .limit(1).execute().data or [])
-        through = str(rows[0].get("latest_snapshot_date") or "")[:10] if rows else ""
+        return resolve_cards_canonical_through(client, requested_sets)
     else:
         query = client.table("pokemon_set_sealed_market_snapshot_latest").select("market_date")
         if requested_sets:

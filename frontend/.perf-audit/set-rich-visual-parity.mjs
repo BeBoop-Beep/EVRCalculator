@@ -8,6 +8,7 @@ const ROOT = join(process.cwd(), ".perf-audit", "baselines", "set-rich");
 const SNAPSHOT_FILE = join(ROOT, "geometry.json");
 const MODE = process.argv.includes("--capture") ? "capture" : process.argv.includes("--verify") ? "verify" : null;
 const TOLERANCE = Number(process.env.GEOMETRY_TOLERANCE || 3);
+const DEBUG = process.env.SET_PARITY_DEBUG === "1";
 
 if (!MODE) throw new Error("Use --capture or --verify. Verification never overwrites the baseline.");
 if (MODE === "verify" && !existsSync(SNAPSHOT_FILE)) throw new Error(`Missing baseline: ${SNAPSHOT_FILE}`);
@@ -143,8 +144,24 @@ try {
     const context = await browser.newContext({ viewport: testCase.viewport });
     const page = await context.newPage();
     const pageErrors = [];
-    page.on("pageerror", (error) => pageErrors.push(error.message));
+    const startedAt = Date.now();
     const url = `${BASE}/TCGs/Pokemon/Sets/${testCase.set}${testCase.query}`;
+    page.on("pageerror", (error) => {
+      const detail = error.stack || error.message;
+      pageErrors.push(detail);
+      if (DEBUG) console.error(`[set-parity:pageerror +${Date.now() - startedAt}ms] ${key} ${page.url()}\n${detail}`);
+    });
+    if (DEBUG) {
+      page.on("console", (message) => {
+        if (message.type() === "error" || message.type() === "warning") {
+          console.error(`[set-parity:console:${message.type()} +${Date.now() - startedAt}ms] ${key} ${message.text()}`);
+        }
+      });
+      page.on("requestfailed", (request) => {
+        console.error(`[set-parity:requestfailed +${Date.now() - startedAt}ms] ${key} ${request.method()} ${request.url()} ${request.failure()?.errorText || "unknown"}`);
+      });
+      console.error(`[set-parity:start] ${key} ${testCase.viewport.width}x${testCase.viewport.height} ${url}`);
+    }
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90000 });
     await page.waitForSelector("[data-set-context-shell]", { timeout: 90000 });
     const selectors = { ...commonSelectors, ...tabSelectors[testCase.tab] };

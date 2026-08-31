@@ -1,0 +1,4902 @@
+{
+  "Base Set": {
+    "cards": 95,
+    "treatments": 4,
+    "matchedIdentityCount": 0,
+    "graph": {
+      "nodes": [
+        "common",
+        "rare",
+        "rare_holo",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "rare_holo": 16,
+        "rare": 16,
+        "uncommon": 31,
+        "common": 32
+      },
+      "edges": [],
+      "matchedIdentities": 0,
+      "treatmentContrasts": 0,
+      "components": [
+        [
+          "common"
+        ],
+        [
+          "rare"
+        ],
+        [
+          "rare_holo"
+        ],
+        [
+          "uncommon"
+        ]
+      ],
+      "isolatedTreatments": [
+        "common",
+        "rare",
+        "rare_holo",
+        "uncommon"
+      ],
+      "largestComponentShare": 0.25
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "common": 0.0,
+          "rare": 2.1225584976315943,
+          "rare_holo": 3.4407993406940105,
+          "uncommon": 0.5771154679833366
+        },
+        "standardErrors": {
+          "common": 0.0,
+          "rare": 0.2099983548929506,
+          "rare_holo": 0.22645649811623206,
+          "uncommon": 0.16846863093981904
+        },
+        "rank": [
+          "common",
+          "uncommon",
+          "rare",
+          "rare_holo"
+        ],
+        "residualSD": 0.5607305999145415,
+        "demandCoefficient": 0.037407794321153716,
+        "cards": 95
+      },
+      "matched": {},
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "common": 0.0,
+            "rare": 2.0816966020090053,
+            "rare_holo": 3.3988044116103944,
+            "uncommon": 0.5409484187845123
+          },
+          "standardErrors": {
+            "common": 0.0,
+            "rare": 0.18654954514778307,
+            "rare_holo": 0.20116994126395898,
+            "uncommon": 0.14965710797836335
+          },
+          "rank": [
+            "common",
+            "uncommon",
+            "rare",
+            "rare_holo"
+          ],
+          "residualSD": 0.4981183705835435,
+          "demandCoefficient": 0.028899347613007796,
+          "cards": 95
+        },
+        "matchedContrasts": {}
+      }
+    },
+    "bootstrap": {
+      "common": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "rare": {
+        "median": 2.0905139575720115,
+        "interval80": [
+          1.8435763049652885,
+          2.283827674296109
+        ],
+        "signStability": 1.0,
+        "sd": 0.165761763134626
+      },
+      "rare_holo": {
+        "median": 3.3906873864367624,
+        "interval80": [
+          3.1040382279882035,
+          3.635926919215973
+        ],
+        "signStability": 1.0,
+        "sd": 0.2205131272270589
+      },
+      "uncommon": {
+        "median": 0.5368805970823023,
+        "interval80": [
+          0.36684213310197744,
+          0.7133997771011773
+        ],
+        "signStability": 1.0,
+        "sd": 0.14415898724080337
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "ef4363f7-9928-4914-a8b2-cc51a37c5c46",
+      "cardName": "Charizard",
+      "maximumEffectDrift": 0.019644891468960868,
+      "effects": {
+        "common": 0.0,
+        "rare": 2.131936352321634,
+        "rare_holo": 3.4604442321629714,
+        "uncommon": 0.5819411669650283
+      }
+    },
+    "leaveCardOutStability": 0.019644891468960868,
+    "subjectDemandSensitivity": 0.2590284379375176,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "common": 0.0,
+      "rare": 2.1225584976315943,
+      "rare_holo": 3.4407993406940105,
+      "uncommon": 0.5771154679833366
+    },
+    "uncertainty": {
+      "common": [
+        0.0,
+        0.0
+      ],
+      "rare": [
+        1.7109617220414113,
+        2.5341552732217774
+      ],
+      "rare_holo": [
+        2.996944604386196,
+        3.884654077001825
+      ],
+      "uncommon": [
+        0.24691695134129127,
+        0.9073139846253819
+      ]
+    },
+    "supportedTreatments": [],
+    "passesNonTemporalGates": false,
+    "normalization": {
+      "common": 5.0,
+      "rare": 5.994116737560023,
+      "rare_holo": 6.611525062318024,
+      "uncommon": 5.270296506252804
+    },
+    "temporal": {
+      "dates": 132,
+      "span": [
+        "2026-04-11",
+        "2026-08-28"
+      ],
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  },
+  "Evolving Skies": {
+    "cards": 233,
+    "treatments": 9,
+    "matchedIdentityCount": 31,
+    "graph": {
+      "nodes": [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_holo_v",
+        "rare_holo_vmax",
+        "rare_rainbow",
+        "rare_secret",
+        "rare_ultra",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "rare_ultra": 38,
+        "rare_rainbow": 22,
+        "rare": 19,
+        "common": 42,
+        "uncommon": 50,
+        "rare_holo": 20,
+        "rare_holo_v": 18,
+        "rare_holo_vmax": 15,
+        "rare_secret": 9
+      },
+      "edges": [
+        {
+          "source": "rare_rainbow",
+          "target": "rare_ultra",
+          "directContrasts": 16
+        },
+        {
+          "source": "rare_rainbow",
+          "target": "uncommon",
+          "directContrasts": 5
+        },
+        {
+          "source": "rare_ultra",
+          "target": "uncommon",
+          "directContrasts": 5
+        },
+        {
+          "source": "rare_holo_v",
+          "target": "rare_holo_vmax",
+          "directContrasts": 12
+        },
+        {
+          "source": "rare_holo_v",
+          "target": "rare_rainbow",
+          "directContrasts": 11
+        },
+        {
+          "source": "rare_holo_v",
+          "target": "rare_ultra",
+          "directContrasts": 18
+        },
+        {
+          "source": "rare_holo_vmax",
+          "target": "rare_rainbow",
+          "directContrasts": 11
+        },
+        {
+          "source": "rare_holo_vmax",
+          "target": "rare_ultra",
+          "directContrasts": 15
+        },
+        {
+          "source": "rare_secret",
+          "target": "uncommon",
+          "directContrasts": 5
+        }
+      ],
+      "matchedIdentities": 31,
+      "treatmentContrasts": 98,
+      "components": [
+        [
+          "common"
+        ],
+        [
+          "rare"
+        ],
+        [
+          "rare_holo"
+        ],
+        [
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ]
+      ],
+      "isolatedTreatments": [
+        "common",
+        "rare",
+        "rare_holo"
+      ],
+      "largestComponentShare": 0.6666666666666666
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "common": 0.0,
+          "rare": 0.6340404607956898,
+          "rare_holo": 1.0352583945458427,
+          "rare_holo_v": 1.7346836139787878,
+          "rare_holo_vmax": 2.137534783426241,
+          "rare_rainbow": 4.273691032013322,
+          "rare_secret": 4.238928022236556,
+          "rare_ultra": 4.26438215374856,
+          "uncommon": 0.5621016538811221
+        },
+        "standardErrors": {
+          "common": 0.0,
+          "rare": 0.2838546612013474,
+          "rare_holo": 0.2431512258289614,
+          "rare_holo_v": 0.6440626970965037,
+          "rare_holo_vmax": 0.6620692844125445,
+          "rare_rainbow": 0.5997996711265174,
+          "rare_secret": 0.39745415428370795,
+          "rare_ultra": 0.5997996711265339,
+          "uncommon": 0.3316053550085035
+        },
+        "rank": [
+          "common",
+          "uncommon",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_secret",
+          "rare_ultra",
+          "rare_rainbow"
+        ],
+        "residualSD": 0.7589741281113369,
+        "demandCoefficient": 0.05664321995964231,
+        "cards": 233
+      },
+      "matched": {
+        "rare_ultra->uncommon": {
+          "n": 5,
+          "medianLogContrast": -3.332204510175204,
+          "meanLogContrast": -3.702280499867428
+        },
+        "rare_rainbow->rare_ultra": {
+          "n": 34,
+          "medianLogContrast": -0.5859606920085465,
+          "meanLogContrast": -0.5953113357897667
+        },
+        "rare_rainbow->uncommon": {
+          "n": 5,
+          "medianLogContrast": -3.686604140276801,
+          "meanLogContrast": -3.711589378132195
+        },
+        "rare_holo_v->rare_holo_vmax": {
+          "n": 12,
+          "medianLogContrast": 0.9815378668218795,
+          "meanLogContrast": 1.075414122573023
+        },
+        "rare_holo_v->rare_ultra": {
+          "n": 28,
+          "medianLogContrast": 1.9798777748797485,
+          "meanLogContrast": 2.5077185941094244
+        },
+        "rare_holo_v->rare_rainbow": {
+          "n": 17,
+          "medianLogContrast": 2.579675557589936,
+          "meanLogContrast": 3.250824522901619
+        },
+        "rare_holo_vmax->rare_ultra": {
+          "n": 22,
+          "medianLogContrast": 0.795873202586459,
+          "meanLogContrast": 1.3570714335589966
+        },
+        "rare_holo_vmax->rare_rainbow": {
+          "n": 17,
+          "medianLogContrast": 1.468738030330965,
+          "meanLogContrast": 2.183680180380433
+        },
+        "rare_secret->uncommon": {
+          "n": 5,
+          "medianLogContrast": -3.1664122553324594,
+          "meanLogContrast": -3.4047753400636487
+        }
+      },
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "common": 0.0,
+            "rare": 0.6134768374261607,
+            "rare_holo": 1.0254920347041285,
+            "rare_holo_v": 1.8186383293378827,
+            "rare_holo_vmax": 2.562104616511461,
+            "rare_rainbow": 4.22688928580571,
+            "rare_secret": 4.204071005953062,
+            "rare_ultra": 4.217580407540953,
+            "uncommon": 0.5152999076735156
+          },
+          "standardErrors": {
+            "common": 0.0,
+            "rare": 0.23278043476864668,
+            "rare_holo": 0.1994008054102243,
+            "rare_holo_v": 0.5281759123273457,
+            "rare_holo_vmax": 0.5429425580691762,
+            "rare_rainbow": 0.4918771727334216,
+            "rare_secret": 0.3259398681113754,
+            "rare_ultra": 0.49187717273343506,
+            "uncommon": 0.2719393029651065
+          },
+          "rank": [
+            "common",
+            "uncommon",
+            "rare",
+            "rare_holo",
+            "rare_holo_v",
+            "rare_holo_vmax",
+            "rare_secret",
+            "rare_ultra",
+            "rare_rainbow"
+          ],
+          "residualSD": 0.622411225421416,
+          "demandCoefficient": 0.0503926398340916,
+          "cards": 233
+        },
+        "matchedContrasts": {
+          "rare_ultra->uncommon": {
+            "n": 5,
+            "medianLogContrast": -3.332204510175204,
+            "meanLogContrast": -3.702280499867428
+          },
+          "rare_rainbow->rare_ultra": {
+            "n": 34,
+            "medianLogContrast": -0.5859606920085465,
+            "meanLogContrast": -0.5953113357897667
+          },
+          "rare_rainbow->uncommon": {
+            "n": 5,
+            "medianLogContrast": -3.686604140276801,
+            "meanLogContrast": -3.711589378132195
+          },
+          "rare_holo_v->rare_holo_vmax": {
+            "n": 12,
+            "medianLogContrast": 0.9815378668218795,
+            "meanLogContrast": 1.075414122573023
+          },
+          "rare_holo_v->rare_ultra": {
+            "n": 28,
+            "medianLogContrast": 1.9798777748797485,
+            "meanLogContrast": 2.5077185941094244
+          },
+          "rare_holo_v->rare_rainbow": {
+            "n": 17,
+            "medianLogContrast": 2.579675557589936,
+            "meanLogContrast": 3.250824522901619
+          },
+          "rare_holo_vmax->rare_ultra": {
+            "n": 22,
+            "medianLogContrast": 0.795873202586459,
+            "meanLogContrast": 1.3570714335589966
+          },
+          "rare_holo_vmax->rare_rainbow": {
+            "n": 17,
+            "medianLogContrast": 1.468738030330965,
+            "meanLogContrast": 2.183680180380433
+          },
+          "rare_secret->uncommon": {
+            "n": 5,
+            "medianLogContrast": -3.1664122553324594,
+            "meanLogContrast": -3.4047753400636487
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "common": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "rare": {
+        "median": 0.6088978950109845,
+        "interval80": [
+          0.3975516470504745,
+          0.8399819594611327
+        ],
+        "signStability": 0.9966666666666667,
+        "sd": 0.17679243314319337
+      },
+      "rare_holo": {
+        "median": 1.0188359004923702,
+        "interval80": [
+          0.818060006399802,
+          1.2059306979152478
+        ],
+        "signStability": 1.0,
+        "sd": 0.15764660675046385
+      },
+      "rare_holo_v": {
+        "median": 1.7841486048516755,
+        "interval80": [
+          1.0582078049714305,
+          2.456898845272998
+        ],
+        "signStability": 0.9933333333333333,
+        "sd": 0.5632536015751642
+      },
+      "rare_holo_vmax": {
+        "median": 2.565952509943819,
+        "interval80": [
+          1.8961323102969527,
+          3.1397034402904955
+        ],
+        "signStability": 1.0,
+        "sd": 0.5420982034040415
+      },
+      "rare_rainbow": {
+        "median": 4.247260468949836,
+        "interval80": [
+          3.689669174951562,
+          4.6365530009534925
+        ],
+        "signStability": 1.0,
+        "sd": 0.441105481305654
+      },
+      "rare_secret": {
+        "median": 4.217363544116031,
+        "interval80": [
+          3.678678437082347,
+          4.56255049121114
+        ],
+        "signStability": 1.0,
+        "sd": 0.3438999512812816
+      },
+      "rare_ultra": {
+        "median": 4.2158367135284305,
+        "interval80": [
+          3.4943330241456936,
+          4.81354541462158
+        ],
+        "signStability": 1.0,
+        "sd": 0.49800331753037774
+      },
+      "uncommon": {
+        "median": 0.4958344821201842,
+        "interval80": [
+          0.1510194367476162,
+          0.8216173451628507
+        ],
+        "signStability": 0.9533333333333334,
+        "sd": 0.27064536567762676
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "18b5470b-363d-45b5-8fee-9877f85a683e",
+      "cardName": "Umbreon VMAX",
+      "maximumEffectDrift": 0.1676399148152461,
+      "effects": {
+        "common": 0.0,
+        "rare": 0.6370275147676944,
+        "rare_holo": 1.0406988504824435,
+        "rare_holo_v": 1.7168620568872395,
+        "rare_holo_vmax": 2.305174698241487,
+        "rare_rainbow": 4.261428305068822,
+        "rare_secret": 4.2333075479394715,
+        "rare_ultra": 4.252119426804055,
+        "uncommon": 0.5498389269366316
+      }
+    },
+    "leaveCardOutStability": 0.1676399148152461,
+    "subjectDemandSensitivity": 0.571275968340285,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "common": 0.0,
+      "rare": 0.6340404607956898,
+      "rare_holo": 1.0352583945458427,
+      "rare_holo_v": 1.7346836139787878,
+      "rare_holo_vmax": 2.137534783426241,
+      "rare_rainbow": 4.273691032013322,
+      "rare_secret": 4.238928022236556,
+      "rare_ultra": 4.26438215374856,
+      "uncommon": 0.5621016538811221
+    },
+    "uncertainty": {
+      "common": [
+        0.0,
+        0.0
+      ],
+      "rare": [
+        0.07768532484104884,
+        1.1903955967503306
+      ],
+      "rare_holo": [
+        0.5586819919210784,
+        1.511834797170607
+      ],
+      "rare_holo_v": [
+        0.4723207276696406,
+        2.9970465002879347
+      ],
+      "rare_holo_vmax": [
+        0.8398789859776536,
+        3.4351905808748278
+      ],
+      "rare_rainbow": [
+        3.0980836766053477,
+        5.449298387421297
+      ],
+      "rare_secret": [
+        3.4599178798404884,
+        5.017938164632624
+      ],
+      "rare_ultra": [
+        3.0887747983405536,
+        5.439989509156566
+      ],
+      "uncommon": [
+        -0.08784484193554476,
+        1.212048149697789
+      ]
+    },
+    "supportedTreatments": [
+      "rare_holo_v",
+      "rare_holo_vmax",
+      "rare_rainbow",
+      "rare_secret",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "passesNonTemporalGates": false,
+    "normalization": {
+      "common": 5.0,
+      "rare": 5.296957768217263,
+      "rare_holo": 5.484871299832684,
+      "rare_holo_v": 5.812452526962927,
+      "rare_holo_vmax": 6.0011309971865785,
+      "rare_rainbow": 7.001616346887612,
+      "rare_secret": 6.9853348215936775,
+      "rare_ultra": 6.997256461541115,
+      "uncommon": 5.2632646699522825
+    },
+    "temporal": {
+      "dates": null,
+      "span": null,
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  },
+  "Hidden Fates / Shiny Vault": {
+    "cards": 163,
+    "treatments": 10,
+    "matchedIdentityCount": 16,
+    "graph": {
+      "nodes": [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_holo_gx",
+        "rare_rainbow",
+        "rare_secret",
+        "rare_shiny",
+        "rare_shiny_gx",
+        "rare_ultra",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "rare_shiny_gx": 35,
+        "common": 18,
+        "uncommon": 17,
+        "rare": 15,
+        "rare_holo_gx": 9,
+        "rare_holo": 6,
+        "rare_ultra": 9,
+        "rare_rainbow": 1,
+        "rare_shiny": 45,
+        "rare_secret": 8
+      },
+      "edges": [
+        {
+          "source": "rare_shiny",
+          "target": "uncommon",
+          "directContrasts": 2
+        },
+        {
+          "source": "common",
+          "target": "rare_shiny",
+          "directContrasts": 3
+        },
+        {
+          "source": "rare_holo_gx",
+          "target": "rare_shiny_gx",
+          "directContrasts": 2
+        },
+        {
+          "source": "rare",
+          "target": "rare_shiny_gx",
+          "directContrasts": 1
+        },
+        {
+          "source": "common",
+          "target": "rare_holo",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_holo",
+          "target": "rare_shiny",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_ultra",
+          "target": "uncommon",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_holo",
+          "target": "rare_ultra",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_shiny",
+          "target": "rare_shiny_gx",
+          "directContrasts": 6
+        }
+      ],
+      "matchedIdentities": 16,
+      "treatmentContrasts": 18,
+      "components": [
+        [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_shiny",
+          "rare_shiny_gx",
+          "rare_ultra",
+          "uncommon"
+        ],
+        [
+          "rare_rainbow"
+        ],
+        [
+          "rare_secret"
+        ]
+      ],
+      "isolatedTreatments": [
+        "rare_rainbow",
+        "rare_secret"
+      ],
+      "largestComponentShare": 0.8
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "common": 0.0,
+          "rare": 0.8443292765398831,
+          "rare_holo": 1.5945115791568985,
+          "rare_holo_gx": 2.902292125475049,
+          "rare_rainbow": 3.461789175761108,
+          "rare_secret": 5.093699442371784,
+          "rare_shiny": 3.2981192299818844,
+          "rare_shiny_gx": 4.620276693918858,
+          "rare_ultra": 4.2869748428718975,
+          "uncommon": 0.17111510647543662
+        },
+        "standardErrors": {
+          "common": 0.0,
+          "rare": 0.2551379678264106,
+          "rare_holo": 0.3485799647607399,
+          "rare_holo_gx": 0.6652317097388788,
+          "rare_rainbow": 0.9748773015036651,
+          "rare_secret": 0.8493075637629697,
+          "rare_shiny": 0.5631685700214673,
+          "rare_shiny_gx": 0.9184116846569111,
+          "rare_ultra": 0.5323871842882458,
+          "uncommon": 0.2712669493981839
+        },
+        "rank": [
+          "common",
+          "uncommon",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_shiny",
+          "rare_rainbow",
+          "rare_ultra",
+          "rare_shiny_gx",
+          "rare_secret"
+        ],
+        "residualSD": 0.6401787884222803,
+        "demandCoefficient": 0.0509855172385847,
+        "cards": 163
+      },
+      "matched": {
+        "rare_shiny->uncommon": {
+          "n": 2,
+          "medianLogContrast": -4.223428578192049,
+          "meanLogContrast": -4.223428578192049
+        },
+        "common->rare_shiny": {
+          "n": 3,
+          "medianLogContrast": 4.876722876509988,
+          "meanLogContrast": 4.852827622311116
+        },
+        "rare_holo_gx->rare_shiny_gx": {
+          "n": 2,
+          "medianLogContrast": 3.4420012362504275,
+          "meanLogContrast": 3.4420012362504275
+        },
+        "rare->rare_shiny_gx": {
+          "n": 1,
+          "medianLogContrast": 4.154798666517447,
+          "meanLogContrast": 4.154798666517447
+        },
+        "rare_holo->rare_shiny": {
+          "n": 1,
+          "medianLogContrast": 2.9258364674684474,
+          "meanLogContrast": 2.9258364674684474
+        },
+        "common->rare_holo": {
+          "n": 1,
+          "medianLogContrast": 2.158281603387612,
+          "meanLogContrast": 2.158281603387612
+        },
+        "rare_ultra->uncommon": {
+          "n": 1,
+          "medianLogContrast": -3.1431375652417177,
+          "meanLogContrast": -3.1431375652417177
+        },
+        "rare_holo->rare_ultra": {
+          "n": 1,
+          "medianLogContrast": 3.3888406489732503,
+          "meanLogContrast": 3.3888406489732503
+        },
+        "rare_shiny->rare_shiny_gx": {
+          "n": 6,
+          "medianLogContrast": 1.2849836229746177,
+          "meanLogContrast": 1.2059250178700298
+        }
+      },
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "common": 0.0,
+            "rare": 0.7194889771671353,
+            "rare_holo": 1.4801791348783817,
+            "rare_holo_gx": 2.8157939862479733,
+            "rare_rainbow": 3.3510782260239207,
+            "rare_secret": 4.938235367177481,
+            "rare_shiny": 3.260062025157714,
+            "rare_shiny_gx": 4.506064196055326,
+            "rare_ultra": 4.152051082624594,
+            "uncommon": 0.038257988647788746
+          },
+          "standardErrors": {
+            "common": 0.0,
+            "rare": 0.22074806392059898,
+            "rare_holo": 0.30159506637913513,
+            "rare_holo_gx": 0.5755654998528461,
+            "rare_rainbow": 0.8434741355841255,
+            "rare_secret": 0.7348298725235395,
+            "rare_shiny": 0.48725939362249,
+            "rare_shiny_gx": 0.7946194876334766,
+            "rare_ultra": 0.4606270136467081,
+            "uncommon": 0.23470302909223667
+          },
+          "rank": [
+            "common",
+            "uncommon",
+            "rare",
+            "rare_holo",
+            "rare_holo_gx",
+            "rare_shiny",
+            "rare_rainbow",
+            "rare_ultra",
+            "rare_shiny_gx",
+            "rare_secret"
+          ],
+          "residualSD": 0.5538894477806708,
+          "demandCoefficient": 0.04415681289881971,
+          "cards": 163
+        },
+        "matchedContrasts": {
+          "rare_shiny->uncommon": {
+            "n": 2,
+            "medianLogContrast": -4.223428578192049,
+            "meanLogContrast": -4.223428578192049
+          },
+          "common->rare_shiny": {
+            "n": 3,
+            "medianLogContrast": 4.876722876509988,
+            "meanLogContrast": 4.852827622311116
+          },
+          "rare_holo_gx->rare_shiny_gx": {
+            "n": 2,
+            "medianLogContrast": 3.4420012362504275,
+            "meanLogContrast": 3.4420012362504275
+          },
+          "rare->rare_shiny_gx": {
+            "n": 1,
+            "medianLogContrast": 4.154798666517447,
+            "meanLogContrast": 4.154798666517447
+          },
+          "rare_holo->rare_shiny": {
+            "n": 1,
+            "medianLogContrast": 2.9258364674684474,
+            "meanLogContrast": 2.9258364674684474
+          },
+          "common->rare_holo": {
+            "n": 1,
+            "medianLogContrast": 2.158281603387612,
+            "meanLogContrast": 2.158281603387612
+          },
+          "rare_ultra->uncommon": {
+            "n": 1,
+            "medianLogContrast": -3.1431375652417177,
+            "meanLogContrast": -3.1431375652417177
+          },
+          "rare_holo->rare_ultra": {
+            "n": 1,
+            "medianLogContrast": 3.3888406489732503,
+            "meanLogContrast": 3.3888406489732503
+          },
+          "rare_shiny->rare_shiny_gx": {
+            "n": 6,
+            "medianLogContrast": 1.2849836229746177,
+            "meanLogContrast": 1.2059250178700298
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "common": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "rare": {
+        "median": 0.6974150750083175,
+        "interval80": [
+          0.4774609875048913,
+          0.943718400064556
+        ],
+        "signStability": 1.0,
+        "sd": 0.18450987684132092
+      },
+      "rare_holo": {
+        "median": 1.4427786522499715,
+        "interval80": [
+          1.1327742301652648,
+          1.8655768721755426
+        ],
+        "signStability": 1.0,
+        "sd": 0.308886678280491
+      },
+      "rare_holo_gx": {
+        "median": 2.1904966256971945,
+        "interval80": [
+          0.688418687900202,
+          3.7845345410452946
+        ],
+        "signStability": 0.9566666666666667,
+        "sd": 1.27866262427544
+      },
+      "rare_rainbow": {
+        "median": 2.519307533387733,
+        "interval80": [
+          0.9408255599637568,
+          4.839349055727024
+        ],
+        "signStability": 0.9743589743589743,
+        "sd": 1.5465040019936462
+      },
+      "rare_secret": {
+        "median": 4.440579501530885,
+        "interval80": [
+          1.3814454125727769,
+          6.487711432373077
+        ],
+        "signStability": 0.9966666666666667,
+        "sd": 1.9704800305478827
+      },
+      "rare_shiny": {
+        "median": 3.0977428826632325,
+        "interval80": [
+          0.7798986470213342,
+          4.829644905432297
+        ],
+        "signStability": 0.9766666666666667,
+        "sd": 1.4715355012081828
+      },
+      "rare_shiny_gx": {
+        "median": 3.9192392739979987,
+        "interval80": [
+          0.7448453503978546,
+          6.041460198499874
+        ],
+        "signStability": 0.97,
+        "sd": 2.090714330741838
+      },
+      "rare_ultra": {
+        "median": 4.095304939409736,
+        "interval80": [
+          1.6844364267461807,
+          5.838346599475134
+        ],
+        "signStability": 1.0,
+        "sd": 1.4106945258046786
+      },
+      "uncommon": {
+        "median": 0.0137392594718173,
+        "interval80": [
+          -0.1791805408374908,
+          0.2680553477188146
+        ],
+        "signStability": 0.5533333333333333,
+        "sd": 0.18557479244797376
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "6670c53f-e906-4406-8468-e40a0ff8330f",
+      "cardName": "Charizard-GX",
+      "maximumEffectDrift": 0.04482660211635903,
+      "effects": {
+        "common": 0.0,
+        "rare": 0.8681751513351702,
+        "rare_holo": 1.6052961236967893,
+        "rare_holo_gx": 2.947118727591408,
+        "rare_rainbow": 3.4907919764905158,
+        "rare_secret": 5.082423095317056,
+        "rare_shiny": 3.3036978153665633,
+        "rare_shiny_gx": 4.616105306736457,
+        "rare_ultra": 4.300153842214346,
+        "uncommon": 0.16379470976745428
+      }
+    },
+    "leaveCardOutStability": 0.04482660211635903,
+    "subjectDemandSensitivity": 0.8057017790327965,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "common": 0.0,
+      "rare": 0.8443292765398831,
+      "rare_holo": 1.5945115791568985,
+      "rare_holo_gx": 2.902292125475049,
+      "rare_rainbow": 3.461789175761108,
+      "rare_secret": 5.093699442371784,
+      "rare_shiny": 3.2981192299818844,
+      "rare_shiny_gx": 4.620276693918858,
+      "rare_ultra": 4.2869748428718975,
+      "uncommon": 0.17111510647543662
+    },
+    "uncertainty": {
+      "common": [
+        0.0,
+        0.0
+      ],
+      "rare": [
+        0.34425885960011826,
+        1.344399693479648
+      ],
+      "rare_holo": [
+        0.9112948482258483,
+        2.277728310087949
+      ],
+      "rare_holo_gx": [
+        1.5984379743868466,
+        4.206146276563252
+      ],
+      "rare_rainbow": [
+        1.5510296648139243,
+        5.372548686708291
+      ],
+      "rare_secret": [
+        3.429056617396363,
+        6.758342267347205
+      ],
+      "rare_shiny": [
+        2.1943088327398086,
+        4.401929627223961
+      ],
+      "rare_shiny_gx": [
+        2.820189791991312,
+        6.420363595846403
+      ],
+      "rare_ultra": [
+        3.2434959616669357,
+        5.330453724076859
+      ],
+      "uncommon": [
+        -0.3605681143450039,
+        0.7027983272958771
+      ]
+    },
+    "supportedTreatments": [
+      "common",
+      "rare",
+      "rare_holo",
+      "rare_holo_gx",
+      "rare_shiny",
+      "rare_shiny_gx",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "passesNonTemporalGates": false,
+    "normalization": {
+      "common": 5.0,
+      "rare": 5.395448166331729,
+      "rare_holo": 5.746801867106073,
+      "rare_holo_gx": 6.359311030740873,
+      "rare_rainbow": 6.621355814394874,
+      "rare_secret": 7.385673646880493,
+      "rare_shiny": 6.544699725662233,
+      "rare_shiny_gx": 7.163942430189,
+      "rare_ultra": 7.0078379227489265,
+      "uncommon": 5.080143087498605
+    },
+    "temporal": {
+      "dates": null,
+      "span": null,
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  },
+  "Paldean Fates": {
+    "cards": 247,
+    "treatments": 10,
+    "matchedIdentityCount": 50,
+    "graph": {
+      "nodes": [
+        "common",
+        "double_rare",
+        "hyper_rare",
+        "illustration_rare",
+        "rare",
+        "shiny_rare",
+        "shiny_ultra_rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "uncommon": 25,
+        "common": 40,
+        "double_rare": 10,
+        "rare": 18,
+        "shiny_rare": 120,
+        "ultra_rare": 5,
+        "special_illustration_rare": 8,
+        "shiny_ultra_rare": 12,
+        "illustration_rare": 3,
+        "hyper_rare": 6
+      },
+      "edges": [
+        {
+          "source": "special_illustration_rare",
+          "target": "ultra_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "special_illustration_rare",
+          "target": "uncommon",
+          "directContrasts": 2
+        },
+        {
+          "source": "ultra_rare",
+          "target": "uncommon",
+          "directContrasts": 1
+        },
+        {
+          "source": "common",
+          "target": "shiny_rare",
+          "directContrasts": 16
+        },
+        {
+          "source": "double_rare",
+          "target": "shiny_ultra_rare",
+          "directContrasts": 7
+        },
+        {
+          "source": "shiny_rare",
+          "target": "uncommon",
+          "directContrasts": 7
+        },
+        {
+          "source": "rare",
+          "target": "shiny_rare",
+          "directContrasts": 10
+        },
+        {
+          "source": "double_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "shiny_ultra_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "common",
+          "target": "special_illustration_rare",
+          "directContrasts": 1
+        },
+        {
+          "source": "common",
+          "target": "ultra_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "illustration_rare",
+          "target": "shiny_rare",
+          "directContrasts": 3
+        },
+        {
+          "source": "shiny_rare",
+          "target": "shiny_ultra_rare",
+          "directContrasts": 1
+        }
+      ],
+      "matchedIdentities": 50,
+      "treatmentContrasts": 56,
+      "components": [
+        [
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "rare",
+          "shiny_rare",
+          "shiny_ultra_rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        [
+          "hyper_rare"
+        ]
+      ],
+      "isolatedTreatments": [
+        "hyper_rare"
+      ],
+      "largestComponentShare": 0.9
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "common": 0.0,
+          "double_rare": 0.7740945452190532,
+          "hyper_rare": 3.493901115553451,
+          "illustration_rare": 4.122859982190212,
+          "rare": 0.8472199018399883,
+          "shiny_rare": 4.41496899991332,
+          "shiny_ultra_rare": 1.9343029130851428,
+          "special_illustration_rare": 5.65094515883792,
+          "ultra_rare": 2.6485774429373956,
+          "uncommon": 0.1135118107223363
+        },
+        "standardErrors": {
+          "common": 0.0,
+          "double_rare": 0.5043726160001718,
+          "hyper_rare": 0.5281537759922357,
+          "illustration_rare": 0.33844282339205234,
+          "rare": 0.17366411450497596,
+          "shiny_rare": 0.1077629140321867,
+          "shiny_ultra_rare": 0.49869828775226344,
+          "special_illustration_rare": 0.32973611168670297,
+          "ultra_rare": 0.3297361116867029,
+          "uncommon": 0.16902178131082762
+        },
+        "rank": [
+          "common",
+          "uncommon",
+          "double_rare",
+          "rare",
+          "shiny_ultra_rare",
+          "ultra_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "shiny_rare",
+          "special_illustration_rare"
+        ],
+        "residualSD": 0.5352215425109084,
+        "demandCoefficient": 0.04021903108086475,
+        "cards": 247
+      },
+      "matched": {
+        "ultra_rare->uncommon": {
+          "n": 1,
+          "medianLogContrast": -2.9618307218783095,
+          "meanLogContrast": -2.9618307218783095
+        },
+        "special_illustration_rare->uncommon": {
+          "n": 2,
+          "medianLogContrast": -5.693499682185689,
+          "meanLogContrast": -5.693499682185689
+        },
+        "special_illustration_rare->ultra_rare": {
+          "n": 2,
+          "medianLogContrast": -2.9841784423583744,
+          "meanLogContrast": -2.9841784423583744
+        },
+        "common->shiny_rare": {
+          "n": 16,
+          "medianLogContrast": 4.479084216640574,
+          "meanLogContrast": 4.559096190491609
+        },
+        "double_rare->shiny_ultra_rare": {
+          "n": 7,
+          "medianLogContrast": 0.9808292530117264,
+          "meanLogContrast": 1.1039516158471132
+        },
+        "shiny_rare->uncommon": {
+          "n": 7,
+          "medianLogContrast": -4.502583597212991,
+          "meanLogContrast": -4.611745241440576
+        },
+        "rare->shiny_rare": {
+          "n": 10,
+          "medianLogContrast": 3.3551854222555684,
+          "meanLogContrast": 3.500634525504619
+        },
+        "double_rare->special_illustration_rare": {
+          "n": 2,
+          "medianLogContrast": 4.77257539196206,
+          "meanLogContrast": 4.77257539196206
+        },
+        "shiny_ultra_rare->special_illustration_rare": {
+          "n": 2,
+          "medianLogContrast": 3.218190018685547,
+          "meanLogContrast": 3.218190018685547
+        },
+        "common->ultra_rare": {
+          "n": 5,
+          "medianLogContrast": 2.9311937524164198,
+          "meanLogContrast": 2.930266355957638
+        },
+        "common->special_illustration_rare": {
+          "n": 1,
+          "medianLogContrast": 4.676826174894526,
+          "meanLogContrast": 4.676826174894526
+        },
+        "illustration_rare->shiny_rare": {
+          "n": 3,
+          "medianLogContrast": 0.33361100434018076,
+          "meanLogContrast": 0.38348048275037766
+        },
+        "shiny_rare->shiny_ultra_rare": {
+          "n": 1,
+          "medianLogContrast": -0.7166776779701394,
+          "meanLogContrast": -0.7166776779701394
+        }
+      },
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "common": 0.0,
+            "double_rare": 3.218396504008757,
+            "hyper_rare": 5.95555659789081,
+            "illustration_rare": 4.004196666147582,
+            "rare": 0.7673588765297669,
+            "shiny_rare": 4.304371033679277,
+            "shiny_ultra_rare": 4.351502990388374,
+            "special_illustration_rare": 5.528054461528043,
+            "ultra_rare": 2.5283002219309014,
+            "uncommon": 0.1336953106969439
+          },
+          "standardErrors": {
+            "common": 0.0,
+            "double_rare": 0.45582260582853823,
+            "hyper_rare": 0.4773146336931205,
+            "illustration_rare": 0.30586491968168333,
+            "rare": 0.15694751598595277,
+            "shiny_rare": 0.09738984775852969,
+            "shiny_ultra_rare": 0.4506944783167798,
+            "special_illustration_rare": 0.29799630054608606,
+            "ultra_rare": 0.29799630054608606,
+            "uncommon": 0.152752045521156
+          },
+          "rank": [
+            "common",
+            "uncommon",
+            "rare",
+            "ultra_rare",
+            "double_rare",
+            "illustration_rare",
+            "shiny_rare",
+            "shiny_ultra_rare",
+            "special_illustration_rare",
+            "hyper_rare"
+          ],
+          "residualSD": 0.48370206958818895,
+          "demandCoefficient": 0.03573753783401605,
+          "cards": 247
+        },
+        "matchedContrasts": {
+          "ultra_rare->uncommon": {
+            "n": 1,
+            "medianLogContrast": -2.9618307218783095,
+            "meanLogContrast": -2.9618307218783095
+          },
+          "special_illustration_rare->uncommon": {
+            "n": 2,
+            "medianLogContrast": -5.693499682185689,
+            "meanLogContrast": -5.693499682185689
+          },
+          "special_illustration_rare->ultra_rare": {
+            "n": 2,
+            "medianLogContrast": -2.9841784423583744,
+            "meanLogContrast": -2.9841784423583744
+          },
+          "common->shiny_rare": {
+            "n": 16,
+            "medianLogContrast": 4.479084216640574,
+            "meanLogContrast": 4.559096190491609
+          },
+          "double_rare->shiny_ultra_rare": {
+            "n": 7,
+            "medianLogContrast": 0.9808292530117264,
+            "meanLogContrast": 1.1039516158471132
+          },
+          "shiny_rare->uncommon": {
+            "n": 7,
+            "medianLogContrast": -4.502583597212991,
+            "meanLogContrast": -4.611745241440576
+          },
+          "rare->shiny_rare": {
+            "n": 10,
+            "medianLogContrast": 3.3551854222555684,
+            "meanLogContrast": 3.500634525504619
+          },
+          "double_rare->special_illustration_rare": {
+            "n": 2,
+            "medianLogContrast": 4.77257539196206,
+            "meanLogContrast": 4.77257539196206
+          },
+          "shiny_ultra_rare->special_illustration_rare": {
+            "n": 2,
+            "medianLogContrast": 3.218190018685547,
+            "meanLogContrast": 3.218190018685547
+          },
+          "common->ultra_rare": {
+            "n": 5,
+            "medianLogContrast": 2.9311937524164198,
+            "meanLogContrast": 2.930266355957638
+          },
+          "common->special_illustration_rare": {
+            "n": 1,
+            "medianLogContrast": 4.676826174894526,
+            "meanLogContrast": 4.676826174894526
+          },
+          "illustration_rare->shiny_rare": {
+            "n": 3,
+            "medianLogContrast": 0.33361100434018076,
+            "meanLogContrast": 0.38348048275037766
+          },
+          "shiny_rare->shiny_ultra_rare": {
+            "n": 1,
+            "medianLogContrast": -0.7166776779701394,
+            "meanLogContrast": -0.7166776779701394
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "common": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "double_rare": {
+        "median": 3.241578717939526,
+        "interval80": [
+          2.487715794901849,
+          3.7209413735117955
+        ],
+        "signStability": 0.9433333333333334,
+        "sd": 0.9340056399952047
+      },
+      "hyper_rare": {
+        "median": 5.957474772462503,
+        "interval80": [
+          5.237619672174103,
+          6.494689358884001
+        ],
+        "signStability": 1.0,
+        "sd": 0.9256250853602438
+      },
+      "illustration_rare": {
+        "median": 3.9911314804149436,
+        "interval80": [
+          3.753703091303913,
+          4.2962621909328345
+        ],
+        "signStability": 1.0,
+        "sd": 0.21388430437481631
+      },
+      "rare": {
+        "median": 0.7780414746895711,
+        "interval80": [
+          0.5951380928895258,
+          0.9617559355496335
+        ],
+        "signStability": 1.0,
+        "sd": 0.1454002206750461
+      },
+      "shiny_rare": {
+        "median": 4.317298967151166,
+        "interval80": [
+          4.160081639038898,
+          4.456815733862089
+        ],
+        "signStability": 1.0,
+        "sd": 0.11467992877278581
+      },
+      "shiny_ultra_rare": {
+        "median": 4.349359699804698,
+        "interval80": [
+          3.687802591515096,
+          4.898181685791561
+        ],
+        "signStability": 1.0,
+        "sd": 0.93557734988625
+      },
+      "special_illustration_rare": {
+        "median": 5.523525713898339,
+        "interval80": [
+          5.0940804119783145,
+          5.967822270543936
+        ],
+        "signStability": 1.0,
+        "sd": 0.3347069329595532
+      },
+      "ultra_rare": {
+        "median": 2.5706906918004875,
+        "interval80": [
+          2.2839971610323437,
+          2.8928321671253276
+        ],
+        "signStability": 1.0,
+        "sd": 0.25394962467060617
+      },
+      "uncommon": {
+        "median": 0.10838667886354109,
+        "interval80": [
+          -0.1027969338772041,
+          0.3380668099034789
+        ],
+        "signStability": 0.73,
+        "sd": 0.17155929487525617
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "29f34674-a302-4368-9e9a-0680b13461df",
+      "cardName": "Mew ex",
+      "maximumEffectDrift": 0.4292623847697481,
+      "effects": {
+        "common": 0.0,
+        "double_rare": 1.1878214298139103,
+        "hyper_rare": 3.923163500323199,
+        "illustration_rare": 4.114797259582678,
+        "rare": 0.8373191021910434,
+        "shiny_rare": 4.407105384204411,
+        "shiny_ultra_rare": 2.3447962122776884,
+        "special_illustration_rare": 5.644277747989647,
+        "ultra_rare": 2.6419100320891205,
+        "uncommon": 0.10233258155953473
+      }
+    },
+    "leaveCardOutStability": 0.4292623847697481,
+    "subjectDemandSensitivity": 1.3030167644432535,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "common": 0.0,
+      "double_rare": 0.7740945452190532,
+      "hyper_rare": 3.493901115553451,
+      "illustration_rare": 4.122859982190212,
+      "rare": 0.8472199018399883,
+      "shiny_rare": 4.41496899991332,
+      "shiny_ultra_rare": 1.9343029130851428,
+      "special_illustration_rare": 5.65094515883792,
+      "ultra_rare": 2.6485774429373956,
+      "uncommon": 0.1135118107223363
+    },
+    "uncertainty": {
+      "common": [
+        0.0,
+        0.0
+      ],
+      "double_rare": [
+        -0.2144757821412835,
+        1.7626648725793899
+      ],
+      "hyper_rare": [
+        2.458719714608669,
+        4.529082516498233
+      ],
+      "illustration_rare": [
+        3.4595120483417894,
+        4.786207916038634
+      ],
+      "rare": [
+        0.5068382374102354,
+        1.1876015662697412
+      ],
+      "shiny_rare": [
+        4.2037536884102344,
+        4.626184311416406
+      ],
+      "shiny_ultra_rare": [
+        0.9568542690907065,
+        2.911751557079579
+      ],
+      "special_illustration_rare": [
+        5.0046623799319825,
+        6.297227937743857
+      ],
+      "ultra_rare": [
+        2.002294664031458,
+        3.2948602218433334
+      ],
+      "uncommon": [
+        -0.21777088064688582,
+        0.4447945020915584
+      ]
+    },
+    "supportedTreatments": [
+      "common",
+      "double_rare",
+      "illustration_rare",
+      "rare",
+      "shiny_rare",
+      "shiny_ultra_rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "passesNonTemporalGates": false,
+    "normalization": {
+      "common": 5.0,
+      "double_rare": 5.362553185089998,
+      "hyper_rare": 6.63639569049662,
+      "illustration_rare": 6.930973454670406,
+      "rare": 5.396802013114305,
+      "shiny_rare": 7.067784979080586,
+      "shiny_ultra_rare": 5.905945774194067,
+      "special_illustration_rare": 7.646664000875798,
+      "ultra_rare": 6.240481791048848,
+      "uncommon": 5.053164137090089
+    },
+    "temporal": {
+      "dates": null,
+      "span": null,
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  },
+  "Scarlet & Violet 151": {
+    "cards": 207,
+    "treatments": 8,
+    "matchedIdentityCount": 32,
+    "graph": {
+      "nodes": [
+        "common",
+        "double_rare",
+        "hyper_rare",
+        "illustration_rare",
+        "rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "rare": 25,
+        "common": 66,
+        "uncommon": 62,
+        "double_rare": 13,
+        "special_illustration_rare": 7,
+        "illustration_rare": 16,
+        "ultra_rare": 16,
+        "hyper_rare": 2
+      },
+      "edges": [
+        {
+          "source": "common",
+          "target": "illustration_rare",
+          "directContrasts": 8
+        },
+        {
+          "source": "illustration_rare",
+          "target": "uncommon",
+          "directContrasts": 6
+        },
+        {
+          "source": "double_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 5
+        },
+        {
+          "source": "double_rare",
+          "target": "ultra_rare",
+          "directContrasts": 12
+        },
+        {
+          "source": "special_illustration_rare",
+          "target": "ultra_rare",
+          "directContrasts": 7
+        },
+        {
+          "source": "illustration_rare",
+          "target": "rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "double_rare",
+          "target": "hyper_rare",
+          "directContrasts": 1
+        },
+        {
+          "source": "hyper_rare",
+          "target": "ultra_rare",
+          "directContrasts": 1
+        },
+        {
+          "source": "ultra_rare",
+          "target": "uncommon",
+          "directContrasts": 4
+        },
+        {
+          "source": "special_illustration_rare",
+          "target": "uncommon",
+          "directContrasts": 2
+        }
+      ],
+      "matchedIdentities": 32,
+      "treatmentContrasts": 48,
+      "components": [
+        [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ]
+      ],
+      "isolatedTreatments": [],
+      "largestComponentShare": 1.0
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "common": 0.0,
+          "double_rare": 2.0658682103671064,
+          "hyper_rare": 3.2123875002039823,
+          "illustration_rare": 5.301677815462957,
+          "rare": 0.7219588930857301,
+          "special_illustration_rare": 5.565346210750568,
+          "ultra_rare": 3.5948463915358277,
+          "uncommon": 0.0016636012886328334
+        },
+        "standardErrors": {
+          "common": 0.0,
+          "double_rare": 0.2788646329436082,
+          "hyper_rare": 0.3608839085157768,
+          "illustration_rare": 0.1324967568363786,
+          "rare": 0.12284544712744112,
+          "special_illustration_rare": 0.29297129354448154,
+          "ultra_rare": 0.2647936091324296,
+          "uncommon": 0.10420750388086898
+        },
+        "rank": [
+          "common",
+          "uncommon",
+          "rare",
+          "double_rare",
+          "hyper_rare",
+          "ultra_rare",
+          "illustration_rare",
+          "special_illustration_rare"
+        ],
+        "residualSD": 0.4264531133008066,
+        "demandCoefficient": 0.026182556361926623,
+        "cards": 207
+      },
+      "matched": {
+        "common->illustration_rare": {
+          "n": 8,
+          "medianLogContrast": 5.617473634180805,
+          "meanLogContrast": 5.527889442964677
+        },
+        "illustration_rare->uncommon": {
+          "n": 6,
+          "medianLogContrast": -5.2764809452865435,
+          "meanLogContrast": -5.1650659403294155
+        },
+        "double_rare->ultra_rare": {
+          "n": 12,
+          "medianLogContrast": 1.6904338496995455,
+          "meanLogContrast": 1.725097059192803
+        },
+        "double_rare->special_illustration_rare": {
+          "n": 5,
+          "medianLogContrast": 3.9750246318621416,
+          "meanLogContrast": 3.902331629420668
+        },
+        "special_illustration_rare->ultra_rare": {
+          "n": 7,
+          "medianLogContrast": -1.9177781830327345,
+          "meanLogContrast": -1.7632785954279337
+        },
+        "illustration_rare->rare": {
+          "n": 2,
+          "medianLogContrast": -3.9915764243641596,
+          "meanLogContrast": -3.9915764243641596
+        },
+        "double_rare->hyper_rare": {
+          "n": 1,
+          "medianLogContrast": 1.146964248121514,
+          "meanLogContrast": 1.146964248121514
+        },
+        "hyper_rare->ultra_rare": {
+          "n": 1,
+          "medianLogContrast": 0.07687362691128108,
+          "meanLogContrast": 0.07687362691128108
+        },
+        "ultra_rare->uncommon": {
+          "n": 4,
+          "medianLogContrast": -3.0830079156682535,
+          "meanLogContrast": -3.1917629579616946
+        },
+        "special_illustration_rare->uncommon": {
+          "n": 2,
+          "medianLogContrast": -4.682626057081409,
+          "meanLogContrast": -4.682626057081409
+        }
+      },
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "common": 0.0,
+            "double_rare": 2.1969648910679607,
+            "hyper_rare": 3.317496690120945,
+            "illustration_rare": 5.1859332658034525,
+            "rare": 0.7179563212850022,
+            "special_illustration_rare": 5.095710685520211,
+            "ultra_rare": 3.6846643497473606,
+            "uncommon": -0.00952451688712526
+          },
+          "standardErrors": {
+            "common": 0.0,
+            "double_rare": 0.2575919515509597,
+            "hyper_rare": 0.3333545358428992,
+            "illustration_rare": 0.12238948269412671,
+            "rare": 0.11347440559487093,
+            "special_illustration_rare": 0.2706225112016732,
+            "ultra_rare": 0.24459431020224676,
+            "uncommon": 0.09625822395468638
+          },
+          "rank": [
+            "uncommon",
+            "common",
+            "rare",
+            "double_rare",
+            "hyper_rare",
+            "ultra_rare",
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "residualSD": 0.3939219130822922,
+          "demandCoefficient": 0.02341434101056802,
+          "cards": 207
+        },
+        "matchedContrasts": {
+          "common->illustration_rare": {
+            "n": 8,
+            "medianLogContrast": 5.617473634180805,
+            "meanLogContrast": 5.527889442964677
+          },
+          "illustration_rare->uncommon": {
+            "n": 6,
+            "medianLogContrast": -5.2764809452865435,
+            "meanLogContrast": -5.1650659403294155
+          },
+          "double_rare->ultra_rare": {
+            "n": 12,
+            "medianLogContrast": 1.6904338496995455,
+            "meanLogContrast": 1.725097059192803
+          },
+          "double_rare->special_illustration_rare": {
+            "n": 5,
+            "medianLogContrast": 3.9750246318621416,
+            "meanLogContrast": 3.902331629420668
+          },
+          "special_illustration_rare->ultra_rare": {
+            "n": 7,
+            "medianLogContrast": -1.9177781830327345,
+            "meanLogContrast": -1.7632785954279337
+          },
+          "illustration_rare->rare": {
+            "n": 2,
+            "medianLogContrast": -3.9915764243641596,
+            "meanLogContrast": -3.9915764243641596
+          },
+          "double_rare->hyper_rare": {
+            "n": 1,
+            "medianLogContrast": 1.146964248121514,
+            "meanLogContrast": 1.146964248121514
+          },
+          "hyper_rare->ultra_rare": {
+            "n": 1,
+            "medianLogContrast": 0.07687362691128108,
+            "meanLogContrast": 0.07687362691128108
+          },
+          "ultra_rare->uncommon": {
+            "n": 4,
+            "medianLogContrast": -3.0830079156682535,
+            "meanLogContrast": -3.1917629579616946
+          },
+          "special_illustration_rare->uncommon": {
+            "n": 2,
+            "medianLogContrast": -4.682626057081409,
+            "meanLogContrast": -4.682626057081409
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "common": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "double_rare": {
+        "median": 2.2162939857742225,
+        "interval80": [
+          1.170214919021684,
+          3.0741687071472397
+        ],
+        "signStability": 0.9966666666666667,
+        "sd": 0.7940093025065312
+      },
+      "hyper_rare": {
+        "median": 3.0668530496505135,
+        "interval80": [
+          2.300586185671995,
+          4.611190609824393
+        ],
+        "signStability": 1.0,
+        "sd": 0.931645072245943
+      },
+      "illustration_rare": {
+        "median": 5.202039717774602,
+        "interval80": [
+          4.893668644267312,
+          5.459887249477712
+        ],
+        "signStability": 1.0,
+        "sd": 0.21775798107457364
+      },
+      "rare": {
+        "median": 0.737299027055205,
+        "interval80": [
+          0.5826267010580112,
+          0.8955746121231036
+        ],
+        "signStability": 1.0,
+        "sd": 0.1273865199889386
+      },
+      "special_illustration_rare": {
+        "median": 5.009965085073491,
+        "interval80": [
+          4.367457114135182,
+          5.933498889518106
+        ],
+        "signStability": 1.0,
+        "sd": 0.6991692713580415
+      },
+      "ultra_rare": {
+        "median": 3.6878946614158012,
+        "interval80": [
+          2.933828136109727,
+          4.511837646972036
+        ],
+        "signStability": 1.0,
+        "sd": 0.686774379246175
+      },
+      "uncommon": {
+        "median": 0.015227367520148112,
+        "interval80": [
+          -0.08647681648136844,
+          0.1379628268862975
+        ],
+        "signStability": 0.5666666666666667,
+        "sd": 0.08741552743768119
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "40bfe73b-d1e8-45e3-9324-fc48da631ab9",
+      "cardName": "Charizard ex",
+      "maximumEffectDrift": 0.08206557465332676,
+      "effects": {
+        "common": 0.0,
+        "double_rare": 2.0979746219120385,
+        "hyper_rare": 3.2371871022419327,
+        "illustration_rare": 5.312266152744213,
+        "rare": 0.7348993232202086,
+        "special_illustration_rare": 5.483280636097241,
+        "ultra_rare": 3.6191337534730836,
+        "uncommon": 0.007199106093690162
+      }
+    },
+    "leaveCardOutStability": 0.08206557465332676,
+    "subjectDemandSensitivity": 0.284695934609533,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "common": 0.0,
+      "double_rare": 2.0658682103671064,
+      "hyper_rare": 3.2123875002039823,
+      "illustration_rare": 5.301677815462957,
+      "rare": 0.7219588930857301,
+      "special_illustration_rare": 5.565346210750568,
+      "ultra_rare": 3.5948463915358277,
+      "uncommon": 0.0016636012886328334
+    },
+    "uncertainty": {
+      "common": [
+        0.0,
+        0.0
+      ],
+      "double_rare": [
+        1.5192935297976344,
+        2.6124428909365784
+      ],
+      "hyper_rare": [
+        2.50505503951306,
+        3.9197199608949047
+      ],
+      "illustration_rare": [
+        5.041984172063655,
+        5.56137145886226
+      ],
+      "rare": [
+        0.4811818167159455,
+        0.9627359694555148
+      ],
+      "special_illustration_rare": [
+        4.991122475403384,
+        6.139569946097752
+      ],
+      "ultra_rare": [
+        3.0758509176362656,
+        4.11384186543539
+      ],
+      "uncommon": [
+        -0.20258310631787038,
+        0.20591030889513603
+      ]
+    },
+    "supportedTreatments": [
+      "common",
+      "double_rare",
+      "hyper_rare",
+      "illustration_rare",
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "passesNonTemporalGates": false,
+    "normalization": {
+      "common": 5.0,
+      "double_rare": 5.967565401759574,
+      "hyper_rare": 6.504546604979206,
+      "illustration_rare": 7.48308193125576,
+      "rare": 5.338135047984625,
+      "special_illustration_rare": 7.60657306952756,
+      "ultra_rare": 6.683674193559631,
+      "uncommon": 5.000779160568484
+    },
+    "temporal": {
+      "dates": null,
+      "span": null,
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  },
+  "Surging Sparks": {
+    "cards": 250,
+    "treatments": 9,
+    "matchedIdentityCount": 47,
+    "graph": {
+      "nodes": [
+        "ace_spec_rare",
+        "common",
+        "double_rare",
+        "hyper_rare",
+        "illustration_rare",
+        "rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "ultra_rare": 21,
+        "uncommon": 61,
+        "ace_spec_rare": 7,
+        "special_illustration_rare": 11,
+        "hyper_rare": 5,
+        "common": 88,
+        "double_rare": 18,
+        "rare": 16,
+        "illustration_rare": 23
+      },
+      "edges": [
+        {
+          "source": "common",
+          "target": "ultra_rare",
+          "directContrasts": 1
+        },
+        {
+          "source": "special_illustration_rare",
+          "target": "ultra_rare",
+          "directContrasts": 11
+        },
+        {
+          "source": "special_illustration_rare",
+          "target": "uncommon",
+          "directContrasts": 5
+        },
+        {
+          "source": "ultra_rare",
+          "target": "uncommon",
+          "directContrasts": 7
+        },
+        {
+          "source": "common",
+          "target": "illustration_rare",
+          "directContrasts": 14
+        },
+        {
+          "source": "double_rare",
+          "target": "hyper_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "double_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 7
+        },
+        {
+          "source": "double_rare",
+          "target": "ultra_rare",
+          "directContrasts": 14
+        },
+        {
+          "source": "double_rare",
+          "target": "uncommon",
+          "directContrasts": 3
+        },
+        {
+          "source": "hyper_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "hyper_rare",
+          "target": "ultra_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "hyper_rare",
+          "target": "uncommon",
+          "directContrasts": 3
+        },
+        {
+          "source": "illustration_rare",
+          "target": "uncommon",
+          "directContrasts": 9
+        },
+        {
+          "source": "double_rare",
+          "target": "illustration_rare",
+          "directContrasts": 1
+        }
+      ],
+      "matchedIdentities": 47,
+      "treatmentContrasts": 81,
+      "components": [
+        [
+          "ace_spec_rare"
+        ],
+        [
+          "common",
+          "double_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        [
+          "rare"
+        ]
+      ],
+      "isolatedTreatments": [
+        "ace_spec_rare",
+        "rare"
+      ],
+      "largestComponentShare": 0.7777777777777778
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "ace_spec_rare": 0.0,
+          "common": -2.2410532367760196,
+          "double_rare": -1.1003623038195416,
+          "hyper_rare": 1.913508054249953,
+          "illustration_rare": 2.201886048081574,
+          "rare": -1.498815092168885,
+          "special_illustration_rare": 2.723039247422482,
+          "ultra_rare": -0.08232751262015763,
+          "uncommon": -2.1327051540709157
+        },
+        "standardErrors": {
+          "ace_spec_rare": 0.0,
+          "common": 0.14274545979935385,
+          "double_rare": 0.24058236134318206,
+          "hyper_rare": 0.267394776131055,
+          "illustration_rare": 0.17321269787695112,
+          "rare": 0.19045674567619136,
+          "special_illustration_rare": 0.230205524037618,
+          "ultra_rare": 0.20214213435879827,
+          "uncommon": 0.1170841525039329
+        },
+        "rank": [
+          "common",
+          "uncommon",
+          "rare",
+          "double_rare",
+          "ultra_rare",
+          "ace_spec_rare",
+          "hyper_rare",
+          "illustration_rare",
+          "special_illustration_rare"
+        ],
+        "residualSD": 0.5931913419286983,
+        "demandCoefficient": 0.025631107959810162,
+        "cards": 250
+      },
+      "matched": {
+        "common->ultra_rare": {
+          "n": 1,
+          "medianLogContrast": 1.9459101490553132,
+          "meanLogContrast": 1.9459101490553132
+        },
+        "ultra_rare->uncommon": {
+          "n": 7,
+          "medianLogContrast": -2.6779727458649325,
+          "meanLogContrast": -2.6396778442919624
+        },
+        "special_illustration_rare->uncommon": {
+          "n": 5,
+          "medianLogContrast": -4.8377924812568445,
+          "meanLogContrast": -5.2554653770207045
+        },
+        "special_illustration_rare->ultra_rare": {
+          "n": 11,
+          "medianLogContrast": -2.447426163303302,
+          "meanLogContrast": -2.6306672655467804
+        },
+        "common->illustration_rare": {
+          "n": 15,
+          "medianLogContrast": 4.3694478524670215,
+          "meanLogContrast": 4.295644364390675
+        },
+        "double_rare->uncommon": {
+          "n": 3,
+          "medianLogContrast": -3.120895416507997,
+          "meanLogContrast": -2.734789344852173
+        },
+        "double_rare->ultra_rare": {
+          "n": 14,
+          "medianLogContrast": 0.8450785019046458,
+          "meanLogContrast": 0.9470289255539363
+        },
+        "double_rare->special_illustration_rare": {
+          "n": 7,
+          "medianLogContrast": 3.809603275207436,
+          "meanLogContrast": 3.927152351120741
+        },
+        "double_rare->hyper_rare": {
+          "n": 2,
+          "medianLogContrast": 2.8274934786986354,
+          "meanLogContrast": 2.8274934786986354
+        },
+        "hyper_rare->uncommon": {
+          "n": 3,
+          "medianLogContrast": -3.823410347071542,
+          "meanLogContrast": -4.202563890212604
+        },
+        "hyper_rare->ultra_rare": {
+          "n": 2,
+          "medianLogContrast": -1.4157771524796119,
+          "meanLogContrast": -1.4157771524796119
+        },
+        "hyper_rare->special_illustration_rare": {
+          "n": 2,
+          "medianLogContrast": 1.123445896676992,
+          "meanLogContrast": 1.123445896676992
+        },
+        "illustration_rare->uncommon": {
+          "n": 9,
+          "medianLogContrast": -4.520580117687472,
+          "meanLogContrast": -4.512687209362158
+        },
+        "double_rare->illustration_rare": {
+          "n": 1,
+          "medianLogContrast": 3.0266541838925773,
+          "meanLogContrast": 3.0266541838925773
+        }
+      },
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "ace_spec_rare": 0.0,
+            "common": -2.2297629424679037,
+            "double_rare": -0.5436287739563884,
+            "hyper_rare": 1.799379500812685,
+            "illustration_rare": 2.1077711269441584,
+            "rare": -1.547819838441279,
+            "special_illustration_rare": 2.055287498562044,
+            "ultra_rare": 0.27103187278314766,
+            "uncommon": -2.1189102774141766
+          },
+          "standardErrors": {
+            "ace_spec_rare": 0.0,
+            "common": 0.12508765515733386,
+            "double_rare": 0.2108220008883902,
+            "hyper_rare": 0.23431768404101144,
+            "illustration_rare": 0.15178605506163773,
+            "rare": 0.16689699104278835,
+            "special_illustration_rare": 0.20172879226146315,
+            "ultra_rare": 0.17713688148808823,
+            "uncommon": 0.10260068595797779
+          },
+          "rank": [
+            "common",
+            "uncommon",
+            "rare",
+            "double_rare",
+            "ace_spec_rare",
+            "ultra_rare",
+            "hyper_rare",
+            "special_illustration_rare",
+            "illustration_rare"
+          ],
+          "residualSD": 0.519812778114215,
+          "demandCoefficient": 0.01857576742344641,
+          "cards": 250
+        },
+        "matchedContrasts": {
+          "common->ultra_rare": {
+            "n": 1,
+            "medianLogContrast": 1.9459101490553132,
+            "meanLogContrast": 1.9459101490553132
+          },
+          "ultra_rare->uncommon": {
+            "n": 7,
+            "medianLogContrast": -2.6779727458649325,
+            "meanLogContrast": -2.6396778442919624
+          },
+          "special_illustration_rare->uncommon": {
+            "n": 5,
+            "medianLogContrast": -4.8377924812568445,
+            "meanLogContrast": -5.2554653770207045
+          },
+          "special_illustration_rare->ultra_rare": {
+            "n": 11,
+            "medianLogContrast": -2.447426163303302,
+            "meanLogContrast": -2.6306672655467804
+          },
+          "common->illustration_rare": {
+            "n": 15,
+            "medianLogContrast": 4.3694478524670215,
+            "meanLogContrast": 4.295644364390675
+          },
+          "double_rare->uncommon": {
+            "n": 3,
+            "medianLogContrast": -3.120895416507997,
+            "meanLogContrast": -2.734789344852173
+          },
+          "double_rare->ultra_rare": {
+            "n": 14,
+            "medianLogContrast": 0.8450785019046458,
+            "meanLogContrast": 0.9470289255539363
+          },
+          "double_rare->special_illustration_rare": {
+            "n": 7,
+            "medianLogContrast": 3.809603275207436,
+            "meanLogContrast": 3.927152351120741
+          },
+          "double_rare->hyper_rare": {
+            "n": 2,
+            "medianLogContrast": 2.8274934786986354,
+            "meanLogContrast": 2.8274934786986354
+          },
+          "hyper_rare->uncommon": {
+            "n": 3,
+            "medianLogContrast": -3.823410347071542,
+            "meanLogContrast": -4.202563890212604
+          },
+          "hyper_rare->ultra_rare": {
+            "n": 2,
+            "medianLogContrast": -1.4157771524796119,
+            "meanLogContrast": -1.4157771524796119
+          },
+          "hyper_rare->special_illustration_rare": {
+            "n": 2,
+            "medianLogContrast": 1.123445896676992,
+            "meanLogContrast": 1.123445896676992
+          },
+          "illustration_rare->uncommon": {
+            "n": 9,
+            "medianLogContrast": -4.520580117687472,
+            "meanLogContrast": -4.512687209362158
+          },
+          "double_rare->illustration_rare": {
+            "n": 1,
+            "medianLogContrast": 3.0266541838925773,
+            "meanLogContrast": 3.0266541838925773
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "ace_spec_rare": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "common": {
+        "median": -2.2332703921054575,
+        "interval80": [
+          -2.370432149700069,
+          -2.0688969483858295
+        ],
+        "signStability": 1.0,
+        "sd": 0.12267743796949815
+      },
+      "double_rare": {
+        "median": -0.6132724729114317,
+        "interval80": [
+          -0.9002736823826638,
+          -0.3135511067269563
+        ],
+        "signStability": 1.0,
+        "sd": 0.2294850770713083
+      },
+      "hyper_rare": {
+        "median": 1.7927903738115885,
+        "interval80": [
+          1.5458871664134155,
+          2.074106147309322
+        ],
+        "signStability": 1.0,
+        "sd": 0.21547570833644727
+      },
+      "illustration_rare": {
+        "median": 2.1277079906736827,
+        "interval80": [
+          1.926770081206557,
+          2.3421104525038428
+        ],
+        "signStability": 1.0,
+        "sd": 0.1586033702794688
+      },
+      "rare": {
+        "median": -1.5327787660956118,
+        "interval80": [
+          -1.7016517794658899,
+          -1.375439092655751
+        ],
+        "signStability": 1.0,
+        "sd": 0.13625141150038447
+      },
+      "special_illustration_rare": {
+        "median": 2.073433253650746,
+        "interval80": [
+          1.810679888212217,
+          2.493131628480343
+        ],
+        "signStability": 1.0,
+        "sd": 0.25973028864183995
+      },
+      "ultra_rare": {
+        "median": 0.23815649782632808,
+        "interval80": [
+          0.009686036129977819,
+          0.46473890761341125
+        ],
+        "signStability": 0.08666666666666667,
+        "sd": 0.18700198575931415
+      },
+      "uncommon": {
+        "median": -2.1213646815496374,
+        "interval80": [
+          -2.2337107660879187,
+          -1.9843285150111454
+        ],
+        "signStability": 1.0,
+        "sd": 0.10243463613150605
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "07262ea5-3975-4430-930f-36d94c6c7048",
+      "cardName": "Pikachu ex",
+      "maximumEffectDrift": 0.07375665484374849,
+      "effects": {
+        "ace_spec_rare": 0.0,
+        "common": -2.2412001519528113,
+        "double_rare": -1.067072407214527,
+        "hyper_rare": 1.9374956476879384,
+        "illustration_rare": 2.201526815292666,
+        "rare": -1.503889664323669,
+        "special_illustration_rare": 2.6492825925787336,
+        "ultra_rare": -0.06303122745507866,
+        "uncommon": -2.134301764712399
+      }
+    },
+    "leaveCardOutStability": 0.07375665484374849,
+    "subjectDemandSensitivity": 0.14733332968315893,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "ace_spec_rare": 0.0,
+      "common": -2.2410532367760196,
+      "double_rare": -1.1003623038195416,
+      "hyper_rare": 1.913508054249953,
+      "illustration_rare": 2.201886048081574,
+      "rare": -1.498815092168885,
+      "special_illustration_rare": 2.723039247422482,
+      "ultra_rare": -0.08232751262015763,
+      "uncommon": -2.1327051540709157
+    },
+    "uncertainty": {
+      "ace_spec_rare": [
+        0.0,
+        0.0
+      ],
+      "common": [
+        -2.520834337982753,
+        -1.9612721355692861
+      ],
+      "double_rare": [
+        -1.5719037320521785,
+        -0.6288208755869047
+      ],
+      "hyper_rare": [
+        1.3894142930330853,
+        2.4376018154668206
+      ],
+      "illustration_rare": [
+        1.8623891602427496,
+        2.541382935920398
+      ],
+      "rare": [
+        -1.87211031369422,
+        -1.1255198706435499
+      ],
+      "special_illustration_rare": [
+        2.271836420308751,
+        3.174242074536213
+      ],
+      "ultra_rare": [
+        -0.47852609596340223,
+        0.31387107072308695
+      ],
+      "uncommon": [
+        -2.362190092978624,
+        -1.9032202151632072
+      ]
+    },
+    "supportedTreatments": [
+      "common",
+      "double_rare",
+      "hyper_rare",
+      "illustration_rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "passesNonTemporalGates": false,
+    "normalization": {
+      "ace_spec_rare": 5.0,
+      "common": 3.9503853321696343,
+      "double_rare": 4.484636779232373,
+      "hyper_rare": 5.896206340747909,
+      "illustration_rare": 6.031270411176065,
+      "rare": 4.298018324915316,
+      "special_illustration_rare": 6.275356554797476,
+      "ultra_rare": 4.96144127083013,
+      "uncommon": 4.0011309971865785
+    },
+    "temporal": {
+      "dates": null,
+      "span": null,
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  },
+  "Cosmic Eclipse": {
+    "cards": 269,
+    "treatments": 8,
+    "matchedIdentityCount": 33,
+    "graph": {
+      "nodes": [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_holo_gx",
+        "rare_rainbow",
+        "rare_secret",
+        "rare_ultra",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "rare_ultra": 27,
+        "uncommon": 65,
+        "rare_holo_gx": 16,
+        "common": 67,
+        "rare": 38,
+        "rare_holo": 22,
+        "rare_secret": 20,
+        "rare_rainbow": 14
+      },
+      "edges": [
+        {
+          "source": "rare_holo_gx",
+          "target": "rare_rainbow",
+          "directContrasts": 6
+        },
+        {
+          "source": "rare_holo_gx",
+          "target": "rare_ultra",
+          "directContrasts": 6
+        },
+        {
+          "source": "rare_rainbow",
+          "target": "rare_ultra",
+          "directContrasts": 6
+        },
+        {
+          "source": "rare_secret",
+          "target": "uncommon",
+          "directContrasts": 7
+        },
+        {
+          "source": "rare",
+          "target": "rare_secret",
+          "directContrasts": 2
+        },
+        {
+          "source": "common",
+          "target": "rare_secret",
+          "directContrasts": 4
+        },
+        {
+          "source": "rare_holo",
+          "target": "rare_holo_gx",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_holo",
+          "target": "rare_secret",
+          "directContrasts": 5
+        },
+        {
+          "source": "rare_holo_gx",
+          "target": "rare_secret",
+          "directContrasts": 1
+        },
+        {
+          "source": "common",
+          "target": "uncommon",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare",
+          "target": "uncommon",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_ultra",
+          "target": "uncommon",
+          "directContrasts": 8
+        },
+        {
+          "source": "rare_holo",
+          "target": "rare_ultra",
+          "directContrasts": 1
+        }
+      ],
+      "matchedIdentities": 33,
+      "treatmentContrasts": 49,
+      "components": [
+        [
+          "common",
+          "rare",
+          "rare_holo",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_secret",
+          "rare_ultra",
+          "uncommon"
+        ]
+      ],
+      "isolatedTreatments": [],
+      "largestComponentShare": 1.0
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "common": 0.0,
+          "rare": 0.8873045349232759,
+          "rare_holo": 1.9542939742124108,
+          "rare_holo_gx": 4.556657218422263,
+          "rare_rainbow": 5.903353364921164,
+          "rare_secret": 4.355633269434838,
+          "rare_ultra": 5.91014662520777,
+          "uncommon": 0.36582944897492814
+        },
+        "standardErrors": {
+          "common": 0.0,
+          "rare": 0.20225372396002989,
+          "rare_holo": 0.22366006661400653,
+          "rare_holo_gx": 0.4618491614203543,
+          "rare_rainbow": 0.4691906834885441,
+          "rare_secret": 0.2375794978094352,
+          "rare_ultra": 0.3753163149037491,
+          "uncommon": 0.17920342852630652
+        },
+        "rank": [
+          "common",
+          "uncommon",
+          "rare",
+          "rare_holo",
+          "rare_secret",
+          "rare_holo_gx",
+          "rare_rainbow",
+          "rare_ultra"
+        ],
+        "residualSD": 0.7617319616964746,
+        "demandCoefficient": 0.02881239133149638,
+        "cards": 269
+      },
+      "matched": {
+        "rare_holo_gx->rare_ultra": {
+          "n": 6,
+          "medianLogContrast": 1.4259390265677507,
+          "meanLogContrast": 1.4276897473207921
+        },
+        "rare_holo_gx->rare_rainbow": {
+          "n": 6,
+          "medianLogContrast": 1.8646127911816373,
+          "meanLogContrast": 1.7895593976004516
+        },
+        "rare_rainbow->rare_ultra": {
+          "n": 6,
+          "medianLogContrast": -0.8508825200961856,
+          "meanLogContrast": -0.3618696502796595
+        },
+        "rare_secret->uncommon": {
+          "n": 7,
+          "medianLogContrast": -3.9086841041626315,
+          "meanLogContrast": -3.9805581339935463
+        },
+        "rare->rare_secret": {
+          "n": 2,
+          "medianLogContrast": 2.9404434183252777,
+          "meanLogContrast": 2.9404434183252777
+        },
+        "common->rare_secret": {
+          "n": 4,
+          "medianLogContrast": 4.988847158401114,
+          "meanLogContrast": 4.994044791317849
+        },
+        "rare_holo->rare_holo_gx": {
+          "n": 1,
+          "medianLogContrast": -0.6150294012959933,
+          "meanLogContrast": -0.6150294012959933
+        },
+        "rare_holo->rare_secret": {
+          "n": 5,
+          "medianLogContrast": 2.6202809612494784,
+          "meanLogContrast": 2.564141182023725
+        },
+        "rare_holo_gx->rare_secret": {
+          "n": 1,
+          "medianLogContrast": 2.3830723439067323,
+          "meanLogContrast": 2.3830723439067323
+        },
+        "common->uncommon": {
+          "n": 1,
+          "medianLogContrast": 0.7178397931503167,
+          "meanLogContrast": 0.7178397931503167
+        },
+        "rare->uncommon": {
+          "n": 1,
+          "medianLogContrast": -1.6949208975921657,
+          "meanLogContrast": -1.6949208975921657
+        },
+        "rare_ultra->uncommon": {
+          "n": 8,
+          "medianLogContrast": -5.974696901604926,
+          "meanLogContrast": -5.258045202890304
+        },
+        "rare_holo->rare_ultra": {
+          "n": 1,
+          "medianLogContrast": 4.305929860835132,
+          "meanLogContrast": 4.305929860835132
+        }
+      },
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "common": 0.0,
+            "rare": 0.8535689745538119,
+            "rare_holo": 1.9287211048509973,
+            "rare_holo_gx": 4.631267858754129,
+            "rare_rainbow": 5.9288542987928805,
+            "rare_secret": 4.262498524923141,
+            "rare_ultra": 5.6848864486907456,
+            "uncommon": 0.3831930279534475
+          },
+          "standardErrors": {
+            "common": 0.0,
+            "rare": 0.18927790436447378,
+            "rare_holo": 0.2093108985577143,
+            "rare_holo_gx": 0.4322186988428953,
+            "rare_rainbow": 0.4390892171438939,
+            "rare_secret": 0.22233731268266205,
+            "rare_ultra": 0.35123746632629393,
+            "uncommon": 0.16770642706727765
+          },
+          "rank": [
+            "common",
+            "uncommon",
+            "rare",
+            "rare_holo",
+            "rare_secret",
+            "rare_holo_gx",
+            "rare_ultra",
+            "rare_rainbow"
+          ],
+          "residualSD": 0.7128621741760437,
+          "demandCoefficient": 0.027565265759979016,
+          "cards": 269
+        },
+        "matchedContrasts": {
+          "rare_holo_gx->rare_ultra": {
+            "n": 6,
+            "medianLogContrast": 1.4259390265677507,
+            "meanLogContrast": 1.4276897473207921
+          },
+          "rare_holo_gx->rare_rainbow": {
+            "n": 6,
+            "medianLogContrast": 1.8646127911816373,
+            "meanLogContrast": 1.7895593976004516
+          },
+          "rare_rainbow->rare_ultra": {
+            "n": 6,
+            "medianLogContrast": -0.8508825200961856,
+            "meanLogContrast": -0.3618696502796595
+          },
+          "rare_secret->uncommon": {
+            "n": 7,
+            "medianLogContrast": -3.9086841041626315,
+            "meanLogContrast": -3.9805581339935463
+          },
+          "rare->rare_secret": {
+            "n": 2,
+            "medianLogContrast": 2.9404434183252777,
+            "meanLogContrast": 2.9404434183252777
+          },
+          "common->rare_secret": {
+            "n": 4,
+            "medianLogContrast": 4.988847158401114,
+            "meanLogContrast": 4.994044791317849
+          },
+          "rare_holo->rare_holo_gx": {
+            "n": 1,
+            "medianLogContrast": -0.6150294012959933,
+            "meanLogContrast": -0.6150294012959933
+          },
+          "rare_holo->rare_secret": {
+            "n": 5,
+            "medianLogContrast": 2.6202809612494784,
+            "meanLogContrast": 2.564141182023725
+          },
+          "rare_holo_gx->rare_secret": {
+            "n": 1,
+            "medianLogContrast": 2.3830723439067323,
+            "meanLogContrast": 2.3830723439067323
+          },
+          "common->uncommon": {
+            "n": 1,
+            "medianLogContrast": 0.7178397931503167,
+            "meanLogContrast": 0.7178397931503167
+          },
+          "rare->uncommon": {
+            "n": 1,
+            "medianLogContrast": -1.6949208975921657,
+            "meanLogContrast": -1.6949208975921657
+          },
+          "rare_ultra->uncommon": {
+            "n": 8,
+            "medianLogContrast": -5.974696901604926,
+            "meanLogContrast": -5.258045202890304
+          },
+          "rare_holo->rare_ultra": {
+            "n": 1,
+            "medianLogContrast": 4.305929860835132,
+            "meanLogContrast": 4.305929860835132
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "common": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "rare": {
+        "median": 0.8592767667035569,
+        "interval80": [
+          0.5779099052970068,
+          1.150501989177832
+        ],
+        "signStability": 1.0,
+        "sd": 0.22467899164199237
+      },
+      "rare_holo": {
+        "median": 1.9100909811557885,
+        "interval80": [
+          1.639582283134834,
+          2.2147825603115434
+        ],
+        "signStability": 1.0,
+        "sd": 0.23483640264581082
+      },
+      "rare_holo_gx": {
+        "median": 4.70574765028999,
+        "interval80": [
+          3.968750725664026,
+          5.392068367841173
+        ],
+        "signStability": 1.0,
+        "sd": 0.5485262709883735
+      },
+      "rare_rainbow": {
+        "median": 5.9761045492648925,
+        "interval80": [
+          5.319469151461153,
+          6.615106304760422
+        ],
+        "signStability": 1.0,
+        "sd": 0.529450461171634
+      },
+      "rare_secret": {
+        "median": 4.278273696798491,
+        "interval80": [
+          4.023319309383633,
+          4.553067300360204
+        ],
+        "signStability": 1.0,
+        "sd": 0.2036816528671677
+      },
+      "rare_ultra": {
+        "median": 5.792107673496512,
+        "interval80": [
+          5.165658525619982,
+          6.328323049806328
+        ],
+        "signStability": 1.0,
+        "sd": 0.4491698452070537
+      },
+      "uncommon": {
+        "median": 0.39059019145814555,
+        "interval80": [
+          0.16791864501468753,
+          0.6351822422901202
+        ],
+        "signStability": 0.9833333333333333,
+        "sd": 0.18585592609026558
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "a2879ea0-4774-4e09-9cad-80eb98b075d1",
+      "cardName": "Arceus & Dialga & Palkia-GX",
+      "maximumEffectDrift": 0.08377546430992755,
+      "effects": {
+        "common": 0.0,
+        "rare": 0.8865866994483294,
+        "rare_holo": 1.9536306484150303,
+        "rare_holo_gx": 4.640070487063573,
+        "rare_rainbow": 5.987128829231091,
+        "rare_secret": 4.355122054423867,
+        "rare_ultra": 5.909642809657216,
+        "uncommon": 0.365336469718321
+      }
+    },
+    "leaveCardOutStability": 0.08377546430992755,
+    "subjectDemandSensitivity": 0.301657779526737,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "common": 0.0,
+      "rare": 0.8873045349232759,
+      "rare_holo": 1.9542939742124108,
+      "rare_holo_gx": 4.556657218422263,
+      "rare_rainbow": 5.903353364921164,
+      "rare_secret": 4.355633269434838,
+      "rare_ultra": 5.91014662520777,
+      "uncommon": 0.36582944897492814
+    },
+    "uncertainty": {
+      "common": [
+        0.0,
+        0.0
+      ],
+      "rare": [
+        0.4908872359616173,
+        1.2837218338849343
+      ],
+      "rare_holo": [
+        1.515920243648958,
+        2.3926677047758638
+      ],
+      "rare_holo_gx": [
+        3.6514328620383685,
+        5.461881574806157
+      ],
+      "rare_rainbow": [
+        4.983739625283617,
+        6.82296710455871
+      ],
+      "rare_secret": [
+        3.889977453728345,
+        4.821289085141331
+      ],
+      "rare_ultra": [
+        5.174526647996422,
+        6.645766602419118
+      ],
+      "uncommon": [
+        0.014590729063367336,
+        0.7170681688864889
+      ]
+    },
+    "supportedTreatments": [
+      "common",
+      "rare",
+      "rare_holo",
+      "rare_holo_gx",
+      "rare_rainbow",
+      "rare_secret",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "passesNonTemporalGates": true,
+    "normalization": {
+      "common": 5.0,
+      "rare": 5.415575961964955,
+      "rare_holo": 5.9153087427484685,
+      "rare_holo_gx": 7.134145755328671,
+      "rare_rainbow": 7.764881342185749,
+      "rare_secret": 7.039994629429526,
+      "rare_ultra": 7.768063018337927,
+      "uncommon": 5.171339060253999
+    },
+    "temporal": {
+      "dates": null,
+      "span": null,
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  },
+  "Crown Zenith / Galarian Gallery": {
+    "cards": 223,
+    "treatments": 12,
+    "matchedIdentityCount": 29,
+    "graph": {
+      "nodes": [
+        "common",
+        "radiant_rare",
+        "rare",
+        "rare_holo",
+        "rare_holo_v",
+        "rare_holo_vmax",
+        "rare_holo_vstar",
+        "rare_secret",
+        "rare_ultra",
+        "trainer_gallery_rare_holo",
+        "ultra_rare",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "ultra_rare": 1,
+        "common": 42,
+        "uncommon": 29,
+        "rare": 22,
+        "rare_holo_v": 26,
+        "rare_holo_vstar": 18,
+        "rare_holo": 20,
+        "radiant_rare": 3,
+        "rare_holo_vmax": 8,
+        "rare_ultra": 15,
+        "rare_secret": 5,
+        "trainer_gallery_rare_holo": 34
+      },
+      "edges": [
+        {
+          "source": "rare_holo_v",
+          "target": "rare_holo_vstar",
+          "directContrasts": 10
+        },
+        {
+          "source": "radiant_rare",
+          "target": "rare_holo_v",
+          "directContrasts": 1
+        },
+        {
+          "source": "radiant_rare",
+          "target": "rare_holo_vstar",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_holo",
+          "target": "rare_holo_v",
+          "directContrasts": 5
+        },
+        {
+          "source": "rare",
+          "target": "rare_holo_v",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare",
+          "target": "rare_holo_vmax",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare",
+          "target": "rare_holo_vstar",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_holo_v",
+          "target": "rare_holo_vmax",
+          "directContrasts": 4
+        },
+        {
+          "source": "rare_holo_vmax",
+          "target": "rare_holo_vstar",
+          "directContrasts": 2
+        },
+        {
+          "source": "rare_holo",
+          "target": "rare_holo_vstar",
+          "directContrasts": 3
+        },
+        {
+          "source": "rare_holo_v",
+          "target": "trainer_gallery_rare_holo",
+          "directContrasts": 1
+        },
+        {
+          "source": "trainer_gallery_rare_holo",
+          "target": "uncommon",
+          "directContrasts": 2
+        },
+        {
+          "source": "common",
+          "target": "trainer_gallery_rare_holo",
+          "directContrasts": 2
+        },
+        {
+          "source": "rare_holo",
+          "target": "trainer_gallery_rare_holo",
+          "directContrasts": 2
+        },
+        {
+          "source": "rare_ultra",
+          "target": "uncommon",
+          "directContrasts": 2
+        },
+        {
+          "source": "rare_holo",
+          "target": "rare_ultra",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_secret",
+          "target": "trainer_gallery_rare_holo",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_holo_vmax",
+          "target": "trainer_gallery_rare_holo",
+          "directContrasts": 1
+        },
+        {
+          "source": "rare_holo_vstar",
+          "target": "trainer_gallery_rare_holo",
+          "directContrasts": 1
+        }
+      ],
+      "matchedIdentities": 29,
+      "treatmentContrasts": 42,
+      "components": [
+        [
+          "common",
+          "radiant_rare",
+          "rare",
+          "rare_holo",
+          "rare_holo_v",
+          "rare_holo_vmax",
+          "rare_holo_vstar",
+          "rare_secret",
+          "rare_ultra",
+          "trainer_gallery_rare_holo",
+          "uncommon"
+        ],
+        [
+          "ultra_rare"
+        ]
+      ],
+      "isolatedTreatments": [
+        "ultra_rare"
+      ],
+      "largestComponentShare": 0.9166666666666666
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "common": 0.0,
+          "radiant_rare": 1.1761566066348088,
+          "rare": 0.8548276028685469,
+          "rare_holo": 1.3893321056756578,
+          "rare_holo_v": 1.3219481649647298,
+          "rare_holo_vmax": 1.2957039952971618,
+          "rare_holo_vstar": 2.9805680758573,
+          "rare_secret": 4.690183104197295,
+          "rare_ultra": 2.750949814990068,
+          "trainer_gallery_rare_holo": 2.0124300462187628,
+          "ultra_rare": 2.4279873332049413,
+          "uncommon": 0.08523627544449947
+        },
+        "standardErrors": {
+          "common": 0.0,
+          "radiant_rare": 0.19298514767867286,
+          "rare": 0.20547338343865973,
+          "rare_holo": 0.18924255392655343,
+          "rare_holo_v": 0.08711797671848892,
+          "rare_holo_vmax": 0.1429961828873671,
+          "rare_holo_vstar": 0.7580730807450811,
+          "rare_secret": 0.6655277792983492,
+          "rare_ultra": 0.329627935180418,
+          "trainer_gallery_rare_holo": 0.22622426424214953,
+          "ultra_rare": 0.5131072749140857,
+          "uncommon": 0.17787612446247528
+        },
+        "rank": [
+          "common",
+          "uncommon",
+          "rare",
+          "radiant_rare",
+          "rare_holo_vmax",
+          "rare_holo_v",
+          "rare_holo",
+          "trainer_gallery_rare_holo",
+          "ultra_rare",
+          "rare_ultra",
+          "rare_holo_vstar",
+          "rare_secret"
+        ],
+        "residualSD": 0.6023610540585478,
+        "demandCoefficient": 0.039494309517616975,
+        "cards": 223
+      },
+      "matched": {
+        "rare_holo_v->rare_holo_vstar": {
+          "n": 16,
+          "medianLogContrast": 0.6073771883513079,
+          "meanLogContrast": 1.0241267036015014
+        },
+        "radiant_rare->rare_holo_v": {
+          "n": 1,
+          "medianLogContrast": -0.5178280762952086,
+          "meanLogContrast": -0.5178280762952086
+        },
+        "radiant_rare->rare_holo_vstar": {
+          "n": 1,
+          "medianLogContrast": -0.0900903325779212,
+          "meanLogContrast": -0.0900903325779212
+        },
+        "rare_holo->rare_holo_v": {
+          "n": 7,
+          "medianLogContrast": 3.9274588135579855,
+          "meanLogContrast": 3.0256274272532346
+        },
+        "rare->rare_holo_v": {
+          "n": 1,
+          "medianLogContrast": 1.3418425985490567,
+          "meanLogContrast": 1.3418425985490567
+        },
+        "rare->rare_holo_vmax": {
+          "n": 2,
+          "medianLogContrast": 4.098521302787331,
+          "meanLogContrast": 4.098521302787331
+        },
+        "rare->rare_holo_vstar": {
+          "n": 2,
+          "medianLogContrast": 3.4427287404215936,
+          "meanLogContrast": 3.4427287404215936
+        },
+        "rare_holo_v->rare_holo_vmax": {
+          "n": 7,
+          "medianLogContrast": 1.8032143482028216,
+          "meanLogContrast": 1.8724597866214947
+        },
+        "rare_holo_vmax->rare_holo_vstar": {
+          "n": 5,
+          "medianLogContrast": -0.19444291732629937,
+          "meanLogContrast": -0.5635226333578498
+        },
+        "rare_holo->rare_holo_vstar": {
+          "n": 3,
+          "medianLogContrast": 1.8495790401168812,
+          "meanLogContrast": 2.611260447783815
+        },
+        "rare_holo_v->trainer_gallery_rare_holo": {
+          "n": 1,
+          "medianLogContrast": 2.3061011097630657,
+          "meanLogContrast": 2.3061011097630657
+        },
+        "trainer_gallery_rare_holo->uncommon": {
+          "n": 2,
+          "medianLogContrast": -5.103144048059805,
+          "meanLogContrast": -5.103144048059805
+        },
+        "common->trainer_gallery_rare_holo": {
+          "n": 2,
+          "medianLogContrast": 4.084191465613271,
+          "meanLogContrast": 4.084191465613271
+        },
+        "rare_holo->trainer_gallery_rare_holo": {
+          "n": 2,
+          "medianLogContrast": 2.5249527686022577,
+          "meanLogContrast": 2.5249527686022577
+        },
+        "rare_ultra->uncommon": {
+          "n": 2,
+          "medianLogContrast": -4.181144817828207,
+          "meanLogContrast": -4.181144817828207
+        },
+        "rare_holo->rare_ultra": {
+          "n": 1,
+          "medianLogContrast": 2.656225133237624,
+          "meanLogContrast": 2.656225133237624
+        },
+        "rare_secret->trainer_gallery_rare_holo": {
+          "n": 1,
+          "medianLogContrast": -0.048873120741713905,
+          "meanLogContrast": -0.048873120741713905
+        },
+        "rare_holo_vstar->trainer_gallery_rare_holo": {
+          "n": 1,
+          "medianLogContrast": -1.1029368230001046,
+          "meanLogContrast": -1.1029368230001046
+        },
+        "rare_holo_vmax->trainer_gallery_rare_holo": {
+          "n": 1,
+          "medianLogContrast": -1.297379740326404,
+          "meanLogContrast": -1.297379740326404
+        }
+      },
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "common": 0.0,
+            "radiant_rare": 1.1869030853492357,
+            "rare": 0.8566003665648569,
+            "rare_holo": 1.3903243619411931,
+            "rare_holo_v": 1.3392686408108796,
+            "rare_holo_vmax": 1.432030470217462,
+            "rare_holo_vstar": 4.070831940509704,
+            "rare_secret": 4.779747615245783,
+            "rare_ultra": 2.837229073367483,
+            "trainer_gallery_rare_holo": 2.1162027218162494,
+            "ultra_rare": 2.4563508400209213,
+            "uncommon": 0.13401960822497005
+          },
+          "standardErrors": {
+            "common": 0.0,
+            "radiant_rare": 0.18477794396003458,
+            "rare": 0.1967350844714936,
+            "rare_holo": 0.1811945139038224,
+            "rare_holo_v": 0.0834130543911256,
+            "rare_holo_vmax": 0.13691489208306976,
+            "rare_holo_vstar": 0.7258340184020562,
+            "rare_secret": 0.6372244506183147,
+            "rare_ultra": 0.31560963559663735,
+            "trainer_gallery_rare_holo": 0.21660347919694078,
+            "ultra_rare": 0.4912860312308827,
+            "uncommon": 0.17031147190912893
+          },
+          "rank": [
+            "common",
+            "uncommon",
+            "rare",
+            "radiant_rare",
+            "rare_holo_v",
+            "rare_holo",
+            "rare_holo_vmax",
+            "trainer_gallery_rare_holo",
+            "ultra_rare",
+            "rare_ultra",
+            "rare_holo_vstar",
+            "rare_secret"
+          ],
+          "residualSD": 0.5767440574020818,
+          "demandCoefficient": 0.0367636413026277,
+          "cards": 223
+        },
+        "matchedContrasts": {
+          "rare_holo_v->rare_holo_vstar": {
+            "n": 16,
+            "medianLogContrast": 0.6073771883513079,
+            "meanLogContrast": 1.0241267036015014
+          },
+          "radiant_rare->rare_holo_v": {
+            "n": 1,
+            "medianLogContrast": -0.5178280762952086,
+            "meanLogContrast": -0.5178280762952086
+          },
+          "radiant_rare->rare_holo_vstar": {
+            "n": 1,
+            "medianLogContrast": -0.0900903325779212,
+            "meanLogContrast": -0.0900903325779212
+          },
+          "rare_holo->rare_holo_v": {
+            "n": 7,
+            "medianLogContrast": 3.9274588135579855,
+            "meanLogContrast": 3.0256274272532346
+          },
+          "rare->rare_holo_v": {
+            "n": 1,
+            "medianLogContrast": 1.3418425985490567,
+            "meanLogContrast": 1.3418425985490567
+          },
+          "rare->rare_holo_vmax": {
+            "n": 2,
+            "medianLogContrast": 4.098521302787331,
+            "meanLogContrast": 4.098521302787331
+          },
+          "rare->rare_holo_vstar": {
+            "n": 2,
+            "medianLogContrast": 3.4427287404215936,
+            "meanLogContrast": 3.4427287404215936
+          },
+          "rare_holo_v->rare_holo_vmax": {
+            "n": 7,
+            "medianLogContrast": 1.8032143482028216,
+            "meanLogContrast": 1.8724597866214947
+          },
+          "rare_holo_vmax->rare_holo_vstar": {
+            "n": 5,
+            "medianLogContrast": -0.19444291732629937,
+            "meanLogContrast": -0.5635226333578498
+          },
+          "rare_holo->rare_holo_vstar": {
+            "n": 3,
+            "medianLogContrast": 1.8495790401168812,
+            "meanLogContrast": 2.611260447783815
+          },
+          "rare_holo_v->trainer_gallery_rare_holo": {
+            "n": 1,
+            "medianLogContrast": 2.3061011097630657,
+            "meanLogContrast": 2.3061011097630657
+          },
+          "trainer_gallery_rare_holo->uncommon": {
+            "n": 2,
+            "medianLogContrast": -5.103144048059805,
+            "meanLogContrast": -5.103144048059805
+          },
+          "common->trainer_gallery_rare_holo": {
+            "n": 2,
+            "medianLogContrast": 4.084191465613271,
+            "meanLogContrast": 4.084191465613271
+          },
+          "rare_holo->trainer_gallery_rare_holo": {
+            "n": 2,
+            "medianLogContrast": 2.5249527686022577,
+            "meanLogContrast": 2.5249527686022577
+          },
+          "rare_ultra->uncommon": {
+            "n": 2,
+            "medianLogContrast": -4.181144817828207,
+            "meanLogContrast": -4.181144817828207
+          },
+          "rare_holo->rare_ultra": {
+            "n": 1,
+            "medianLogContrast": 2.656225133237624,
+            "meanLogContrast": 2.656225133237624
+          },
+          "rare_secret->trainer_gallery_rare_holo": {
+            "n": 1,
+            "medianLogContrast": -0.048873120741713905,
+            "meanLogContrast": -0.048873120741713905
+          },
+          "rare_holo_vstar->trainer_gallery_rare_holo": {
+            "n": 1,
+            "medianLogContrast": -1.1029368230001046,
+            "meanLogContrast": -1.1029368230001046
+          },
+          "rare_holo_vmax->trainer_gallery_rare_holo": {
+            "n": 1,
+            "medianLogContrast": -1.297379740326404,
+            "meanLogContrast": -1.297379740326404
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "common": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "radiant_rare": {
+        "median": 1.1371210749994567,
+        "interval80": [
+          0.8430371135511411,
+          1.4740324097672155
+        ],
+        "signStability": 1.0,
+        "sd": 0.23934698552062228
+      },
+      "rare": {
+        "median": 0.8239047874848777,
+        "interval80": [
+          0.6106732092204391,
+          1.0574275055005788
+        ],
+        "signStability": 1.0,
+        "sd": 0.170704428559742
+      },
+      "rare_holo": {
+        "median": 1.385927033592195,
+        "interval80": [
+          1.1619388177006262,
+          1.5936702205748603
+        ],
+        "signStability": 1.0,
+        "sd": 0.15490853533441273
+      },
+      "rare_holo_v": {
+        "median": 1.332757221771759,
+        "interval80": [
+          1.2261829358061347,
+          1.4336061568664766
+        ],
+        "signStability": 1.0,
+        "sd": 0.08325654765551393
+      },
+      "rare_holo_vmax": {
+        "median": 1.3337834172821363,
+        "interval80": [
+          1.012642847860463,
+          1.5818354722454162
+        ],
+        "signStability": 1.0,
+        "sd": 0.21388237736006382
+      },
+      "rare_holo_vstar": {
+        "median": 3.8011108925719603,
+        "interval80": [
+          0.3648856682413567,
+          4.331758399355489
+        ],
+        "signStability": 1.0,
+        "sd": 1.7605132442865772
+      },
+      "rare_secret": {
+        "median": 4.618816699168482,
+        "interval80": [
+          1.0387278614597113,
+          4.926192612216995
+        ],
+        "signStability": 1.0,
+        "sd": 1.7435575056169437
+      },
+      "rare_ultra": {
+        "median": 2.776721434864628,
+        "interval80": [
+          2.1864389408750067,
+          3.263703914975901
+        ],
+        "signStability": 1.0,
+        "sd": 0.4297703783663075
+      },
+      "trainer_gallery_rare_holo": {
+        "median": 2.0706089827448473,
+        "interval80": [
+          1.7327601026574921,
+          2.4253828104786543
+        ],
+        "signStability": 1.0,
+        "sd": 0.27878565633084773
+      },
+      "ultra_rare": {
+        "median": 2.4112806721157654,
+        "interval80": [
+          2.2680320446088142,
+          2.517623368469682
+        ],
+        "signStability": 1.0,
+        "sd": 0.09791259215800303
+      },
+      "uncommon": {
+        "median": 0.14114019041953504,
+        "interval80": [
+          -0.029781045180780022,
+          0.30366198965759406
+        ],
+        "signStability": 0.8533333333333334,
+        "sd": 0.13653069748854182
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "754a36b9-66b3-4a1f-ba91-7153ab0e9f02",
+      "cardName": "Giratina VSTAR",
+      "maximumEffectDrift": 0.08292725673279655,
+      "effects": {
+        "common": 0.0,
+        "radiant_rare": 1.1770203303805518,
+        "rare": 0.85554096751101,
+        "rare_holo": 1.3897276069239048,
+        "rare_holo_v": 1.3224835884094748,
+        "rare_holo_vmax": 1.3044376014843642,
+        "rare_holo_vstar": 3.0634953325900964,
+        "rare_secret": 4.6948300884826315,
+        "rare_ultra": 2.7514426792022197,
+        "trainer_gallery_rare_holo": 2.0136158833621867,
+        "ultra_rare": 2.430157731788957,
+        "uncommon": 0.0852974537906521
+      }
+    },
+    "leaveCardOutStability": 0.08292725673279655,
+    "subjectDemandSensitivity": 1.6468501498064638,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "common": 0.0,
+      "radiant_rare": 1.1761566066348088,
+      "rare": 0.8548276028685469,
+      "rare_holo": 1.3893321056756578,
+      "rare_holo_v": 1.3219481649647298,
+      "rare_holo_vmax": 1.2957039952971618,
+      "rare_holo_vstar": 2.9805680758573,
+      "rare_secret": 4.690183104197295,
+      "rare_ultra": 2.750949814990068,
+      "trainer_gallery_rare_holo": 2.0124300462187628,
+      "ultra_rare": 2.4279873332049413,
+      "uncommon": 0.08523627544449947
+    },
+    "uncertainty": {
+      "common": [
+        0.0,
+        0.0
+      ],
+      "radiant_rare": [
+        0.79790571718461,
+        1.5544074960850076
+      ],
+      "rare": [
+        0.4520997713287738,
+        1.25755543440832
+      ],
+      "rare_holo": [
+        1.0184166999796131,
+        1.7602475113717024
+      ],
+      "rare_holo_v": [
+        1.1511969305964915,
+        1.492699399332968
+      ],
+      "rare_holo_vmax": [
+        1.0154314768379225,
+        1.5759765137564012
+      ],
+      "rare_holo_vstar": [
+        1.494744837596941,
+        4.466391314117659
+      ],
+      "rare_secret": [
+        3.38574865677253,
+        5.994617551622059
+      ],
+      "rare_ultra": [
+        2.104879062036449,
+        3.3970205679436876
+      ],
+      "trainer_gallery_rare_holo": [
+        1.5690304883041497,
+        2.455829604133376
+      ],
+      "ultra_rare": [
+        1.4222970743733334,
+        3.433677592036549
+      ],
+      "uncommon": [
+        -0.26340092850195207,
+        0.433873479390951
+      ]
+    },
+    "supportedTreatments": [
+      "common",
+      "radiant_rare",
+      "rare",
+      "rare_holo",
+      "rare_holo_v",
+      "rare_holo_vmax",
+      "rare_holo_vstar",
+      "rare_secret",
+      "rare_ultra",
+      "trainer_gallery_rare_holo",
+      "uncommon"
+    ],
+    "passesNonTemporalGates": false,
+    "normalization": {
+      "common": 5.0,
+      "radiant_rare": 5.550862070445704,
+      "rare": 5.400365138905788,
+      "rare_holo": 5.650704469074852,
+      "rare_holo_v": 5.619144677729533,
+      "rare_holo_vmax": 5.606853017283423,
+      "rare_holo_vstar": 6.39597217930768,
+      "rare_secret": 7.196683639723661,
+      "rare_ultra": 6.288428685626708,
+      "trainer_gallery_rare_holo": 5.942537223048068,
+      "ultra_rare": 6.137166701985377,
+      "uncommon": 5.039921070802619
+    },
+    "temporal": {
+      "dates": null,
+      "span": null,
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  },
+  "Mega Evolution": {
+    "cards": 189,
+    "treatments": 9,
+    "matchedIdentityCount": 41,
+    "graph": {
+      "nodes": [
+        "common",
+        "double_rare",
+        "illustration_rare",
+        "mega_hyper_rare",
+        "promo",
+        "rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "promo": 1,
+        "uncommon": 43,
+        "common": 67,
+        "double_rare": 10,
+        "rare": 12,
+        "illustration_rare": 22,
+        "ultra_rare": 22,
+        "special_illustration_rare": 10,
+        "mega_hyper_rare": 2
+      },
+      "edges": [
+        {
+          "source": "common",
+          "target": "illustration_rare",
+          "directContrasts": 10
+        },
+        {
+          "source": "double_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 6
+        },
+        {
+          "source": "double_rare",
+          "target": "ultra_rare",
+          "directContrasts": 10
+        },
+        {
+          "source": "special_illustration_rare",
+          "target": "ultra_rare",
+          "directContrasts": 10
+        },
+        {
+          "source": "illustration_rare",
+          "target": "uncommon",
+          "directContrasts": 10
+        },
+        {
+          "source": "illustration_rare",
+          "target": "rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "double_rare",
+          "target": "mega_hyper_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "mega_hyper_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "mega_hyper_rare",
+          "target": "ultra_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "special_illustration_rare",
+          "target": "uncommon",
+          "directContrasts": 4
+        },
+        {
+          "source": "ultra_rare",
+          "target": "uncommon",
+          "directContrasts": 8
+        },
+        {
+          "source": "common",
+          "target": "ultra_rare",
+          "directContrasts": 1
+        }
+      ],
+      "matchedIdentities": 41,
+      "treatmentContrasts": 67,
+      "components": [
+        [
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "mega_hyper_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ],
+        [
+          "promo"
+        ]
+      ],
+      "isolatedTreatments": [
+        "promo"
+      ],
+      "largestComponentShare": 0.8888888888888888
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "common": 0.0,
+          "double_rare": 0.5359495165398955,
+          "illustration_rare": 3.7777124977399223,
+          "mega_hyper_rare": 6.02035457682992,
+          "promo": 0.5364488508976903,
+          "rare": 0.5914517591217507,
+          "special_illustration_rare": 5.195649650171661,
+          "ultra_rare": 2.3935910793886124,
+          "uncommon": -0.21785078173849515
+        },
+        "standardErrors": {
+          "common": 0.0,
+          "double_rare": 0.29267169804700915,
+          "illustration_rare": 0.12921290424874307,
+          "mega_hyper_rare": 0.4486943724071781,
+          "promo": 0.7615955832319542,
+          "rare": 0.1680381707736085,
+          "special_illustration_rare": 0.26069244856522145,
+          "ultra_rare": 0.20655001954365984,
+          "uncommon": 0.1138511989793428
+        },
+        "rank": [
+          "uncommon",
+          "common",
+          "double_rare",
+          "promo",
+          "rare",
+          "ultra_rare",
+          "illustration_rare",
+          "special_illustration_rare",
+          "mega_hyper_rare"
+        ],
+        "residualSD": 0.49290723715789175,
+        "demandCoefficient": 0.020039531331932887,
+        "cards": 189
+      },
+      "matched": {
+        "common->illustration_rare": {
+          "n": 10,
+          "medianLogContrast": 4.098875938011327,
+          "meanLogContrast": 4.0475346736886
+        },
+        "double_rare->ultra_rare": {
+          "n": 10,
+          "medianLogContrast": 1.7757171067002373,
+          "meanLogContrast": 1.7282263732237624
+        },
+        "double_rare->special_illustration_rare": {
+          "n": 6,
+          "medianLogContrast": 4.977001162007054,
+          "meanLogContrast": 4.869915663828988
+        },
+        "special_illustration_rare->ultra_rare": {
+          "n": 10,
+          "medianLogContrast": -2.6601360020408515,
+          "meanLogContrast": -2.5389868828927042
+        },
+        "illustration_rare->uncommon": {
+          "n": 10,
+          "medianLogContrast": -3.7803873342256518,
+          "meanLogContrast": -3.909692261768688
+        },
+        "illustration_rare->rare": {
+          "n": 2,
+          "medianLogContrast": -3.462202396143454,
+          "meanLogContrast": -3.462202396143454
+        },
+        "double_rare->mega_hyper_rare": {
+          "n": 2,
+          "medianLogContrast": 5.75404942777168,
+          "meanLogContrast": 5.75404942777168
+        },
+        "mega_hyper_rare->ultra_rare": {
+          "n": 2,
+          "medianLogContrast": -3.435568040877204,
+          "meanLogContrast": -3.435568040877204
+        },
+        "mega_hyper_rare->special_illustration_rare": {
+          "n": 2,
+          "medianLogContrast": -0.19252952557083658,
+          "meanLogContrast": -0.19252952557083658
+        },
+        "ultra_rare->uncommon": {
+          "n": 8,
+          "medianLogContrast": -2.1465356102537823,
+          "meanLogContrast": -2.4158546314438656
+        },
+        "special_illustration_rare->uncommon": {
+          "n": 4,
+          "medianLogContrast": -4.9850457940884425,
+          "meanLogContrast": -5.06624900827378
+        },
+        "common->ultra_rare": {
+          "n": 1,
+          "medianLogContrast": 2.9177707320842794,
+          "meanLogContrast": 2.9177707320842794
+        }
+      },
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "common": 0.0,
+            "double_rare": 0.8616201604112934,
+            "illustration_rare": 3.7729357118012983,
+            "mega_hyper_rare": 4.288731468623673,
+            "promo": 0.7018358715436056,
+            "rare": 0.6072354918892725,
+            "special_illustration_rare": 4.4725138921728,
+            "ultra_rare": 2.5589781000345244,
+            "uncommon": -0.18067492943430993
+          },
+          "standardErrors": {
+            "common": 0.0,
+            "double_rare": 0.27368802706090634,
+            "illustration_rare": 0.12083172056140562,
+            "mega_hyper_rare": 0.41959054584679223,
+            "promo": 0.7121959314274867,
+            "rare": 0.15713864967758379,
+            "special_illustration_rare": 0.2437830592899769,
+            "ultra_rare": 0.19315249036897297,
+            "uncommon": 0.10646642717797095
+          },
+          "rank": [
+            "uncommon",
+            "common",
+            "rare",
+            "promo",
+            "double_rare",
+            "ultra_rare",
+            "illustration_rare",
+            "mega_hyper_rare",
+            "special_illustration_rare"
+          ],
+          "residualSD": 0.4609356154421103,
+          "demandCoefficient": 0.017832505405727377,
+          "cards": 189
+        },
+        "matchedContrasts": {
+          "common->illustration_rare": {
+            "n": 10,
+            "medianLogContrast": 4.098875938011327,
+            "meanLogContrast": 4.0475346736886
+          },
+          "double_rare->ultra_rare": {
+            "n": 10,
+            "medianLogContrast": 1.7757171067002373,
+            "meanLogContrast": 1.7282263732237624
+          },
+          "double_rare->special_illustration_rare": {
+            "n": 6,
+            "medianLogContrast": 4.977001162007054,
+            "meanLogContrast": 4.869915663828988
+          },
+          "special_illustration_rare->ultra_rare": {
+            "n": 10,
+            "medianLogContrast": -2.6601360020408515,
+            "meanLogContrast": -2.5389868828927042
+          },
+          "illustration_rare->uncommon": {
+            "n": 10,
+            "medianLogContrast": -3.7803873342256518,
+            "meanLogContrast": -3.909692261768688
+          },
+          "illustration_rare->rare": {
+            "n": 2,
+            "medianLogContrast": -3.462202396143454,
+            "meanLogContrast": -3.462202396143454
+          },
+          "double_rare->mega_hyper_rare": {
+            "n": 2,
+            "medianLogContrast": 5.75404942777168,
+            "meanLogContrast": 5.75404942777168
+          },
+          "mega_hyper_rare->ultra_rare": {
+            "n": 2,
+            "medianLogContrast": -3.435568040877204,
+            "meanLogContrast": -3.435568040877204
+          },
+          "mega_hyper_rare->special_illustration_rare": {
+            "n": 2,
+            "medianLogContrast": -0.19252952557083658,
+            "meanLogContrast": -0.19252952557083658
+          },
+          "ultra_rare->uncommon": {
+            "n": 8,
+            "medianLogContrast": -2.1465356102537823,
+            "meanLogContrast": -2.4158546314438656
+          },
+          "special_illustration_rare->uncommon": {
+            "n": 4,
+            "medianLogContrast": -4.9850457940884425,
+            "meanLogContrast": -5.06624900827378
+          },
+          "common->ultra_rare": {
+            "n": 1,
+            "medianLogContrast": 2.9177707320842794,
+            "meanLogContrast": 2.9177707320842794
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "common": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "double_rare": {
+        "median": 0.8455449331719341,
+        "interval80": [
+          0.4610273811464683,
+          1.2289450008611011
+        ],
+        "signStability": 0.9933333333333333,
+        "sd": 0.3117760854046787
+      },
+      "illustration_rare": {
+        "median": 3.774547067377263,
+        "interval80": [
+          3.6201670871184497,
+          3.9588379785449153
+        ],
+        "signStability": 1.0,
+        "sd": 0.14616396836425707
+      },
+      "mega_hyper_rare": {
+        "median": 4.538838653764766,
+        "interval80": [
+          3.7877267921138684,
+          5.265405675903647
+        ],
+        "signStability": 1.0,
+        "sd": 0.5731189203690857
+      },
+      "promo": {
+        "median": 0.4695796924042209,
+        "interval80": [
+          0.2936849606692306,
+          0.9316647183882412
+        ],
+        "signStability": 0.9835164835164835,
+        "sd": 0.28041394515916196
+      },
+      "rare": {
+        "median": 0.618330772551928,
+        "interval80": [
+          0.48125181056333904,
+          0.7401241792194849
+        ],
+        "signStability": 1.0,
+        "sd": 0.10618316083340813
+      },
+      "special_illustration_rare": {
+        "median": 4.628526385138474,
+        "interval80": [
+          4.058187380901816,
+          5.187040484142109
+        ],
+        "signStability": 1.0,
+        "sd": 0.4631870401680017
+      },
+      "ultra_rare": {
+        "median": 2.5511908182041365,
+        "interval80": [
+          2.19206310546461,
+          2.8726339231662723
+        ],
+        "signStability": 1.0,
+        "sd": 0.27092289479910997
+      },
+      "uncommon": {
+        "median": -0.1862038206184482,
+        "interval80": [
+          -0.2900568668976628,
+          -0.07287479513181876
+        ],
+        "signStability": 0.9833333333333333,
+        "sd": 0.0910634482554765
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "3e7ac5f6-1a7c-4926-b4ce-21cf27b37e95",
+      "cardName": "Mega Lucario ex",
+      "maximumEffectDrift": 0.08030940138889697,
+      "effects": {
+        "common": 0.0,
+        "double_rare": 0.5358252159907919,
+        "illustration_rare": 3.777497418964314,
+        "mega_hyper_rare": 5.940045175441023,
+        "promo": 0.5362018265820142,
+        "rare": 0.5903876356644833,
+        "special_illustration_rare": 5.194878419975675,
+        "ultra_rare": 2.3933440550728937,
+        "uncommon": -0.2183365563115528
+      }
+    },
+    "leaveCardOutStability": 0.08030940138889697,
+    "subjectDemandSensitivity": 0.2904987455068557,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "common": 0.0,
+      "double_rare": 0.5359495165398955,
+      "illustration_rare": 3.7777124977399223,
+      "mega_hyper_rare": 6.02035457682992,
+      "promo": 0.5364488508976903,
+      "rare": 0.5914517591217507,
+      "special_illustration_rare": 5.195649650171661,
+      "ultra_rare": 2.3935910793886124,
+      "uncommon": -0.21785078173849515
+    },
+    "uncertainty": {
+      "common": [
+        0.0,
+        0.0
+      ],
+      "double_rare": [
+        -0.03768701163224242,
+        1.1095860447120334
+      ],
+      "illustration_rare": [
+        3.524455205412386,
+        4.030969790067458
+      ],
+      "mega_hyper_rare": [
+        5.140913606911851,
+        6.899795546747989
+      ],
+      "promo": [
+        -0.9562784922369398,
+        2.0291761940323205
+      ],
+      "rare": [
+        0.2620969444054781,
+        0.9208065738380233
+      ],
+      "special_illustration_rare": [
+        4.684692450983827,
+        5.706606849359495
+      ],
+      "ultra_rare": [
+        1.9887530410830392,
+        2.7984291176941856
+      ],
+      "uncommon": [
+        -0.44099913173800703,
+        0.0052975682610167385
+      ]
+    },
+    "supportedTreatments": [
+      "common",
+      "double_rare",
+      "illustration_rare",
+      "mega_hyper_rare",
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "passesNonTemporalGates": true,
+    "normalization": {
+      "common": 5.0,
+      "double_rare": 5.25101611356013,
+      "illustration_rare": 6.769320952936471,
+      "mega_hyper_rare": 7.819679767389618,
+      "promo": 5.251249980680059,
+      "rare": 5.277011019417522,
+      "special_illustration_rare": 7.433422817555726,
+      "ultra_rare": 6.1210569496905265,
+      "uncommon": 4.897967896452123
+    },
+    "temporal": {
+      "dates": null,
+      "span": null,
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  },
+  "Ascended Heroes": {
+    "cards": 303,
+    "treatments": 9,
+    "matchedIdentityCount": 64,
+    "graph": {
+      "nodes": [
+        "common",
+        "double_rare",
+        "illustration_rare",
+        "mega_attack_rare",
+        "mega_hyper_rare",
+        "rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ],
+      "nodeCards": {
+        "uncommon": 69,
+        "common": 89,
+        "rare": 28,
+        "double_rare": 39,
+        "illustration_rare": 33,
+        "ultra_rare": 14,
+        "mega_attack_rare": 7,
+        "special_illustration_rare": 22,
+        "mega_hyper_rare": 2
+      },
+      "edges": [
+        {
+          "source": "double_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 15
+        },
+        {
+          "source": "illustration_rare",
+          "target": "uncommon",
+          "directContrasts": 15
+        },
+        {
+          "source": "common",
+          "target": "illustration_rare",
+          "directContrasts": 14
+        },
+        {
+          "source": "common",
+          "target": "double_rare",
+          "directContrasts": 5
+        },
+        {
+          "source": "common",
+          "target": "ultra_rare",
+          "directContrasts": 4
+        },
+        {
+          "source": "double_rare",
+          "target": "ultra_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "double_rare",
+          "target": "mega_attack_rare",
+          "directContrasts": 6
+        },
+        {
+          "source": "mega_attack_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 7
+        },
+        {
+          "source": "double_rare",
+          "target": "mega_hyper_rare",
+          "directContrasts": 2
+        },
+        {
+          "source": "mega_attack_rare",
+          "target": "mega_hyper_rare",
+          "directContrasts": 1
+        },
+        {
+          "source": "mega_hyper_rare",
+          "target": "special_illustration_rare",
+          "directContrasts": 1
+        },
+        {
+          "source": "illustration_rare",
+          "target": "rare",
+          "directContrasts": 5
+        },
+        {
+          "source": "double_rare",
+          "target": "rare",
+          "directContrasts": 1
+        },
+        {
+          "source": "ultra_rare",
+          "target": "uncommon",
+          "directContrasts": 5
+        },
+        {
+          "source": "special_illustration_rare",
+          "target": "ultra_rare",
+          "directContrasts": 1
+        },
+        {
+          "source": "special_illustration_rare",
+          "target": "uncommon",
+          "directContrasts": 2
+        },
+        {
+          "source": "common",
+          "target": "special_illustration_rare",
+          "directContrasts": 3
+        },
+        {
+          "source": "common",
+          "target": "rare",
+          "directContrasts": 1
+        },
+        {
+          "source": "double_rare",
+          "target": "illustration_rare",
+          "directContrasts": 1
+        }
+      ],
+      "matchedIdentities": 64,
+      "treatmentContrasts": 91,
+      "components": [
+        [
+          "common",
+          "double_rare",
+          "illustration_rare",
+          "mega_attack_rare",
+          "mega_hyper_rare",
+          "rare",
+          "special_illustration_rare",
+          "ultra_rare",
+          "uncommon"
+        ]
+      ],
+      "isolatedTreatments": [],
+      "largestComponentShare": 1.0
+    },
+    "models": {
+      "controlled": {
+        "effects": {
+          "common": 0.0,
+          "double_rare": 0.8553350372610136,
+          "illustration_rare": 3.8617152347299664,
+          "mega_attack_rare": 2.991333547714683,
+          "mega_hyper_rare": 5.951902053082093,
+          "rare": 0.4079709820076882,
+          "special_illustration_rare": 5.434592164774841,
+          "ultra_rare": 1.6522965491619168,
+          "uncommon": -0.09419869193234745
+        },
+        "standardErrors": {
+          "common": 0.0,
+          "double_rare": 0.2930373005964272,
+          "illustration_rare": 0.115342803893625,
+          "mega_attack_rare": 0.35597144819727744,
+          "mega_hyper_rare": 0.4896795335682826,
+          "rare": 0.12212555045373451,
+          "special_illustration_rare": 0.2782165310572737,
+          "ultra_rare": 0.19212427769404442,
+          "uncommon": 0.10091375286851081
+        },
+        "rank": [
+          "uncommon",
+          "common",
+          "rare",
+          "double_rare",
+          "ultra_rare",
+          "mega_attack_rare",
+          "illustration_rare",
+          "special_illustration_rare",
+          "mega_hyper_rare"
+        ],
+        "residualSD": 0.5274892392149657,
+        "demandCoefficient": 0.02142458372214853,
+        "cards": 303
+      },
+      "matched": {
+        "double_rare->special_illustration_rare": {
+          "n": 16,
+          "medianLogContrast": 4.555218897192266,
+          "meanLogContrast": 4.55396586190525
+        },
+        "illustration_rare->uncommon": {
+          "n": 15,
+          "medianLogContrast": -4.185513949360394,
+          "meanLogContrast": -4.200108750548941
+        },
+        "common->illustration_rare": {
+          "n": 15,
+          "medianLogContrast": 3.801521090269901,
+          "meanLogContrast": 3.929480264005807
+        },
+        "double_rare->ultra_rare": {
+          "n": 2,
+          "medianLogContrast": 0.28064606508877366,
+          "meanLogContrast": 0.28064606508877366
+        },
+        "common->double_rare": {
+          "n": 5,
+          "medianLogContrast": 1.7272209480904839,
+          "meanLogContrast": 1.7507827965338367
+        },
+        "common->ultra_rare": {
+          "n": 4,
+          "medianLogContrast": 1.4893913576201088,
+          "meanLogContrast": 1.7723840080321775
+        },
+        "double_rare->mega_attack_rare": {
+          "n": 6,
+          "medianLogContrast": 1.9095613001522271,
+          "meanLogContrast": 1.9736892117215834
+        },
+        "mega_attack_rare->special_illustration_rare": {
+          "n": 7,
+          "medianLogContrast": 2.3876612653491645,
+          "meanLogContrast": 2.439948586828603
+        },
+        "double_rare->mega_hyper_rare": {
+          "n": 2,
+          "medianLogContrast": 3.9027665716937125,
+          "meanLogContrast": 3.9027665716937125
+        },
+        "mega_attack_rare->mega_hyper_rare": {
+          "n": 1,
+          "medianLogContrast": 1.7769493986766864,
+          "meanLogContrast": 1.7769493986766864
+        },
+        "mega_hyper_rare->special_illustration_rare": {
+          "n": 1,
+          "medianLogContrast": 1.0322893209417074,
+          "meanLogContrast": 1.0322893209417074
+        },
+        "illustration_rare->rare": {
+          "n": 5,
+          "medianLogContrast": -3.2508588707212516,
+          "meanLogContrast": -3.410425013288819
+        },
+        "double_rare->rare": {
+          "n": 1,
+          "medianLogContrast": -1.2452157628599851,
+          "meanLogContrast": -1.2452157628599851
+        },
+        "ultra_rare->uncommon": {
+          "n": 5,
+          "medianLogContrast": -2.4336133554004493,
+          "meanLogContrast": -2.4942423102331697
+        },
+        "special_illustration_rare->uncommon": {
+          "n": 2,
+          "medianLogContrast": -5.386979130909161,
+          "meanLogContrast": -5.386979130909161
+        },
+        "special_illustration_rare->ultra_rare": {
+          "n": 1,
+          "medianLogContrast": -2.6276344360225936,
+          "meanLogContrast": -2.6276344360225936
+        },
+        "common->special_illustration_rare": {
+          "n": 4,
+          "medianLogContrast": 6.828527562986135,
+          "meanLogContrast": 6.59029175322766
+        },
+        "common->rare": {
+          "n": 1,
+          "medianLogContrast": 0.2513144282809061,
+          "meanLogContrast": 0.2513144282809061
+        },
+        "double_rare->illustration_rare": {
+          "n": 1,
+          "medianLogContrast": 2.729304207463037,
+          "meanLogContrast": 2.729304207463037
+        }
+      },
+      "hierarchical": "Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.",
+      "hybrid": {
+        "robustControlled": {
+          "effects": {
+            "common": 0.0,
+            "double_rare": 1.2763860724936331,
+            "illustration_rare": 3.84318415344719,
+            "mega_attack_rare": 3.361102058282851,
+            "mega_hyper_rare": 4.852260389030146,
+            "rare": 0.3747961710724369,
+            "special_illustration_rare": 5.11756052167082,
+            "ultra_rare": 1.7501317397946308,
+            "uncommon": -0.06765530949736975
+          },
+          "standardErrors": {
+            "common": 0.0,
+            "double_rare": 0.2529147449126136,
+            "illustration_rare": 0.09955011107762525,
+            "mega_attack_rare": 0.30723197297322413,
+            "mega_hyper_rare": 0.42263279817716076,
+            "rare": 0.10540416655986413,
+            "special_illustration_rare": 0.24012322949879275,
+            "ultra_rare": 0.16581869470408922,
+            "uncommon": 0.08709668022796796
+          },
+          "rank": [
+            "uncommon",
+            "common",
+            "rare",
+            "double_rare",
+            "ultra_rare",
+            "mega_attack_rare",
+            "illustration_rare",
+            "mega_hyper_rare",
+            "special_illustration_rare"
+          ],
+          "residualSD": 0.45526561331499055,
+          "demandCoefficient": 0.014352738490152183,
+          "cards": 303
+        },
+        "matchedContrasts": {
+          "double_rare->special_illustration_rare": {
+            "n": 16,
+            "medianLogContrast": 4.555218897192266,
+            "meanLogContrast": 4.55396586190525
+          },
+          "illustration_rare->uncommon": {
+            "n": 15,
+            "medianLogContrast": -4.185513949360394,
+            "meanLogContrast": -4.200108750548941
+          },
+          "common->illustration_rare": {
+            "n": 15,
+            "medianLogContrast": 3.801521090269901,
+            "meanLogContrast": 3.929480264005807
+          },
+          "double_rare->ultra_rare": {
+            "n": 2,
+            "medianLogContrast": 0.28064606508877366,
+            "meanLogContrast": 0.28064606508877366
+          },
+          "common->double_rare": {
+            "n": 5,
+            "medianLogContrast": 1.7272209480904839,
+            "meanLogContrast": 1.7507827965338367
+          },
+          "common->ultra_rare": {
+            "n": 4,
+            "medianLogContrast": 1.4893913576201088,
+            "meanLogContrast": 1.7723840080321775
+          },
+          "double_rare->mega_attack_rare": {
+            "n": 6,
+            "medianLogContrast": 1.9095613001522271,
+            "meanLogContrast": 1.9736892117215834
+          },
+          "mega_attack_rare->special_illustration_rare": {
+            "n": 7,
+            "medianLogContrast": 2.3876612653491645,
+            "meanLogContrast": 2.439948586828603
+          },
+          "double_rare->mega_hyper_rare": {
+            "n": 2,
+            "medianLogContrast": 3.9027665716937125,
+            "meanLogContrast": 3.9027665716937125
+          },
+          "mega_attack_rare->mega_hyper_rare": {
+            "n": 1,
+            "medianLogContrast": 1.7769493986766864,
+            "meanLogContrast": 1.7769493986766864
+          },
+          "mega_hyper_rare->special_illustration_rare": {
+            "n": 1,
+            "medianLogContrast": 1.0322893209417074,
+            "meanLogContrast": 1.0322893209417074
+          },
+          "illustration_rare->rare": {
+            "n": 5,
+            "medianLogContrast": -3.2508588707212516,
+            "meanLogContrast": -3.410425013288819
+          },
+          "double_rare->rare": {
+            "n": 1,
+            "medianLogContrast": -1.2452157628599851,
+            "meanLogContrast": -1.2452157628599851
+          },
+          "ultra_rare->uncommon": {
+            "n": 5,
+            "medianLogContrast": -2.4336133554004493,
+            "meanLogContrast": -2.4942423102331697
+          },
+          "special_illustration_rare->uncommon": {
+            "n": 2,
+            "medianLogContrast": -5.386979130909161,
+            "meanLogContrast": -5.386979130909161
+          },
+          "special_illustration_rare->ultra_rare": {
+            "n": 1,
+            "medianLogContrast": -2.6276344360225936,
+            "meanLogContrast": -2.6276344360225936
+          },
+          "common->special_illustration_rare": {
+            "n": 4,
+            "medianLogContrast": 6.828527562986135,
+            "meanLogContrast": 6.59029175322766
+          },
+          "common->rare": {
+            "n": 1,
+            "medianLogContrast": 0.2513144282809061,
+            "meanLogContrast": 0.2513144282809061
+          },
+          "double_rare->illustration_rare": {
+            "n": 1,
+            "medianLogContrast": 2.729304207463037,
+            "meanLogContrast": 2.729304207463037
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "common": {
+        "median": 0.0,
+        "interval80": [
+          0.0,
+          0.0
+        ],
+        "signStability": 1.0,
+        "sd": 0.0
+      },
+      "double_rare": {
+        "median": 1.2612054117859355,
+        "interval80": [
+          0.924425796289209,
+          1.711909106257837
+        ],
+        "signStability": 0.9966666666666667,
+        "sd": 0.34232453494545395
+      },
+      "illustration_rare": {
+        "median": 3.8512394150932403,
+        "interval80": [
+          3.721705666707041,
+          3.9894916939968064
+        ],
+        "signStability": 1.0,
+        "sd": 0.10749363644606612
+      },
+      "mega_attack_rare": {
+        "median": 3.407926406891984,
+        "interval80": [
+          2.819114375494508,
+          4.026953294345868
+        ],
+        "signStability": 1.0,
+        "sd": 0.48214602532048884
+      },
+      "mega_hyper_rare": {
+        "median": 4.9071131289206145,
+        "interval80": [
+          4.501249280646035,
+          5.395744493386007
+        ],
+        "signStability": 1.0,
+        "sd": 0.42908198294822447
+      },
+      "rare": {
+        "median": 0.37353005976352405,
+        "interval80": [
+          0.2768338479980315,
+          0.49541263464535285
+        ],
+        "signStability": 1.0,
+        "sd": 0.08231993191758682
+      },
+      "special_illustration_rare": {
+        "median": 5.138394259359339,
+        "interval80": [
+          4.809990758103469,
+          5.547645389738736
+        ],
+        "signStability": 1.0,
+        "sd": 0.3588784767061435
+      },
+      "ultra_rare": {
+        "median": 1.7597841729826382,
+        "interval80": [
+          1.4251848121379387,
+          2.1145048856786124
+        ],
+        "signStability": 1.0,
+        "sd": 0.2769875046793857
+      },
+      "uncommon": {
+        "median": -0.0580312117229117,
+        "interval80": [
+          -0.16553003084100865,
+          0.05602740620736772
+        ],
+        "signStability": 0.7466666666666667,
+        "sd": 0.08790485065576929
+      }
+    },
+    "leaveTopCard": {
+      "cardId": "301185dd-2bde-4699-80bd-8b2a3cfd8f7f",
+      "cardName": "Pikachu ex",
+      "maximumEffectDrift": 0.050690834731243584,
+      "effects": {
+        "common": 0.0,
+        "double_rare": 0.8989314254904772,
+        "illustration_rare": 3.8607152170989574,
+        "mega_attack_rare": 2.9972812817904524,
+        "mega_hyper_rare": 5.9785452126482985,
+        "rare": 0.40114510498941897,
+        "special_illustration_rare": 5.383901330043598,
+        "ultra_rare": 1.6589316231441464,
+        "uncommon": -0.10039891175515374
+      }
+    },
+    "leaveCardOutStability": 0.050690834731243584,
+    "subjectDemandSensitivity": 0.4019480993772513,
+    "scarcitySensitivity": "Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.",
+    "rawTreatmentEffects": {
+      "common": 0.0,
+      "double_rare": 0.8553350372610136,
+      "illustration_rare": 3.8617152347299664,
+      "mega_attack_rare": 2.991333547714683,
+      "mega_hyper_rare": 5.951902053082093,
+      "rare": 0.4079709820076882,
+      "special_illustration_rare": 5.434592164774841,
+      "ultra_rare": 1.6522965491619168,
+      "uncommon": -0.09419869193234745
+    },
+    "uncertainty": {
+      "common": [
+        0.0,
+        0.0
+      ],
+      "double_rare": [
+        0.2809819280920163,
+        1.4296881464300109
+      ],
+      "illustration_rare": [
+        3.6356433390984613,
+        4.0877871303614715
+      ],
+      "mega_attack_rare": [
+        2.293629509248019,
+        3.689037586181347
+      ],
+      "mega_hyper_rare": [
+        4.992130167288259,
+        6.911673938875927
+      ],
+      "rare": [
+        0.1686049031183686,
+        0.6473370608970078
+      ],
+      "special_illustration_rare": [
+        4.889287763902585,
+        5.979896565647097
+      ],
+      "ultra_rare": [
+        1.2757329648815898,
+        2.028860133442244
+      ],
+      "uncommon": [
+        -0.29198964755462864,
+        0.10359226368993374
+      ]
+    },
+    "supportedTreatments": [
+      "common",
+      "double_rare",
+      "illustration_rare",
+      "mega_attack_rare",
+      "mega_hyper_rare",
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "passesNonTemporalGates": false,
+    "normalization": {
+      "common": 5.0,
+      "double_rare": 5.40060279973979,
+      "illustration_rare": 6.808664286435094,
+      "mega_attack_rare": 6.401014271562428,
+      "mega_hyper_rare": 7.787619496889714,
+      "rare": 5.19107637415185,
+      "special_illustration_rare": 7.545333397804399,
+      "ultra_rare": 5.773865906059766,
+      "uncommon": 4.9558813119116865
+    },
+    "temporal": {
+      "dates": null,
+      "span": null,
+      "rankCorrelation": null,
+      "passes": false,
+      "reason": "Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."
+    },
+    "validated": false
+  }
+}

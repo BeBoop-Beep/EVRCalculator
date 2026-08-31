@@ -12,6 +12,8 @@ from __future__ import annotations
 import pytest
 
 from backend.db.services import pokemon_market_explorer_query_service as svc
+from backend.db.services.market_explorer_query_planner import resolve_canonical_through
+from backend.domain.pokemon.market_explorer_query import normalize_query_spec
 from backend.domain.pokemon.market_explorer_query import MODE_ALL, MODE_CHASE
 
 SV_ERA = "era-sv"
@@ -77,6 +79,10 @@ class _Query:
 
     def range(self, start, end):
         self._range = (start, end)
+        return self
+
+    def limit(self, count):
+        self._range = (0, count - 1)
         return self
 
     def execute(self):
@@ -208,6 +214,11 @@ class FakeClient:
             return _Query([{"set_id": row["id"], "has_history": True,
                             "first_snapshot_date": DATES[0],
                             "latest_snapshot_date": DATES[-1]} for row in SETS])
+        if name == "pokemon_market_date_quality":
+            return _Query([
+                {"market_date": market_date, "tcg": "pokemon", "status": "READY"}
+                for market_date in DATES
+            ])
         if name == "sets":
             return _Query(SETS)
         if name == "eras":
@@ -252,6 +263,13 @@ def _run(**kwargs):
 
 def _ids(result):
     return [row["canonicalCardId"] for row in result["currentConstituents"]]
+
+
+def test_cards_cohort_max_date_matches_publication_watermark():
+    client = FakeClient()
+    spec = normalize_query_spec(asset="cards", mode=MODE_ALL, set_ids=["set-ah"])
+    result = _run(client=client, mode=MODE_ALL, set_ids=["set-ah"])
+    assert result["asOf"] == resolve_canonical_through(client, spec) == DATES[-1]
 
 
 def test_unknown_pokemon_id_fails_before_any_market_history_is_loaded():
