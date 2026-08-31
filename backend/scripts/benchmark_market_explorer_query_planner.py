@@ -12,6 +12,9 @@ from backend.db.services.market_explorer_query_planner import (
     MarketExplorerL1Cache,
     MarketExplorerQueryPlanner,
     PreparedEquivalenceRegistry,
+    PublicationGeneration,
+    PublicationWatermarkCache,
+    publication_scope_key,
 )
 from backend.domain.pokemon.market_explorer_query import normalize_query_spec, query_fingerprint
 
@@ -31,6 +34,9 @@ class MemoryPersistent:
 
     def fail(self, **_kwargs):
         return None
+
+    def repair_generation(self, _asset):
+        return 0
 
 
 def representative_payload(points=140, constituents=211):
@@ -76,8 +82,11 @@ def run():
     ))
 
     hot = MarketExplorerL1Cache()
-    hot.put(query_fingerprint(spec), value)
-    hot_planner = MarketExplorerQueryPlanner(l1=hot)
+    generation = PublicationGeneration(value["asOf"], 0)
+    hot.put(query_fingerprint(spec), generation, value)
+    watermarks = PublicationWatermarkCache()
+    watermarks.resolve(publication_scope_key(spec), lambda: generation)
+    hot_planner = MarketExplorerQueryPlanner(l1=hot, watermarks=watermarks)
     l1 = bench(lambda: hot_planner.execute(
         spec=spec, prepared=empty, persistent=MemoryPersistent(),
         canonical_through=lambda: "2026-08-28", novel_builder=lambda *_: value,

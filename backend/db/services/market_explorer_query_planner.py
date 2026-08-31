@@ -38,6 +38,7 @@ L1_MAX_ENTRIES = 128
 BUILD_LEASE_SECONDS = 30
 FOLLOWER_READ_ATTEMPTS = 2
 FOLLOWER_WAIT_SECONDS = 0.05
+PUBLICATION_WATERMARK_TTL_SECONDS = 2.0
 
 
 def json_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
@@ -59,6 +60,46 @@ class MarketExplorerBuildInProgress(RuntimeError):
     """Another worker owns the bounded build lease and has not published yet."""
 
 
+@dataclass(frozen=True)
+class PublicationGeneration:
+    canonical_through: str
+    repair_generation: int = 0
+
+    @property
+    def token(self) -> str:
+        return f"{str(self.canonical_through)[:10]}:r{int(self.repair_generation)}"
+
+
+def publication_scope_key(spec: Mapping[str, Any]) -> tuple[Any, ...]:
+    """Only fields that can change the owning publication watermark."""
+    return (
+        str(spec["asset"]), tuple(spec.get("eraIds") or ()), tuple(spec.get("setIds") or ()),
+    )
+
+
+class PublicationWatermarkCache:
+    """Tiny bounded cache for publication metadata, never market results."""
+
+    def __init__(self, *, ttl_seconds: float = PUBLICATION_WATERMARK_TTL_SECONDS,
+                 clock: Callable[[], float] = time.monotonic) -> None:
+        self.ttl_seconds = float(ttl_seconds)
+        self.clock = clock
+        self._entries: dict[tuple[Any, ...], tuple[float, PublicationGeneration]] = {}
+
+    def resolve(self, scope_key: tuple[Any, ...],
+                loader: Callable[[], PublicationGeneration]) -> PublicationGeneration:
+        cached = self._entries.get(scope_key)
+        now = self.clock()
+        if cached and cached[0] > now:
+            return cached[1]
+        generation = loader()
+        self._entries[scope_key] = (now + self.ttl_seconds, generation)
+        return generation
+
+    def clear(self) -> None:
+        self._entries.clear()
+
+
 class PlannerMetrics:
     """Process-local counters suitable for logs/metrics export, never clients."""
 
@@ -77,23 +118,30 @@ class MarketExplorerL1Cache:
         self.ttl_seconds = ttl_seconds
         self.capacity = capacity
         self.clock = clock
-        self._entries: OrderedDict[str, tuple[float, dict[str, Any]]] = OrderedDict()
+        self._entries: OrderedDict[tuple[str, str], tuple[float, dict[str, Any]]] = OrderedDict()
 
-    def get(self, fingerprint: str) -> dict[str, Any] | None:
-        entry = self._entries.get(fingerprint)
+    @staticmethod
+    def _key(fingerprint: str, generation: PublicationGeneration) -> tuple[str, str]:
+        return fingerprint, generation.token
+
+    def get(self, fingerprint: str, generation: PublicationGeneration) -> dict[str, Any] | None:
+        key = self._key(fingerprint, generation)
+        entry = self._entries.get(key)
         if not entry:
             return None
         if entry[0] <= self.clock():
-            self._entries.pop(fingerprint, None)
+            self._entries.pop(key, None)
             return None
-        self._entries.move_to_end(fingerprint)
+        self._entries.move_to_end(key)
         return copy.deepcopy(entry[1])
 
-    def put(self, fingerprint: str, payload: Mapping[str, Any]) -> None:
-        self._entries[fingerprint] = (
+    def put(self, fingerprint: str, generation: PublicationGeneration,
+            payload: Mapping[str, Any]) -> None:
+        key = self._key(fingerprint, generation)
+        self._entries[key] = (
             self.clock() + self.ttl_seconds, copy.deepcopy(dict(payload)),
         )
-        self._entries.move_to_end(fingerprint)
+        self._entries.move_to_end(key)
         while len(self._entries) > self.capacity:
             self._entries.popitem(last=False)
 
@@ -182,6 +230,20 @@ class PersistentMarketExplorerCache:
         }).execute()
         return int(response.data or 0)
 
+    def repair_generation(self, asset: str) -> int:
+        """Cross-worker generation; zero is the safe pre-migration fallback."""
+        try:
+            rows = list((self.client.table("pokemon_market_explorer_cache_state")
+                         .select("repair_generation").eq("asset", str(asset))
+                         .limit(1).execute()).data or [])
+            return int(rows[0].get("repair_generation") or 0) if rows else 0
+        except Exception as exc:
+            if self.metrics:
+                self.metrics.record("cache_read_failures", 0)
+            logger.warning("market_explorer_repair_generation_read_failed asset=%s error=%s",
+                           asset, type(exc).__name__)
+            return 0
+
 
 class PreparedEquivalenceRegistry:
     """Exact semantic registry; incompatible legacy publications fail closed."""
@@ -241,9 +303,11 @@ def merge_incremental_result(cached: Mapping[str, Any], delta: Mapping[str, Any]
 class MarketExplorerQueryPlanner:
     def __init__(self, *, l1: MarketExplorerL1Cache | None = None,
                  metrics: PlannerMetrics | None = None,
+                 watermarks: PublicationWatermarkCache | None = None,
                  sleep: Callable[[float], None] = time.sleep) -> None:
         self.l1 = l1 or MarketExplorerL1Cache()
         self.metrics = metrics or PlannerMetrics()
+        self.watermarks = watermarks or PublicationWatermarkCache()
         self.sleep = sleep
 
     def _done(self, started: float, source: str, payload: Mapping[str, Any]) -> PlannerResult:
@@ -268,15 +332,23 @@ class MarketExplorerQueryPlanner:
         if prepared_payload is not None:
             return self._done(started, "prepared", prepared_payload)
 
-        hot = self.l1.get(fingerprint)
+        generation = self.watermarks.resolve(
+            publication_scope_key(spec),
+            lambda: PublicationGeneration(
+                canonical_through=str(canonical_through())[:10],
+                repair_generation=persistent.repair_generation(str(spec["asset"])),
+            ),
+        )
+        through = generation.canonical_through
+
+        hot = self.l1.get(fingerprint, generation)
         if hot is not None:
             return self._done(started, "memory_cache", hot)
 
-        through = str(canonical_through())[:10]
         row = persistent.read(fingerprint)
         if row and row.get("status") == "ready" and str(row.get("computed_through"))[:10] == through:
             payload = dict(row.get("series_payload") or {})
-            self.l1.put(fingerprint, payload)
+            self.l1.put(fingerprint, generation, payload)
             return self._done(started, "persistent_cache", payload)
 
         token = str(uuid4())
@@ -289,7 +361,7 @@ class MarketExplorerQueryPlanner:
                 if (follower and follower.get("status") == "ready"
                         and str(follower.get("computed_through"))[:10] == through):
                     payload = dict(follower.get("series_payload") or {})
-                    self.l1.put(fingerprint, payload)
+                    self.l1.put(fingerprint, generation, payload)
                     return self._done(started, "persistent_cache", payload)
 
             raise MarketExplorerBuildInProgress(
@@ -313,7 +385,7 @@ class MarketExplorerQueryPlanner:
                 source = "novel_interval"
             if won is True and not persistent.publish(fingerprint=fingerprint, token=token, payload=payload):
                 self.metrics.record("cache_build_failures", 0)
-            self.l1.put(fingerprint, payload)
+            self.l1.put(fingerprint, generation, payload)
             return self._done(started, source, payload)
         except Exception:
             if won is True:
@@ -326,33 +398,32 @@ GLOBAL_PREPARED_EQUIVALENCE_REGISTRY = PreparedEquivalenceRegistry()
 
 
 def resolve_canonical_through(client: Any, spec: Mapping[str, Any]) -> str:
-    """Resolve the semantic publication watermark only after prepared/L1 miss."""
-    if spec["asset"] == "cards":
-        from backend.db.services.pokemon_market_explorer_query_service import (
-            resolve_scope_history_bounds,
-            resolve_scope_set_ids,
-        )
-        set_ids = resolve_scope_set_ids(
-            client, era_ids=spec["eraIds"], set_ids=spec["setIds"],
-        )
-        _, through = resolve_scope_history_bounds(client, set_ids)
-        if not through:
-            raise RuntimeError("card market publication has no usable date")
-        return str(through)[:10]
+    """Narrow metadata-only publication watermark (one call for common scopes)."""
+    requested_sets = {str(value) for value in (spec.get("setIds") or ())}
+    era_ids = list(spec.get("eraIds") or ())
+    if era_ids:
+        era_rows = list((client.table("sets").select("id").in_("era_id", era_ids)
+                         .execute()).data or [])
+        era_sets = {str(row.get("id")) for row in era_rows if row.get("id")}
+        requested_sets = requested_sets & era_sets if requested_sets else era_sets
 
-    from backend.db.services.pokemon_global_sealed_market_service import (
-        read_global_sealed_source_snapshots,
-    )
-    from backend.db.services.pokemon_sealed_market_explorer_query_service import (
-        resolve_sealed_scope_set_ids,
-    )
-    set_ids = resolve_sealed_scope_set_ids(
-        client, era_ids=spec["eraIds"], set_ids=spec["setIds"],
-    )
-    snapshots = read_global_sealed_source_snapshots(client, set_ids)
-    through = max((str(row.get("market_date") or "")[:10] for row in snapshots), default="")
+    if spec["asset"] == "cards":
+        query = (client.table("pokemon_set_value_daily_history_coverage")
+                 .select("latest_snapshot_date").eq("has_history", True))
+        if requested_sets:
+            query = query.in_("set_id", sorted(requested_sets))
+        rows = list(query.order("latest_snapshot_date", desc=True, nullsfirst=False)
+                    .limit(1).execute().data or [])
+        through = str(rows[0].get("latest_snapshot_date") or "")[:10] if rows else ""
+    else:
+        query = client.table("pokemon_set_sealed_market_snapshot_latest").select("market_date")
+        if requested_sets:
+            query = query.in_("set_id", sorted(requested_sets))
+        rows = list(query.order("market_date", desc=True, nullsfirst=False)
+                    .limit(1).execute().data or [])
+        through = str(rows[0].get("market_date") or "")[:10] if rows else ""
     if not through:
-        raise RuntimeError("sealed market publication has no usable date")
+        raise RuntimeError(f"{spec['asset']} market publication has no usable date")
     return through
 
 # Existing prepared Cards parents/segments are canonical-card or set-aggregate

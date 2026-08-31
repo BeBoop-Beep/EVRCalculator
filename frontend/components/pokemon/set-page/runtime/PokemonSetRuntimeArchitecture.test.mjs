@@ -89,8 +89,11 @@ test("rich Market resources are isolated without moving Market presentation", ()
 
 test("rich RIP progressive resources are isolated and retain same-run and access gates", () => {
   const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const richRip = read("../rich/RichRipSetTab.jsx");
   const controller = read("../../../../hooks/pokemon/useSetRipProgressiveController.js");
-  assert.match(rich, /useSetRipProgressiveController\(\{/);
+  assert.match(rich, /dynamic\(\(\) => import\(["']@\/components\/pokemon\/set-page\/rich\/RichRipSetTab["']\)\)/);
+  assert.match(richRip, /useSetRipProgressiveController\(\{/);
+  assert.match(richRip, /<RipDecisionPage/);
   assert.doesNotMatch(rich, /getPokemonSetRipRankContext\(/);
   assert.doesNotMatch(rich, /getPokemonSetRipSimulationEvidence\(/);
   assert.doesNotMatch(rich, /getPokemonSetRipAdvanced\(/);

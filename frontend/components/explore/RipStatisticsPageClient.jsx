@@ -13282,55 +13282,24 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 {setDetailTab === "overview" ? (
-                  <RipDecisionPage
+                  <RichRipSetTab
                     canonical={canonicalRip}
                     summary={summary}
-                    // The set-page snapshot already carries the whole decision
-                    // contract, so the page needs no second client fetch. It is
-                    // passed straight through and normalized once inside.
                     ripDecision={ripBootstrap?.ripDecision ?? explorePayload?.ripDecision ?? null}
-                    // The canonical GLOBAL same-family product ranking
-                    // (build_product_family_rankings on the backend) already
-                    // flows this far via targetsPayload — it was simply never
-                    // read past this point. Passed straight through; the only
-                    // new code is the lookup-by-sealedProductId inside
-                    // RipDecisionPage, not a second ranking calculation.
-                    productFamilyRankings={ripRankContext?.productFamilyRankings ?? null}
-                    rankContextFreshness={ripRankContext?.freshness ?? null}
-                    rankContextUpdatedAt={ripRankContext?.rankingUpdatedAt ?? null}
-                    evRepresentativeness={compatibleRipSimulation?.evRepresentativeness ?? null}
-                    openingOutcomeProfile={compatibleRipSimulation?.openingOutcomeProfile ?? null}
-                    calculationRunId={activeCalculationRunId}
-                    rankContextStatus={ripRankContextState.status}
-                    rankContextError={ripRankContextState.error}
-                    onRankContextRetry={() => loadRipRankContext({ force: true })}
+                    setId={resolvedSetResourceId}
+                    calculationRunId={ripBootstrap?.calculationRunId}
+                    activeCalculationRunId={activeCalculationRunId}
+                    canonicalSource={ripBootstrap?.canonicalSource}
                     canViewProductRipIntelligence={canViewProductRipIntelligence}
-                    setRip={null}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     setSlug={activeSetSlug}
                     cardCount={authoritativeSetCardCount}
                     pullRatesHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "pull-rates" })}
-                    productType="booster_pack"
-                    productLabel="Booster Pack"
                     productImage={resolvePokemonBoosterPackAsset(selectedTarget?.canonical_key ?? selectedTarget?.canonicalKey)}
-                    distributionBins={compatibleRipSimulation?.distributionBins ?? []}
-                    thresholdBins={compatibleRipSimulation?.thresholdBins ?? []}
-                    percentiles={compatibleRipSimulation?.percentiles ?? []}
-                    simulationSummary={compatibleRipSimulation?.summary ?? null}
-                    simulationStatus={compatibleRipSimulation ? "success" : (ripSimulationState.setId === resolvedSetResourceId && ripSimulationState.calculationRunId === ripBootstrap?.calculationRunId ? ripSimulationState.status : "idle")}
-                    simulationError={ripSimulationState.error}
-                    onSimulationApproach={loadRipSimulation}
-                    onSimulationRetry={() => loadRipSimulation({ force: true })}
-                    advancedEvidence={compatibleRipAdvanced}
-                    advancedStatus={compatibleRipAdvanced ? "success" : (ripAdvancedState.setId === resolvedSetResourceId && ripAdvancedState.calculationRunId === ripBootstrap?.calculationRunId ? ripAdvancedState.status : "idle")}
-                    advancedError={ripAdvancedState.error}
-                    onAdvancedApproach={loadRipAdvanced}
-                    onAdvancedRetry={() => loadRipAdvanced({ force: true })}
                     initialProductId={searchParams?.get?.("sealedProduct") || null}
                     familyFilter={ripProductFamilyFilter}
                   />
                 ) : null}
-
                 {/* MARKET — "what is happening with this set financially?".
                     Four production market modules in reading order: Set Value,
                     Top 10 Chase Cards, 7D Movers, Sealed Market. This tab is

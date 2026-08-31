@@ -44,4 +44,9 @@ def test_historical_repair_invalidation_is_explicit_and_forward_publication_stay
     assert "computed_through >= p_changed_market_date" in SQL
     assert "normal forward publication remains lazy" in SQL
     assert "status = 'stale'" in SQL
-
+    assert "create table if not exists public.pokemon_market_explorer_cache_state" in SQL
+    assert "repair_generation = repair_generation + 1" in SQL
+    assert ("revoke all on table public.pokemon_market_explorer_cache_state "
+            "from public, anon, authenticated, service_role") in SQL
+    assert ("grant select, update on table public.pokemon_market_explorer_cache_state "
+            "to service_role") in SQL

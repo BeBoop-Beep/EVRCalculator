@@ -57,6 +57,28 @@ revoke all on table public.pokemon_market_explorer_query_cache
 grant select, insert, update, delete on table public.pokemon_market_explorer_query_cache
     to service_role;
 
+-- Two non-sensitive counters let every API worker detect a historical repair
+-- without clearing another process's memory. Normal publication dates remain
+-- sourced from the canonical Cards/Sealed publication tables.
+create table if not exists public.pokemon_market_explorer_cache_state (
+    asset text primary key check (asset in ('cards', 'sealed')),
+    repair_generation bigint not null default 0 check (repair_generation >= 0),
+    updated_at timestamptz not null default now()
+);
+
+insert into public.pokemon_market_explorer_cache_state (asset)
+values ('cards'), ('sealed')
+on conflict (asset) do nothing;
+
+alter table public.pokemon_market_explorer_cache_state enable row level security;
+revoke all on table public.pokemon_market_explorer_cache_state
+    from public, anon, authenticated, service_role;
+grant select, update on table public.pokemon_market_explorer_cache_state
+    to service_role;
+
+comment on table public.pokemon_market_explorer_cache_state is
+    'Service-only cross-worker repair generations; contains no market intelligence.';
+
 create or replace function public.claim_pokemon_market_explorer_query_cache_build(
     p_query_fingerprint text,
     p_query_contract_version text,
@@ -189,6 +211,14 @@ begin
     where status = 'ready'
       and (p_changed_market_date is null or computed_through >= p_changed_market_date);
     get diagnostics affected = row_count;
+
+    -- The repair workflow currently invalidates all affected Market Explorer
+    -- assets conservatively. This increment shares the same transaction as
+    -- L2 staleness, so workers can never observe a new generation without the
+    -- corresponding stale rows.
+    update public.pokemon_market_explorer_cache_state
+    set repair_generation = repair_generation + 1,
+        updated_at = clock_timestamp();
     return affected;
 end;
 $$;
