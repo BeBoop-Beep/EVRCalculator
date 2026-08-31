@@ -2,7 +2,6 @@ import { chromium } from "playwright";
 
 const BASE = process.env.BASE || "http://127.0.0.1:3131";
 const SET_URL = `${BASE}/TCGs/Pokemon/Sets/prismatic-evolutions`;
-const PRIMARY = ["overview", "market", "cards", "pull-rates"];
 
 const isRsc = (request) => {
   const headers = request.headers();
@@ -26,8 +25,8 @@ async function runMatrix(browser, label, width, transitions) {
   for (const tab of transitions) {
     requests = [];
     const startedAt = performance.now();
-    await page.locator(`[data-segment-value="${tab}"]`).click();
-    await page.waitForFunction((value) => document.querySelector(`[data-segment-value="${value}"]`)?.getAttribute("aria-checked") === "true", tab);
+    await page.getByRole("radiogroup", { name: "Section view" }).locator(`[data-segment-value="${tab}"]`).click();
+    await page.waitForFunction((value) => document.querySelector('[role="radiogroup"][aria-label="Section view"]')?.querySelector(`[data-segment-value="${value}"]`)?.getAttribute("aria-checked") === "true", tab);
     await page.waitForTimeout(500);
     records.push({
       transition: tab,
@@ -51,14 +50,14 @@ async function runHistory(browser) {
   page.on("request", (request) => requests.push(request));
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(SET_URL, { waitUntil: "networkidle", timeout: 90000 });
-  for (const tab of ["market", "cards", "pull-rates"]) await page.locator(`[data-segment-value="${tab}"]`).click();
+  for (const tab of ["market", "cards", "pull-rates"]) await page.getByRole("radiogroup", { name: "Section view" }).locator(`[data-segment-value="${tab}"]`).click();
   requests = [];
   for (const expected of ["cards", "market", "overview", "market", "cards"]) {
     if (["cards", "market", "overview"].includes(expected) && page.url().includes("pull-rates")) await page.goBack();
     else if (expected === "market" && !page.url().includes("tab=cards")) await page.goForward();
     else if (expected === "cards") await page.goForward();
     else await page.goBack();
-    await page.waitForFunction((value) => document.querySelector(`[data-segment-value="${value}"]`)?.getAttribute("aria-checked") === "true", expected);
+    await page.waitForFunction((value) => document.querySelector('[role="radiogroup"][aria-label="Section view"]')?.querySelector(`[data-segment-value="${value}"]`)?.getAttribute("aria-checked") === "true", expected);
   }
   if (requests.some(isRsc) || requests.some((request) => request.resourceType() === "document") || errors.length) throw new Error(`history failed: ${JSON.stringify({ rsc: requests.filter(isRsc).map((r) => r.url()), errors })}`);
   console.log("back/forward PASS");
