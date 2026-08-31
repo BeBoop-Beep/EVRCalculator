@@ -22,6 +22,7 @@ from backend.db.services.pokemon_set_cards_market_analytics_service import (
     reconcile_observations_to_set_value,
     summarize_reconciliation,
 )
+from backend.db.services import pokemon_set_cards_market_analytics_service as service
 from backend.domain.pokemon.market_index import MARKET_INDEX_BASE_VALUE
 
 
@@ -416,6 +417,9 @@ class _FakeClient:
         self.calls = []
 
     def rpc(self, name, params):
+        assert name == "get_pokemon_cards_daily_constituents"
+        assert params["p_set_ids"] == ["set-1"]
+        assert params["p_card_ids"] is None
         start, end = params["p_start_date"], params["p_end_date"]
         self.calls.append((start, end))
         rows = [
@@ -464,3 +468,7 @@ def test_loader_rejects_a_single_day_larger_than_one_response():
 def test_loader_rejects_inverted_range():
     with pytest.raises(PokemonSetCardsMarketAnalyticsError):
         load_card_constituent_rows("set-1", "2026-06-05", "2026-06-01", client=_FakeClient({}))
+
+
+def test_cards_analytics_names_the_single_reusable_constituent_authority():
+    assert service.CARD_CONSTITUENT_RPC == "get_pokemon_cards_daily_constituents"
