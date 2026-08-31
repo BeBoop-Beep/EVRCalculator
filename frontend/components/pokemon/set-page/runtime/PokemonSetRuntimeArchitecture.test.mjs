@@ -65,8 +65,10 @@ test("rich Pull Rates resource ownership is isolated without moving its presenta
 
 test("rich Cards resource ownership is isolated without moving its presentation", () => {
   const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const richCards = read("../rich/RichCardsSetTab.jsx");
   const controller = read("../../../../hooks/pokemon/useSetCardsController.js");
-  assert.match(rich, /useSetCardsController\(\{/);
+  assert.match(richCards, /useSetCardsController\(\{/);
+  assert.doesNotMatch(rich, /useSetCardsController/);
   assert.doesNotMatch(rich, /getPokemonSetCardsPage\(/);
   assert.doesNotMatch(rich, /\[cardsPageState, setCardsPageState\]/);
   assert.match(controller, /activeRequestKeyRef\.current !== requestKey/);
@@ -76,8 +78,10 @@ test("rich Cards resource ownership is isolated without moving its presentation"
 
 test("rich Market resources are isolated without moving Market presentation", () => {
   const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const richMarket = read("../rich/RichMarketSetTab.jsx");
   const controller = read("../../../../hooks/pokemon/useSetMarketController.js");
-  assert.match(rich, /useSetMarketController\(\{/);
+  assert.match(richMarket, /useSetMarketController\(\{/);
+  assert.doesNotMatch(rich, /useSetMarketController/);
   assert.doesNotMatch(rich, /getPokemonSetOverview\(/);
   assert.doesNotMatch(rich, /getPokemonSetTopChase\(/);
   assert.doesNotMatch(rich, /getPokemonSetMarketMovers\(/);
@@ -85,6 +89,13 @@ test("rich Market resources are isolated without moving Market presentation", ()
   assert.match(controller, /activeSetIdRef\.current !== setId/);
   assert.match(controller, /topChasePreviewOnly/);
   assert.doesNotMatch(controller, /SetMarketMobile|SetMarketSignals/);
+});
+
+test("shared rich Set view model stays pure and endpoint-independent", () => {
+  const selector = read("../rich/setRichSharedViewModel.mjs");
+  assert.match(selector, /export function selectSetRichSharedViewModel/);
+  assert.doesNotMatch(selector, /pokemonSet(?:Cards|Market|PullRates)Client/);
+  assert.doesNotMatch(selector, /getPokemonSet(?:Cards|Overview|TopChase|MarketMovers|PullRates)/);
 });
 
 test("rich RIP progressive resources are isolated and retain same-run and access gates", () => {

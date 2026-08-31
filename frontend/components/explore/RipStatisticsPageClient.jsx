@@ -3,6 +3,7 @@
 import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { selectSetRichSharedViewModel } from "@/components/pokemon/set-page/rich/setRichSharedViewModel.mjs";
 import Link from "next/link";
 import { buildPokemonCardHref, resolvePokemonPublicSetSlug } from "@/lib/pokemon/pokemonCardDetailClient";
 import { buildSealedProductHref } from "@/components/explore/setProductComparison.mjs";
@@ -146,15 +147,10 @@ import {
   getRipTierPresentation,
 } from "@/lib/explore/interpretationTone";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
-import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
-import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSummary";
 import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
-import useSetCardsController from "@/hooks/pokemon/useSetCardsController";
-import useSetMarketController from "@/hooks/pokemon/useSetMarketController";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
-  getPokemonSetConsumerSealedMarket,
   getPokemonSetValueHistory,
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import {
@@ -9133,51 +9129,10 @@ export default function RipStatisticsPageClient({
   );
   // Phase 9D.1: same keyed-timeout shape as insightsPendingTimeoutState, for
   // the Pull Rates loading shell (see pullRatesPendingTimedOut below).
-  const [selectedTimeframe, setSelectedTimeframe] = useState("7D");
-  const [cardSortMode, setCardSortMode] = useState("set-number");
-  const [cardSortDirection, setCardSortDirection] = useState(() =>
-    getSetDetailSectionParam(searchParams) === "market-movers" ? "gainers" : "asc"
-  );
   // Market Movers ranking metric — the third independent Market Movers control
   // alongside direction (cardSortDirection) and timeframe (selectedTimeframe).
   // Changing it must never disturb either of the other two, so it is its own
   // state rather than another mode folded into cardSortDirection.
-  const [cardMovementMetric, setCardMovementMetric] = useState(DEFAULT_MARKET_MOVER_METRIC);
-  const [cardSearchQuery, setCardSearchQuery] = useState("");
-  const [cardRarityFilter, setCardRarityFilter] = useState("");
-  const cardsRequest = resolveCardsRequest({
-    selectedSubTab: cardsSection,
-    selectedTimeframe,
-    activeSortMode: cardSortMode,
-    activeSortDirection: cardSortDirection,
-    activeMovementMetric: cardMovementMetric,
-  });
-  const effectiveCardSortMode = cardsRequest.sort;
-  const effectiveCardMovementFilter = cardsRequest.movementFilter;
-  const effectiveCardMovementSort = cardsRequest.movementSort;
-  const effectiveCardMovementMetric = cardsRequest.movementMetric;
-  const effectiveCardRarityFilter = getEffectiveRarityFilter(cardsSection, cardRarityFilter);
-  const {
-    state: cardsPageState,
-    page: cardsPage,
-    setPage: setCardsPage,
-    retry: retryCardsPage,
-    prefetchPageOne: prefetchCardsPageOne,
-  } = useSetCardsController({
-    enabled: setDetailMode && setDetailTab === "cards" && cardsSubTab === "checklist",
-    canFetch: canFetchSetDetailModules,
-    setId: resolvedSetResourceId,
-    section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
-    sort: effectiveCardSortMode,
-    sortDirection: cardsRequest.sortDirection,
-    query: cardSearchQuery,
-    rarity: effectiveCardRarityFilter,
-    movementFilter: effectiveCardMovementFilter,
-    movementSort: effectiveCardMovementSort,
-    movementMetric: effectiveCardMovementMetric,
-    pageSize: CARDS_PAGE_SIZE,
-    pricingContractVersion: PRICING_SNAPSHOT_CONTRACT_VERSION,
-  });
   // Highest requested page for the current cards scope. Pages are appended
   // (infinite scroll) rather than swapped — the sentinel observer advances
   // this, and the scope-reset effect below rewinds it to 1.
@@ -9235,22 +9190,12 @@ export default function RipStatisticsPageClient({
   // /market/dashboard fetch above; marketDashboardState stays as a temporary
   // seeded/cached fallback for both until these load (see
   // activeTopMarketCardsState below).
-  const {
-    overviewState,
-    topChaseState,
-    marketMoversState,
-    retryOverview: retryOverviewModule,
-    retryTopChase: retryTopChaseModule,
-    retryMarketMovers: retryMarketMoversModule,
-  } = useSetMarketController({
-    setId: resolvedSetResourceId,
-    enabled: setDetailMode && setDetailTab === "market",
-    canFetch: canFetchSlimMarketModules,
-    destinationSeedPending,
-    overviewSeed: seededOverviewPayload,
-    moversSeed: seededMarketMoversPayload,
-    topChaseSeed: seededTopChasePayload,
-  });
+  const overviewState = createMarketDashboardState({ status: seededOverviewPayload ? "success" : "idle", setId: resolvedSetResourceId, payload: seededOverviewPayload });
+  const topChaseState = createMarketDashboardState({ status: seededTopChasePayload ? "success" : "idle", setId: resolvedSetResourceId, payload: seededTopChasePayload });
+  const marketMoversState = createMarketDashboardState({ status: seededMarketMoversPayload ? "success" : "idle", setId: resolvedSetResourceId, payload: seededMarketMoversPayload });
+  const retryOverviewModule = () => {};
+  const retryTopChaseModule = () => {};
+  const retryMarketMoversModule = () => {};
   const [setValueHistoryState, setSetValueHistoryState] = useState(() =>
     createSetValueHistoryState({
       status: initialSetValueLoadedScopes.length > 0 ? "success" : "idle",
@@ -9986,13 +9931,10 @@ export default function RipStatisticsPageClient({
     }
     if (section === "market-movers") {
       setCardsSection("market-movers");
-      setCardSortDirection("gainers");
     } else if (section === "all-cards") {
       // Entering All Cards restores the default checklist view so the
       // rendered controls always match the section the sidebar highlights.
       setCardsSection("all-cards");
-      setCardSortMode("set-number");
-      setCardSortDirection("asc");
     }
 
     if (nextGraphMode) {
@@ -10039,10 +9981,7 @@ export default function RipStatisticsPageClient({
       setCardsSubTab(sectionTarget.cardsSubTab);
     }
     if (nextSection === "market-movers") {
-      setCardSortDirection("gainers");
     } else if (resolvedTab === "cards") {
-      setCardSortMode("set-number");
-      setCardSortDirection("asc");
     }
     if (resolvedTab === "cards") {
       // The URL is the source of truth for the active cards section — this
@@ -10804,8 +10743,7 @@ export default function RipStatisticsPageClient({
   // or server's current date.
   const overviewPayloadForMarketDate = activeOverviewState.payload || null;
   const topChasePayloadForMarketDate = activeTopChaseState.payload || null;
-  const cardsPageMetaForMarketDate =
-    cardsPageState.setId === resolvedSetResourceId ? cardsPageState.meta || null : null;
+  const cardsPageMetaForMarketDate = null;
   const marketDateResolution = useMemo(
     () =>
       resolveMarketAsOfDate([
@@ -11389,47 +11327,6 @@ export default function RipStatisticsPageClient({
     const summary = seededOverviewPayload?.chaseConcentration?.standard;
     return toNumber(summary?.setValue ?? summary?.set_value ?? summary?.value);
   }, [activeSetValueHistory.historiesByScope, activeSetValueHistory.history, seededOverviewPayload]);
-  const desktopSealedMarketState = usePokemonSetSealedMarket(
-    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
-    { enabled: false }
-  );
-  const desktopSealedSummaryState = usePokemonSetSealedSummary(
-    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
-    { enabled: setDetailTab === "market" && isDesktopHeroComposition }
-  );
-  useEffect(() => {
-    const settled = (status) => ["success", "success_stale", "error", "empty", "unavailable"].includes(status);
-    if (
-      setDetailTab !== "market" ||
-      isTabNavPending ||
-      !resolvedSetResourceId ||
-      globalThis.navigator?.connection?.saveData === true ||
-      !settled(activeOverviewState.status) ||
-      !settled(activeMarketMoversState.status) ||
-      !settled(activeTopChaseState.status) ||
-      !settled(desktopSealedSummaryState.status)
-    ) return undefined;
-    let cancelled = false;
-    const warm = () => {
-      if (!cancelled) getPokemonSetConsumerSealedMarket(resolvedSetResourceId).catch(() => {});
-    };
-    const idleId = typeof window.requestIdleCallback === "function"
-      ? window.requestIdleCallback(warm, { timeout: 1500 })
-      : window.setTimeout(warm, 500);
-    return () => {
-      cancelled = true;
-      if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idleId);
-      else window.clearTimeout(idleId);
-    };
-  }, [
-    setDetailTab,
-    isTabNavPending,
-    resolvedSetResourceId,
-    activeOverviewState.status,
-    activeMarketMoversState.status,
-    activeTopChaseState.status,
-    desktopSealedSummaryState.status,
-  ]);
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
@@ -11676,54 +11573,28 @@ export default function RipStatisticsPageClient({
   // user visited Insights first, or an old SSR seed is still present), show
   // it until the paginated fetch for this set lands, instead of an empty
   // grid. Once cardsPageState has real data for this set it always wins.
-  const cardsPageFallbackCards =
-    checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0 ? checklistState.cards : [];
   // cardsPageState only resets to this set's "idle"/empty shape once its
   // fetch effect fires post-paint (setDetailTab === "cards"), so a set
   // switch can otherwise render the previous set's cards grid/pagination for
   // one commit under the new set's title — guard it the same way
   // activeMarketDashboardState/activeDirectSetValueState already do.
-  const activeCardsPageState =
-    cardsPageState.setId === resolvedSetResourceId
-      ? cardsPageState
-      : { status: "idle", setId: resolvedSetResourceId, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, meta: null, error: null };
-  const authoritativeSetCardCount =
-    toNumber(activeCardsPageState.pagination?.totalCards) > 0
-      ? toNumber(activeCardsPageState.pagination?.totalCards)
-      : toNumber(
-          selectedTarget?.card_count ??
-            selectedTarget?.cardCount ??
-            selectedTarget?.checklist_set_value_total_card_count ??
-            selectedTarget?.checklistSetValueTotalCardCount ??
-            summary?.simulated_set_value_card_count
-        );
-  const effectiveCardsPageCards = activeCardsPageState.cards.length > 0 ? activeCardsPageState.cards : cardsPageFallbackCards;
-  const effectiveCardsPageStatus =
-    activeCardsPageState.cards.length > 0
-      ? activeCardsPageState.status
-      : cardsPageFallbackCards.length > 0
-      ? "success_stale"
-      : activeCardsPageState.status;
-  // Capability comes from the completed endpoint contract. It deliberately
-  // defaults true while page one is cold so a route-selected 7D sort cannot
-  // be replaced before the first request is made.
-  const hasCardMovementData = activeCardsPageState.filters?.availableSorts?.includes("7d-movers") ?? true;
-  const availableCardRarities = activeCardsPageState.filters?.availableRarities || [];
-  // Preserve endpoint order verbatim. Sorting only the accumulated browser
-  // pages would corrupt the global 7D ranking as infinite-scroll chunks append.
-  const displayedChecklistCards = effectiveCardsPageCards;
+  const setRichSharedViewModel = selectSetRichSharedViewModel({
+    setId: resolvedSetResourceId,
+    target: selectedTarget,
+    shell: setShellContract,
+    ripBootstrap,
+  });
+  const authoritativeSetCardCount = setRichSharedViewModel.cardCount;
   // Development-only market diagnostics: one object per set-page load
   // summarizing marketAsOfDate, every surface's end date, canonical mover
   // totals, and banner↔Cards parity — with warnings on any disagreement.
   // Slim values only; never logs card payloads or price histories.
-  const activeCardsPageStateForDiagnostics = activeCardsPageState;
   useEffect(() => {
     if (process.env.NODE_ENV === "production" || !setDetailMode || !resolvedSetResourceId) {
       return;
     }
     const moversMeta = marketMoversLive?.meta || null;
     const moversTotals = moversMeta?.movementTotals || null;
-    const cardsTotals = cardsPageMetaForMarketDate?.movementTotals || null;
     const openingProfitRawEnd = (Array.isArray(historyTrend) ? historyTrend : []).reduce((latest, row) => {
       const date = getHistoryDateKey(row?.snapshotDate ?? row?.snapshot_date ?? row?.date);
       return date && (!latest || date > latest) ? date : latest;
@@ -11739,12 +11610,6 @@ export default function RipStatisticsPageClient({
       const date = getHistoryPointsEndDate(getTopCardPriceHistory(card, topMarketCardsWindowKey, marketAsOfDate));
       return date && (!latest || date > latest) ? date : latest;
     }, null);
-    const loadedMoversViewCards = activeCardsPageStateForDiagnostics.cards;
-    const isCanonicalMoversCardsView =
-      cardsSection === "market-movers" &&
-      effectiveCardMovementSort === "7d-movers" &&
-      effectiveCardMovementFilter === "all" &&
-      loadedMoversViewCards.length > 0;
     const usedLegacyMoverList =
       moversMeta?.snapshot?.usedLegacyMoverList === true ||
       (Boolean(moversTickerEntry) && !marketMoversLiveHasRows);
@@ -11765,17 +11630,15 @@ export default function RipStatisticsPageClient({
         cardsPageMetaForMarketDate?.snapshot?.marketAsOfDate ||
         cardsPageMetaForMarketDate?.snapshot?.movementAsOfDate ||
         null,
-      totalCards: moversTotals?.checklistCardCount ?? cardsTotals?.checklistCardCount ?? null,
-      cardsWith7dMovement: moversTotals?.cardsWithCalculableMovement ?? cardsTotals?.cardsWithCalculableMovement ?? null,
-      nonzero7dMovers: moversTotals?.nonzeroMovementCount ?? cardsTotals?.nonzeroMovementCount ?? null,
+      totalCards: moversTotals?.checklistCardCount ?? null,
+      cardsWith7dMovement: moversTotals?.cardsWithCalculableMovement ?? null,
+      nonzero7dMovers: moversTotals?.nonzeroMovementCount ?? null,
       marketMoversFilteredTotal: moversTotals?.filteredTotal ?? null,
       bannerCount: moversTickerItems.length,
       bannerFirstTenIds: moversTickerItems.map(
         (item) => item?.card?.canonicalCardId || item?.card?.cardId || item?.card?.id || null
       ),
-      cardsFirstTenIds: isCanonicalMoversCardsView
-        ? loadedMoversViewCards.slice(0, 10).map((card) => card?.canonicalCardId || card?.id || null)
-        : null,
+      cardsFirstTenIds: null,
       usedLegacyMoverList,
       isMixedGenerations: marketDateResolution.isMixedGenerations || marketDateResolution.isMixedDates,
       moversMovementFilter: "all",
@@ -11796,34 +11659,20 @@ export default function RipStatisticsPageClient({
     topPricedCards,
     topMarketCardsWindowKey,
     cardsPageMetaForMarketDate,
-    cardsSection,
-    effectiveCardMovementSort,
-    effectiveCardMovementFilter,
-    activeCardsPageStateForDiagnostics,
   ]);
   // Infinite scroll (Phase 10): a sentinel below the grid advances cardsPage
   // instead of Previous/Next buttons. `loading_more` keeps every rendered
   // card in place and shows only the bottom brand loader.
-  const cardsPageIsLoadingMore = activeCardsPageState.status === "loading_more";
-  const cardsPageIsFetching = activeCardsPageState.status === "loading" || cardsPageIsLoadingMore;
   // A failed load-more lands in success_stale + error with the loaded cards
   // kept; surface a bottom retry affordance instead of silently stalling the
   // list (the sentinel is disabled while an error is pending so it cannot
   // hammer a failing endpoint).
-  const cardsPageLoadMoreError = Boolean(
-    activeCardsPageState.error && activeCardsPageState.cards.length > 0 && activeCardsPageState.pagination?.hasNextPage
-  );
-  const cardsPageFullyLoaded = Boolean(
-    activeCardsPageState.pagination &&
-      !activeCardsPageState.pagination.hasNextPage &&
-      activeCardsPageState.pagination.totalPages > 1
-  );
   // Latest-value ref so the IntersectionObserver callback (created once per
   // grid growth) always reads the current gate without re-subscribing on
   // every state change. Duplicate fires are harmless: the next page is
   // computed from the last *merged* page, so repeated calls set the same
   // value, and the fetch effect's request-key dedupe drops repeats anyway.
-  const cardsLoadMoreGateRef = useRef({ canLoadMore: false, nextPage: 1, stateScopeKey: null });
+  /* Cards pagination observer moved into RichCardsSetTab.
   cardsLoadMoreGateRef.current = {
     canLoadMore: Boolean(
       setDetailMode &&
@@ -11883,6 +11732,7 @@ export default function RipStatisticsPageClient({
     // the prefetch margin (IntersectionObserver only reports crossings, so a
     // fast scroller would otherwise stall after one chunk).
   }, [setDetailMode, setDetailTab, cardsSubTab, resolvedSetResourceId, effectiveCardsPageCards.length]);
+  */
   const decisionMetrics = [
     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost), trend: trendByMetricKey.packCost },
     { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value), trend: trendByMetricKey.averagePackValue },
@@ -12186,7 +12036,9 @@ export default function RipStatisticsPageClient({
     }
     cardsIntentPrefetchTimerRef.current = window.setTimeout(() => {
       cardsIntentPrefetchTimerRef.current = null;
-      prefetchCardsPageOne();
+      import("@/lib/pokemon/pokemonSetCardsClient").then(({ prefetchPokemonSetCardsPage }) =>
+        prefetchPokemonSetCardsPage(setId, { page: 1, pageSize: CARDS_PAGE_SIZE, sort: "set-number", sortDirection: "asc", section: "all-cards" })
+      ).catch(() => {});
     }, 160);
   };
 
@@ -13323,28 +13175,14 @@ export default function RipStatisticsPageClient({
                     isDesktopHeroComposition={isDesktopHeroComposition}
                     resolvedSetResourceId={resolvedSetResourceId}
                     activeSetSlug={activeSetSlug}
-                    moversTickerEntry={moversTickerEntry}
-                    moversTickerStatus={moversTickerStatus}
-                    activeMarketMoversState={activeMarketMoversState}
+                    canFetch={canFetchSlimMarketModules}
+                    destinationSeedPending={destinationSeedPending}
+                    overviewSeed={seededOverviewPayload}
+                    moversSeed={seededMarketMoversPayload}
+                    topChaseSeed={seededTopChasePayload}
                     moversTickerHref={moversTickerHref}
-                    retryMarketMoversModule={retryMarketMoversModule}
-                    activeSetValueHistory={activeSetValueHistory}
                     authoritativeSetCardCount={authoritativeSetCardCount}
-                    setValueTop10CurrentValue={setValueTop10CurrentValue}
-                    setValueStandardCurrentValue={setValueStandardCurrentValue}
-                    marketMoversByWindow={marketMoversByWindow}
-                    activeMarketDashboardDerivedState={activeMarketDashboardDerivedState}
-                    topPricedCards={topPricedCards}
-                    topPricedCardsStatus={topPricedCardsStatus}
-                    activeTopMarketCardsState={activeTopMarketCardsState}
-                    topMarketCardsWindowKey={topMarketCardsWindowKey}
-                    setTopMarketCardsWindowKey={setTopMarketCardsWindowKey}
-                    marketAsOfDate={marketAsOfDate}
                     topChaseRowHref={topChaseRowHref}
-                    retryTopChaseModule={retryTopChaseModule}
-                    effectiveSetValueDerivedState={effectiveSetValueDerivedState}
-                    desktopSealedSummaryState={desktopSealedSummaryState}
-                    desktopSealedMarketState={desktopSealedMarketState}
                     MarketOverviewSection={SetMarketOverviewSection}
                     ChaseCardsPanel={TopChaseCardsPanel}
                   />
@@ -13577,30 +13415,9 @@ export default function RipStatisticsPageClient({
                   <RichCardsSetTab
                     cardsSection={cardsSection}
                     handleSetDetailNavSelect={handleSetDetailNavSelect}
-                    cardsSubTab={cardsSubTab}
-                    cardSearchQuery={cardSearchQuery}
-                    setCardSearchQuery={setCardSearchQuery}
-                    effectiveCardsPageCards={effectiveCardsPageCards}
-                    hasCardMovementData={hasCardMovementData}
-                    cardSortMode={cardSortMode}
-                    setCardSortMode={setCardSortMode}
-                    setCardSortDirection={setCardSortDirection}
-                    cardSortDirection={cardSortDirection}
-                    cardRarityFilter={cardRarityFilter}
-                    setCardRarityFilter={setCardRarityFilter}
-                    availableCardRarities={availableCardRarities}
-                    setSelectedTimeframe={setSelectedTimeframe}
-                    selectedTimeframe={selectedTimeframe}
-                    setCardMovementMetric={setCardMovementMetric}
-                    cardMovementMetric={cardMovementMetric}
-                    displayedChecklistCards={displayedChecklistCards}
-                    activeCardsPageState={activeCardsPageState}
-                    effectiveCardsPageStatus={effectiveCardsPageStatus}
+                    setId={resolvedSetResourceId}
+                    canFetch={canFetchSetDetailModules}
                     activeSetSlug={activeSetSlug}
-                    cardsPageIsLoadingMore={cardsPageIsLoadingMore}
-                    cardsPageLoadMoreError={cardsPageLoadMoreError}
-                    retryCardsPage={retryCardsPage}
-                    cardsPageFullyLoaded={cardsPageFullyLoaded}
                     CardTile={ChecklistCardTile}
                     SectionTabs={SectionViewTabs}
                   />

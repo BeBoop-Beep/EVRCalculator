@@ -1,38 +1,121 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import SetMarketMobile from "@/components/pokemon/set-page/Market/SetMarketMobile";
 import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
 import SevenDayMarketMoversTicker from "@/components/explore/SevenDayMarketMoversTicker";
+import useSetMarketController from "@/hooks/pokemon/useSetMarketController";
+import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
+import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSummary";
+import { buildMarketDashboardStateFromPayload, createMarketDashboardState } from "@/components/explore/marketDashboardState.mjs";
+import { selectMoversTickerItems } from "@/components/explore/moversTickerSelector.mjs";
+import { getMarketDateSourceFromPayload, resolveMarketAsOfDate } from "@/components/explore/marketAsOfDate.mjs";
+
+function toNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getCardMarketPrice(card) {
+  const price =
+    toNumber(card?.marketPrice) ?? toNumber(card?.market_price) ??
+    toNumber(card?.currentPrice) ?? toNumber(card?.current_price) ??
+    toNumber(card?.price) ?? toNumber(card?.estimatedMarketPrice) ??
+    toNumber(card?.estimated_market_price) ?? toNumber(card?.current_near_mint_price) ??
+    toNumber(card?.currentNearMintPrice) ?? toNumber(card?.price_used) ??
+    toNumber(card?.priceUsed) ?? toNumber(card?.card_price) ??
+    toNumber(card?.cardPrice) ?? toNumber(card?.card_market_price) ??
+    toNumber(card?.cardMarketPrice) ?? toNumber(card?.tcgplayer?.prices?.holofoil?.market) ??
+    toNumber(card?.tcgplayer?.prices?.reverseHolofoil?.market) ??
+    toNumber(card?.tcgplayer?.prices?.normal?.market) ??
+    toNumber(card?.cardmarket?.prices?.averageSellPrice);
+  return price !== null && price > 0 ? price : null;
+}
+
+function normalizeTopPricedCard(card) {
+  if (!card || typeof card !== "object") return null;
+  const marketPrice = getCardMarketPrice(card);
+  if (marketPrice === null) return null;
+  const setNumber = card?.setNumber ?? card?.set_number ?? card?.cardNumber ?? card?.card_number ?? card?.printedNumber ?? card?.printed_number ?? card?.number ?? null;
+  const priceHistory = Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : [];
+  return {
+    id: card?.id ?? card?.cardId ?? card?.card_id ?? card?.pokemonTcgApiCardId ?? card?.pokemon_tcg_api_card_id ?? null,
+    cardId: card?.cardId ?? card?.card_id ?? card?.id ?? null,
+    cardVariantId: card?.cardVariantId ?? card?.card_variant_id ?? null,
+    name: card?.name ?? card?.cardName ?? card?.card_name ?? "Unknown card",
+    imageUrl: card?.imageUrl ?? card?.image_url ?? card?.imageSmallUrl ?? card?.image_small_url ?? card?.imageLargeUrl ?? card?.image_large_url ?? null,
+    imageSmallUrl: card?.imageSmallUrl ?? card?.image_small_url ?? null,
+    imageLargeUrl: card?.imageLargeUrl ?? card?.image_large_url ?? null,
+    rarity: card?.rarity ?? null,
+    setNumber,
+    cardNumber: card?.cardNumber ?? card?.card_number ?? setNumber,
+    marketPrice,
+    estimatedMarketPrice: toNumber(card?.estimatedMarketPrice ?? card?.estimated_market_price),
+    priceUsed: toNumber(card?.priceUsed ?? card?.price_used),
+    priceHistory,
+    price_history: priceHistory,
+    historyPointCount: toNumber(card?.historyPointCount ?? card?.history_point_count),
+    historyStartDate: card?.historyStartDate ?? card?.history_start_date ?? null,
+    historyEndDate: card?.historyEndDate ?? card?.history_end_date ?? null,
+    conditionIdUsed: card?.conditionIdUsed ?? card?.condition_id_used ?? null,
+    matchingConditionObservationCount: toNumber(card?.matchingConditionObservationCount ?? card?.matching_condition_observation_count),
+    historyDiagnostics: card?.historyDiagnostics && typeof card.historyDiagnostics === "object" ? card.historyDiagnostics : card?.history_diagnostics && typeof card.history_diagnostics === "object" ? card.history_diagnostics : null,
+    deltas: card?.deltas && typeof card.deltas === "object" ? card.deltas : null,
+    source: "topMarketCards",
+  };
+}
 
 export default function RichMarketSetTab({
   isDesktopHeroComposition,
   resolvedSetResourceId,
   activeSetSlug,
-  moversTickerEntry,
-  moversTickerStatus,
-  activeMarketMoversState,
+  canFetch,
+  destinationSeedPending,
+  overviewSeed,
+  moversSeed,
+  topChaseSeed,
   moversTickerHref,
-  retryMarketMoversModule,
-  activeSetValueHistory,
   authoritativeSetCardCount,
-  setValueTop10CurrentValue,
-  setValueStandardCurrentValue,
-  marketMoversByWindow,
-  activeMarketDashboardDerivedState,
-  topPricedCards,
-  topPricedCardsStatus,
-  activeTopMarketCardsState,
-  topMarketCardsWindowKey,
-  setTopMarketCardsWindowKey,
-  marketAsOfDate,
   topChaseRowHref,
-  retryTopChaseModule,
-  effectiveSetValueDerivedState,
-  desktopSealedSummaryState,
-  desktopSealedMarketState,
   MarketOverviewSection,
   ChaseCardsPanel,
 }) {
+  const { activeOverviewState, activeMarketMoversState, activeTopChaseState, retryMarketMovers: retryMarketMoversModule, retryTopChase: retryTopChaseModule } = useSetMarketController({
+    setId: resolvedSetResourceId, enabled: true, canFetch, destinationSeedPending,
+    overviewSeed, moversSeed, topChaseSeed,
+  });
+  const effectiveSetValueDerivedState = useMemo(() => buildMarketDashboardStateFromPayload(activeOverviewState.payload || overviewSeed), [activeOverviewState.payload, overviewSeed]);
+  const setValue = effectiveSetValueDerivedState.setValue;
+  const activeSetValueHistory = { status: activeOverviewState.status, history: setValue.history || [], historiesByScope: setValue.historiesByScope || {}, error: activeOverviewState.error };
+  const marketMoversByWindow = activeMarketMoversState.payload?.marketMoversByWindow || null;
+  const moversTickerEntry = activeMarketMoversState.payload || moversSeed || null;
+  const moversTickerItems = useMemo(() => selectMoversTickerItems(moversTickerEntry), [moversTickerEntry]);
+  const moversTickerStatus = moversTickerItems.length ? "success" : ["idle", "loading"].includes(activeMarketMoversState.status) ? "loading" : activeMarketMoversState.status === "error" ? "error" : "empty";
+  const topPricedCards = useMemo(() => (activeTopChaseState.payload?.cards || [])
+    .map(normalizeTopPricedCard)
+    .filter(Boolean)
+    .sort((a, b) => b.marketPrice - a.marketPrice)
+    .slice(0, 10), [activeTopChaseState.payload?.cards]);
+  // Desktop's approved Top 10 derives row movement from the rendered history
+  // series; mobile's approved model consumes the compact endpoint windows.
+  const desktopTopPricedCards = useMemo(
+    () => topPricedCards.map((card) => ({ ...card, deltas: null })),
+    [topPricedCards]
+  );
+  const topPricedCardsStatus = topPricedCards.length ? "success" : ["idle", "loading"].includes(activeTopChaseState.status) ? "loading" : activeTopChaseState.status;
+  const activeTopMarketCardsState = { ...createMarketDashboardState({ setId: resolvedSetResourceId }), ...activeTopChaseState, cards: topPricedCards };
+  const [topMarketCardsWindowKey, setTopMarketCardsWindowKey] = useState("7D");
+  const marketAsOfDate = useMemo(() => resolveMarketAsOfDate([
+    getMarketDateSourceFromPayload("overview", activeOverviewState.payload || null),
+    getMarketDateSourceFromPayload("topChase", activeTopChaseState.payload || null),
+    getMarketDateSourceFromPayload("marketMovers", moversTickerEntry),
+  ]).marketAsOfDate, [activeOverviewState.payload, activeTopChaseState.payload, moversTickerEntry]);
+  const latestValue = (points) => { for (let index = (points || []).length - 1; index >= 0; index -= 1) { const value = Number(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value); if (Number.isFinite(value)) return value; } return null; };
+  const setValueTop10CurrentValue = latestValue(activeSetValueHistory.historiesByScope.top10) ?? overviewSeed?.chaseConcentration?.top10?.setValue ?? null;
+  const setValueStandardCurrentValue = latestValue(activeSetValueHistory.historiesByScope.standard || activeSetValueHistory.history) ?? overviewSeed?.chaseConcentration?.standard?.setValue ?? null;
+  const desktopSealedSummaryState = usePokemonSetSealedSummary(isDesktopHeroComposition ? resolvedSetResourceId : null, { enabled: isDesktopHeroComposition });
+  const desktopSealedMarketState = usePokemonSetSealedMarket(isDesktopHeroComposition ? resolvedSetResourceId : null, { enabled: false });
   const setDetailTab = "market";
   return (
     <>
@@ -64,10 +147,10 @@ export default function RichMarketSetTab({
       top10Value: setValueTop10CurrentValue,
       standardValue: setValueStandardCurrentValue,
       moversByWindow: marketMoversByWindow,
-      cardsMarket: activeMarketDashboardDerivedState.setValue.cardsMarket,
+      cardsMarket: effectiveSetValueDerivedState.setValue.cardsMarket,
       }}
       topChase={{
-      cards: topPricedCards,
+      cards: desktopTopPricedCards,
       status: topPricedCardsStatus,
       error: activeTopMarketCardsState.error,
       selectedWindowKey: topMarketCardsWindowKey,
@@ -142,7 +225,7 @@ export default function RichMarketSetTab({
       <ChaseCardsPanel
       setId={resolvedSetResourceId}
       setSlug={activeSetSlug}
-      cards={topPricedCards}
+      cards={desktopTopPricedCards}
       status={topPricedCardsStatus}
       error={activeTopMarketCardsState.error}
       selectedWindowKey={topMarketCardsWindowKey}

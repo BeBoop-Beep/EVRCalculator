@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";
 import InDexLogoLoader from "@/components/brand/InDexLogoLoader";
 import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
@@ -7,39 +8,63 @@ import {
   ALL_CARDS_SORT_OPTIONS,
   CARD_TIMEFRAMES,
   MARKET_MOVER_METRIC_OPTIONS,
+  DEFAULT_MARKET_MOVER_METRIC,
   getAllCardsDirectionLabel,
+  getEffectiveRarityFilter,
+  resolveCardsRequest,
 } from "@/components/pokemon/set-page/Cards/cardsControls.mjs";
+import useSetCardsController from "@/hooks/pokemon/useSetCardsController";
 
 export default function RichCardsSetTab({
   cardsSection,
   handleSetDetailNavSelect,
-  cardsSubTab,
-  cardSearchQuery,
-  setCardSearchQuery,
-  effectiveCardsPageCards,
-  hasCardMovementData,
-  cardSortMode,
-  setCardSortMode,
-  setCardSortDirection,
-  cardSortDirection,
-  cardRarityFilter,
-  setCardRarityFilter,
-  availableCardRarities,
-  setSelectedTimeframe,
-  selectedTimeframe,
-  setCardMovementMetric,
-  cardMovementMetric,
-  displayedChecklistCards,
-  activeCardsPageState,
-  effectiveCardsPageStatus,
+  setId,
+  canFetch,
   activeSetSlug,
-  cardsPageIsLoadingMore,
-  cardsPageLoadMoreError,
-  retryCardsPage,
-  cardsPageFullyLoaded,
   CardTile,
   SectionTabs,
 }) {
+  const cardsSubTab = "checklist";
+  const [selectedTimeframe, setSelectedTimeframe] = useState("7D");
+  const [cardSortMode, setCardSortMode] = useState("set-number");
+  const [cardSortDirection, setCardSortDirection] = useState(() => cardsSection === "market-movers" ? "gainers" : "asc");
+  const [cardMovementMetric, setCardMovementMetric] = useState(DEFAULT_MARKET_MOVER_METRIC);
+  const [cardSearchQuery, setCardSearchQuery] = useState("");
+  const [cardRarityFilter, setCardRarityFilter] = useState("");
+  useEffect(() => {
+    setCardSortMode("set-number");
+    setCardSortDirection(cardsSection === "market-movers" ? "gainers" : "asc");
+  }, [cardsSection]);
+  const cardsRequest = resolveCardsRequest({ selectedSubTab: cardsSection, selectedTimeframe, activeSortMode: cardSortMode, activeSortDirection: cardSortDirection, activeMovementMetric: cardMovementMetric });
+  const { state: activeCardsPageState, page: cardsPage, setPage: setCardsPage, retry: retryCardsPage } = useSetCardsController({
+    enabled: cardsSubTab === "checklist", canFetch, setId,
+    section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
+    sort: cardsRequest.sort, sortDirection: cardsRequest.sortDirection, query: cardSearchQuery,
+    rarity: getEffectiveRarityFilter(cardsSection, cardRarityFilter), movementFilter: cardsRequest.movementFilter,
+    movementSort: cardsRequest.movementSort, movementMetric: cardsRequest.movementMetric, pageSize: 60,
+  });
+  const effectiveCardsPageCards = activeCardsPageState.cards;
+  const effectiveCardsPageStatus = activeCardsPageState.status;
+  const displayedChecklistCards = effectiveCardsPageCards;
+  const hasCardMovementData = activeCardsPageState.filters?.availableSorts?.includes("7d-movers") ?? true;
+  const availableCardRarities = activeCardsPageState.filters?.availableRarities || [];
+  const cardsPageIsLoadingMore = activeCardsPageState.status === "loading_more";
+  const cardsPageIsFetching = activeCardsPageState.status === "loading" || cardsPageIsLoadingMore;
+  const cardsPageLoadMoreError = Boolean(activeCardsPageState.error && activeCardsPageState.cards.length > 0 && activeCardsPageState.pagination?.hasNextPage);
+  const cardsPageFullyLoaded = Boolean(activeCardsPageState.pagination && !activeCardsPageState.pagination.hasNextPage && activeCardsPageState.pagination.totalPages > 1);
+  const loadMoreGateRef = useRef({ canLoadMore: false, nextPage: 1 });
+  loadMoreGateRef.current = { canLoadMore: Boolean(activeCardsPageState.pagination?.hasNextPage && !cardsPageIsFetching && !activeCardsPageState.error && cardsPage === activeCardsPageState.page), nextPage: (activeCardsPageState.pagination?.page || activeCardsPageState.page || 1) + 1 };
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return undefined;
+    const sentinels = Array.from(document.querySelectorAll("[data-cards-load-more-sentinel]"));
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting) || !loadMoreGateRef.current.canLoadMore) return;
+      const nextPage = loadMoreGateRef.current.nextPage;
+      setCardsPage((page) => page >= nextPage ? page : nextPage);
+    }, { rootMargin: "1000px 0px" });
+    sentinels.forEach((sentinel) => observer.observe(sentinel));
+    return () => observer.disconnect();
+  }, [setId, setCardsPage, effectiveCardsPageCards.length]);
   return (
     <section id="set-detail-cards" data-cards-section className="scroll-mt-24 space-y-4 md:scroll-mt-28">
     {/* One compact controls panel: sub-tabs, search, sort/rarity
