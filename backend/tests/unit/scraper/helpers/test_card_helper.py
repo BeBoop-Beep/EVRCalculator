@@ -150,3 +150,6 @@ class TestNormalizeCondition:
         """Test normalization of 'Heavily Played' condition"""
         normalized = normalize_condition("Heavily Played")
         assert normalized == "Heavily Played"
+
+    def test_unknown_condition_fails_closed(self):
+        assert normalize_condition("Provider Mystery Grade") is None

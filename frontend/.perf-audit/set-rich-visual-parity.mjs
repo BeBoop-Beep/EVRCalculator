@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE || "http://127.0.0.1:3100";
-const ROOT = join(process.cwd(), ".perf-audit", "baselines", "set-rich");
+const ROOT = join(process.cwd(), ".perf-audit", "baselines", process.env.SET_VISUAL_BASELINE || "set-rich");
 const SNAPSHOT_FILE = join(ROOT, "geometry.json");
 const MODE = process.argv.includes("--capture") ? "capture" : process.argv.includes("--verify") ? "verify" : null;
 const TOLERANCE = Number(process.env.GEOMETRY_TOLERANCE || 3);

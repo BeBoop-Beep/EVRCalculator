@@ -73,3 +73,23 @@ def test_conflicting_nm_rows_reject_only_that_variant():
     parser = TCGPlayerParser({})
     assert parser.parse_cards({'result': rows}) == []
     assert parser.last_card_parse_report['rejected_ambiguous_variant_groups'] == 1
+
+
+def test_vintage_edition_distinct_set_rejects_generic_provider_printing():
+    parser = TCGPlayerParser({}, set_name="Base")
+    assert parser.parse_cards({'result': [_raw(42382, 'Charizard - 004/102')]}) == []
+    assert parser.last_card_parse_report['rejected_external_variant_identity_unavailable'] == 1
+    assert parser.last_card_parse_report['external_variant_identity_unavailable'] == [
+        '42382|edition=|printing_type=holo|special_type='
+    ]
+
+
+def test_vintage_edition_distinct_set_routes_explicit_provider_states_separately():
+    rows = [
+        {**_raw(42382, 'Charizard - 004/102'), 'printing': '1st Edition Holofoil'},
+        {**_raw(42382, 'Charizard - 004/102'), 'printing': 'Unlimited Holofoil'},
+        {**_raw(42382, 'Charizard - 004/102'), 'printing': 'Shadowless Holofoil'},
+    ]
+    parsed = TCGPlayerParser({}, set_name="Base").parse_cards({'result': rows})
+    assert {row['edition'] for row in parsed} == {'1st-edition', 'unlimited', 'shadowless'}
+    assert len({row['external_variant_key'] for row in parsed}) == 3

@@ -159,7 +159,7 @@ class TCGScraper:
         )
 
         # Step 2: Parse data
-        parser = TCGPlayerParser(config.PULL_RATE_MAPPING)
+        parser = TCGPlayerParser(config.PULL_RATE_MAPPING, set_name=config.SET_NAME)
         card_cache_key = (config.CARD_DETAILS_URL, config.SET_NAME)
         if card_cache_key in self._parsed_cards_cache:
             self._parsed_cards_cache.move_to_end(card_cache_key)
@@ -202,6 +202,7 @@ class TCGScraper:
             "accepted_variant_groups": "acceptedVariantGroups",
             "rejected_ambiguous_variant_groups": "rejectedAmbiguousVariantGroups",
             "rejected_missing_nm_variant_groups": "rejectedMissingNmVariantGroups",
+            "rejected_external_variant_identity_unavailable": "rejectedExternalVariantIdentityUnavailable",
             "dropped_no_market_price": "droppedNoMarketPrice",
         }
         parse_diagnostics = {diagnostic_names.get(key, key): value

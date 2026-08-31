@@ -1,0 +1,177 @@
+Stage V-C artifact: stage5c-native-product-chase-economics-v1
+tier contract: core=3x, extended=1x of product_market_cost/random_pack_count
+aggregation: model_consistent_iid
+market date 2026-08-28 | packs 250000 | products 131
+
+=== PHASE 20 - coverage gate ===
+  sets: 21   scored products: 131   unsupported: 0
+  families covered (8): booster_box, booster_bundle, elite_trainer_box, enhanced_booster_box, half_booster_box, loose_booster_pack, pokemon_center_elite_trainer_box, sleeved_booster_pack
+  card-price vs product-cost skew (days): [2]
+
+=== PHASE 12 - same-set product tournament ===
+Winners by criterion, per set. They are NOT expected to agree.
+set                      cheapest pack              deepest core               best EV return            
+Ascended Heroes          Ascended Heroes Booster P  Ascended Heroes Booster P  Ascended Heroes Booster P 
+Black Bolt               Black Bolt Booster Pack    Black Bolt Booster Pack    Black Bolt Booster Pack   
+Chaos Rising             Chaos Rising Booster Box   Chaos Rising Booster Box   Chaos Rising Booster Box  
+Journey Together         Journey Together Booster   Journey Together Booster   Journey Together Booster  
+Mega Evolution           Mega Evolution Booster Pa  Mega Evolution Booster Bo  Mega Evolution Booster Pa 
+Obsidian Flames          Obsidian Flames Booster B  Obsidian Flames Booster B  Obsidian Flames Booster B 
+Paldea Evolved           Paldea Evolved Booster Bo  Paldea Evolved Booster Bo  Paldea Evolved Booster Bo 
+Paldean Fates            Paldean Fates Booster Pac  Paldean Fates Booster Bun  Paldean Fates Booster Pac 
+Paradox Rift             Paradox Rift Booster Box   Paradox Rift Booster Box   Paradox Rift Booster Box  
+Perfect Order            Perfect Order Booster Box  Perfect Order Booster Box  Perfect Order Booster Box 
+Phantasmal Flames        Phantasmal Flames Booster  Phantasmal Flames Pokemon  Phantasmal Flames Booster 
+Pitch Black              Pitch Black Booster Box    Pitch Black Booster Box    Pitch Black Booster Box   
+Prismatic Evolutions     Prismatic Evolutions Boos  Prismatic Evolutions Boos  Prismatic Evolutions Boos 
+Scarlet and Violet 151   151 Booster Bundle         151 Booster Bundle         151 Booster Bundle        
+Scarlet and Violet Base  Scarlet & Violet Booster   Scarlet & Violet Booster   Scarlet & Violet Booster  
+Shrouded Fable           Shrouded Fable Booster Bu  Shrouded Fable Booster Bu  Shrouded Fable Booster Bu 
+Stellar Crown            Stellar Crown Booster Box  Stellar Crown Booster Box  Stellar Crown Booster Box 
+Surging Sparks           Surging Sparks Booster Pa  Surging Sparks Booster Pa  Surging Sparks Booster Pa 
+Temporal Forces          Temporal Forces Booster B  Temporal Forces Booster B  Temporal Forces Booster B 
+Twilight Masquerade      Twilight Masquerade Boost  Twilight Masquerade Boost  Twilight Masquerade Boost 
+White Flare              White Flare Booster Pack   White Flare Booster Pack   White Flare Booster Pack  
+
+sets with >=2 products: 21 ; sets where the winners disagree: 11
+
+=== PHASE 13 - set-inheritance error ===
+What set-level inheritance (cheapest route) would have assigned, versus native.
+  Core K       mean  -6.27  median  -5.0  P90(worst) -14.0  max +0  min -17  negative 125/131
+  Extended K   mean  -6.65  median  -4.0  P90(worst) -18.0  max +0  min -43  negative 98/131
+
+  by family (Core K delta):
+  family                                     n meanDelta     worst
+  pokemon_center_elite_trainer_box          25     -8.44       -17
+  elite_trainer_box                         26     -7.65       -17
+  half_booster_box                           7     -6.43       -13
+  booster_bundle                            22     -6.00       -17
+  loose_booster_pack                        21     -5.10       -13
+  sleeved_booster_pack                      14     -5.07       -16
+  booster_box                               14     -3.79       -10
+  enhanced_booster_box                       2     -2.00        -3
+
+=== PHASE 14 - product-family fairness ===
+  Spearman of each metric against RANDOM PACK COUNT and against PRODUCT COST.
+  metric                           rho(packs)      rho(cost)
+  per-product hit rate                 +0.688         +0.504
+  per-pack hit rate                    -0.142         -0.322
+  50% spend (pack-gran)                +0.117         +0.396
+  50% spend (whole unit)               +0.166         +0.442
+  Core K                               -0.079         -0.236
+  Chase Depth                          -0.008         -0.144
+  Chase EV Return                      -0.129         -0.232
+
+  by family (medians):
+  family                                    n    packs pProduct    depth    spend50
+  booster_box                              14       36    0.293     3.65        516
+  enhanced_booster_box                      2       36    0.245     5.27        679
+  half_booster_box                          7       18    0.116     3.06       1142
+  pokemon_center_elite_trainer_box         25       11    0.036     1.93       4721
+  elite_trainer_box                        26        9    0.036     2.43       2560
+  booster_bundle                           22        6    0.035     3.11       1543
+  loose_booster_pack                       21        1    0.008     3.50        962
+  sleeved_booster_pack                     14        1    0.007     2.79        977
+
+=== PHASE 15 - price shocks (closed form over the eligible price vector) ===
+  A +x%% card shock == threshold/(1+x). A +x%% product shock == threshold*(1+x).
+  shock                 coreJ   coreKmin   coreKmax  thinFlips
+  card +2%             0.9833          0         22          0
+  card -2%             0.9797          0         22          0
+  prod +2%             0.9797          0         22          0
+  prod -2%             0.9827          0         22          0
+  card +5%             0.9648          0         23          0
+  card -5%             0.9426          0         22          1
+  prod +5%             0.9464          0         22          1
+  prod -5%             0.9588          0         23          2
+  card +10%            0.9145          0         25          3
+  card -10%            0.8862          0         22          4
+  prod +10%            0.8941          0         22          4
+  prod -10%            0.9001          0         25          4
+  card +20%            0.8333          0         25          8
+  card -20%            0.7701          0         21          7
+  prod +20%            0.8004          0         22          6
+  prod -20%            0.8000          0         25         10
+
+=== PHASE 16 - temporal validation (product-cost history) ===
+  SINGLE REGIME ONLY. Card prices frozen at the build basis; this
+  isolates movement in product_market_cost and nothing else.
+  window 2026-08-15 -> 2026-08-28 (13 days, 9 observed dates), baseline 2026-08-28
+  date              n     coreJ     minJ      extJ   meanDK   flips  rankRho
+  2026-08-15        7    0.9762    0.833    0.9943    +0.14       0  +1.0000
+  2026-08-16       54    0.9835    0.800    0.9844    -0.04       0  +0.9953
+  2026-08-17      130    0.9856    0.750    0.9816    -0.05       0  +0.9969
+  2026-08-22      131    0.9893    0.750    0.9890    -0.01       0  +0.9976
+  2026-08-24      131    0.9886    0.750    0.9920    +0.01       0  +0.9975
+  2026-08-25      131    0.9938    0.833    0.9916    +0.02       0  +0.9986
+  2026-08-26      131    0.9935    0.833    0.9945    +0.02       0  +0.9985
+  2026-08-27      131    0.9969    0.833    0.9946    +0.01       0  +0.9992
+  2026-08-28      131    1.0000    1.000    1.0000    +0.00       0  +1.0000
+  total Core-existence flips across the whole window: 0
+  products whose Core COUNT moved at all: 18/131
+  pack-equivalent cost CV: median 0.0081  P90 0.0207  max 0.0782 (2b0eb359-f28c-4632-bfca-25e58bfe02b7)
+
+=== PHASE 17 - synthetic and pathological cases ===
+  Constructed products whose correct verdict is known in advance.
+  case                              C  coreK   extK  verdict  description
+  A_same_packs_cheap             4.00      5      6     PASS  36 packs at $4.00/pack
+  A_same_packs_dear             10.00      4      5     PASS  the SAME 36 packs at $10.00/pack
+  B_single_pack                 10.00      4      5     PASS  one loose pack at $10.00
+  B_thirty_six_packs            10.00      4      5     PASS  a 36-pack box at the same $10.00/pack
+  C_expensive_large             40.00      2      3     PASS  a 36-pack box at $40.00/pack
+  D_cheap_small                  2.00      6      7     PASS  a 2-pack sleeved product at $2.00/pack
+  E_exactly_on_the_floor        20.00      1      2     PASS  a cost placing one card EXACTLY on the 3x floor
+  F_hero_only_core              10.00      1      1     PASS  a set whose only Core member is the chase hero
+  G_no_core                    100.00      0      0     PASS  a product so dear that no card is worth three of its packs
+  H_guaranteed_promo            10.00      4      5     PASS  an ETB of 11 random packs plus a guaranteed promo, $110
+  10/10 cases pass.
+
+=== PHASE 18 - product-level metric redundancy ===
+  Spearman matrix (n=131 products)
+                            coreK    depth    pPack pProduct  spend50 evReturn  evShare      btb gapMedia
+  Literal Core K            +1.00    +0.98    +0.70    +0.41    -0.60    +0.72    +0.59    +0.71    -0.63
+  Chase Depth               +0.98    +1.00    +0.61    +0.29    -0.59    +0.65    +0.53    +0.65    -0.61
+  Any-Chase per pack        +0.70    +0.61    +1.00    +0.46    -0.91    +0.70    +0.47    +0.69    -0.91
+  Any-Chase per product     +0.41    +0.29    +0.46    +1.00    -0.27    +0.23    +0.21    +0.22    -0.27
+  50% Chase Spend           -0.60    -0.59    -0.91    -0.27    +1.00    -0.67    -0.34    -0.67    +1.00
+  Chase EV Return           +0.72    +0.65    +0.70    +0.23    -0.67    +1.00    +0.86    +1.00    -0.71
+  Chase EV Share            +0.59    +0.53    +0.47    +0.21    -0.34    +0.86    +1.00    +0.86    -0.39
+  Beat-the-Buy              +0.71    +0.65    +0.69    +0.22    -0.67    +1.00    +0.86    +1.00    -0.71
+  median Cost Gap           -0.63    -0.61    -0.91    -0.27    +1.00    -0.71    -0.39    -0.71    +1.00
+
+=== PHASE 19 - product-level Chase Depth ===
+  n=122  min 1.00  median 2.98  max 8.09
+  within-set depth spread: median 1.55  max 5.21 (Temporal Forces)
+  sets where depth is CONSTANT across products: 3/21
+  rho(depth, Core K)      +0.984
+  rho(depth, pack cost)   -0.420
+  rho(depth, EV Return)   +0.652
+
+=== CENTRAL PROOF - differentiation with equivalence ===
+  HALF 1 - same-set products differ, for a legitimate reason
+    sets with >=2 products                     21
+    ...of which have distinct per-pack costs   21
+    ...differing WITHOUT a cost reason         0
+    per-pack cost spread within a set: median x2.40  max x6.18
+    widest sets: Obsidian Flames x6.18 (Core K range 1), Paldea Evolved x4.18 (Core K range 3), Scarlet and Violet 151 x4.03 (Core K range 1), Scarlet and Violet Base Set x3.49 (Core K range 4), Surging Sparks x3.20 (Core K range 3)
+    HALF 1 HOLDS
+  HALF 2 - economically equivalent products behave equivalently
+    same-set pairs sharing a pack-equivalent cost   0
+    ...of which are size contrasts (different n)    0
+    violations                                      0
+    HALF 2 VACUOUS on this cohort - no two same-set products share
+    a cost per pack, so exact equivalence has nothing to test here.
+  HALF 2 (continuous form) - NEAR-equivalent products, within 1% on cost
+    pairs found                                     5
+    ...that are size contrasts (different n)        4
+    ...size contrasts that DO differ per unit       4
+    worst relative divergence on a cost-determined metric: 0.0113 (btb)
+    median relative divergence: 0.0057
+      Chaos Rising: Chaos Rising Booster Box vs Chaos Rising Booster Pack | cost sep 0.0082 | btb diverges 0.0113
+      Journey Together: Journey Together Pokemon Center Elite Trainer Box (Exclusive) vs Journey Together Half Booster Box | cost sep 0.0081 | evReturn diverges 0.0081
+      Stellar Crown: Stellar Crown Sleeved Booster Pack vs Stellar Crown Booster Pack | cost sep 0.0057 | evReturn diverges 0.0057
+    continuous HALF 2 EVIDENCE PRESENT
+  Structural HALF 2: verified on the code path by Phase-17 cases
+  B_single_pack / B_thirty_six_packs, which is where the exact identity
+  is actually demonstrated rather than merely unobserved.
+  CENTRAL PROOF HOLDS

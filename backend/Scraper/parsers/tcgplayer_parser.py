@@ -5,7 +5,9 @@ from ..helpers.sealed_price_helper import parse_sealed_prices
 
 
 class TCGPlayerParser:
-    def __init__(self, pull_rate_mapping):
+    EDITION_DISTINCT_SETS = {"base", "jungle", "fossil", "team rocket"}
+
+    def __init__(self, pull_rate_mapping, set_name=None):
         """
         Initialize the parser with configuration
         
@@ -13,6 +15,7 @@ class TCGPlayerParser:
             pull_rate_mapping: Dictionary mapping rarities to pull rates
         """
         self.pull_rate_mapping = pull_rate_mapping
+        self.set_name = str(set_name or "").strip()
 
     def parse_cards(self, raw_data):
         """
@@ -44,9 +47,14 @@ class TCGPlayerParser:
 
         selected_cards = []
         ambiguous_variant_groups = []
+        unavailable_external_variant_groups = []
         missing_nm_variant_groups = []
         duplicate_nm_rows_deduped = 0
         for (product_id, signature), rows in variant_groups.items():
+            edition, _printing_type = parse_tcgplayer_printing(rows[0].get("printing"))
+            if self.set_name.casefold() in self.EDITION_DISTINCT_SETS and not edition:
+                unavailable_external_variant_groups.append(f"{product_id}|{signature}")
+                continue
             near_mint = [
                 row for row in rows
                 if clean_condition(row.get("condition") or "") == "Near Mint"
@@ -112,6 +120,7 @@ class TCGPlayerParser:
             f"source_variant_groups={len(variant_groups)} "
             f"rejected_ambiguous_variants={len(ambiguous_variant_groups)} "
             f"rejected_missing_nm_variants={len(missing_nm_variant_groups)}"
+            f" external_variant_identity_unavailable={len(unavailable_external_variant_groups)}"
         )
 
         self.last_card_parse_report = {
@@ -122,6 +131,8 @@ class TCGPlayerParser:
             "payload_cards": len(cards),
             "ambiguous_variant_groups": sorted(ambiguous_variant_groups),
             "missing_nm_variant_groups": sorted(missing_nm_variant_groups),
+            "external_variant_identity_unavailable": sorted(unavailable_external_variant_groups),
+            "rejected_external_variant_identity_unavailable": len(unavailable_external_variant_groups),
             "rejected_ambiguous_variant_groups": len(ambiguous_variant_groups),
             "rejected_missing_nm_variant_groups": len(missing_nm_variant_groups),
             "duplicate_nm_rows_deduped": duplicate_nm_rows_deduped,
@@ -213,7 +224,7 @@ class TCGPlayerParser:
             }
 
             # Only include cards with valid data
-            if cleaned_card['name'] and cleaned_card['prices']['market'] is not None:
+            if cleaned_card['name'] and cleaned_card['condition'] and cleaned_card['prices']['market'] is not None:
                 cleaned.append(cleaned_card)
             elif not cleaned_card['name']:
                 dropped_no_name += 1
