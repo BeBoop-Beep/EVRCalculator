@@ -147,7 +147,6 @@ import {
   getRipTierPresentation,
 } from "@/lib/explore/interpretationTone";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
-import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
