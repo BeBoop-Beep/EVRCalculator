@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { connect } from "node:net";
 import { readFileSync } from "node:fs";
 
@@ -59,6 +59,12 @@ const next = spawn("npm.cmd", ["run", "start", "--", "--hostname", "127.0.0.1", 
   shell: true,
 });
 
+function terminate(child) {
+  if (!child?.pid) return;
+  if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+  else child.kill("SIGTERM");
+}
+
 try {
   await waitFor(`${backend}/__fixture__/health`, "fixture server");
   const manifest = JSON.parse(readFileSync(".perf-audit/fixtures/set-rich-v1/manifest.json", "utf8"));
@@ -78,6 +84,6 @@ try {
     throw new Error("Fixture completeness assertion failed");
   }
 } finally {
-  next.kill("SIGTERM");
-  fixture.kill("SIGTERM");
+  terminate(next);
+  terminate(fixture);
 }
