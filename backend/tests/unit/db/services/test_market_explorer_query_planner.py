@@ -98,6 +98,23 @@ def test_near_equivalent_does_not_use_prepared_and_cards_sealed_never_collide():
     assert query_fingerprint(prepared_spec) != query_fingerprint(sealed)
 
 
+def test_prepared_loader_is_reinvoked_and_never_hidden_by_process_l1():
+    spec = normalize_query_spec(mode=MODE_ALL)
+    published = [payload("2026-08-27")]
+    registry = PreparedEquivalenceRegistry()
+    registry.register(spec, lambda: published[0])
+    instance = planner()
+    first = instance.execute(spec=spec, prepared=registry, persistent=FakePersistent(),
+        canonical_through=lambda: pytest.fail("prepared owns freshness"),
+        novel_builder=lambda *_: pytest.fail("novel"))
+    published[0] = payload("2026-08-28")
+    second = instance.execute(spec=spec, prepared=registry, persistent=FakePersistent(),
+        canonical_through=lambda: pytest.fail("prepared owns freshness"),
+        novel_builder=lambda *_: pytest.fail("novel"))
+    assert first.payload["asOf"] == "2026-08-27"
+    assert second.payload["asOf"] == "2026-08-28"
+
+
 def test_l1_hit_avoids_l2_watermark_and_novel():
     spec = normalize_query_spec(mode=MODE_ALL)
     generation = PublicationGeneration("2026-08-28", 0)

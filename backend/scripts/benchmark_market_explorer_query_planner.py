@@ -91,6 +91,12 @@ def run():
         spec=spec, prepared=empty, persistent=MemoryPersistent(),
         canonical_through=lambda: "2026-08-28", novel_builder=lambda *_: value,
     ))
+    watermark_cache_hit = bench(lambda: watermarks.resolve(
+        publication_scope_key(spec), lambda: generation,
+    ))
+    new_generation_l1_miss = bench(lambda: hot.get(
+        query_fingerprint(spec), PublicationGeneration("2026-08-29", 0),
+    ))
 
     through = value["asOf"]
     ready = {"status": "ready", "computed_through": through, "series_payload": value}
@@ -120,7 +126,10 @@ def run():
         "historyPoints": len(value["trend"]), "payloadBytes": len(encoded),
         "jsonParse": bench(lambda: json.loads(encoded), 300),
         "childRowsMaterialize": bench(lambda: [dict(row) for row in point_rows], 300),
-        "prepared": prepared, "l1": l1, "l2RepositorySimulated": l2,
+        "prepared": prepared, "l1": l1,
+        "watermarkCacheHit": watermark_cache_hit,
+        "newGenerationL1Miss": new_generation_l1_miss,
+        "l2RepositorySimulated": l2,
         "incrementalMergeSimulated": incremental, "novelPlannerOverhead": novel_overhead,
     }
 
