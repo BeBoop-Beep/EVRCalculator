@@ -94,7 +94,6 @@ import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import OverviewRipSummary from "./OverviewRipSummary.jsx";
-import RipDecisionPage from "./RipDecisionPage.jsx";
 import { selectPreferredSetRipContract } from "./SetRipFamilyBreakdown.jsx";
 import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
@@ -152,7 +151,6 @@ import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSumma
 import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
 import useSetCardsController from "@/hooks/pokemon/useSetCardsController";
 import useSetMarketController from "@/hooks/pokemon/useSetMarketController";
-import useSetRipProgressiveController from "@/hooks/pokemon/useSetRipProgressiveController";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
@@ -242,7 +240,10 @@ const getPokemonSetCardsValidation = (...args) => loadCardsClient().then((client
 // Cards runtime owns the useful successful-scope cache and revisit behavior.
 const getCachedPokemonSetCards = () => null;
 const PullRateAssumptionsCard = dynamic(() => import("@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard"));
+const RichCardsSetTab = dynamic(() => import("@/components/pokemon/set-page/rich/RichCardsSetTab"));
+const RichMarketSetTab = dynamic(() => import("@/components/pokemon/set-page/rich/RichMarketSetTab"));
 const RichPullRatesSetTab = dynamic(() => import("@/components/pokemon/set-page/rich/RichPullRatesSetTab"));
+const RichRipSetTab = dynamic(() => import("@/components/pokemon/set-page/rich/RichRipSetTab"));
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -9081,27 +9082,6 @@ export default function RipStatisticsPageClient({
   const explorePullRateAssumptions = normalizePullRateAssumptions(explorePayload);
   const destinationSeedPending =
     setDetailTab === "market" && isTabNavPending && initialModuleSnapshots?.resolvedTab !== "market";
-  const {
-    rankContextState: ripRankContextState,
-    simulationState: ripSimulationState,
-    advancedState: ripAdvancedState,
-    rankContext: ripRankContext,
-    simulation: compatibleRipSimulation,
-    advanced: compatibleRipAdvanced,
-    loadRankContext: loadRipRankContext,
-    loadSimulation: loadRipSimulation,
-    loadAdvanced: loadRipAdvanced,
-  } = useSetRipProgressiveController({
-    setId: resolvedSetResourceId,
-    calculationRunId: ripBootstrap?.calculationRunId,
-    canonicalSource: ripBootstrap?.canonicalSource,
-    rankContextEnabled:
-      canViewProductRipIntelligence &&
-      setDetailMode &&
-      setDetailTab === "overview" &&
-      Boolean(resolvedSetResourceId && ripBootstrap?.calculationRunId),
-    canViewProductRipIntelligence,
-  });
   // Keep this below the setDetailTab state declaration. Computing it earlier
   // reads setDetailTab during its temporal dead zone and crashes set routes.
   const hasActiveInsightsPayload =
@@ -13370,125 +13350,36 @@ export default function RipStatisticsPageClient({
                     1200px reading the hero composition already uses, so the ids
                     stay unique and no module is fetched twice. */}
                 {setDetailTab === "market" ? (
-                  isDesktopHeroComposition ? null : (
-                  <SetMarketMobile
-                    setId={resolvedSetResourceId}
-                    setSlug={activeSetSlug}
-                    sectionIds={{
-                      root: "set-detail-market",
-                      movers: "set-detail-market-movers",
-                      setValue: "set-detail-market-set-value",
-                      topChase: "set-detail-market-top-chase",
-                      sealed: "set-detail-market-sealed",
-                    }}
-                    movers={{
-                      entry: moversTickerEntry,
-                      status: moversTickerStatus,
-                      error: activeMarketMoversState.error,
-                      viewAllHref: moversTickerHref,
-                      onRetry: retryMarketMoversModule,
-                    }}
-                    setValue={{
-                      history: activeSetValueHistory.history,
-                      historiesByScope: activeSetValueHistory.historiesByScope,
-                      status: activeSetValueHistory.status,
-                      error: activeSetValueHistory.error,
-                      cardsTrackedCount: authoritativeSetCardCount,
-                      top10Value: setValueTop10CurrentValue,
-                      standardValue: setValueStandardCurrentValue,
-                      moversByWindow: marketMoversByWindow,
-                      cardsMarket: activeMarketDashboardDerivedState.setValue.cardsMarket,
-                    }}
-                    topChase={{
-                      cards: topPricedCards,
-                      status: topPricedCardsStatus,
-                      error: activeTopMarketCardsState.error,
-                      selectedWindowKey: topMarketCardsWindowKey,
-                      onWindowChange: setTopMarketCardsWindowKey,
-                      marketAsOfDate,
-                      viewAllHref: topChaseRowHref,
-                      onRetry: retryTopChaseModule,
-                    }}
+                  <RichMarketSetTab
+                    isDesktopHeroComposition={isDesktopHeroComposition}
+                    resolvedSetResourceId={resolvedSetResourceId}
+                    activeSetSlug={activeSetSlug}
+                    moversTickerEntry={moversTickerEntry}
+                    moversTickerStatus={moversTickerStatus}
+                    activeMarketMoversState={activeMarketMoversState}
+                    moversTickerHref={moversTickerHref}
+                    retryMarketMoversModule={retryMarketMoversModule}
+                    activeSetValueHistory={activeSetValueHistory}
+                    authoritativeSetCardCount={authoritativeSetCardCount}
+                    setValueTop10CurrentValue={setValueTop10CurrentValue}
+                    setValueStandardCurrentValue={setValueStandardCurrentValue}
+                    marketMoversByWindow={marketMoversByWindow}
+                    activeMarketDashboardDerivedState={activeMarketDashboardDerivedState}
+                    topPricedCards={topPricedCards}
+                    topPricedCardsStatus={topPricedCardsStatus}
+                    activeTopMarketCardsState={activeTopMarketCardsState}
+                    topMarketCardsWindowKey={topMarketCardsWindowKey}
+                    setTopMarketCardsWindowKey={setTopMarketCardsWindowKey}
+                    marketAsOfDate={marketAsOfDate}
+                    topChaseRowHref={topChaseRowHref}
+                    retryTopChaseModule={retryTopChaseModule}
+                    effectiveSetValueDerivedState={effectiveSetValueDerivedState}
+                    desktopSealedSummaryState={desktopSealedSummaryState}
+                    desktopSealedMarketState={desktopSealedMarketState}
+                    MarketOverviewSection={SetMarketOverviewSection}
+                    ChaseCardsPanel={TopChaseCardsPanel}
                   />
-                  )
                 ) : null}
-
-                {setDetailTab === "market" && isDesktopHeroComposition ? (
-                  <section id="set-detail-market" data-market-page className="scroll-mt-24 space-y-5 md:scroll-mt-28">
-                    {/* SECTION 1 — 7D Movers, directly under the set header.
-                        Fixed 7D, independent of every other selector on the
-                        page, and the ONLY movers strip on this tab. */}
-                    <div id="set-detail-market-movers" data-market-section="movers" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                      <SectionErrorBoundary sectionName="market-movers-ticker" resetKeys={[resolvedSetResourceId]} title="7D Movers" minHeightClassName="min-h-[3rem]">
-                        <SevenDayMarketMoversTicker
-                          entry={moversTickerEntry}
-                          maxItems={10}
-                          scope="set"
-                          status={moversTickerStatus}
-                          error={activeMarketMoversState.error}
-                          viewAllHref={moversTickerHref}
-                          onRetry={retryMarketMoversModule}
-                        />
-                      </SectionErrorBoundary>
-                    </div>
-
-                    {/* SECTION 2 — Main Market Overview. The dominant analytics
-                        surface: Market Value Trend on the left, Set Signals on
-                        the right. The retired Set Value and Sealed Market cards
-                        are folded in here as the Cards and Sealed lenses, which
-                        is why #set-detail-market-sealed now resolves to this
-                        section rather than to a card of its own. */}
-                    <div
-                      id="set-detail-market-set-value"
-                      data-market-section="overview"
-                      data-mobile-section
-                      className="min-w-0 scroll-mt-24 md:scroll-mt-28"
-                    >
-                      <span id="set-detail-market-sealed" aria-hidden="true" className="block scroll-mt-24 md:scroll-mt-28" />
-                      <SectionErrorBoundary sectionName="market-overview" resetKeys={[resolvedSetResourceId]} title="Market Value Trend" minHeightClassName="min-h-[28rem]">
-                        <SetMarketOverviewSection
-                          setId={resolvedSetResourceId}
-                          cardsHistory={activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history}
-                          // THE LIVE SOURCE. `activeMarketDashboardDerivedState` is
-                          // built from the retired monolithic /market/dashboard
-                          // fetch, which nothing on this page calls live any more
-                          // (Top Chase Cards and Market Movers moved to their own
-                          // slim endpoints — see the effect above) — so this prop
-                          // was permanently null except from a stale cache entry
-                          // or an SSR seed that never carries it either.
-                          // `effectiveSetValueDerivedState` is the payload the
-                          // Market tab actually fetches (the slim /overview
-                          // endpoint), which now also serves cardsMarket.
-                          cardsMarket={effectiveSetValueDerivedState.setValue.cardsMarket}
-                          cardsTrackedCount={authoritativeSetCardCount}
-                          top10Value={setValueTop10CurrentValue}
-                          standardValue={setValueStandardCurrentValue}
-                          sealedSummaryState={desktopSealedSummaryState}
-                        />
-                      </SectionErrorBoundary>
-                    </div>
-
-                    {/* SECTION 3 — Top 10 Chase Cards. A dedicated module, not
-                        part of Section 2's card. */}
-                    <div id="set-detail-market-top-chase" data-market-section="top-chase" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                      <SectionErrorBoundary sectionName="market-top-chase" resetKeys={[resolvedSetResourceId]} title="Top 10 Chase Cards" minHeightClassName="min-h-[24rem]">
-                        <TopChaseCardsPanel
-                          setId={resolvedSetResourceId}
-                          setSlug={activeSetSlug}
-                          cards={topPricedCards}
-                          status={topPricedCardsStatus}
-                          error={activeTopMarketCardsState.error}
-                          selectedWindowKey={topMarketCardsWindowKey}
-                          onWindowChange={setTopMarketCardsWindowKey}
-                          marketAsOfDate={marketAsOfDate}
-                          onRetry={retryTopChaseModule}
-                          sealedState={desktopSealedMarketState}
-                        />
-                      </SectionErrorBoundary>
-                    </div>
-                  </section>
-                ) : null}
-
                 {/* RETIRED: the pre-RIP-page Overview composition. It is kept
                     only because the RIP page replaced it in place; it renders
                     for no tab. Its Set Value / Top Chase / Sealed / movers
@@ -13714,253 +13605,37 @@ export default function RipStatisticsPageClient({
                 />
 
                 {setDetailTab === "cards" ? (
-                  // Transparency stack (Cards): this section is a transparent
-                  // layout region — the same shape #set-detail-overview already
-                  // uses — because a panel here was the first ancestor blocking
-                  // the ambient set artwork. Only the controls carry a surface;
-                  // nothing paints a background behind the card grid.
-                  <section id="set-detail-cards" data-cards-section className="scroll-mt-24 space-y-4 md:scroll-mt-28">
-                    {/* One compact controls panel: sub-tabs, search, sort/rarity
-                        or direction, timeframe, movement metric, and the count. */}
-                    <div data-cards-toolbar className="set-glass-surface space-y-3 rounded-2xl border p-3 md:p-4">
-                      <SectionViewTabs
-                        value={cardsSection}
-                        onChange={(nextSection) =>
-                          handleSetDetailNavSelect({
-                            tab: "cards",
-                            section: nextSection,
-                            cardsSubTab: "checklist",
-                            targetId: "set-detail-cards",
-                          })
-                        }
-                        variant="secondary"
-                        options={[
-                          { value: "all-cards", label: "All Cards" },
-                          { value: "market-movers", label: "Market Movers" },
-                        ]}
-                      />
-
-                      {cardsSubTab === "checklist" ? (
-                        <label className="block min-w-0 max-w-sm text-xs font-semibold text-[var(--text-secondary)]">
-                          <span className="mb-1 block uppercase tracking-[0.08em]">Search</span>
-                          <input
-                            type="text"
-                            value={cardSearchQuery}
-                            onChange={(event) => setCardSearchQuery(event.target.value)}
-                            placeholder="Search cards by name"
-                            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                          />
-                        </label>
-                      ) : null}
-
-                      {cardsSubTab === "checklist" && effectiveCardsPageCards.length > 0 && hasCardMovementData ? (
-                        <div className="flex flex-wrap items-end gap-3">
-                          {cardsSection === "all-cards" ? (
-                            <>
-                            <div className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
-                              <span className="mb-1 block uppercase tracking-[0.08em]">Sort</span>
-                              <div className="flex flex-wrap gap-2">
-                                <select
-                                  aria-label="Sort cards by"
-                                  value={cardSortMode}
-                                  onChange={(event) => setCardSortMode(event.target.value)}
-                                  className="min-w-[10rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                                >
-                                  {ALL_CARDS_SORT_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="button"
-                                  onClick={() => setCardSortDirection((direction) => direction === "asc" ? "desc" : "asc")}
-                                  aria-label={`Sort ${ALL_CARDS_SORT_OPTIONS.find((option) => option.value === cardSortMode)?.label || "cards"} ${cardSortDirection === "asc" ? "ascending" : "descending"}. Activate to reverse order.`}
-                                  aria-pressed={cardSortDirection === "desc"}
-                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                                >
-                                  {getAllCardsDirectionLabel(cardSortMode, cardSortDirection)}
-                                </button>
-                              </div>
-                            </div>
-                            <label className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
-                              <span className="mb-1 block uppercase tracking-[0.08em]">Rarity</span>
-                              <select
-                                value={cardRarityFilter}
-                                onChange={(event) => setCardRarityFilter(event.target.value)}
-                                className="min-w-[10rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                              >
-                                <option value="">All Rarities</option>
-                                {availableCardRarities.map((rarityOption) => (
-                                  <option key={rarityOption} value={rarityOption}>{rarityOption}</option>
-                                ))}
-                              </select>
-                            </label>
-                            </>
-                          ) : (
-                            <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Movement direction">
-                              {["gainers", "losers"].map((direction) => (
-                                <button
-                                  key={direction}
-                                  type="button"
-                                  onClick={() => setCardSortDirection(direction)}
-                                  aria-pressed={cardSortDirection === direction}
-                                  aria-label={direction === "gainers" ? "Gainers" : "Losers"}
-                                  className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                                    cardSortDirection === direction ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
-                                  }`}
-                                >
-                                  {/* Button padding and label size are unchanged — only the
-                                      triangle shrinks, via the shared DeltaTrendIcon's own
-                                      "sm" size (em-relative, so it stays proportional) inside
-                                      a fixed, identical box for both directions. The buttons'
-                                      own aria-labels keep the icon's internal label out of the
-                                      accessible name. Per-card movement triangles are a
-                                      separate surface and stay as they are. */}
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <DeltaTrendIcon
-                                      direction={direction === "gainers" ? "up" : "down"}
-                                      size="sm"
-                                      className="h-3 w-3 justify-center"
-                                    />
-                                    <span>{direction === "gainers" ? "Gainers" : "Losers"}</span>
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Movement timeframe">
-                            {CARD_TIMEFRAMES.map((timeframe) => (
-                              <button
-                                key={timeframe}
-                                type="button"
-                                onClick={() => setSelectedTimeframe(timeframe)}
-                                aria-pressed={selectedTimeframe === timeframe}
-                                className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                                  selectedTimeframe === timeframe ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
-                                }`}
-                              >
-                                {timeframe}
-                              </button>
-                            ))}
-                          </div>
-                          {cardsSection === "market-movers" ? (
-                            // Third independent Market Movers control: which
-                            // magnitude the ranking compares. Direction and
-                            // timeframe are untouched by it. The visible labels are
-                            // symbol-led for compactness, so each button carries a
-                            // spelled-out accessible name.
-                            <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Rank movement by">
-                              {MARKET_MOVER_METRIC_OPTIONS.map((option) => (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() => setCardMovementMetric(option.value)}
-                                  aria-pressed={cardMovementMetric === option.value}
-                                  title={option.accessibleLabel}
-                                  className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                                    cardMovementMetric === option.value ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
-                                  }`}
-                                >
-                                  <span aria-hidden="true">{option.label}</span>
-                                  <span className="sr-only">{option.accessibleLabel}</span>
-                                </button>
-                              ))}
-                            </div>
-                          ) : null}
-                          <p className="ml-auto text-xs text-[var(--text-secondary)]">
-                            {displayedChecklistCards.length.toLocaleString("en-US")} of {(activeCardsPageState.pagination?.totalCards ?? effectiveCardsPageCards.length).toLocaleString("en-US")} cards
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {cardsSubTab === "checklist" ? (
-                      <div className="min-w-0">
-                        {(effectiveCardsPageStatus === "idle" || effectiveCardsPageStatus === "loading") &&
-                        effectiveCardsPageCards.length === 0 ? (
-                          // Branded tab loader only while the card page
-                          // payload itself is loading and no card rows exist
-                          // yet. Once rows render, lazy card images keep
-                          // their card-shaped placeholders (ChecklistCardTile
-                          // → CardImagePlaceholder) — individual image loads
-                          // must never re-block the whole tab.
-                          <SetTabLoadingPanel
-                            title="Loading cards…"
-                            helper="Pulling the checklist page and card market fields for this set."
-                          />
-                        ) : null}
-
-                        {effectiveCardsPageStatus === "error" ? (
-                          <p className="text-sm text-red-300">{activeCardsPageState.error || "Unable to load cards for this set."}</p>
-                        ) : null}
-
-                        {effectiveCardsPageStatus === "empty" ? (
-                          <p className="text-sm text-[var(--text-secondary)]">No cards found for this set.</p>
-                        ) : null}
-
-                        {effectiveCardsPageCards.length > 0 ? (
-                          <>
-                            {displayedChecklistCards.length > 0 ? (
-                              // Never dim or overlay the grid while more
-                              // cards load — appended chunks render below and
-                              // the already-visible cards must stay stable.
-                              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                                {displayedChecklistCards.map((card) => (
-                                  <ChecklistCardTile
-                                    key={`${card.id || card.cardNumber || card.name}`}
-                                    card={{ ...card, detailSetSlug: activeSetSlug }}
-                                    movementWindow={selectedTimeframe}
-                                  />
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-[var(--text-secondary)]">No cards match this movement filter yet.</p>
-                            )}
-
-                            {/* Infinite scroll: the sentinel sits below the
-                                grid and advances cardsPage via
-                                IntersectionObserver (generous rootMargin) —
-                                no user-facing Previous/Next buttons. Located
-                                by data attribute because the scaffold mounts
-                                this tree twice (desktop + mobile copies). */}
-                            <div data-cards-load-more-sentinel="true" aria-hidden="true" className="h-px w-full" />
-
-                            {cardsPageIsLoadingMore ? (
-                              <div aria-live="polite" className="pt-1">
-                                <InDexLogoLoader
-                                  fullScreen={false}
-                                  label="Loading more cards"
-                                  shouldDelay={false}
-                                  isLoading={true}
-                                  className="index-loader-shell--compact"
-                                />
-                              </div>
-                            ) : null}
-
-                            {cardsPageLoadMoreError ? (
-                              <div className="mt-3 flex flex-col items-center gap-2 text-center">
-                                <p className="text-xs text-[var(--text-secondary)]">Couldn&apos;t load more cards.</p>
-                                <button
-                                  type="button"
-                                  onClick={retryCardsPage}
-                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
-                                >
-                                  Retry
-                                </button>
-                              </div>
-                            ) : null}
-
-                            {cardsPageFullyLoaded && !cardsPageIsLoadingMore ? (
-                              <p className="mt-4 text-center text-xs text-[var(--text-secondary)]/80">
-                                All {(activeCardsPageState.pagination?.totalCards ?? activeCardsPageState.cards.length).toLocaleString("en-US")} cards loaded
-                              </p>
-                            ) : null}
-                          </>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </section>
+                  <RichCardsSetTab
+                    cardsSection={cardsSection}
+                    handleSetDetailNavSelect={handleSetDetailNavSelect}
+                    cardsSubTab={cardsSubTab}
+                    cardSearchQuery={cardSearchQuery}
+                    setCardSearchQuery={setCardSearchQuery}
+                    effectiveCardsPageCards={effectiveCardsPageCards}
+                    hasCardMovementData={hasCardMovementData}
+                    cardSortMode={cardSortMode}
+                    setCardSortMode={setCardSortMode}
+                    setCardSortDirection={setCardSortDirection}
+                    cardSortDirection={cardSortDirection}
+                    cardRarityFilter={cardRarityFilter}
+                    setCardRarityFilter={setCardRarityFilter}
+                    availableCardRarities={availableCardRarities}
+                    setSelectedTimeframe={setSelectedTimeframe}
+                    selectedTimeframe={selectedTimeframe}
+                    setCardMovementMetric={setCardMovementMetric}
+                    cardMovementMetric={cardMovementMetric}
+                    displayedChecklistCards={displayedChecklistCards}
+                    activeCardsPageState={activeCardsPageState}
+                    effectiveCardsPageStatus={effectiveCardsPageStatus}
+                    activeSetSlug={activeSetSlug}
+                    cardsPageIsLoadingMore={cardsPageIsLoadingMore}
+                    cardsPageLoadMoreError={cardsPageLoadMoreError}
+                    retryCardsPage={retryCardsPage}
+                    cardsPageFullyLoaded={cardsPageFullyLoaded}
+                    CardTile={ChecklistCardTile}
+                    SectionTabs={SectionViewTabs}
+                  />
                 ) : null}
-
                 {setDetailTab === "pull-rates" ? (
                   <RichPullRatesSetTab
                     setId={resolvedSetResourceId}

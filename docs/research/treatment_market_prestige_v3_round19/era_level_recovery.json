@@ -1,0 +1,279 @@
+[
+  {
+    "era": "Base/WOTC",
+    "collectorDenominator": 82,
+    "collectorCovered": 0,
+    "collectorUnresolved": 82,
+    "premiumDenominator": 3,
+    "premiumCovered": 0,
+    "largestBlocker": [
+      "HISTORY_MISSING",
+      82
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_holo",
+      81
+    ],
+    "readiness": "70_PERCENT_REQUIRES_EXTERNAL_DATA"
+  },
+  {
+    "era": "Black and White",
+    "collectorDenominator": 301,
+    "collectorCovered": 168,
+    "collectorUnresolved": 133,
+    "premiumDenominator": 161,
+    "premiumCovered": 2,
+    "largestBlocker": [
+      "STRUCTURALLY_UNDERIDENTIFIED",
+      133
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_ultra",
+      60
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "Diamond and Pearl",
+    "collectorDenominator": 139,
+    "collectorCovered": 108,
+    "collectorUnresolved": 31,
+    "premiumDenominator": 34,
+    "premiumCovered": 0,
+    "largestBlocker": [
+      "STRUCTURALLY_UNDERIDENTIFIED",
+      31
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_holo_lv_x",
+      28
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "E-Card",
+    "collectorDenominator": 81,
+    "collectorCovered": 0,
+    "collectorUnresolved": 81,
+    "premiumDenominator": 9,
+    "premiumCovered": 0,
+    "largestBlocker": [
+      "HISTORY_MISSING",
+      81
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_holo",
+      73
+    ],
+    "readiness": "70_PERCENT_REQUIRES_EXTERNAL_DATA"
+  },
+  {
+    "era": "EX",
+    "collectorDenominator": 384,
+    "collectorCovered": 353,
+    "collectorUnresolved": 31,
+    "premiumDenominator": 163,
+    "premiumCovered": 131,
+    "largestBlocker": [
+      "STRUCTURALLY_UNDERIDENTIFIED",
+      31
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_secret",
+      18
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "Gym",
+    "collectorDenominator": 30,
+    "collectorCovered": 0,
+    "collectorUnresolved": 30,
+    "premiumDenominator": 2,
+    "premiumCovered": 0,
+    "largestBlocker": [
+      "INSUFFICIENT_SET_DIVERSITY",
+      30
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_holo",
+      30
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "collectorDenominator": 123,
+    "collectorCovered": 101,
+    "collectorUnresolved": 22,
+    "premiumDenominator": 49,
+    "premiumCovered": 26,
+    "largestBlocker": [
+      "CANONICAL_MAPPING",
+      14
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "legend",
+      18
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "Mega Evolution",
+    "collectorDenominator": 290,
+    "collectorCovered": 88,
+    "collectorUnresolved": 202,
+    "premiumDenominator": 367,
+    "premiumCovered": 88,
+    "largestBlocker": [
+      "MODEL_INSTABILITY",
+      101
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "ultra_rare",
+      106
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "NP",
+    "collectorDenominator": 0,
+    "collectorCovered": 0,
+    "collectorUnresolved": 0,
+    "premiumDenominator": 0,
+    "premiumCovered": 0,
+    "largestBlocker": null,
+    "largestRecoverableTreatmentFamily": null,
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "Neo",
+    "collectorDenominator": 73,
+    "collectorCovered": 0,
+    "collectorUnresolved": 73,
+    "premiumDenominator": 9,
+    "premiumCovered": 0,
+    "largestBlocker": [
+      "STRUCTURALLY_UNDERIDENTIFIED",
+      73
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_holo",
+      64
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "Other",
+    "collectorDenominator": 19,
+    "collectorCovered": 0,
+    "collectorUnresolved": 19,
+    "premiumDenominator": 0,
+    "premiumCovered": 0,
+    "largestBlocker": [
+      "STRUCTURALLY_UNDERIDENTIFIED",
+      19
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_holo",
+      19
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "POP",
+    "collectorDenominator": 0,
+    "collectorCovered": 0,
+    "collectorUnresolved": 0,
+    "premiumDenominator": 0,
+    "premiumCovered": 0,
+    "largestBlocker": null,
+    "largestRecoverableTreatmentFamily": null,
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "Platinum",
+    "collectorDenominator": 93,
+    "collectorCovered": 82,
+    "collectorUnresolved": 11,
+    "premiumDenominator": 38,
+    "premiumCovered": 26,
+    "largestBlocker": [
+      "STRUCTURALLY_UNDERIDENTIFIED",
+      11
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_secret",
+      9
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "Scarlet and Violet",
+    "collectorDenominator": 1066,
+    "collectorCovered": 891,
+    "collectorUnresolved": 175,
+    "premiumDenominator": 1283,
+    "premiumCovered": 1042,
+    "largestBlocker": [
+      "INSUFFICIENT_SET_DIVERSITY",
+      120
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "shiny_rare",
+      120
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "Sun and Moon",
+    "collectorDenominator": 804,
+    "collectorCovered": 460,
+    "collectorUnresolved": 344,
+    "premiumDenominator": 773,
+    "premiumCovered": 432,
+    "largestBlocker": [
+      "INSUFFICIENT_SAMPLE",
+      148
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_holo",
+      66
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "Sword and Shield",
+    "collectorDenominator": 1277,
+    "collectorCovered": 163,
+    "collectorUnresolved": 1114,
+    "premiumDenominator": 1317,
+    "premiumCovered": 398,
+    "largestBlocker": [
+      "STRUCTURALLY_UNDERIDENTIFIED",
+      529
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_holo",
+      249
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  },
+  {
+    "era": "XY",
+    "collectorDenominator": 414,
+    "collectorCovered": 393,
+    "collectorUnresolved": 21,
+    "premiumDenominator": 306,
+    "premiumCovered": 250,
+    "largestBlocker": [
+      "UNIVERSE_STRUCTURE",
+      34
+    ],
+    "largestRecoverableTreatmentFamily": [
+      "rare_secret",
+      30
+    ],
+    "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+  }
+]
