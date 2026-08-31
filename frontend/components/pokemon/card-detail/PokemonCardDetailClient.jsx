@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { PlanUpgradeLink } from "@/components/membership/PlanLock";
+import { INDEX_PLAN_PLUS, INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -195,12 +197,7 @@ function PlusLock({ title }) {
         <h2 id={id} className="mt-2 text-xl font-semibold">
           Unlock {title}
         </h2>
-        <Link
-          href="/pricing"
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-amber-300/40 bg-amber-300/10 px-4 text-sm font-semibold text-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
-        >
-          Explore Index Plus
-        </Link>
+        <PlanUpgradeLink requiredPlan={INDEX_PLAN_PLUS} source="card-detail" className="mt-3 min-h-11"/>
       </div>
     </section>
   );
@@ -788,12 +785,7 @@ function PremiumLock() {
           See how economically favorable this exact printing is to chase, its
           global context, and canonical milestone costs.
         </p>
-        <Link
-          href="/pricing"
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[var(--tier-border)] bg-[var(--tier-surface)] px-4 text-sm font-semibold text-[var(--tier-color)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tier-color)]"
-        >
-          Explore Index Premium
-        </Link>
+        <PlanUpgradeLink requiredPlan={INDEX_PLAN_PREMIUM} source="card-detail" className="mt-3 min-h-11"/>
       </div>
     </section>
   );

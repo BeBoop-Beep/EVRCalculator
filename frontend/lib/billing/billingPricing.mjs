@@ -10,7 +10,7 @@ export function formatMinorAmount(unitAmount, currency, locale = "en-US") {
 
 export function pricingByOfferKey(dto) {
   return Object.fromEntries((Array.isArray(dto?.offers) ? dto.offers : [])
-    .filter(offer => offer?.purchasable && validOffer(offer)).map(offer => [offer.offerKey, offer]));
+    .filter(validOffer).map(offer => [offer.offerKey, offer]));
 }
 
 export function annualPricingSummary(monthly, annual) {

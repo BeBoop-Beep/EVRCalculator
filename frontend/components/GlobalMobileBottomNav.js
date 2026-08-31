@@ -106,7 +106,7 @@ export default function GlobalMobileBottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
   const accountUsername = getCleanText(user?.username);
-  const profileHref = accountUsername ? `/u/${encodeURIComponent(accountUsername)}/collection` : "/profile";
+  const profileHref = user ? (accountUsername ? `/u/${encodeURIComponent(accountUsername)}/collection` : "/profile") : "/pricing";
   const normalizedPathname = useMemo(() => normalizePath(pathname), [pathname]);
 
   const shouldHide = useMemo(() => {
@@ -149,11 +149,12 @@ export default function GlobalMobileBottomNav() {
       {
         id: "profile",
         label: "Profile",
+        displayLabel: user ? "Profile" : "Upgrade",
         href: profileHref,
         isActive: isPathMatch(normalizedPathname, ["/profile", "/u", "/account-settings"], { caseInsensitive: true }),
       },
     ],
-    [normalizedPathname, profileHref]
+    [normalizedPathname, profileHref, user]
   );
 
   if (shouldHide) {
@@ -183,7 +184,7 @@ export default function GlobalMobileBottomNav() {
             <span className={["transition-transform duration-150 ease-out", item.isActive ? "scale-110" : "scale-100"].join(" ")}>
               {navItemIcon(item.id, item.isActive)}
             </span>
-            <span className="whitespace-nowrap">{item.label}</span>
+            <span className="whitespace-nowrap">{item.displayLabel || item.label}</span>
           </Link>
         ))}
       </div>

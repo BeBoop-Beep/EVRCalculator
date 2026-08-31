@@ -43,6 +43,7 @@ export function SetMarketSignalLock({ description }) {
     requiredPlan: INDEX_PLAN_PLUS,
     isAuthenticated: Boolean(user),
     currentPlan: user?.index_plan || null,
+    source: "set-market",
   });
 
   const actionClassName = "inline-flex min-h-7 items-center rounded-md border border-[rgba(45,212,191,0.5)] bg-[rgba(45,212,191,0.08)] px-2 text-[10px] font-semibold text-[rgb(45,212,191)]";

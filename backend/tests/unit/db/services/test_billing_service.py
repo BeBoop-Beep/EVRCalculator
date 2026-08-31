@@ -92,6 +92,12 @@ def test_status_dto_distinguishes_effective_manual_and_billing_plan():
         {"offerKey":"premium_monthly","plan":"premium","billingInterval":"month","unitAmount":2499,"currency":"usd","purchasable":True},
     ]
 
+def test_public_catalog_exposes_display_data_without_provider_ids_when_checkout_is_off():
+    disabled={"plus_monthly":replace(OFFERS["plus_monthly"],enabled=False)}
+    dto=BillingService(Repo(),Provider(),disabled).public_catalog()
+    assert dto=={"offers":[{"offerKey":"plus_monthly","plan":"plus","billingInterval":"month","unitAmount":999,"currency":"usd","purchasable":False}],"billingConfigured":False}
+    assert "provider_price_id" not in str(dto)
+
 @pytest.mark.parametrize("status",["trialing","active","past_due","incomplete","incomplete_expired","unpaid","canceled","paused","new_status"])
 def test_reconciliation_persists_current_authoritative_status(status):
     svc,repo,provider=service(); provider.subscriptions["sub_1"]=sub(status=status)

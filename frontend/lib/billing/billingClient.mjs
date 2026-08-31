@@ -9,5 +9,6 @@ async function request(path, init = {}) {
   return payload;
 }
 export function getBillingStatus(options = {}) { return request("/api/billing/me", { signal: options.signal }); }
+export function getBillingCatalog(options = {}) { return request("/api/billing/catalog", { signal: options.signal }); }
 export function createCheckoutSession(offerKey) { return request("/api/billing/checkout-session", { method: "POST", body: JSON.stringify({ offerKey }) }); }
 export function createCustomerPortalSession() { return request("/api/billing/customer-portal", { method: "POST" }); }

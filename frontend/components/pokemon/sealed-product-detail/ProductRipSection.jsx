@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { PlanUpgradeLink } from "@/components/membership/PlanLock";
+import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import InfoPopover from "@/components/ui/InfoPopover";
 import RankBadge from "@/components/ui/RankBadge";
 import RipScoreSurface from "@/components/explore/RipScoreSurface.jsx";
@@ -52,12 +54,7 @@ export function ProductRipLock() {
           See how this product ranks within its format and what its modeled
           opening outcomes look like.
         </p>
-        <Link
-          href="/pricing"
-          className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-amber-300/40 bg-amber-300/10 px-4 text-sm font-semibold text-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
-        >
-          Explore Index Plus
-        </Link>
+        <PlanUpgradeLink requiredPlan={INDEX_PLAN_PLUS} source="sealed-product" className="mt-4"/>
       </div>
     </section>
   );

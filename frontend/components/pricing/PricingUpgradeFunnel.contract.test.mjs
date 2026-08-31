@@ -1,0 +1,6 @@
+import assert from "node:assert/strict"; import fs from "node:fs"; import test from "node:test";
+const read=(p)=>fs.readFileSync(new URL(p,import.meta.url),"utf8");
+const pricing=read("./PricingPageClient.jsx"), header=read("../Header.js"), mobile=read("../GlobalMobileBottomNav.js"), explorer=read("../explore/ExplorerPlanLockPanel.jsx"), product=read("../pokemon/sealed-product-detail/ProductRipSection.jsx"), card=read("../pokemon/card-detail/PokemonCardDetailClient.jsx"), chase=read("../explore/CardChaseEfficiencyRankings.jsx");
+test("pricing renders three tiers, interval choice, server catalog, and offer-key checkout",()=>{for(const value of ['data-pricing-plan="basic"','plan="plus"','plan="premium"','Monthly','Annual','getBillingCatalog','offer.offerKey'])assert.ok(pricing.includes(value));assert.ok(!pricing.includes("price_"));});
+test("representative paid surfaces use the canonical funnel",()=>{assert.ok(explorer.includes("PlanLock"));assert.ok(product.includes("PlanUpgradeLink"));assert.ok(card.includes("PlanUpgradeLink"));assert.ok(chase.includes("PlanUpgradeLink"));});
+test("desktop and mobile expose membership discovery",()=>{assert.ok(header.includes("MembershipNavLink"));assert.ok(mobile.includes('displayLabel: user ? "Profile" : "Upgrade"'));});

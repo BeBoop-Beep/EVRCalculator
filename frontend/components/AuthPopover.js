@@ -79,7 +79,11 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     dispatch({ type: "pending", value: true });
     const result = await login(state.email.trim().toLowerCase(), state.password);
     if (result.error) dispatch({ type: "error", value: result.error });
-    else { dispatch({ type: "pending", value: false }); onClose?.(); }
+    else {
+      dispatch({ type: "pending", value: false });
+      if (nextPath && typeof window !== "undefined") window.location.assign(destination);
+      else onClose?.();
+    }
   };
   const signup = async () => {
     if (state.password !== state.confirm) return dispatch({ type: "error", value: "Passwords do not match." });

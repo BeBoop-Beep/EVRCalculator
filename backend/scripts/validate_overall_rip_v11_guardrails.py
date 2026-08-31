@@ -17,7 +17,6 @@ from pathlib import Path
 
 from backend.desirability.chase_opportunity import chase_opportunity_score
 from backend.desirability.scoring_config import OVERALL_RIP_V11_WEIGHTS
-from backend.desirability.weighted_rip import compute_overall_rip_v10
 from backend.research.chase_weight_stage6a import closure
 
 DATASET = Path("docs/research/chase_pillar_stage6_dataset.json")
@@ -38,8 +37,15 @@ def main() -> int:
         note="Overall RIP V11 as implemented in backend.desirability",
     )
 
+    # Stage VII section 8: each candidate is measured against ITS OWN Chase-free
+    # control, (1 - c) * F + c * C, so C1-C5 keep the meaning they were validated
+    # with. For the selected 11% Collector weight that is 0.89F + 0.11C - NOT
+    # Overall RIP V10's 0.90/0.10, which holds Collector at a different weight
+    # and therefore measures a different question.
+    c_weight = OVERALL_RIP_V11_WEIGHTS["collector_appeal"]
+    f_weight = 1.0 - c_weight
     control = [
-        compute_overall_rip_v10(r["financialRip"], r["collectorAppeal"])["score"]
+        f_weight * float(r["financialRip"]) + c_weight * float(r["collectorAppeal"])
         for r in rows
     ]
     index = {r["sealedProductId"]: i for i, r in enumerate(rows)}

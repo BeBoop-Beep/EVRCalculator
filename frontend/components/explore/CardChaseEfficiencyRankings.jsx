@@ -7,6 +7,8 @@ import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClien
 import { canonicalCardQueryKey } from "@/lib/rankings/rankingsSessionCache.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
+import { PlanUpgradeLink } from "@/components/membership/PlanLock";
+import { INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
 
 const SORTS = [
   ["chase_efficiency", "Chase Efficiency"], ["price", "Market Price"],
@@ -34,7 +36,8 @@ function LockedCards() {
             </div>
           ))}
         </div>
-        <p className="mt-5 text-xs font-medium text-[var(--text-secondary)]">Upgrade to Index Premium to unlock rankings, filters, and exact-card chase routes.</p>
+        <p className="mt-5 text-xs font-medium text-[var(--text-secondary)]">Unlock rankings, filters, and exact-card chase routes.</p>
+        <PlanUpgradeLink requiredPlan={INDEX_PLAN_PREMIUM} source="chase-efficiency" className="mt-4"/>
       </div>
     </section>
   );

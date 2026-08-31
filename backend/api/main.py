@@ -539,6 +539,12 @@ def get_billing_me(
     return _tiered_response(BillingService().billing_status(user_id))
 
 
+@app.get("/billing/catalog")
+def get_billing_catalog():
+    """Public commercial display data; contains no provider identifiers."""
+    return _tiered_response(BillingService().public_catalog())
+
+
 @app.post("/billing/customer-portal")
 def create_billing_customer_portal(
     request: Request,

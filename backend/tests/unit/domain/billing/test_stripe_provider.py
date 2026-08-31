@@ -11,3 +11,18 @@ def test_webhook_missing_configuration_fails_closed():
 def test_invalid_signature_is_controlled():
     with pytest.raises(InvalidWebhookSignature):
         StripeProvider(secret_key="nonempty-test-key", webhook_secret="nonempty-test-webhook-secret").construct_event(b"{}", "bad")
+
+def test_checkout_explicitly_has_no_promotions_tax_or_trial():
+    captured = {}
+    class Sessions:
+        def create(self, params): captured.update(params); return {"url": "https://example.test"}
+    class Client: pass
+    client = Client(); client.v1 = Client(); client.v1.checkout = Client(); client.v1.checkout.sessions = Sessions()
+    provider = StripeProvider(secret_key="nonempty-test-key"); provider.client = client
+    provider.create_checkout_session(customer_id="cus_1", price_id="price_1", user_id="u1",
+        offer_key="plus_monthly", plan="plus", success_url="https://example.test/s",
+        cancel_url="https://example.test/c")
+    assert captured["allow_promotion_codes"] is False
+    assert captured["automatic_tax"] == {"enabled": False}
+    assert "trial_period_days" not in captured["subscription_data"]
+    assert "trial_end" not in captured["subscription_data"]

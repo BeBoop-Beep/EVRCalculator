@@ -1,6 +1,6 @@
 # Billing Effort 5 Launch Decision
 
-Status: `EFFORT_5_BLOCKED_ON_REMAINING_COMMERCIAL_AND_LAUNCH_INPUTS`
+Status: `EFFORT_5_BLOCKED_ON_TAX_LEGAL_AND_SAFE_ENVIRONMENT_CLASSIFICATION`
 
 This record intentionally contains no invented prices, Stripe object identifiers, secrets,
 or assumed legal/commercial policies. No database, Stripe account, deployment environment,
@@ -8,32 +8,34 @@ or public offer was mutated during this pass.
 
 ## Commercial contract
 
-The project owner approved all four recurring offer amounts and intervals. Currency and the
-remaining operating/legal policies are not yet approved:
+The project owner approved all four recurring offer amounts and intervals plus the launch
+operating policies below:
 
 | Decision | Approved value |
 | --- | --- |
-| Currency | UNRESOLVED |
+| Currency | USD |
 | Index Plus monthly offered | YES |
-| Index Plus monthly price | 999 minor units / $9.99 under a two-decimal currency |
+| Index Plus monthly price | 999 minor units / $9.99 USD |
 | Index Plus annual offered | YES |
-| Index Plus annual price | 7900 minor units / $79.00 under a two-decimal currency |
+| Index Plus annual price | 7900 minor units / $79.00 USD |
 | Index Premium monthly offered | YES |
-| Index Premium monthly price | 2499 minor units / $24.99 under a two-decimal currency |
+| Index Premium monthly price | 2499 minor units / $24.99 USD |
 | Index Premium annual offered | YES |
-| Index Premium annual price | 21900 minor units / $219.00 under a two-decimal currency |
-| Free trial | UNRESOLVED |
-| Promotion codes | UNRESOLVED |
-| Automatic tax | UNRESOLVED |
-| Cancellation timing | UNRESOLVED |
-| Plan-change proration | UNRESOLVED |
-| Refund policy | UNRESOLVED |
+| Index Premium annual price | 21900 minor units / $219.00 USD |
+| Free trial | NONE |
+| Promotion codes | DISABLED |
+| Automatic tax | `AUTOMATIC_TAX_DECISION_PENDING` |
+| Cancellation timing | END OF CURRENT BILLING PERIOD |
+| Cancellation reasons | ENABLED |
+| Upgrade | IMMEDIATE + STRIPE PRORATION |
+| Downgrade | END OF CURRENT BILLING PERIOD |
+| Normal cancellation refund | NO AUTOMATIC PRORATED CASH REFUND |
+| Exceptional refunds | MANUAL / CASE-BY-CASE UNDER FINAL LEGAL POLICY |
 | Legal purchase copy | NOT APPROVED / unavailable |
 
 Approved annual presentation: Plus saves 4088 minor units (`34%`, effective 658 minor units per
 month); Premium saves 8088 minor units (`27%`, effective 1825 minor units per month). These are
-normal annual prices, not temporary promotions. Stripe Prices cannot be created until the ISO
-currency is approved.
+normal annual prices, not temporary promotions. All amounts are USD.
 
 ## Environment classification
 
@@ -82,28 +84,34 @@ STRIPE_PRICE_PLUS_MONTHLY: absent
 STRIPE_PRICE_PLUS_ANNUAL: absent
 STRIPE_PRICE_PREMIUM_MONTHLY: absent
 STRIPE_PRICE_PREMIUM_ANNUAL: absent
-BILLING_CURRENCY: absent
+BILLING_CURRENCY: optional; canonical default is usd and any other value fails closed
 BILLING_CHECKOUT_ENABLED: false
 ```
 
-After remaining approval, create at most two sandbox Products (`Index Plus`, `Index Premium`)
-and the four approved recurring Prices. Validate currency, interval, tax behavior, and `livemode=false`
-before mapping Price IDs to backend-only environment variables.
+The approved sandbox model is exactly one Product named `inDex Membership` with four recurring
+USD Prices: `plus_monthly`, `plus_annual`, `premium_monthly`, and `premium_annual`. Application
+display names remain `Index Plus` and `Index Premium`. Product identity is audit data only;
+canonical Price-ID-to-offer mapping remains the sole commercial and entitlement authority.
+Validate amount, currency, interval, labels, and `livemode=false` before mapping Price IDs to
+backend-only environment variables. Do not create live objects.
 
 ## Price presentation and public pricing
 
 The server catalog now owns the approved minor-unit amounts. A safe DTO exposes amount, currency,
 interval, plan, and purchasability only for fully configured offers. Central frontend helpers
 derive annual savings, rounded discount, effective monthly annual rate, and localized display.
-The browser still shows “Pricing pending” because currency, real Price IDs, and checkout activation
+The browser still shows “Pricing pending” because real Price IDs and checkout activation
 are absent. A public pricing surface must be added only after real approved Stripe Prices exist. The
 locked Plus/Premium capability packaging must not change or advertise unfinished capabilities.
 
 ## Customer Portal configuration
 
-Not configured. Owner approval is required for payment-method updates, invoice history,
-cancellation availability/timing/reasons, Plus/Premium switching, allowed Prices, and proration.
-Sandbox and live Portal settings must be configured and verified separately.
+Not configured. In sandbox, configure the shared Product's four allowed Prices; cancellation at
+period end; cancellation reasons on; retention coupons off; promotion codes off; immediate
+prorated upgrades; and end-of-period downgrades. Visually verify that Portal labels clearly
+distinguish Plus/Premium and monthly/annual. If they do not, stop: do not change the Product model
+or build custom plan-changing infrastructure without approval. Sandbox and live Portal settings
+must be configured and verified separately.
 
 ## Webhook configuration
 
@@ -122,8 +130,12 @@ endpoint signing secret.
 
 ## Tax, cancellation, proration, and refunds
 
-All remain unresolved. Stripe Tax was not enabled. No tax behavior, trial, discount, promotion,
-cancellation timing, proration, or refund behavior was selected.
+Checkout explicitly disables promotion-code entry and automatic tax, and supplies no trial
+fields. Automatic tax stays off until tax-registration obligations and an approved collection
+mechanism are determined. Normal cancellation is scheduled for period end with access retained
+through that paid period and no automatic prorated cash refund. Upgrades are immediate with
+Stripe proration; downgrades are scheduled for period end. Exceptional refunds are manual and
+subject to the final approved legal policy.
 
 ## Legal launch state
 
@@ -147,7 +159,7 @@ stripeSecretConfigured: false
 webhookSecretConfigured: false
 configuredOfferCount: 0
 schemaReachable: false
-billingCurrencyConfigured: false
+billingCurrencyApproved: true
 checkoutEnabled: false
 ```
 
@@ -159,16 +171,14 @@ unreachable.
 Current non-commercial regression results:
 
 ```text
-backend billing/entitlement/security: 118 passed
-frontend billing/auth/entitlement: 34 passed
-backend startup/import: passed
+backend focused billing/domain/service/migration: 56 passed
+frontend focused billing/account: 19 passed
+billing doctor: fail-closed, zero configured offers
 ```
 
-The Next.js production source compiled successfully twice and generated all 74 static pages,
-but both builds ended with an `.next/export/500.html` rename race. Concurrent `.perf-audit`
-fixture/visual-parity processes and three `next start` instances were actively sharing
-`frontend/.next`; they were preserved and not interrupted. A clean isolated production build
-must be rerun after that workstream exits. This is not reported as a passing final build.
+The clean Next.js production build passed after the concurrent `.next` workstream exited. The
+billing API test module is presently blocked during collection by an unrelated missing
+`backend.desirability.scoring_config` module; it fails before billing API tests load.
 
 ## Monitoring and reconciliation
 
@@ -191,7 +201,7 @@ switch and never mass-demote subscribers without authoritative reconciliation.
 
 The next execution may proceed only after the owner supplies:
 
-1. every still-unresolved commercial-contract decision above;
+1. automatic-tax/tax-registration decision;
 2. legal approval and final purchase-flow copy;
 3. explicit staging and production Supabase classifications;
 4. explicit sandbox/live Stripe account classifications and secured credentials;
