@@ -1,0 +1,461 @@
+[
+  {
+    "era": "Base/WOTC",
+    "allCards": {
+      "denominator": 441,
+      "directEmpirical": 126,
+      "neutral": 18,
+      "unresolved": 297,
+      "empiricalCoverage": 0.2857142857142857,
+      "usableCoverage": 0.32653061224489793
+    },
+    "collectorRelevant": {
+      "denominator": 82,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 82,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 3,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "era": "Black and White",
+    "allCards": {
+      "denominator": 1447,
+      "directEmpirical": 1156,
+      "neutral": 16,
+      "unresolved": 275,
+      "empiricalCoverage": 0.7988942639944713,
+      "usableCoverage": 0.8099516240497581
+    },
+    "collectorRelevant": {
+      "denominator": 301,
+      "directEmpirical": 168,
+      "neutral": 0,
+      "unresolved": 133,
+      "empiricalCoverage": 0.5581395348837209,
+      "usableCoverage": 0.5581395348837209
+    },
+    "premiumTreatment": {
+      "denominator": 161,
+      "directEmpirical": 2,
+      "neutral": 0,
+      "unresolved": 159,
+      "empiricalCoverage": 0.012422360248447204,
+      "usableCoverage": 0.012422360248447204
+    }
+  },
+  {
+    "era": "Diamond and Pearl",
+    "allCards": {
+      "denominator": 844,
+      "directEmpirical": 714,
+      "neutral": 20,
+      "unresolved": 110,
+      "empiricalCoverage": 0.8459715639810427,
+      "usableCoverage": 0.8696682464454977
+    },
+    "collectorRelevant": {
+      "denominator": 139,
+      "directEmpirical": 108,
+      "neutral": 0,
+      "unresolved": 31,
+      "empiricalCoverage": 0.7769784172661871,
+      "usableCoverage": 0.7769784172661871
+    },
+    "premiumTreatment": {
+      "denominator": 34,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 34,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "era": "E-Card",
+    "allCards": {
+      "denominator": 519,
+      "directEmpirical": 0,
+      "neutral": 17,
+      "unresolved": 502,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.03275529865125241
+    },
+    "collectorRelevant": {
+      "denominator": 81,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 81,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 9,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 9,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "era": "EX",
+    "allCards": {
+      "denominator": 1701,
+      "directEmpirical": 1599,
+      "neutral": 70,
+      "unresolved": 32,
+      "empiricalCoverage": 0.9400352733686067,
+      "usableCoverage": 0.9811875367430923
+    },
+    "collectorRelevant": {
+      "denominator": 384,
+      "directEmpirical": 353,
+      "neutral": 0,
+      "unresolved": 31,
+      "empiricalCoverage": 0.9192708333333334,
+      "usableCoverage": 0.9192708333333334
+    },
+    "premiumTreatment": {
+      "denominator": 163,
+      "directEmpirical": 131,
+      "neutral": 0,
+      "unresolved": 32,
+      "empiricalCoverage": 0.803680981595092,
+      "usableCoverage": 0.803680981595092
+    }
+  },
+  {
+    "era": "Gym",
+    "allCards": {
+      "denominator": 265,
+      "directEmpirical": 0,
+      "neutral": 12,
+      "unresolved": 253,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.045283018867924525
+    },
+    "collectorRelevant": {
+      "denominator": 30,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 30,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 2,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "allCards": {
+      "denominator": 549,
+      "directEmpirical": 420,
+      "neutral": 23,
+      "unresolved": 106,
+      "empiricalCoverage": 0.7650273224043715,
+      "usableCoverage": 0.8069216757741348
+    },
+    "collectorRelevant": {
+      "denominator": 123,
+      "directEmpirical": 101,
+      "neutral": 0,
+      "unresolved": 22,
+      "empiricalCoverage": 0.8211382113821138,
+      "usableCoverage": 0.8211382113821138
+    },
+    "premiumTreatment": {
+      "denominator": 49,
+      "directEmpirical": 26,
+      "neutral": 0,
+      "unresolved": 23,
+      "empiricalCoverage": 0.5306122448979592,
+      "usableCoverage": 0.5306122448979592
+    }
+  },
+  {
+    "era": "Mega Evolution",
+    "allCards": {
+      "denominator": 992,
+      "directEmpirical": 88,
+      "neutral": 11,
+      "unresolved": 893,
+      "empiricalCoverage": 0.08870967741935484,
+      "usableCoverage": 0.09979838709677419
+    },
+    "collectorRelevant": {
+      "denominator": 290,
+      "directEmpirical": 88,
+      "neutral": 0,
+      "unresolved": 202,
+      "empiricalCoverage": 0.30344827586206896,
+      "usableCoverage": 0.30344827586206896
+    },
+    "premiumTreatment": {
+      "denominator": 367,
+      "directEmpirical": 88,
+      "neutral": 1,
+      "unresolved": 278,
+      "empiricalCoverage": 0.23978201634877383,
+      "usableCoverage": 0.24250681198910082
+    }
+  },
+  {
+    "era": "NP",
+    "allCards": {
+      "denominator": 74,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 74,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "era": "Neo",
+    "allCards": {
+      "denominator": 364,
+      "directEmpirical": 138,
+      "neutral": 10,
+      "unresolved": 216,
+      "empiricalCoverage": 0.3791208791208791,
+      "usableCoverage": 0.4065934065934066
+    },
+    "collectorRelevant": {
+      "denominator": 73,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 73,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 9,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 9,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "era": "Other",
+    "allCards": {
+      "denominator": 271,
+      "directEmpirical": 0,
+      "neutral": 2,
+      "unresolved": 269,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.007380073800738007
+    },
+    "collectorRelevant": {
+      "denominator": 19,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 19,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "era": "POP",
+    "allCards": {
+      "denominator": 153,
+      "directEmpirical": 54,
+      "neutral": 5,
+      "unresolved": 94,
+      "empiricalCoverage": 0.35294117647058826,
+      "usableCoverage": 0.38562091503267976
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "era": "Platinum",
+    "allCards": {
+      "denominator": 517,
+      "directEmpirical": 351,
+      "neutral": 5,
+      "unresolved": 161,
+      "empiricalCoverage": 0.6789168278529981,
+      "usableCoverage": 0.688588007736944
+    },
+    "collectorRelevant": {
+      "denominator": 93,
+      "directEmpirical": 82,
+      "neutral": 0,
+      "unresolved": 11,
+      "empiricalCoverage": 0.8817204301075269,
+      "usableCoverage": 0.8817204301075269
+    },
+    "premiumTreatment": {
+      "denominator": 38,
+      "directEmpirical": 26,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.6842105263157895,
+      "usableCoverage": 0.6842105263157895
+    }
+  },
+  {
+    "era": "Scarlet and Violet",
+    "allCards": {
+      "denominator": 3434,
+      "directEmpirical": 3174,
+      "neutral": 34,
+      "unresolved": 226,
+      "empiricalCoverage": 0.9242865463016889,
+      "usableCoverage": 0.9341875364006988
+    },
+    "collectorRelevant": {
+      "denominator": 1066,
+      "directEmpirical": 891,
+      "neutral": 0,
+      "unresolved": 175,
+      "empiricalCoverage": 0.8358348968105066,
+      "usableCoverage": 0.8358348968105066
+    },
+    "premiumTreatment": {
+      "denominator": 1283,
+      "directEmpirical": 1042,
+      "neutral": 15,
+      "unresolved": 226,
+      "empiricalCoverage": 0.8121590023382697,
+      "usableCoverage": 0.8238503507404521
+    }
+  },
+  {
+    "era": "Sun and Moon",
+    "allCards": {
+      "denominator": 2969,
+      "directEmpirical": 1664,
+      "neutral": 36,
+      "unresolved": 1269,
+      "empiricalCoverage": 0.5604580666891209,
+      "usableCoverage": 0.5725833614011452
+    },
+    "collectorRelevant": {
+      "denominator": 804,
+      "directEmpirical": 460,
+      "neutral": 0,
+      "unresolved": 344,
+      "empiricalCoverage": 0.572139303482587,
+      "usableCoverage": 0.572139303482587
+    },
+    "premiumTreatment": {
+      "denominator": 773,
+      "directEmpirical": 432,
+      "neutral": 22,
+      "unresolved": 319,
+      "empiricalCoverage": 0.5588615782664942,
+      "usableCoverage": 0.5873221216041398
+    }
+  },
+  {
+    "era": "Sword and Shield",
+    "allCards": {
+      "denominator": 3377,
+      "directEmpirical": 615,
+      "neutral": 45,
+      "unresolved": 2717,
+      "empiricalCoverage": 0.18211430263547526,
+      "usableCoverage": 0.19543973941368079
+    },
+    "collectorRelevant": {
+      "denominator": 1277,
+      "directEmpirical": 163,
+      "neutral": 0,
+      "unresolved": 1114,
+      "empiricalCoverage": 0.12764291307752546,
+      "usableCoverage": 0.12764291307752546
+    },
+    "premiumTreatment": {
+      "denominator": 1317,
+      "directEmpirical": 398,
+      "neutral": 22,
+      "unresolved": 897,
+      "empiricalCoverage": 0.30220197418375094,
+      "usableCoverage": 0.31890660592255127
+    }
+  },
+  {
+    "era": "XY",
+    "allCards": {
+      "denominator": 1930,
+      "directEmpirical": 897,
+      "neutral": 47,
+      "unresolved": 986,
+      "empiricalCoverage": 0.4647668393782383,
+      "usableCoverage": 0.48911917098445595
+    },
+    "collectorRelevant": {
+      "denominator": 414,
+      "directEmpirical": 393,
+      "neutral": 0,
+      "unresolved": 21,
+      "empiricalCoverage": 0.9492753623188406,
+      "usableCoverage": 0.9492753623188406
+    },
+    "premiumTreatment": {
+      "denominator": 306,
+      "directEmpirical": 250,
+      "neutral": 0,
+      "unresolved": 56,
+      "empiricalCoverage": 0.8169934640522876,
+      "usableCoverage": 0.8169934640522876
+    }
+  }
+]

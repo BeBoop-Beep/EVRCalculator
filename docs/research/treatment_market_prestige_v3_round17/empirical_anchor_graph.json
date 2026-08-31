@@ -1,0 +1,1050 @@
+[
+  {
+    "anchorId": "Base/WOTC|Base/WOTC_r1|uncommon",
+    "era": "Base/WOTC",
+    "regime": "Base/WOTC_r1",
+    "supertype": "Pokemon",
+    "treatment": "uncommon",
+    "score": 5.248888486947467,
+    "scoreInterval": [
+      5.197877132214911,
+      5.3241360836307425
+    ],
+    "setSupport": 5,
+    "cardSupport": 100,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [
+      "1st_edition",
+      "unlimited"
+    ],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "uncommon"
+    ]
+  },
+  {
+    "anchorId": "Black and White|Black and White|common",
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "Pokemon",
+    "treatment": "common",
+    "score": 4.891166310896352,
+    "scoreInterval": [
+      4.847427071984513,
+      4.918799691695873
+    ],
+    "setSupport": 6,
+    "cardSupport": 199,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [
+      "pokeball"
+    ],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "common"
+    ]
+  },
+  {
+    "anchorId": "Black and White|Black and White|rare",
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "Pokemon",
+    "treatment": "rare",
+    "score": 5.638314123060166,
+    "scoreInterval": [
+      5.364970088719349,
+      5.9559611431492705
+    ],
+    "setSupport": 6,
+    "cardSupport": 126,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": []
+  },
+  {
+    "anchorId": "Black and White|Black and White|rare_holo",
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "Pokemon",
+    "treatment": "rare_holo",
+    "score": 2.490492580557743,
+    "scoreInterval": [
+      2.4177263584933684,
+      2.549558657933349
+    ],
+    "setSupport": 7,
+    "cardSupport": 84,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "holo"
+    ]
+  },
+  {
+    "anchorId": "Black and White|Black and White|uncommon",
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "Pokemon",
+    "treatment": "uncommon",
+    "score": 5.108833689103648,
+    "scoreInterval": [
+      5.062687686504241,
+      5.180930490407868
+    ],
+    "setSupport": 6,
+    "cardSupport": 148,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [
+      "pokeball"
+    ],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "uncommon"
+    ]
+  },
+  {
+    "anchorId": "Diamond and Pearl|Diamond and Pearl_r1|common",
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "Pokemon",
+    "treatment": "common",
+    "score": 4.844988016147108,
+    "scoreInterval": [
+      4.809084397439159,
+      4.8730397141939035
+    ],
+    "setSupport": 7,
+    "cardSupport": 261,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "common"
+    ]
+  },
+  {
+    "anchorId": "Diamond and Pearl|Diamond and Pearl_r1|rare",
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "Pokemon",
+    "treatment": "rare",
+    "score": 6.070117042352619,
+    "scoreInterval": [
+      6.027913800908212,
+      6.109452689179863
+    ],
+    "setSupport": 7,
+    "cardSupport": 161,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo",
+      "reverse_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": []
+  },
+  {
+    "anchorId": "Diamond and Pearl|Diamond and Pearl_r1|rare_holo",
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "Pokemon",
+    "treatment": "rare_holo",
+    "score": 4.353993694666057,
+    "scoreInterval": [
+      4.291087782974676,
+      4.419108484366669
+    ],
+    "setSupport": 7,
+    "cardSupport": 108,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "holo"
+    ]
+  },
+  {
+    "anchorId": "Diamond and Pearl|Diamond and Pearl_r1|uncommon",
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "Pokemon",
+    "treatment": "uncommon",
+    "score": 5.155011983852892,
+    "scoreInterval": [
+      5.142472163358782,
+      5.171518847925811
+    ],
+    "setSupport": 7,
+    "cardSupport": 184,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [
+      "pokeball"
+    ],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "uncommon"
+    ]
+  },
+  {
+    "anchorId": "EX|EX|common",
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "Pokemon",
+    "treatment": "common",
+    "score": 4.803738618773096,
+    "scoreInterval": [
+      4.773524277672796,
+      4.830752792576833
+    ],
+    "setSupport": 16,
+    "cardSupport": 474,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo",
+      "reverse_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "common"
+    ]
+  },
+  {
+    "anchorId": "EX|EX|rare",
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "Pokemon",
+    "treatment": "rare",
+    "score": 5.330414621275147,
+    "scoreInterval": [
+      5.277296623515997,
+      5.375660954891376
+    ],
+    "setSupport": 16,
+    "cardSupport": 229,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": []
+  },
+  {
+    "anchorId": "EX|EX|rare_holo",
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "Pokemon",
+    "treatment": "rare_holo",
+    "score": 4.681524809551892,
+    "scoreInterval": [
+      4.646098606647799,
+      4.717112048230511
+    ],
+    "setSupport": 16,
+    "cardSupport": 226,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "reverse_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "holo"
+    ]
+  },
+  {
+    "anchorId": "EX|EX|rare_holo_ex",
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "Pokemon",
+    "treatment": "rare_holo_ex",
+    "score": 5.0,
+    "scoreInterval": [
+      4.902789988606843,
+      5.085035944859644
+    ],
+    "setSupport": 14,
+    "cardSupport": 99,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "MECHANIC",
+    "tokens": [
+      "ex",
+      "holo"
+    ]
+  },
+  {
+    "anchorId": "EX|EX|uncommon",
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "Pokemon",
+    "treatment": "uncommon",
+    "score": 5.217123525274819,
+    "scoreInterval": [
+      5.162722881050871,
+      5.2681528338694035
+    ],
+    "setSupport": 16,
+    "cardSupport": 323,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [
+      "master_ball",
+      "pokeball"
+    ],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "uncommon"
+    ]
+  },
+  {
+    "anchorId": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|common",
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "Pokemon",
+    "treatment": "common",
+    "score": 4.242977966500689,
+    "scoreInterval": [
+      4.2336690453985,
+      4.246412740261828
+    ],
+    "setSupport": 5,
+    "cardSupport": 142,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "common"
+    ]
+  },
+  {
+    "anchorId": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|rare",
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "Pokemon",
+    "treatment": "rare",
+    "score": 5.0,
+    "scoreInterval": [
+      4.970684340447969,
+      5.0330070035509245
+    ],
+    "setSupport": 5,
+    "cardSupport": 88,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": []
+  },
+  {
+    "anchorId": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|rare_holo",
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "Pokemon",
+    "treatment": "rare_holo",
+    "score": 5.977120162521266,
+    "scoreInterval": [
+      5.942787270080608,
+      5.977463140920641
+    ],
+    "setSupport": 5,
+    "cardSupport": 75,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "holo"
+    ]
+  },
+  {
+    "anchorId": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|rare_prime",
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "Pokemon",
+    "treatment": "rare_prime",
+    "score": 6.842879346590255,
+    "scoreInterval": [
+      6.727418827919296,
+      6.927497224045349
+    ],
+    "setSupport": 4,
+    "cardSupport": 26,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "MECHANIC",
+    "tokens": [
+      "prime"
+    ]
+  },
+  {
+    "anchorId": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|uncommon",
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "Pokemon",
+    "treatment": "uncommon",
+    "score": 4.334889490117831,
+    "scoreInterval": [
+      4.298542278574731,
+      4.380307020539507
+    ],
+    "setSupport": 5,
+    "cardSupport": 89,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [
+      "pokeball"
+    ],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "uncommon"
+    ]
+  },
+  {
+    "anchorId": "Mega Evolution|Mega Evolution|double_rare",
+    "era": "Mega Evolution",
+    "regime": "Mega Evolution",
+    "supertype": "Pokemon",
+    "treatment": "double_rare",
+    "score": 2.8666248249227766,
+    "scoreInterval": [
+      2.7874799055959083,
+      2.939635285355066
+    ],
+    "setSupport": 6,
+    "cardSupport": 88,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": 0.019798,
+      "matrixNormalized": 0.0
+    },
+    "family": "OTHER",
+    "tokens": [
+      "double"
+    ]
+  },
+  {
+    "anchorId": "Neo|Neo_r1|rare",
+    "era": "Neo",
+    "regime": "Neo_r1",
+    "supertype": "Pokemon",
+    "treatment": "rare",
+    "score": 6.290376222556756,
+    "scoreInterval": [
+      6.2364484273590906,
+      6.3301887339800675
+    ],
+    "setSupport": 4,
+    "cardSupport": 52,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [
+      "1st_edition",
+      "unlimited"
+    ],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": []
+  },
+  {
+    "anchorId": "Neo|Neo_r1|uncommon",
+    "era": "Neo",
+    "regime": "Neo_r1",
+    "supertype": "Pokemon",
+    "treatment": "uncommon",
+    "score": 5.329163453745356,
+    "scoreInterval": [
+      5.2658006935235555,
+      5.3745719191116
+    ],
+    "setSupport": 4,
+    "cardSupport": 86,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [
+      "1st_edition",
+      "unlimited"
+    ],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "uncommon"
+    ]
+  },
+  {
+    "anchorId": "POP|POP_r1|common",
+    "era": "POP",
+    "regime": "POP_r1",
+    "supertype": "Pokemon",
+    "treatment": "common",
+    "score": 4.590494154549372,
+    "scoreInterval": [
+      4.5658125680309265,
+      4.606508476051365
+    ],
+    "setSupport": 9,
+    "cardSupport": 53,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "common"
+    ]
+  },
+  {
+    "anchorId": "Platinum|Platinum_r1|common",
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "Pokemon",
+    "treatment": "common",
+    "score": 4.952640197891723,
+    "scoreInterval": [
+      4.912861958422599,
+      4.991563999941857
+    ],
+    "setSupport": 4,
+    "cardSupport": 145,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "common"
+    ]
+  },
+  {
+    "anchorId": "Platinum|Platinum_r1|rare",
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "Pokemon",
+    "treatment": "rare",
+    "score": 6.653791742480656,
+    "scoreInterval": [
+      6.619930058832086,
+      6.697545240463685
+    ],
+    "setSupport": 4,
+    "cardSupport": 124,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "non_holo",
+      "reverse_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": []
+  },
+  {
+    "anchorId": "Platinum|Platinum_r1|rare_holo",
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "Pokemon",
+    "treatment": "rare_holo",
+    "score": 5.0,
+    "scoreInterval": [
+      4.91373820998665,
+      5.064577021384029
+    ],
+    "setSupport": 4,
+    "cardSupport": 56,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "holo"
+    ]
+  },
+  {
+    "anchorId": "Platinum|Platinum_r1|rare_holo_lv_x",
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "Pokemon",
+    "treatment": "rare_holo_lv_x",
+    "score": 4.939062846267982,
+    "scoreInterval": [
+      4.674213053422777,
+      5.157834580612883
+    ],
+    "setSupport": 4,
+    "cardSupport": 26,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": null,
+      "matrixNormalized": null
+    },
+    "family": "MECHANIC",
+    "tokens": [
+      "holo",
+      "lv",
+      "x"
+    ]
+  },
+  {
+    "anchorId": "Scarlet and Violet|Scarlet and Violet|common",
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "Pokemon",
+    "treatment": "common",
+    "score": 5.012027261014039,
+    "scoreInterval": [
+      4.983130714164474,
+      5.041853274795392
+    ],
+    "setSupport": 16,
+    "cardSupport": 1038,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "non_holo",
+      "reverse_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [
+      "pokeball"
+    ],
+    "scarcitySummary": {
+      "medianProbability": 0.048519,
+      "matrixNormalized": -0.2645436125184306
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "common"
+    ]
+  },
+  {
+    "anchorId": "Scarlet and Violet|Scarlet and Violet|double_rare",
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "Pokemon",
+    "treatment": "double_rare",
+    "score": 3.7087790709314654,
+    "scoreInterval": [
+      3.6665276022273012,
+      3.757649121811196
+    ],
+    "setSupport": 16,
+    "cardSupport": 211,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": 0.010891000000000001,
+      "matrixNormalized": 0.0
+    },
+    "family": "OTHER",
+    "tokens": [
+      "double"
+    ]
+  },
+  {
+    "anchorId": "Scarlet and Violet|Scarlet and Violet|illustration_rare",
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "Pokemon",
+    "treatment": "illustration_rare",
+    "score": 5.396307361447459,
+    "scoreInterval": [
+      5.2898324250744135,
+      5.497928538939554
+    ],
+    "setSupport": 15,
+    "cardSupport": 384,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": 0.002281,
+      "matrixNormalized": 0.27795723304527997
+    },
+    "family": "ILLUSTRATION",
+    "tokens": [
+      "illustration"
+    ]
+  },
+  {
+    "anchorId": "Scarlet and Violet|Scarlet and Violet|rare",
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "Pokemon",
+    "treatment": "rare",
+    "score": 2.839503513843667,
+    "scoreInterval": [
+      2.8013152355048283,
+      2.878623804068372
+    ],
+    "setSupport": 16,
+    "cardSupport": 250,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [
+      "master_ball"
+    ],
+    "scarcitySummary": {
+      "medianProbability": 0.04127,
+      "matrixNormalized": -0.23614853854867082
+    },
+    "family": "STANDARD",
+    "tokens": []
+  },
+  {
+    "anchorId": "Scarlet and Violet|Scarlet and Violet|special_illustration_rare",
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "Pokemon",
+    "treatment": "special_illustration_rare",
+    "score": 6.143258715989847,
+    "scoreInterval": [
+      6.01287600302748,
+      6.275963566790693
+    ],
+    "setSupport": 15,
+    "cardSupport": 95,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": 0.001158,
+      "matrixNormalized": 0.40803032389521454
+    },
+    "family": "ILLUSTRATION",
+    "tokens": [
+      "illustration",
+      "special"
+    ]
+  },
+  {
+    "anchorId": "Scarlet and Violet|Scarlet and Violet|ultra_rare",
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "Pokemon",
+    "treatment": "ultra_rare",
+    "score": 4.373807759071472,
+    "scoreInterval": [
+      4.283775904524715,
+      4.475726405979243
+    ],
+    "setSupport": 14,
+    "cardSupport": 141,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": 0.003147,
+      "matrixNormalized": 0.22135061588761873
+    },
+    "family": "OTHER",
+    "tokens": [
+      "ultra"
+    ]
+  },
+  {
+    "anchorId": "Scarlet and Violet|Scarlet and Violet|uncommon",
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "Pokemon",
+    "treatment": "uncommon",
+    "score": 4.972896016867438,
+    "scoreInterval": [
+      4.944548197910999,
+      5.0017833580951345
+    ],
+    "setSupport": 16,
+    "cardSupport": 539,
+    "temporalDiagnostics": [
+      "VALIDATED"
+    ],
+    "finish": [
+      "holo",
+      "non_holo"
+    ],
+    "edition": [],
+    "specialTreatment": [],
+    "scarcitySummary": {
+      "medianProbability": 0.0495335,
+      "matrixNormalized": -0.267238154432447
+    },
+    "family": "STANDARD",
+    "tokens": [
+      "uncommon"
+    ]
+  }
+]

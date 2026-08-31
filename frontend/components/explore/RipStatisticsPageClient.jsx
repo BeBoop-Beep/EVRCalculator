@@ -152,7 +152,6 @@ import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSumma
 import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
 import useSetCardsController from "@/hooks/pokemon/useSetCardsController";
 import useSetMarketController from "@/hooks/pokemon/useSetMarketController";
-import useSetPullRatesController from "@/hooks/pokemon/useSetPullRatesController";
 import useSetRipProgressiveController from "@/hooks/pokemon/useSetRipProgressiveController";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
@@ -243,7 +242,7 @@ const getPokemonSetCardsValidation = (...args) => loadCardsClient().then((client
 // Cards runtime owns the useful successful-scope cache and revisit behavior.
 const getCachedPokemonSetCards = () => null;
 const PullRateAssumptionsCard = dynamic(() => import("@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard"));
-const PullRatesTab = dynamic(() => import("@/components/pokemon/set-page/PullRates/PullRatesTab"));
+const RichPullRatesSetTab = dynamic(() => import("@/components/pokemon/set-page/rich/RichPullRatesSetTab"));
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -9079,17 +9078,7 @@ export default function RipStatisticsPageClient({
   const displayedTargetId = pendingTargetId || requestedTargetId;
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
-  const {
-    pullRateAssumptions,
-    activePullRatesState,
-    pullRatesTabPending,
-    pullRatesPendingTimedOut,
-  } = useSetPullRatesController({
-    setId: resolvedSetResourceId,
-    enabled: setDetailMode && setDetailTab === "pull-rates",
-    canFetch: canFetchSetDetailModules,
-    fallbackAssumptions: normalizePullRateAssumptions(explorePayload),
-  });
+  const explorePullRateAssumptions = normalizePullRateAssumptions(explorePayload);
   const destinationSeedPending =
     setDetailTab === "market" && isTabNavPending && initialModuleSnapshots?.resolvedTab !== "market";
   const {
@@ -13973,12 +13962,10 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {setDetailTab === "pull-rates" ? (
-                  <PullRatesTab
-                    pullRateAssumptions={pullRateAssumptions}
-                    pullRatesTabPending={pullRatesTabPending}
-                    pullRatesPendingTimedOut={pullRatesPendingTimedOut}
-                    activePullRatesState={activePullRatesState}
-                    resolvedSetResourceId={resolvedSetResourceId}
+                  <RichPullRatesSetTab
+                    setId={resolvedSetResourceId}
+                    canFetch={canFetchSetDetailModules}
+                    fallbackAssumptions={explorePullRateAssumptions}
                   />
                 ) : null}
               </>
@@ -14917,7 +14904,7 @@ export default function RipStatisticsPageClient({
                       <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Modeled rarity frequency and specific-card odds used by this simulation.</p>
                       <p className="mt-1 text-xs text-[var(--text-tertiary,var(--text-secondary))]">These are modeled estimates, not official Pokémon odds.</p>
                     </div>
-                    <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
+                    <PullRateAssumptionsCard pullRateAssumptions={explorePullRateAssumptions} embedded />
                   </div>
                 )}
               </SectionCard>

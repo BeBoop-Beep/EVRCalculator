@@ -1,0 +1,4622 @@
+[
+  {
+    "setId": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+    "setName": "Base",
+    "allCards": {
+      "denominator": 102,
+      "directEmpirical": 31,
+      "neutral": 7,
+      "unresolved": 64,
+      "empiricalCoverage": 0.30392156862745096,
+      "usableCoverage": 0.37254901960784315
+    },
+    "collectorRelevant": {
+      "denominator": 16,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 16,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "01b45c4b-c606-41f7-9669-0137cd4aafaf",
+    "setName": "Astral Radiance Trainer Gallery",
+    "allCards": {
+      "denominator": 30,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.16666666666666666,
+      "usableCoverage": 0.16666666666666666
+    },
+    "collectorRelevant": {
+      "denominator": 25,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 30,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.16666666666666666,
+      "usableCoverage": 0.16666666666666666
+    }
+  },
+  {
+    "setId": "03764ded-825a-45c0-8b15-ce100cff9552",
+    "setName": "Shining Fates",
+    "allCards": {
+      "denominator": 74,
+      "directEmpirical": 26,
+      "neutral": 0,
+      "unresolved": 48,
+      "empiricalCoverage": 0.35135135135135137,
+      "usableCoverage": 0.35135135135135137
+    },
+    "collectorRelevant": {
+      "denominator": 26,
+      "directEmpirical": 15,
+      "neutral": 0,
+      "unresolved": 11,
+      "empiricalCoverage": 0.5769230769230769,
+      "usableCoverage": 0.5769230769230769
+    },
+    "premiumTreatment": {
+      "denominator": 27,
+      "directEmpirical": 23,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.8518518518518519,
+      "usableCoverage": 0.8518518518518519
+    }
+  },
+  {
+    "setId": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+    "setName": "Celestial Storm",
+    "allCards": {
+      "denominator": 183,
+      "directEmpirical": 171,
+      "neutral": 2,
+      "unresolved": 10,
+      "empiricalCoverage": 0.9344262295081968,
+      "usableCoverage": 0.9453551912568307
+    },
+    "collectorRelevant": {
+      "denominator": 49,
+      "directEmpirical": 46,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9387755102040817,
+      "usableCoverage": 0.9387755102040817
+    },
+    "premiumTreatment": {
+      "denominator": 46,
+      "directEmpirical": 40,
+      "neutral": 1,
+      "unresolved": 5,
+      "empiricalCoverage": 0.8695652173913043,
+      "usableCoverage": 0.8913043478260869
+    }
+  },
+  {
+    "setId": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+    "setName": "HeartGold & SoulSilver",
+    "allCards": {
+      "denominator": 124,
+      "directEmpirical": 95,
+      "neutral": 10,
+      "unresolved": 19,
+      "empiricalCoverage": 0.7661290322580645,
+      "usableCoverage": 0.8467741935483871
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.8333333333333334,
+      "usableCoverage": 0.8333333333333334
+    },
+    "premiumTreatment": {
+      "denominator": 12,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.5,
+      "usableCoverage": 0.5
+    }
+  },
+  {
+    "setId": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+    "setName": "Champion's Path",
+    "allCards": {
+      "denominator": 81,
+      "directEmpirical": 36,
+      "neutral": 0,
+      "unresolved": 45,
+      "empiricalCoverage": 0.4444444444444444,
+      "usableCoverage": 0.4444444444444444
+    },
+    "collectorRelevant": {
+      "denominator": 30,
+      "directEmpirical": 18,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.6,
+      "usableCoverage": 0.6
+    },
+    "premiumTreatment": {
+      "denominator": 27,
+      "directEmpirical": 22,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.8148148148148148,
+      "usableCoverage": 0.8148148148148148
+    }
+  },
+  {
+    "setId": "09f1674c-26c5-40df-8d52-4ce823c7c2fb",
+    "setName": "Celebrations: Classic Collection",
+    "allCards": {
+      "denominator": 25,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 22,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 22,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 25,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "0a49ab45-80d7-47e3-be40-425e254d2ff2",
+    "setName": "SM Black Star Promos",
+    "allCards": {
+      "denominator": 310,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 310,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "0b8ebcec-2b4e-4a77-9923-ffc4be6514c5",
+    "setName": "XY Black Star Promos",
+    "allCards": {
+      "denominator": 235,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 235,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+    "setName": "HS\u2014Undaunted",
+    "allCards": {
+      "denominator": 91,
+      "directEmpirical": 76,
+      "neutral": 2,
+      "unresolved": 13,
+      "empiricalCoverage": 0.8351648351648352,
+      "usableCoverage": 0.8571428571428571
+    },
+    "collectorRelevant": {
+      "denominator": 20,
+      "directEmpirical": 16,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.8,
+      "usableCoverage": 0.8
+    },
+    "premiumTreatment": {
+      "denominator": 11,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.5454545454545454,
+      "usableCoverage": 0.5454545454545454
+    }
+  },
+  {
+    "setId": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+    "setName": "Astral Radiance",
+    "allCards": {
+      "denominator": 216,
+      "directEmpirical": 40,
+      "neutral": 1,
+      "unresolved": 175,
+      "empiricalCoverage": 0.18518518518518517,
+      "usableCoverage": 0.18981481481481483
+    },
+    "collectorRelevant": {
+      "denominator": 82,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 82,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 88,
+      "directEmpirical": 20,
+      "neutral": 1,
+      "unresolved": 67,
+      "empiricalCoverage": 0.22727272727272727,
+      "usableCoverage": 0.23863636363636365
+    }
+  },
+  {
+    "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+    "setName": "Phantasmal Flames",
+    "allCards": {
+      "denominator": 132,
+      "directEmpirical": 10,
+      "neutral": 1,
+      "unresolved": 121,
+      "empiricalCoverage": 0.07575757575757576,
+      "usableCoverage": 0.08333333333333333
+    },
+    "collectorRelevant": {
+      "denominator": 36,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 26,
+      "empiricalCoverage": 0.2777777777777778,
+      "usableCoverage": 0.2777777777777778
+    },
+    "premiumTreatment": {
+      "denominator": 46,
+      "directEmpirical": 10,
+      "neutral": 1,
+      "unresolved": 35,
+      "empiricalCoverage": 0.21739130434782608,
+      "usableCoverage": 0.2391304347826087
+    }
+  },
+  {
+    "setId": "126093d8-50e7-4a7c-891d-8cffd5733eeb",
+    "setName": "Unseen Forces",
+    "allCards": {
+      "denominator": 142,
+      "directEmpirical": 134,
+      "neutral": 5,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9436619718309859,
+      "usableCoverage": 0.9788732394366197
+    },
+    "collectorRelevant": {
+      "denominator": 33,
+      "directEmpirical": 30,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9090909090909091,
+      "usableCoverage": 0.9090909090909091
+    },
+    "premiumTreatment": {
+      "denominator": 15,
+      "directEmpirical": 12,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.8,
+      "usableCoverage": 0.8
+    }
+  },
+  {
+    "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+    "setName": "Journey Together",
+    "allCards": {
+      "denominator": 191,
+      "directEmpirical": 187,
+      "neutral": 2,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9790575916230366,
+      "usableCoverage": 0.9895287958115183
+    },
+    "collectorRelevant": {
+      "denominator": 43,
+      "directEmpirical": 41,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9534883720930233,
+      "usableCoverage": 0.9534883720930233
+    },
+    "premiumTreatment": {
+      "denominator": 47,
+      "directEmpirical": 44,
+      "neutral": 1,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9361702127659575,
+      "usableCoverage": 0.9574468085106383
+    }
+  },
+  {
+    "setId": "15fd93a2-82e3-4a5f-9f11-112cee192c95",
+    "setName": "Great Encounters",
+    "allCards": {
+      "denominator": 106,
+      "directEmpirical": 96,
+      "neutral": 0,
+      "unresolved": 10,
+      "empiricalCoverage": 0.9056603773584906,
+      "usableCoverage": 0.9056603773584906
+    },
+    "collectorRelevant": {
+      "denominator": 15,
+      "directEmpirical": 11,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.7333333333333333,
+      "usableCoverage": 0.7333333333333333
+    },
+    "premiumTreatment": {
+      "denominator": 4,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "1b3250bb-f123-47d8-b090-499e5879eda7",
+    "setName": "Delta Species",
+    "allCards": {
+      "denominator": 113,
+      "directEmpirical": 105,
+      "neutral": 5,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9292035398230089,
+      "usableCoverage": 0.9734513274336283
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 21,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.875,
+      "usableCoverage": 0.875
+    },
+    "premiumTreatment": {
+      "denominator": 7,
+      "directEmpirical": 4,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.5714285714285714,
+      "usableCoverage": 0.5714285714285714
+    }
+  },
+  {
+    "setId": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+    "setName": "HS\u2014Unleashed",
+    "allCards": {
+      "denominator": 96,
+      "directEmpirical": 76,
+      "neutral": 0,
+      "unresolved": 20,
+      "empiricalCoverage": 0.7916666666666666,
+      "usableCoverage": 0.7916666666666666
+    },
+    "collectorRelevant": {
+      "denominator": 23,
+      "directEmpirical": 17,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.7391304347826086,
+      "usableCoverage": 0.7391304347826086
+    },
+    "premiumTreatment": {
+      "denominator": 13,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 7,
+      "empiricalCoverage": 0.46153846153846156,
+      "usableCoverage": 0.46153846153846156
+    }
+  },
+  {
+    "setId": "1c6a8735-af2a-475b-b230-5bd18f827b06",
+    "setName": "POP Series 5",
+    "allCards": {
+      "denominator": 16,
+      "directEmpirical": 6,
+      "neutral": 3,
+      "unresolved": 7,
+      "empiricalCoverage": 0.375,
+      "usableCoverage": 0.5625
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+    "setName": "Chilling Reign",
+    "allCards": {
+      "denominator": 233,
+      "directEmpirical": 47,
+      "neutral": 6,
+      "unresolved": 180,
+      "empiricalCoverage": 0.2017167381974249,
+      "usableCoverage": 0.22746781115879827
+    },
+    "collectorRelevant": {
+      "denominator": 87,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 87,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 97,
+      "directEmpirical": 30,
+      "neutral": 3,
+      "unresolved": 64,
+      "empiricalCoverage": 0.30927835051546393,
+      "usableCoverage": 0.3402061855670103
+    }
+  },
+  {
+    "setId": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+    "setName": "Generations",
+    "allCards": {
+      "denominator": 84,
+      "directEmpirical": 39,
+      "neutral": 10,
+      "unresolved": 35,
+      "empiricalCoverage": 0.4642857142857143,
+      "usableCoverage": 0.5833333333333334
+    },
+    "collectorRelevant": {
+      "denominator": 19,
+      "directEmpirical": 19,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 13,
+      "directEmpirical": 12,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9230769230769231,
+      "usableCoverage": 0.9230769230769231
+    }
+  },
+  {
+    "setId": "1f5a156b-2335-4803-a82c-803976263e8b",
+    "setName": "Silver Tempest Trainer Gallery",
+    "allCards": {
+      "denominator": 30,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.16666666666666666,
+      "usableCoverage": 0.16666666666666666
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 24,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 30,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.16666666666666666,
+      "usableCoverage": 0.16666666666666666
+    }
+  },
+  {
+    "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+    "setName": "Paldea Evolved",
+    "allCards": {
+      "denominator": 279,
+      "directEmpirical": 266,
+      "neutral": 6,
+      "unresolved": 7,
+      "empiricalCoverage": 0.953405017921147,
+      "usableCoverage": 0.974910394265233
+    },
+    "collectorRelevant": {
+      "denominator": 85,
+      "directEmpirical": 80,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.9411764705882353,
+      "usableCoverage": 0.9411764705882353
+    },
+    "premiumTreatment": {
+      "denominator": 103,
+      "directEmpirical": 94,
+      "neutral": 2,
+      "unresolved": 7,
+      "empiricalCoverage": 0.912621359223301,
+      "usableCoverage": 0.9320388349514563
+    }
+  },
+  {
+    "setId": "212383a2-ed84-4a5e-af37-50814247a437",
+    "setName": "Crimson Invasion",
+    "allCards": {
+      "denominator": 124,
+      "directEmpirical": 114,
+      "neutral": 4,
+      "unresolved": 6,
+      "empiricalCoverage": 0.9193548387096774,
+      "usableCoverage": 0.9516129032258065
+    },
+    "collectorRelevant": {
+      "denominator": 36,
+      "directEmpirical": 36,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 32,
+      "directEmpirical": 28,
+      "neutral": 3,
+      "unresolved": 1,
+      "empiricalCoverage": 0.875,
+      "usableCoverage": 0.96875
+    }
+  },
+  {
+    "setId": "2262c6e4-3f9a-4364-b03a-d811cd604739",
+    "setName": "Legends Awakened",
+    "allCards": {
+      "denominator": 146,
+      "directEmpirical": 128,
+      "neutral": 0,
+      "unresolved": 18,
+      "empiricalCoverage": 0.8767123287671232,
+      "usableCoverage": 0.8767123287671232
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 17,
+      "neutral": 0,
+      "unresolved": 7,
+      "empiricalCoverage": 0.7083333333333334,
+      "usableCoverage": 0.7083333333333334
+    },
+    "premiumTreatment": {
+      "denominator": 7,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 7,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "250f0404-e380-42e7-9aec-385ca8290ad4",
+    "setName": "McDonald's Collection 2022",
+    "allCards": {
+      "denominator": 15,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 15,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+    "setName": "McDonald's Collection 2012",
+    "allCards": {
+      "denominator": 12,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+    "setName": "Roaring Skies",
+    "allCards": {
+      "denominator": 110,
+      "directEmpirical": 65,
+      "neutral": 1,
+      "unresolved": 44,
+      "empiricalCoverage": 0.5909090909090909,
+      "usableCoverage": 0.6
+    },
+    "collectorRelevant": {
+      "denominator": 30,
+      "directEmpirical": 30,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 24,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.8333333333333334,
+      "usableCoverage": 0.8333333333333334
+    }
+  },
+  {
+    "setId": "26fedb88-87d7-487a-9f01-528d603c682e",
+    "setName": "Vivid Voltage",
+    "allCards": {
+      "denominator": 203,
+      "directEmpirical": 51,
+      "neutral": 4,
+      "unresolved": 148,
+      "empiricalCoverage": 0.2512315270935961,
+      "usableCoverage": 0.270935960591133
+    },
+    "collectorRelevant": {
+      "denominator": 62,
+      "directEmpirical": 30,
+      "neutral": 0,
+      "unresolved": 32,
+      "empiricalCoverage": 0.4838709677419355,
+      "usableCoverage": 0.4838709677419355
+    },
+    "premiumTreatment": {
+      "denominator": 61,
+      "directEmpirical": 43,
+      "neutral": 0,
+      "unresolved": 18,
+      "empiricalCoverage": 0.7049180327868853,
+      "usableCoverage": 0.7049180327868853
+    }
+  },
+  {
+    "setId": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+    "setName": "McDonald's Collection 2014",
+    "allCards": {
+      "denominator": 12,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+    "setName": "Dragon Majesty",
+    "allCards": {
+      "denominator": 78,
+      "directEmpirical": 70,
+      "neutral": 0,
+      "unresolved": 8,
+      "empiricalCoverage": 0.8974358974358975,
+      "usableCoverage": 0.8974358974358975
+    },
+    "collectorRelevant": {
+      "denominator": 25,
+      "directEmpirical": 23,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.92,
+      "usableCoverage": 0.92
+    },
+    "premiumTreatment": {
+      "denominator": 22,
+      "directEmpirical": 17,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.7727272727272727,
+      "usableCoverage": 0.7727272727272727
+    }
+  },
+  {
+    "setId": "27f3eb48-9964-4a3f-9861-a434ae244697",
+    "setName": "Sandstorm",
+    "allCards": {
+      "denominator": 100,
+      "directEmpirical": 99,
+      "neutral": 1,
+      "unresolved": 0,
+      "empiricalCoverage": 0.99,
+      "usableCoverage": 1.0
+    },
+    "collectorRelevant": {
+      "denominator": 21,
+      "directEmpirical": 21,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 7,
+      "directEmpirical": 7,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    }
+  },
+  {
+    "setId": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+    "setName": "Detective Pikachu",
+    "allCards": {
+      "denominator": 18,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 18,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 4,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 4,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+    "setName": "XY",
+    "allCards": {
+      "denominator": 147,
+      "directEmpirical": 80,
+      "neutral": 11,
+      "unresolved": 56,
+      "empiricalCoverage": 0.54421768707483,
+      "usableCoverage": 0.6190476190476191
+    },
+    "collectorRelevant": {
+      "denominator": 29,
+      "directEmpirical": 29,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 14,
+      "directEmpirical": 14,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    }
+  },
+  {
+    "setId": "2d477c9a-bb2c-42aa-ae25-7cd4ca0f2a4a",
+    "setName": "POP Series 7",
+    "allCards": {
+      "denominator": 17,
+      "directEmpirical": 7,
+      "neutral": 0,
+      "unresolved": 10,
+      "empiricalCoverage": 0.4117647058823529,
+      "usableCoverage": 0.4117647058823529
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "2d6ec108-70b2-4698-a21a-1af39828004f",
+    "setName": "Silver Tempest",
+    "allCards": {
+      "denominator": 215,
+      "directEmpirical": 30,
+      "neutral": 3,
+      "unresolved": 182,
+      "empiricalCoverage": 0.13953488372093023,
+      "usableCoverage": 0.15348837209302327
+    },
+    "collectorRelevant": {
+      "denominator": 64,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 64,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 71,
+      "directEmpirical": 17,
+      "neutral": 1,
+      "unresolved": 53,
+      "empiricalCoverage": 0.23943661971830985,
+      "usableCoverage": 0.2535211267605634
+    }
+  },
+  {
+    "setId": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+    "setName": "McDonald's Collection 2018",
+    "allCards": {
+      "denominator": 12,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "30396643-190c-416d-92a4-e8414c8b4980",
+    "setName": "Power Keepers",
+    "allCards": {
+      "denominator": 107,
+      "directEmpirical": 94,
+      "neutral": 11,
+      "unresolved": 2,
+      "empiricalCoverage": 0.8785046728971962,
+      "usableCoverage": 0.9813084112149533
+    },
+    "collectorRelevant": {
+      "denominator": 23,
+      "directEmpirical": 21,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9130434782608695,
+      "usableCoverage": 0.9130434782608695
+    },
+    "premiumTreatment": {
+      "denominator": 11,
+      "directEmpirical": 9,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.8181818181818182,
+      "usableCoverage": 0.8181818181818182
+    }
+  },
+  {
+    "setId": "332b2885-9354-4a29-ba52-03fca35594d1",
+    "setName": "McDonald's Collection 2021",
+    "allCards": {
+      "denominator": 25,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "34a48f79-1bd3-4f1d-9e3c-758955be70ee",
+    "setName": "Emerging Powers",
+    "allCards": {
+      "denominator": 98,
+      "directEmpirical": 96,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9795918367346939,
+      "usableCoverage": 0.9795918367346939
+    },
+    "collectorRelevant": {
+      "denominator": 12,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.8333333333333334,
+      "usableCoverage": 0.8333333333333334
+    },
+    "premiumTreatment": {
+      "denominator": 2,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "3562f9c9-f879-4d49-9d69-d0ab511230f9",
+    "setName": "Neo Genesis",
+    "allCards": {
+      "denominator": 111,
+      "directEmpirical": 33,
+      "neutral": 9,
+      "unresolved": 69,
+      "empiricalCoverage": 0.2972972972972973,
+      "usableCoverage": 0.3783783783783784
+    },
+    "collectorRelevant": {
+      "denominator": 18,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 18,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+    "setName": "Jungle",
+    "allCards": {
+      "denominator": 64,
+      "directEmpirical": 16,
+      "neutral": 0,
+      "unresolved": 48,
+      "empiricalCoverage": 0.25,
+      "usableCoverage": 0.25
+    },
+    "collectorRelevant": {
+      "denominator": 16,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 16,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 1,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "3836457c-77dc-44b0-a72f-779b6dd78884",
+    "setName": "Darkness Ablaze",
+    "allCards": {
+      "denominator": 201,
+      "directEmpirical": 47,
+      "neutral": 4,
+      "unresolved": 150,
+      "empiricalCoverage": 0.23383084577114427,
+      "usableCoverage": 0.2537313432835821
+    },
+    "collectorRelevant": {
+      "denominator": 55,
+      "directEmpirical": 30,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.5454545454545454,
+      "usableCoverage": 0.5454545454545454
+    },
+    "premiumTreatment": {
+      "denominator": 46,
+      "directEmpirical": 37,
+      "neutral": 1,
+      "unresolved": 8,
+      "empiricalCoverage": 0.8043478260869565,
+      "usableCoverage": 0.8260869565217391
+    }
+  },
+  {
+    "setId": "388dd649-960b-4fd8-a8df-e56b3730972e",
+    "setName": "Deoxys",
+    "allCards": {
+      "denominator": 105,
+      "directEmpirical": 100,
+      "neutral": 3,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9523809523809523,
+      "usableCoverage": 0.9809523809523809
+    },
+    "collectorRelevant": {
+      "denominator": 25,
+      "directEmpirical": 23,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.92,
+      "usableCoverage": 0.92
+    },
+    "premiumTreatment": {
+      "denominator": 11,
+      "directEmpirical": 9,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.8181818181818182,
+      "usableCoverage": 0.8181818181818182
+    }
+  },
+  {
+    "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+    "setName": "Shrouded Fable",
+    "allCards": {
+      "denominator": 107,
+      "directEmpirical": 91,
+      "neutral": 10,
+      "unresolved": 6,
+      "empiricalCoverage": 0.8504672897196262,
+      "usableCoverage": 0.9439252336448598
+    },
+    "collectorRelevant": {
+      "denominator": 32,
+      "directEmpirical": 31,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.96875,
+      "usableCoverage": 0.96875
+    },
+    "premiumTreatment": {
+      "denominator": 44,
+      "directEmpirical": 36,
+      "neutral": 2,
+      "unresolved": 6,
+      "empiricalCoverage": 0.8181818181818182,
+      "usableCoverage": 0.8636363636363636
+    }
+  },
+  {
+    "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+    "setName": "Scarlet and Violet Base Set",
+    "allCards": {
+      "denominator": 262,
+      "directEmpirical": 256,
+      "neutral": 2,
+      "unresolved": 4,
+      "empiricalCoverage": 0.9770992366412213,
+      "usableCoverage": 0.9847328244274809
+    },
+    "collectorRelevant": {
+      "denominator": 56,
+      "directEmpirical": 54,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9642857142857143,
+      "usableCoverage": 0.9642857142857143
+    },
+    "premiumTreatment": {
+      "denominator": 75,
+      "directEmpirical": 69,
+      "neutral": 2,
+      "unresolved": 4,
+      "empiricalCoverage": 0.92,
+      "usableCoverage": 0.9466666666666667
+    }
+  },
+  {
+    "setId": "3f3c7677-b876-4353-821e-6bdd610fd683",
+    "setName": "Ancient Origins",
+    "allCards": {
+      "denominator": 100,
+      "directEmpirical": 56,
+      "neutral": 2,
+      "unresolved": 42,
+      "empiricalCoverage": 0.56,
+      "usableCoverage": 0.58
+    },
+    "collectorRelevant": {
+      "denominator": 33,
+      "directEmpirical": 30,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9090909090909091,
+      "usableCoverage": 0.9090909090909091
+    },
+    "premiumTreatment": {
+      "denominator": 28,
+      "directEmpirical": 22,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.7857142857142857,
+      "usableCoverage": 0.7857142857142857
+    }
+  },
+  {
+    "setId": "4099fc11-a3f6-4034-8208-fbf82bd89de5",
+    "setName": "Holon Phantoms",
+    "allCards": {
+      "denominator": 109,
+      "directEmpirical": 96,
+      "neutral": 11,
+      "unresolved": 2,
+      "empiricalCoverage": 0.8807339449541285,
+      "usableCoverage": 0.981651376146789
+    },
+    "collectorRelevant": {
+      "denominator": 22,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9090909090909091,
+      "usableCoverage": 0.9090909090909091
+    },
+    "premiumTreatment": {
+      "denominator": 5,
+      "directEmpirical": 3,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.6,
+      "usableCoverage": 0.6
+    }
+  },
+  {
+    "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+    "setName": "Black Bolt",
+    "allCards": {
+      "denominator": 175,
+      "directEmpirical": 173,
+      "neutral": 1,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9885714285714285,
+      "usableCoverage": 0.9942857142857143
+    },
+    "collectorRelevant": {
+      "denominator": 88,
+      "directEmpirical": 87,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9886363636363636,
+      "usableCoverage": 0.9886363636363636
+    },
+    "premiumTreatment": {
+      "denominator": 92,
+      "directEmpirical": 91,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9891304347826086,
+      "usableCoverage": 0.9891304347826086
+    }
+  },
+  {
+    "setId": "42a3740d-4778-4857-9c28-e116f34b51f3",
+    "setName": "Neo Destiny",
+    "allCards": {
+      "denominator": 113,
+      "directEmpirical": 44,
+      "neutral": 1,
+      "unresolved": 68,
+      "empiricalCoverage": 0.3893805309734513,
+      "usableCoverage": 0.39823008849557523
+    },
+    "collectorRelevant": {
+      "denominator": 23,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 23,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 8,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 8,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+    "setName": "Battle Styles",
+    "allCards": {
+      "denominator": 183,
+      "directEmpirical": 26,
+      "neutral": 4,
+      "unresolved": 153,
+      "empiricalCoverage": 0.14207650273224043,
+      "usableCoverage": 0.16393442622950818
+    },
+    "collectorRelevant": {
+      "denominator": 60,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 60,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 60,
+      "directEmpirical": 13,
+      "neutral": 2,
+      "unresolved": 45,
+      "empiricalCoverage": 0.21666666666666667,
+      "usableCoverage": 0.25
+    }
+  },
+  {
+    "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+    "setName": "Pitch Black",
+    "allCards": {
+      "denominator": 120,
+      "directEmpirical": 10,
+      "neutral": 2,
+      "unresolved": 108,
+      "empiricalCoverage": 0.08333333333333333,
+      "usableCoverage": 0.1
+    },
+    "collectorRelevant": {
+      "denominator": 34,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 24,
+      "empiricalCoverage": 0.29411764705882354,
+      "usableCoverage": 0.29411764705882354
+    },
+    "premiumTreatment": {
+      "denominator": 46,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 36,
+      "empiricalCoverage": 0.21739130434782608,
+      "usableCoverage": 0.21739130434782608
+    }
+  },
+  {
+    "setId": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+    "setName": "Unbroken Bonds",
+    "allCards": {
+      "denominator": 234,
+      "directEmpirical": 22,
+      "neutral": 2,
+      "unresolved": 210,
+      "empiricalCoverage": 0.09401709401709402,
+      "usableCoverage": 0.10256410256410256
+    },
+    "collectorRelevant": {
+      "denominator": 67,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 67,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 58,
+      "directEmpirical": 8,
+      "neutral": 1,
+      "unresolved": 49,
+      "empiricalCoverage": 0.13793103448275862,
+      "usableCoverage": 0.15517241379310345
+    }
+  },
+  {
+    "setId": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+    "setName": "Next Destinies",
+    "allCards": {
+      "denominator": 103,
+      "directEmpirical": 85,
+      "neutral": 2,
+      "unresolved": 16,
+      "empiricalCoverage": 0.8252427184466019,
+      "usableCoverage": 0.8446601941747572
+    },
+    "collectorRelevant": {
+      "denominator": 26,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 16,
+      "empiricalCoverage": 0.38461538461538464,
+      "usableCoverage": 0.38461538461538464
+    },
+    "premiumTreatment": {
+      "denominator": 16,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 16,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+    "setName": "Gym Challenge",
+    "allCards": {
+      "denominator": 133,
+      "directEmpirical": 0,
+      "neutral": 6,
+      "unresolved": 127,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.045112781954887216
+    },
+    "collectorRelevant": {
+      "denominator": 16,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 16,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 2,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+    "setName": "Stellar Crown",
+    "allCards": {
+      "denominator": 175,
+      "directEmpirical": 169,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.9657142857142857,
+      "usableCoverage": 0.9657142857142857
+    },
+    "collectorRelevant": {
+      "denominator": 39,
+      "directEmpirical": 38,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9743589743589743,
+      "usableCoverage": 0.9743589743589743
+    },
+    "premiumTreatment": {
+      "denominator": 50,
+      "directEmpirical": 44,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.88,
+      "usableCoverage": 0.88
+    }
+  },
+  {
+    "setId": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+    "setName": "Dragon Vault",
+    "allCards": {
+      "denominator": 21,
+      "directEmpirical": 18,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.8571428571428571,
+      "usableCoverage": 0.8571428571428571
+    },
+    "collectorRelevant": {
+      "denominator": 17,
+      "directEmpirical": 17,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "4c0902e8-fc57-4e07-82e1-e4bdb9fe9990",
+    "setName": "Dragon",
+    "allCards": {
+      "denominator": 100,
+      "directEmpirical": 97,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.97,
+      "usableCoverage": 0.97
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 21,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.875,
+      "usableCoverage": 0.875
+    },
+    "premiumTreatment": {
+      "denominator": 12,
+      "directEmpirical": 9,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.75,
+      "usableCoverage": 0.75
+    }
+  },
+  {
+    "setId": "4de777b3-396e-4f19-9d78-c054b296bedb",
+    "setName": "BREAKpoint",
+    "allCards": {
+      "denominator": 123,
+      "directEmpirical": 70,
+      "neutral": 1,
+      "unresolved": 52,
+      "empiricalCoverage": 0.5691056910569106,
+      "usableCoverage": 0.5772357723577236
+    },
+    "collectorRelevant": {
+      "denominator": 32,
+      "directEmpirical": 31,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.96875,
+      "usableCoverage": 0.96875
+    },
+    "premiumTreatment": {
+      "denominator": 26,
+      "directEmpirical": 24,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9230769230769231,
+      "usableCoverage": 0.9230769230769231
+    }
+  },
+  {
+    "setId": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+    "setName": "Team Rocket",
+    "allCards": {
+      "denominator": 83,
+      "directEmpirical": 22,
+      "neutral": 4,
+      "unresolved": 57,
+      "empiricalCoverage": 0.26506024096385544,
+      "usableCoverage": 0.3132530120481928
+    },
+    "collectorRelevant": {
+      "denominator": 15,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 15,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 1,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "50c5370b-a5e7-4fbc-98fe-efc35e05ff80",
+    "setName": "FireRed & LeafGreen",
+    "allCards": {
+      "denominator": 115,
+      "directEmpirical": 110,
+      "neutral": 1,
+      "unresolved": 4,
+      "empiricalCoverage": 0.9565217391304348,
+      "usableCoverage": 0.9652173913043478
+    },
+    "collectorRelevant": {
+      "denominator": 29,
+      "directEmpirical": 25,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.8620689655172413,
+      "usableCoverage": 0.8620689655172413
+    },
+    "premiumTreatment": {
+      "denominator": 13,
+      "directEmpirical": 9,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.6923076923076923,
+      "usableCoverage": 0.6923076923076923
+    }
+  },
+  {
+    "setId": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+    "setName": "Lost Origin",
+    "allCards": {
+      "denominator": 217,
+      "directEmpirical": 34,
+      "neutral": 1,
+      "unresolved": 182,
+      "empiricalCoverage": 0.15668202764976957,
+      "usableCoverage": 0.16129032258064516
+    },
+    "collectorRelevant": {
+      "denominator": 69,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 69,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 68,
+      "directEmpirical": 19,
+      "neutral": 0,
+      "unresolved": 49,
+      "empiricalCoverage": 0.27941176470588236,
+      "usableCoverage": 0.27941176470588236
+    }
+  },
+  {
+    "setId": "528c1630-0565-427c-98a3-0ad3d85da32e",
+    "setName": "Hidden Fates Shiny Vault",
+    "allCards": {
+      "denominator": 94,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 88,
+      "empiricalCoverage": 0.06382978723404255,
+      "usableCoverage": 0.06382978723404255
+    },
+    "collectorRelevant": {
+      "denominator": 84,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 84,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 94,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 88,
+      "empiricalCoverage": 0.06382978723404255,
+      "usableCoverage": 0.06382978723404255
+    }
+  },
+  {
+    "setId": "532d2ad5-32b3-434d-9772-2159fcdfbd5b",
+    "setName": "Crown Zenith Galarian Gallery",
+    "allCards": {
+      "denominator": 70,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 60,
+      "empiricalCoverage": 0.14285714285714285,
+      "usableCoverage": 0.14285714285714285
+    },
+    "collectorRelevant": {
+      "denominator": 60,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 60,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 70,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 60,
+      "empiricalCoverage": 0.14285714285714285,
+      "usableCoverage": 0.14285714285714285
+    }
+  },
+  {
+    "setId": "5361a918-eb23-447e-a00e-e21493bc4320",
+    "setName": "Noble Victories",
+    "allCards": {
+      "denominator": 102,
+      "directEmpirical": 96,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.9411764705882353,
+      "usableCoverage": 0.9411764705882353
+    },
+    "collectorRelevant": {
+      "denominator": 18,
+      "directEmpirical": 13,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.7222222222222222,
+      "usableCoverage": 0.7222222222222222
+    },
+    "premiumTreatment": {
+      "denominator": 6,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "537d3312-9622-4015-9ef2-66e16a27287c",
+    "setName": "Gym Heroes",
+    "allCards": {
+      "denominator": 132,
+      "directEmpirical": 0,
+      "neutral": 6,
+      "unresolved": 126,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.045454545454545456
+    },
+    "collectorRelevant": {
+      "denominator": 14,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 14,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "549f2297-a03b-4276-ad96-ad41a8bcef8f",
+    "setName": "POP Series 1",
+    "allCards": {
+      "denominator": 17,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.29411764705882354,
+      "usableCoverage": 0.29411764705882354
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "591a2b3e-2dc8-4e80-b42d-aec4f4b786e4",
+    "setName": "Black & White",
+    "allCards": {
+      "denominator": 115,
+      "directEmpirical": 104,
+      "neutral": 8,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9043478260869565,
+      "usableCoverage": 0.9739130434782609
+    },
+    "collectorRelevant": {
+      "denominator": 15,
+      "directEmpirical": 12,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.8,
+      "usableCoverage": 0.8
+    },
+    "premiumTreatment": {
+      "denominator": 4,
+      "directEmpirical": 1,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.25,
+      "usableCoverage": 0.25
+    }
+  },
+  {
+    "setId": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+    "setName": "Legendary Collection",
+    "allCards": {
+      "denominator": 110,
+      "directEmpirical": 0,
+      "neutral": 2,
+      "unresolved": 108,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.01818181818181818
+    },
+    "collectorRelevant": {
+      "denominator": 19,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 19,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+    "setName": "Chaos Rising",
+    "allCards": {
+      "denominator": 122,
+      "directEmpirical": 10,
+      "neutral": 3,
+      "unresolved": 109,
+      "empiricalCoverage": 0.08196721311475409,
+      "usableCoverage": 0.10655737704918032
+    },
+    "collectorRelevant": {
+      "denominator": 34,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 24,
+      "empiricalCoverage": 0.29411764705882354,
+      "usableCoverage": 0.29411764705882354
+    },
+    "premiumTreatment": {
+      "denominator": 46,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 36,
+      "empiricalCoverage": 0.21739130434782608,
+      "usableCoverage": 0.21739130434782608
+    }
+  },
+  {
+    "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+    "setName": "Paradox Rift",
+    "allCards": {
+      "denominator": 266,
+      "directEmpirical": 258,
+      "neutral": 2,
+      "unresolved": 6,
+      "empiricalCoverage": 0.9699248120300752,
+      "usableCoverage": 0.9774436090225563
+    },
+    "collectorRelevant": {
+      "denominator": 84,
+      "directEmpirical": 81,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9642857142857143,
+      "usableCoverage": 0.9642857142857143
+    },
+    "premiumTreatment": {
+      "denominator": 104,
+      "directEmpirical": 97,
+      "neutral": 1,
+      "unresolved": 6,
+      "empiricalCoverage": 0.9326923076923077,
+      "usableCoverage": 0.9423076923076923
+    }
+  },
+  {
+    "setId": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+    "setName": "Southern Islands",
+    "allCards": {
+      "denominator": 18,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 18,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "5e473875-7d0f-43ff-86bd-9aa939e6ca32",
+    "setName": "Legendary Treasures: Radiant Collection",
+    "allCards": {
+      "denominator": 25,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.8,
+      "usableCoverage": 0.8
+    },
+    "collectorRelevant": {
+      "denominator": 5,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 5,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+    "setName": "Perfect Order",
+    "allCards": {
+      "denominator": 124,
+      "directEmpirical": 9,
+      "neutral": 3,
+      "unresolved": 112,
+      "empiricalCoverage": 0.07258064516129033,
+      "usableCoverage": 0.0967741935483871
+    },
+    "collectorRelevant": {
+      "denominator": 33,
+      "directEmpirical": 9,
+      "neutral": 0,
+      "unresolved": 24,
+      "empiricalCoverage": 0.2727272727272727,
+      "usableCoverage": 0.2727272727272727
+    },
+    "premiumTreatment": {
+      "denominator": 46,
+      "directEmpirical": 9,
+      "neutral": 0,
+      "unresolved": 37,
+      "empiricalCoverage": 0.1956521739130435,
+      "usableCoverage": 0.1956521739130435
+    }
+  },
+  {
+    "setId": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+    "setName": "Fates Collide",
+    "allCards": {
+      "denominator": 125,
+      "directEmpirical": 71,
+      "neutral": 2,
+      "unresolved": 52,
+      "empiricalCoverage": 0.568,
+      "usableCoverage": 0.584
+    },
+    "collectorRelevant": {
+      "denominator": 32,
+      "directEmpirical": 31,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.96875,
+      "usableCoverage": 0.96875
+    },
+    "premiumTreatment": {
+      "denominator": 28,
+      "directEmpirical": 26,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9285714285714286,
+      "usableCoverage": 0.9285714285714286
+    }
+  },
+  {
+    "setId": "62aaa567-d5a7-4d0c-b1b0-1fde562c0081",
+    "setName": "POP Series 4",
+    "allCards": {
+      "denominator": 17,
+      "directEmpirical": 6,
+      "neutral": 2,
+      "unresolved": 9,
+      "empiricalCoverage": 0.35294117647058826,
+      "usableCoverage": 0.47058823529411764
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "65ee8536-af5a-4242-8a1f-9928c81f501b",
+    "setName": "Plasma Storm",
+    "allCards": {
+      "denominator": 138,
+      "directEmpirical": 118,
+      "neutral": 1,
+      "unresolved": 19,
+      "empiricalCoverage": 0.855072463768116,
+      "usableCoverage": 0.8623188405797102
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 14,
+      "empiricalCoverage": 0.4166666666666667,
+      "usableCoverage": 0.4166666666666667
+    },
+    "premiumTreatment": {
+      "denominator": 19,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 19,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "69d6d1be-f610-421b-b29c-c3348fe19518",
+    "setName": "Steam Siege",
+    "allCards": {
+      "denominator": 116,
+      "directEmpirical": 72,
+      "neutral": 0,
+      "unresolved": 44,
+      "empiricalCoverage": 0.6206896551724138,
+      "usableCoverage": 0.6206896551724138
+    },
+    "collectorRelevant": {
+      "denominator": 30,
+      "directEmpirical": 28,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9333333333333333,
+      "usableCoverage": 0.9333333333333333
+    },
+    "premiumTreatment": {
+      "denominator": 23,
+      "directEmpirical": 19,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.8260869565217391,
+      "usableCoverage": 0.8260869565217391
+    }
+  },
+  {
+    "setId": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+    "setName": "Pok\u00e9mon GO",
+    "allCards": {
+      "denominator": 93,
+      "directEmpirical": 13,
+      "neutral": 0,
+      "unresolved": 80,
+      "empiricalCoverage": 0.13978494623655913,
+      "usableCoverage": 0.13978494623655913
+    },
+    "collectorRelevant": {
+      "denominator": 39,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 39,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 32,
+      "directEmpirical": 7,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.21875,
+      "usableCoverage": 0.21875
+    }
+  },
+  {
+    "setId": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+    "setName": "BREAKthrough",
+    "allCards": {
+      "denominator": 164,
+      "directEmpirical": 87,
+      "neutral": 2,
+      "unresolved": 75,
+      "empiricalCoverage": 0.5304878048780488,
+      "usableCoverage": 0.5426829268292683
+    },
+    "collectorRelevant": {
+      "denominator": 40,
+      "directEmpirical": 38,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.95,
+      "usableCoverage": 0.95
+    },
+    "premiumTreatment": {
+      "denominator": 26,
+      "directEmpirical": 22,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.8461538461538461,
+      "usableCoverage": 0.8461538461538461
+    }
+  },
+  {
+    "setId": "6c82fb37-b9b9-4961-a528-12556bd15417",
+    "setName": "Base Set 2",
+    "allCards": {
+      "denominator": 130,
+      "directEmpirical": 41,
+      "neutral": 7,
+      "unresolved": 82,
+      "empiricalCoverage": 0.3153846153846154,
+      "usableCoverage": 0.36923076923076925
+    },
+    "collectorRelevant": {
+      "denominator": 20,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 20,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 1,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "6cfb0c2c-0758-4b54-89b6-e1dd00771fa6",
+    "setName": "BW Black Star Promos",
+    "allCards": {
+      "denominator": 113,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 113,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+    "setName": "Plasma Blast",
+    "allCards": {
+      "denominator": 105,
+      "directEmpirical": 84,
+      "neutral": 1,
+      "unresolved": 20,
+      "empiricalCoverage": 0.8,
+      "usableCoverage": 0.8095238095238095
+    },
+    "collectorRelevant": {
+      "denominator": 25,
+      "directEmpirical": 11,
+      "neutral": 0,
+      "unresolved": 14,
+      "empiricalCoverage": 0.44,
+      "usableCoverage": 0.44
+    },
+    "premiumTreatment": {
+      "denominator": 20,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 20,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+    "setName": "Unified Minds",
+    "allCards": {
+      "denominator": 258,
+      "directEmpirical": 21,
+      "neutral": 4,
+      "unresolved": 233,
+      "empiricalCoverage": 0.08139534883720931,
+      "usableCoverage": 0.09689922480620156
+    },
+    "collectorRelevant": {
+      "denominator": 68,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 68,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 62,
+      "directEmpirical": 9,
+      "neutral": 2,
+      "unresolved": 51,
+      "empiricalCoverage": 0.14516129032258066,
+      "usableCoverage": 0.1774193548387097
+    }
+  },
+  {
+    "setId": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+    "setName": "Crown Zenith",
+    "allCards": {
+      "denominator": 161,
+      "directEmpirical": 16,
+      "neutral": 8,
+      "unresolved": 137,
+      "empiricalCoverage": 0.09937888198757763,
+      "usableCoverage": 0.14906832298136646
+    },
+    "collectorRelevant": {
+      "denominator": 47,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 47,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 49,
+      "directEmpirical": 5,
+      "neutral": 8,
+      "unresolved": 36,
+      "empiricalCoverage": 0.10204081632653061,
+      "usableCoverage": 0.2653061224489796
+    }
+  },
+  {
+    "setId": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+    "setName": "McDonald's Collection 2015",
+    "allCards": {
+      "denominator": 12,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "759c09f8-8a1b-4212-be89-66088afa6893",
+    "setName": "Rebel Clash",
+    "allCards": {
+      "denominator": 209,
+      "directEmpirical": 57,
+      "neutral": 5,
+      "unresolved": 147,
+      "empiricalCoverage": 0.2727272727272727,
+      "usableCoverage": 0.2966507177033493
+    },
+    "collectorRelevant": {
+      "denominator": 63,
+      "directEmpirical": 37,
+      "neutral": 0,
+      "unresolved": 26,
+      "empiricalCoverage": 0.5873015873015873,
+      "usableCoverage": 0.5873015873015873
+    },
+    "premiumTreatment": {
+      "denominator": 59,
+      "directEmpirical": 48,
+      "neutral": 1,
+      "unresolved": 10,
+      "empiricalCoverage": 0.8135593220338984,
+      "usableCoverage": 0.8305084745762712
+    }
+  },
+  {
+    "setId": "75cc9ef9-1099-4e47-8d09-17f416606865",
+    "setName": "Evolutions",
+    "allCards": {
+      "denominator": 113,
+      "directEmpirical": 55,
+      "neutral": 10,
+      "unresolved": 48,
+      "empiricalCoverage": 0.48672566371681414,
+      "usableCoverage": 0.5752212389380531
+    },
+    "collectorRelevant": {
+      "denominator": 40,
+      "directEmpirical": 36,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.9,
+      "usableCoverage": 0.9
+    },
+    "premiumTreatment": {
+      "denominator": 30,
+      "directEmpirical": 23,
+      "neutral": 0,
+      "unresolved": 7,
+      "empiricalCoverage": 0.7666666666666667,
+      "usableCoverage": 0.7666666666666667
+    }
+  },
+  {
+    "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+    "setName": "Ascended Heroes",
+    "allCards": {
+      "denominator": 305,
+      "directEmpirical": 39,
+      "neutral": 2,
+      "unresolved": 264,
+      "empiricalCoverage": 0.12786885245901639,
+      "usableCoverage": 0.13442622950819672
+    },
+    "collectorRelevant": {
+      "denominator": 103,
+      "directEmpirical": 39,
+      "neutral": 0,
+      "unresolved": 64,
+      "empiricalCoverage": 0.3786407766990291,
+      "usableCoverage": 0.3786407766990291
+    },
+    "premiumTreatment": {
+      "denominator": 117,
+      "directEmpirical": 39,
+      "neutral": 0,
+      "unresolved": 78,
+      "empiricalCoverage": 0.3333333333333333,
+      "usableCoverage": 0.3333333333333333
+    }
+  },
+  {
+    "setId": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+    "setName": "McDonald's Collection 2011",
+    "allCards": {
+      "denominator": 12,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "77bde285-03f8-4a48-b6a5-2f548225c3eb",
+    "setName": "Stormfront",
+    "allCards": {
+      "denominator": 106,
+      "directEmpirical": 82,
+      "neutral": 2,
+      "unresolved": 22,
+      "empiricalCoverage": 0.7735849056603774,
+      "usableCoverage": 0.7924528301886793
+    },
+    "collectorRelevant": {
+      "denominator": 19,
+      "directEmpirical": 11,
+      "neutral": 0,
+      "unresolved": 8,
+      "empiricalCoverage": 0.5789473684210527,
+      "usableCoverage": 0.5789473684210527
+    },
+    "premiumTreatment": {
+      "denominator": 8,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 8,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "78c7f000-9a9e-45ca-8233-8f36030f6019",
+    "setName": "Nintendo Black Star Promos",
+    "allCards": {
+      "denominator": 74,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 74,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "7a1b8de0-331f-4635-8512-b737da431f7d",
+    "setName": "Diamond & Pearl",
+    "allCards": {
+      "denominator": 130,
+      "directEmpirical": 104,
+      "neutral": 8,
+      "unresolved": 18,
+      "empiricalCoverage": 0.8,
+      "usableCoverage": 0.8615384615384616
+    },
+    "collectorRelevant": {
+      "denominator": 20,
+      "directEmpirical": 17,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.85,
+      "usableCoverage": 0.85
+    },
+    "premiumTreatment": {
+      "denominator": 4,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+    "setName": "Prismatic Evolutions",
+    "allCards": {
+      "denominator": 181,
+      "directEmpirical": 170,
+      "neutral": 0,
+      "unresolved": 11,
+      "empiricalCoverage": 0.9392265193370166,
+      "usableCoverage": 0.9392265193370166
+    },
+    "collectorRelevant": {
+      "denominator": 56,
+      "directEmpirical": 51,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.9107142857142857,
+      "usableCoverage": 0.9107142857142857
+    },
+    "premiumTreatment": {
+      "denominator": 81,
+      "directEmpirical": 70,
+      "neutral": 0,
+      "unresolved": 11,
+      "empiricalCoverage": 0.8641975308641975,
+      "usableCoverage": 0.8641975308641975
+    }
+  },
+  {
+    "setId": "7a87a5b5-17dc-43e6-9eac-3de88beab0e7",
+    "setName": "Dark Explorers",
+    "allCards": {
+      "denominator": 111,
+      "directEmpirical": 96,
+      "neutral": 0,
+      "unresolved": 15,
+      "empiricalCoverage": 0.8648648648648649,
+      "usableCoverage": 0.8648648648648649
+    },
+    "collectorRelevant": {
+      "denominator": 23,
+      "directEmpirical": 9,
+      "neutral": 0,
+      "unresolved": 14,
+      "empiricalCoverage": 0.391304347826087,
+      "usableCoverage": 0.391304347826087
+    },
+    "premiumTreatment": {
+      "denominator": 15,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 15,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "7b44aba2-0e04-4b04-a1c7-9b6273daf3d5",
+    "setName": "Brilliant Stars Trainer Gallery",
+    "allCards": {
+      "denominator": 30,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.16666666666666666,
+      "usableCoverage": 0.16666666666666666
+    },
+    "collectorRelevant": {
+      "denominator": 25,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 30,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 25,
+      "empiricalCoverage": 0.16666666666666666,
+      "usableCoverage": 0.16666666666666666
+    }
+  },
+  {
+    "setId": "7c998bc2-6073-4461-8873-64d1b3e78930",
+    "setName": "Lost Thunder",
+    "allCards": {
+      "denominator": 236,
+      "directEmpirical": 217,
+      "neutral": 1,
+      "unresolved": 18,
+      "empiricalCoverage": 0.9194915254237288,
+      "usableCoverage": 0.923728813559322
+    },
+    "collectorRelevant": {
+      "denominator": 63,
+      "directEmpirical": 60,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9523809523809523,
+      "usableCoverage": 0.9523809523809523
+    },
+    "premiumTreatment": {
+      "denominator": 62,
+      "directEmpirical": 52,
+      "neutral": 0,
+      "unresolved": 10,
+      "empiricalCoverage": 0.8387096774193549,
+      "usableCoverage": 0.8387096774193549
+    }
+  },
+  {
+    "setId": "7ceb2e94-7968-4394-95cb-742b01804974",
+    "setName": "Expedition Base Set",
+    "allCards": {
+      "denominator": 162,
+      "directEmpirical": 0,
+      "neutral": 8,
+      "unresolved": 154,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.04938271604938271
+    },
+    "collectorRelevant": {
+      "denominator": 29,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 29,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 1,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+    "setName": "Supreme Victors",
+    "allCards": {
+      "denominator": 153,
+      "directEmpirical": 103,
+      "neutral": 0,
+      "unresolved": 50,
+      "empiricalCoverage": 0.673202614379085,
+      "usableCoverage": 0.673202614379085
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 21,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.875,
+      "usableCoverage": 0.875
+    },
+    "premiumTreatment": {
+      "denominator": 10,
+      "directEmpirical": 7,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.7,
+      "usableCoverage": 0.7
+    }
+  },
+  {
+    "setId": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+    "setName": "Flashfire",
+    "allCards": {
+      "denominator": 109,
+      "directEmpirical": 60,
+      "neutral": 0,
+      "unresolved": 49,
+      "empiricalCoverage": 0.5504587155963303,
+      "usableCoverage": 0.5504587155963303
+    },
+    "collectorRelevant": {
+      "denominator": 23,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.8695652173913043,
+      "usableCoverage": 0.8695652173913043
+    },
+    "premiumTreatment": {
+      "denominator": 18,
+      "directEmpirical": 12,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.6666666666666666,
+      "usableCoverage": 0.6666666666666666
+    }
+  },
+  {
+    "setId": "806b7046-4fd5-4259-be17-54b28381f034",
+    "setName": "Double Crisis",
+    "allCards": {
+      "denominator": 34,
+      "directEmpirical": 8,
+      "neutral": 2,
+      "unresolved": 24,
+      "empiricalCoverage": 0.23529411764705882,
+      "usableCoverage": 0.29411764705882354
+    },
+    "collectorRelevant": {
+      "denominator": 8,
+      "directEmpirical": 8,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 2,
+      "directEmpirical": 2,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    }
+  },
+  {
+    "setId": "8158d0ae-0255-48f0-b189-d134035b72b0",
+    "setName": "Ultra Prism",
+    "allCards": {
+      "denominator": 173,
+      "directEmpirical": 155,
+      "neutral": 5,
+      "unresolved": 13,
+      "empiricalCoverage": 0.8959537572254336,
+      "usableCoverage": 0.9248554913294798
+    },
+    "collectorRelevant": {
+      "denominator": 44,
+      "directEmpirical": 38,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.8636363636363636,
+      "usableCoverage": 0.8636363636363636
+    },
+    "premiumTreatment": {
+      "denominator": 48,
+      "directEmpirical": 37,
+      "neutral": 3,
+      "unresolved": 8,
+      "empiricalCoverage": 0.7708333333333334,
+      "usableCoverage": 0.8333333333333334
+    }
+  },
+  {
+    "setId": "846787ce-2e12-4dab-b941-886f95cd16f8",
+    "setName": "Hidden Legends",
+    "allCards": {
+      "denominator": 101,
+      "directEmpirical": 100,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9900990099009901,
+      "usableCoverage": 0.9900990099009901
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 23,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9583333333333334,
+      "usableCoverage": 0.9583333333333334
+    },
+    "premiumTreatment": {
+      "denominator": 9,
+      "directEmpirical": 8,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.8888888888888888,
+      "usableCoverage": 0.8888888888888888
+    }
+  },
+  {
+    "setId": "8938c853-2282-46d8-ba44-87584fa2c168",
+    "setName": "Sun & Moon",
+    "allCards": {
+      "denominator": 163,
+      "directEmpirical": 157,
+      "neutral": 4,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9631901840490797,
+      "usableCoverage": 0.9877300613496932
+    },
+    "collectorRelevant": {
+      "denominator": 43,
+      "directEmpirical": 43,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 38,
+      "directEmpirical": 36,
+      "neutral": 2,
+      "unresolved": 0,
+      "empiricalCoverage": 0.9473684210526315,
+      "usableCoverage": 1.0
+    }
+  },
+  {
+    "setId": "89e710d1-c378-4b4e-aaea-5994d8441f45",
+    "setName": "Neo Revelation",
+    "allCards": {
+      "denominator": 65,
+      "directEmpirical": 26,
+      "neutral": 0,
+      "unresolved": 39,
+      "empiricalCoverage": 0.4,
+      "usableCoverage": 0.4
+    },
+    "collectorRelevant": {
+      "denominator": 15,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 15,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 1,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+    "setName": "Furious Fists",
+    "allCards": {
+      "denominator": 113,
+      "directEmpirical": 62,
+      "neutral": 2,
+      "unresolved": 49,
+      "empiricalCoverage": 0.5486725663716814,
+      "usableCoverage": 0.5663716814159292
+    },
+    "collectorRelevant": {
+      "denominator": 22,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9090909090909091,
+      "usableCoverage": 0.9090909090909091
+    },
+    "premiumTreatment": {
+      "denominator": 16,
+      "directEmpirical": 11,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.6875,
+      "usableCoverage": 0.6875
+    }
+  },
+  {
+    "setId": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+    "setName": "Burning Shadows",
+    "allCards": {
+      "denominator": 169,
+      "directEmpirical": 159,
+      "neutral": 3,
+      "unresolved": 7,
+      "empiricalCoverage": 0.9408284023668639,
+      "usableCoverage": 0.9585798816568047
+    },
+    "collectorRelevant": {
+      "denominator": 51,
+      "directEmpirical": 51,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 53,
+      "directEmpirical": 48,
+      "neutral": 3,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9056603773584906,
+      "usableCoverage": 0.9622641509433962
+    }
+  },
+  {
+    "setId": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+    "setName": "Fusion Strike",
+    "allCards": {
+      "denominator": 284,
+      "directEmpirical": 33,
+      "neutral": 3,
+      "unresolved": 248,
+      "empiricalCoverage": 0.11619718309859155,
+      "usableCoverage": 0.1267605633802817
+    },
+    "collectorRelevant": {
+      "denominator": 62,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 62,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 67,
+      "directEmpirical": 15,
+      "neutral": 2,
+      "unresolved": 50,
+      "empiricalCoverage": 0.22388059701492538,
+      "usableCoverage": 0.2537313432835821
+    }
+  },
+  {
+    "setId": "8f78267f-493b-4d60-a19e-587ae1f60f69",
+    "setName": "Secret Wonders",
+    "allCards": {
+      "denominator": 132,
+      "directEmpirical": 118,
+      "neutral": 2,
+      "unresolved": 12,
+      "empiricalCoverage": 0.8939393939393939,
+      "usableCoverage": 0.9090909090909091
+    },
+    "collectorRelevant": {
+      "denominator": 22,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9090909090909091,
+      "usableCoverage": 0.9090909090909091
+    },
+    "premiumTreatment": {
+      "denominator": 2,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+    "setName": "Legendary Treasures",
+    "allCards": {
+      "denominator": 115,
+      "directEmpirical": 100,
+      "neutral": 1,
+      "unresolved": 14,
+      "empiricalCoverage": 0.8695652173913043,
+      "usableCoverage": 0.8782608695652174
+    },
+    "collectorRelevant": {
+      "denominator": 44,
+      "directEmpirical": 30,
+      "neutral": 0,
+      "unresolved": 14,
+      "empiricalCoverage": 0.6818181818181818,
+      "usableCoverage": 0.6818181818181818
+    },
+    "premiumTreatment": {
+      "denominator": 14,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 14,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+    "setName": "Temporal Forces",
+    "allCards": {
+      "denominator": 218,
+      "directEmpirical": 204,
+      "neutral": 2,
+      "unresolved": 12,
+      "empiricalCoverage": 0.9357798165137615,
+      "usableCoverage": 0.944954128440367
+    },
+    "collectorRelevant": {
+      "denominator": 61,
+      "directEmpirical": 55,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.9016393442622951,
+      "usableCoverage": 0.9016393442622951
+    },
+    "premiumTreatment": {
+      "denominator": 78,
+      "directEmpirical": 65,
+      "neutral": 1,
+      "unresolved": 12,
+      "empiricalCoverage": 0.8333333333333334,
+      "usableCoverage": 0.8461538461538461
+    }
+  },
+  {
+    "setId": "92575c0d-fac2-42ff-86f3-fb81f7452188",
+    "setName": "POP Series 3",
+    "allCards": {
+      "denominator": 17,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.29411764705882354,
+      "usableCoverage": 0.29411764705882354
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "93050f21-b805-41fc-a49d-b5afcb9c41dc",
+    "setName": "Crystal Guardians",
+    "allCards": {
+      "denominator": 101,
+      "directEmpirical": 98,
+      "neutral": 1,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9702970297029703,
+      "usableCoverage": 0.9801980198019802
+    },
+    "collectorRelevant": {
+      "denominator": 25,
+      "directEmpirical": 23,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.92,
+      "usableCoverage": 0.92
+    },
+    "premiumTreatment": {
+      "denominator": 13,
+      "directEmpirical": 11,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.8461538461538461,
+      "usableCoverage": 0.8461538461538461
+    }
+  },
+  {
+    "setId": "93212749-ce0e-498e-975e-7d947a3448ce",
+    "setName": "Evolving Skies",
+    "allCards": {
+      "denominator": 237,
+      "directEmpirical": 34,
+      "neutral": 4,
+      "unresolved": 199,
+      "empiricalCoverage": 0.14345991561181434,
+      "usableCoverage": 0.16033755274261605
+    },
+    "collectorRelevant": {
+      "denominator": 106,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 106,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 105,
+      "directEmpirical": 13,
+      "neutral": 3,
+      "unresolved": 89,
+      "empiricalCoverage": 0.12380952380952381,
+      "usableCoverage": 0.1523809523809524
+    }
+  },
+  {
+    "setId": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+    "setName": "McDonald's Collection 2017",
+    "allCards": {
+      "denominator": 12,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "965b3000-c483-4110-bb21-ff5ffe120564",
+    "setName": "HS\u2014Triumphant",
+    "allCards": {
+      "denominator": 104,
+      "directEmpirical": 92,
+      "neutral": 1,
+      "unresolved": 11,
+      "empiricalCoverage": 0.8846153846153846,
+      "usableCoverage": 0.8942307692307693
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.8333333333333334,
+      "usableCoverage": 0.8333333333333334
+    },
+    "premiumTreatment": {
+      "denominator": 13,
+      "directEmpirical": 8,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.6153846153846154,
+      "usableCoverage": 0.6153846153846154
+    }
+  },
+  {
+    "setId": "98301e8a-8aa3-43d8-a85b-908883264721",
+    "setName": "Platinum",
+    "allCards": {
+      "denominator": 133,
+      "directEmpirical": 86,
+      "neutral": 1,
+      "unresolved": 46,
+      "empiricalCoverage": 0.6466165413533834,
+      "usableCoverage": 0.6541353383458647
+    },
+    "collectorRelevant": {
+      "denominator": 26,
+      "directEmpirical": 23,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.8846153846153846,
+      "usableCoverage": 0.8846153846153846
+    },
+    "premiumTreatment": {
+      "denominator": 10,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.6,
+      "usableCoverage": 0.6
+    }
+  },
+  {
+    "setId": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+    "setName": "McDonald's Collection 2019",
+    "allCards": {
+      "denominator": 12,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "9afac122-a330-4891-b18b-553ffe8d8cf8",
+    "setName": "Generations: Radiant Collection",
+    "allCards": {
+      "denominator": 32,
+      "directEmpirical": 18,
+      "neutral": 0,
+      "unresolved": 14,
+      "empiricalCoverage": 0.5625,
+      "usableCoverage": 0.5625
+    },
+    "collectorRelevant": {
+      "denominator": 7,
+      "directEmpirical": 7,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 7,
+      "directEmpirical": 7,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    }
+  },
+  {
+    "setId": "9d282514-6b63-48cd-bc25-9ce330632cd3",
+    "setName": "POP Series 9",
+    "allCards": {
+      "denominator": 17,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 11,
+      "empiricalCoverage": 0.35294117647058826,
+      "usableCoverage": 0.35294117647058826
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "9e777620-7479-41c4-84fb-17d2aea123bb",
+    "setName": "POP Series 6",
+    "allCards": {
+      "denominator": 18,
+      "directEmpirical": 8,
+      "neutral": 0,
+      "unresolved": 10,
+      "empiricalCoverage": 0.4444444444444444,
+      "usableCoverage": 0.4444444444444444
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+    "setName": "Skyridge",
+    "allCards": {
+      "denominator": 167,
+      "directEmpirical": 0,
+      "neutral": 3,
+      "unresolved": 164,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.017964071856287425
+    },
+    "collectorRelevant": {
+      "denominator": 21,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 21,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 5,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2",
+    "setName": "Neo Discovery",
+    "allCards": {
+      "denominator": 75,
+      "directEmpirical": 35,
+      "neutral": 0,
+      "unresolved": 40,
+      "empiricalCoverage": 0.4666666666666667,
+      "usableCoverage": 0.4666666666666667
+    },
+    "collectorRelevant": {
+      "denominator": 17,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 17,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "a69e4091-5b33-499d-85a5-a8f0b7ecaddc",
+    "setName": "Team Magma vs Team Aqua",
+    "allCards": {
+      "denominator": 97,
+      "directEmpirical": 92,
+      "neutral": 3,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9484536082474226,
+      "usableCoverage": 0.979381443298969
+    },
+    "collectorRelevant": {
+      "denominator": 21,
+      "directEmpirical": 19,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9047619047619048,
+      "usableCoverage": 0.9047619047619048
+    },
+    "premiumTreatment": {
+      "denominator": 9,
+      "directEmpirical": 7,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.7777777777777778,
+      "usableCoverage": 0.7777777777777778
+    }
+  },
+  {
+    "setId": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+    "setName": "Brilliant Stars",
+    "allCards": {
+      "denominator": 187,
+      "directEmpirical": 28,
+      "neutral": 1,
+      "unresolved": 158,
+      "empiricalCoverage": 0.1497326203208556,
+      "usableCoverage": 0.15508021390374332
+    },
+    "collectorRelevant": {
+      "denominator": 58,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 58,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 62,
+      "directEmpirical": 11,
+      "neutral": 0,
+      "unresolved": 51,
+      "empiricalCoverage": 0.1774193548387097,
+      "usableCoverage": 0.1774193548387097
+    }
+  },
+  {
+    "setId": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+    "setName": "Team Up",
+    "allCards": {
+      "denominator": 196,
+      "directEmpirical": 181,
+      "neutral": 0,
+      "unresolved": 15,
+      "empiricalCoverage": 0.923469387755102,
+      "usableCoverage": 0.923469387755102
+    },
+    "collectorRelevant": {
+      "denominator": 53,
+      "directEmpirical": 51,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9622641509433962,
+      "usableCoverage": 0.9622641509433962
+    },
+    "premiumTreatment": {
+      "denominator": 53,
+      "directEmpirical": 47,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.8867924528301887,
+      "usableCoverage": 0.8867924528301887
+    }
+  },
+  {
+    "setId": "a91d2dfa-fd33-44ff-ac12-f221b833a2e2",
+    "setName": "POP Series 2",
+    "allCards": {
+      "denominator": 17,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.29411764705882354,
+      "usableCoverage": 0.29411764705882354
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "aac3de95-9f92-44af-966d-70b1d201c01e",
+    "setName": "Aquapolis",
+    "allCards": {
+      "denominator": 190,
+      "directEmpirical": 0,
+      "neutral": 6,
+      "unresolved": 184,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.031578947368421054
+    },
+    "collectorRelevant": {
+      "denominator": 31,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 31,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 3,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "b0d7bd6a-4e57-4495-b975-e132417cc071",
+    "setName": "Ruby & Sapphire",
+    "allCards": {
+      "denominator": 109,
+      "directEmpirical": 100,
+      "neutral": 9,
+      "unresolved": 0,
+      "empiricalCoverage": 0.9174311926605505,
+      "usableCoverage": 1.0
+    },
+    "collectorRelevant": {
+      "denominator": 22,
+      "directEmpirical": 22,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 9,
+      "directEmpirical": 9,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    }
+  },
+  {
+    "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+    "setName": "Mega Evolution",
+    "allCards": {
+      "denominator": 189,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 179,
+      "empiricalCoverage": 0.05291005291005291,
+      "usableCoverage": 0.05291005291005291
+    },
+    "collectorRelevant": {
+      "denominator": 50,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 40,
+      "empiricalCoverage": 0.2,
+      "usableCoverage": 0.2
+    },
+    "premiumTreatment": {
+      "denominator": 66,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 56,
+      "empiricalCoverage": 0.15151515151515152,
+      "usableCoverage": 0.15151515151515152
+    }
+  },
+  {
+    "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+    "setName": "Obsidian Flames",
+    "allCards": {
+      "denominator": 230,
+      "directEmpirical": 227,
+      "neutral": 1,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9869565217391304,
+      "usableCoverage": 0.991304347826087
+    },
+    "collectorRelevant": {
+      "denominator": 46,
+      "directEmpirical": 45,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9782608695652174,
+      "usableCoverage": 0.9782608695652174
+    },
+    "premiumTreatment": {
+      "denominator": 54,
+      "directEmpirical": 51,
+      "neutral": 1,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9444444444444444,
+      "usableCoverage": 0.9629629629629629
+    }
+  },
+  {
+    "setId": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+    "setName": "Call of Legends",
+    "allCards": {
+      "denominator": 105,
+      "directEmpirical": 81,
+      "neutral": 10,
+      "unresolved": 14,
+      "empiricalCoverage": 0.7714285714285715,
+      "usableCoverage": 0.8666666666666667
+    },
+    "collectorRelevant": {
+      "denominator": 32,
+      "directEmpirical": 28,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.875,
+      "usableCoverage": 0.875
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "ba05227c-b7eb-4428-9e8e-ae70b52fe89f",
+    "setName": "POP Series 8",
+    "allCards": {
+      "denominator": 17,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 11,
+      "empiricalCoverage": 0.35294117647058826,
+      "usableCoverage": 0.35294117647058826
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "bbea2ee9-6be2-44bd-b14e-b4a8b9c858de",
+    "setName": "HGSS Black Star Promos",
+    "allCards": {
+      "denominator": 29,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 29,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "bd54a027-2b93-4cfb-b118-687bd0481def",
+    "setName": "Majestic Dawn",
+    "allCards": {
+      "denominator": 100,
+      "directEmpirical": 78,
+      "neutral": 5,
+      "unresolved": 17,
+      "empiricalCoverage": 0.78,
+      "usableCoverage": 0.83
+    },
+    "collectorRelevant": {
+      "denominator": 18,
+      "directEmpirical": 14,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.7777777777777778,
+      "usableCoverage": 0.7777777777777778
+    },
+    "premiumTreatment": {
+      "denominator": 5,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6",
+    "setName": "Arceus",
+    "allCards": {
+      "denominator": 111,
+      "directEmpirical": 80,
+      "neutral": 0,
+      "unresolved": 31,
+      "empiricalCoverage": 0.7207207207207207,
+      "usableCoverage": 0.7207207207207207
+    },
+    "collectorRelevant": {
+      "denominator": 18,
+      "directEmpirical": 18,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 6,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    }
+  },
+  {
+    "setId": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+    "setName": "Guardians Rising",
+    "allCards": {
+      "denominator": 169,
+      "directEmpirical": 160,
+      "neutral": 4,
+      "unresolved": 5,
+      "empiricalCoverage": 0.9467455621301775,
+      "usableCoverage": 0.9704142011834319
+    },
+    "collectorRelevant": {
+      "denominator": 54,
+      "directEmpirical": 54,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 51,
+      "directEmpirical": 47,
+      "neutral": 4,
+      "unresolved": 0,
+      "empiricalCoverage": 0.9215686274509803,
+      "usableCoverage": 1.0
+    }
+  },
+  {
+    "setId": "be7c981b-c55e-4f60-a1b8-be922531452d",
+    "setName": "Celebrations",
+    "allCards": {
+      "denominator": 27,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 27,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 11,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 11,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 8,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 8,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+    "setName": "White Flare",
+    "allCards": {
+      "denominator": 173,
+      "directEmpirical": 171,
+      "neutral": 1,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9884393063583815,
+      "usableCoverage": 0.9942196531791907
+    },
+    "collectorRelevant": {
+      "denominator": 88,
+      "directEmpirical": 87,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9886363636363636,
+      "usableCoverage": 0.9886363636363636
+    },
+    "premiumTreatment": {
+      "denominator": 91,
+      "directEmpirical": 90,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.989010989010989,
+      "usableCoverage": 0.989010989010989
+    }
+  },
+  {
+    "setId": "c56fe006-6d9a-4b26-a4e0-6726138edecb",
+    "setName": "Dragon Frontiers",
+    "allCards": {
+      "denominator": 101,
+      "directEmpirical": 93,
+      "neutral": 6,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9207920792079208,
+      "usableCoverage": 0.9801980198019802
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 22,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9166666666666666,
+      "usableCoverage": 0.9166666666666666
+    },
+    "premiumTreatment": {
+      "denominator": 12,
+      "directEmpirical": 10,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.8333333333333334,
+      "usableCoverage": 0.8333333333333334
+    }
+  },
+  {
+    "setId": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+    "setName": "Forbidden Light",
+    "allCards": {
+      "denominator": 146,
+      "directEmpirical": 132,
+      "neutral": 3,
+      "unresolved": 11,
+      "empiricalCoverage": 0.9041095890410958,
+      "usableCoverage": 0.9246575342465754
+    },
+    "collectorRelevant": {
+      "denominator": 39,
+      "directEmpirical": 36,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9230769230769231,
+      "usableCoverage": 0.9230769230769231
+    },
+    "premiumTreatment": {
+      "denominator": 41,
+      "directEmpirical": 33,
+      "neutral": 2,
+      "unresolved": 6,
+      "empiricalCoverage": 0.8048780487804879,
+      "usableCoverage": 0.8536585365853658
+    }
+  },
+  {
+    "setId": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+    "setName": "Primal Clash",
+    "allCards": {
+      "denominator": 164,
+      "directEmpirical": 94,
+      "neutral": 2,
+      "unresolved": 68,
+      "empiricalCoverage": 0.573170731707317,
+      "usableCoverage": 0.5853658536585366
+    },
+    "collectorRelevant": {
+      "denominator": 42,
+      "directEmpirical": 42,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": 1.0,
+      "usableCoverage": 1.0
+    },
+    "premiumTreatment": {
+      "denominator": 32,
+      "directEmpirical": 24,
+      "neutral": 0,
+      "unresolved": 8,
+      "empiricalCoverage": 0.75,
+      "usableCoverage": 0.75
+    }
+  },
+  {
+    "setId": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+    "setName": "Fossil",
+    "allCards": {
+      "denominator": 62,
+      "directEmpirical": 16,
+      "neutral": 0,
+      "unresolved": 46,
+      "empiricalCoverage": 0.25806451612903225,
+      "usableCoverage": 0.25806451612903225
+    },
+    "collectorRelevant": {
+      "denominator": 15,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 15,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+    "setName": "Boundaries Crossed",
+    "allCards": {
+      "denominator": 152,
+      "directEmpirical": 130,
+      "neutral": 0,
+      "unresolved": 22,
+      "empiricalCoverage": 0.8552631578947368,
+      "usableCoverage": 0.8552631578947368
+    },
+    "collectorRelevant": {
+      "denominator": 34,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 14,
+      "empiricalCoverage": 0.5882352941176471,
+      "usableCoverage": 0.5882352941176471
+    },
+    "premiumTreatment": {
+      "denominator": 23,
+      "directEmpirical": 1,
+      "neutral": 0,
+      "unresolved": 22,
+      "empiricalCoverage": 0.043478260869565216,
+      "usableCoverage": 0.043478260869565216
+    }
+  },
+  {
+    "setId": "ca43d96a-ad90-4717-a4f6-253fb26a6d53",
+    "setName": "Mysterious Treasures",
+    "allCards": {
+      "denominator": 124,
+      "directEmpirical": 108,
+      "neutral": 3,
+      "unresolved": 13,
+      "empiricalCoverage": 0.8709677419354839,
+      "usableCoverage": 0.8951612903225806
+    },
+    "collectorRelevant": {
+      "denominator": 21,
+      "directEmpirical": 18,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.8571428571428571,
+      "usableCoverage": 0.8571428571428571
+    },
+    "premiumTreatment": {
+      "denominator": 4,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+    "setName": "Legend Maker",
+    "allCards": {
+      "denominator": 91,
+      "directEmpirical": 87,
+      "neutral": 2,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9560439560439561,
+      "usableCoverage": 0.978021978021978
+    },
+    "collectorRelevant": {
+      "denominator": 23,
+      "directEmpirical": 21,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9130434782608695,
+      "usableCoverage": 0.9130434782608695
+    },
+    "premiumTreatment": {
+      "denominator": 9,
+      "directEmpirical": 7,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.7777777777777778,
+      "usableCoverage": 0.7777777777777778
+    }
+  },
+  {
+    "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+    "setName": "Twilight Masquerade",
+    "allCards": {
+      "denominator": 226,
+      "directEmpirical": 213,
+      "neutral": 3,
+      "unresolved": 10,
+      "empiricalCoverage": 0.9424778761061947,
+      "usableCoverage": 0.9557522123893806
+    },
+    "collectorRelevant": {
+      "denominator": 58,
+      "directEmpirical": 56,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9655172413793104,
+      "usableCoverage": 0.9655172413793104
+    },
+    "premiumTreatment": {
+      "denominator": 79,
+      "directEmpirical": 67,
+      "neutral": 2,
+      "unresolved": 10,
+      "empiricalCoverage": 0.8481012658227848,
+      "usableCoverage": 0.8734177215189873
+    }
+  },
+  {
+    "setId": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+    "setName": "Sword & Shield",
+    "allCards": {
+      "denominator": 219,
+      "directEmpirical": 66,
+      "neutral": 1,
+      "unresolved": 152,
+      "empiricalCoverage": 0.3013698630136986,
+      "usableCoverage": 0.3059360730593607
+    },
+    "collectorRelevant": {
+      "denominator": 54,
+      "directEmpirical": 33,
+      "neutral": 0,
+      "unresolved": 21,
+      "empiricalCoverage": 0.6111111111111112,
+      "usableCoverage": 0.6111111111111112
+    },
+    "premiumTreatment": {
+      "denominator": 53,
+      "directEmpirical": 44,
+      "neutral": 0,
+      "unresolved": 9,
+      "empiricalCoverage": 0.8301886792452831,
+      "usableCoverage": 0.8301886792452831
+    }
+  },
+  {
+    "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+    "setName": "Scarlet and Violet 151",
+    "allCards": {
+      "denominator": 208,
+      "directEmpirical": 205,
+      "neutral": 1,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9855769230769231,
+      "usableCoverage": 0.9903846153846154
+    },
+    "collectorRelevant": {
+      "denominator": 46,
+      "directEmpirical": 45,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9782608695652174,
+      "usableCoverage": 0.9782608695652174
+    },
+    "premiumTreatment": {
+      "denominator": 55,
+      "directEmpirical": 52,
+      "neutral": 1,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9454545454545454,
+      "usableCoverage": 0.9636363636363636
+    }
+  },
+  {
+    "setId": "d38ee646-382d-45c0-9463-e9302aa2471a",
+    "setName": "Phantom Forces",
+    "allCards": {
+      "denominator": 122,
+      "directEmpirical": 60,
+      "neutral": 2,
+      "unresolved": 60,
+      "empiricalCoverage": 0.4918032786885246,
+      "usableCoverage": 0.5081967213114754
+    },
+    "collectorRelevant": {
+      "denominator": 27,
+      "directEmpirical": 24,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.8888888888888888,
+      "usableCoverage": 0.8888888888888888
+    },
+    "premiumTreatment": {
+      "denominator": 18,
+      "directEmpirical": 12,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.6666666666666666,
+      "usableCoverage": 0.6666666666666666
+    }
+  },
+  {
+    "setId": "d425bce0-952c-456b-8402-707daeb35850",
+    "setName": "Pok\u00e9mon Rumble",
+    "allCards": {
+      "denominator": 13,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 13,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+    "setName": "Hidden Fates",
+    "allCards": {
+      "denominator": 69,
+      "directEmpirical": 5,
+      "neutral": 0,
+      "unresolved": 64,
+      "empiricalCoverage": 0.07246376811594203,
+      "usableCoverage": 0.07246376811594203
+    },
+    "collectorRelevant": {
+      "denominator": 14,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 14,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 13,
+      "directEmpirical": 1,
+      "neutral": 0,
+      "unresolved": 12,
+      "empiricalCoverage": 0.07692307692307693,
+      "usableCoverage": 0.07692307692307693
+    }
+  },
+  {
+    "setId": "ddbc1691-ea68-4775-8343-7b8fddbf81e6",
+    "setName": "Plasma Freeze",
+    "allCards": {
+      "denominator": 121,
+      "directEmpirical": 99,
+      "neutral": 1,
+      "unresolved": 21,
+      "empiricalCoverage": 0.8181818181818182,
+      "usableCoverage": 0.8264462809917356
+    },
+    "collectorRelevant": {
+      "denominator": 29,
+      "directEmpirical": 13,
+      "neutral": 0,
+      "unresolved": 16,
+      "empiricalCoverage": 0.4482758620689655,
+      "usableCoverage": 0.4482758620689655
+    },
+    "premiumTreatment": {
+      "denominator": 21,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 21,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+    "setName": "Destined Rivals",
+    "allCards": {
+      "denominator": 244,
+      "directEmpirical": 237,
+      "neutral": 1,
+      "unresolved": 6,
+      "empiricalCoverage": 0.9713114754098361,
+      "usableCoverage": 0.9754098360655737
+    },
+    "collectorRelevant": {
+      "denominator": 66,
+      "directEmpirical": 62,
+      "neutral": 0,
+      "unresolved": 4,
+      "empiricalCoverage": 0.9393939393939394,
+      "usableCoverage": 0.9393939393939394
+    },
+    "premiumTreatment": {
+      "denominator": 79,
+      "directEmpirical": 73,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.9240506329113924,
+      "usableCoverage": 0.9240506329113924
+    }
+  },
+  {
+    "setId": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+    "setName": "Cosmic Eclipse",
+    "allCards": {
+      "denominator": 271,
+      "directEmpirical": 25,
+      "neutral": 2,
+      "unresolved": 244,
+      "empiricalCoverage": 0.09225092250922509,
+      "usableCoverage": 0.0996309963099631
+    },
+    "collectorRelevant": {
+      "denominator": 81,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 81,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 78,
+      "directEmpirical": 12,
+      "neutral": 1,
+      "unresolved": 65,
+      "empiricalCoverage": 0.15384615384615385,
+      "usableCoverage": 0.16666666666666666
+    }
+  },
+  {
+    "setId": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+    "setName": "Shining Legends",
+    "allCards": {
+      "denominator": 78,
+      "directEmpirical": 69,
+      "neutral": 2,
+      "unresolved": 7,
+      "empiricalCoverage": 0.8846153846153846,
+      "usableCoverage": 0.9102564102564102
+    },
+    "collectorRelevant": {
+      "denominator": 29,
+      "directEmpirical": 22,
+      "neutral": 0,
+      "unresolved": 7,
+      "empiricalCoverage": 0.7586206896551724,
+      "usableCoverage": 0.7586206896551724
+    },
+    "premiumTreatment": {
+      "denominator": 18,
+      "directEmpirical": 11,
+      "neutral": 0,
+      "unresolved": 7,
+      "empiricalCoverage": 0.6111111111111112,
+      "usableCoverage": 0.6111111111111112
+    }
+  },
+  {
+    "setId": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+    "setName": "Team Rocket Returns",
+    "allCards": {
+      "denominator": 105,
+      "directEmpirical": 100,
+      "neutral": 2,
+      "unresolved": 3,
+      "empiricalCoverage": 0.9523809523809523,
+      "usableCoverage": 0.9714285714285714
+    },
+    "collectorRelevant": {
+      "denominator": 23,
+      "directEmpirical": 21,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.9130434782608695,
+      "usableCoverage": 0.9130434782608695
+    },
+    "premiumTreatment": {
+      "denominator": 11,
+      "directEmpirical": 8,
+      "neutral": 0,
+      "unresolved": 3,
+      "empiricalCoverage": 0.7272727272727273,
+      "usableCoverage": 0.7272727272727273
+    }
+  },
+  {
+    "setId": "f133524e-50e2-4238-91db-393770680c9b",
+    "setName": "Kalos Starter Set",
+    "allCards": {
+      "denominator": 39,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 39,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 1,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+    "setName": "Surging Sparks",
+    "allCards": {
+      "denominator": 252,
+      "directEmpirical": 238,
+      "neutral": 2,
+      "unresolved": 12,
+      "empiricalCoverage": 0.9444444444444444,
+      "usableCoverage": 0.9523809523809523
+    },
+    "collectorRelevant": {
+      "denominator": 64,
+      "directEmpirical": 62,
+      "neutral": 0,
+      "unresolved": 2,
+      "empiricalCoverage": 0.96875,
+      "usableCoverage": 0.96875
+    },
+    "premiumTreatment": {
+      "denominator": 87,
+      "directEmpirical": 73,
+      "neutral": 2,
+      "unresolved": 12,
+      "empiricalCoverage": 0.8390804597701149,
+      "usableCoverage": 0.8620689655172413
+    }
+  },
+  {
+    "setId": "f769797d-2683-497c-b0b3-28ac04f6e304",
+    "setName": "McDonald's Collection 2016",
+    "allCards": {
+      "denominator": 6,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 6,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    },
+    "premiumTreatment": {
+      "denominator": 0,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 0,
+      "empiricalCoverage": null,
+      "usableCoverage": null
+    }
+  },
+  {
+    "setId": "f93ca977-cfc9-4d06-a62a-f9dcf9afbfb8",
+    "setName": "Shining Fates Shiny Vault",
+    "allCards": {
+      "denominator": 122,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 122,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "collectorRelevant": {
+      "denominator": 122,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 122,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 122,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 122,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "fc711667-a178-41c9-afbc-7e7d88bfe593",
+    "setName": "Lost Origin Trainer Gallery",
+    "allCards": {
+      "denominator": 30,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 24,
+      "empiricalCoverage": 0.2,
+      "usableCoverage": 0.2
+    },
+    "collectorRelevant": {
+      "denominator": 24,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 24,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "premiumTreatment": {
+      "denominator": 30,
+      "directEmpirical": 6,
+      "neutral": 0,
+      "unresolved": 24,
+      "empiricalCoverage": 0.2,
+      "usableCoverage": 0.2
+    }
+  },
+  {
+    "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+    "setName": "Paldean Fates",
+    "allCards": {
+      "denominator": 247,
+      "directEmpirical": 109,
+      "neutral": 0,
+      "unresolved": 138,
+      "empiricalCoverage": 0.44129554655870445,
+      "usableCoverage": 0.44129554655870445
+    },
+    "collectorRelevant": {
+      "denominator": 154,
+      "directEmpirical": 16,
+      "neutral": 0,
+      "unresolved": 138,
+      "empiricalCoverage": 0.1038961038961039,
+      "usableCoverage": 0.1038961038961039
+    },
+    "premiumTreatment": {
+      "denominator": 164,
+      "directEmpirical": 26,
+      "neutral": 0,
+      "unresolved": 138,
+      "empiricalCoverage": 0.15853658536585366,
+      "usableCoverage": 0.15853658536585366
+    }
+  },
+  {
+    "setId": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+    "setName": "Dragons Exalted",
+    "allCards": {
+      "denominator": 128,
+      "directEmpirical": 110,
+      "neutral": 2,
+      "unresolved": 16,
+      "empiricalCoverage": 0.859375,
+      "usableCoverage": 0.875
+    },
+    "collectorRelevant": {
+      "denominator": 29,
+      "directEmpirical": 13,
+      "neutral": 0,
+      "unresolved": 16,
+      "empiricalCoverage": 0.4482758620689655,
+      "usableCoverage": 0.4482758620689655
+    },
+    "premiumTreatment": {
+      "denominator": 16,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 16,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  {
+    "setId": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+    "setName": "Emerald",
+    "allCards": {
+      "denominator": 105,
+      "directEmpirical": 94,
+      "neutral": 10,
+      "unresolved": 1,
+      "empiricalCoverage": 0.8952380952380953,
+      "usableCoverage": 0.9904761904761905
+    },
+    "collectorRelevant": {
+      "denominator": 21,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9523809523809523,
+      "usableCoverage": 0.9523809523809523
+    },
+    "premiumTreatment": {
+      "denominator": 10,
+      "directEmpirical": 9,
+      "neutral": 0,
+      "unresolved": 1,
+      "empiricalCoverage": 0.9,
+      "usableCoverage": 0.9
+    }
+  },
+  {
+    "setId": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+    "setName": "Rising Rivals",
+    "allCards": {
+      "denominator": 120,
+      "directEmpirical": 82,
+      "neutral": 4,
+      "unresolved": 34,
+      "empiricalCoverage": 0.6833333333333333,
+      "usableCoverage": 0.7166666666666667
+    },
+    "collectorRelevant": {
+      "denominator": 25,
+      "directEmpirical": 20,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.8,
+      "usableCoverage": 0.8
+    },
+    "premiumTreatment": {
+      "denominator": 12,
+      "directEmpirical": 7,
+      "neutral": 0,
+      "unresolved": 5,
+      "empiricalCoverage": 0.5833333333333334,
+      "usableCoverage": 0.5833333333333334
+    }
+  }
+]

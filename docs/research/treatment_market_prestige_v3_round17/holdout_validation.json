@@ -1,0 +1,386 @@
+{
+  "NEAREST": {
+    "WITHOUT_SCARCITY": {
+      "treatment": {
+        "n": 32,
+        "mae": 0.8770545944715391,
+        "medianAbsoluteError": 0.7469513545423885,
+        "rmse": 1.1341060790785062,
+        "p90AbsoluteError": 2.128685592055393,
+        "maximumAbsoluteError": 2.599901380089566,
+        "spearman": 0.048910695876867714,
+        "orderingAccuracy": 0.48884381338742394,
+        "scoreTierAgreement": 0.5625
+      },
+      "regime": {
+        "n": 32,
+        "mae": 0.8770545944715391,
+        "medianAbsoluteError": 0.7469513545423885,
+        "rmse": 1.1341060790785062,
+        "p90AbsoluteError": 2.128685592055393,
+        "maximumAbsoluteError": 2.599901380089566,
+        "spearman": 0.048910695876867714,
+        "orderingAccuracy": 0.48884381338742394,
+        "scoreTierAgreement": 0.5625
+      },
+      "era": {
+        "n": 22,
+        "mae": 0.8937676853968378,
+        "medianAbsoluteError": 0.6421602141970544,
+        "rmse": 1.297460040489494,
+        "p90AbsoluteError": 1.9038165003222733,
+        "maximumAbsoluteError": 3.486627581963523,
+        "spearman": -0.0385380166292206,
+        "orderingAccuracy": 0.44782608695652176,
+        "scoreTierAgreement": 0.8181818181818182
+      },
+      "family": {
+        "n": 30,
+        "mae": 0.9280335079207236,
+        "medianAbsoluteError": 0.6421602141970544,
+        "rmse": 1.282246979501795,
+        "p90AbsoluteError": 2.517181008834138,
+        "maximumAbsoluteError": 3.486627581963523,
+        "spearman": -0.09146455637374917,
+        "orderingAccuracy": 0.4166666666666667,
+        "scoreTierAgreement": 0.6333333333333333
+      },
+      "passesPreregisteredPrimaryGate": false
+    },
+    "WITH_BOUNDED_SCARCITY": {
+      "treatment": {
+        "n": 32,
+        "mae": 0.8103860787520463,
+        "medianAbsoluteError": 0.7059900213411974,
+        "rmse": 1.0671217564308737,
+        "p90AbsoluteError": 1.7308431308774126,
+        "maximumAbsoluteError": 2.599901380089566,
+        "spearman": 0.06362067959923394,
+        "orderingAccuracy": 0.4908722109533469,
+        "scoreTierAgreement": 0.59375
+      },
+      "regime": {
+        "n": 32,
+        "mae": 0.8103860787520463,
+        "medianAbsoluteError": 0.7059900213411974,
+        "rmse": 1.0671217564308737,
+        "p90AbsoluteError": 1.7308431308774126,
+        "maximumAbsoluteError": 2.599901380089566,
+        "spearman": 0.06362067959923394,
+        "orderingAccuracy": 0.4908722109533469,
+        "scoreTierAgreement": 0.59375
+      },
+      "era": {
+        "n": 22,
+        "mae": 0.8937676853968378,
+        "medianAbsoluteError": 0.6421602141970544,
+        "rmse": 1.297460040489494,
+        "p90AbsoluteError": 1.9038165003222733,
+        "maximumAbsoluteError": 3.486627581963523,
+        "spearman": -0.0385380166292206,
+        "orderingAccuracy": 0.44782608695652176,
+        "scoreTierAgreement": 0.8181818181818182
+      },
+      "family": {
+        "n": 30,
+        "mae": 0.9689250569648495,
+        "medianAbsoluteError": 0.7110662716907399,
+        "rmse": 1.3136360641634213,
+        "p90AbsoluteError": 2.517181008834138,
+        "maximumAbsoluteError": 3.486627581963523,
+        "spearman": -0.09541233992162777,
+        "orderingAccuracy": 0.41435185185185186,
+        "scoreTierAgreement": 0.6666666666666666
+      },
+      "passesPreregisteredPrimaryGate": false
+    }
+  },
+  "BOUNDED_INTERPOLATION": {
+    "WITHOUT_SCARCITY": {
+      "treatment": {
+        "n": 32,
+        "mae": 0.8771883622363921,
+        "medianAbsoluteError": 0.8505093162180017,
+        "rmse": 1.124050241388307,
+        "p90AbsoluteError": 1.9204833739532863,
+        "maximumAbsoluteError": 2.774247636420516,
+        "spearman": -0.039068231841526045,
+        "orderingAccuracy": 0.4787018255578093,
+        "scoreTierAgreement": 0.625
+      },
+      "regime": {
+        "n": 32,
+        "mae": 0.8771883622363921,
+        "medianAbsoluteError": 0.8505093162180017,
+        "rmse": 1.124050241388307,
+        "p90AbsoluteError": 1.9204833739532863,
+        "maximumAbsoluteError": 2.774247636420516,
+        "spearman": -0.039068231841526045,
+        "orderingAccuracy": 0.4787018255578093,
+        "scoreTierAgreement": 0.625
+      },
+      "era": {
+        "n": 22,
+        "mae": 0.9003647302010997,
+        "medianAbsoluteError": 0.6438797930337521,
+        "rmse": 1.1528271269464454,
+        "p90AbsoluteError": 1.9038165003222733,
+        "maximumAbsoluteError": 2.9583102305019953,
+        "spearman": -0.03967148770655062,
+        "orderingAccuracy": 0.44782608695652176,
+        "scoreTierAgreement": 0.7272727272727273
+      },
+      "family": {
+        "n": 30,
+        "mae": 0.8907902860393576,
+        "medianAbsoluteError": 0.7500392185447957,
+        "rmse": 1.1024276376203268,
+        "p90AbsoluteError": 2.0036404228563733,
+        "maximumAbsoluteError": 2.3475607022564624,
+        "spearman": -0.312904069063,
+        "orderingAccuracy": 0.3611111111111111,
+        "scoreTierAgreement": 0.7
+      },
+      "passesPreregisteredPrimaryGate": false
+    },
+    "WITH_BOUNDED_SCARCITY": {
+      "treatment": {
+        "n": 32,
+        "mae": 0.854137846248558,
+        "medianAbsoluteError": 0.8149894646367937,
+        "rmse": 1.116005664021487,
+        "p90AbsoluteError": 1.9204833739532863,
+        "maximumAbsoluteError": 2.774247636420516,
+        "spearman": -0.029897285399853264,
+        "orderingAccuracy": 0.4827586206896552,
+        "scoreTierAgreement": 0.65625
+      },
+      "regime": {
+        "n": 32,
+        "mae": 0.854137846248558,
+        "medianAbsoluteError": 0.8149894646367937,
+        "rmse": 1.116005664021487,
+        "p90AbsoluteError": 1.9204833739532863,
+        "maximumAbsoluteError": 2.774247636420516,
+        "spearman": -0.029897285399853264,
+        "orderingAccuracy": 0.4827586206896552,
+        "scoreTierAgreement": 0.65625
+      },
+      "era": {
+        "n": 22,
+        "mae": 0.9003647302010997,
+        "medianAbsoluteError": 0.6438797930337521,
+        "rmse": 1.1528271269464454,
+        "p90AbsoluteError": 1.9038165003222733,
+        "maximumAbsoluteError": 2.9583102305019953,
+        "spearman": -0.03967148770655062,
+        "orderingAccuracy": 0.44782608695652176,
+        "scoreTierAgreement": 0.7272727272727273
+      },
+      "family": {
+        "n": 30,
+        "mae": 0.8590239457197322,
+        "medianAbsoluteError": 0.742289929141104,
+        "rmse": 1.0723878387439145,
+        "p90AbsoluteError": 1.6100094479061382,
+        "maximumAbsoluteError": 2.3475607022564624,
+        "spearman": -0.16926503760559322,
+        "orderingAccuracy": 0.4236111111111111,
+        "scoreTierAgreement": 0.7
+      },
+      "passesPreregisteredPrimaryGate": false
+    }
+  },
+  "WEIGHTED_NEIGHBORS": {
+    "WITHOUT_SCARCITY": {
+      "treatment": {
+        "n": 32,
+        "mae": 0.8377656774538782,
+        "medianAbsoluteError": 0.7484792891405392,
+        "rmse": 1.039784058825557,
+        "p90AbsoluteError": 1.5615580233622082,
+        "maximumAbsoluteError": 2.7906835491569737,
+        "spearman": -0.15804914887369864,
+        "orderingAccuracy": 0.44016227180527384,
+        "scoreTierAgreement": 0.71875
+      },
+      "regime": {
+        "n": 32,
+        "mae": 0.8377656774538782,
+        "medianAbsoluteError": 0.7484792891405392,
+        "rmse": 1.039784058825557,
+        "p90AbsoluteError": 1.5615580233622082,
+        "maximumAbsoluteError": 2.7906835491569737,
+        "spearman": -0.15804914887369864,
+        "orderingAccuracy": 0.44016227180527384,
+        "scoreTierAgreement": 0.71875
+      },
+      "era": {
+        "n": 22,
+        "mae": 0.731114707552639,
+        "medianAbsoluteError": 0.4259863697082076,
+        "rmse": 1.004069941782824,
+        "p90AbsoluteError": 1.8692810293991997,
+        "maximumAbsoluteError": 2.463818978307704,
+        "spearman": 0.142169818937276,
+        "orderingAccuracy": 0.5434782608695652,
+        "scoreTierAgreement": 0.7727272727272727
+      },
+      "family": {
+        "n": 30,
+        "mae": 0.810760508878071,
+        "medianAbsoluteError": 0.5592815325238067,
+        "rmse": 1.0831041615476174,
+        "p90AbsoluteError": 1.965322668926417,
+        "maximumAbsoluteError": 2.463818978307704,
+        "spearman": -0.12785388841479647,
+        "orderingAccuracy": 0.4513888888888889,
+        "scoreTierAgreement": 0.7
+      },
+      "passesPreregisteredPrimaryGate": false
+    },
+    "WITH_BOUNDED_SCARCITY": {
+      "treatment": {
+        "n": 32,
+        "mae": 0.8285596147299877,
+        "medianAbsoluteError": 0.7484792891405392,
+        "rmse": 1.0297622782819584,
+        "p90AbsoluteError": 1.5534779006967914,
+        "maximumAbsoluteError": 2.7906835491569737,
+        "spearman": -0.13054639674950513,
+        "orderingAccuracy": 0.45233265720081134,
+        "scoreTierAgreement": 0.71875
+      },
+      "regime": {
+        "n": 32,
+        "mae": 0.8285596147299877,
+        "medianAbsoluteError": 0.7484792891405392,
+        "rmse": 1.0297622782819584,
+        "p90AbsoluteError": 1.5534779006967914,
+        "maximumAbsoluteError": 2.7906835491569737,
+        "spearman": -0.13054639674950513,
+        "orderingAccuracy": 0.45233265720081134,
+        "scoreTierAgreement": 0.71875
+      },
+      "era": {
+        "n": 22,
+        "mae": 0.731114707552639,
+        "medianAbsoluteError": 0.4259863697082076,
+        "rmse": 1.004069941782824,
+        "p90AbsoluteError": 1.8692810293991997,
+        "maximumAbsoluteError": 2.463818978307704,
+        "spearman": 0.142169818937276,
+        "orderingAccuracy": 0.5434782608695652,
+        "scoreTierAgreement": 0.7727272727272727
+      },
+      "family": {
+        "n": 30,
+        "mae": 0.8012088206703887,
+        "medianAbsoluteError": 0.5675227910809326,
+        "rmse": 1.0736128236906042,
+        "p90AbsoluteError": 1.9648716164905047,
+        "maximumAbsoluteError": 2.463818978307704,
+        "spearman": -0.13133000175566245,
+        "orderingAccuracy": 0.4513888888888889,
+        "scoreTierAgreement": 0.7
+      },
+      "passesPreregisteredPrimaryGate": false
+    }
+  },
+  "HIERARCHICAL_ERA_REGIME": {
+    "WITHOUT_SCARCITY": {
+      "treatment": {
+        "n": 32,
+        "mae": 0.837101015602775,
+        "medianAbsoluteError": 0.6878076961767632,
+        "rmse": 1.0471478361093265,
+        "p90AbsoluteError": 1.6661911658520874,
+        "maximumAbsoluteError": 2.694955478450826,
+        "spearman": -0.24605795567111782,
+        "orderingAccuracy": 0.4198782961460446,
+        "scoreTierAgreement": 0.71875
+      },
+      "regime": {
+        "n": 32,
+        "mae": 0.837101015602775,
+        "medianAbsoluteError": 0.6878076961767632,
+        "rmse": 1.0471478361093265,
+        "p90AbsoluteError": 1.6661911658520874,
+        "maximumAbsoluteError": 2.694955478450826,
+        "spearman": -0.24605795567111782,
+        "orderingAccuracy": 0.4198782961460446,
+        "scoreTierAgreement": 0.71875
+      },
+      "era": {
+        "n": 22,
+        "mae": 0.8190535397948573,
+        "medianAbsoluteError": 0.6723999391269322,
+        "rmse": 1.0664905430596918,
+        "p90AbsoluteError": 1.8968949399345056,
+        "maximumAbsoluteError": 2.5479788138951864,
+        "spearman": -0.1172476196016579,
+        "orderingAccuracy": 0.4434782608695652,
+        "scoreTierAgreement": 0.7727272727272727
+      },
+      "family": {
+        "n": 30,
+        "mae": 0.8964829536526832,
+        "medianAbsoluteError": 0.6212307234344063,
+        "rmse": 1.2162614092292472,
+        "p90AbsoluteError": 2.0776646154228993,
+        "maximumAbsoluteError": 2.599901380089566,
+        "spearman": -0.16759693597108155,
+        "orderingAccuracy": 0.4236111111111111,
+        "scoreTierAgreement": 0.6333333333333333
+      },
+      "passesPreregisteredPrimaryGate": false
+    },
+    "WITH_BOUNDED_SCARCITY": {
+      "treatment": {
+        "n": 32,
+        "mae": 0.8376156750948434,
+        "medianAbsoluteError": 0.6874274252521624,
+        "rmse": 1.047254530994436,
+        "p90AbsoluteError": 1.666029784152522,
+        "maximumAbsoluteError": 2.694955478450826,
+        "spearman": -0.24605795567111782,
+        "orderingAccuracy": 0.4198782961460446,
+        "scoreTierAgreement": 0.71875
+      },
+      "regime": {
+        "n": 32,
+        "mae": 0.8376156750948434,
+        "medianAbsoluteError": 0.6874274252521624,
+        "rmse": 1.047254530994436,
+        "p90AbsoluteError": 1.666029784152522,
+        "maximumAbsoluteError": 2.694955478450826,
+        "spearman": -0.24605795567111782,
+        "orderingAccuracy": 0.4198782961460446,
+        "scoreTierAgreement": 0.71875
+      },
+      "era": {
+        "n": 22,
+        "mae": 0.8190535397948573,
+        "medianAbsoluteError": 0.6723999391269322,
+        "rmse": 1.0664905430596918,
+        "p90AbsoluteError": 1.8968949399345056,
+        "maximumAbsoluteError": 2.5479788138951864,
+        "spearman": -0.1172476196016579,
+        "orderingAccuracy": 0.4434782608695652,
+        "scoreTierAgreement": 0.7727272727272727
+      },
+      "family": {
+        "n": 30,
+        "mae": 0.8966587634846491,
+        "medianAbsoluteError": 0.6212307234344063,
+        "rmse": 1.2161162666188274,
+        "p90AbsoluteError": 2.074677915777787,
+        "maximumAbsoluteError": 2.599901380089566,
+        "spearman": -0.1599020681723667,
+        "orderingAccuracy": 0.43287037037037035,
+        "scoreTierAgreement": 0.6333333333333333
+      },
+      "passesPreregisteredPrimaryGate": false
+    }
+  }
+}

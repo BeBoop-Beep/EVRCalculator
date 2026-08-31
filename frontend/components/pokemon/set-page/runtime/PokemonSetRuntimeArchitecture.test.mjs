@@ -51,8 +51,11 @@ test("set switches are guarded by set-scoped runtime state", () => {
 
 test("rich Pull Rates resource ownership is isolated without moving its presentation", () => {
   const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const richPullRates = read("../rich/RichPullRatesSetTab.jsx");
   const controller = read("../../../../hooks/pokemon/useSetPullRatesController.js");
-  assert.match(rich, /useSetPullRatesController\(\{/);
+  assert.match(rich, /dynamic\(\(\) => import\(["']@\/components\/pokemon\/set-page\/rich\/RichPullRatesSetTab["']\)\)/);
+  assert.match(richPullRates, /useSetPullRatesController\(\{/);
+  assert.match(richPullRates, /<PullRatesTab/);
   assert.doesNotMatch(rich, /getPokemonSetPullRates\(/);
   assert.doesNotMatch(rich, /\[pullRatesState, setPullRatesState\]/);
   assert.match(controller, /pokemonSetPullRatesClient/);
