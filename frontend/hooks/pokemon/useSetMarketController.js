@@ -35,9 +35,15 @@ function useMarketResource({ setId, enabled, canFetch, seed, seedSatisfies = Boo
 
   useEffect(() => {
     if (!seed || !setId || retryNonce > 0) return;
-    lastRequestKeyRef.current = `${setId}|${sourceWindow}`;
+    // A compact bootstrap preview is useful while the dedicated resource is
+    // loading, but it must not claim the request key. Otherwise the fetch
+    // effect below sees a successful seeded state and mistakes the preview for
+    // the completed history-bearing resource.
+    if (seedSatisfies) {
+      lastRequestKeyRef.current = `${setId}|${sourceWindow}`;
+    }
     dispatch({ type: "success", setId, payload: seed, sourceWindow });
-  }, [retryNonce, seed, setId, sourceWindow]);
+  }, [retryNonce, seed, seedSatisfies, setId, sourceWindow]);
 
   useEffect(() => {
     if (!setId || !canFetch) {

@@ -8,6 +8,7 @@ const client = fs.readFileSync(new URL("../../components/explore/RipStatisticsPa
 const sealedHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetSealedMarket.js", import.meta.url), "utf8");
 const marketClient = fs.readFileSync(new URL("./pokemonSetMarketClient.js", import.meta.url), "utf8");
 const signalsHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetMarketSignals.js", import.meta.url), "utf8");
+const marketController = fs.readFileSync(new URL("../../hooks/pokemon/useSetMarketController.js", import.meta.url), "utf8");
 
 test("Market and RIP routes use the slim route directory", () => {
   assert.match(route, /getPokemonSetRouteDirectory\(\{ limit: 150 \}\)/);
@@ -21,14 +22,17 @@ test("Market server seed uses the dedicated bootstrap projection", () => {
 });
 
 test("a valid Market bootstrap seed suppresses immediate duplicate overview fetch", () => {
-  assert.match(client, /seededOverviewPayload && overviewRetryNonce === 0/);
-  assert.match(client, /overview\.seed_satisfied_initial_resource/);
+  assert.match(marketController, /const overview = useMarketResource\(\{[\s\S]*seed: overviewSeed/);
+  assert.match(marketController, /seedSatisfies = Boolean\(seed\)/);
+  assert.match(marketController, /if \(seedSatisfies\) \{[\s\S]*lastRequestKeyRef\.current/);
 });
 
 test("compact Top Chase preview rides bootstrap while full histories remain progressive", () => {
   assert.match(snapshots, /marketBootstrapPromise/);
   assert.doesNotMatch(snapshots, /wantsMarketSeed \? getPokemonSetTopChaseInitialSnapshot/);
-  assert.match(client, /topChasePreviewOnly !== true/);
+  assert.match(marketController, /topChasePreviewOnly !== true/);
+  assert.match(marketController, /if \(seedSatisfies\) \{[\s\S]*lastRequestKeyRef\.current/);
+  assert.match(marketController, /\[retryNonce, seed, seedSatisfies, setId, sourceWindow\]/);
 });
 
 test("consumer sealed is opt-in and uses a bounded completed-resource cache", () => {
