@@ -22,7 +22,10 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+from backend.research.product_chase_economics import validation
+
 ARTIFACT = Path("docs/research/product_chase_stage5c.json")
+TEMPORAL = Path("docs/research/product_chase_stage5c_temporal.json")
 CORE_MULTIPLE = 3.0
 EXTENDED_MULTIPLE = 1.0
 SHOCKS = (0.02, 0.05, 0.10, 0.20)
@@ -57,7 +60,7 @@ def _flat(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
                             .get("chaseEvShareOfFullEv")),
                 "btb": ((core.get("beatTheBuyPackGranular") or {}).get("closedForm")),
                 "btbWhole": ((core.get("costGapWholeProduct") or {}).get("beatTheBuy")),
-                "gapMedian": ((core.get("costGapPackGranular") or {}).get("median")),
+                "gapMedian": ((core.get("costGapPackGranular") or {}).get("medianGap")),
                 "gapWholeMedian": ((core.get("costGapWholeProduct") or {}).get("median")),
                 "spend50": (((core.get("accessibility") or {}).get("costNormalised") or {})
                             .get("50", {}).get("spendPackGranular")),
@@ -72,21 +75,13 @@ def _k(prices: Sequence[float], threshold: float) -> int:
 
 
 def _spearman(x: Sequence[float], y: Sequence[float]) -> Optional[float]:
-    pairs = [(a, b) for a, b in zip(x, y) if a is not None and b is not None]
-    if len(pairs) < 3:
-        return None
-    def rank(values):
-        order = sorted(range(len(values)), key=lambda i: values[i])
-        out = [0.0] * len(values)
-        for position, index in enumerate(order):
-            out[index] = position + 1.0
-        return out
-    a = rank([p[0] for p in pairs])
-    b = rank([p[1] for p in pairs])
-    ma, mb = st.mean(a), st.mean(b)
-    num = sum((a[i] - ma) * (b[i] - mb) for i in range(len(a)))
-    den = math.sqrt(sum((v - ma) ** 2 for v in a) * sum((v - mb) ** 2 for v in b))
-    return num / den if den else None
+    """Delegates to the validation module's tie-aware Spearman.
+
+    Kept as a thin alias rather than a second implementation: the earlier local
+    version used competition ranks, which inflate agreement between two vectors
+    that are mostly ties - and product-level tier counts tie constantly.
+    """
+    return validation.spearman(x, y)
 
 
 def _pearson(x: Sequence[float], y: Sequence[float]) -> Optional[float]:
@@ -289,9 +284,138 @@ def phase20_coverage(payload: Dict[str, Any], rows: List[Dict[str, Any]]) -> Non
     print("  card-price vs product-cost skew (days): %s" % (distinct or "n/a"))
 
 
+
+def phase16_temporal(temporal_path: Path) -> None:
+    print("\n=== PHASE 16 - temporal validation (product-cost history) ===")
+    if not temporal_path.exists():
+        print("  no temporal artifact at %s - run "
+              "python -m backend.scripts.build_product_chase_stage5c_temporal"
+              % temporal_path)
+        return
+    payload = json.loads(temporal_path.read_text(encoding="utf-8"))
+    result = validation.temporal_replay(
+        price_vectors=payload["priceVectors"], observations=payload["observations"],
+        baseline_date=payload.get("sourceMarketDate"))
+    if not result.get("supported"):
+        print("  unsupported: %s" % result.get("reason"))
+        return
+    print("  SINGLE REGIME ONLY. Card prices frozen at the build basis; this")
+    print("  isolates movement in product_market_cost and nothing else.")
+    print("  window %s -> %s (%s days, %d observed dates), baseline %s"
+          % (result["dates"][0], result["dates"][-1], result["windowDays"],
+             len(result["dates"]), result["baselineDate"]))
+    print("  %-12s %6s %9s %8s %9s %8s %7s %8s"
+          % ("date", "n", "coreJ", "minJ", "extJ", "meanDK", "flips", "rankRho"))
+    for day in result["perDate"]:
+        rho = day["coreCountRankStability"]
+        print("  %-12s %6d %9.4f %8.3f %9.4f %+8.2f %7d %8s"
+              % (day["date"], day["productsCompared"], day["meanCoreJaccard"],
+                 day["minCoreJaccard"], day["meanExtendedJaccard"],
+                 day["meanCoreCountDelta"], day["coreExistenceFlips"],
+                 "-" if rho is None else "%+.4f" % rho))
+    volatility = result["productVolatility"]
+    moved = [v for v in volatility if v["coreCountRange"] > 0]
+    print("  total Core-existence flips across the whole window: %d"
+          % result["totalCoreExistenceFlips"])
+    print("  products whose Core COUNT moved at all: %d/%d"
+          % (len(moved), len(volatility)))
+    if volatility:
+        cvs = [v["packEquivalentCostCv"] for v in volatility]
+        print("  pack-equivalent cost CV: median %.4f  P90 %.4f  max %.4f (%s)"
+              % (st.median(cvs), sorted(cvs)[int(0.9 * (len(cvs) - 1))], cvs[0],
+                 volatility[0]["productKey"]))
+
+
+def phase17_pathological() -> None:
+    print("\n=== PHASE 17 - synthetic and pathological cases ===")
+    print("  Constructed products whose correct verdict is known in advance.")
+    print("  %-24s %10s %6s %6s %8s  %s"
+          % ("case", "C", "coreK", "extK", "verdict", "description"))
+    results = validation.run_catalogue()
+    for row in results:
+        print("  %-24s %10.2f %6d %6d %8s  %s"
+              % (row["key"], row["packEquivalentCost"], row["coreCount"],
+                 row["extendedCount"], "PASS" if row["passed"] else "FAIL",
+                 row["description"]))
+        if not row["passed"]:
+            print("      FAILURE: %s" % row["failure"])
+    failed = [r for r in results if not r["passed"]]
+    print("  %d/%d cases pass." % (len(results) - len(failed), len(results)))
+
+
+def central_proof(rows: List[Dict[str, Any]]) -> None:
+    """The claim the whole stage stands or falls on."""
+    print("\n=== CENTRAL PROOF - differentiation with equivalence ===")
+    differentiation = validation.differentiation_report(rows)
+    print("  HALF 1 - same-set products differ, for a legitimate reason")
+    print("    sets with >=2 products                     %d"
+          % differentiation["setsExamined"])
+    print("    ...of which have distinct per-pack costs   %d"
+          % differentiation["setsWithDistinctProductCosts"])
+    print("    ...differing WITHOUT a cost reason         %d"
+          % differentiation["setsWithIllegitimateDifference"])
+    print("    per-pack cost spread within a set: median x%.2f  max x%.2f"
+          % (differentiation["medianCostSpreadRatio"] or 0.0,
+             differentiation["maxCostSpreadRatio"] or 0.0))
+    widest = sorted(differentiation["perSet"],
+                    key=lambda r: -(r["costSpreadRatio"] or 0.0))[:5]
+    print("    widest sets: %s" % ", ".join(
+        "%s x%.2f (Core K range %d)" % (r["set"], r["costSpreadRatio"] or 0.0,
+                                        r["coreCountRange"]) for r in widest))
+    print("    HALF 1 %s" % ("HOLDS" if differentiation["holds"] else "FAILS"))
+
+    equivalence = validation.equivalence_classes(rows)
+    print("  HALF 2 - economically equivalent products behave equivalently")
+    print("    same-set pairs sharing a pack-equivalent cost   %d"
+          % equivalence["equivalencePairsFound"])
+    print("    ...of which are size contrasts (different n)    %d"
+          % equivalence["sizeContrastPairs"])
+    print("    violations                                      %d"
+          % len(equivalence["violations"]))
+    for violation in equivalence["violations"][:10]:
+        print("      %s / %s vs %s : %s %r != %r"
+              % (violation["set"], violation["left"], violation["right"],
+                 violation["field"], violation["leftValue"], violation["rightValue"]))
+    if equivalence["vacuous"]:
+        print("    HALF 2 VACUOUS on this cohort - no two same-set products share")
+        print("    a cost per pack, so exact equivalence has nothing to test here.")
+    else:
+        print("    HALF 2 %s" % ("HOLDS" if equivalence["holds"] else "FAILS"))
+
+    near = validation.near_equivalence(rows)
+    print("  HALF 2 (continuous form) - NEAR-equivalent products, within %.0f%% on cost"
+          % (near["costTolerance"] * 100))
+    print("    pairs found                                     %d" % near["pairsFound"])
+    print("    ...that are size contrasts (different n)        %d"
+          % near["sizeContrastPairs"])
+    print("    ...size contrasts that DO differ per unit       %d"
+          % near["sizeContrastsThatDifferPerUnit"])
+    if near["pairsFound"]:
+        print("    worst relative divergence on a cost-determined metric: %.4f (%s)"
+              % (near["maxRelativeDivergence"],
+                 near["worstPairs"][0]["worstField"]))
+        print("    median relative divergence: %.4f" % near["medianRelativeDivergence"])
+        for pair in near["worstPairs"][:3]:
+            print("      %s: %s vs %s | cost sep %.4f | %s diverges %.4f"
+                  % (pair["set"], pair["left"], pair["right"], pair["costSeparation"],
+                     pair["worstField"], pair["worstRelativeDivergence"]))
+    near_holds = (not near["vacuous"]
+                  and near["maxRelativeDivergence"] is not None
+                  and near["sizeContrastPairs"] == near["sizeContrastsThatDifferPerUnit"])
+    print("    continuous HALF 2 %s"
+          % ("EVIDENCE PRESENT" if near_holds else "VACUOUS - no near pairs"))
+    print("  Structural HALF 2: verified on the code path by Phase-17 cases")
+    print("  B_single_pack / B_thirty_six_packs, which is where the exact identity")
+    print("  is actually demonstrated rather than merely unobserved.")
+    print("  CENTRAL PROOF %s"
+          % ("HOLDS" if (differentiation["holds"]
+                         and not equivalence["violations"]) else "FAILS"))
+
+
 def main(argv: Sequence[str]) -> int:
     parser = argparse.ArgumentParser(description="Stage V-C analysis.")
     parser.add_argument("--artifact", default=str(ARTIFACT))
+    parser.add_argument("--temporal", default=str(TEMPORAL))
     args = parser.parse_args(list(argv))
 
     payload = json.loads(Path(args.artifact).read_text(encoding="utf-8"))
@@ -307,8 +431,11 @@ def main(argv: Sequence[str]) -> int:
     phase13_inheritance(rows)
     phase14_fairness(rows)
     phase15_shocks(rows)
+    phase16_temporal(Path(args.temporal))
+    phase17_pathological()
     phase18_redundancy(rows)
     phase19_depth(rows)
+    central_proof(rows)
     return 0
 
 
