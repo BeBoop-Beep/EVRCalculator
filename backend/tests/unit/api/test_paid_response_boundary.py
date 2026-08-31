@@ -238,11 +238,18 @@ def test_chase_efficiency_is_premium_and_gate_precedes_reader(monkeypatch):
     assert reads == [True]
 
 
-def test_custom_market_plus_cannot_reach_normalization_cache_or_runner(monkeypatch):
+def test_custom_market_plus_normalizes_for_access_but_cannot_reach_planner(monkeypatch):
     _install_auth(monkeypatch)
     touched = []
-    monkeypatch.setattr(main, "normalize_query_spec", lambda *args, **kwargs: touched.append("normalize"))
-    main._market_explorer_query_cache["premium-sentinel"] = (10**20, {"value": PREMIUM_VALUE})
+    normalized = {
+        "contractVersion": "test", "asset": "cards", "eraIds": (), "setIds": ("set",),
+        "segmentIds": ("rarity",), "pokemonIds": (), "priceSegmentIds": (),
+        "releaseAgeCohortIds": (), "mode": "all", "topN": None,
+    }
+    monkeypatch.setattr(main, "normalize_query_spec",
+                        lambda *args, **kwargs: touched.append("normalize") or normalized)
+    monkeypatch.setattr(main.GLOBAL_MARKET_EXPLORER_PLANNER, "execute",
+                        lambda **kwargs: touched.append("planner"))
     client = TestClient(main.app)
     response = client.post(
         "/market/explorer/query?plan=premium", json={
@@ -252,20 +259,24 @@ def test_custom_market_plus_cannot_reach_normalization_cache_or_runner(monkeypat
         headers=_headers("plus-token", **{"x-index-plan": "premium"}),
     )
     assert response.status_code == 403
-    assert response.json()["detail"]["code"] == "MARKET_EXPLORER_PREMIUM_REQUIRED"
-    assert touched == []
+    assert response.json()["detail"]["code"] == "MARKET_EXPLORER_PLAN_REQUIRED"
+    assert touched == ["normalize"]
 
 
 def test_custom_market_premium_cache_cannot_be_replayed_to_plus(monkeypatch):
     _install_auth(monkeypatch)
     main._market_explorer_query_cache.clear()
-    monkeypatch.setattr(main, "normalize_query_spec", lambda **kwargs: {"asset": "cards"})
-    monkeypatch.setattr(main, "query_fingerprint", lambda _spec: "shared-query")
+    normalized = {
+        "contractVersion": "test", "asset": "cards", "eraIds": (), "setIds": (),
+        "segmentIds": (), "pokemonIds": (), "priceSegmentIds": (),
+        "releaseAgeCohortIds": (), "mode": "chase", "topN": 10,
+    }
+    monkeypatch.setattr(main, "normalize_query_spec", lambda **kwargs: normalized)
     runs = []
-    monkeypatch.setattr(
-        main, "run_market_explorer_query",
-        lambda *args, **kwargs: runs.append(True) or {"premiumMetric": PREMIUM_VALUE},
-    )
+    from types import SimpleNamespace
+    monkeypatch.setattr(main.GLOBAL_MARKET_EXPLORER_PLANNER, "execute",
+                        lambda **kwargs: runs.append(True) or SimpleNamespace(
+                            payload={"premiumMetric": PREMIUM_VALUE}))
     monkeypatch.setattr(
         main, "build_market_explorer_filter_options",
         lambda _client: {"premiumOptions": PREMIUM_VALUE},
@@ -289,6 +300,6 @@ def test_custom_market_premium_cache_cannot_be_replayed_to_plus(monkeypatch):
 
     assert premium.status_code == 200 and str(PREMIUM_VALUE) in premium.text
     assert plus.status_code == 403 and str(PREMIUM_VALUE) not in plus.text
-    assert options_plus.status_code == 403
+    assert options_plus.status_code == 200
     assert options_premium.status_code == 200 and str(PREMIUM_VALUE) in options_premium.text
     assert runs == [True]

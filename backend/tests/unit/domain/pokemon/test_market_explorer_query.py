@@ -156,6 +156,22 @@ def test_differing_selections_do_not_collide():
     assert query_fingerprint(a) != query_fingerprint(b)
 
 
+def test_versioned_fingerprint_golden_vector_and_methodology_rotation():
+    spec = normalize_query_spec(
+        mode=MODE_CHASE, asset="cards", set_ids=["b", "a", "a"],
+        pokemon_ids=["25"], price_segment_ids=["premium"], top_n=10,
+    )
+    assert query_fingerprint(spec) == (
+        "2cb8862bc86ab03be481ae12f163838a5c9a6371ffc5613cbac03d27b139541d"
+    )
+    assert query_fingerprint(
+        spec, instrument_methodology_version="pokemon-physical-market-instrument-v2",
+    ) != query_fingerprint(spec)
+    assert query_fingerprint(
+        spec, service_version="pokemon-market-explorer-query-service-vNext",
+    ) != query_fingerprint(spec)
+
+
 def test_query_key_is_human_readable_and_stable():
     spec = normalize_query_spec(mode=MODE_CHASE, segment_ids=["specialIllustrationRare"])
     assert query_key(spec) == (

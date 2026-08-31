@@ -70,7 +70,7 @@ def test_the_gate_runs_before_the_cache_and_before_the_engine():
     query = _function_source("post_market_explorer_query")
     gate = query.index("_require_market_explorer_query_access")
     assert query.index("normalize_query_spec") < gate, "access must evaluate the normalized definition"
-    for behind in ("_market_explorer_query_cache", "runner("):
+    for behind in ("GLOBAL_MARKET_EXPLORER_PLANNER", "runner("):
         assert gate < query.index(behind), f"{behind} must sit behind the entitlement gate"
 
 

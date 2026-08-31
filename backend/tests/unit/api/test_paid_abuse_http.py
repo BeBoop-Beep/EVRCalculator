@@ -46,8 +46,9 @@ def test_premium_sequential_pages_eventually_return_429_with_retry_after(monkeyp
 def test_custom_query_variation_cannot_bypass_and_users_are_isolated(monkeypatch):
     _install_auth(monkeypatch)
     monkeypatch.setattr(main, "normalize_query_spec", lambda **kwargs: kwargs)
-    monkeypatch.setattr(main, "query_fingerprint", lambda spec: str(spec))
-    monkeypatch.setattr(main, "run_market_explorer_query", lambda *args, **kwargs: {"rows": []})
+    from types import SimpleNamespace
+    monkeypatch.setattr(main.GLOBAL_MARKET_EXPLORER_PLANNER, "execute",
+                        lambda **kwargs: SimpleNamespace(payload={"rows": []}))
     client = TestClient(main.app)
     responses = [client.post(
         "/market/explorer/query", json={"asset": "cards", "setIds": [f"set-{i}"]},
@@ -58,7 +59,7 @@ def test_custom_query_variation_cannot_bypass_and_users_are_isolated(monkeypatch
     assert client.post("/market/explorer/query", json={"asset": "cards"},
                        headers=_auth("premium-two")).status_code == 200
     assert client.post("/market/explorer/query", json={"asset": "cards"},
-                       headers=_auth("plus")).status_code == 403
+                       headers=_auth("plus")).status_code == 200
 
 
 def test_hard_pagination_and_topn_caps_are_enforced_before_readers(monkeypatch):

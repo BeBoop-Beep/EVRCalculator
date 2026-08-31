@@ -142,6 +142,13 @@ from backend.db.services.pokemon_market_explorer_query_service import (
     build_market_explorer_filter_options,
     run_market_explorer_query,
 )
+from backend.db.services.market_explorer_query_planner import (
+    GLOBAL_MARKET_EXPLORER_PLANNER,
+    GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
+    MarketExplorerBuildInProgress,
+    PersistentMarketExplorerCache,
+    resolve_canonical_through,
+)
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
 from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
 from backend.domain.pokemon.market_explorer_query import (
@@ -167,7 +174,9 @@ logger = logging.getLogger(__name__)
 
 _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS = 300
 _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES = 128
-_market_explorer_query_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
+# Backward-compatible diagnostics/test alias. The planner owns this L1; there
+# is no second endpoint-local query cache.
+_market_explorer_query_cache = GLOBAL_MARKET_EXPLORER_PLANNER.l1._entries
 _MARKET_EXPLORER_OPTIONS_CACHE_TTL_SECONDS = 900
 _market_explorer_options_cache: tuple[float, Dict[str, Any]] | None = None
 
@@ -1039,7 +1048,6 @@ def post_market_explorer_query(
     if payload.mode == "chase" and payload.topN not in (None, 10):
         return JSONResponse(content={"message": "Only Top 10 queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     try:
-        today = date.today().isoformat()
         # Normalized BEFORE the cache is consulted, so an invalid spec is
         # rejected rather than keyed, and equivalent selections share one entry.
         normalized = normalize_query_spec(
@@ -1053,40 +1061,48 @@ def post_market_explorer_query(
         )
         _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
                             route="/market/explorer/query")
-        cache_key = f"{query_fingerprint(normalized)}:{today}"
-        cached = _market_explorer_query_cache.get(cache_key)
-        if cached and cached[0] > time.monotonic():
-            return _tiered_response(cached[1])
         runner = (
             run_sealed_market_explorer_query if payload.asset == ASSET_SEALED
             else run_market_explorer_query
         )
-        result = runner(
-            service_read_client,
-            mode=payload.mode,
-            era_ids=payload.eraIds,
-            set_ids=payload.setIds,
-            segment_ids=payload.segmentIds,
-            pokemon_ids=payload.pokemonIds,
-            price_segment_ids=payload.priceSegmentIds,
-            release_age_cohort_ids=payload.releaseAgeCohortIds,
-            top_n=payload.topN,
-            start_date="1999-01-01",
-            end_date=today,
+        persistent = PersistentMarketExplorerCache(
+            service_read_client, metrics=GLOBAL_MARKET_EXPLORER_PLANNER.metrics,
         )
-        _market_explorer_query_cache[cache_key] = (
-            time.monotonic() + _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS,
-            result,
+
+        def build_market(previous_through: str | None, canonical_date: str) -> Dict[str, Any]:
+            return runner(
+                service_read_client,
+                mode=normalized["mode"],
+                era_ids=normalized["eraIds"], set_ids=normalized["setIds"],
+                segment_ids=normalized["segmentIds"],
+                pokemon_ids=normalized["pokemonIds"],
+                price_segment_ids=normalized["priceSegmentIds"],
+                release_age_cohort_ids=normalized["releaseAgeCohortIds"],
+                top_n=normalized["topN"],
+                # A forward refresh includes the cached anchor date. The
+                # planner rescales/appends and drops that duplicate point.
+                start_date=previous_through or "1999-01-01",
+                end_date=canonical_date,
+            )
+
+        planned = GLOBAL_MARKET_EXPLORER_PLANNER.execute(
+            spec=normalized,
+            prepared=GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
+            persistent=persistent,
+            canonical_through=lambda: resolve_canonical_through(
+                service_read_client, normalized,
+            ),
+            novel_builder=build_market,
         )
-        while len(_market_explorer_query_cache) > _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES:
-            _market_explorer_query_cache.pop(next(iter(_market_explorer_query_cache)), None)
-        return _tiered_response(result)
+        return _tiered_response(planned.payload)
     except HTTPException:
         raise
     except MarketExplorerQueryError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     except (MarketExplorerQueryUnavailable, SealedMarketExplorerQueryUnavailable) as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+    except MarketExplorerBuildInProgress as exc:
+        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_BUILDING"}, status_code=503)
     except Exception:
         logger.exception("/market/explorer/query unexpected error")
         return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "MARKET_EXPLORER_QUERY_FAILED"}, status_code=500)

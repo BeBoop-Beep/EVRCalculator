@@ -45,6 +45,15 @@ from backend.domain.pokemon.market_index import (
 )
 
 MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v3-variant"
+MARKET_EXPLORER_FINGERPRINT_VERSION = "market-explorer-fingerprint-v1"
+MARKET_EXPLORER_SERVICE_VERSIONS = {
+    "cards": "pokemon-market-explorer-query-service-v2-variant",
+    "sealed": "pokemon-sealed-market-explorer-query-service-v1",
+}
+MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS = {
+    "cards": "pokemon-physical-market-instrument-v1",
+    "sealed": "pokemon-sealed-product-market-instrument-v1",
+}
 
 FILTER_AXIS_SCOPE = "scope"
 FILTER_AXIS_SEGMENT = "segment"
@@ -257,19 +266,49 @@ def query_key(spec: Mapping[str, Any]) -> str:
     ))
 
 
-def query_fingerprint(spec: Mapping[str, Any]) -> str:
-    """Deterministic hash of the normalized spec, via the shared primitive."""
+def fingerprint_payload(
+    spec: Mapping[str, Any],
+    *,
+    service_version: str | None = None,
+    instrument_methodology_version: str | None = None,
+) -> dict[str, Any]:
+    """Canonical, versioned semantic identity used by every cache layer."""
+    asset = str(spec["asset"])
+    return {
+        "fingerprintVersion": MARKET_EXPLORER_FINGERPRINT_VERSION,
+        "queryContractVersion": spec["contractVersion"],
+        "serviceVersion": service_version or MARKET_EXPLORER_SERVICE_VERSIONS[asset],
+        "instrumentMethodologyVersion": (
+            instrument_methodology_version
+            or MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS[asset]
+        ),
+        "spec": {
+            "asset": asset,
+            "eraIds": list(spec["eraIds"]),
+            "setIds": list(spec["setIds"]),
+            "segmentIds": list(spec["segmentIds"]),
+            "pokemonIds": list(spec["pokemonIds"]),
+            "priceSegmentIds": list(spec["priceSegmentIds"]),
+            "releaseAgeCohortIds": list(spec["releaseAgeCohortIds"]),
+            "mode": spec["mode"],
+            "topN": spec["topN"],
+        },
+    }
+
+
+def query_fingerprint(
+    spec: Mapping[str, Any],
+    *,
+    service_version: str | None = None,
+    instrument_methodology_version: str | None = None,
+) -> str:
+    """SHA-256 identity of canonical semantics and methodology versions."""
     return deterministic_fingerprint({
-        "asset": spec["asset"],
-        "eraIds": list(spec["eraIds"]),
-        "setIds": list(spec["setIds"]),
-        "segmentIds": list(spec["segmentIds"]),
-        "pokemonIds": list(spec["pokemonIds"]),
-        "priceSegmentIds": list(spec["priceSegmentIds"]),
-        "releaseAgeCohortIds": list(spec["releaseAgeCohortIds"]),
-        "mode": spec["mode"],
-        "topN": spec["topN"],
-        "contractVersion": spec["contractVersion"],
+        **fingerprint_payload(
+            spec,
+            service_version=service_version,
+            instrument_methodology_version=instrument_methodology_version,
+        ),
     })
 
 
