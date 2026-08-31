@@ -103,6 +103,12 @@ def test_unknown_price_and_multi_item_fail_closed_but_are_audited():
     provider.subscriptions["sub_2"]=sub(sid="sub_2",items=2)
     assert svc.reconcile_subscription("sub_2")["commercial_mapping_status"]=="unsupported_shape"
 
+def test_shared_stripe_product_never_overrides_price_id_plan_authority():
+    svc,repo,provider=service(); provider.subscriptions["sub_1"]=sub(price="price_premium")
+    row=svc.reconcile_subscription("sub_1")
+    assert row["provider_product_id"]=="prod_1"
+    assert row["offer_key"]=="premium_monthly" and row["plan"]=="premium"
+
 def test_duplicate_event_is_safe_and_failed_event_can_retry():
     svc,repo,provider=service(); provider.subscriptions["sub_1"]=sub()
     event={"id":"evt_1","type":"customer.subscription.updated","data":{"object":{"id":"sub_1"}}}

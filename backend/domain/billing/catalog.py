@@ -33,12 +33,14 @@ _OFFER_DEFINITIONS = (
     ("premium_annual", "premium", "year", "STRIPE_PRICE_PREMIUM_ANNUAL", 21900),
 )
 
+APPROVED_CURRENCY = "usd"
+
 
 def build_offer_catalog(environ: Mapping[str, str] | None = None) -> Mapping[str, CommercialOffer]:
     source = os.environ if environ is None else environ
     checkout_enabled = (source.get("BILLING_CHECKOUT_ENABLED") or "").strip().lower() in {"1", "true", "yes"}
-    raw_currency = (source.get("BILLING_CURRENCY") or "").strip().lower()
-    currency = raw_currency if len(raw_currency) == 3 and raw_currency.isalpha() else None
+    raw_currency = (source.get("BILLING_CURRENCY") or APPROVED_CURRENCY).strip().lower()
+    currency = raw_currency if raw_currency == APPROVED_CURRENCY else None
     offers = {}
     for key, plan, interval, variable, unit_amount_minor in _OFFER_DEFINITIONS:
         price_id = (source.get(variable) or "").strip() or None

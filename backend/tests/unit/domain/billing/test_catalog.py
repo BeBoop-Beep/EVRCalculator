@@ -6,7 +6,7 @@ from backend.domain.billing.catalog import (
 )
 
 
-def test_all_declared_offers_are_disabled_and_price_neutral():
+def test_all_declared_offers_are_disabled_with_approved_usd_prices():
     assert set(OFFERS) == {"plus_monthly", "plus_annual", "premium_monthly", "premium_annual"}
     assert all(not offer.enabled for offer in OFFERS.values())
     assert all(offer.provider_price_id is None for offer in OFFERS.values())
@@ -14,12 +14,18 @@ def test_all_declared_offers_are_disabled_and_price_neutral():
         "plus_monthly": 999, "plus_annual": 7900,
         "premium_monthly": 2499, "premium_annual": 21900,
     }
-    assert all(offer.currency is None for offer in OFFERS.values())
+    assert all(offer.currency == "usd" for offer in OFFERS.values())
 
 
-def test_price_ids_without_approved_currency_cannot_activate_checkout():
-    offers = build_offer_catalog({"STRIPE_PRICE_PLUS_MONTHLY": "price_test"})
+def test_non_approved_currency_cannot_activate_checkout():
+    offers = build_offer_catalog({"BILLING_CURRENCY": "eur", "BILLING_CHECKOUT_ENABLED": "true", "STRIPE_PRICE_PLUS_MONTHLY": "price_test"})
     assert offers["plus_monthly"].purchasable is False
+
+
+def test_approved_usd_is_the_catalog_default():
+    offers = build_offer_catalog({"BILLING_CHECKOUT_ENABLED": "true", "STRIPE_PRICE_PLUS_MONTHLY": "price_test"})
+    assert offers["plus_monthly"].currency == "usd"
+    assert offers["plus_monthly"].purchasable is True
 
 
 def test_currency_and_server_price_mapping_activate_only_configured_offers():
