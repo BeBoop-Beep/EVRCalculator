@@ -141,11 +141,41 @@ def test_not_applicable_legacy_parity_passes_only_with_source_reconciliation():
     not_applicable = {"applicable": False, "status": "NOT_APPLICABLE"}
     source = {"status": "PASS"}
     series = {"status": "VARIANT_SOURCE_PARITY_PASS"}
-    assert acceptance.pilot_correctness_passes(integrity, cohort, not_applicable, source, series)
+    instruments = {"status": "PASS"}
+    assert acceptance.pilot_correctness_passes(
+        integrity, cohort, not_applicable, source, series, instruments)
     assert not acceptance.pilot_correctness_passes(
-        integrity, cohort, {"applicable": True, "status": "FAIL"}, source, series)
+        integrity, cohort, {"applicable": True, "status": "FAIL"}, source, series, instruments)
     assert not acceptance.pilot_correctness_passes(
-        integrity, cohort, not_applicable, {"status": "FAIL"}, series)
+        integrity, cohort, not_applicable, {"status": "FAIL"}, series, instruments)
+    assert not acceptance.pilot_correctness_passes(
+        integrity, cohort, not_applicable, source, series, {"status": "FAIL"})
+
+
+def test_market_instrument_audit_excludes_identity_records_not_physical_promos():
+    intervals = [
+        {"canonical_card_id": "main", "card_variant_id": "v1", "set_id": "s"},
+        {"canonical_card_id": "promo", "card_variant_id": "v2", "set_id": "s"},
+        {"canonical_card_id": "duplicate", "card_variant_id": "v3", "set_id": "s"},
+        {"canonical_card_id": "abstract", "card_variant_id": "v4", "set_id": "s"},
+    ]
+    canonical = [
+        {"id": "main", "catalog_role": "main", "set_value_eligible": False,
+         "opening_eligible": False},
+        {"id": "promo", "catalog_role": "promo_variant", "set_value_eligible": False,
+         "opening_eligible": False},
+        {"id": "duplicate", "catalog_role": "duplicate_alias",
+         "eligibility_reason": "duplicate_fallback_alias_of_same_physical_card"},
+        {"id": "abstract", "catalog_role": "abstract_identity",
+         "eligibility_reason": "abstract_api_identity_replaced_by_physical_pack_variants"},
+    ]
+    result = acceptance.audit_market_instrument_eligibility(intervals, canonical)
+    assert result["status"] == "FAIL"
+    assert result["invalidIntervalRows"] == 2
+    assert {row["catalog_role"] for row in result["invalidInstruments"]} == {
+        "duplicate_alias", "abstract_identity"
+    }
+    assert "promo_variant" in result["physicalMarketInstrumentRoles"]
 
 
 def test_high_impact_gap_classification_is_price_sorted_and_named():

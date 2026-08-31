@@ -48,6 +48,10 @@ REQUIRED_INDEXES = {
     "idx_pokemon_variant_market_intervals_canonical_validity",
 }
 STATUSES = {"PASS", "FAIL", "BLOCKED"}
+PHYSICAL_MARKET_INSTRUMENT_CATALOG_ROLES = frozenset({
+    "main", "subset", "pack_variant", "pack_energy", "promo",
+    "promo_variant", "product_exclusive", "product_insert",
+})
 
 
 @dataclass(frozen=True)
@@ -316,6 +320,36 @@ def validate_intervals(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
     return violations
 
 
+def audit_market_instrument_eligibility(
+    interval_rows: Sequence[Mapping[str, Any]],
+    canonical_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Fail closed when published intervals reference identity-only records."""
+    canonical = {str(row.get("id")): row for row in canonical_rows}
+    invalid_rows = []
+    instruments: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for row in interval_rows:
+        canonical_id = str(row.get("canonical_card_id"))
+        identity = canonical.get(canonical_id, {})
+        role = str(identity.get("catalog_role") or "")
+        if role not in PHYSICAL_MARKET_INSTRUMENT_CATALOG_ROLES:
+            invalid_rows.append(row)
+            key = (canonical_id, str(row.get("card_variant_id")), str(row.get("set_id")))
+            instruments[key] = {
+                "canonical_card_id": canonical_id,
+                "card_variant_id": key[1],
+                "catalog_role": role or None,
+                "eligibility_reason": identity.get("eligibility_reason"),
+                "set_id": key[2],
+            }
+    return {
+        "physicalMarketInstrumentRoles": sorted(PHYSICAL_MARKET_INSTRUMENT_CATALOG_ROLES),
+        "invalidIntervalRows": len(invalid_rows),
+        "invalidInstruments": list(instruments.values()),
+        "status": "PASS" if not invalid_rows else "FAIL",
+    }
+
+
 def compare_parity(old_rows: Sequence[Mapping[str, Any]], new_rows: Sequence[Mapping[str, Any]],
                    tolerance: float = 1e-8) -> dict[str, Any]:
     def derived(rows):
@@ -516,13 +550,16 @@ def pilot_correctness_passes(integrity: Mapping[str, int] | None,
                              cohort: Mapping[str, Any] | None,
                              legacy_parity: Mapping[str, Any] | None,
                              source_reconciliation: Mapping[str, Any] | None,
-                             source_series_parity: Mapping[str, Any] | None) -> bool:
+                             source_series_parity: Mapping[str, Any] | None,
+                             instrument_eligibility: Mapping[str, Any] | None) -> bool:
     return bool(integrity is not None and not any(integrity.values())
                 and cohort and cohort.get("currentBasketValid")
                 and legacy_parity and legacy_parity.get("status") in {"PASS", "NOT_APPLICABLE"}
                 and source_reconciliation and source_reconciliation.get("status") == "PASS"
                 and source_series_parity
-                and source_series_parity.get("status") == "VARIANT_SOURCE_PARITY_PASS")
+                and source_series_parity.get("status") == "VARIANT_SOURCE_PARITY_PASS"
+                and instrument_eligibility
+                and instrument_eligibility.get("status") == "PASS")
 
 
 def classify_high_impact(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -624,6 +661,14 @@ def run_pilot(client: Any, pilot_key: str, *, commit: bool, verify_existing: boo
                           "currency_ok": str(observations.get(str(row["observation_id"]), {}).get("currency") or "").strip('"').upper() == "USD"}
                          for row in interval_rows]
     integrity = validate_intervals(interval_rows) if inspect_intervals else None
+    instrument_eligibility = None
+    if inspect_intervals:
+        interval_canonical_ids = sorted({str(row.get("canonical_card_id")) for row in interval_rows})
+        canonical_roles = []
+        for batch in _chunks(interval_canonical_ids):
+            canonical_roles.extend(_paged(lambda batch=batch: client.table("pokemon_canonical_cards")
+                .select("id,catalog_role,eligibility_reason,set_id").in_("id", batch).order("id")))
+        instrument_eligibility = audit_market_instrument_eligibility(interval_rows, canonical_roles)
     editions = {label: sum(str(row.get("edition") or "").lower() == value for row in authority)
                 for label, value in (("firstEdition", "1st-edition"), ("unlimited", "unlimited"))}
     editions["unspecified"] = sum(not row.get("edition") for row in authority)
@@ -726,7 +771,8 @@ def run_pilot(client: Any, pilot_key: str, *, commit: bool, verify_existing: boo
             parity = {"status": "FAIL", "reason": "no canonical Market dates"}
     pilot_failed = bool(backfill.get("failures")) or (
         inspect_intervals and not pilot_correctness_passes(
-            integrity, cohort, parity, source_reconciliation, source_series_parity))
+            integrity, cohort, parity, source_reconciliation, source_series_parity,
+            instrument_eligibility))
     return {"pilot": pilot, "commit": commit, "canonicalCards": canonical_count,
             "canonicalCardsResolved": len(canonical),
             "variants": len(variants), "variantsWithNmUsdHistory": len(history_variants),
@@ -736,6 +782,7 @@ def run_pilot(client: Any, pilot_key: str, *, commit: bool, verify_existing: boo
             "specialTypes": sum(bool(row.get("special_type")) for row in authority)},
             "multiVariantCurrentExamples": current_examples[:25],
             "cohort": cohort, "legacyParity": parity,
+            "marketInstrumentEligibility": instrument_eligibility,
             "variantSourceReconciliation": source_reconciliation,
             "variantSourceSeriesParity": source_series_parity,
             "status": "FAIL" if pilot_failed else "PASS"}
