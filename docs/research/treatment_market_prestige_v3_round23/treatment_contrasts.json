@@ -1,0 +1,952 @@
+[
+  {
+    "contrast": [
+      "unknown|non-holo|unknown",
+      "unknown|reverse-holo|unknown"
+    ],
+    "identities": 11263,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|unknown",
+      "unknown|reverse-holo|unknown"
+    ],
+    "identities": 1673,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|non-holo|unknown",
+      "unlimited|non-holo|unknown"
+    ],
+    "identities": 673,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "1st-edition|non-holo|unknown",
+      "unknown|non-holo|unknown"
+    ],
+    "identities": 672,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "1st-edition|non-holo|unknown",
+      "unlimited|non-holo|unknown"
+    ],
+    "identities": 672,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|pokeball",
+      "unknown|reverse-holo|unknown"
+    ],
+    "identities": 261,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "illustration_rare"
+    ],
+    "identities": 244,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare",
+      "rare_holo"
+    ],
+    "identities": 223,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|pokeball",
+      "unknown|non-holo|unknown"
+    ],
+    "identities": 220,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|unknown",
+      "unknown|non-holo|unknown"
+    ],
+    "identities": 213,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|master ball",
+      "unknown|holo|pokeball"
+    ],
+    "identities": 212,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|master ball",
+      "unknown|reverse-holo|unknown"
+    ],
+    "identities": 211,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_rainbow",
+      "rare_ultra"
+    ],
+    "identities": 209,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "double_rare",
+      "ultra_rare"
+    ],
+    "identities": 183,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_ultra",
+      "uncommon"
+    ],
+    "identities": 171,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|master ball",
+      "unknown|non-holo|unknown"
+    ],
+    "identities": 170,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|unknown",
+      "unlimited|holo|unknown"
+    ],
+    "identities": 163,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "1st-edition|holo|unknown",
+      "unknown|holo|unknown"
+    ],
+    "identities": 162,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "1st-edition|holo|unknown",
+      "unlimited|holo|unknown"
+    ],
+    "identities": 162,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_v",
+      "rare_ultra"
+    ],
+    "identities": 156,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "illustration_rare",
+      "uncommon"
+    ],
+    "identities": 154,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "special_illustration_rare",
+      "ultra_rare"
+    ],
+    "identities": 148,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_gx",
+      "rare_rainbow"
+    ],
+    "identities": 133,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_gx",
+      "rare_ultra"
+    ],
+    "identities": 130,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_ex",
+      "rare_ultra"
+    ],
+    "identities": 125,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "double_rare",
+      "special_illustration_rare"
+    ],
+    "identities": 121,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "ultra_rare",
+      "uncommon"
+    ],
+    "identities": 105,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_secret",
+      "uncommon"
+    ],
+    "identities": 95,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "illustration_rare",
+      "rare"
+    ],
+    "identities": 79,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_rainbow",
+      "uncommon"
+    ],
+    "identities": 72,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "uncommon"
+    ],
+    "identities": 70,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare",
+      "uncommon"
+    ],
+    "identities": 67,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_vmax",
+      "rare_rainbow"
+    ],
+    "identities": 58,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "special_illustration_rare",
+      "uncommon"
+    ],
+    "identities": 56,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|master ball",
+      "unknown|holo|unknown"
+    ],
+    "identities": 53,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|pokeball",
+      "unknown|holo|unknown"
+    ],
+    "identities": 53,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|reverse-holo|pokeball",
+      "unknown|reverse-holo|unknown"
+    ],
+    "identities": 34,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "double_rare",
+      "hyper_rare"
+    ],
+    "identities": 26,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|non-holo|unknown",
+      "unknown|reverse-holo|pokeball"
+    ],
+    "identities": 25,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "hyper_rare",
+      "special_illustration_rare"
+    ],
+    "identities": 24,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo",
+      "rare_ultra"
+    ],
+    "identities": 24,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_vstar",
+      "rare_rainbow"
+    ],
+    "identities": 24,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "hyper_rare",
+      "ultra_rare"
+    ],
+    "identities": 23,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "rare"
+    ],
+    "identities": 20,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo",
+      "uncommon"
+    ],
+    "identities": 18,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|non-holo|pokeball",
+      "unknown|reverse-holo|pokeball"
+    ],
+    "identities": 18,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "shiny_rare"
+    ],
+    "identities": 16,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "ultra_rare"
+    ],
+    "identities": 16,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_ex",
+      "rare_secret"
+    ],
+    "identities": 12,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare",
+      "rare_prime"
+    ],
+    "identities": 11,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare",
+      "rare_secret"
+    ],
+    "identities": 11,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo",
+      "rare_secret"
+    ],
+    "identities": 11,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare",
+      "shiny_rare"
+    ],
+    "identities": 10,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_rainbow",
+      "rare_secret"
+    ],
+    "identities": 10,
+    "leaveOneIdentityOutFeasibility": ">=10",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "hyper_rare",
+      "uncommon"
+    ],
+    "identities": 9,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_vstar",
+      "rare_secret"
+    ],
+    "identities": 9,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|unknown",
+      "unknown|reverse-holo|pokeball"
+    ],
+    "identities": 9,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "double_rare",
+      "mega_hyper_rare"
+    ],
+    "identities": 8,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_secret",
+      "rare_ultra"
+    ],
+    "identities": 8,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "rare_secret"
+    ],
+    "identities": 7,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "double_rare",
+      "shiny_ultra_rare"
+    ],
+    "identities": 7,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "mega_attack_rare",
+      "special_illustration_rare"
+    ],
+    "identities": 7,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "mega_hyper_rare",
+      "special_illustration_rare"
+    ],
+    "identities": 7,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo",
+      "rare_rainbow"
+    ],
+    "identities": 7,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "shiny_rare",
+      "uncommon"
+    ],
+    "identities": 7,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "double_rare",
+      "mega_attack_rare"
+    ],
+    "identities": 6,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "mega_hyper_rare",
+      "ultra_rare"
+    ],
+    "identities": 6,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo",
+      "rare_prime"
+    ],
+    "identities": 5,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_vmax",
+      "rare_secret"
+    ],
+    "identities": 5,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_prime",
+      "uncommon"
+    ],
+    "identities": 5,
+    "leaveOneIdentityOutFeasibility": "5-9",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "special_illustration_rare"
+    ],
+    "identities": 4,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare",
+      "ultra_rare"
+    ],
+    "identities": 4,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|non-holo|master ball",
+      "unknown|reverse-holo|master ball"
+    ],
+    "identities": 4,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "rare_holo"
+    ],
+    "identities": 3,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "illustration_rare",
+      "shiny_rare"
+    ],
+    "identities": 3,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "black_white_rare",
+      "double_rare"
+    ],
+    "identities": 2,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "black_white_rare",
+      "special_illustration_rare"
+    ],
+    "identities": 2,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "black_white_rare",
+      "ultra_rare"
+    ],
+    "identities": 2,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "hyper_rare"
+    ],
+    "identities": 2,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare",
+      "rare_ultra"
+    ],
+    "identities": 2,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare",
+      "special_illustration_rare"
+    ],
+    "identities": 2,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_v",
+      "rare_secret"
+    ],
+    "identities": 2,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "shiny_ultra_rare",
+      "special_illustration_rare"
+    ],
+    "identities": 2,
+    "leaveOneIdentityOutFeasibility": "2-4",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "1st-edition|non-holo|master ball",
+      "unknown|non-holo|master ball"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "1st-edition|non-holo|master ball",
+      "unlimited|non-holo|master ball"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "1st-edition|non-holo|pokeball",
+      "unknown|non-holo|pokeball"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "1st-edition|non-holo|pokeball",
+      "unlimited|non-holo|pokeball"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "common",
+      "rare_holo_star"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "mega_attack_rare",
+      "mega_hyper_rare"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare",
+      "rare_holo_star"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "rare_holo_gx",
+      "rare_secret"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|journey-together-stamped",
+      "unknown|holo|unknown"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|holo|mega-evolution-stamped",
+      "unknown|holo|unknown"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|non-holo|master ball",
+      "unlimited|non-holo|master ball"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  },
+  {
+    "contrast": [
+      "unknown|non-holo|pokeball",
+      "unlimited|non-holo|pokeball"
+    ],
+    "identities": 1,
+    "leaveOneIdentityOutFeasibility": "1",
+    "sharedDates": 0,
+    "consistency": null
+  }
+]
