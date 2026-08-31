@@ -82,6 +82,10 @@ test("rich Market resources are isolated without moving Market presentation", ()
   const controller = read("../../../../hooks/pokemon/useSetMarketController.js");
   assert.match(richMarket, /useSetMarketController\(\{/);
   assert.doesNotMatch(rich, /useSetMarketController/);
+  assert.doesNotMatch(rich, /MarketOverviewSection=|ChaseCardsPanel=/);
+  assert.doesNotMatch(rich, /function SetMarketOverviewSection|function TopChaseCardsPanel/);
+  assert.match(richMarket, /<RichMarketOverviewSection/);
+  assert.match(richMarket, /<RichTopChaseCardsPanel/);
   assert.doesNotMatch(rich, /getPokemonSetOverview\(/);
   assert.doesNotMatch(rich, /getPokemonSetTopChase\(/);
   assert.doesNotMatch(rich, /getPokemonSetMarketMovers\(/);

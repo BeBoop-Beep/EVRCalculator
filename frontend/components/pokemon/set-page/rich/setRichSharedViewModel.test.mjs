@@ -2,10 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { selectSetRichSharedViewModel } from "./setRichSharedViewModel.mjs";
 
-test("identity and shell card count are authoritative", () => {
+test("identity and canonical target card count are authoritative", () => {
   const model = selectSetRichSharedViewModel({ setId: "set-1", shell: { set: { id: "set-1", cardCount: 181 } }, target: { id: "set-1", card_count: 180 } });
   assert.deepEqual(model.identity, { setId: "set-1", valid: true });
-  assert.equal(model.cardCount, 181);
+  assert.equal(model.cardCount, 180);
+});
+test("summary fallback wins over a differently-defined shell identity count", () => {
+  const model = selectSetRichSharedViewModel({
+    setId: "set-1",
+    shell: { set: { id: "set-1", cardCount: 305 }, summary: { simulated_set_value_card_count: 295 } },
+  });
+  assert.equal(model.cardCount, 295);
 });
 test("target and RIP bootstrap provide narrow fallback without card rows", () => {
   assert.equal(selectSetRichSharedViewModel({ setId: "set-1", target: { id: "set-1", card_count: 99 } }).cardCount, 99);

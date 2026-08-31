@@ -10,6 +10,8 @@ import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSumma
 import { buildMarketDashboardStateFromPayload, createMarketDashboardState } from "@/components/explore/marketDashboardState.mjs";
 import { selectMoversTickerItems } from "@/components/explore/moversTickerSelector.mjs";
 import { getMarketDateSourceFromPayload, resolveMarketAsOfDate } from "@/components/explore/marketAsOfDate.mjs";
+import RichMarketOverviewSection from "./market/RichMarketOverviewSection";
+import RichTopChaseCardsPanel from "./market/RichTopChaseCardsPanel";
 
 function toNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -78,8 +80,6 @@ export default function RichMarketSetTab({
   moversTickerHref,
   authoritativeSetCardCount,
   topChaseRowHref,
-  MarketOverviewSection,
-  ChaseCardsPanel,
 }) {
   const { activeOverviewState, activeMarketMoversState, activeTopChaseState, retryMarketMovers: retryMarketMoversModule, retryTopChase: retryTopChaseModule } = useSetMarketController({
     setId: resolvedSetResourceId, enabled: true, canFetch, destinationSeedPending,
@@ -196,7 +196,7 @@ export default function RichMarketSetTab({
       >
       <span id="set-detail-market-sealed" aria-hidden="true" className="block scroll-mt-24 md:scroll-mt-28" />
       <SectionErrorBoundary sectionName="market-overview" resetKeys={[resolvedSetResourceId]} title="Market Value Trend" minHeightClassName="min-h-[28rem]">
-      <MarketOverviewSection
+      <RichMarketOverviewSection
       setId={resolvedSetResourceId}
       cardsHistory={activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history}
       // THE LIVE SOURCE. `activeMarketDashboardDerivedState` is
@@ -222,7 +222,7 @@ export default function RichMarketSetTab({
       part of Section 2's card. */}
       <div id="set-detail-market-top-chase" data-market-section="top-chase" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
       <SectionErrorBoundary sectionName="market-top-chase" resetKeys={[resolvedSetResourceId]} title="Top 10 Chase Cards" minHeightClassName="min-h-[24rem]">
-      <ChaseCardsPanel
+      <RichTopChaseCardsPanel
       setId={resolvedSetResourceId}
       setSlug={activeSetSlug}
       cards={desktopTopPricedCards}
