@@ -575,6 +575,32 @@ def test_all_filter_axes_are_sent_to_one_variant_cohort_rpc():
     }
 
 
+def test_daily_projection_coverage_requires_every_set_and_full_range():
+    class Query:
+        def select(self, *_args): return self
+        def in_(self, *_args): return self
+        def execute(self):
+            return _RpcResult([
+                {"set_id": "set-a", "first_market_date": "2026-04-11", "computed_through": "2026-08-31"},
+                {"set_id": "set-b", "first_market_date": "2026-04-11", "computed_through": "2026-08-31"},
+            ])
+    class Client:
+        def table(self, name):
+            assert name == "pokemon_market_explorer_card_daily_coverage"
+            return Query()
+    assert svc.daily_projection_covers(Client(), ["set-a", "set-b"],
+        start_date="2026-04-11", end_date="2026-08-31")
+    assert not svc.daily_projection_covers(Client(), ["set-a", "set-c"],
+        start_date="2026-04-11", end_date="2026-08-31")
+
+
+def test_daily_projection_coverage_failure_falls_back_closed():
+    class Client:
+        def table(self, _name): raise RuntimeError("controlled coverage failure")
+    assert not svc.daily_projection_covers(Client(), ["set-a"],
+        start_date="2026-04-11", end_date="2026-08-31")
+
+
 def test_filtered_cohort_chunks_overlap_once_without_dropping_dates():
     calls = []
 

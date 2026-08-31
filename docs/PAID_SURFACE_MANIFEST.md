@@ -43,3 +43,23 @@ All 17 canonical paid capability identities are represented above. None is class
 path. Future paid surfaces must add a row here and use the canonical funnel.
 
 `ZERO_UNCLASSIFIED_CUSTOMER_VISIBLE_PAID_SURFACES = true`
+
+## Post-edit audit totals
+
+| Classification | Count |
+| --- | ---: |
+| Customer-visible paid/membership surfaces | 17 |
+| Plus capability surfaces | 10 |
+| Premium capability surfaces | 5 |
+| Global mixed-tier membership surfaces | 2 |
+| Updated to the global funnel | 17 |
+| Already-correct customer paid surfaces | 0 |
+| Informational/editorial groups | 1 |
+| Test-only groups | 1 |
+| Docs-only groups | 1 |
+| Backend-only groups | 1 |
+| Unclassified customer-visible paid surfaces | 0 |
+
+The repeated repository scan matched 91 frontend files across UI, entitlement helpers, tests,
+and editorial code. Stale purchase-route language remained only inside a test asserting that
+`Sign in to unlock` is absent. No customer-visible stale match remains.

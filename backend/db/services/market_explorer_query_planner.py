@@ -391,12 +391,13 @@ class MarketExplorerQueryPlanner:
         )
         try:
             delta = novel_builder(previous, through)
+            engine = (delta.get("diagnostics") or {}).get("executionEngine")
             if previous and previous < through and row:
                 payload = merge_incremental_result(row.get("series_payload") or {}, delta)
-                source = "cache_incremental"
+                source = f"cache_incremental_{engine}" if engine else "cache_incremental"
             else:
                 payload = delta
-                source = "novel_interval"
+                source = str(engine or "novel_interval")
             if won is True and not persistent.publish(fingerprint=fingerprint, token=token, payload=payload):
                 self.metrics.record("cache_build_failures", 0)
             if generation.trusted:

@@ -405,6 +405,7 @@ COHORT_RPC = "get_pokemon_market_explorer_daily_cohort"
 #: the actual constituent identities are needed for the published basket.
 BATCHED_CONSTITUENT_RPC = "get_pokemon_cards_daily_constituents"
 FILTERED_COHORT_RPC = "get_pokemon_market_explorer_filtered_cohort"
+DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_daily"
 
 _RPC_MAX_ROWS_PER_RESPONSE = 1000
 
@@ -428,6 +429,7 @@ def load_filtered_daily_cohort_rows(
     release_age_cohort_ids: Sequence[str] = (),
     top_n: int | None = None,
     chunk_days: int = COHORT_CHUNK_DAYS,
+    rpc_name: str = FILTERED_COHORT_RPC,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Reduced point-in-time cohort and latest basket from the filtered SQL RPC.
 
@@ -441,6 +443,10 @@ def load_filtered_daily_cohort_rows(
     latest_basket: list[dict[str, Any]] = []
     cursor = first
     previous_observed: str | None = None
+    # Interval fallback work grows with both dates and sets. Keep each fallback
+    # statement bounded at mixed-cohort scale; projection calls are cheap but
+    # use the same overlap contract for deterministic equivalence.
+    chunk_days = min(int(chunk_days), max(3, 70 // max(1, len(set_ids))))
     while cursor <= last:
         chunk_end = min(last, cursor + timedelta(days=max(1, int(chunk_days)) - 1))
         request_start = date.fromisoformat(previous_observed) if previous_observed else cursor
@@ -455,7 +461,7 @@ def load_filtered_daily_cohort_rows(
             "p_release_age_cohort_ids": list(release_age_cohort_ids) or None,
             "p_top_n": int(top_n) if top_n else None,
         }
-        page = list(getattr(client.rpc(FILTERED_COHORT_RPC, payload).execute(), "data", None) or [])
+        page = list(getattr(client.rpc(rpc_name, payload).execute(), "data", None) or [])
         if previous_observed is not None:
             page = [row for row in page if str(row.get("market_date"))[:10] != previous_observed]
         if page:
@@ -490,6 +496,26 @@ def load_filtered_daily_cohort_rows(
         "rank": row.get("rank"),
     } for row in latest_basket if _numeric(row.get("market_price")) is not None]
     return cohorts, basket
+
+
+def daily_projection_covers(client: Any, set_ids: Sequence[str], *,
+                            start_date: str, end_date: str) -> bool:
+    """Fail closed unless every set has complete projection coverage."""
+    wanted = {str(value) for value in set_ids}
+    if not wanted:
+        return False
+    try:
+        rows = list((client.table("pokemon_market_explorer_card_daily_coverage")
+                     .select("set_id,first_market_date,computed_through")
+                     .in_("set_id", sorted(wanted)).execute()).data or [])
+    except Exception:
+        return False
+    covered = {
+        str(row.get("set_id")) for row in rows
+        if str(row.get("first_market_date") or "")[:10] <= str(start_date)[:10]
+        and str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
+    }
+    return covered == wanted
 
 
 def _is_statement_timeout(exc: Exception) -> bool:
@@ -1014,16 +1040,21 @@ def run_market_explorer_query(
             "the requested date range does not overlap this scope's tracked history"
         )
 
-    # Every valid Cards query now uses the same variant-level interval engine.
-    # Static rarity/scope/Pokemon filters and point-in-time price/release
-    # filters therefore share one ranking and common-cohort authority; broad
-    # markets never fall back to the legacy card/day transport path.
+    current_only = effective_start == effective_end
+    projection_covered = (not current_only and daily_projection_covers(
+        client, scope_set_ids, start_date=effective_start, end_date=effective_end,
+    ))
+    execution_engine = (
+        "interval_current" if current_only else
+        "daily_projection" if projection_covered else "interval_fallback"
+    )
     cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
         client, scope_set_ids, start_date=effective_start, end_date=effective_end,
         card_ids=card_ids,
         segment_ids=spec["segmentIds"], pokemon_ids=spec["pokemonIds"],
         price_segment_ids=spec["priceSegmentIds"],
         release_age_cohort_ids=spec["releaseAgeCohortIds"], top_n=spec["topN"],
+        rpc_name=DAILY_PROJECTION_RPC if projection_covered else FILTERED_COHORT_RPC,
     )
     if not cohort_rows:
         raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
@@ -1059,6 +1090,7 @@ def run_market_explorer_query(
             "endDate": effective_end,
         },
         "diagnostics": {
+            "executionEngine": execution_engine,
             "cohortRowCount": len(cohort_rows),
             "currentBasketRowCount": len(basket_rows),
             "movementBaselineDateCount": max(0, len(movement_prices) - 1),
