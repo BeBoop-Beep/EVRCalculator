@@ -5,11 +5,12 @@ from backend.domain.billing.catalog import BillingOfferNotConfigured
 client=TestClient(main.app)
 
 class FakeService:
-    checkout_calls=[]; events=[]
+    checkout_calls=[]; events=[]; portal_calls=[]
     def __init__(self):
         self.provider=self
     def create_checkout(self, **kwargs): self.checkout_calls.append(kwargs); return "https://checkout.stripe.test/cs_1"
     def billing_status(self, uid): return {"effectivePlan":None,"billingManaged":False,"subscriptionStatus":None,"offerKey":None,"cancelAtPeriodEnd":False,"currentPeriodEnd":None,"billingConfigured":False}
+    def create_customer_portal(self, **kwargs): self.portal_calls.append(kwargs); return "https://billing.stripe.test/session"
     def construct_event(self, raw, signature):
         if signature!="valid":
             from backend.domain.billing.errors import InvalidWebhookSignature
@@ -44,3 +45,10 @@ def test_webhook_requires_signature_and_raw_verified_event(monkeypatch):
     assert FakeService.events==[]
     assert client.post("/billing/stripe/webhook",content=b'{}',headers={"Stripe-Signature":"valid"}).status_code==200
     assert len(FakeService.events)==1
+
+def test_portal_requires_auth_and_uses_server_owned_identity_and_return(monkeypatch):
+    auth(monkeypatch); monkeypatch.setattr(main,"BillingService",FakeService); FakeService.portal_calls.clear()
+    assert client.post("/billing/customer-portal").status_code==401
+    response=client.post("/billing/customer-portal",json={"customerId":"cus_other","returnUrl":"https://evil.test"},headers={"Authorization":"Bearer good"})
+    assert response.status_code==200 and response.json()=={"portalUrl":"https://billing.stripe.test/session"}
+    assert FakeService.portal_calls==[{"user_id":"user-a","return_url":"http://localhost:3000/account-settings?section=billing"}]

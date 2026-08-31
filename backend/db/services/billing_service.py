@@ -4,8 +4,8 @@ import logging
 from datetime import datetime, timezone
 from backend.db.repositories.billing_repository import BillingRepository
 from backend.domain.billing.catalog import OFFERS, BillingOfferNotConfigured, offer_for_price_id
-from backend.domain.billing.errors import BillingOwnershipError
-from backend.domain.billing.policy import effective_plan, has_duplicate_active_subscriptions
+from backend.domain.billing.errors import BillingOwnershipError, BillingPortalUnavailable, BillingSubscriptionAlreadyManaged
+from backend.domain.billing.policy import effective_plan, has_duplicate_active_subscriptions, subscription_grants_access, PLAN_RANK
 from backend.domain.billing.providers.stripe_provider import StripeProvider
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,8 @@ class BillingService:
 
     def create_checkout(self, *, user_id, offer_key, success_url, cancel_url):
         offer = self.resolve_checkout_offer(offer_key)
+        if any(subscription_grants_access(row.get("status")) for row in self.repository.find_subscriptions(user_id)):
+            raise BillingSubscriptionAlreadyManaged("Use Customer Portal for an existing subscription")
         profile = self.repository.get_profile(user_id) or {"id": user_id}
         customer = self.ensure_customer(user_id=user_id, email=profile.get("email"))
         session = _plain(self.provider.create_checkout_session(
@@ -53,6 +55,15 @@ class BillingService:
             user_id=user_id, offer_key=offer.offer_key, plan=offer.plan,
             success_url=success_url, cancel_url=cancel_url))
         logger.info("billing.checkout.created user_id=%s customer_id=%s", user_id, customer["provider_customer_id"])
+        return session["url"]
+
+    def create_customer_portal(self, *, user_id, return_url):
+        customer = self.repository.find_customer(user_id)
+        if not customer:
+            raise BillingPortalUnavailable("No Stripe billing relationship exists")
+        session = _plain(self.provider.create_customer_portal_session(
+            customer_id=customer["provider_customer_id"], return_url=return_url))
+        logger.info("billing.portal.created user_id=%s", user_id)
         return session["url"]
 
     def reconcile_subscription(self, subscription_id):
@@ -92,11 +103,18 @@ class BillingService:
         rows, manual = self.repository.find_subscriptions(user_id), self.repository.manual_plan(user_id)
         plan = effective_plan(rows, manual)
         if has_duplicate_active_subscriptions(rows): logger.warning("billing.multiple_active_subscriptions user_id=%s", user_id)
-        active = next((row for row in rows if row.get("plan") == plan and row.get("commercial_mapping_status", "mapped") == "mapped"), None)
-        return {"effectivePlan": plan, "billingManaged": bool(active), "subscriptionStatus": active.get("status") if active else None,
-            "offerKey": active.get("offer_key") if active else None, "cancelAtPeriodEnd": bool(active and active.get("cancel_at_period_end")),
-            "currentPeriodEnd": active.get("current_period_end") if active else None,
-            "billingConfigured": any(offer.purchasable for offer in self.offers.values())}
+        mapped = [row for row in rows if row.get("commercial_mapping_status", "mapped") == "mapped"]
+        mapped.sort(key=lambda row: (subscription_grants_access(row.get("status")), PLAN_RANK.get(row.get("plan"), 0), row.get("updated_at") or ""), reverse=True)
+        billing = mapped[0] if mapped else None
+        customer = self.repository.find_customer(user_id)
+        purchasable = sorted(key for key, offer in self.offers.items() if offer.purchasable)
+        return {"effectivePlan": plan, "billingPlan": billing.get("plan") if billing else None,
+            "billingManaged": bool(customer and billing), "accessManagedByIndex": bool(manual),
+            "subscriptionStatus": billing.get("status") if billing else None,
+            "offerKey": billing.get("offer_key") if billing else None,
+            "cancelAtPeriodEnd": bool(billing and billing.get("cancel_at_period_end")),
+            "currentPeriodEnd": billing.get("current_period_end") if billing else None,
+            "billingConfigured": bool(purchasable), "purchasableOfferKeys": purchasable}
 
     def handle_event(self, event):
         event = _plain(event); event_id, event_type = event["id"], event["type"]

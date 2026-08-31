@@ -46,6 +46,15 @@ class StripeProvider:
         except BillingNotConfigured: raise
         except Exception as exc: raise BillingProviderError("Stripe subscription retrieval failed") from exc
 
+    def create_customer_portal_session(self, *, customer_id: str, return_url: str):
+        try:
+            return self._client().v1.billing_portal.sessions.create({
+                "customer": customer_id,
+                "return_url": return_url,
+            })
+        except BillingNotConfigured: raise
+        except Exception as exc: raise BillingProviderError("Stripe Customer Portal creation failed") from exc
+
     def construct_event(self, raw_body: bytes, signature: str):
         if not self.webhook_secret:
             raise BillingNotConfigured("STRIPE_WEBHOOK_SECRET is not configured")

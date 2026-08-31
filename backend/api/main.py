@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field  # type: ignore[reportMissingImports]
 from pydantic import ConfigDict
 from backend.db.services.billing_service import BillingService
 from backend.domain.billing.catalog import BillingOfferNotConfigured
-from backend.domain.billing.errors import BillingError, BillingProviderError, InvalidWebhookSignature
+from backend.domain.billing.errors import BillingError, BillingProviderError, BillingPortalUnavailable, BillingSubscriptionAlreadyManaged, InvalidWebhookSignature
 
 from backend.db.services.waitlist_signup_service import (
     insert_waitlist_signup,
@@ -485,7 +485,14 @@ def _billing_redirect_urls() -> tuple[str, str]:
     origin = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").strip().rstrip("/")
     if os.getenv("APP_ENV", "").lower() == "production" and not origin.startswith("https://"):
         raise HTTPException(status_code=503, detail={"code": "BILLING_NOT_CONFIGURED"})
-    return f"{origin}/account-settings?billing=success", f"{origin}/account-settings?billing=canceled"
+    return f"{origin}/billing/success", f"{origin}/billing/cancel"
+
+
+def _billing_portal_return_url() -> str:
+    origin = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").strip().rstrip("/")
+    if os.getenv("APP_ENV", "").lower() == "production" and not origin.startswith("https://"):
+        raise HTTPException(status_code=503, detail={"code": "BILLING_NOT_CONFIGURED"})
+    return f"{origin}/account-settings?section=billing"
 
 
 @app.post("/billing/checkout-session")
@@ -506,6 +513,8 @@ def create_billing_checkout_session(
         raise HTTPException(status_code=409, detail={"code": "BILLING_OFFER_NOT_CONFIGURED"})
     except BillingProviderError:
         raise HTTPException(status_code=503, detail={"code": "BILLING_PROVIDER_UNAVAILABLE"})
+    except BillingSubscriptionAlreadyManaged:
+        raise HTTPException(status_code=409, detail={"code": "BILLING_SUBSCRIPTION_ALREADY_MANAGED"})
     except BillingError as exc:
         raise HTTPException(status_code=503, detail={"code": exc.code})
 
@@ -517,6 +526,24 @@ def get_billing_me(
 ):
     user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
     return _tiered_response(BillingService().billing_status(user_id))
+
+
+@app.post("/billing/customer-portal")
+def create_billing_customer_portal(
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    try:
+        portal_url = BillingService().create_customer_portal(
+            user_id=user_id, return_url=_billing_portal_return_url())
+        return _tiered_response({"portalUrl": portal_url})
+    except BillingPortalUnavailable:
+        raise HTTPException(status_code=409, detail={"code": "BILLING_PORTAL_UNAVAILABLE"})
+    except BillingProviderError:
+        raise HTTPException(status_code=503, detail={"code": "BILLING_PROVIDER_UNAVAILABLE"})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
 
 
 @app.post("/billing/stripe/webhook")

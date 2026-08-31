@@ -22,10 +22,11 @@ class Repo:
     def fail_webhook_event(self, eid, code, summary): self.claims[eid]="failed"
 
 class Provider:
-    def __init__(self): self.subscriptions={}; self.customer_calls=0; self.checkout=None
+    def __init__(self): self.subscriptions={}; self.customer_calls=0; self.checkout=None; self.portal=None
     def create_customer(self, **kwargs): self.customer_calls+=1; return {"id":"cus_1"}
     def create_checkout_session(self, **kwargs): self.checkout=kwargs; return {"url":"https://checkout.stripe.test/session"}
     def retrieve_subscription(self, sid): return self.subscriptions[sid]
+    def create_customer_portal_session(self, **kwargs): self.portal=kwargs; return {"url":"https://billing.stripe.test/session"}
 
 OFFERS={"plus_monthly":CommercialOffer("plus_monthly","plus","month",True,"price_plus"),
         "premium_monthly":CommercialOffer("premium_monthly","premium","month",True,"price_premium")}
@@ -46,6 +47,18 @@ def test_checkout_uses_only_server_offer_customer_and_urls():
     svc,_,provider=service(); url=svc.create_checkout(user_id="u1",offer_key="plus_monthly",success_url="https://index/s",cancel_url="https://index/c")
     assert url.startswith("https://checkout.stripe.test/")
     assert provider.checkout["price_id"]=="price_plus" and provider.checkout["customer_id"]=="cus_1"
+
+def test_portal_uses_persisted_customer_and_server_return_url_only():
+    svc,_,provider=service(); url=svc.create_customer_portal(user_id="u1",return_url="https://index.test/account-settings?section=billing")
+    assert url=="https://billing.stripe.test/session"
+    assert provider.portal=={"customer_id":"cus_1","return_url":"https://index.test/account-settings?section=billing"}
+
+def test_status_dto_distinguishes_effective_manual_and_billing_plan():
+    svc,repo,_=service(); repo.rows=[{"plan":"plus","status":"active","offer_key":"plus_monthly","commercial_mapping_status":"mapped","cancel_at_period_end":False}]
+    repo.manual_plan=lambda uid:"premium"
+    dto=svc.billing_status("u1")
+    assert dto["effectivePlan"]=="premium" and dto["billingPlan"]=="plus" and dto["accessManagedByIndex"] is True
+    assert dto["billingManaged"] is True and dto["purchasableOfferKeys"]==["plus_monthly","premium_monthly"]
 
 @pytest.mark.parametrize("status",["trialing","active","past_due","incomplete","incomplete_expired","unpaid","canceled","paused","new_status"])
 def test_reconciliation_persists_current_authoritative_status(status):
