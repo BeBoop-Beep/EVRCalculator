@@ -20,8 +20,9 @@ from backend.domain.pokemon.market_explorer_query import normalize_query_spec, q
 
 
 class MemoryPersistent:
-    def __init__(self, row=None):
+    def __init__(self, row=None, *, repair_generation=0):
         self.row = row
+        self.generation = repair_generation
 
     def read(self, _fingerprint):
         return copy.deepcopy(self.row)
@@ -36,7 +37,7 @@ class MemoryPersistent:
         return None
 
     def repair_generation(self, _asset):
-        return 0
+        return self.generation
 
 
 def representative_payload(points=140, constituents=211):
@@ -104,6 +105,11 @@ def run():
         spec=spec, prepared=empty, persistent=MemoryPersistent(ready),
         canonical_through=lambda: through, novel_builder=lambda *_: value,
     ))
+    unknown_generation_l2 = bench(lambda: MarketExplorerQueryPlanner().execute(
+        spec=spec, prepared=empty,
+        persistent=MemoryPersistent(ready, repair_generation=None),
+        canonical_through=lambda: through, novel_builder=lambda *_: value,
+    ))
 
     old = copy.deepcopy(value)
     old["asOf"] = old["trend"][-2][0]
@@ -130,6 +136,7 @@ def run():
         "watermarkCacheHit": watermark_cache_hit,
         "newGenerationL1Miss": new_generation_l1_miss,
         "l2RepositorySimulated": l2,
+        "unknownGenerationReadyL2Bypass": unknown_generation_l2,
         "incrementalMergeSimulated": incremental, "novelPlannerOverhead": novel_overhead,
     }
 

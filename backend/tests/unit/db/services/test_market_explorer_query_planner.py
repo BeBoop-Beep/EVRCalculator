@@ -8,6 +8,7 @@ from backend.db.services.market_explorer_query_planner import (
     MarketExplorerBuildInProgress,
     MarketExplorerL1Cache,
     MarketExplorerQueryPlanner,
+    PersistentMarketExplorerCache,
     PreparedEquivalenceRegistry,
     PublicationGeneration,
     PublicationWatermarkCache,
@@ -39,15 +40,20 @@ def payload(through="2026-08-28", *, start="2026-08-27", value=101.0):
 
 
 class FakePersistent:
-    def __init__(self, row=None, *, claim=True, publish=True, repair_generation=0):
+    def __init__(self, row=None, *, claim=True, publish=True, repair_generation=0,
+                 generation_error=False, read_error=False):
         self.row = copy.deepcopy(row)
         self.claim_result = claim
         self.publish_result = publish
         self.generation = repair_generation
+        self.generation_error = generation_error
+        self.read_error = read_error
         self.calls = []
 
     def read(self, fingerprint):
         self.calls.append("read")
+        if self.read_error:
+            return None
         return copy.deepcopy(self.row)
 
     def claim(self, **kwargs):
@@ -66,6 +72,8 @@ class FakePersistent:
 
     def repair_generation(self, _asset):
         self.calls.append("generation")
+        if self.generation_error:
+            return None
         return self.generation
 
 
@@ -73,6 +81,29 @@ def planner():
     return MarketExplorerQueryPlanner(
         l1=MarketExplorerL1Cache(ttl_seconds=300, capacity=4), sleep=lambda _: None,
     )
+
+
+class GenerationClient:
+    def __init__(self, data=None, error=None):
+        self.data = data
+        self.error = error
+
+    def table(self, _name):
+        return self
+
+    def select(self, _columns):
+        return self
+
+    def eq(self, _column, _value):
+        return self
+
+    def limit(self, _count):
+        return self
+
+    def execute(self):
+        if self.error:
+            raise self.error
+        return type("Response", (), {"data": self.data})()
 
 
 def test_prepared_equivalence_precedes_both_caches_and_novel_engine():
@@ -86,6 +117,19 @@ def test_prepared_equivalence_precedes_both_caches_and_novel_engine():
         novel_builder=lambda *_: built.append(True))
     assert result.execution_source == "prepared"
     assert persistent.calls == [] and built == []
+
+
+@pytest.mark.parametrize("value", [0, 1])
+def test_persistent_repair_generation_preserves_legitimate_values(value):
+    cache = PersistentMarketExplorerCache(GenerationClient([{"repair_generation": value}]))
+    assert cache.repair_generation("cards") == value
+
+
+def test_persistent_repair_generation_read_failure_and_missing_row_are_unknown():
+    assert PersistentMarketExplorerCache(
+        GenerationClient(error=RuntimeError("transient"))
+    ).repair_generation("cards") is None
+    assert PersistentMarketExplorerCache(GenerationClient([])).repair_generation("cards") is None
 
 
 def test_near_equivalent_does_not_use_prepared_and_cards_sealed_never_collide():
@@ -306,3 +350,142 @@ def test_true_same_generation_l1_hit_avoids_l2_and_novel_after_tiny_watermark_hi
     )
     assert result.execution_source == "memory_cache"
     assert persistent.calls == []
+
+
+def test_unknown_generation_has_no_l1_identity_and_is_not_watermark_cached():
+    generation = PublicationGeneration("2026-08-28", None)
+    assert generation.trusted is False
+    with pytest.raises(ValueError, match="unknown repair generation"):
+        _ = generation.token
+
+    loads = iter([generation, PublicationGeneration("2026-08-28", 1)])
+    watermarks = PublicationWatermarkCache(ttl_seconds=300)
+    scope = ("cards", (), ())
+    assert watermarks.resolve(scope, lambda: next(loads)).trusted is False
+    assert watermarks.resolve(scope, lambda: next(loads)).repair_generation == 1
+
+
+@pytest.mark.parametrize("asset", ["cards", "sealed"])
+def test_generation_failure_bypasses_old_l1_and_uses_ready_current_l2_without_put(asset):
+    spec = normalize_query_spec(mode=MODE_ALL, asset=asset)
+    fingerprint = query_fingerprint(spec)
+    old = PublicationGeneration("2026-08-28", 0)
+    cache = MarketExplorerL1Cache()
+    stale_l1_payload = payload(value=999.0)
+    cache.put(fingerprint, old, stale_l1_payload)
+    current_l2_payload = payload(value=111.0)
+    persistent = FakePersistent(
+        {"status": "ready", "computed_through": "2026-08-28",
+         "series_payload": current_l2_payload}, generation_error=True,
+    )
+
+    result = MarketExplorerQueryPlanner(l1=cache).execute(
+        spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+        canonical_through=lambda: "2026-08-28",
+        novel_builder=lambda *_: pytest.fail("ready/current L2 is authoritative"),
+    )
+    assert result.execution_source == "persistent_cache"
+    assert result.payload["indexValue"] == 111.0
+    assert cache.get(fingerprint, old)["indexValue"] == 999.0
+    assert persistent.calls == ["generation", "read"]
+
+
+@pytest.mark.parametrize("asset", ["cards", "sealed"])
+def test_generation_failure_with_stale_l2_forces_full_rebuild(asset):
+    spec = normalize_query_spec(mode=MODE_ALL, asset=asset)
+    persistent = FakePersistent(
+        {"status": "stale", "computed_through": "2026-08-28", "series_payload": payload()},
+        generation_error=True,
+    )
+    ranges = []
+    result = planner().execute(
+        spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+        canonical_through=lambda: "2026-08-28",
+        novel_builder=lambda start, end: ranges.append((start, end)) or payload(),
+    )
+    assert result.execution_source == "novel_interval"
+    assert ranges == [(None, "2026-08-28")]
+
+
+def test_generation_failure_with_missing_or_failed_l2_remains_available():
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(claim=None, generation_error=True, read_error=True)
+    result = planner().execute(
+        spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+        canonical_through=lambda: "2026-08-28",
+        novel_builder=lambda start, end: payload(),
+    )
+    assert result.execution_source == "novel_interval"
+    assert persistent.calls == ["generation", "read", "claim"]
+
+
+def test_generation_failure_preserves_active_lease_follower_semantics():
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(
+        {"status": "building", "computed_through": None}, claim=False,
+        generation_error=True,
+    )
+    with pytest.raises(MarketExplorerBuildInProgress):
+        planner().execute(
+            spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+            canonical_through=lambda: "2026-08-28",
+            novel_builder=lambda *_: pytest.fail("must not duplicate active build"),
+        )
+    assert persistent.calls == ["generation", "read", "claim", "read", "read"]
+
+
+def test_failed_generation_is_retried_and_next_trusted_generation_can_use_l1():
+    spec = normalize_query_spec(mode=MODE_ALL)
+    fingerprint = query_fingerprint(spec)
+    cache = MarketExplorerL1Cache()
+    repaired = PublicationGeneration("2026-08-28", 1)
+    cache.put(fingerprint, repaired, payload(value=123.0))
+    watermarks = PublicationWatermarkCache(ttl_seconds=300)
+    persistent = FakePersistent(
+        {"status": "ready", "computed_through": "2026-08-28", "series_payload": payload()},
+        generation_error=True,
+    )
+    instance = MarketExplorerQueryPlanner(l1=cache, watermarks=watermarks)
+    first = instance.execute(
+        spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+        canonical_through=lambda: "2026-08-28",
+        novel_builder=lambda *_: pytest.fail("L2 ready"),
+    )
+    persistent.generation_error = False
+    persistent.generation = 1
+    second = instance.execute(
+        spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+        canonical_through=lambda: "2026-08-28",
+        novel_builder=lambda *_: pytest.fail("trusted L1"),
+    )
+    assert first.execution_source == "persistent_cache"
+    assert second.execution_source == "memory_cache"
+    assert second.payload["indexValue"] == 123.0
+    assert persistent.calls.count("generation") == 2
+
+
+def test_two_workers_cannot_serve_old_l1_when_one_generation_read_fails():
+    spec = normalize_query_spec(mode=MODE_ALL)
+    fingerprint = query_fingerprint(spec)
+    caches = [MarketExplorerL1Cache(), MarketExplorerL1Cache()]
+    for cache in caches:
+        cache.put(fingerprint, PublicationGeneration("2026-08-28", 0), payload(value=999.0))
+
+    known = MarketExplorerQueryPlanner(l1=caches[0]).execute(
+        spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=FakePersistent(
+            {"status": "stale", "computed_through": "2026-08-28", "series_payload": payload()},
+            repair_generation=1,
+        ),
+        canonical_through=lambda: "2026-08-28", novel_builder=lambda *_: payload(value=111.0),
+    )
+    unknown = MarketExplorerQueryPlanner(l1=caches[1]).execute(
+        spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=FakePersistent(
+            {"status": "stale", "computed_through": "2026-08-28", "series_payload": payload()},
+            generation_error=True,
+        ),
+        canonical_through=lambda: "2026-08-28", novel_builder=lambda *_: payload(value=112.0),
+    )
+    assert known.payload["indexValue"] == 111.0
+    assert unknown.payload["indexValue"] == 112.0

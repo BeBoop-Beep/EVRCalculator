@@ -63,10 +63,16 @@ class MarketExplorerBuildInProgress(RuntimeError):
 @dataclass(frozen=True)
 class PublicationGeneration:
     canonical_through: str
-    repair_generation: int = 0
+    repair_generation: int | None = 0
+
+    @property
+    def trusted(self) -> bool:
+        return self.repair_generation is not None
 
     @property
     def token(self) -> str:
+        if not self.trusted:
+            raise ValueError("unknown repair generation has no L1 cache identity")
         return f"{str(self.canonical_through)[:10]}:r{int(self.repair_generation)}"
 
 
@@ -93,7 +99,10 @@ class PublicationWatermarkCache:
         if cached and cached[0] > now:
             return cached[1]
         generation = loader()
-        self._entries[scope_key] = (now + self.ttl_seconds, generation)
+        # A failed state-table read must be retried on the next request. Treating
+        # unknown as generation zero could resurrect a pre-repair L1 entry.
+        if generation.trusted:
+            self._entries[scope_key] = (now + self.ttl_seconds, generation)
         return generation
 
     def clear(self) -> None:
@@ -230,19 +239,21 @@ class PersistentMarketExplorerCache:
         }).execute()
         return int(response.data or 0)
 
-    def repair_generation(self, asset: str) -> int:
-        """Cross-worker generation; zero is the safe pre-migration fallback."""
+    def repair_generation(self, asset: str) -> int | None:
+        """Cross-worker generation; unknown fails closed by bypassing process L1."""
         try:
             rows = list((self.client.table("pokemon_market_explorer_cache_state")
                          .select("repair_generation").eq("asset", str(asset))
                          .limit(1).execute()).data or [])
-            return int(rows[0].get("repair_generation") or 0) if rows else 0
+            if not rows or rows[0].get("repair_generation") is None:
+                return None
+            return int(rows[0]["repair_generation"])
         except Exception as exc:
             if self.metrics:
                 self.metrics.record("cache_read_failures", 0)
             logger.warning("market_explorer_repair_generation_read_failed asset=%s error=%s",
                            asset, type(exc).__name__)
-            return 0
+            return None
 
 
 class PreparedEquivalenceRegistry:
@@ -341,14 +352,16 @@ class MarketExplorerQueryPlanner:
         )
         through = generation.canonical_through
 
-        hot = self.l1.get(fingerprint, generation)
-        if hot is not None:
-            return self._done(started, "memory_cache", hot)
+        if generation.trusted:
+            hot = self.l1.get(fingerprint, generation)
+            if hot is not None:
+                return self._done(started, "memory_cache", hot)
 
         row = persistent.read(fingerprint)
         if row and row.get("status") == "ready" and str(row.get("computed_through"))[:10] == through:
             payload = dict(row.get("series_payload") or {})
-            self.l1.put(fingerprint, generation, payload)
+            if generation.trusted:
+                self.l1.put(fingerprint, generation, payload)
             return self._done(started, "persistent_cache", payload)
 
         token = str(uuid4())
@@ -361,7 +374,8 @@ class MarketExplorerQueryPlanner:
                 if (follower and follower.get("status") == "ready"
                         and str(follower.get("computed_through"))[:10] == through):
                     payload = dict(follower.get("series_payload") or {})
-                    self.l1.put(fingerprint, generation, payload)
+                    if generation.trusted:
+                        self.l1.put(fingerprint, generation, payload)
                     return self._done(started, "persistent_cache", payload)
 
             raise MarketExplorerBuildInProgress(
@@ -385,7 +399,8 @@ class MarketExplorerQueryPlanner:
                 source = "novel_interval"
             if won is True and not persistent.publish(fingerprint=fingerprint, token=token, payload=payload):
                 self.metrics.record("cache_build_failures", 0)
-            self.l1.put(fingerprint, generation, payload)
+            if generation.trusted:
+                self.l1.put(fingerprint, generation, payload)
             return self._done(started, source, payload)
         except Exception:
             if won is True:
