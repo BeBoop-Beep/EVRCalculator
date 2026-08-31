@@ -8,8 +8,8 @@ from backend.scripts.billing_doctor import diagnose
 from backend.scripts.reconcile_stripe_billing import run
 
 
-OFFERS = {"plus": CommercialOffer("plus", "plus", "month", True, "price_plus"),
-          "premium": CommercialOffer("premium", "premium", "month", True, "price_premium")}
+OFFERS = {"plus": CommercialOffer("plus", "plus", "month", True, "price_plus", 999, "usd"),
+          "premium": CommercialOffer("premium", "premium", "month", True, "price_premium", 2499, "usd")}
 
 
 def subscription(sid="sub_1", price="price_plus", status="active", items=1):

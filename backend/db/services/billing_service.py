@@ -121,13 +121,19 @@ class BillingService:
         billing = mapped[0] if mapped else None
         customer = self.repository.find_customer(user_id)
         purchasable = sorted(key for key, offer in self.offers.items() if offer.purchasable)
+        public_offers = [{"offerKey": offer.offer_key, "plan": offer.plan,
+                          "billingInterval": offer.billing_interval,
+                          "unitAmount": offer.unit_amount_minor, "currency": offer.currency,
+                          "purchasable": True}
+                         for key in purchasable for offer in [self.offers[key]]]
         return {"effectivePlan": plan, "billingPlan": billing.get("plan") if billing else None,
             "billingManaged": bool(customer and billing), "accessManagedByIndex": bool(manual),
             "subscriptionStatus": billing.get("status") if billing else None,
             "offerKey": billing.get("offer_key") if billing else None,
             "cancelAtPeriodEnd": bool(billing and billing.get("cancel_at_period_end")),
             "currentPeriodEnd": billing.get("current_period_end") if billing else None,
-            "billingConfigured": bool(purchasable), "purchasableOfferKeys": purchasable}
+            "billingConfigured": bool(purchasable), "purchasableOfferKeys": purchasable,
+            "offers": public_offers}
 
     def handle_event(self, event):
         event = _plain(event); event_id, event_type = event["id"], event["type"]

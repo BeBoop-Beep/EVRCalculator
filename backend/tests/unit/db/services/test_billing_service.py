@@ -29,8 +29,8 @@ class Provider:
     def retrieve_subscription(self, sid): return self.subscriptions[sid]
     def create_customer_portal_session(self, **kwargs): self.portal=kwargs; return {"url":"https://billing.stripe.test/session"}
 
-OFFERS={"plus_monthly":CommercialOffer("plus_monthly","plus","month",True,"price_plus"),
-        "premium_monthly":CommercialOffer("premium_monthly","premium","month",True,"price_premium")}
+OFFERS={"plus_monthly":CommercialOffer("plus_monthly","plus","month",True,"price_plus",999,"usd"),
+        "premium_monthly":CommercialOffer("premium_monthly","premium","month",True,"price_premium",2499,"usd")}
 def sub(price="price_plus", status="active", sid="sub_1", items=1):
     return {"id":sid,"customer":"cus_1","status":status,"cancel_at_period_end":False,
       "items":{"data":[{"price":{"id":price,"product":"prod_1"}} for _ in range(items)]}}
@@ -87,6 +87,10 @@ def test_status_dto_distinguishes_effective_manual_and_billing_plan():
     dto=svc.billing_status("u1")
     assert dto["effectivePlan"]=="premium" and dto["billingPlan"]=="plus" and dto["accessManagedByIndex"] is True
     assert dto["billingManaged"] is True and dto["purchasableOfferKeys"]==["plus_monthly","premium_monthly"]
+    assert dto["offers"]==[
+        {"offerKey":"plus_monthly","plan":"plus","billingInterval":"month","unitAmount":999,"currency":"usd","purchasable":True},
+        {"offerKey":"premium_monthly","plan":"premium","billingInterval":"month","unitAmount":2499,"currency":"usd","purchasable":True},
+    ]
 
 @pytest.mark.parametrize("status",["trialing","active","past_due","incomplete","incomplete_expired","unpaid","canceled","paused","new_status"])
 def test_reconciliation_persists_current_authoritative_status(status):

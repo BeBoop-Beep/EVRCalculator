@@ -1,6 +1,6 @@
 # Billing Effort 5 Launch Decision
 
-Status: `EFFORT_5_BLOCKED_ON_COMMERCIAL_INPUTS`
+Status: `EFFORT_5_BLOCKED_ON_REMAINING_COMMERCIAL_AND_LAUNCH_INPUTS`
 
 This record intentionally contains no invented prices, Stripe object identifiers, secrets,
 or assumed legal/commercial policies. No database, Stripe account, deployment environment,
@@ -8,19 +8,20 @@ or public offer was mutated during this pass.
 
 ## Commercial contract
 
-The project owner has not yet supplied the mandatory approved decision record:
+The project owner approved all four recurring offer amounts and intervals. Currency and the
+remaining operating/legal policies are not yet approved:
 
 | Decision | Approved value |
 | --- | --- |
 | Currency | UNRESOLVED |
-| Index Plus monthly offered | UNRESOLVED |
-| Index Plus monthly price | UNRESOLVED |
-| Index Plus annual offered | UNRESOLVED |
-| Index Plus annual price | UNRESOLVED |
-| Index Premium monthly offered | UNRESOLVED |
-| Index Premium monthly price | UNRESOLVED |
-| Index Premium annual offered | UNRESOLVED |
-| Index Premium annual price | UNRESOLVED |
+| Index Plus monthly offered | YES |
+| Index Plus monthly price | 999 minor units / $9.99 under a two-decimal currency |
+| Index Plus annual offered | YES |
+| Index Plus annual price | 7900 minor units / $79.00 under a two-decimal currency |
+| Index Premium monthly offered | YES |
+| Index Premium monthly price | 2499 minor units / $24.99 under a two-decimal currency |
+| Index Premium annual offered | YES |
+| Index Premium annual price | 21900 minor units / $219.00 under a two-decimal currency |
 | Free trial | UNRESOLVED |
 | Promotion codes | UNRESOLVED |
 | Automatic tax | UNRESOLVED |
@@ -29,8 +30,10 @@ The project owner has not yet supplied the mandatory approved decision record:
 | Refund policy | UNRESOLVED |
 | Legal purchase copy | NOT APPROVED / unavailable |
 
-No selected offer can be created until its offered/not-offered decision and exact amount are
-approved. `N/A` is acceptable for an interval explicitly declined by the owner.
+Approved annual presentation: Plus saves 4088 minor units (`34%`, effective 658 minor units per
+month); Premium saves 8088 minor units (`27%`, effective 1825 minor units per month). These are
+normal annual prices, not temporary promotions. Stripe Prices cannot be created until the ISO
+currency is approved.
 
 ## Environment classification
 
@@ -79,17 +82,21 @@ STRIPE_PRICE_PLUS_MONTHLY: absent
 STRIPE_PRICE_PLUS_ANNUAL: absent
 STRIPE_PRICE_PREMIUM_MONTHLY: absent
 STRIPE_PRICE_PREMIUM_ANNUAL: absent
+BILLING_CURRENCY: absent
+BILLING_CHECKOUT_ENABLED: false
 ```
 
-After approval, create at most two sandbox Products (`Index Plus`, `Index Premium`) and only
-the approved recurring Prices. Validate currency, interval, tax behavior, and `livemode=false`
+After remaining approval, create at most two sandbox Products (`Index Plus`, `Index Premium`)
+and the four approved recurring Prices. Validate currency, interval, tax behavior, and `livemode=false`
 before mapping Price IDs to backend-only environment variables.
 
 ## Price presentation and public pricing
 
-The browser currently receives only canonical offer keys and shows “Pricing pending” because
-zero offers are configured. No price amount is hardcoded. Server-authoritative display amounts
-and a public pricing surface must be added only after real approved Stripe Prices exist. The
+The server catalog now owns the approved minor-unit amounts. A safe DTO exposes amount, currency,
+interval, plan, and purchasability only for fully configured offers. Central frontend helpers
+derive annual savings, rounded discount, effective monthly annual rate, and localized display.
+The browser still shows “Pricing pending” because currency, real Price IDs, and checkout activation
+are absent. A public pricing surface must be added only after real approved Stripe Prices exist. The
 locked Plus/Premium capability packaging must not change or advertise unfinished capabilities.
 
 ## Customer Portal configuration
@@ -140,6 +147,8 @@ stripeSecretConfigured: false
 webhookSecretConfigured: false
 configuredOfferCount: 0
 schemaReachable: false
+billingCurrencyConfigured: false
+checkoutEnabled: false
 ```
 
 Webhook/anomaly counts cannot be treated as healthy zeros while the billing schema is
@@ -182,7 +191,7 @@ switch and never mass-demote subscribers without authoritative reconciliation.
 
 The next execution may proceed only after the owner supplies:
 
-1. every commercial-contract decision above;
+1. every still-unresolved commercial-contract decision above;
 2. legal approval and final purchase-flow copy;
 3. explicit staging and production Supabase classifications;
 4. explicit sandbox/live Stripe account classifications and secured credentials;
