@@ -76,7 +76,7 @@ try {
   await waitForPort(NEXT_PORT, "Next production server");
   await run("node", [".perf-audit/set-rich-visual-parity.mjs", `--${mode}`], {
     BASE: `http://127.0.0.1:${NEXT_PORT}`,
-    SET_VISUAL_BASELINE: "set-rich-fixture-v1",
+    SET_VISUAL_BASELINE: "set-rich-fixture-v2",
   });
   const report = await (await fetch(`${backend}/__fixture__/report`)).json();
   console.log(JSON.stringify(report, null, 2));
