@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import signal
@@ -328,7 +329,7 @@ def _process_claimed_job(job: dict, worker_market_date: str) -> None:
     return 0
 
 
-def dispatch_next_scrape_job() -> int:
+def dispatch_next_scrape_job(market_date: Optional[str] = None) -> int:
     """Drain eligible jobs sequentially under the caller's existing flock.
 
     Defaults permit a normal 167-set batch while bounding the process to 200
@@ -345,7 +346,7 @@ def dispatch_next_scrape_job() -> int:
     _install_signal_handlers()
     worker_id = _worker_id()
     lease_seconds = _lease_seconds()
-    worker_market_date = _market_date_iso()
+    worker_market_date = market_date or _market_date_iso()
     max_jobs = _positive_env_int("SCRAPE_DRAIN_MAX_JOBS", DEFAULT_DRAIN_MAX_JOBS)
     max_runtime = _positive_env_int(
         "SCRAPE_DRAIN_MAX_RUNTIME_SECONDS", DEFAULT_DRAIN_MAX_RUNTIME_SECONDS)
@@ -358,7 +359,7 @@ def dispatch_next_scrape_job() -> int:
             break
         if jobs_processed and time.monotonic() - started >= max_runtime:
             break
-        if _market_date_iso() != worker_market_date:
+        if market_date is None and _market_date_iso() != worker_market_date:
             logger.warning("%s Phoenix market date changed; stopping before claim", DISPATCHER_TAG)
             break
 
@@ -384,8 +385,15 @@ def dispatch_next_scrape_job() -> int:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Drain the normal Pokémon scrape queue for one market date")
+    parser.add_argument(
+        "--market-date",
+        default=None,
+        help="Explicit America/Phoenix recovery date; default is the current Phoenix date.",
+    )
+    args = parser.parse_args()
     try:
-        return dispatch_next_scrape_job()
+        return dispatch_next_scrape_job(market_date=args.market_date)
     except Exception:
         logger.exception("%s dispatcher runtime failure", DISPATCHER_TAG)
         return 1
