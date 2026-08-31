@@ -869,15 +869,8 @@ def _extra_phases(payload, rows, scores):
 # Phases 23-24 - price shocks and short-window temporal stability
 # --------------------------------------------------------------------------
 
-def _scenario_scores(rows, observations, kind):
-    """Chase scores per scenario, over the products EVERY scenario covers.
-
-    The cohort is intersected rather than padded. One set failed during the
-    scenario build (an upstream ``NameError: APIError``), so its products have
-    no scenario rows at all; scoring them as zero would manufacture a shock
-    response of exactly the wrong shape. The covered subset is reported with its
-    own size so the reader knows what the shock numbers are computed over.
-    """
+def _scenario_entries(rows, observations, kind):
+    """Per-scenario observations, keyed by the base dataset's row position."""
     index = {r["sealedProductId"]: i for i, r in enumerate(rows)}
     per_scenario = {}
     for observation in observations:
@@ -887,77 +880,80 @@ def _scenario_scores(rows, observations, kind):
         if position is None:
             continue
         per_scenario.setdefault(observation["scenario"], {})[position] = observation
-    if not per_scenario:
-        return {}, []
+    return per_scenario
 
-    covered = None
-    for entries in per_scenario.values():
-        covered = set(entries) if covered is None else (covered & set(entries))
-    positions = sorted(covered or [])
-    if not positions:
-        return {}, []
 
+def _score_positions(entries, positions):
     catalogue = {c.key: c for c in families.enumerate_candidates()}
-    out = {}
-    for scenario, entries in per_scenario.items():
-        normalized = [transforms.normalize_row(entries[p]) for p in positions]
-        out[scenario] = {
-            "coreK": [entries[p]["coreK"] for p in positions],
-            "scores": {key: [catalogue[key].score(n) for n in normalized]
-                       for key in FINALISTS},
-        }
-    return out, positions
+    normalized = [transforms.normalize_row(entries[p]) for p in positions]
+    return {
+        "coreK": [entries[p]["coreK"] for p in positions],
+        "scores": {key: [catalogue[key].score(n) for n in normalized]
+                   for key in FINALISTS},
+    }
 
 
-def _scenario_report(rows, scenarios, kind, title, note):
+def _scenario_report(rows, scenarios, kind, title, note, baseline=None):
+    """Every scenario compared to the baseline over the products BOTH cover.
+
+    Coverage is intersected PAIRWISE with the baseline, not globally. The
+    temporal window's earliest dates carry only a handful of products, and a
+    global intersection would have silently reduced the whole temporal analysis
+    to those few - or, as it first did, to nothing at all. Each row therefore
+    prints the number of products it was actually computed over.
+    """
     print("\n=== %s ===" % title)
     print("  %s" % note)
-    observations = scenarios["observations"]
-    per_scenario, positions = _scenario_scores(rows, observations, kind)
+    per_scenario = _scenario_entries(rows, scenarios["observations"], kind)
     if not per_scenario:
-        print("  no complete scenarios available")
+        print("  no scenarios of this kind in the artifact")
         return
     failures = scenarios.get("failures") or []
     if failures:
-        print("  COVERAGE: %d of %d products; %d set(s) failed during the scenario "
-              "build and are excluded here: %s"
-              % (len(positions), len(rows), len(failures),
-                 ", ".join("%s (%s)" % (f["canonicalKey"], f["error"])
-                           for f in failures)))
-    rows = [rows[p] for p in positions]
-    base_key = "base" if "base" in per_scenario else scenarios.get("marketDate")
-    if base_key not in per_scenario:
-        base_key = sorted(per_scenario)[-1]
-    base = per_scenario[base_key]
-    labels = [r["productName"] for r in rows]
+        print("  build failures excluded here: %s"
+              % ", ".join("%s (%s)" % (f["canonicalKey"], f["error"]) for f in failures))
+
+    base_key = baseline if baseline in per_scenario else (
+        "base" if "base" in per_scenario else sorted(per_scenario)[-1])
+    base_entries = per_scenario[base_key]
+    print("  baseline scenario: %s (covers %d products)"
+          % (base_key, len(base_entries)))
 
     financial = _column(rows, "financialRip")
     collector = _column(rows, "collectorAppeal")
     weights = control_module.donor_weights(0.10, "financial")
-    control = _column(rows, "overallControl")
 
-    print("  baseline scenario: %s" % base_key)
-    print("  %-12s %-16s %9s %9s %9s %9s %9s" % (
-        "scenario", "candidate", "chaseRho", "meanAbsD", "maxAbsD",
+    print("  %-12s %-16s %5s %9s %9s %9s %10s %9s" % (
+        "scenario", "candidate", "n", "chaseRho", "meanAbsD", "maxAbsD",
         "overallRho", "coreKchg"))
     for scenario in sorted(per_scenario):
         if scenario == base_key:
             continue
-        block = per_scenario[scenario]
-        core_changed = sum(1 for a, b in zip(base["coreK"], block["coreK"]) if a != b)
+        entries = per_scenario[scenario]
+        positions = sorted(set(base_entries) & set(entries))
+        if len(positions) < 3:
+            print("  %-12s %-16s %5d  (too few shared products to compare)"
+                  % (scenario, "-", len(positions)))
+            continue
+        base_block = _score_positions(base_entries, positions)
+        block = _score_positions(entries, positions)
+        core_changed = sum(1 for a, b in zip(base_block["coreK"], block["coreK"])
+                           if a != b)
+        labels = [rows[p]["productName"] for p in positions]
         for key in FINALISTS:
-            left = [v or 0.0 for v in base["scores"][key]]
+            left = [v or 0.0 for v in base_block["scores"][key]]
             right = [v or 0.0 for v in block["scores"][key]]
             deltas = [abs(a - b) for a, b in zip(left, right)]
-            overall = [control_module.with_chase(
-                financial=financial[i], appeal=collector[i], chase=right[i],
-                weights=weights) for i in range(len(rows))]
             base_overall = [control_module.with_chase(
-                financial=financial[i], appeal=collector[i], chase=left[i],
-                weights=weights) for i in range(len(rows))]
+                financial=financial[p], appeal=collector[p], chase=left[i],
+                weights=weights) for i, p in enumerate(positions)]
+            overall = [control_module.with_chase(
+                financial=financial[p], appeal=collector[p], chase=right[i],
+                weights=weights) for i, p in enumerate(positions)]
             movement = stats.rank_movement(base_overall, overall, labels=labels)
-            print("  %-12s %-16s %9s %9.2f %9.2f %9s %9d" % (
-                scenario, key, _fmt(stats.spearman(left, right), "%.4f"),
+            print("  %-12s %-16s %5d %9s %9.2f %9.2f %10s %9d" % (
+                scenario, key, len(positions),
+                _fmt(stats.spearman(left, right), "%.4f"),
                 sum(deltas) / len(deltas), max(deltas),
                 _fmt(movement["spearman"], "%.4f"), core_changed))
 
@@ -971,10 +967,11 @@ def phase23_shocks(rows, scenarios):
 
 def phase24_temporal(rows, scenarios):
     _scenario_report(
-        rows, scenarios, "temporal",
-        "PHASE 24 - short-window temporal stability within the available recent regime",
-        "13-day, 9-date, SINGLE-REGIME window with card prices frozen at the build "
-        "basis. This is NOT long-term or multi-regime validation.")
+        rows, scenarios, "temporal", baseline=scenarios.get("marketDate"),
+        note="13-day, 9-date, SINGLE-REGIME window with card prices frozen at the "
+        "build basis. This is NOT long-term or multi-regime validation.",
+        title="PHASE 24 - short-window temporal stability within the available "
+              "recent regime")
 
 
 # --------------------------------------------------------------------------

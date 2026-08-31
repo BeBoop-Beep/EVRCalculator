@@ -5,7 +5,8 @@ from ..helpers.sealed_price_helper import parse_sealed_prices
 
 
 class TCGPlayerParser:
-    EDITION_DISTINCT_SETS = {"base", "jungle", "fossil", "team rocket"}
+    STRICT_EDITION_REQUIRED = {"jungle", "fossil", "team rocket"}
+    MARKET_FALLBACK_ALLOWED = {"base"}
 
     def __init__(self, pull_rate_mapping, set_name=None):
         """
@@ -48,11 +49,13 @@ class TCGPlayerParser:
         selected_cards = []
         ambiguous_variant_groups = []
         unavailable_external_variant_groups = []
+        market_only_ambiguous_groups = []
         missing_nm_variant_groups = []
         duplicate_nm_rows_deduped = 0
         for (product_id, signature), rows in variant_groups.items():
             edition, _printing_type = parse_tcgplayer_printing(rows[0].get("printing"))
-            if self.set_name.casefold() in self.EDITION_DISTINCT_SETS and not edition:
+            set_policy_key = self.set_name.casefold()
+            if set_policy_key in self.STRICT_EDITION_REQUIRED and not edition:
                 unavailable_external_variant_groups.append(f"{product_id}|{signature}")
                 continue
             near_mint = [
@@ -71,6 +74,8 @@ class TCGPlayerParser:
                 ambiguous_variant_groups.append(f"{product_id}|{signature}")
                 continue
             selected_cards.append(next(iter(unique_nm.values())))
+            if set_policy_key in self.MARKET_FALLBACK_ALLOWED and not edition:
+                market_only_ambiguous_groups.append(f"{product_id}|{signature}")
 
         card_data = {}
         dropped_no_market = 0
@@ -87,6 +92,12 @@ class TCGPlayerParser:
                 else:
                     dropped_invalid += 1
                 continue
+            card_dict['variantCollectionAuthority'] = (
+                'MARKET_ONLY_AMBIGUOUS_VARIANT'
+                if self.set_name.casefold() in self.MARKET_FALLBACK_ALLOWED
+                and not card_dict.get('edition')
+                else 'EXACT_PROVIDER_VARIANT'
+            )
             
             # Create unique key to differentiate card variants
             # Include: product name, card number, rarity, special type, printing, and condition
@@ -121,6 +132,7 @@ class TCGPlayerParser:
             f"rejected_ambiguous_variants={len(ambiguous_variant_groups)} "
             f"rejected_missing_nm_variants={len(missing_nm_variant_groups)}"
             f" external_variant_identity_unavailable={len(unavailable_external_variant_groups)}"
+            f" accepted_market_only_ambiguous={len(market_only_ambiguous_groups)}"
         )
 
         self.last_card_parse_report = {
@@ -133,6 +145,9 @@ class TCGPlayerParser:
             "missing_nm_variant_groups": sorted(missing_nm_variant_groups),
             "external_variant_identity_unavailable": sorted(unavailable_external_variant_groups),
             "rejected_external_variant_identity_unavailable": len(unavailable_external_variant_groups),
+            "accepted_market_only_ambiguous_variant_groups": len(market_only_ambiguous_groups),
+            "market_only_ambiguous_variant_groups": sorted(market_only_ambiguous_groups),
+            "accepted_exact_variant_groups": len(selected_cards) - len(market_only_ambiguous_groups),
             "rejected_ambiguous_variant_groups": len(ambiguous_variant_groups),
             "rejected_missing_nm_variant_groups": len(missing_nm_variant_groups),
             "duplicate_nm_rows_deduped": duplicate_nm_rows_deduped,
@@ -218,6 +233,7 @@ class TCGPlayerParser:
                 'external_variant_key': card.get('externalVariantKey'),
                 'external_source_reference': (f"https://www.tcgplayer.com/product/{card.get('tcgplayerProductID')}" if card.get('tcgplayerProductID') else None),
                 'external_source_payload': card.get('externalSourcePayload') or {},
+                'variant_collection_authority': card.get('variantCollectionAuthority'),
                 'prices': {
                     'market': clean_price_value(card.get('Price ($)')),
                 }

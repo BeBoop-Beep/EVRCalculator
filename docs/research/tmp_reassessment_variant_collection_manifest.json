@@ -1,8 +1,8 @@
 {
-  "studyId": "tmp-variant-collection-cutover-9e396d367720a6fd",
-  "builtAt": "2026-08-31T16:53:20.802415+00:00",
+  "studyId": "tmp-variant-collection-cutover-f274a400e50bbfbf",
+  "builtAt": "2026-08-31T17:30:35.662874+00:00",
   "branch": "fix/public-rankings-entitlement-regression",
-  "head": "00ab4279f353a1802b1a790b88d114bef567377c",
+  "head": "04a87555bf3723afd63dd38905bc801765d8ea98",
   "staticBlockerBaseline": {
     "TREATMENT_COLLAPSED": 438,
     "EDITION_MISSING": 152,
@@ -79,7 +79,9 @@
     "firstTrustworthyDate": null,
     "waitingCanNowHelp": false,
     "externalProviderEvidenceMissing": true,
-    "legacyCollapsedHistoryRetained": true
+    "legacyCollapsedHistoryRetained": true,
+    "marketCollectionStatus": "MARKET_ONLY_AMBIGUOUS",
+    "tmpVariantCollectionStatus": "PROVIDER_VARIANT_IDENTITY_MISSING"
   },
   "baseBlastoiseVariantStates": {
     "cardId": "8d4c21b9-d5f3-4e37-bdda-f0eb5f54c4dd",
@@ -139,7 +141,9 @@
     "firstTrustworthyDate": null,
     "waitingCanNowHelp": false,
     "externalProviderEvidenceMissing": true,
-    "legacyCollapsedHistoryRetained": true
+    "legacyCollapsedHistoryRetained": true,
+    "marketCollectionStatus": "MARKET_ONLY_AMBIGUOUS",
+    "tmpVariantCollectionStatus": "PROVIDER_VARIANT_IDENTITY_MISSING"
   },
   "baseVenusaurVariantStates": {
     "cardId": "fb496590-6035-4ded-a836-599bceda513e",
@@ -199,7 +203,9 @@
     "firstTrustworthyDate": null,
     "waitingCanNowHelp": false,
     "externalProviderEvidenceMissing": true,
-    "legacyCollapsedHistoryRetained": true
+    "legacyCollapsedHistoryRetained": true,
+    "marketCollectionStatus": "MARKET_ONLY_AMBIGUOUS",
+    "tmpVariantCollectionStatus": "PROVIDER_VARIANT_IDENTITY_MISSING"
   },
   "baseMewtwoVariantStates": {
     "cardId": "26a1708c-833e-422f-bf3f-6cce5324eaf0",
@@ -259,7 +265,9 @@
     "firstTrustworthyDate": null,
     "waitingCanNowHelp": false,
     "externalProviderEvidenceMissing": true,
-    "legacyCollapsedHistoryRetained": true
+    "legacyCollapsedHistoryRetained": true,
+    "marketCollectionStatus": "MARKET_ONLY_AMBIGUOUS",
+    "tmpVariantCollectionStatus": "PROVIDER_VARIANT_IDENTITY_MISSING"
   },
   "baseAlakazamVariantStates": {
     "cardId": "f720f907-0b68-4c81-b503-e0d6d9396209",
@@ -319,7 +327,9 @@
     "firstTrustworthyDate": null,
     "waitingCanNowHelp": false,
     "externalProviderEvidenceMissing": true,
-    "legacyCollapsedHistoryRetained": true
+    "legacyCollapsedHistoryRetained": true,
+    "marketCollectionStatus": "MARKET_ONLY_AMBIGUOUS",
+    "tmpVariantCollectionStatus": "PROVIDER_VARIANT_IDENTITY_MISSING"
   },
   "scraperRoutingChanges": [
     "TCGPlayerParser receives set identity",
@@ -337,7 +347,17 @@
     ],
     "unknownCondition": "row rejected",
     "identityConflict": "external_variant_identity_conflict",
-    "genericPriceDuplicated": false
+    "genericPriceDuplicated": false,
+    "strictEditionRequired": [
+      "Fossil",
+      "Jungle",
+      "Team Rocket"
+    ],
+    "marketFallbackAllowed": [
+      "Base"
+    ],
+    "baseGenericMarketBehavior": "ACCEPT_FOR_GENERAL_MARKET_ONLY",
+    "baseGenericTmpBehavior": "PROVIDER_VARIANT_IDENTITY_MISSING"
   },
   "firstAuthoritativeCollectionDate": null,
   "collectionStatusCounts": {
@@ -69352,8 +69372,8 @@
     }
   ],
   "tests": [
-    "focused parser/helper/manifest selection: 38 passed",
-    "scraper + external identity + cards routing + postcondition selection: 121 passed"
+    "focused parser/helper/compatibility-manifest selection: 44 passed",
+    "daily scraper + runner + dispatcher + batch + identity + postcondition regression selection: 209 passed"
   ],
   "liveVerification": {
     "mode": "read-only database plus controlled parser cycle",
@@ -69388,7 +69408,30 @@
     "backend/tests/unit/scraper/test_tcgplayer_external_identity.py",
     "backend/scripts/build_tmp_variant_collection_cutover.py",
     "docs\\research\\tmp_reassessment_variant_collection_manifest.json",
-    "docs\\research\\TMP_VARIANT_STATE_COLLECTION_CUTOVER.md"
+    "docs\\research\\TMP_VARIANT_STATE_COLLECTION_CUTOVER.md",
+    "backend/Scraper/dtos/ingest_dto.py",
+    "docs\\research\\TMP_SCRAPER_COMPATIBILITY_FIX.md"
   ],
+  "controlledBaseScrapeResult": {
+    "mode": "provider-shaped Base parser fixture plus live read-only persistence authority",
+    "cardsScraped": 5,
+    "setsSucceeded": 1,
+    "setsFailed": 0,
+    "priceRowsAttempted": 5,
+    "positiveNmObservationCount": 5,
+    "acceptedMarketOnlyAmbiguousVariantGroups": 5,
+    "acceptedExactVariantGroups": 0,
+    "rejectedExternalVariantIdentityUnavailable": 0,
+    "sourceVariantCount": 5,
+    "reconciledSourceVariantCount": 5,
+    "postconditionResult": "PASS",
+    "productionWrites": 0
+  },
+  "compatibilityDecisions": {
+    "base": "BASE_MARKET_FALLBACK_COMPATIBILITY_VALIDATED",
+    "dailyGates": "DAILY_SCRAPE_GATES_PRESERVED",
+    "tmpAuthority": "TMP_EDITION_AUTHORITY_PRESERVED",
+    "december": "DECEMBER_TMP_COLLECTION_COMPATIBLE_WITH_DAILY_SCRAPER"
+  },
   "reproducibilityHash": "de78367023c0fb86369760b71ec143cba9237947ce32f1e8a73a0e873aad6505"
 }

@@ -203,6 +203,8 @@ class TCGScraper:
             "rejected_ambiguous_variant_groups": "rejectedAmbiguousVariantGroups",
             "rejected_missing_nm_variant_groups": "rejectedMissingNmVariantGroups",
             "rejected_external_variant_identity_unavailable": "rejectedExternalVariantIdentityUnavailable",
+            "accepted_market_only_ambiguous_variant_groups": "acceptedMarketOnlyAmbiguousVariantGroups",
+            "accepted_exact_variant_groups": "acceptedExactVariantGroups",
             "dropped_no_market_price": "droppedNoMarketPrice",
         }
         parse_diagnostics = {diagnostic_names.get(key, key): value

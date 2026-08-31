@@ -19,6 +19,8 @@ def test_base_priority_cases_fail_closed_without_provider_edition_identity():
         assert case["collectionStatus"] == "PROVIDER_VARIANT_IDENTITY_MISSING"
         assert case["externalProviderEvidenceMissing"]
         assert not case["waitingCanNowHelp"]
+        assert case["marketCollectionStatus"] == "MARKET_ONLY_AMBIGUOUS"
+        assert case["tmpVariantCollectionStatus"] == "PROVIDER_VARIANT_IDENTITY_MISSING"
     charizard = result["baseCharizardVariantStates"]
     assert charizard["externalIdentities"][0]["external_product_id"] == "42382"
     assert charizard["externalIdentities"][0]["external_variant_key"] == "edition=|printing_type=holo|special_type="
@@ -40,3 +42,18 @@ def test_cutover_preserves_history_and_tmp_production_safety():
     assert result["failClosedBehavior"]["genericPriceDuplicated"] is False
     assert result["productionTmpRowsPersisted"] == 0
     assert result["finalReadinessDecision"] == "TMP_VARIANT_COLLECTION_READY_FOR_DECEMBER"
+
+
+def test_base_market_fallback_does_not_weaken_tmp_or_daily_gates():
+    result = build()
+    controlled = result["controlledBaseScrapeResult"]
+    assert controlled["cardsScraped"] > 0
+    assert controlled["priceRowsAttempted"] > 0
+    assert controlled["acceptedMarketOnlyAmbiguousVariantGroups"] > 0
+    assert controlled["postconditionResult"] == "PASS"
+    assert result["compatibilityDecisions"] == {
+        "base": "BASE_MARKET_FALLBACK_COMPATIBILITY_VALIDATED",
+        "dailyGates": "DAILY_SCRAPE_GATES_PRESERVED",
+        "tmpAuthority": "TMP_EDITION_AUTHORITY_PRESERVED",
+        "december": "DECEMBER_TMP_COLLECTION_COMPATIBLE_WITH_DAILY_SCRAPER",
+    }

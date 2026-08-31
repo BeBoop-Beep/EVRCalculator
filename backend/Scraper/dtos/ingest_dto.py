@@ -36,6 +36,7 @@ class CardDTO(BaseModel):
     external_variant_key: Optional[str] = None
     external_source_reference: Optional[str] = None
     external_source_payload: Dict = Field(default_factory=dict)
+    variant_collection_authority: Optional[str] = None
 
 class SealedProductDTO(BaseModel):
     model_config = ConfigDict(extra='ignore')
