@@ -1291,7 +1291,7 @@ export default function RipDecisionPage({
                 Index Plus compares every modeled product against equivalent
                 products across eligible sets at today&apos;s market price.
               </p>
-              <a href="/checkout">Unlock with Index Plus</a>
+              <a href="/terms">Index Plus is not yet available</a>
             </div>
           ) : null}
           {/* ONE shared header for the entire table. Family groups below are a
@@ -1525,7 +1525,7 @@ export default function RipDecisionPage({
               tail diagnostics, plus Financial RIP and Collector Appeal factor
               breakdowns.
             </p>
-            <a href="/checkout">Unlock with Index Plus</a>
+            <a href="/terms">Index Plus is not yet available</a>
           </div>
         ) : null}
 

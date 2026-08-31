@@ -1,0 +1,185 @@
+Stage VI-B - Chase weight closure and formula equivalence audit
+dataset:   stage6-chase-pillar-dataset-v1 (2026-08-31T17:03:30.913066+00:00)
+scenarios: stage6-chase-pillar-scenarios-v1 (3204 observations)
+
+=== PHASE 5 - CONTROL reproduction (gate) ===
+  cohort 131 products / 21 sets / 8 families
+  CONTROL = overall_rip_v10_90_financial_v4_10_collector_appeal_v5
+  re-derived through compute_overall_rip_v10: 0/131 mismatches, worst |delta| 0.00e+00
+
+=== PHASE 1 - what the Stage VI-A 0.03 row actually evaluated ===
+  Traced in backend/scripts/report_chase_weight_stage6a.py:
+    line  34: TRANSFORM = scale.approved_unclamped        # = 200K/(K+10)
+    _chase_column(rows) -> [TRANSFORM(r['coreK']) for r in rows]
+    phase19: weight_set = {'financial_rip': 0.90 - share,
+                           'collector_appeal': 0.10, 'chase': share}
+    weights.chase_grid(): 'financial_rip': financial - share
+
+  Financial was therefore ALWAYS assigned 1 - 0.10 - chase, and the
+  Chase column was ALWAYS the 200-scale transform. The reported 0.03
+  row is:
+      0.87F + 0.10C + 0.03 * 200K/(K+10)      == CANDIDATE B
+
+  Candidate A (0.84F + 0.10C + 0.06 * 100K/(K+10)) appears in Stage VI-A
+  only in a one-off base-cohort command reported in the Phase-13 table.
+  It was NOT run through phase16 (shocks), phase17 (dates) or phase19
+  (the C1-C5 gate). Every C1-C5 verdict in the Stage VI-A report is a
+  verdict on Candidate B.
+
+=== PHASE 2 - algebraic equivalence audit ===
+  S = 100K/(K+10) ; T = 200K/(K+10) = 2S
+  A = 0.84F + 0.10C + 0.06S
+  B = 0.87F + 0.10C + 0.03T = 0.87F + 0.10C + 0.06S
+  closed form: B - A = +0.03 * F
+  => the Chase TERM is identical; the FINANCIAL coefficient differs by 0.03
+
+  observed B - A across the cohort
+    min 0.309402  median 0.868986  mean 0.861705  max 1.712205  sd 0.254416
+    identity residual vs 0.03*F: max |observed - predicted| = 9.548e-15
+    machine-precision agreement: True
+
+  CONCLUSION: 'equivalent' is true only of Chase contribution strength.
+  A and B are NOT equivalent Overall RIP formulas. B scores every
+  product higher by 0.03 x its Financial RIP, i.e. 0.309 to 1.712 points.
+
+=== PHASE 3 - direct A vs B comparison ===
+  ordering
+    Spearman 0.999915 | Kendall tau 0.996242
+    products whose ordinal position changes: 32/131
+    movement: median 0.0  mean 0.24  max 1
+    pairwise ordering disagreements: 16
+    same-set pairwise disagreements: 1
+    products participating in a disagreement: 32
+
+  same-set winners: 0/21 differ
+
+  top/bottom sensitivity (membership vs ordering)
+    top     10 : membership changes 1 | ordering identical False
+    bottom  10 : membership changes 0 | ordering identical True
+    top     25 : membership changes 0 | ordering identical False
+    bottom  25 : membership changes 0 | ordering identical False
+
+  tier effects (production leader curve, as Stage VI-A used it)
+    tier changes A -> B: 3
+      Mega Evolution Pokemon Center Elite Trainer Box (Exc B -> C
+      Mega Evolution Booster Pack                          C -> D
+      Prismatic Evolutions Pokemon Center Elite Trainer Bo C -> D
+
+=== PHASE 6 - Chase score semantics for S = 100K/(K+10) ===
+    K=0   ->    0.0000  (expected    0.0000) OK
+    K=1   ->    9.0909  (expected    9.0909) OK
+    K=10  ->   50.0000  (expected   50.0000) OK
+    strictly monotonic increasing over K=0..400 : True
+    strictly saturating (shrinking increments)  : True
+    finite K always < 100 (K=1e6 -> 99.999000)      : True
+    no clamp is applied anywhere in the transform
+
+  cohort
+    K   : min 0  max 14  distinct 14
+    S   : min 0.0000  max 58.3333  distinct 14
+    distinct S values == distinct K values: True
+
+  the five products the old clamp collapsed (K > 10)
+    K=14   old clamped T=100.00  new S=58.3333  Ascended Heroes Booster Pack
+    K=13   old clamped T=100.00  new S=56.5217  Ascended Heroes Booster Bundle
+    K=13   old clamped T=100.00  new S=56.5217  Prismatic Evolutions Booster Bundle
+    K=13   old clamped T=100.00  new S=56.5217  Prismatic Evolutions Booster Pack
+    K=12   old clamped T=100.00  new S=54.5455  Prismatic Evolutions Elite Trainer Box
+    distinct K above 10: [12, 13, 14] -> distinct S: 3
+    every one is now separately representable; no clamp-induced ties.
+
+=== PHASE 4 - the closure test: Candidate A through the C1-C5 gate ===
+  Candidate A = 84/10/6 x 100K/(K+10)
+  Recomputed directly. Nothing below is derived from Candidate B.
+
+  --- Candidate A : 84/10/6 x 100K/(K+10) ---
+      the Stage VI-A recommendation as written; never previously gated
+      gate threshold                                                  observed                       margin  verdict
+      C1   clear overrides == 0 and max gap < 10, on base and all +/  clear=0, maxGap base 7.34      2.6596  PASS
+      C2   >= 0.10 close-pair override rate                           0.13464991023339318            0.0346  PASS
+      C3   financial share > 0.80 and chase < 0.20                    financial 0.9272, chase 0      0.1262  PASS
+      C4   spearman >= 0.98 and top5 turnover <= 1                    spearman 0.9926, top5 tur      0.0126  PASS
+      C5   > 0 same-set pairwise reversals                            6                              6.0000  PASS
+      flags YYYYY  -> ALL PASS
+
+  --- Candidate B : 87/10/3 x 200K/(K+10) ---
+      what every Stage VI-A table, shock and date grid actually evaluated
+      gate threshold                                                  observed                       margin  verdict
+      C1   clear overrides == 0 and max gap < 10, on base and all +/  clear=0, maxGap base 7.34      2.6596  PASS
+      C2   >= 0.10 close-pair override rate                           0.12926391382405744            0.0293  PASS
+      C3   financial share > 0.80 and chase < 0.20                    financial 0.9309, chase 0      0.1290  PASS
+      C4   spearman >= 0.98 and top5 turnover <= 1                    spearman 0.9930, top5 tur      0.0130  PASS
+      C5   > 0 same-set pairwise reversals                            5                              5.0000  PASS
+      flags YYYYY  -> ALL PASS
+
+=== PHASE 4b - Candidate A across every shock and every date ===
+
+  Candidate A (84/10/6 x 100K/(K+10))
+  scenario         n   shapley  leverage   closeOvr%  clearOvr   maxGapOvr  spearman  tiers
+  base           131    0.0805      1.34      0.1409         0        7.06    0.9933     21
+  card+5%        131    0.0825      1.37      0.1436         0        7.06    0.9930     22
+  card-5%        131    0.0819      1.37      0.1427         0        7.06    0.9933     21
+  card+10%       131    0.0808      1.35      0.1472         0        7.06    0.9932     22
+  card-10%       131    0.0817      1.36      0.1454         0        7.06    0.9927     20
+  card+20%       131    0.0789      1.32      0.1526         0        7.06    0.9933     22
+  card-20%       131    0.0837      1.40      0.1355         0        7.06    0.9929     19
+  prod+5%        131    0.0818      1.36      0.1427         0        7.06    0.9933     21
+  prod-5%        131    0.0823      1.37      0.1436         0        7.06    0.9933     22
+  prod+10%       131    0.0820      1.37      0.1490         0        7.06    0.9927     20
+  prod-10%       131    0.0796      1.33      0.1499         0        7.06    0.9931     22
+  prod+20%       131    0.0825      1.37      0.1382         0        7.06    0.9930     20
+  prod-20%       131    0.0780      1.30      0.1598         0        7.06    0.9930     23
+  2026-08-16      54    0.0572      0.95      0.0994         0        4.43    0.9963      8
+  2026-08-17     130    0.0804      1.34      0.1400         0        7.06    0.9930     21
+  2026-08-22     131    0.0809      1.35      0.1427         0        7.06    0.9932     21
+  2026-08-24     131    0.0810      1.35      0.1445         0        7.06    0.9932     21
+  2026-08-25     131    0.0805      1.34      0.1445         0        7.06    0.9932     21
+  2026-08-26     131    0.0803      1.34      0.1445         0        7.06    0.9932     21
+  2026-08-27     131    0.0805      1.34      0.1436         0        7.06    0.9932     21
+  2026-08-28     131    0.0805      1.34      0.1409         0        7.06    0.9933     21
+
+  Candidate B (87/10/3 x 200K/(K+10))
+  scenario         n   shapley  leverage   closeOvr%  clearOvr   maxGapOvr  spearman  tiers
+  base           131    0.0776      2.59      0.1400         0        7.06    0.9940     21
+  card+5%        131    0.0794      2.65      0.1418         0        7.06    0.9937     21
+  card-5%        131    0.0789      2.63      0.1391         0        7.06    0.9940     19
+  card+10%       131    0.0778      2.59      0.1445         0        7.06    0.9936     23
+  card-10%       131    0.0787      2.62      0.1418         0        7.06    0.9934     19
+  card+20%       131    0.0760      2.53      0.1508         0        7.06    0.9937     23
+  card-20%       131    0.0806      2.69      0.1346         0        7.06    0.9938     19
+  prod+5%        131    0.0788      2.63      0.1391         0        7.06    0.9940     19
+  prod-5%        131    0.0793      2.64      0.1418         0        7.06    0.9939     21
+  prod+10%       131    0.0790      2.63      0.1454         0        7.06    0.9932     19
+  prod-10%       131    0.0767      2.56      0.1472         0        7.06    0.9935     23
+  prod+20%       131    0.0795      2.65      0.1373         0        7.06    0.9936     20
+  prod-20%       131    0.0751      2.50      0.1580         0        7.06    0.9937     23
+  2026-08-16      54    0.0551      1.84      0.0994         0        4.43    0.9966      6
+  2026-08-17     130    0.0774      2.58      0.1400         0        7.06    0.9938     20
+  2026-08-22     131    0.0779      2.60      0.1436         0        7.06    0.9940     20
+  2026-08-24     131    0.0780      2.60      0.1436         0        7.06    0.9940     20
+  2026-08-25     131    0.0775      2.58      0.1436         0        7.06    0.9940     20
+  2026-08-26     131    0.0773      2.58      0.1436         0        7.06    0.9939     20
+  2026-08-27     131    0.0775      2.58      0.1436         0        7.06    0.9939     20
+  2026-08-28     131    0.0776      2.59      0.1400         0        7.06    0.9940     21
+
+  C1 margin summary - largest Financial gap Chase can overturn
+  scenario                A            B
+  base                 7.06         7.06
+  card+5%              7.06         7.06
+  card-5%              7.06         7.06
+  card+10%             7.06         7.06
+  card-10%             7.06         7.06
+  card+20%             7.06         7.06
+  card-20%             7.06         7.06
+  prod+5%              7.06         7.06
+  prod-5%              7.06         7.06
+  prod+10%             7.06         7.06
+  prod-10%             7.06         7.06
+  prod+20%             7.06         7.06
+  prod-20%             7.06         7.06
+  worst across all shocks:  A 7.06 (margin 2.94)  B 7.06 (margin 2.94)
+
+=== PHASE 3b - same-set behaviour under each candidate ===
+  candidate    same-set reversals     winner changes
+  A                             6                  0
+  B                             5                  0

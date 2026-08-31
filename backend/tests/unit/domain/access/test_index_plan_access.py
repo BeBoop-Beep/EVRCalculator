@@ -19,7 +19,23 @@ from backend.domain.access.index_plan_access import (
     has_index_feature_access,
     normalize_index_plan,
     resolve_market_explorer_plan_access,
+    _PLUS_FEATURES,
+    _PREMIUM_FEATURES,
 )
+
+
+def test_locked_commercial_capability_sets_fail_closed_and_inherit():
+    assert len(_PLUS_FEATURES) == 12  # includes server response-boundary aliases
+    assert len(_PREMIUM_FEATURES) == 7
+    for feature in _PLUS_FEATURES:
+        assert not has_index_feature_access(None, feature)
+        assert has_index_feature_access("plus", feature)
+        assert has_index_feature_access("premium", feature)
+    for feature in _PREMIUM_FEATURES:
+        assert not has_index_feature_access(None, feature)
+        assert not has_index_feature_access("plus", feature)
+        assert has_index_feature_access("premium", feature)
+    assert not has_index_feature_access("premium", "unknown")
 
 
 @pytest.mark.parametrize(

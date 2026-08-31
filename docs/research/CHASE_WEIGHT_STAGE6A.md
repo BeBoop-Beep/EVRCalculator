@@ -2,12 +2,55 @@
 
 **Decision: `CHASE_WEIGHT_SEMANTICS_VALIDATED_WITH_REVISIONS`**
 
+> ### ⚠ Stage VI-B clarification (correction)
+>
+> Two statements below are corrected by
+> [`CHASE_WEIGHT_STAGE6B.md`](CHASE_WEIGHT_STAGE6B.md). Nothing else in this
+> report is retracted.
+>
+> **1. "Equivalent" was imprecise.** With `S = 100K/(K+10)` and
+> `T = 200K/(K+10) = 2S`, the terms `0.03 × T` and `0.06 × S` are identical, so
+> the two candidates carry **equivalent Chase contribution strength**. But
+> `87/10/3` and `84/10/6` are **not equivalent Overall RIP formulas**, because
+> the Financial coefficient differs by 0.03:
+>
+> ```
+> B = 0.87F + 0.10C + 0.03T = 0.87F + 0.10C + 0.06S
+> A = 0.84F + 0.10C + 0.06S
+> B - A = 0.03F        (verified to 9.5e-15 over all 131 products)
+> ```
+>
+> B scores every product 0.31–1.71 points higher than A. Ranking impact is small
+> but real: Spearman 0.999915, 16 pairwise inversions, 1 top-10 membership
+> change, 3 tier changes, 0/21 same-set winner changes.
+>
+> **2. The C1–C5 verdicts in this report describe Candidate B, not the
+> recommendation.** `report_chase_weight_stage6a.py` binds
+> `TRANSFORM = scale.approved_unclamped` (= T) and assigns
+> `financial = 0.90 - chase` in every phase, so the `0.02 / 0.03 / 0.05` rows,
+> the shock grid and the date grid are all `0.90-w / 0.10 / w × T`. Candidate A
+> was evaluated only once, on the base cohort, with no shocks, dates or criteria.
+>
+> Stage VI-B recomputed Candidate A directly: **it passes all five gates**
+> (C1 margin +2.66, C2 0.13465, C3 Financial 0.9272 / Chase 0.0805, C4 0.9926,
+> C5 six same-set reversals), with 0 clear overrides across all 12 shocks and all
+> 7 full-cohort dates. The recommendation stands — but it was not established
+> until Stage VI-B.
+>
+> Every other Stage VI-A finding is unchanged, including: the leverage was a
+> dispersion/scaling issue; `200K/(K+10)` exceeds 100 and is unsuitable as a
+> 0–100 pillar; clamping destroys top-end differentiation; Collector Appeal
+> contributes ≈0 marginal variance and its product-level study stays deferred;
+> Chase produces real same-set reorderings but changes 0/21 same-set winners.
+
+
 **Recommended nominal weights: Financial 0.84 / Collector 0.10 / Chase 0.06**,
 with Chase Opportunity re-expressed on a true 0–100 scale as `100K/(K+10)`.
 
-Equivalently, if the Stage VI formula is kept verbatim: **0.87 / 0.10 / 0.03**
-with `200K/(K+10)` used **unclamped**. The two behave the same; they differ only
-in whether the coefficient means what it says.
+The comparison point `0.87 / 0.10 / 0.03` with `200K/(K+10)` unclamped carries
+the **same Chase contribution strength** but is a **different Overall RIP
+formula** (`B - A = 0.03F`); see the Stage VI-B clarification above. It is not
+the selected specification.
 
 Stage VI's provisional 85/10/5 is **not** endorsed. It passes every acceptance
 criterion, but with 0.41 points of margin on the binding one.
@@ -304,10 +347,12 @@ Behavioural equivalence, measured directly:
 
 | construct | Shapley | close override | clear override | max gap | Spearman | leverage |
 |---|---|---|---|---|---|---|
-| `200K/(K+10)` @ 3% | 0.0710 | 12.93% | 0 | 7.34 | 0.9930 | 2.37× |
-| `100K/(K+10)` @ 6% | 0.0738 | 13.46% | 0 | 7.34 | 0.9926 | **1.23×** |
+| `0.87F + 0.10C + 0.03T` | 0.0710 | 12.93% | 0 | 7.34 | 0.9930 | 2.37× |
+| `0.84F + 0.10C + 0.06S` | 0.0738 | 13.46% | 0 | 7.34 | 0.9926 | **1.23×** |
 
-The same pillar, the same behaviour, honestly priced. (`100K/(K+10)` at 10%
+Closely comparable behaviour, honestly priced — but **not the same formula**:
+these two rows differ by `0.03F` as well as by scale. Stage VI-B separates the
+two effects and gates the second row on its own. (`100K/(K+10)` at 10%
 breaks the binding constraint: 1 clear override, max gap 12.68.)
 
 ---
@@ -429,9 +474,10 @@ judged behaviourally, via C1 and C2.
 > **Financial 0.84 / Collector 0.10 / Chase 0.06**, with Chase Opportunity =
 > `100K/(K+10)`.
 
-Equivalent if the Stage VI formula is kept verbatim: **0.87 / 0.10 / 0.03** with
-`200K/(K+10)` **unclamped**. Measured behaviour is materially identical; the
-0–100 form is preferred because its coefficient means what it says.
+The `0.87 / 0.10 / 0.03` form with `200K/(K+10)` unclamped has the same Chase
+contribution strength but is **not the same formula** — it differs by `0.03F` and
+is not the selected specification. The 0–100 form is preferred because its
+coefficient means what it says. See the Stage VI-B clarification above.
 
 **Expected effective Chase contribution:** 7.1–7.4% of Overall RIP variance
 (Shapley and covariance), 7.5–7.7% by drop-one. Leverage **1.23×** nominal on

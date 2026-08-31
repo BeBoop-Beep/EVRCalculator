@@ -31,8 +31,6 @@ export const DISALLOWED_PATH_PREFIXES = Object.freeze([
   // links to stayed crawlable.
   "/my-collection",
   "/my-portfolio",
-  "/cart",
-  "/checkout",
   "/login",
   "/signup",
   "/waitlist/verify",

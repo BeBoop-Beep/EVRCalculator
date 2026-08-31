@@ -110,7 +110,7 @@ export default function GlobalMobileBottomNav() {
   const normalizedPathname = useMemo(() => normalizePath(pathname), [pathname]);
 
   const shouldHide = useMemo(() => {
-    const hiddenPrefixes = ["/signup", "/checkout"];
+    const hiddenPrefixes = ["/signup"];
     return isPathMatch(normalizedPathname, hiddenPrefixes);
   }, [normalizedPathname]);
 
