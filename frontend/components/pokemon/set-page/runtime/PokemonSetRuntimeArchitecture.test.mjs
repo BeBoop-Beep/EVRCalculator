@@ -48,3 +48,14 @@ test("set switches are guarded by set-scoped runtime state", () => {
   assert.match(pullRates, /state\.setId === setId/);
   assert.match(pullRates, /cancelled/);
 });
+
+test("rich Pull Rates resource ownership is isolated without moving its presentation", () => {
+  const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const controller = read("../../../../hooks/pokemon/useSetPullRatesController.js");
+  assert.match(rich, /useSetPullRatesController\(\{/);
+  assert.doesNotMatch(rich, /getPokemonSetPullRates\(/);
+  assert.doesNotMatch(rich, /\[pullRatesState, setPullRatesState\]/);
+  assert.match(controller, /pokemonSetPullRatesClient/);
+  assert.match(controller, /activeSetIdRef\.current !== setId/);
+  assert.match(controller, /previous\.setId === setId && previous\.pullRateAssumptions \? "success_stale"/);
+});

@@ -157,6 +157,7 @@ import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
 import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSummary";
 import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
+import useSetPullRatesController from "@/hooks/pokemon/useSetPullRatesController";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
@@ -250,7 +251,6 @@ const getPokemonSetCardsValidation = (...args) => loadCardsClient().then((client
 // The old synchronous cache probe is diagnostic/seed-only. The extracted
 // Cards runtime owns the useful successful-scope cache and revisit behavior.
 const getCachedPokemonSetCards = () => null;
-const getPokemonSetPullRates = (...args) => import("@/lib/pokemon/pokemonSetPullRatesClient").then((client) => client.getPokemonSetPullRates(...args));
 const PullRateAssumptionsCard = dynamic(() => import("@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard"));
 const PullRatesTab = dynamic(() => import("@/components/pokemon/set-page/PullRates/PullRatesTab"));
 
@@ -284,7 +284,7 @@ const SET_DETAIL_DEFAULT_TAB = "overview";
 // Cards & Products | Pull Rates. Set-specific opening evidence now lives on RIP.
 const SET_DETAIL_TABS = new Set(["overview", "market", "cards", "pull-rates"]);
 // No set-detail tab renders content sourced from the full set /page snapshot
-// anymore. Pull Rates moved off this list in Phase 4A (getPokemonSetPullRates)
+// anymore. Pull Rates moved off this list into its dedicated controller.
 // and Insights moved off it in Phase 4B (getPokemonSetInsights — see the
 // Insights tab fetch effect below). Kept as an always-empty set (rather than
 // removed outright) so the two legacy full-page effects below stay inert
@@ -8999,21 +8999,11 @@ export default function RipStatisticsPageClient({
       : [];
     return rows;
   }, [initialCardAppealMarketPriceCorrelation]);
-  // Pull Rates tab: slim, dedicated fetch (getPokemonSetPullRates) instead of
+  // Pull Rates tab: slim, dedicated controller instead of
   // requiring the full /page payload (Phase 4A). Falls back to an
   // already-seeded explorePayload (e.g. left over from a prior Insights
   // visit) only when this state hasn't loaded data for the active set yet —
   // it never triggers a live /page fetch itself.
-  const [pullRatesState, setPullRatesState] = useState(() => ({
-    status: "idle",
-    setId: resolvedSetResourceId,
-    pullRateAssumptions: null,
-    error: null,
-  }));
-  const pullRateAssumptions =
-    pullRatesState.setId === resolvedSetResourceId && pullRatesState.pullRateAssumptions
-      ? pullRatesState.pullRateAssumptions
-      : normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   // Cards/Overview never load the full explorePayload, so interpretation
   // (recommendation badge/summary, pillar metas, set intelligence lenses)
@@ -9098,6 +9088,17 @@ export default function RipStatisticsPageClient({
   const displayedTargetId = pendingTargetId || requestedTargetId;
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
+  const {
+    pullRateAssumptions,
+    activePullRatesState,
+    pullRatesTabPending,
+    pullRatesPendingTimedOut,
+  } = useSetPullRatesController({
+    setId: resolvedSetResourceId,
+    enabled: setDetailMode && setDetailTab === "pull-rates",
+    canFetch: canFetchSetDetailModules,
+    fallbackAssumptions: normalizePullRateAssumptions(explorePayload),
+  });
   const destinationSeedPending =
     setDetailTab === "market" && isTabNavPending && initialModuleSnapshots?.resolvedTab !== "market";
   const [ripRankContextState, setRipRankContextState] = useState({
@@ -9210,7 +9211,6 @@ export default function RipStatisticsPageClient({
   );
   // Phase 9D.1: same keyed-timeout shape as insightsPendingTimeoutState, for
   // the Pull Rates loading shell (see pullRatesPendingTimedOut below).
-  const [pullRatesPendingTimeoutState, setPullRatesPendingTimeoutState] = useState({ setId: null, timedOut: false });
   const [selectedTimeframe, setSelectedTimeframe] = useState("7D");
   const [cardSortMode, setCardSortMode] = useState("set-number");
   const [cardSortDirection, setCardSortDirection] = useState(() =>
@@ -9361,7 +9361,6 @@ export default function RipStatisticsPageClient({
   // fresh, and the key is released both on error and when the effect is
   // cleaned up mid-flight (so an ignored response can't strand its tab in a
   // permanent loading state).
-  const lastPullRatesRequestKeyRef = useRef(null);
   const lastCardsValidationRequestKeyRef = useRef(null);
   const lastOverviewRequestKeyRef = useRef(null);
   const lastTopChaseRequestKeyRef = useRef(null);
@@ -11772,42 +11771,8 @@ export default function RipStatisticsPageClient({
     }, INSIGHTS_PENDING_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
   }, [insightsCriticalPending, resolvedSetResourceId]);
-  // Pull Rates loading shell (Phase 9B): pullRatesState only resets to this
-  // set's shape once its fetch effect fires post-paint, so guard by set id
-  // the same way the other per-tab states do, and treat idle/loading with no
-  // usable assumptions as "show the loading shell" instead of the misleading
-  // "coming soon" copy.
-  const activePullRatesState =
-    pullRatesState.setId === resolvedSetResourceId
-      ? pullRatesState
-      : { status: "idle", setId: resolvedSetResourceId, pullRateAssumptions: null, error: null };
-  const pullRatesTabPending =
-    setDetailMode &&
-    setDetailTab === "pull-rates" &&
-    !pullRateAssumptions &&
-    (activePullRatesState.status === "idle" || activePullRatesState.status === "loading");
-  // Phase 9D.1: the loading shell may never settle if the fetch hangs (no
-  // request timeout) or an upstream gate keeps the state parked on "idle" —
-  // same escape hatch as Insights, so Pull Rates can never shimmer
-  // indefinitely: after the timeout the shell switches to explicit
-  // "taking longer than expected" copy.
-  const pullRatesPendingTimedOut =
-    pullRatesPendingTimeoutState.setId === resolvedSetResourceId && pullRatesPendingTimeoutState.timedOut;
-  useEffect(() => {
-    if (!setDetailMode || setDetailTab !== "pull-rates" || !resolvedSetResourceId || pullRateAssumptions) {
-      return undefined;
-    }
-    const setId = resolvedSetResourceId;
-    // A fresh pending episode must start from the skeleton again, not from
-    // stale timeout copy left over from an earlier episode for the same set.
-    setPullRatesPendingTimeoutState((previous) =>
-      previous.setId === setId && previous.timedOut ? { setId: null, timedOut: false } : previous
-    );
-    const timer = window.setTimeout(() => {
-      setPullRatesPendingTimeoutState({ setId, timedOut: true });
-    }, INSIGHTS_PENDING_TIMEOUT_MS);
-    return () => window.clearTimeout(timer);
-  }, [setDetailMode, setDetailTab, resolvedSetResourceId, pullRateAssumptions]);
+  // Pull Rates loading, timeout, and stale-good values come from the
+  // set-scoped controller and continue feeding the unchanged render below.
   // Temporary fallback: if a full cards payload is already seeded (e.g. the
   // user visited Insights first, or an old SSR seed is still present), show
   // it until the paginated fetch for this set lands, instead of an empty
@@ -12904,91 +12869,8 @@ export default function RipStatisticsPageClient({
     effectiveCardRarityFilter,
   ]);
 
-  // Pull Rates tab fetch effect (Phase 4A): slim, dedicated fetch
-  // (getPokemonSetPullRates) instead of the full /page payload — see the
-  // pullRateAssumptions derivation above for the fallback-to-explorePayload
-  // behavior.
-  useEffect(() => {
-    if (!setDetailMode) {
-      return undefined;
-    }
-
-    const setId = resolvedSetResourceId;
-    if (!setId) {
-      setPullRatesState({ status: "idle", setId: null, pullRateAssumptions: null, error: null });
-      return undefined;
-    }
-    if (!canFetchSetDetailModules) {
-      setPullRatesState((previous) => ({
-        status: previous.setId === setId ? previous.status : "idle",
-        setId,
-        pullRateAssumptions: previous.setId === setId ? previous.pullRateAssumptions : null,
-        error: null,
-      }));
-      return undefined;
-    }
-    if (setDetailTab !== "pull-rates") {
-      return undefined;
-    }
-
-    const pullRatesRequestKey = String(setId);
-    if (lastPullRatesRequestKeyRef.current === pullRatesRequestKey) {
-      debugSetPagePerf("pull_rates.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
-      return undefined;
-    }
-    lastPullRatesRequestKeyRef.current = pullRatesRequestKey;
-
-    let isCancelled = false;
-    let requestSettled = false;
-    setPullRatesState((previous) => ({
-      status: previous.setId === setId && previous.pullRateAssumptions ? "success_stale" : "loading",
-      setId,
-      pullRateAssumptions: previous.setId === setId ? previous.pullRateAssumptions : null,
-      error: null,
-    }));
-
-    getPokemonSetPullRates(setId)
-      .then((payload) => {
-        requestSettled = true;
-        if (isCancelled) {
-          return;
-        }
-        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
-          return;
-        }
-        setPullRatesState({
-          status: payload?.pullRateAssumptions ? "success" : "empty",
-          setId,
-          pullRateAssumptions: payload?.pullRateAssumptions || null,
-          error: null,
-        });
-      })
-      .catch((error) => {
-        requestSettled = true;
-        if (lastPullRatesRequestKeyRef.current === pullRatesRequestKey) {
-          lastPullRatesRequestKeyRef.current = null;
-        }
-        if (isCancelled) {
-          return;
-        }
-        setPullRatesState((previous) => ({
-          status: previous.setId === setId && previous.pullRateAssumptions ? "success_stale" : "error",
-          setId,
-          pullRateAssumptions: previous.setId === setId ? previous.pullRateAssumptions : null,
-          error: error?.message || "Unable to load pull rate assumptions for this set.",
-        }));
-      });
-
-    return () => {
-      isCancelled = true;
-      // An unsettled request's response will be ignored (isCancelled), so a
-      // revisit must be allowed to fetch again — otherwise the tab could sit
-      // on its loading state forever with the key still claimed.
-      if (!requestSettled && lastPullRatesRequestKeyRef.current === pullRatesRequestKey) {
-        lastPullRatesRequestKeyRef.current = null;
-      }
-    };
-  }, [setDetailMode, setDetailTab, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);
+  // Pull Rates request, retry, timeout, and stale-good lifecycle now live in
+  // useSetPullRatesController; the existing PullRatesTab render stays below.
 
   useEffect(() => {
     if (!setDetailMode) {
