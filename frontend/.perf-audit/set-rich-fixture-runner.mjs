@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { connect } from "node:net";
+import { readFileSync } from "node:fs";
 
 const ROOT = process.cwd();
 const FIXTURE_PORT = 8011;
@@ -21,7 +23,26 @@ async function waitFor(url, label) {
   throw new Error(`${label} did not become ready: ${url}`);
 }
 
+async function waitForPort(port, label) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const ready = await new Promise((resolve) => {
+      const socket = connect({ host: "127.0.0.1", port }, () => { socket.destroy(); resolve(true); });
+      socket.on("error", () => resolve(false));
+    });
+    if (ready) return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`${label} did not listen on port ${port}`);
+}
+
 const backend = `http://127.0.0.1:${FIXTURE_PORT}`;
+for (const port of [FIXTURE_PORT, NEXT_PORT]) {
+  const occupied = await new Promise((resolve) => {
+    const socket = connect({ host: "127.0.0.1", port }, () => { socket.destroy(); resolve(true); });
+    socket.on("error", () => resolve(false));
+  });
+  if (occupied) throw new Error(`Audit port ${port} is already occupied`);
+}
 if (!skipBuild) {
   await run("npm.cmd", ["run", "build"], { BACKEND_API_BASE_URL: backend, NEXT_PUBLIC_BACKEND_API_BASE_URL: backend });
 }
@@ -40,7 +61,13 @@ const next = spawn("npm.cmd", ["run", "start", "--", "--hostname", "127.0.0.1", 
 
 try {
   await waitFor(`${backend}/__fixture__/health`, "fixture server");
-  await waitFor(`http://127.0.0.1:${NEXT_PORT}`, "Next production server");
+  const manifest = JSON.parse(readFileSync(".perf-audit/fixtures/set-rich-v1/manifest.json", "utf8"));
+  for (const [route, entry] of Object.entries(manifest.routes)) {
+    if (entry.critical === false) continue;
+    const response = await fetch(`${backend}${route}`);
+    if (!response.ok) throw new Error(`Critical fixture preflight failed: ${route} HTTP ${response.status}`);
+  }
+  await waitForPort(NEXT_PORT, "Next production server");
   await run("node", [".perf-audit/set-rich-visual-parity.mjs", `--${mode}`], {
     BASE: `http://127.0.0.1:${NEXT_PORT}`,
     SET_VISUAL_BASELINE: "set-rich-fixture-v1",
