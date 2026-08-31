@@ -1,0 +1,145 @@
+{
+ "stage": "stage7-collector-weight-re-stress-v1",
+ "status": "PRE-REGISTERED BEFORE ANY CANDIDATE OUTCOME WAS COMPUTED",
+ "createdBy": "Stage VII, before running the weight sweep",
+ "researchOnly": true,
+
+ "control": {
+  "formula": "0.84 * FinancialRipV4 + 0.10 * CollectorAppealV5 + 0.06 * ChaseOpportunity",
+  "chaseTransform": "100K/(K+10)",
+  "clamp": false,
+  "inheritedFrom": "Stage VI-B decision CHASE_WEIGHT_84_10_06_VALIDATED",
+  "reproductionGate": "CONTROL must reproduce from production compute_overall_rip_v10 inputs with 0 mismatches; otherwise COLLECTOR_STAGE7_BLOCKED_CONTROL_REPRODUCTION_FAILURE"
+ },
+
+ "fundingRule": {
+  "chaseWeight": 0.06,
+  "chaseIsFixed": true,
+  "financialFormula": "financial = 0.94 - collector",
+  "collectorFundedOnlyFromFinancial": true,
+  "weightsMustSumTo": 1.0
+ },
+
+ "selectableCandidates": [
+  {"key": "84/10/6", "financial": 0.84, "collector": 0.10, "chase": 0.06},
+  {"key": "83/11/6", "financial": 0.83, "collector": 0.11, "chase": 0.06},
+  {"key": "82/12/6", "financial": 0.82, "collector": 0.12, "chase": 0.06},
+  {"key": "81/13/6", "financial": 0.81, "collector": 0.13, "chase": 0.06}
+ ],
+
+ "diagnosticCandidates": [
+  {"key": "94/0/6", "financial": 0.94, "collector": 0.00, "chase": 0.06, "role": "collector ablation"},
+  {"key": "89/5/6", "financial": 0.89, "collector": 0.05, "chase": 0.06, "role": "below-production boundary"},
+  {"key": "86.5/7.5/6", "financial": 0.865, "collector": 0.075, "chase": 0.06, "role": "the historical V4 provisional recommendation"},
+  {"key": "80/14/6", "financial": 0.80, "collector": 0.14, "chase": 0.06, "role": "above selectable ceiling; diagnostic only"},
+  {"key": "79/15/6", "financial": 0.79, "collector": 0.15, "chase": 0.06, "role": "above selectable ceiling; diagnostic only"}
+ ],
+ "selectionCeiling": 0.13,
+ "diagnosticOnlyNotSelectable": [0.14, 0.15],
+
+ "baselines": {
+  "financialPlusChase": "0.94 * FinancialRipV4 + 0.06 * ChaseOpportunity",
+  "note": "the three-pillar analogue of the historical Financial-only baseline the inherited guardrails were written against",
+  "control": "the 84/10/6 Stage VI-B candidate"
+ },
+
+ "inheritedHardGuardrails": {
+  "source": "backend/desirability/scoring_config.py OVERALL_RIP_PRODUCTION_GUARDRAILS",
+  "readNotRestated": true,
+  "min_spearman_vs_financial_only": 0.95,
+  "min_top5_overlap": 0.80,
+  "max_mean_absolute_rank_movement": 1.5,
+  "max_share_moving_5_plus_ranks": 0.10,
+  "appliedAgainst": "financialPlusChase baseline",
+  "classificationRule": "each guardrail is classified in the report as inherited-hard-gate, inherited-diagnostic-only, or obsolete, with a stated reason; none may be silently discarded"
+ },
+
+ "inheritedChaseContract": {
+  "source": "Stage VI-B closure.criteria, transcribed from report_chase_weight_stage6a.phase19_finalists",
+  "C1": "clear-Financial overrides == 0 AND max overturned Financial gap < 10, on base and all +/-10% shocks",
+  "C2": "close-pair override rate >= 0.10",
+  "C3": "Financial variance share > 0.80 AND Chase variance share < 0.20",
+  "C4": "Spearman >= 0.98 vs CONTROL AND top-5 turnover <= 1",
+  "C5": "same-set pairwise reversals > 0",
+  "mustHoldFor": "every selectable candidate",
+  "note": "raising Collector lowers Financial, which changes Chase's relative strength even though Chase stays at 0.06"
+ },
+
+ "financialProfileBands": {
+  "source": "backend/research/chase_weight_stage6a/pairs.py",
+  "close": "|F_a - F_b| <= 2.0",
+  "clear": "|F_a - F_b| >= 10.0",
+  "bands": ["<=2", "2-5", "5-10", "10-15", "15-20", ">20"]
+ },
+
+ "populationSchemes": [
+  {"key": "product-weighted", "rule": "every product is one observation"},
+  {"key": "set-balanced", "rule": "each product in a set of n receives weight 1/n so every set contributes equal total weight"}
+ ],
+
+ "decompositionRule": {
+  "directCollectorEffect": "difference attributable to C differing between the two products compared",
+  "reallocationEffect": "difference attributable to the Financial coefficient falling from 0.94-c_old to 0.94-c_new while Chase stays at 0.06",
+  "hardRule": "for any pair whose Collector Appeal values are equal, 100% of the change is reallocation effect and MUST NOT be credited to Collector information"
+ },
+
+ "robustnessDates": {
+  "source": "docs/research/chase_pillar_stage6_scenarios.json temporal scenarios",
+  "expected": ["2026-08-16", "2026-08-17", "2026-08-22", "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28"],
+  "partialCohortDatesReportedSeparately": true
+ },
+
+ "shocks": {
+  "inheritedFromStageVIB": ["card+/-2%", "card+/-5%", "card+/-10%", "card+/-20%", "prod+/-2%", "prod+/-5%", "prod+/-10%", "prod+/-20%"],
+  "collectorSpecific": [
+   {"key": "collector*0.90", "factor": 0.90},
+   {"key": "collector*1.10", "factor": 1.10}
+  ],
+  "collectorShockRule": "symmetric multiplicative only, clamped to the valid 0-100 Collector Appeal bound; declared here before any result was seen"
+ },
+
+ "rankingMetrics": [
+  "spearman", "kendallTau", "rbo_p0.9", "top5Overlap", "top7Overlap", "top10Overlap",
+  "top25Membership", "meanAbsoluteRankMovement", "medianAbsoluteRankMovement",
+  "maxRankMovement", "shareMoving5Plus", "productsChangingRank", "tierChanges",
+  "crossSetPairReversals", "sameSetPairReversals", "sameSetWinnerChanges"
+ ],
+
+ "decisionCriteria": {
+  "gate1": "candidate must pass all applicable hard Financial, Collector, Chase and robustness gates",
+  "gate2": "any increase above 0.10 must produce a real increase in COLLECTOR-SPECIFIC information, not movement caused by lowering Financial",
+  "gate3": "the increase must survive dates, shocks, product-weighted AND set-balanced analysis",
+  "gate4": "higher weight must retain comfortable margin on Financial dominance and on the Stage VI-B Chase contract",
+  "gate5": "if 0.10, 0.11, 0.12 and 0.13 all pass but additional weight adds negligible distinct benefit or only amplifies redundancy, retain the LOWEST SUFFICIENT weight (0.10)"
+ },
+
+ "selectionRule": "Do not select the highest passing weight. Select the lowest weight that is sufficient, unless a higher weight demonstrates stronger, stable, non-redundant COLLECTOR-SPECIFIC behaviour with substantial safety margin.",
+
+ "hierarchyRule": {
+  "intended": "Financial >> Collector > Chase",
+  "prohibition": "raw marginal variance ordering MUST NOT be used as a hard constraint forcing Collector > Chase; Stage VI-A showed covariance and dispersion make that ordering misleading",
+  "evaluateBehaviourally": ["is Financial still dominant", "does Collector influence cross-set judgements", "does Collector have wider conceptual scope than Chase", "does Chase remain a tertiary close-call modifier"],
+  "reportBoth": ["nominal hierarchy", "effective hierarchy"]
+ },
+
+ "permittedDecisions": [
+  "COLLECTOR_WEIGHT_10_RETAINED",
+  "COLLECTOR_WEIGHT_11_VALIDATED",
+  "COLLECTOR_WEIGHT_12_VALIDATED",
+  "COLLECTOR_WEIGHT_13_VALIDATED",
+  "COLLECTOR_WEIGHT_INCREASE_NOT_SUPPORTED_REDUNDANCY",
+  "COLLECTOR_WEIGHT_INCREASE_NOT_SUPPORTED_PRODUCT_SIGNAL_LIMITED",
+  "COLLECTOR_V5_PRODUCT_LEVEL_ARCHITECTURE_REVIEW_REQUIRED",
+  "COLLECTOR_STAGE7_BLOCKED"
+ ],
+ "qualifierAllowed": true,
+
+ "prohibitions": [
+  "no production change",
+  "no Collector Appeal V6",
+  "no redesign of Financial RIP V4, Collector Appeal V5 or Chase",
+  "no weight taken from Chase",
+  "no selection above 0.13",
+  "no editing of this preregistration after candidate results are seen; a correction requires a new versioned file preserving this one"
+ ]
+}

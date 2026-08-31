@@ -13,6 +13,10 @@ from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore[reportMissingImports]
 from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
 from pydantic import BaseModel, Field  # type: ignore[reportMissingImports]
+from pydantic import ConfigDict
+from backend.db.services.billing_service import BillingService
+from backend.domain.billing.catalog import BillingOfferNotConfigured
+from backend.domain.billing.errors import BillingError, BillingProviderError, InvalidWebhookSignature
 
 from backend.db.services.waitlist_signup_service import (
     insert_waitlist_signup,
@@ -245,6 +249,11 @@ class MarketExplorerQueryRequest(BaseModel):
     topN: Optional[int] = Field(default=None, ge=1, le=100)
 
 
+class BillingCheckoutRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    offerKey: str = Field(min_length=1, max_length=80)
+
+
 def _auth_env_presence() -> Dict[str, bool]:
     return {
         "JWT_SECRET": bool(os.getenv("JWT_SECRET")),
@@ -470,6 +479,64 @@ app.middleware("http")(market_request_metrics_middleware)
 def get_health():
     """Deployment identity for operators; contains no configuration secrets."""
     return {"status": "ok", "build": build_identity()}
+
+
+def _billing_redirect_urls() -> tuple[str, str]:
+    origin = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").strip().rstrip("/")
+    if os.getenv("APP_ENV", "").lower() == "production" and not origin.startswith("https://"):
+        raise HTTPException(status_code=503, detail={"code": "BILLING_NOT_CONFIGURED"})
+    return f"{origin}/account-settings?billing=success", f"{origin}/account-settings?billing=canceled"
+
+
+@app.post("/billing/checkout-session")
+def create_billing_checkout_session(
+    payload: BillingCheckoutRequest,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    success_url, cancel_url = _billing_redirect_urls()
+    try:
+        checkout_url = BillingService().create_checkout(user_id=user_id, offer_key=payload.offerKey,
+            success_url=success_url, cancel_url=cancel_url)
+        return _tiered_response({"checkoutUrl": checkout_url})
+    except KeyError:
+        raise HTTPException(status_code=404, detail={"code": "BILLING_OFFER_UNKNOWN"})
+    except BillingOfferNotConfigured:
+        raise HTTPException(status_code=409, detail={"code": "BILLING_OFFER_NOT_CONFIGURED"})
+    except BillingProviderError:
+        raise HTTPException(status_code=503, detail={"code": "BILLING_PROVIDER_UNAVAILABLE"})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+
+
+@app.get("/billing/me")
+def get_billing_me(
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    return _tiered_response(BillingService().billing_status(user_id))
+
+
+@app.post("/billing/stripe/webhook")
+async def stripe_billing_webhook(request: Request, stripe_signature: Optional[str] = Header(default=None, alias="Stripe-Signature")):
+    if not stripe_signature:
+        raise HTTPException(status_code=400, detail={"code": "BILLING_INVALID_WEBHOOK_SIGNATURE"})
+    service = BillingService()
+    raw_body = await request.body()
+    try:
+        event = service.provider.construct_event(raw_body, stripe_signature)
+        outcome = service.handle_event(event)
+        return {"received": True, "outcome": outcome}
+    except InvalidWebhookSignature:
+        raise HTTPException(status_code=400, detail={"code": "BILLING_INVALID_WEBHOOK_SIGNATURE"})
+    except BillingError as exc:
+        logger.exception("billing.webhook.failed code=%s", exc.code)
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+    except Exception:
+        logger.exception("billing.webhook.failed code=BILLING_WEBHOOK_PROCESSING_FAILED")
+        raise HTTPException(status_code=503, detail={"code": "BILLING_WEBHOOK_PROCESSING_FAILED"})
 
 
 @app.get("/collection/dashboard")
