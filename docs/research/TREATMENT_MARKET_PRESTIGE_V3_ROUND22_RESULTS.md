@@ -2,9 +2,9 @@
 
 1. **branch:** `"fix/public-rankings-entitlement-regression"`
 
-2. **HEAD:** `"439f9979b245a8256805459c54604a606f23838e"`
+2. **HEAD:** `"53fe89d346cadada122ec8b10a591c3d73f0ea8a"`
 
-3. **study ID:** `"treatment-market-prestige-v3-r22-900f800e7da474e2"`
+3. **study ID:** `"treatment-market-prestige-v3-r22-1c9c4e5cd1710781"`
 
 4. **exact pilot sets:** `{"Ascended Heroes": ["Ascended Heroes"], "Base Set": ["Base"], "Cosmic Eclipse": ["Cosmic Eclipse"], "Crown Zenith / Galarian Gallery": ["Crown Zenith", "Crown Zenith Galarian Gallery"], "Evolving Skies": ["Evolving Skies"], "Hidden Fates / Shiny Vault": ["Hidden Fates", "Hidden Fates Shiny Vault"], "Mega Evolution": ["Mega Evolution"], "Paldean Fates": ["Paldean Fates"], "Scarlet & Violet 151": ["Scarlet and Violet 151"], "Surging Sparks": ["Surging Sparks"]}`
 
@@ -126,9 +126,9 @@
 
 63. **rows persisted:** `0`
 
-64. **files changed:** `["D:\\EVRCalculator\\backend\\scripts\\build_treatment_market_prestige_v3_round22.py", "docs\\research\\treatment_market_prestige_v3_round22_study.json", "docs\\research\\TREATMENT_MARKET_PRESTIGE_V3_ROUND22_RESULTS.md", "docs\\research\\treatment_market_prestige_v3_round22\\pilot_universes.json", "docs\\research\\treatment_market_prestige_v3_round22\\set_treatment_graphs.json", "docs\\research\\treatment_market_prestige_v3_round22\\set_model_results.json", "docs\\research\\treatment_market_prestige_v3_round22\\potential_recovery.json", "docs\\research\\treatment_market_prestige_v3_round22\\manifest.json"]`
+64. **files changed:** `["D:\\EVRCalculator\\backend\\scripts\\build_treatment_market_prestige_v3_round22.py", "docs\\research\\treatment_market_prestige_v3_round22_study.json", "docs\\research\\TREATMENT_MARKET_PRESTIGE_V3_ROUND22_RESULTS.md", "docs\\research\\treatment_market_prestige_v3_round22\\pilot_universes.json", "docs\\research\\treatment_market_prestige_v3_round22\\set_treatment_graphs.json", "docs\\research\\treatment_market_prestige_v3_round22\\set_model_results.json", "docs\\research\\treatment_market_prestige_v3_round22\\potential_recovery.json", "docs\\research\\treatment_market_prestige_v3_round22\\manifest.json", "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round22.py"]`
 
-65. **tests executed:** `["Pending final execution"]`
+65. **tests executed:** `["python -m pytest backend/tests/unit/desirability/test_treatment_market_prestige_v3_round22.py -q (4 passed)", "python -m pytest backend/tests/unit/desirability -q -k 'treatment_market_prestige_v3 or supporter_treatment_market_prestige_v3s_round2 or trainer_treatment_market_prestige_v3t_round3' (95 passed, 1785 deselected)"]`
 
 66. **reproducibility/hash checks:** `{"graphHash": "4e9418e1f571c9d0cb1fee8589166a3f86fa74ddb11f8c3b97363769931149f8", "recoveryHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945", "resultHash": "451efcb53da819f15e14c59286dbd8fca61583d3f32a584b69b24a41491d6583", "universeHash": "d928e90aa7e02b6f1f614997e3cbd3008f4974cacbe24951a405ebaea4e6ef82"}`
 

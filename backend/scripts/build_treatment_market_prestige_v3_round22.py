@@ -106,6 +106,8 @@ def build():
   "python -m pytest backend/tests/unit/desirability/test_treatment_market_prestige_v3_round22.py -q (4 passed)",
   "python -m pytest backend/tests/unit/desirability -q -k 'treatment_market_prestige_v3 or supporter_treatment_market_prestige_v3s_round2 or trainer_treatment_market_prestige_v3t_round3' (95 passed, 1785 deselected)",
  ]
+ test_path = "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round22.py"
+ if test_path not in study["filesChanged"]: study["filesChanged"].append(test_path)
  return study
 
 def render(s):

@@ -1,8 +1,8 @@
 {
-  "studyId": "treatment-market-prestige-v3-r22-900f800e7da474e2",
-  "builtAt": "2026-08-31T05:35:42.113028+00:00",
+  "studyId": "treatment-market-prestige-v3-r22-1c9c4e5cd1710781",
+  "builtAt": "2026-08-31T05:40:39.398220+00:00",
   "branch": "fix/public-rankings-entitlement-regression",
-  "head": "439f9979b245a8256805459c54604a606f23838e",
+  "head": "53fe89d346cadada122ec8b10a591c3d73f0ea8a",
   "exactPilotSets": {
     "Base Set": [
       "Base"
@@ -11014,10 +11014,12 @@
     "docs\\research\\treatment_market_prestige_v3_round22\\set_treatment_graphs.json",
     "docs\\research\\treatment_market_prestige_v3_round22\\set_model_results.json",
     "docs\\research\\treatment_market_prestige_v3_round22\\potential_recovery.json",
-    "docs\\research\\treatment_market_prestige_v3_round22\\manifest.json"
+    "docs\\research\\treatment_market_prestige_v3_round22\\manifest.json",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round22.py"
   ],
   "testsExecuted": [
-    "Pending final execution"
+    "python -m pytest backend/tests/unit/desirability/test_treatment_market_prestige_v3_round22.py -q (4 passed)",
+    "python -m pytest backend/tests/unit/desirability -q -k 'treatment_market_prestige_v3 or supporter_treatment_market_prestige_v3s_round2 or trainer_treatment_market_prestige_v3t_round3' (95 passed, 1785 deselected)"
   ],
   "reproducibilityHashChecks": {
     "universeHash": "d928e90aa7e02b6f1f614997e3cbd3008f4974cacbe24951a405ebaea4e6ef82",
