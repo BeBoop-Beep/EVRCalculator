@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 
 
@@ -63,6 +64,10 @@ def _series(dates, rows, top_n=None):
     return result
 
 
+def _half_open_contains(valid_from, valid_to, market_date):
+    return valid_from <= market_date and (valid_to is None or market_date < valid_to)
+
+
 def test_function_contract_signature_and_security_are_unchanged():
     signature = (
         "public.get_pokemon_market_explorer_filtered_cohort"
@@ -121,6 +126,21 @@ def test_native_range_fast_path_has_no_extension_or_business_data_write():
     assert "insert into" not in FAST_PATH_SQL
     assert "update " not in FAST_PATH_SQL
     assert "delete from" not in FAST_PATH_SQL
+    assert "set_value_eligible" not in FAST_PATH_SQL
+    assert "opening_eligible" not in FAST_PATH_SQL
+    assert "duplicate_alias" not in FAST_PATH_SQL
+    assert "abstract_identity" not in FAST_PATH_SQL
+
+
+def test_half_open_range_semantics_cover_bounded_open_and_boundaries():
+    start, end = date(2026, 1, 10), date(2026, 1, 20)
+    assert _half_open_contains(start, end, start)
+    assert _half_open_contains(start, end, date(2026, 1, 19))
+    assert not _half_open_contains(start, end, end)
+    assert not _half_open_contains(start, end, date(2026, 1, 9))
+    assert not _half_open_contains(start, end, date(2026, 1, 21))
+    assert _half_open_contains(start, None, start)
+    assert _half_open_contains(start, None, date(2099, 1, 1))
 
 
 def test_dimension_free_panel_is_separate_from_custom_filter_authorities():
@@ -147,6 +167,7 @@ def test_range_panel_and_latest_primary_key_lookup_preserve_identity():
     assert "fact.observation_id = latest.observation_id" in FAST_PATH_SQL
     assert "partition by selected.card_variant_id" in FAST_PATH_SQL
     assert "state.prev_seen_date = dates.previous_market_date" in FAST_PATH_SQL
+    assert "fact.observation_id = latest.observation_id" in FAST_PATH_SQL
 
 
 def test_fast_path_signature_acl_and_top_n_contract_are_unchanged():
