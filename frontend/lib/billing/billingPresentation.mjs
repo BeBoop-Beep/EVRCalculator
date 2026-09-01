@@ -15,12 +15,7 @@ export function statusPresentation(status, cancelAtPeriodEnd = false) {
 }
 export function formatBillingDate(value, locale) {
   if (!value) return null;
-  // Handle Unix timestamps in seconds (integers between 1 billion and 10 billion represent 2001-2286)
-  let dateValue = value;
-  if (Number.isInteger(value) && value > 1e9 && value < 1e10) {
-    dateValue = value * 1000; // Convert seconds to milliseconds
-  }
-  const date = new Date(dateValue); if (Number.isNaN(date.getTime())) return null;
+  const date = new Date(value); if (Number.isNaN(date.getTime())) return null;
   return new Intl.DateTimeFormat(locale, { year:"numeric", month:"long", day:"numeric" }).format(date);
 }
 export function billingMessage(status, { cancelAtPeriodEnd=false, currentPeriodEnd=null, effectivePlan=null } = {}) {
@@ -45,13 +40,13 @@ export function pendingChangeCopy(status) {
     return null;
   }
   const planName = planLabel(status.pendingPlan);
-  const date = formatBillingDate(status.pendingChangeEffectiveAt);
+  const date = formatBillingDate(status.pendingChangeEffectiveAt != null ? status.pendingChangeEffectiveAt * 1000 : status.pendingChangeEffectiveAt);
   return `Changes to ${planName} on ${date}`;
 }
 
 export function upgradeConfirmationCopy({ amountDueNow, currency, nextRenewalAt }) {
   const dueNowLabel = formatMinorAmount(amountDueNow, currency);
-  const renewalDate = formatBillingDate(nextRenewalAt);
+  const renewalDate = formatBillingDate(nextRenewalAt != null ? nextRenewalAt * 1000 : nextRenewalAt);
   return {
     dueNowLabel,
     bodyLines: [
@@ -62,7 +57,7 @@ export function upgradeConfirmationCopy({ amountDueNow, currency, nextRenewalAt 
 }
 
 export function downgradeConfirmationCopy({ currentPlanUntil }) {
-  const untilDate = formatBillingDate(currentPlanUntil);
+  const untilDate = formatBillingDate(currentPlanUntil != null ? currentPlanUntil * 1000 : currentPlanUntil);
   return {
     bodyLines: [
       `You'll keep Index Premium until ${untilDate}.`,
