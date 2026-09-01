@@ -220,6 +220,9 @@ function PaidCard({
   } else if (mode === "pending-downgrade") {
     label = "Keep Index Premium";
     disabled = false;
+  } else if (mode === "pending-unknown") {
+    label = "Unavailable Right Now";
+    disabled = true;
   } else if (mode === "checkout") {
     label = purchasable
       ? (status
@@ -258,6 +261,12 @@ function PaidCard({
       {mode === "pending-downgrade" && (
         <p className="mt-4 text-sm font-semibold text-[var(--text-secondary)]">
           {pendingChangeCopy(status)}
+        </p>
+      )}
+      {mode === "pending-unknown" && (
+        <p className="mt-4 text-sm font-semibold text-[var(--text-secondary)]">
+          We can&apos;t verify pending membership changes right now. Your current
+          membership is unaffected. Use Manage Billing for account changes.
         </p>
       )}
       <button
@@ -353,7 +362,7 @@ export default function PricingPageClient() {
     }
     setPending(plan);
     try {
-      if (mode === "current") {
+      if (mode === "current" || mode === "pending-unknown") {
         return;
       }
       if (!user) {

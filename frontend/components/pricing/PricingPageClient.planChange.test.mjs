@@ -39,6 +39,21 @@ test("unmanaged basic-tier user with no billing relationship falls back to check
   assert.equal(resolvePaidCardMode("plus", status), "checkout");
 });
 
+test("plus user with unknown pending state sees pending-unknown on premium card, not upgrade", () => {
+  const status = { effectivePlan: "plus", billingManaged: true, pendingChangeState: "unknown" };
+  assert.equal(resolvePaidCardMode("premium", status), "pending-unknown");
+});
+
+test("premium user with unknown pending state sees pending-unknown on plus card, not downgrade or pending-downgrade", () => {
+  const status = { effectivePlan: "premium", billingManaged: true, pendingChangeState: "unknown" };
+  assert.equal(resolvePaidCardMode("plus", status), "pending-unknown");
+});
+
+test("unknown pending state never demotes the current-plan card", () => {
+  const status = { effectivePlan: "premium", billingManaged: true, pendingChangeState: "unknown" };
+  assert.equal(resolvePaidCardMode("premium", status), "current");
+});
+
 test("confirm result with paymentResult succeeded is treated as success", () => {
   assert.deepEqual(resolveConfirmOutcome({ action: "upgrade_now", paymentResult: "succeeded" }), {
     status: "success",
