@@ -37,10 +37,46 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/.venv/bin/python}"
 
-# The market date is the America/Phoenix business date the batch was promoted
-# for, never the VM's wall clock date, so a run that slips past midnight UTC
-# still audits and publishes the date the pipeline actually promoted.
-MARKET_DATE="$(TZ=America/Phoenix date +%F)"
+# Single-publisher lock: covers the ENTIRE refresh + post-scrape audit below.
+# Prevents the immediate post-scrape trigger, the 6:00 AM fallback, and an
+# accidental manual invocation from ever running concurrent publishers. A
+# held lock is a safe NO-OP (exit 0), never a failure — the caller (scrape
+# batch completion or the fallback) must stay unaffected. The lock file
+# descriptor is opened for the life of this process, so the lock releases
+# automatically on any exit path (success, failure, or signal).
+LOCK_PATH="${POST_SCRAPE_PUBLICATION_LOCK_PATH:-/tmp/pokemon-post-scrape-publication.lock}"
+if ! command -v flock >/dev/null 2>&1; then
+  printf '[post-scrape-publication] %s FATAL flock not available; refusing to publish unlocked\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  exit 1
+fi
+exec {LOCK_FD}>"${LOCK_PATH}"
+if ! flock -n "${LOCK_FD}"; then
+  printf '[post-scrape-publication] %s already running (lock_path=%s held); safe no-op, exiting 0\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${LOCK_PATH}"
+  exit 0
+fi
+
+# Explicit market date support (recovery + the immediate post-scrape trigger):
+#   rebuild_snapshots_after_scrape.sh 2026-09-01
+# Backward compatible: with no argument this defaults to the America/Phoenix
+# business date, exactly as before, for manual/cron use. The market date is
+# NEVER derived from the VM's wall clock when an explicit batch date is known
+# — a run that slips past midnight UTC must still audit and publish the date
+# the pipeline actually promoted.
+EXPLICIT_MARKET_DATE="${1:-}"
+if [[ -n "${EXPLICIT_MARKET_DATE}" ]]; then
+  if [[ ! "${EXPLICIT_MARKET_DATE}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+    printf '[post-scrape-publication] %s FATAL malformed market date argument: %s (expected YYYY-MM-DD)\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${EXPLICIT_MARKET_DATE}"
+    exit 1
+  fi
+  MARKET_DATE="${EXPLICIT_MARKET_DATE}"
+else
+  # No explicit date supplied: fall back to the America/Phoenix business date
+  # (manual invocation / legacy behavior).
+  MARKET_DATE="$(TZ=America/Phoenix date +%F)"
+fi
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 GIT_SHA="$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || echo unknown)"
 
@@ -52,7 +88,8 @@ log "started_at=${STARTED_AT}"
 log "repo_root=${REPO_ROOT}"
 log "git_sha=${GIT_SHA}"
 log "python_bin=${PYTHON_BIN}"
-log "market_date=${MARKET_DATE}"
+log "lock_path=${LOCK_PATH}"
+log "resolved market_date=${MARKET_DATE}"
 
 if [[ ! -x "${PYTHON_BIN}" ]]; then
   log "FATAL python interpreter not executable at ${PYTHON_BIN}"

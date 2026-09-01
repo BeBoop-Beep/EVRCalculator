@@ -202,10 +202,44 @@ def _run_idle_completion_check(market_date: Optional[str] = None) -> dict:
 
         summary = run_batch_completion_and_repair(market_date=market_date)
         logger.info("%s idle batch check: %s", DISPATCHER_TAG, summary)
+        _maybe_trigger_post_scrape_publication(summary or {})
         return summary or {}
     except Exception:  # pragma: no cover - completion check is best-effort
         logger.exception("%s idle batch completion check failed", DISPATCHER_TAG)
         return {}
+
+
+def _maybe_trigger_post_scrape_publication(summary: dict) -> None:
+    """Hand off to the canonical post-scrape publisher the moment the batch is
+    authoritatively complete — never merely because the queue is empty.
+
+    ``run_batch_completion_and_repair`` is the ONLY completion authority: this
+    only reacts to its already-computed ``status == "complete"`` result. The
+    trigger itself is idempotent (it checks durable publication currency
+    before launching anything) and best-effort (it never raises), so it can
+    safely be called every idle minute without restarting the publisher or
+    failing the scrape dispatcher.
+    """
+    if str(summary.get("status") or "") != "complete":
+        return
+    resolved_market_date = summary.get("market_date")
+    if not resolved_market_date:
+        logger.error(
+            "%s batch reported complete with no market_date; cannot trigger publication",
+            DISPATCHER_TAG,
+        )
+        return
+    try:
+        from backend.db.services.post_scrape_publication_trigger import (
+            trigger_post_scrape_publication_if_needed,
+        )
+
+        trigger_post_scrape_publication_if_needed(resolved_market_date)
+    except Exception:  # pragma: no cover - publication handoff is best-effort
+        logger.exception(
+            "%s post-scrape publication trigger failed for market_date=%s",
+            DISPATCHER_TAG, resolved_market_date,
+        )
 
 
 def _positive_env_int(name: str, default: int) -> int:

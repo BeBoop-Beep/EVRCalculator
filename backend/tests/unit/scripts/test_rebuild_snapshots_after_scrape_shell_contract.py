@@ -145,3 +145,62 @@ def test_a_failed_audit_fails_the_whole_run(script_text):
 
 def test_documents_that_opvc_is_intentionally_deferred(script_text):
     assert "Opening Profit vs Cost" in script_text
+
+
+# --- explicit market date + single-publisher lock ---------------------------
+#
+# These contracts back the immediate post-scrape publication trigger: the
+# wrapper must accept the authoritative batch market_date explicitly (never
+# derive it solely from the VM wall clock when one is supplied), validate it,
+# and hold a non-blocking single-publisher lock across the ENTIRE refresh +
+# audit body so the immediate trigger, the 6:00 AM fallback, and a manual
+# invocation can never run concurrent publishers.
+
+
+def test_accepts_an_explicit_market_date_argument(script_text):
+    assert 'EXPLICIT_MARKET_DATE="${1:-}"' in script_text
+    assert 'MARKET_DATE="${EXPLICIT_MARKET_DATE}"' in script_text
+
+
+def test_falls_back_to_phoenix_today_when_no_argument_supplied(script_text):
+    # Backward-compatible default for manual/cron use with no argument.
+    assert 'MARKET_DATE="$(TZ=America/Phoenix date +%F)"' in script_text
+    else_at = script_text.index('MARKET_DATE="$(TZ=America/Phoenix date +%F)"')
+    explicit_at = script_text.index('EXPLICIT_MARKET_DATE="${1:-}"')
+    assert explicit_at < else_at, "explicit-date branch must be checked before the fallback"
+
+
+def test_validates_the_explicit_market_date_format_before_publishing(script_code):
+    assert r'^[0-9]{4}-[0-9]{2}-[0-9]{2}$' in script_code
+    validate_at = script_code.index(r'^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+    refresh_at = script_code.index(REFRESH)
+    assert validate_at < refresh_at, "malformed date must be rejected before publishing"
+    assert "malformed market date argument" in script_code
+
+
+def test_logs_the_resolved_market_date(script_text):
+    assert 'log "resolved market_date=${MARKET_DATE}"' in script_text
+
+
+def test_holds_a_non_blocking_single_publisher_lock(script_text):
+    assert "flock -n" in script_text
+    assert "/tmp/pokemon-post-scrape-publication.lock" in script_text
+
+
+def test_the_lock_wraps_both_the_refresh_and_the_audit(script_code):
+    """Removing the lock, or narrowing it to only the refresh call, must fail this."""
+    lock_at = script_code.index("flock -n")
+    refresh_at = script_code.index(REFRESH)
+    audit_at = script_code.index(AUDIT)
+    assert lock_at < refresh_at < audit_at, "the lock must be acquired before either stage runs"
+
+
+def test_a_held_lock_is_a_safe_no_op_not_a_failure(script_text):
+    lock_at = script_text.index("flock -n")
+    tail = script_text[lock_at:lock_at + 400]
+    assert "exit 0" in tail
+    assert "already running" in tail or "no-op" in tail
+
+
+def test_scheduled_path_never_includes_force_publish(script_code):
+    assert "--force-publish" not in script_code
