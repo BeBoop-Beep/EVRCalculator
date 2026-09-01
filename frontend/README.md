@@ -17,14 +17,16 @@ Google OAuth is intentionally one **Continue with Google** flow for both login a
 
 ### Supabase Auth URL configuration
 
-Production uses the apex domain as the canonical application origin. Configure Supabase **Authentication → URL Configuration** with:
+Production uses the apex domain as the canonical application URL. Configure Supabase **Authentication → URL Configuration** with:
 
 - Site URL: `https://inthedex.io`
 - Redirect URL: `https://inthedex.io/auth/callback`
-- Optional `www` alias: `https://www.inthedex.io/auth/callback`
+- If `www` can initiate authentication: `https://www.inthedex.io/auth/callback`
 - Local development: `http://localhost:3000/auth/callback`
 
-The application canonicalizes both production hostnames to `https://inthedex.io/auth/callback` while preserving localhost and other development origins. The exact callback URL still must be present in Supabase's redirect allow-list. If `redirectTo` is not allowed, Supabase can fall back to the configured Site URL; a stale Site URL such as `http://localhost:3000` will therefore send a production OAuth completion to localhost instead of `/auth/callback`.
+The application builds `/auth/callback` on the same origin that initiated PKCE. This is deliberate: the PKCE verifier and the resulting host-scoped application session must not be moved to a different hostname in the middle of authentication. Prefer redirecting `www` traffic to the apex site before login begins; if both hosts can initiate auth, allow both exact callback URLs in Supabase.
+
+The exact callback URL must be present in Supabase's redirect allow-list. If `redirectTo` is not allowed, Supabase can fall back to the configured Site URL; a stale Site URL such as `http://localhost:3000` can therefore send a production OAuth completion to localhost instead of `/auth/callback`.
 
 ## inDex Mobile UI Invariants
 
