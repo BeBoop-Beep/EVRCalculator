@@ -79,6 +79,61 @@ class StripeProvider:
         except BillingNotConfigured: raise
         except Exception as exc: raise BillingProviderError("Stripe Customer Portal creation failed") from exc
 
+    def preview_subscription_update(self, *, subscription_id: str, subscription_item_id: str, target_price_id: str, proration_date: int) -> dict:
+        try:
+            response = self._client().v1.invoices.create_preview({
+                "subscription": subscription_id,
+                "subscription_details": {
+                    "items": [{"id": subscription_item_id, "price": target_price_id}],
+                    "proration_behavior": "always_invoice",
+                    "proration_date": proration_date,
+                },
+            })
+            return {"amount_due": _field(response, "amount_due"), "currency": _field(response, "currency")}
+        except BillingNotConfigured: raise
+        except Exception as exc: raise BillingProviderError("Stripe invoice preview failed") from exc
+
+    def update_subscription_item(self, *, subscription_id: str, subscription_item_id: str, target_price_id: str, proration_date: int, idempotency_key: str) -> dict:
+        try:
+            subscription = self._client().v1.subscriptions.update(
+                subscription_id,
+                {
+                    "items": [{"id": subscription_item_id, "price": target_price_id}],
+                    "proration_behavior": "always_invoice",
+                    "proration_date": proration_date,
+                    "payment_behavior": "pending_if_incomplete",
+                },
+                options={"idempotency_key": idempotency_key},
+            )
+            return {"payment_result": _normalize_payment_result(subscription), "subscription": subscription}
+        except BillingNotConfigured: raise
+        except Exception as exc: raise BillingProviderError("Stripe subscription item update failed") from exc
+
+    def create_downgrade_schedule(self, *, subscription_id: str, target_price_id: str, current_period_end: int, idempotency_key: str) -> dict:
+        try:
+            schedule = self._client().v1.subscription_schedules.create(
+                {"from_subscription": subscription_id},
+                options={"idempotency_key": idempotency_key},
+            )
+            phases = _field(schedule, "phases")
+            current_phase = phases[0]
+            updated_phases = [
+                current_phase,
+                {"items": [{"price": target_price_id}], "start_date": current_period_end},
+            ]
+            return self._client().v1.subscription_schedules.update(
+                _field(schedule, "id"),
+                {"end_behavior": "release", "phases": updated_phases},
+            )
+        except BillingNotConfigured: raise
+        except Exception as exc: raise BillingProviderError("Stripe downgrade schedule creation failed") from exc
+
+    def release_schedule(self, *, schedule_id: str) -> None:
+        try:
+            self._client().v1.subscription_schedules.release(schedule_id)
+        except BillingNotConfigured: raise
+        except Exception as exc: raise BillingProviderError("Stripe schedule release failed") from exc
+
     def construct_event(self, raw_body: bytes, signature: str):
         if not self.webhook_secret:
             raise BillingNotConfigured("STRIPE_WEBHOOK_SECRET is not configured")
@@ -93,3 +148,34 @@ def _mapping_data(value):
     if isinstance(value, dict):
         return value.get("data", [])
     return []
+
+
+def _field(value, name, default=None):
+    """Read `name` from either a dict-shaped or attribute-shaped (StripeObject) value.
+
+    Real stripe-python 15.4.0 responses are StripeObject instances, which support
+    attribute access (with AttributeError, not None, for a missing field) but do not
+    implement `.get(...)`. Test doubles and webhook payloads are plain dicts. This
+    helper works uniformly across both.
+    """
+    if value is None:
+        return default
+    if isinstance(value, dict):
+        return value.get(name, default)
+    return getattr(value, name, default)
+
+
+def _normalize_payment_result(subscription) -> str:
+    latest_invoice = _field(subscription, "latest_invoice")
+    if not latest_invoice:
+        return "succeeded"
+    payment_intent = _field(latest_invoice, "payment_intent")
+    if not payment_intent:
+        invoice_status = _field(latest_invoice, "status")
+        return "succeeded" if invoice_status == "paid" else "requires_action"
+    status = _field(payment_intent, "status")
+    if status == "succeeded":
+        return "succeeded"
+    if status in ("requires_action", "requires_source_action"):
+        return "requires_action"
+    return "failed"
