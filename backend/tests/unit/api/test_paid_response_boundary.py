@@ -238,6 +238,134 @@ def test_chase_efficiency_is_premium_and_gate_precedes_reader(monkeypatch):
     assert reads == [True]
 
 
+SENTINEL_PAID_ONLY_VALUE = "SENTINEL_PAID_ONLY_VALUE"
+
+
+def _set_rip_simulation_evidence_fixture():
+    return {
+        "contractVersion": "pokemon-set-rip-simulation-evidence-v1",
+        "setId": "set-1",
+        "calculationRunId": "run-1",
+        "marketDate": "2026-08-30",
+        "summary": {
+            "simulation_count": 1000000,
+            "pack_cost": 4.99,
+            "median_value": 3.5,
+            "mean_value": 5.25,
+            "max_value": SENTINEL_PAID_ONLY_VALUE,
+            "p95_value": SENTINEL_PAID_ONLY_VALUE,
+            "p99_value": SENTINEL_PAID_ONLY_VALUE,
+            "tail_value_p05": SENTINEL_PAID_ONLY_VALUE,
+            "big_hit_threshold": SENTINEL_PAID_ONLY_VALUE,
+        },
+        "distributionBins": [{
+            "bin_floor": 0, "bin_ceiling": 5, "occurrence_count": 400000,
+            "probability": 0.4, "cumulative_probability": 0.4,
+            "survival_probability": 1.0,
+            "unknownBinField": SENTINEL_PAID_ONLY_VALUE,
+        }],
+        "thresholdBins": [{
+            "threshold_floor": 0, "threshold_ceiling": 5, "occurrence_count": 400000,
+            "probability": 0.4, "cumulative_probability": 0.4,
+            "survival_probability": 1.0, "bucket_order": 1, "bucket_label": "$0-$5",
+            "unknownThresholdField": SENTINEL_PAID_ONLY_VALUE,
+        }],
+        "meta": {
+            "contractVersion": "pokemon-set-rip-simulation-evidence-v1",
+            "builtAt": "2026-08-30T00:00:00Z", "marketDate": "2026-08-30",
+            "calculationRunId": "run-1", "source": "snapshot", "available": True,
+            "status": "ready", "unknownFutureField": SENTINEL_PAID_ONLY_VALUE,
+        },
+        "openingOutcomeProfile": {"secret": SENTINEL_PAID_ONLY_VALUE},
+        "evRepresentativeness": {"detail": SENTINEL_PAID_ONLY_VALUE},
+        "financialRip": {"score": SENTINEL_PAID_ONLY_VALUE},
+        "collectorAppeal": {"score": SENTINEL_PAID_ONLY_VALUE},
+        "advanced": {"anything": SENTINEL_PAID_ONLY_VALUE},
+        "unknownFutureField": SENTINEL_PAID_ONLY_VALUE,
+    }
+
+
+def test_set_rip_simulation_evidence_is_public_and_projected(monkeypatch):
+    _install_auth(monkeypatch)
+    fixture = _set_rip_simulation_evidence_fixture()
+    monkeypatch.setattr(main, "get_pokemon_set_rip_simulation_evidence_snapshot_payload",
+                        lambda set_id=None: fixture)
+    client = TestClient(main.app)
+    route = "/tcgs/pokemon/sets/set-1/rip/simulation-evidence"
+
+    anonymous = client.get(route)
+    base = client.get(route, headers=_headers("base-token"))
+    plus = client.get(route, headers=_headers("plus-token"))
+    premium = client.get(route, headers=_headers("premium-token"))
+    spoofed = client.get(
+        route + "?plan=premium&index_plan=premium",
+        headers=_headers("base-token", **{"x-plan": "premium", "x-index-plan": "premium"}),
+    )
+
+    for response in (anonymous, base, plus, premium, spoofed):
+        assert response.status_code == 200
+
+    for response in (anonymous, base, spoofed):
+        body = response.json()
+        assert SENTINEL_PAID_ONLY_VALUE not in response.text
+        assert body["contractVersion"] == "pokemon-set-rip-simulation-evidence-v1"
+        assert body["setId"] == "set-1"
+        assert body["calculationRunId"] == "run-1"
+        assert body["marketDate"] == "2026-08-30"
+        assert body["summary"] == {
+            "simulation_count": 1000000, "pack_cost": 4.99,
+            "median_value": 3.5, "mean_value": 5.25,
+        }
+        assert body["distributionBins"] == [{
+            "bin_floor": 0, "bin_ceiling": 5, "occurrence_count": 400000,
+            "probability": 0.4, "cumulative_probability": 0.4, "survival_probability": 1.0,
+        }]
+        assert body["thresholdBins"] == [{
+            "threshold_floor": 0, "threshold_ceiling": 5, "occurrence_count": 400000,
+            "probability": 0.4, "cumulative_probability": 0.4, "survival_probability": 1.0,
+            "bucket_order": 1, "bucket_label": "$0-$5",
+        }]
+        assert "openingOutcomeProfile" not in body
+        assert "evRepresentativeness" not in body
+        assert "financialRip" not in body
+        assert "collectorAppeal" not in body
+        assert "advanced" not in body
+        assert "unknownFutureField" not in body
+
+    # spoofed premium claim on an actually-Base token never changes the resolved plan
+    assert spoofed.json() == base.json()
+
+    for response in (plus, premium):
+        assert SENTINEL_PAID_ONLY_VALUE in response.text
+        assert response.json() == fixture
+
+    assert anonymous.headers["cache-control"] == "no-store"
+    assert "Authorization" in anonymous.headers["vary"]
+
+
+def test_set_rip_advanced_and_legacy_simulation_evidence_stay_gated(monkeypatch):
+    _install_auth(monkeypatch)
+    monkeypatch.setattr(main, "get_pokemon_set_rip_advanced_snapshot_payload",
+                        lambda set_id=None: {"secret": SENTINEL_PAID_ONLY_VALUE})
+    monkeypatch.setattr(main, "get_pokemon_set_simulation_evidence_snapshot_payload",
+                        lambda set_id=None: {"secret": SENTINEL_PAID_ONLY_VALUE})
+    client = TestClient(main.app)
+
+    advanced_anon = client.get("/tcgs/pokemon/sets/set-1/rip/advanced")
+    advanced_base = client.get("/tcgs/pokemon/sets/set-1/rip/advanced", headers=_headers("base-token"))
+    advanced_plus = client.get("/tcgs/pokemon/sets/set-1/rip/advanced", headers=_headers("plus-token"))
+    legacy_anon = client.get("/tcgs/pokemon/sets/set-1/simulation-evidence")
+    legacy_base = client.get("/tcgs/pokemon/sets/set-1/simulation-evidence", headers=_headers("base-token"))
+    legacy_plus = client.get("/tcgs/pokemon/sets/set-1/simulation-evidence", headers=_headers("plus-token"))
+
+    assert advanced_anon.status_code == 401
+    assert advanced_base.status_code == 403
+    assert advanced_plus.status_code == 200 and SENTINEL_PAID_ONLY_VALUE in advanced_plus.text
+    assert legacy_anon.status_code == 401
+    assert legacy_base.status_code == 403
+    assert legacy_plus.status_code == 200 and SENTINEL_PAID_ONLY_VALUE in legacy_plus.text
+
+
 def test_custom_market_plus_normalizes_for_access_but_cannot_reach_planner(monkeypatch):
     _install_auth(monkeypatch)
     touched = []

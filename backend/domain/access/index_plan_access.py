@@ -169,6 +169,68 @@ def _project_public_set_leaderboard_target(target: Mapping[str, Any]) -> dict[st
     return projected
 
 
+_PUBLIC_SET_RIP_SIMULATION_TOP_FIELDS = frozenset({
+    "contractVersion", "setId", "calculationRunId", "marketDate",
+})
+_PUBLIC_SET_RIP_SIMULATION_SUMMARY_FIELDS = frozenset({
+    "simulation_count", "simulationCount", "pack_cost", "packCost",
+    "median_value", "medianValue", "mean_value", "meanValue",
+})
+_PUBLIC_SET_RIP_SIMULATION_META_FIELDS = frozenset({
+    "contractVersion", "builtAt", "marketDate", "calculationRunId",
+    "source", "available", "status",
+})
+_PUBLIC_DISTRIBUTION_BIN_FIELDS = frozenset({
+    "bin_floor", "bin_ceiling", "occurrence_count", "probability",
+    "cumulative_probability", "survival_probability",
+})
+_PUBLIC_THRESHOLD_BIN_FIELDS = frozenset({
+    "threshold_floor", "threshold_ceiling", "occurrence_count", "probability",
+    "cumulative_probability", "survival_probability", "bucket_order", "bucket_label",
+})
+
+
+def _project_public_distribution_bins(bins: Any) -> list[dict[str, Any]]:
+    if not isinstance(bins, list):
+        return []
+    return [_pick(row, _PUBLIC_DISTRIBUTION_BIN_FIELDS) for row in bins if isinstance(row, Mapping)]
+
+
+def _project_public_threshold_bins(bins: Any) -> list[dict[str, Any]]:
+    if not isinstance(bins, list):
+        return []
+    return [_pick(row, _PUBLIC_THRESHOLD_BIN_FIELDS) for row in bins if isinstance(row, Mapping)]
+
+
+def project_set_rip_simulation_evidence_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
+    """Tier-safe `/tcgs/pokemon/sets/{set_id}/rip/simulation-evidence` response.
+
+    Base/anonymous callers get only the public distribution-graph contract:
+    identity fields (`contractVersion, setId, calculationRunId, marketDate`),
+    four public summary fields (simulation count, pack cost, median, mean),
+    and the `distributionBins`/`thresholdBins` row fields
+    `RipDistributionChart.jsx` actually consumes. Plus/Premium get the
+    payload unchanged (current behavior). Unknown/future fields at every
+    level — top-level, summary, meta, and bin rows — fail closed for the
+    public branch: they are simply absent until explicitly added to an
+    allowlist here.
+    """
+    if not isinstance(payload, Mapping):
+        payload = {}
+    if has_index_feature_access(plan, FEATURE_SET_RIP_ANALYTICS):
+        return dict(payload)
+    projected = _pick(payload, _PUBLIC_SET_RIP_SIMULATION_TOP_FIELDS)
+    summary = payload.get("summary")
+    if isinstance(summary, Mapping):
+        projected["summary"] = _pick(summary, _PUBLIC_SET_RIP_SIMULATION_SUMMARY_FIELDS)
+    projected["distributionBins"] = _project_public_distribution_bins(payload.get("distributionBins"))
+    projected["thresholdBins"] = _project_public_threshold_bins(payload.get("thresholdBins"))
+    meta = payload.get("meta")
+    if isinstance(meta, Mapping):
+        projected["meta"] = _pick(meta, _PUBLIC_SET_RIP_SIMULATION_META_FIELDS)
+    return projected
+
+
 def project_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
     """Tier-safe `/explore/rip-statistics/targets` response."""
     plus = has_index_feature_access(plan, FEATURE_SET_RIP_ANALYTICS)

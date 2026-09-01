@@ -18,10 +18,77 @@ from backend.domain.access.index_plan_access import (
     has_index_premium_access,
     has_index_feature_access,
     normalize_index_plan,
+    project_set_rip_simulation_evidence_response,
     resolve_market_explorer_plan_access,
     _PLUS_FEATURES,
     _PREMIUM_FEATURES,
 )
+
+
+_SIM_EVIDENCE_SENTINEL = "SENTINEL_PAID_ONLY_VALUE"
+
+
+def _sim_evidence_fixture():
+    return {
+        "contractVersion": "pokemon-set-rip-simulation-evidence-v1",
+        "setId": "set-1", "calculationRunId": "run-1", "marketDate": "2026-08-30",
+        "summary": {
+            "simulation_count": 1000000, "pack_cost": 4.99,
+            "median_value": 3.5, "mean_value": 5.25,
+            "p95_value": _SIM_EVIDENCE_SENTINEL, "max_value": _SIM_EVIDENCE_SENTINEL,
+        },
+        "distributionBins": [{
+            "bin_floor": 0, "bin_ceiling": 5, "occurrence_count": 400000,
+            "probability": 0.4, "cumulative_probability": 0.4, "survival_probability": 1.0,
+            "unknownBinField": _SIM_EVIDENCE_SENTINEL,
+        }],
+        "thresholdBins": [{
+            "threshold_floor": 0, "threshold_ceiling": 5, "occurrence_count": 400000,
+            "probability": 0.4, "cumulative_probability": 0.4, "survival_probability": 1.0,
+            "bucket_order": 1, "bucket_label": "$0-$5",
+            "unknownThresholdField": _SIM_EVIDENCE_SENTINEL,
+        }],
+        "meta": {"contractVersion": "pokemon-set-rip-simulation-evidence-v1",
+                 "marketDate": "2026-08-30", "calculationRunId": "run-1",
+                 "unknownFutureField": _SIM_EVIDENCE_SENTINEL},
+        "openingOutcomeProfile": {"secret": _SIM_EVIDENCE_SENTINEL},
+        "evRepresentativeness": {"detail": _SIM_EVIDENCE_SENTINEL},
+        "advanced": {"anything": _SIM_EVIDENCE_SENTINEL},
+        "unknownFutureField": _SIM_EVIDENCE_SENTINEL,
+    }
+
+
+def _assert_no_sentinel(value):
+    import json
+    assert _SIM_EVIDENCE_SENTINEL not in json.dumps(value)
+
+
+@pytest.mark.parametrize("plan", [None, "unknown", "base"])
+def test_set_rip_simulation_evidence_projector_strips_paid_fields_for_base(plan):
+    projected = project_set_rip_simulation_evidence_response(_sim_evidence_fixture(), plan)
+    _assert_no_sentinel(projected)
+    assert projected["contractVersion"] == "pokemon-set-rip-simulation-evidence-v1"
+    assert projected["setId"] == "set-1"
+    assert projected["summary"] == {
+        "simulation_count": 1000000, "pack_cost": 4.99,
+        "median_value": 3.5, "mean_value": 5.25,
+    }
+    assert projected["distributionBins"] == [{
+        "bin_floor": 0, "bin_ceiling": 5, "occurrence_count": 400000,
+        "probability": 0.4, "cumulative_probability": 0.4, "survival_probability": 1.0,
+    }]
+    assert projected["thresholdBins"][0]["bucket_label"] == "$0-$5"
+    assert "openingOutcomeProfile" not in projected
+    assert "evRepresentativeness" not in projected
+    assert "advanced" not in projected
+    assert "unknownFutureField" not in projected
+
+
+@pytest.mark.parametrize("plan", ["plus", "premium"])
+def test_set_rip_simulation_evidence_projector_passes_plus_through_unchanged(plan):
+    fixture = _sim_evidence_fixture()
+    projected = project_set_rip_simulation_evidence_response(fixture, plan)
+    assert projected == fixture
 
 
 def test_locked_commercial_capability_sets_fail_closed_and_inherit():
