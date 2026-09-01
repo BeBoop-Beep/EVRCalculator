@@ -243,8 +243,9 @@ always UTC-7).
 |----------------|-----------|------|---------|
 | 1:00 AM | `0 8 * * *` | Reset/reconcile stale scrape jobs | `backend/scripts/reconcile_stale_scrape_jobs.py --commit` |
 | 1:05 AM | `5 8 * * *` | Create the daily scrape batch | `backend/scripts/create_daily_scrape_batch.py` |
-| every minute | `* * * * *` | Run the next scrape job | `backend/scripts/run_next_scrape_job.py` |
-| 6:00 AM | `0 13 * * *` | **Post-scrape canonical market publication** | `backend/scripts/rebuild_snapshots_after_scrape.sh` |
+| every minute | `* * * * *` | Run the next scrape job **and, the instant the batch completes, hand off to publication** | `backend/scripts/run_next_scrape_job.py` |
+| ~immediately after batch completion (NORMAL) | — | **Post-scrape canonical market publication**, launched detached for the exact batch market_date | `backend/scripts/rebuild_snapshots_after_scrape.sh <market_date>` |
+| 6:00 AM | `0 6 * * *` | **Fallback/watchdog only** — publish if the day's completed batch has not already published | `backend/scripts/publish_post_scrape_if_needed.py` |
 | later (Windows) | — | Simulations + full coordinated publication | Windows Task Scheduler → `infra/local/run_simulations.sh` |
 | 1:00 PM | `0 20 * * *` | Market-dashboard rebuild — **legacy/recovery** | see §8.3 |
 
@@ -257,11 +258,19 @@ always UTC-7).
 5 8 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/create_daily_scrape_batch.py >> scraper.log 2>&1
 
 # Every minute — claim + run ONE job under a lease. Creates no batch. When the
-#         queue drains it runs the batch completeness/cohort-repair check.
+#         queue drains it runs the batch completeness/cohort-repair check, and
+#         the moment that check reports the batch COMPLETE it launches the
+#         post-scrape publisher DETACHED for the exact market_date, then exits.
+#         It never waits for publication to finish.
 * * * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/run_next_scrape_job.py >> scraper.log 2>&1
 
-# 6:00 AM Phoenix — post-scrape canonical market publication (phase 1 of 2).
-0 13 * * * /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh >> publication.log 2>&1
+# 6:00 AM Phoenix — FALLBACK ONLY. Publishes only if the day's batch is
+#         complete AND publication has not already happened (durable check via
+#         the post-scrape audit). Replaces the old unconditional rebuild call.
+#         OLD LINE TO REMOVE:
+#           0 6 * * * /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh >> publication.log 2>&1
+#         NEW LINE:
+0 6 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/publish_post_scrape_if_needed.py >> publication.log 2>&1
 ```
 
 ### 8.2 The two publication phases
@@ -270,8 +279,20 @@ Publication happens in **two phases with different contracts**. Conflating them 
 what allowed a promoted market date to appear on a set page while Explore Top
 Rankings and Sealed Market stayed a day behind.
 
-**Phase 1 — 6:00 AM Phoenix, post-scrape (`rebuild_snapshots_after_scrape.sh`)**
+**Phase 1 — post-scrape (`rebuild_snapshots_after_scrape.sh`)**
 
+* NORMAL trigger: launched **immediately** by the every-minute scrape dispatcher
+  the instant `run_batch_completion_and_repair` (the authoritative batch-cohort
+  completion boundary — see `backend/db/services/scrape_batch_service.py`)
+  reports the batch `status == "complete"`. This is the ONLY completion
+  authority; the trigger never fires merely because the scrape queue is empty,
+  and it never bypasses cohort repair/requeue.
+* FALLBACK trigger: the 6:00 AM Phoenix cron now calls
+  `backend/scripts/publish_post_scrape_if_needed.py` instead of calling the
+  rebuild wrapper unconditionally. It re-checks the same batch-completion gate
+  and the post-scrape publication audit, and only launches the rebuild wrapper
+  if the batch is complete AND publication is not already current for that
+  exact market_date. Most days this is a no-op by the time 6:00 AM arrives.
 * Advances every market **pricing** surface: Set Value, Cards, Top Chase, Sealed
   Market, Explore rankings (including the Explore Top Rankings Set Value), and the
   set-page market/header data.
@@ -298,6 +319,80 @@ Rankings and Sealed Market stayed a day behind.
 
 Success in phase 1 means *"every market pricing surface reached date D"*. It does
 **not** mean the day's publication is complete — only phase 2's full audit does.
+
+### 8.1a Immediate post-scrape publication (NORMAL path) — how it works
+
+Since the batch-cohort gate became the trigger authority, publication no longer
+waits for the fixed 6:00 AM cron. The flow:
+
+1. The every-minute worker (`run_next_scrape_job.py`) finds the queue idle and
+   calls `run_batch_completion_and_repair(market_date)`. If active jobs remain,
+   or cohort repair requeues missing/unreconciled sets, the batch stays
+   `running` and nothing is triggered — the worker will pick the requeued work
+   up on a later minute.
+2. Only when that call returns `status == "complete"` (the batch is stamped
+   `promoted_at` — see `complete_scrape_batch_if_ready`) does
+   `backend.db.services.post_scrape_publication_trigger.trigger_post_scrape_publication_if_needed`
+   run.
+3. That trigger re-checks a **durable idempotence signal** before launching
+   anything: the post-scrape publication audit
+   (`audit_pokemon_market_publication.run_market_publication_audit(..., phase="post-scrape")`)
+   evaluated for the EXACT batch market_date. If every required surface is
+   already current for that date, it logs `already complete ... skipping
+   launch` and does nothing — no new schema/table was added for this; the
+   audit already reads the durable public snapshot tables that ARE the
+   publication record.
+4. If publication is missing/stale, it launches
+   `backend/scripts/rebuild_snapshots_after_scrape.sh <exact_market_date>`
+   **detached** via `subprocess.Popen` (new session, explicit executable/cwd,
+   stdout/stderr appended to `publication.log`, no shell string). The scrape
+   dispatcher process then finishes and exits normally — it never blocks on
+   the multi-hour publisher.
+5. Because the idle-completion check runs on every idle minute (cron runs the
+   worker every minute even with an empty queue), the trigger can be invoked
+   repeatedly. Step 3's audit-based check is what makes repeated invocations
+   after a successful publish a no-op instead of relaunching the publisher.
+
+**Concurrency / single-publisher lock.** `rebuild_snapshots_after_scrape.sh`
+itself now holds a non-blocking `flock` (`/tmp/pokemon-post-scrape-publication.lock`
+by default; override with `POST_SCRAPE_PUBLICATION_LOCK_PATH`) across its ENTIRE
+body — the refresh AND the post-scrape audit. If a publisher is already running
+when another launch races in (immediate trigger vs. 6 AM fallback vs. a manual
+run), the second invocation logs `already running ... safe no-op, exiting 0`
+and does nothing. A held lock is never treated as a scrape-batch failure.
+
+**How to tell if a publisher is already running:**
+
+```bash
+# Non-zero / "held" if a publisher is currently running.
+flock -n /tmp/pokemon-post-scrape-publication.lock -c true; echo $?
+# 0 => lock was free (nothing running, or it just finished/released); 1 => held
+ps aux | grep -i rebuild_snapshots_after_scrape
+tail -n 50 /home/ubuntu/repos/EVRCalculator/publication.log
+```
+
+**Manually invoke publication for a specific market date** (recovery/backfill):
+
+```bash
+# Direct rebuild for one exact date (bypasses the "already current" check —
+# use when you specifically want to force a rebuild attempt; the gate/audit
+# inside the wrapper still applies, this never adds --force-publish):
+./backend/scripts/rebuild_snapshots_after_scrape.sh 2026-08-15
+
+# Same "publish only if needed" decision the 6 AM fallback uses, but for an
+# arbitrary date:
+./.venv/bin/python backend/scripts/publish_post_scrape_if_needed.py --market-date 2026-08-15
+```
+
+**Failure behavior.** If the detached launch itself fails to start (e.g. bad
+interpreter path), the trigger logs `[post-scrape-trigger] launch failure ...`,
+queues a best-effort `post_scrape_publication_launch_failed` alert (dedup keyed
+per market_date), and returns — it never mutates the already-successful scrape
+batch. The 6:00 AM fallback will retry via the same "publish if needed" check.
+If the publication process itself starts and later fails (refresh error, or the
+post-scrape audit failing a surface), the wrapper's existing exit-code semantics
+are unchanged and authoritative; it does not cause the scraper to retry all 165
+sets — scrape completion and publication remain separate failure domains.
 
 ### 8.3 The 1:00 PM market-dashboard rebuild is legacy/recovery
 
