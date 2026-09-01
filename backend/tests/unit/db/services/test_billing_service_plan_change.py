@@ -1,6 +1,3 @@
-import os
-import time
-
 import pytest
 
 from backend.domain.billing.catalog import CommercialOffer
@@ -11,6 +8,7 @@ from backend.domain.billing.errors import (
     UnmappedStripePrice,
     UnsupportedSubscriptionShape,
 )
+from backend.domain.billing.preview_token import sign_preview_token
 from backend.db.services.billing_service import BillingService
 
 PLUS_MONTHLY = CommercialOffer("plus_monthly", "plus", "month", True, "price_plus_monthly", 999, "usd")
@@ -68,6 +66,26 @@ class _FakeProvider:
 
     def release_schedule(self, **kwargs):
         self.release_calls.append(kwargs)
+
+
+class _StripeObjectFake:
+    """Mimics a real stripe-python 15.4.0 StripeObject: attribute access works,
+    but there is no `.get(...)` and no subscripting -- both raise AttributeError
+    / TypeError, exactly like the real SDK response `_plain(...)` exists to
+    flatten away. Proves `_resolve_current_subscription` actually wraps the
+    fresh provider response instead of touching it directly."""
+
+    def __init__(self, data):
+        object.__setattr__(self, "_data", data)
+
+    def __getattr__(self, name):
+        try:
+            return self._data[name]
+        except KeyError:
+            raise AttributeError(name)
+
+    def to_dict_recursive(self):
+        return self._data
 
 
 def _plus_subscription(period_end=1738368000, schedule=None):
@@ -173,12 +191,40 @@ def test_confirm_upgrade_stale_amount_blocks_mutation():
     assert not provider.update_calls
 
 
-def test_confirm_upgrade_expired_token_rejected():
+def test_confirm_upgrade_tampered_token_rejected():
     service, provider = _service(_plus_subscription())
     preview = service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")
     tampered = preview["previewToken"][:-4] + "0000"
     with pytest.raises(PlanChangeNotAllowed):
         service.confirm_plan_change(user_id="user-1", offer_key="premium_monthly", preview_token=tampered)
+    assert not provider.update_calls
+
+
+def test_confirm_upgrade_expired_token_rejected():
+    service, provider = _service(_plus_subscription())
+    # Build a token identical in shape to what preview_plan_change would sign,
+    # but with expiresAt already in the past, to exercise real TTL expiry
+    # (as opposed to signature tampering, which is a different failure mode).
+    hidden = {
+        "userId": "user-1",
+        "subscriptionId": "sub_1",
+        "subscriptionItemId": "si_1",
+        "currentPriceId": "price_plus_monthly",
+        "targetPriceId": "price_premium_monthly",
+        "currentPeriodEnd": 1738368000,
+        "offerKey": "premium_monthly",
+    }
+    visible = {
+        "version": 1,
+        "action": "upgrade_now",
+        "prorationDate": 1000,
+        "amountDueNow": 1500,
+        "currency": "usd",
+        "expiresAt": 1000,  # already expired relative to real wall-clock time
+    }
+    expired_token = sign_preview_token(secret="test-secret", visible=visible, hidden=hidden)
+    with pytest.raises(PlanChangeNotAllowed):
+        service.confirm_plan_change(user_id="user-1", offer_key="premium_monthly", preview_token=expired_token)
     assert not provider.update_calls
 
 
@@ -276,3 +322,59 @@ def test_repeated_confirm_upgrade_reuses_same_idempotency_key():
     service.confirm_plan_change(user_id="user-1", offer_key="premium_monthly", preview_token=preview["previewToken"])
     keys = {call["idempotency_key"] for call in provider.update_calls}
     assert len(keys) == 1
+
+
+def test_resolve_current_subscription_handles_stripeobject_response():
+    """The real Stripe SDK returns StripeObject instances (attribute access,
+    no `.get`/subscript). If `_resolve_current_subscription` ever touched the
+    fresh provider response without `_plain(...)`-wrapping it first, this
+    would raise AttributeError instead of returning a preview DTO."""
+    subscription_data = _plus_subscription()
+
+    class _ProviderReturningStripeObject(_FakeProvider):
+        def retrieve_subscription(self, subscription_id, expand=None):
+            return _StripeObjectFake(subscription_data)
+
+    repository = _FakeRepository(
+        customer={"provider_customer_id": "cus_1"},
+        subscriptions=[{"provider_subscription_id": "sub_1", "status": "active", "commercial_mapping_status": "mapped"}],
+    )
+    service = BillingService(
+        repository=repository, provider=_ProviderReturningStripeObject(subscription_data), offers=OFFERS
+    )
+    dto = service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")
+    assert dto["action"] == "upgrade_now"
+    assert "previewToken" in dto
+
+
+def test_preview_stripe_customer_mismatch_rejected():
+    subscription = _plus_subscription()
+    subscription["customer"] = "cus_evil"  # doesn't match the trusted local mapping (cus_1)
+    service, provider = _service(subscription)
+    with pytest.raises(BillingOwnershipError):
+        service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")
+
+
+def test_preview_duplicate_active_local_subscriptions_rejected():
+    repository = _FakeRepository(
+        customer={"provider_customer_id": "cus_1"},
+        subscriptions=[
+            {"provider_subscription_id": "sub_1", "status": "active", "commercial_mapping_status": "mapped"},
+            {"provider_subscription_id": "sub_2", "status": "active", "commercial_mapping_status": "mapped"},
+        ],
+    )
+    provider = _FakeProvider(_plus_subscription())
+    service = BillingService(repository=repository, provider=provider, offers=OFFERS)
+    with pytest.raises(UnsupportedSubscriptionShape):
+        service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")
+
+
+def test_preview_no_entitled_local_subscription_rejected():
+    repository = _FakeRepository(
+        customer={"provider_customer_id": "cus_1"},
+        subscriptions=[{"provider_subscription_id": "sub_1", "status": "canceled", "commercial_mapping_status": "mapped"}],
+    )
+    provider = _FakeProvider(_plus_subscription())
+    service = BillingService(repository=repository, provider=provider, offers=OFFERS)
+    with pytest.raises(BillingOwnershipError):
+        service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")

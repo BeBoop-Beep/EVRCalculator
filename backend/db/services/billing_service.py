@@ -38,6 +38,10 @@ RECONCILING_EVENTS = frozenset({
 
 def _plain(value): return value.to_dict_recursive() if hasattr(value, "to_dict_recursive") else dict(value)
 def _iso(epoch): return datetime.fromtimestamp(epoch, timezone.utc).isoformat() if epoch else None
+def _period_end(subscription, item):
+    """Some Stripe API versions report the period on the subscription item, not
+    the subscription itself. Mirrors `subscription_row`'s existing fallback."""
+    return subscription.get("current_period_end") or (item or {}).get("current_period_end")
 def _subscription_id_from_event_object(obj):
     """Normalize Checkout and Dahlia-era Invoice subscription references."""
     reference = obj.get("subscription")
@@ -83,14 +87,25 @@ class BillingService:
             raise BillingOwnershipError("No active subscription ownership found for this user")
         subscription_id = owned_row["provider_subscription_id"]
 
-        subscription = self.provider.retrieve_subscription(
+        # `_plain(...)` mirrors reconcile_subscription's existing convention: real
+        # stripe-python 15.4.0 responses are StripeObject instances that support
+        # attribute access but not `.get(...)`/subscripting, so every fresh Stripe
+        # response must be flattened to a plain dict before this module touches it.
+        subscription = _plain(self.provider.retrieve_subscription(
             subscription_id, expand=["items.data.price", "schedule", "latest_invoice.payment_intent"]
-        )
+        ))
+
+        subscription_customer_id = subscription.get("customer")
+        if isinstance(subscription_customer_id, dict):
+            subscription_customer_id = subscription_customer_id.get("id")
+        if subscription_customer_id and subscription_customer_id != customer.get("provider_customer_id"):
+            raise BillingOwnershipError("Stripe subscription customer does not match trusted customer mapping")
 
         items = (subscription.get("items") or {}).get("data") or []
-        if len(items) != 1:
+        recurring = [entry for entry in items if (entry.get("price") or {}).get("id")]
+        if len(recurring) != 1:
             raise UnsupportedSubscriptionShape("Subscription must have exactly one recurring item")
-        item = items[0]
+        item = recurring[0]
         current_price_id = item["price"]["id"]
 
         current_offer = offer_for_price_id(current_price_id, self.offers)
@@ -108,7 +123,7 @@ class BillingService:
 
         action = classify_transition(current_offer.plan, target_offer.plan)
         subscription_id = subscription["id"]
-        current_period_end = subscription["current_period_end"]
+        current_period_end = _period_end(subscription, item)
 
         if action == PlanChangeAction.UPGRADE_NOW:
             proration_date = int(time.time())
@@ -141,7 +156,7 @@ class BillingService:
                 "userId": user_id,
                 "subscriptionId": subscription_id,
                 "subscriptionItemId": item["id"],
-                "currentPriceId": current_offer.provider_price_id,
+                "currentPriceId": item["price"]["id"],
                 "targetPriceId": target_offer.provider_price_id,
                 "currentPeriodEnd": current_period_end,
                 "offerKey": target_offer.offer_key,
@@ -167,7 +182,7 @@ class BillingService:
 
         action = classify_transition(current_offer.plan, target_offer.plan)
         subscription_id = subscription["id"]
-        current_period_end = subscription["current_period_end"]
+        current_period_end = _period_end(subscription, item)
 
         if action == PlanChangeAction.UPGRADE_NOW:
             if not preview_token:
@@ -177,7 +192,7 @@ class BillingService:
                 "userId": user_id,
                 "subscriptionId": subscription_id,
                 "subscriptionItemId": item["id"],
-                "currentPriceId": current_offer.provider_price_id,
+                "currentPriceId": item["price"]["id"],
                 "targetPriceId": target_offer.provider_price_id,
                 "currentPeriodEnd": current_period_end,
                 "offerKey": target_offer.offer_key,
@@ -226,7 +241,7 @@ class BillingService:
         classification = classify_schedule(
             schedule,
             current_price_id=current_offer.provider_price_id,
-            current_period_end=subscription["current_period_end"],
+            current_period_end=_period_end(subscription, item),
             offers=self.offers,
         )
         if classification["state"] != "scheduled":
@@ -342,12 +357,12 @@ class BillingService:
         pending = {"pendingChangeState": "none", "pendingPlan": None, "pendingOfferKey": None, "pendingChangeEffectiveAt": None}
         if base.get("billingManaged"):
             try:
-                _, subscription, _, current_offer = self._resolve_current_subscription(user_id)
+                _, subscription, item, current_offer = self._resolve_current_subscription(user_id)
                 schedule = subscription.get("schedule")
                 classification = classify_schedule(
                     schedule,
                     current_price_id=current_offer.provider_price_id,
-                    current_period_end=subscription["current_period_end"],
+                    current_period_end=_period_end(subscription, item),
                     offers=self.offers,
                 )
                 pending = {
@@ -357,6 +372,7 @@ class BillingService:
                     "pendingChangeEffectiveAt": classification["pendingChangeEffectiveAt"],
                 }
             except Exception:
+                logger.warning("billing.pending_change.lookup_failed user_id=%s", user_id, exc_info=True)
                 pending = {"pendingChangeState": "unknown", "pendingPlan": None, "pendingOfferKey": None, "pendingChangeEffectiveAt": None}
 
         return {**base, **pending}
