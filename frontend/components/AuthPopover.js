@@ -3,7 +3,8 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { currentReturnPath, sanitizeReturnPath } from "@/lib/auth/returnPath.mjs";
+import { buildAuthCallbackUrl, buildAuthCallbackUrlWithNext, currentReturnPath, sanitizeReturnPath } from "@/lib/auth/returnPath.mjs";
+import { clearOAuthReturnCookie, serializeOAuthReturnCookie } from "@/lib/auth/oauthState.mjs";
 
 const initialState = { mode: "login", email: "", password: "", confirm: "", code: "", error: "", message: "", pending: false };
 function reducer(state, action) {
@@ -57,21 +58,28 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  const callbackUrl = (next = destination) => {
-    const url = new URL("/auth/callback", window.location.origin);
-    url.searchParams.set("next", sanitizeReturnPath(next));
-    return url.toString();
-  };
+  const callbackUrl = () => buildAuthCallbackUrl(window.location.origin);
   const succeed = async () => {
     await refreshUser();
     onClose?.();
   };
-  const providerLogin = async (provider) => {
+  // OAuth is deliberately one continue flow. Supabase creates new provider users and
+  // links a verified same-email provider identity to an existing Auth user when allowed.
+  // The Supabase redirectTo is a stable, query-free `/auth/callback` URL (allow-list
+  // friendly); the destination we actually want to return to travels via a short-lived
+  // same-site cookie instead, consumed and cleared by the callback route.
+  const continueWithProvider = async (provider) => {
     dispatch({ type: "pending", value: true });
     try {
+      const secure = window.location.protocol === "https:";
+      document.cookie = serializeOAuthReturnCookie(destination, { secure });
       const { error } = await createClient().auth.signInWithOAuth({ provider, options: { redirectTo: callbackUrl() } });
       if (error) throw error;
     } catch (error) {
+      // The browser never left the page, so the transient return-path cookie
+      // just written above would otherwise linger unused — clear it rather
+      // than leaving stale OAuth state behind for a later navigation.
+      document.cookie = clearOAuthReturnCookie({ secure: window.location.protocol === "https:" });
       dispatch({ type: "error", value: friendlyError(error, `Unable to continue with ${provider === "apple" ? "Apple" : "Google"}.`) });
     }
   };
@@ -91,7 +99,7 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     try {
       const { data, error } = await createClient().auth.signUp({
         email: state.email.trim().toLowerCase(), password: state.password,
-        options: { emailRedirectTo: callbackUrl() },
+        options: { emailRedirectTo: buildAuthCallbackUrlWithNext(window.location.origin, destination) },
       });
       if (error) throw error;
       if (!data.session) return dispatch({ type: "mode", mode: "confirmation-sent" });
@@ -124,7 +132,7 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     dispatch({ type: "pending", value: true });
     try {
       const resetNext = `/login?mode=reset-password&next=${encodeURIComponent(destination)}`;
-      const { error } = await createClient().auth.resetPasswordForEmail(state.email.trim().toLowerCase(), { redirectTo: callbackUrl(resetNext) });
+      const { error } = await createClient().auth.resetPasswordForEmail(state.email.trim().toLowerCase(), { redirectTo: buildAuthCallbackUrlWithNext(window.location.origin, resetNext) });
       if (error) throw error;
       dispatch({ type: "message", value: "If an account can receive recovery mail, a reset link is on its way." });
     } catch (error) { dispatch({ type: "error", value: friendlyError(error, "Unable to send a recovery email. Please try again.") }); }
@@ -161,7 +169,7 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     <section ref={panelRef} role="dialog" aria-modal={!embedded} aria-labelledby="auth-title" className={`${embedded ? "w-full" : "absolute right-0 top-full mt-2 w-[min(390px,calc(100vw-1rem))]"} set-dropdown-glass z-[1200] rounded-2xl p-5 shadow-2xl`}>
       <div className="flex items-start justify-between gap-4"><div><h2 id="auth-title" className="text-xl font-semibold text-[var(--text-primary)]">{title}</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{state.mode === "confirmation-sent" ? "Use the confirmation link to finish creating your account." : "Sign in without leaving what you were exploring."}</p></div>{onClose && <button type="button" onClick={onClose} aria-label="Close authentication" className="rounded-md px-2 py-1 text-xl text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">×</button>}</div>
       {state.mode === "confirmation-sent" ? <button type="button" onClick={() => dispatch({ type: "mode", mode: "login" })} className="mt-5 w-full rounded-lg bg-brand px-4 py-2.5 font-semibold text-white">Back to login</button> : <>
-        {showProviders && <><div className="mt-5 grid gap-2">{googleEnabled && <button type="button" disabled={state.pending} onClick={() => providerLogin("google")} className="flex items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-white px-4 py-2.5 font-semibold text-slate-900 disabled:opacity-60"><ProviderIcon provider="google" />Continue with Google</button>}{appleEnabled && <button type="button" disabled={state.pending} onClick={() => providerLogin("apple")} className="flex items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-black px-4 py-2.5 font-semibold text-white disabled:opacity-60"><ProviderIcon provider="apple" />Continue with Apple</button>}</div><div className="my-4 flex items-center gap-3 text-xs text-[var(--text-secondary)]"><span className="h-px flex-1 bg-[var(--border-subtle)]" />or<span className="h-px flex-1 bg-[var(--border-subtle)]" /></div></>}
+        {showProviders && <><div className="mt-5 grid gap-2">{googleEnabled && <button type="button" disabled={state.pending} onClick={() => continueWithProvider("google")} className="flex items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-white px-4 py-2.5 font-semibold text-slate-900 disabled:opacity-60"><ProviderIcon provider="google" />Continue with Google</button>}{appleEnabled && <button type="button" disabled={state.pending} onClick={() => continueWithProvider("apple")} className="flex items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-black px-4 py-2.5 font-semibold text-white disabled:opacity-60"><ProviderIcon provider="apple" />Continue with Apple</button>}</div><div className="my-4 flex items-center gap-3 text-xs text-[var(--text-secondary)]"><span className="h-px flex-1 bg-[var(--border-subtle)]" />or<span className="h-px flex-1 bg-[var(--border-subtle)]" /></div></>}
         <form onSubmit={submit} className="grid gap-3">
           {showEmail && <label className="grid gap-1 text-sm font-medium">Email<input type="email" required autoComplete="email" value={state.email} disabled={state.mode === "email-code-verify"} onChange={(e) => dispatch({ type: "field", name: "email", value: e.target.value })} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]" /></label>}
           {showPassword && <label className="grid gap-1 text-sm font-medium">Password<input type="password" required minLength={8} autoComplete={state.mode === "login" ? "current-password" : "new-password"} value={state.password} onChange={(e) => dispatch({ type: "field", name: "password", value: e.target.value })} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]" /></label>}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isLegacySetDetailTabAlias } from "@/lib/explore/ripStatisticsRouting";
+import { sanitizeReturnPath } from "@/lib/auth/returnPath.mjs";
 
 /**
  * Edge-compatible middleware. Two responsibilities, in this order:
@@ -83,7 +84,10 @@ export function middleware(req) {
   );
 
   if (isProtectedRoute && !token) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    const loginUrl = new URL("/login", req.url);
+    const requestedPath = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+    loginUrl.searchParams.set("next", sanitizeReturnPath(requestedPath));
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
