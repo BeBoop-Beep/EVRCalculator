@@ -11,7 +11,20 @@ NEXT_PUBLIC_AUTH_GOOGLE_ENABLED=false
 NEXT_PUBLIC_AUTH_APPLE_ENABLED=false
 ```
 
-Set provider flags to `true` only after enabling each provider in the Supabase Dashboard. Allow `https://www.inthedex.io/auth/callback` plus the development callback URL. Provider secrets remain in Supabase/provider configuration and must never use a `NEXT_PUBLIC_` variable. The backend still requires `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `JWT_SECRET` for verified profile provisioning and inDex JWT issuance.
+Set provider flags to `true` only after enabling each provider in the Supabase Dashboard. Provider secrets remain in Supabase/provider configuration and must never use a `NEXT_PUBLIC_` variable. The backend still requires `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `JWT_SECRET` for verified profile provisioning and inDex JWT issuance.
+
+Google OAuth is intentionally one **Continue with Google** flow for both login and signup. A new verified Google identity can create an account, an existing Google identity signs in, and Supabase may automatically link a verified same-email Google identity to an existing Auth user. Do not fork Google into separate login-only and signup-only client flows.
+
+### Supabase Auth URL configuration
+
+Production uses the apex domain as the canonical application origin. Configure Supabase **Authentication → URL Configuration** with:
+
+- Site URL: `https://inthedex.io`
+- Redirect URL: `https://inthedex.io/auth/callback`
+- Optional `www` alias: `https://www.inthedex.io/auth/callback`
+- Local development: `http://localhost:3000/auth/callback`
+
+The application canonicalizes both production hostnames to `https://inthedex.io/auth/callback` while preserving localhost and other development origins. The exact callback URL still must be present in Supabase's redirect allow-list. If `redirectTo` is not allowed, Supabase can fall back to the configured Site URL; a stale Site URL such as `http://localhost:3000` will therefore send a production OAuth completion to localhost instead of `/auth/callback`.
 
 ## inDex Mobile UI Invariants
 
@@ -49,14 +62,14 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+You can check out the [Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The easiest way to deploy your Next.js app is with the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=chatgpt.com).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 "# index " 
