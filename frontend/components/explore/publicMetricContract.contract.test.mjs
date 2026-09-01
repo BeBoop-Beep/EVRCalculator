@@ -451,8 +451,9 @@ test("a payload with only the model score renders unavailable, never the model s
   assert.equal(appeal.publicScore, null);
   assert.equal(appeal.publicScoreLabel, "—");
 
-  // Home skips the set rather than publishing a differently-scaled number.
-  assert.deepEqual(selectLandingHeroEntries([{ ...TARGET, publicRipContractV8: absoluteOnly.publicRipContractV8, overallRipV8: {}, financialRipV3: {} }]), []);
+  // Home skips the set rather than publishing a differently-scaled number —
+  // here that means an absent/unrankable setRipV1, Home's OWN authority.
+  assert.deepEqual(selectLandingHeroEntries([{ ...TARGET, publicRipContractV8: absoluteOnly.publicRipContractV8, overallRipV8: {}, financialRipV3: {}, setRipV1: {} }]), []);
 });
 
 // =============================================================================

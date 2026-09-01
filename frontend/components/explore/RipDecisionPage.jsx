@@ -53,7 +53,7 @@ import {
   selectRipDecisionContract,
 } from "./ripDecisionContract.mjs";
 import { familyLabel } from "./SetRipFamilyBreakdown.jsx";
-import { buildRipDistributionMarkers, selectBasicRipDistributionMarkers } from "./ripDistributionMarkers.mjs";
+import { buildRipDistributionMarkers } from "./ripDistributionMarkers.mjs";
 
 const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
 const currency = new Intl.NumberFormat("en-US", {
@@ -1037,7 +1037,22 @@ export default function RipDecisionPage({
   );
   const chartMarkersForAccess = canViewProductRipIntelligence
     ? simulationMarkers
-    : selectBasicRipDistributionMarkers(simulationMarkers);
+    : [
+        ...(Array.isArray(simulationMarkers)
+          ? simulationMarkers.filter((marker) =>
+              ["pack-cost", "median", "mean"].includes(marker?.key),
+            )
+          : []),
+        ...[
+          ["p25", "P25"],
+          ["p75", "P75"],
+          ["bad-floor", "Bad Floor"],
+          ["big-hit", "Big Hit Threshold"],
+          ["big-hit-upside", "Strong Upside"],
+          ["god-pull-upside", "Jackpot Upside"],
+          ["max", "Best Pull"],
+        ].map(([key, label]) => ({ key, label, value: null, locked: true })),
+      ];
 
   return (
     <section
