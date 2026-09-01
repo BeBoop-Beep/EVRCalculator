@@ -4,7 +4,7 @@ export function normalizeAuthOrigin(value, fallback = CANONICAL_APP_ORIGIN) {
   if (typeof value !== "string" || !value.trim()) return fallback;
   try {
     const parsed = new URL(value);
-    if (!['http:', 'https:'].includes(parsed.protocol)) return fallback;
+    if (!["http:", "https:"].includes(parsed.protocol)) return fallback;
     const hostname = parsed.hostname.toLowerCase();
     if (hostname === "inthedex.io" || hostname === "www.inthedex.io") return CANONICAL_APP_ORIGIN;
     return parsed.origin;
