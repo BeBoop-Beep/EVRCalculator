@@ -1,9 +1,28 @@
 -- Canonical simulation business date.
 --
 -- New unattended runs carry the promoted market date explicitly. Existing rows
--- remain deterministic: the compatibility views retain their original
--- timestamp-derived snapshot_date when market_date is NULL. No historical row
--- is rewritten by this migration.
+-- remain deterministic: when market_date IS NULL the canonical view retains its
+-- original timestamp-derived snapshot_date. No historical row is rewritten.
+--
+-- WHY THE DATE MUST LIVE IN THE PARTITION KEY
+-- ------------------------------------------
+-- An earlier draft of this migration renamed the canonical views aside and
+-- wrapped them with `COALESCE(r.market_date, l.snapshot_date) AS snapshot_date`.
+-- That relabels the date only AFTER the legacy UTC-date partitioning has already
+-- chosen one row per UTC day, which is wrong in both directions:
+--
+--   * Two runs straddling UTC midnight (23:59Z and 00:01Z) that both carry the
+--     promoted market_date 2026-08-31 survive as TWO rows, then get relabelled
+--     to the same date - two "daily latest" rows for one business day.
+--   * Two runs sharing one UTC day but carrying DIFFERENT promoted dates are
+--     collapsed to one row before the wrapper can distinguish them.
+--
+-- The effective business date must therefore participate in the daily identity
+-- itself. This migration rebuilds the canonical view in place with
+-- COALESCE(cr.market_date, cr.created_at::date) used in BOTH the projected
+-- snapshot_date and the row_number() partition key. Everything else - column
+-- names, order, types, joins, filters and calculations - is byte-for-byte the
+-- production definition.
 ALTER TABLE public.calculation_runs
     ADD COLUMN IF NOT EXISTS market_date date;
 
@@ -14,56 +33,66 @@ CREATE INDEX IF NOT EXISTS idx_calculation_runs_market_date_target
     ON public.calculation_runs (market_date DESC, target_type, target_id)
     WHERE market_date IS NOT NULL;
 
-DO $migration$
-DECLARE
-    view_name text;
-    legacy_name text;
-    projection text;
-BEGIN
-    FOREACH view_name IN ARRAY ARRAY[
-        'calculation_history_daily_latest',
-        'calculation_history_trend'
-    ]
-    LOOP
-        legacy_name := view_name || '_legacy_timestamp_date';
-
-        IF to_regclass('public.' || legacy_name) IS NULL THEN
-            IF to_regclass('public.' || view_name) IS NULL THEN
-                RAISE EXCEPTION 'required view public.% does not exist', view_name;
-            END IF;
-            EXECUTE format('ALTER VIEW public.%I RENAME TO %I', view_name, legacy_name);
-        END IF;
-
-        SELECT string_agg(
-            CASE WHEN column_name = 'snapshot_date'
-                THEN 'COALESCE(r.market_date, l.snapshot_date) AS snapshot_date'
-                ELSE format('l.%I', column_name)
-            END,
-            ', ' ORDER BY ordinal_position
+-- CREATE OR REPLACE (never DROP) so that:
+--   * the existing ACL is preserved verbatim - migration 075 revoked anon and
+--     authenticated from this view and that revocation must survive;
+--   * public.calculation_history_trend, which selects FROM this view, is not
+--     dropped, recreated, or re-granted. Its P95 carry-forward definition is
+--     correct as written and inherits the corrected day identity automatically.
+-- The column list, order and types are unchanged, which is what OR REPLACE
+-- requires; COALESCE(date, date) is still date.
+CREATE OR REPLACE VIEW public.calculation_history_daily_latest
+WITH (security_invoker = true) AS
+ WITH ranked AS (
+         SELECT cr_1.id AS calculation_run_id,
+            cr_1.target_type,
+            cr_1.target_id,
+            cr_1.calculation_config_id,
+            cr_1.valuation_method,
+            cr_1.notes,
+            cr_1.engine_version,
+            cr_1.created_at,
+            COALESCE(cr_1.market_date, (cr_1.created_at)::date) AS snapshot_date,
+            row_number() OVER (
+                PARTITION BY cr_1.target_type,
+                             cr_1.target_id,
+                             COALESCE(cr_1.market_date, (cr_1.created_at)::date)
+                ORDER BY cr_1.created_at DESC) AS rn
+           FROM calculation_runs cr_1
+          WHERE (cr_1.valuation_method = ANY (ARRAY['expected_value'::text, 'combined'::text]))
         )
-        INTO projection
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = legacy_name;
+ SELECT r.calculation_run_id,
+    r.target_type,
+    r.target_id,
+    r.calculation_config_id,
+    r.valuation_method,
+    r.notes,
+    r.engine_version,
+    r.created_at AS run_created_at,
+    r.snapshot_date,
+        CASE
+            WHEN (srs.pack_cost > (0)::numeric) THEN (srs.mean_value / srs.pack_cost)
+            ELSE NULL::numeric
+        END AS simulated_mean_pack_value_vs_pack_cost,
+        CASE
+            WHEN (srs.pack_cost > (0)::numeric) THEN (srs.median_value / srs.pack_cost)
+            ELSE NULL::numeric
+        END AS simulated_median_pack_value_vs_pack_cost,
+    cr.calculated_expected_pack_value_vs_pack_cost,
+    cr.simulated_mean_etb_value_vs_etb_cost,
+    cr.simulated_median_etb_value_vs_etb_cost,
+    cr.calculated_expected_etb_value_vs_etb_cost,
+    cr.simulated_mean_booster_box_value_vs_booster_box_cost,
+    cr.simulated_median_booster_box_value_vs_booster_box_cost,
+    cr.calculated_expected_booster_box_value_vs_booster_box_cost,
+    sdm.p95_value_to_cost_ratio
+   FROM (((ranked r
+     JOIN calculation_runs cr ON ((cr.id = r.calculation_run_id)))
+     LEFT JOIN simulation_run_summary srs ON ((srs.calculation_run_id = r.calculation_run_id)))
+     LEFT JOIN simulation_derived_metrics sdm ON ((sdm.calculation_run_id = r.calculation_run_id)))
+  WHERE (r.rn = 1);
 
-        IF projection IS NULL OR position('AS snapshot_date' IN projection) = 0 THEN
-            RAISE EXCEPTION 'legacy view public.% lacks snapshot_date', legacy_name;
-        END IF;
-
-        EXECUTE format(
-            'CREATE VIEW public.%I WITH (security_invoker = true) AS
-             SELECT %s
-             FROM public.%I l
-             LEFT JOIN public.calculation_runs r
-               ON r.id = l.calculation_run_id',
-            view_name, projection, legacy_name
-        );
-
-        -- The legacy objects are implementation details and must not create a
-        -- second public analytics contract.
-        EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', legacy_name);
-        EXECUTE format('GRANT SELECT ON public.%I TO anon, authenticated, service_role', view_name);
-    END LOOP;
-END
-$migration$;
-
+-- No GRANT statements. The pre-existing ACL (postgres, service_role) is the
+-- intended access model: these views are security_invoker and anon /
+-- authenticated hold no SELECT on public.calculation_runs, so granting them the
+-- view would produce a permission error at query time rather than access.

@@ -156,11 +156,26 @@ def test_a_failing_public_rip_audit_exits_nonzero(script_text):
         ("EVR_PUBLICATION_CHECKOUT_MODE", "production"),
         ("EXPECTED_PUBLICATION_BRANCH", "main"),
         ("PUBLICATION_FETCH_ORIGIN", "1"),
+        ("ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT", "0"),
         ("EVR_PRODUCTION_REPO_DIR", "/d/EVRCalculator-production"),
     ],
 )
 def test_scheduled_task_opts_into_production_mode(task_bat, name, value):
     assert 'set "' + name + "=" + value + '"' in task_bat
+
+
+def test_scheduled_task_compares_against_a_freshly_fetched_origin(task_bat, script_text):
+    """A stale remote-tracking ref makes the HEAD-vs-origin check meaningless.
+
+    Without a fetch, a production worktree that has not run git for a week
+    validates its HEAD against a week-old origin/main and publishes happily.
+    The fetch must be requested by the scheduled task AND be fail-closed in the
+    script it launches.
+    """
+    assert 'set "PUBLICATION_FETCH_ORIGIN=1"' in task_bat
+    assert 'set "PUBLICATION_FETCH_ORIGIN=0"' not in task_bat
+    assert 'if ! git fetch --quiet origin "$EXPECTED_PUBLICATION_BRANCH"; then' in script_text
+    assert 'failure_reason="git fetch origin $EXPECTED_PUBLICATION_BRANCH failed"' in script_text
 
 
 def test_scheduled_task_never_publishes_from_the_development_tree(task_bat):
@@ -180,10 +195,25 @@ def test_scheduled_task_refuses_a_missing_production_worktree(task_bat):
     assert "Refusing to fall back to the development checkout." in task_bat
 
 
-def test_scheduled_task_never_sets_the_emergency_override(task_bat):
-    """The override is a deliberate manual action, never a scheduled default."""
+def test_scheduled_task_pins_the_emergency_override_off(task_bat):
+    """The override must be pinned to 0, not merely left unset.
+
+    A scheduled task inherits the machine and user environment. If an operator
+    exported ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT=1 for a manual emergency run,
+    an unset variable here would silently inherit that value at 3am and disable
+    every checkout guard. Assigning 0 makes the bypass un-inheritable.
+    """
+    assert 'set "ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT=0"' in task_bat
     assert "ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT=1" not in task_bat
-    assert 'set "ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT' not in task_bat
+
+
+def test_the_override_remains_available_on_the_manual_shell_path(script_text):
+    """Pinning it off in the scheduled task must not remove the operator tool."""
+    assert (
+        'ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT="${ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT:-0}"'
+        in script_text
+    )
+    assert 'if [ "$ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT" = "1" ]' in script_text
 
 
 @pytest.mark.parametrize(
