@@ -245,7 +245,7 @@ always UTC-7).
 | 1:05 AM | `5 8 * * *` | Create the daily scrape batch | `backend/scripts/create_daily_scrape_batch.py` |
 | every minute | `* * * * *` | Run the next scrape job **and, the instant the batch completes, hand off to publication** | `backend/scripts/run_next_scrape_job.py` |
 | ~immediately after batch completion (NORMAL) | — | **Post-scrape canonical market publication**, launched detached for the exact batch market_date | `backend/scripts/rebuild_snapshots_after_scrape.sh <market_date>` |
-| 6:00 AM | `0 13 * * *` | **Fallback/watchdog only** — publish if the day's completed batch has not already published | `backend/scripts/publish_post_scrape_if_needed.py` |
+| 6:00 AM | `0 6 * * *` | **Fallback/watchdog only** — publish if the day's completed batch has not already published | `backend/scripts/publish_post_scrape_if_needed.py` |
 | later (Windows) | — | Simulations + full coordinated publication | Windows Task Scheduler → `infra/local/run_simulations.sh` |
 | 1:00 PM | `0 20 * * *` | Market-dashboard rebuild — **legacy/recovery** | see §8.3 |
 
@@ -268,9 +268,9 @@ always UTC-7).
 #         complete AND publication has not already happened (durable check via
 #         the post-scrape audit). Replaces the old unconditional rebuild call.
 #         OLD LINE TO REMOVE:
-#           0 13 * * * /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh >> publication.log 2>&1
+#           0 6 * * * /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh >> publication.log 2>&1
 #         NEW LINE:
-0 13 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/publish_post_scrape_if_needed.py >> publication.log 2>&1
+0 6 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/publish_post_scrape_if_needed.py >> publication.log 2>&1
 ```
 
 ### 8.2 The two publication phases
