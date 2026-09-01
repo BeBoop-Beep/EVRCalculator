@@ -1,3 +1,5 @@
+import { formatMinorAmount } from "./billingPricing.mjs";
+
 export const PLAN_LABELS = Object.freeze({ basic: "Basic", plus: "Index Plus", premium: "Index Premium" });
 const KNOWN_STATUSES = new Set(["trialing","active","past_due","incomplete","incomplete_expired","unpaid","canceled","paused"]);
 
@@ -13,7 +15,12 @@ export function statusPresentation(status, cancelAtPeriodEnd = false) {
 }
 export function formatBillingDate(value, locale) {
   if (!value) return null;
-  const date = new Date(value); if (Number.isNaN(date.getTime())) return null;
+  // Handle Unix timestamps in seconds (integers between 1 billion and 10 billion represent 2001-2286)
+  let dateValue = value;
+  if (Number.isInteger(value) && value > 1e9 && value < 1e10) {
+    dateValue = value * 1000; // Convert seconds to milliseconds
+  }
+  const date = new Date(dateValue); if (Number.isNaN(date.getTime())) return null;
   return new Intl.DateTimeFormat(locale, { year:"numeric", month:"long", day:"numeric" }).format(date);
 }
 export function billingMessage(status, { cancelAtPeriodEnd=false, currentPeriodEnd=null, effectivePlan=null } = {}) {
@@ -32,3 +39,35 @@ export function canManageSubscription(status) { return Boolean(status); }
 export function selectableOffers(dto) { return dto?.billingManaged ? [] : Array.isArray(dto?.purchasableOfferKeys) ? dto.purchasableOfferKeys : []; }
 export function offerPlan(key) { return key?.startsWith("premium_") ? "premium" : key?.startsWith("plus_") ? "plus" : null; }
 export function offerInterval(key) { return key?.endsWith("_annual") ? "Annual" : key?.endsWith("_monthly") ? "Monthly" : ""; }
+
+export function pendingChangeCopy(status) {
+  if (!status || status.pendingChangeState !== "scheduled") {
+    return null;
+  }
+  const planName = planLabel(status.pendingPlan);
+  const date = formatBillingDate(status.pendingChangeEffectiveAt);
+  return `Changes to ${planName} on ${date}`;
+}
+
+export function upgradeConfirmationCopy({ amountDueNow, currency, nextRenewalAt }) {
+  const dueNowLabel = formatMinorAmount(amountDueNow, currency);
+  const renewalDate = formatBillingDate(nextRenewalAt);
+  return {
+    dueNowLabel,
+    bodyLines: [
+      "Your new membership begins immediately after successful payment.",
+      `Next renewal: ${renewalDate}`,
+    ],
+  };
+}
+
+export function downgradeConfirmationCopy({ currentPlanUntil }) {
+  const untilDate = formatBillingDate(currentPlanUntil);
+  return {
+    bodyLines: [
+      `You'll keep Index Premium until ${untilDate}.`,
+      "Index Plus begins after that.",
+      "No charge today.",
+    ],
+  };
+}
