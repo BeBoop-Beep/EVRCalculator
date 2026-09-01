@@ -44,8 +44,12 @@ class StripeProvider:
         except BillingNotConfigured: raise
         except Exception as exc: raise BillingProviderError("Stripe Checkout creation failed") from exc
 
-    def retrieve_subscription(self, subscription_id: str):
-        try: return self._client().v1.subscriptions.retrieve(subscription_id)
+    def retrieve_subscription(self, subscription_id: str, expand=None):
+        try:
+            kwargs = {}
+            if expand:
+                kwargs["expand"] = expand
+            return self._client().v1.subscriptions.retrieve(subscription_id, **kwargs)
         except BillingNotConfigured: raise
         except Exception as exc: raise BillingProviderError("Stripe subscription retrieval failed") from exc
 
