@@ -32,7 +32,7 @@ function LockedCards() {
           {["medium", "short", "long"].map((shape) => (
             <div key={shape} className="space-y-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-3">
               <span className="block h-2 w-2/3 rounded-full bg-[var(--surface-hover)]" />
-              <span className="block h-2 w-1/2 rounded-full bg-[rgba(45,212,191,.14)]" />
+              <span className="block h-2 w-1/2 rounded-full bg-[var(--surface-hover)]" />
               <span className="block h-2 w-full rounded-full bg-[var(--surface-hover)]" />
             </div>
           ))}

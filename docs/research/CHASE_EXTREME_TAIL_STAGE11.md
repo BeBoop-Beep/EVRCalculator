@@ -131,31 +131,38 @@ same two universes. Adding hundreds of cheap reverse variants cannot move a stat
 weighted by `s^4`. This resolves the Stage IX/X universe anxiety for this metric
 specifically, and is a strong argument for `N_HC` over `1/HHI` as the headline number.
 
-## 7. EV-HHI (Phase 16) — CLOSED, and they measure different things
+## 7. EV-HHI (Phase 16) — CORRECTED IN STAGE XII
 
-Universe B, authoritative pull rates, 6 modern sets:
+> **CORRECTION.** The table originally published here was computed with
+> `effective_pull_rate`, which is 1-in-N **odds** (range 20–1430), not a probability.
+> Stage XII's Phase 1 field audit established that `modeled_probability` is the per-pack
+> P(N>=1). Recomputed correctly, the conclusion **reverses**. The original numbers and the
+> claim that "EV concentration is consistently higher than value concentration" were wrong.
 
-| set | N_eff value | N_eff EV | N_HC value | N_HC EV |
-|---|---|---|---|---|
-| Paradox Rift | 37.58 | 33.86 | 7.26 | 9.42 |
-| Shrouded Fable | 24.84 | **15.47** | 12.32 | **4.50** |
-| Ascended Heroes | 11.41 | 9.24 | 3.90 | 3.81 |
-| Prismatic Evolutions | 10.81 | 10.58 | 1.94 | 1.98 |
-| Paldean Fates | 7.09 | 6.91 | 1.33 | 1.34 |
-| Phantasmal Flames | 2.63 | 2.31 | 1.31 | 1.90 |
+Universe B, `modeled_probability`, 6 modern sets:
 
-EV concentration is consistently **higher** (fewer effective cards) than value
-concentration, because pull rates concentrate further onto the rare expensive cards.
+| set | N_eff value | N_eff EV (corrected) | N_HC value |
+|---|---|---|---|
+| Phantasmal Flames | 2.63 | **6.62** | 1.31 |
+| Paldean Fates | 7.09 | **11.60** | 1.33 |
+| Prismatic Evolutions | 10.81 | **20.00** | 1.96 |
+| Ascended Heroes | 11.41 | **38.42** | 3.90 |
+| Shrouded Fable | 24.84 | **43.58** | 12.34 |
+| Paradox Rift | 37.58 | **79.65** | 7.26 |
 
-**Shrouded Fable is the decisive case:** value-flat (`N_HC` 12.32) but EV-concentrated
-(`N_HC_EV` 4.50). Its expensive cards are also its rarest, so opening EV is dominated by
-far fewer cards than collectible value is.
+EV concentration is **lower** (spread over *more* effective cards) than value concentration
+in every set, without exception. The mechanism is straightforward and was inverted in the
+original: expensive cards are also the rarest, so multiplying value by pull probability
+*flattens* the distribution rather than sharpening it.
 
-**Verdict:** Value-HHI answers *"how concentrated is collectible market value"* and is the
-correct basis for Chase Identity/Significance. EV-HHI answers *"how concentrated is
-opening EV"* and belongs in opening economics, not chase identity. They are not
-substitutes. Vintage sets lack pull rates; that is a coverage limitation, not an obstacle
-to the semantic distinction.
+The Shrouded Fable "value-flat but EV-concentrated" claim is withdrawn; it is value-flat
+and EV-flatter still.
+
+**The semantic verdict is unchanged and is if anything strengthened.** Value-HHI answers
+*"how concentrated is collectible market value"* and is the correct basis for Chase
+Significance. EV-HHI answers *"how concentrated is opening EV"* — a different and more
+diffuse quantity — and belongs in opening economics. They are not substitutes. Vintage
+sets lack pull rates; that is a coverage limitation, not an obstacle to the distinction.
 
 ## 8. Stability (Phase 14)
 
@@ -234,3 +241,14 @@ aggregated over a product's pull distribution is stable across products of the s
 and monotone in the things it should be monotone in (more packs, better pull rates, more
 concentrated sets). No coefficient calibration, and no Overall RIP work, until that
 contract holds.
+
+---
+
+## Forward reference
+
+Stage XII (`PRODUCT_CHASE_OPPORTUNITY_STAGE12.md`) acted on §12's next step and returned
+`CONTINUOUS_PRODUCT_CHASE_OPPORTUNITY_INPUT_CONTRACT_VALIDATED` for
+`O_p = sum_i HC_i P(N_ip >= 1)`. It also **corrected §7 of this document** — see the
+correction notice there. Opportunity was found near-orthogonal to EV (Spearman 0.025)
+but 0.85-correlated with pack count, so its suitability as an Overall RIP pillar remains
+open.

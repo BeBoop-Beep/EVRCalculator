@@ -369,7 +369,7 @@ export default function SetPackMetrics({
                         ? `family-economics-${row.setId}`
                         : undefined
                     }
-                    className="min-h-11 px-2 text-xs text-[rgb(var(--ex-teal))]"
+                    className={`min-h-11 px-2 text-xs ${canViewRankingsIntelligence ? "text-[rgb(var(--ex-teal))]" : PLUS_COMPACT_LOCK}`}
                   >
                     {canViewRankingsIntelligence
                       ? expanded
