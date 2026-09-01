@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { PlanUpgradeLink } from "@/components/membership/PlanLock";
+import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
+import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
 import { INDEX_PLAN_PLUS, INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
 import { useRouter } from "next/navigation";
 import {
@@ -180,7 +181,7 @@ function PlusLock({ title }) {
     <section
       data-plus-lock
       aria-labelledby={id}
-      className="set-glass-surface relative min-h-36 overflow-hidden rounded-2xl border"
+      className={`set-glass-surface relative min-h-36 overflow-hidden rounded-2xl border ${planPresentation(INDEX_PLAN_PLUS).panelClassName}`}
     >
       <div
         aria-hidden="true"
@@ -191,9 +192,7 @@ function PlusLock({ title }) {
         <span className="h-16 rounded-xl bg-white/10" />
       </div>
       <div className="relative z-10 flex min-h-36 flex-col items-center justify-center bg-[rgba(2,6,23,.62)] px-5 py-6 text-center">
-        <p className="text-xs font-bold uppercase tracking-[.14em] text-amber-300">
-          🔒 Index Plus
-        </p>
+        <PlanBadge plan={INDEX_PLAN_PLUS} />
         <h2 id={id} className="mt-2 text-xl font-semibold">
           Unlock {title}
         </h2>
@@ -758,12 +757,10 @@ function OpeningProductsSection({ detail }) {
 }
 
 function PremiumLock() {
-  const premiumTier = getRipTierPresentation("S", { strength: "hero" });
   return (
     <section
       data-chase-efficiency-lock
-      className="set-glass-surface relative min-h-44 overflow-hidden rounded-2xl border border-[var(--tier-border)]"
-      style={premiumTier.style}
+      className={`set-glass-surface relative min-h-44 overflow-hidden rounded-2xl border ${planPresentation(INDEX_PLAN_PREMIUM).panelClassName}`}
     >
       <div
         aria-hidden="true"
@@ -772,14 +769,12 @@ function PremiumLock() {
         {[1, 2, 3, 4].map((key) => (
           <span
             key={key}
-            className="h-16 rounded-xl bg-[var(--tier-surface)]"
+            className="h-16 rounded-xl bg-violet-500/10"
           />
         ))}
       </div>
       <div className="relative z-10 flex min-h-44 flex-col items-center justify-center bg-[rgba(2,6,23,.72)] px-5 py-6 text-center">
-        <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--tier-color)]">
-          Index Premium
-        </p>
+        <PlanBadge plan={INDEX_PLAN_PREMIUM} />
         <h2 className="mt-2 text-xl font-semibold">Unlock Chase Efficiency</h2>
         <p className="mt-1 max-w-lg px-4 text-xs text-[var(--text-secondary)]">
           See how economically favorable this exact printing is to chase, its

@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
-
 import { useAuth } from "@/components/AuthContext";
+import { PlanUpgradeLink } from "@/components/membership/PlanLock";
 import InfoPopover from "@/components/ui/InfoPopover";
-import { describePlanLock } from "@/components/explore/ExplorerPlanLockPanel";
 import { INDEX_PLAN_PLUS, hasIndexPlusAccess } from "@/lib/access/indexPlanAccess.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 
@@ -38,15 +36,6 @@ export function useSetMarketSignalAccess() {
 }
 
 export function SetMarketSignalLock({ description }) {
-  const { user } = useSetMarketSignalAccess();
-  const lock = describePlanLock({
-    requiredPlan: INDEX_PLAN_PLUS,
-    isAuthenticated: Boolean(user),
-    currentPlan: user?.index_plan || null,
-    source: "set-market",
-  });
-
-  const actionClassName = "inline-flex min-h-7 items-center rounded-md border border-[rgba(45,212,191,0.5)] bg-[rgba(45,212,191,0.08)] px-2 text-[10px] font-semibold text-[rgb(45,212,191)]";
   return (
     <div data-set-market-signal-lock className="mt-2">
       <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">{description}</p>
@@ -54,11 +43,7 @@ export function SetMarketSignalLock({ description }) {
         <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">
           <LockIcon /> Index Plus
         </span>
-        {lock.actionHref ? (
-          <Link href={lock.actionHref} prefetch={false} className={actionClassName}>{lock.actionLabel}</Link>
-        ) : (
-          <span className={actionClassName}>{lock.actionLabel}</span>
-        )}
+        <PlanUpgradeLink requiredPlan={INDEX_PLAN_PLUS} source="set-market" className="min-h-7 px-2 text-[10px]" />
       </div>
     </div>
   );

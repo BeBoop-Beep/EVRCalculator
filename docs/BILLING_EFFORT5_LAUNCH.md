@@ -1,6 +1,6 @@
 # Billing Effort 5 Launch Decision
 
-Status: `EFFORT_5_BLOCKED_ON_TAX_LEGAL_AND_SAFE_ENVIRONMENT_CLASSIFICATION`
+Status: `EFFORT_5_BLOCKED_ON_LEGAL_AND_SAFE_ENVIRONMENT_ACTIVATION`
 
 This record intentionally contains no invented prices, Stripe object identifiers, secrets,
 or assumed legal/commercial policies. No database, Stripe account, deployment environment,
@@ -24,7 +24,7 @@ operating policies below:
 | Index Premium annual price | 21900 minor units / $219.00 USD |
 | Free trial | NONE |
 | Promotion codes | DISABLED |
-| Automatic tax | `AUTOMATIC_TAX_DECISION_PENDING` |
+| Payments and tax handling | Stripe Managed Payments |
 | Cancellation timing | END OF CURRENT BILLING PERIOD |
 | Cancellation reasons | ENABLED |
 | Upgrade | IMMEDIATE + STRIPE PRORATION |
@@ -41,7 +41,7 @@ normal annual prices, not temporary promotions. All amounts are USD.
 
 | Target | Identifier | Verified purpose | Safe to mutate? |
 | --- | --- | --- | --- |
-| Supabase linked | `zwxzxuuawalvwioadhmf` / `TheIndex` | Unknown; production/staging not proven | No |
+| Supabase linked | `zwxzxuuawalvwioadhmf` / `TheIndex` | Production | No |
 | Supabase unlinked | `exnwvdwjrjlgkgrdlrcw` / `trial` / inactive | Unknown; name alone is not authority | No |
 | Stripe sandbox | No configured test secret/account identifier | Unavailable | No |
 | Stripe live | No configured live secret/account identifier | Unavailable | No |
@@ -55,12 +55,25 @@ are unavailable. The installed Supabase CLI is 2.116.0.
 
 ## Supabase deployment
 
-Read-only migration inspection from Effort 4 shows the three billing migrations are absent
-from the linked remote history:
+Read-only production inspection shows the three billing migrations are absent from remote
+history. Their original, never-applied local filenames were:
 
 1. `20260831184744_billing_effort1_foundation.sql`
 2. `20260831190018_billing_effort2_stripe_backend.sql`
 3. `20260831212547_billing_effort4_atomic_reliability.sql`
+
+Because production history extends through at least `20260831233320` and the local worktree
+already extended through `20260831235900`, the byte-identical SQL now has fresh, ordered local
+filenames:
+
+1. `20260901000000_billing_effort1_foundation.sql`
+2. `20260901000001_billing_effort2_stripe_backend.sql`
+3. `20260901000002_billing_effort4_atomic_reliability.sql`
+
+These local migrations have not been pushed or applied. The backend/manual-entitlement migration
+continues converting every existing Plus or Premium `users.index_plan` value into explicit manual
+provenance before billing-derived recomputation; this preserves the one known pre-Stripe Premium
+user.
 
 The remote/local histories also diverge beyond billing. `billing_doctor` reports
 `schemaReachable: false`. No migration was pushed. Before deployment, the owner must identify a
@@ -88,12 +101,21 @@ BILLING_CURRENCY: optional; canonical default is usd and any other value fails c
 BILLING_CHECKOUT_ENABLED: false
 ```
 
-The approved sandbox model is exactly one Product named `inDex Membership` with four recurring
-USD Prices: `plus_monthly`, `plus_annual`, `premium_monthly`, and `premium_annual`. Application
-display names remain `Index Plus` and `Index Premium`. Product identity is audit data only;
-canonical Price-ID-to-offer mapping remains the sole commercial and entitlement authority.
-Validate amount, currency, interval, labels, and `livemode=false` before mapping Price IDs to
-backend-only environment variables. Do not create live objects.
+The approved sandbox/live catalog uses two Products. Both use the Managed Payments product tax
+classification `Software as a Service (SaaS) - personal use`, Stripe tax code `txcd_10103000`:
+
+| Product | Price key | Recurring price |
+| --- | --- | --- |
+| Index Plus | `plus_monthly` | $9.99 USD / month |
+| Index Plus | `plus_annual` | $79.00 USD / year |
+| Index Premium | `premium_monthly` | $24.99 USD / month |
+| Index Premium | `premium_annual` | $219.00 USD / year |
+
+Product identity is audit/catalog data only. The canonical Price-ID-to-offer-key-to-internal-plan
+mapping remains the sole commercial and entitlement authority, and Premium continues to inherit
+Plus. Validate amount, currency, interval, Product association, labels, tax code, and
+`livemode=false` before mapping sandbox Price IDs to backend-only environment variables. No
+Stripe objects have been created by this work.
 
 ## Price presentation and public pricing
 
@@ -106,12 +128,16 @@ locked Plus/Premium capability packaging must not change or advertise unfinished
 
 ## Customer Portal configuration
 
-Not configured. In sandbox, configure the shared Product's four allowed Prices; cancellation at
-period end; cancellation reasons on; retention coupons off; promotion codes off; immediate
-prorated upgrades; and end-of-period downgrades. Visually verify that Portal labels clearly
-distinguish Plus/Premium and monthly/annual. If they do not, stop: do not change the Product model
-or build custom plan-changing infrastructure without approval. Sandbox and live Portal settings
-must be configured and verified separately.
+Not configured. The existing server-created Portal session remains the billing-management
+destination for payment methods, invoice history, and cancellation. Cross-tier switching is not
+enabled or implemented in application code.
+
+`PORTAL_CROSS_TIER_SWITCHING_PENDING_FINAL_SANDBOX_POLICY`
+
+Stripe Customer Portal can schedule an end-of-period downgrade between Prices on the same
+Product, while the Managed Payments catalog requires separate Index Plus and Index Premium
+Products. Do not silently replace the approved end-of-period Premium-to-Plus downgrade policy or
+build a custom plan-change API. Resolve and verify this policy in the real sandbox first.
 
 ## Webhook configuration
 
@@ -130,9 +156,9 @@ endpoint signing secret.
 
 ## Tax, cancellation, proration, and refunds
 
-Checkout explicitly disables promotion-code entry and automatic tax, and supplies no trial
-fields. Automatic tax stays off until tax-registration obligations and an approved collection
-mechanism are determined. Normal cancellation is scheduled for period end with access retained
+Checkout explicitly disables promotion-code entry, enables Stripe Managed Payments, omits the
+incompatible `automatic_tax` Checkout parameter, and supplies no trial fields. Managed Payments
+handles applicable tax calculation and withholding. Normal cancellation is scheduled for period end with access retained
 through that paid period and no automatic prorated cash refund. Upgrades are immediate with
 Stripe proration; downgrades are scheduled for period end. Exceptional refunds are manual and
 subject to the final approved legal policy.
@@ -201,10 +227,10 @@ switch and never mass-demote subscribers without authoritative reconciliation.
 
 The next execution may proceed only after the owner supplies:
 
-1. automatic-tax/tax-registration decision;
-2. legal approval and final purchase-flow copy;
-3. explicit staging and production Supabase classifications;
-4. explicit sandbox/live Stripe account classifications and secured credentials;
+1. legal approval and final purchase-flow copy;
+2. explicit staging Supabase classification and production change authorization;
+3. explicit sandbox/live Stripe account classifications and secured credentials;
+4. final sandbox policy for cross-Product Premium-to-Plus downgrades;
 5. verified staging/production backend and frontend domains;
 6. authorized sandbox users and, later, an authorized owner live-smoke account;
 7. production migration backup/change-window approval.

@@ -227,6 +227,8 @@ Log: logs/run_simulations.log"
 # 10 minutes apart (<= 1 extra hour, inside the same daily window) instead of
 # deferring the whole day until an operator reruns it by hand.
 PUBLICATION_START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+PUBLICATION_INVOCATION_LOG=$(mktemp)
+trap 'rm -f "$PUBLICATION_INVOCATION_LOG"' EXIT
 PUBLICATION_FAILED=0
 PUBLICATION_DEFERRED=0
 PUBLICATION_EXIT=0
@@ -235,9 +237,12 @@ PUBLICATION_EXIT=0
 #   1 = a simulation failed, or publication cannot claim full freshness
 #   2 = could not start (no promoted market date, unreadable authority)
 #   3 = publication DEFERRED by the batch-cohort gate (cohort not ready)
+set +e
 python backend/scripts/run_daily_opening_publication.py \
-  --gate-wait-attempts 6 --gate-wait-seconds 600 \
-  >> logs/run_simulations.log 2>&1 || PUBLICATION_EXIT=$?
+  --gate-wait-attempts 6 --gate-wait-seconds 600 2>&1 \
+  | tee -a logs/run_simulations.log "$PUBLICATION_INVOCATION_LOG"
+PUBLICATION_EXIT=${PIPESTATUS[0]}
+set -e
 PUBLICATION_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 
 if [ "$PUBLICATION_EXIT" -eq 0 ]; then
@@ -254,7 +259,7 @@ elif [ "$PUBLICATION_EXIT" -eq 3 ]; then
   # observation-complete, so nothing was published and the previous good public
   # snapshots are preserved. This must NOT send the success message.
   PUBLICATION_DEFERRED=1
-  DEFERRED_LINE=$(grep -a 'PUBLICATION_DEFERRED' logs/refresh_public_snapshots.log | tail -n 1 || true)
+  DEFERRED_LINE=$(grep -aE 'daily-opening-publication] (market_date=|simulation_execution_date=|eligible_set_count=|rankings_publication_status=|rip_stats_publication_status=|error=)' "$PUBLICATION_INVOCATION_LOG" | tail -n 12 | tr '\n' '; ' || true)
 
   notify_slack "⏸️ Public snapshot publication DEFERRED (cohort not ready; previous good snapshots preserved)
 Host: $HOSTNAME_VALUE
@@ -268,7 +273,7 @@ Action: resolve/requeue the incomplete scrape batch, then rerun the publication
 Log: logs/refresh_public_snapshots.log"
 else
   PUBLICATION_FAILED=1
-  SUMMARY_LINE=$(grep -a 'daily-opening-publication] error=' logs/run_simulations.log | tail -n 1 || true)
+  SUMMARY_LINE=$(grep -aE 'daily-opening-publication] (market_date=|simulation_execution_date=|eligible_set_count=|simulation_failed=|rankings_publication_status=|rip_stats_publication_status=|error=)' "$PUBLICATION_INVOCATION_LOG" | tail -n 12 | tr '\n' '; ' || true)
 
   notify_slack "❌ Simulation/publication FAILED (Opening Profit vs Cost may be stale)
 Host: $HOSTNAME_VALUE
@@ -412,6 +417,17 @@ fi
 # superseded scoring contract.
 if [ "$PUBLICATION_EXIT" -eq 0 ] && [ "$AUDIT_EXIT" -eq 0 ] && [ "$PUBLIC_RIP_AUDIT_EXIT" -eq 0 ]; then
   if [ "$BUDGET_RANKING_EXIT" -eq 0 ]; then
+  CURRENT_HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || true)
+  if [ -z "$PUBLICATION_HEAD_SHA" ] || [ "$CURRENT_HEAD_SHA" != "$PUBLICATION_HEAD_SHA" ]; then
+    echo "[publication-checkout] REFUSED SUCCESS: HEAD changed start=${PUBLICATION_HEAD_SHA:-unknown} current=${CURRENT_HEAD_SHA:-unknown}" | tee -a logs/run_simulations.log
+    notify_slack "❌ Simulation/publication success refused: checkout HEAD changed during invocation
+Host: $HOSTNAME_VALUE
+Repo: $REPO_DIR
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
+Start commit: ${PUBLICATION_HEAD_SHA:-unknown}
+Current commit: ${CURRENT_HEAD_SHA:-unknown}"
+    exit 1
+  fi
   AUDIT_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
   notify_slack "✅ Simulation + publication completed (both final audits passed)
 Host: $HOSTNAME_VALUE

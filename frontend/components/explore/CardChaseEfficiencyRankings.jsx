@@ -7,7 +7,8 @@ import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClien
 import { canonicalCardQueryKey } from "@/lib/rankings/rankingsSessionCache.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
-import { PlanUpgradeLink } from "@/components/membership/PlanLock";
+import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
+import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
 import { INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
 
 const SORTS = [
@@ -22,9 +23,9 @@ const value = (input) => Number.isFinite(Number(input)) ? Number(input) : null;
 
 function LockedCards() {
   return (
-    <section data-card-chase-efficiency-locked className={`${styles.surface} set-glass-surface overflow-hidden p-5 sm:p-7`}>
+    <section data-card-chase-efficiency-locked className={`${styles.surface} set-glass-surface overflow-hidden border ${planPresentation(INDEX_PLAN_PREMIUM).panelClassName} p-5 sm:p-7`}>
       <div className="mx-auto max-w-2xl py-7 text-center">
-        <span className="inline-flex rounded-full border border-[rgba(45,212,191,.35)] bg-[rgba(45,212,191,.08)] px-3 py-1 text-[10px] font-bold uppercase tracking-[.16em] text-[var(--accent)]">Index Premium</span>
+        <PlanBadge plan={INDEX_PLAN_PREMIUM} />
         <h2 className="mt-4 text-xl font-semibold text-[var(--text-primary)]">Rank every chase by opening efficiency</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[var(--text-secondary)]">Compare exact card printings using current Near Mint value, modeled pull odds, and the cheapest verified pack-equivalent route.</p>
         <div data-card-chase-efficiency-locked-preview aria-hidden="true" className="mx-auto mt-6 grid max-w-lg grid-cols-3 gap-2 opacity-55">

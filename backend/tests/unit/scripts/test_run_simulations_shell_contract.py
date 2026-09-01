@@ -219,7 +219,19 @@ def test_wrapper_supports_isolated_production_checkout(script_text):
 # 7. Unchanged coordinated workflow
 # ---------------------------------------------------------------------------
 def test_wrapper_captures_publication_exit_code(script_text):
-    assert "PUBLICATION_EXIT=$?" in script_text
+    assert "PUBLICATION_EXIT=${PIPESTATUS[0]}" in script_text
+
+
+def test_wrapper_refuses_success_when_head_changes_during_the_job(script_text):
+    assert 'CURRENT_HEAD_SHA=$(git rev-parse HEAD' in script_text
+    assert '"$CURRENT_HEAD_SHA" != "$PUBLICATION_HEAD_SHA"' in script_text
+    assert "REFUSED SUCCESS: HEAD changed" in script_text
+
+
+def test_failure_details_come_from_this_invocation_not_the_appended_log(script_text):
+    assert 'PUBLICATION_INVOCATION_LOG=$(mktemp)' in script_text
+    assert 'SUMMARY_LINE=$(grep' in script_text
+    assert '"$PUBLICATION_INVOCATION_LOG"' in script_text
 
 
 def test_wrapper_runs_the_coordinated_orchestrator_not_two_loose_commands(script_text):

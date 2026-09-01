@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-SQL = (Path(__file__).parents[4] / "supabase/migrations/20260831212547_billing_effort4_atomic_reliability.sql").read_text().lower()
+SQL = (Path(__file__).parents[4] / "supabase/migrations/20260901000002_billing_effort4_atomic_reliability.sql").read_text().lower()
 
 
 def test_atomic_billing_rpcs_are_service_only_and_search_path_pinned():

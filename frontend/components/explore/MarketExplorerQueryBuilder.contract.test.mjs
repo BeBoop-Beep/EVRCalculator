@@ -7,7 +7,7 @@ test("the left rail is the only market builder", async () => {
   const [client, builder] = await Promise.all([read("./MarketExplorerClient.jsx"), read("./MarketExplorerQueryBuilder.jsx")]);
   assert.ok(client.includes("<MarketExplorerQueryBuilder"));
   for (const obsolete of ['id="buildAMarket"', "scopeHandoff", "handOffToBuilder", "Use in Build a Market", "<MarketExplorerFilters"]) assert.ok(!client.includes(obsolete));
-  assert.ok(builder.includes(">Market Builder</h2>"));
+  assert.match(builder, />\s*Market Builder\s*<\/h2>/);
 });
 
 test("asset-first hierarchy owns repeated canonical scope controls", async () => {

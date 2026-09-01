@@ -141,6 +141,7 @@ def run_single_set(orchestrator, set_key: str, config) -> dict:
                 "trigger": "daily_batch",
                 "era": getattr(config, "ERA", None),
                 "set": getattr(config, "SET_NAME", set_key),
+                "market_date": getattr(orchestrator, "_publication_market_date", None),
             },
         )
         return {
@@ -164,9 +165,10 @@ def run_single_set(orchestrator, set_key: str, config) -> dict:
         }
 
 
-def run_batch(set_map: dict, *, sleep=time.sleep) -> list:
+def run_batch(set_map: dict, *, sleep=time.sleep, market_date: str | None = None) -> list:
     from backend.jobs.evr_runner import EVRRunOrchestrator
     orchestrator = EVRRunOrchestrator()
+    orchestrator._publication_market_date = market_date
     results: list[dict[str, Any]] = []
     completed_durations: list[float] = []
     total_sets = len(set_map)
@@ -290,6 +292,11 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Run EVR calculations and Monte Carlo V2 simulations for all eligible sets.",
     )
     parser.add_argument(
+        "--market-date",
+        default=None,
+        help="Canonical promoted market date persisted on every calculation run.",
+    )
+    parser.add_argument(
         "--era",
         help="Run only sets whose config ERA exactly matches this value.",
     )
@@ -358,11 +365,17 @@ def main():
         return 0
 
     batch_started_at = time.perf_counter()
-    results = run_batch(filtered_sets)
+    results = run_batch(filtered_sets, market_date=args.market_date)
     total_runtime = time.perf_counter() - batch_started_at
     print_summary(results, total_runtime)
     emit_json(results)
-    return 0 if all(result.get("success") for result in results) else 1
+    if all(result.get("success") for result in results):
+        return 0
+    # A one-set invocation uses this distinct code to let the outer daily
+    # coordinator retry infrastructure failures without guessing from prose.
+    if results and all(result.get("transient") for result in results if not result.get("success")):
+        return 75
+    return 1
 
 
 if __name__ == "__main__":

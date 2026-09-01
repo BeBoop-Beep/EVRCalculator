@@ -3,6 +3,10 @@
 import React from "react";
 import { RANK_CONFIG } from "../../constants/rankConfig.mjs";
 import { formatPublicRipScore } from "../../constants/exploreRankingConfig.mjs";
+import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
+import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
+
+const PLUS_COMPACT_LOCK = planPresentation(INDEX_PLAN_PLUS).compactClassName;
 
 const FAMILY_LABELS = Object.freeze({
   loose_booster_pack: "Booster Pack",
@@ -126,7 +130,7 @@ export function FamilySnapshot({ setRip, compact = false, layout = "rows", canVi
           const tier = familyTier(entry);
           const tierColor = tier ? RANK_CONFIG[tier]?.color : null;
           const price = formatFamilyMarketPrice(entry);
-          return <div data-family-module key={entry.family} className="set-rip-family-column"><span className="line-clamp-2 min-h-[1.4rem] text-[10px] font-semibold leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span>{canViewProductRipIntelligence ? <><strong className="text-[15px] font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong><span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span></> : <button type="button" onClick={onUnlockProductRip || undefined} aria-label="Unlock product RIP score, rank, and tier" className="rounded-md border border-[rgba(45,212,191,0.24)] px-2 py-1 text-[10px] font-bold uppercase text-[var(--text-secondary)]"><span aria-hidden="true">🔒</span> RIP</button>}{price ? <span className="whitespace-nowrap text-[10px] tabular-nums text-[var(--text-secondary)]">{price}</span> : null}</div>;
+          return <div data-family-module key={entry.family} className="set-rip-family-column"><span className="line-clamp-2 min-h-[1.4rem] text-[10px] font-semibold leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span>{canViewProductRipIntelligence ? <><strong className="text-[15px] font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong><span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span></> : <button type="button" onClick={onUnlockProductRip || undefined} aria-label="Unlock Index Plus product RIP score, rank, and tier" className={`rounded-md border px-2 py-1 text-[10px] font-bold uppercase focus-visible:outline-none focus-visible:ring-2 ${PLUS_COMPACT_LOCK}`}><span aria-hidden="true">🔒</span> Plus RIP</button>}{price ? <span className="whitespace-nowrap text-[10px] tabular-nums text-[var(--text-secondary)]">{price}</span> : null}</div>;
         })}
       </div>
     );
@@ -155,7 +159,7 @@ function FixedFamilyResult({ entry, identifier = null, canViewProductRipIntellig
       {canViewProductRipIntelligence ? <>
         <strong className="text-sm font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong>
         <span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span>
-      </> : <button type="button" onClick={onUnlockProductRip || undefined} aria-label="Unlock product RIP score, rank, and tier" className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[rgba(45,212,191,0.24)] bg-[rgba(45,212,191,0.06)] px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"><span aria-hidden="true">🔒</span> RIP</button>}
+      </> : <button type="button" onClick={onUnlockProductRip || undefined} aria-label="Unlock Index Plus product RIP score, rank, and tier" className={`inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-bold uppercase tracking-[0.08em] focus-visible:outline-none focus-visible:ring-2 ${PLUS_COMPACT_LOCK}`}><span aria-hidden="true">🔒</span> Plus RIP</button>}
       {price ? <span data-family-market-price className="whitespace-nowrap text-[10px] leading-none tabular-nums text-[var(--text-secondary)]">{price}</span> : null}
     </span>
   );

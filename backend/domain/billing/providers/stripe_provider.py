@@ -33,8 +33,8 @@ class StripeProvider:
             return self._client().v1.checkout.sessions.create({
                 "mode": "subscription", "customer": customer_id,
                 "line_items": [{"price": price_id, "quantity": 1}],
+                "managed_payments": {"enabled": True},
                 "allow_promotion_codes": False,
-                "automatic_tax": {"enabled": False},
                 "success_url": success_url, "cancel_url": cancel_url,
                 "client_reference_id": user_id,
                 "metadata": {"index_user_id": user_id, "offer_key": offer_key, "intended_plan": plan},

@@ -14,11 +14,15 @@ Verified application authentication produces an immutable user ID. The billing s
 - `backend/db/repositories/billing_repository.py`: privileged persistence, retryable event claims, and entitlement RPC invocation.
 - `backend/domain/billing/policy.py`: the single status and effective-plan policy used outside the database transaction.
 
-The SDK is pinned to `stripe==15.4.0` (Dahlia API family). Version-sensitive invoice parent subscription references and subscription-item period timestamps are normalized inside the billing boundary; feature code never depends on Stripe object shapes.
+The SDK is pinned to `stripe==15.4.0`, which pins Stripe API version
+`2026-07-29.dahlia`. That is later than Managed Payments' minimum API version,
+`2025-03-31.basil`, so no manual API-version override is needed. Version-sensitive invoice
+parent subscription references and subscription-item period timestamps are normalized inside
+the billing boundary; feature code never depends on Stripe object shapes.
 
 ## Checkout contract
 
-`POST /billing/checkout-session` requires app authentication and accepts exactly `{ "offerKey": "..." }`; extra fields are rejected. The response is `{ "checkoutUrl": "..." }`. Unknown offers return `BILLING_OFFER_UNKNOWN`; disabled/unpriced offers return `BILLING_OFFER_NOT_CONFIGURED`; provider failures return a controlled 503. Customer, Price, user, plan, success URL, and cancel URL are all server-owned. Checkout uses `mode=subscription`, one recurring Price, trusted metadata, and Stripe-hosted UI.
+`POST /billing/checkout-session` requires app authentication and accepts exactly `{ "offerKey": "..." }`; extra fields are rejected. The response is `{ "checkoutUrl": "..." }`. Unknown offers return `BILLING_OFFER_UNKNOWN`; disabled/unpriced offers return `BILLING_OFFER_NOT_CONFIGURED`; provider failures return a controlled 503. Customer, Price, user, plan, success URL, and cancel URL are all server-owned. Checkout uses `mode=subscription`, one recurring Price, trusted metadata, Stripe-hosted UI, and `managed_payments.enabled=true`. It omits `automatic_tax` because Managed Payments owns tax calculation and withholding.
 
 ## Webhook contract
 

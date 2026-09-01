@@ -243,3 +243,7 @@ Stage X (`CHASE_SEPARABILITY_STAGE10.md`) acted on §12's next step and returned
 §2 (Universe B shifts `1/HHI` by up to 53% but preserves rank order and shape class) and
 showed that mixture separability finds the bulk/non-bulk split rather than the chase
 boundary. Stage IX's findings below are unchanged.
+
+Stage XI (`CHASE_EXTREME_TAIL_STAGE11.md`) then validated continuous Chase Significance
+`HC_i = s_i^2/HHI` and the driver count `N_HC = D4^3/D2^2`, which is universe-invariant where
+`1/HHI` moves up to 53%. Discrete rosters remain unresolved and are no longer required.

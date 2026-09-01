@@ -184,3 +184,13 @@ with the bulk explicitly excluded rather than competing for likelihood.
 
 That test should be run before any Chase Opportunity formula, any coefficient calibration,
 or any resumption of Overall RIP V11.
+
+---
+
+## Forward reference
+
+Stage XI (`CHASE_EXTREME_TAIL_STAGE11.md`) acted on §9's next step. It **rejected** EVT on
+the synthetic gate (tail K of 23/35/30/37 for true counts of 1/2/5/3) and instead validated
+a continuous HHI-derived Chase Significance, returning
+`CHASE_SIGNIFICANCE_VALIDATED__DISCRETE_TIERS_UNRESOLVED`. Stage X's findings below are
+unchanged.

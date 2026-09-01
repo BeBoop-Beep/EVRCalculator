@@ -1,0 +1,1241 @@
+{
+ "stage": "stage11-chase-significance-v1",
+ "hcDefinition": "HC_i = s_i^2 / HHI ; sum(HC) = 1",
+ "nHCIdentity": "N_HC = 1/sum(HC^2) = D4^3 / D2^2 (verified to machine precision)",
+ "orderingCaveat": "HC is a strictly increasing function of value share, so HC ranking is IDENTICAL to price ranking. HC changes scale and interpretation, never discrimination.",
+ "productInvariance": "no sealed-product price of any kind is read",
+ "sets": [
+  {
+   "set": "Base",
+   "era": "vintage",
+   "universe": "A",
+   "n": 102,
+   "hhi": 0.185019,
+   "hill": {
+    "D1": 14.0298,
+    "D2": 5.4048,
+    "D3": 3.904,
+    "D4": 3.3925,
+    "Dinf": 2.5039,
+    "D2_minus_D4": 2.0123,
+    "D2_over_D4": 1.5932
+   },
+   "nHC": 1.3366,
+   "hcTop1": 0.86207,
+   "hcTop3": 0.9581,
+   "hcTop5": 0.97154,
+   "hcTop10": 0.99064,
+   "hcMedian": 7.557e-06,
+   "hcTopOverMedian": 114077.8,
+   "cardsFor25": 1,
+   "cardsFor50": 1,
+   "cardsFor75": 1,
+   "cardsFor90": 2,
+   "evt": {
+    "supported": true,
+    "n": 102,
+    "tailK": 21,
+    "threshold": 9.31,
+    "hillIndex": 1.5632474301607349,
+    "hillCv": 0.017129427116567446,
+    "gpd": null,
+    "tailFraction": 0.20588235294117646
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 868.56,
+     "deltaEffectiveCount": 8.731755414426495
+    },
+    {
+     "rank": 2,
+     "value": 225.89,
+     "deltaEffectiveCount": -0.7957051010741987
+    },
+    {
+     "rank": 3,
+     "value": 181.68,
+     "deltaEffectiveCount": -0.6873712951503199
+    },
+    {
+     "rank": 4,
+     "value": 76.86,
+     "deltaEffectiveCount": -0.34109321625234834
+    },
+    {
+     "rank": 5,
+     "value": 76.52,
+     "deltaEffectiveCount": -0.3397556744938921
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99983,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00273
+    },
+    "+/-5%": {
+     "spearman": 0.99939,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00671
+    },
+    "+/-10%": {
+     "spearman": 0.99833,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.01194
+    }
+   }
+  },
+  {
+   "set": "Jungle",
+   "era": "vintage",
+   "universe": "A",
+   "n": 64,
+   "hhi": 0.047876,
+   "hill": {
+    "D1": 28.4558,
+    "D2": 20.8872,
+    "D3": 17.7458,
+    "D4": 16.0246,
+    "Dinf": 10.518,
+    "D2_minus_D4": 4.8626,
+    "D2_over_D4": 1.3034
+   },
+   "nHC": 9.4319,
+   "hcTop1": 0.18881,
+   "hcTop3": 0.49456,
+   "hcTop5": 0.64152,
+   "hcTop10": 0.85497,
+   "hcMedian": 0.0006666,
+   "hcTopOverMedian": 283.2,
+   "cardsFor25": 2,
+   "cardsFor50": 4,
+   "cardsFor75": 7,
+   "cardsFor90": 13,
+   "evt": {
+    "supported": true,
+    "n": 64,
+    "tailK": 14,
+    "threshold": 38.22,
+    "hillIndex": 0.6923115942950081,
+    "hillCv": 0.041020787139338176,
+    "gpd": null,
+    "tailFraction": 0.21875
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 155.7,
+     "deltaEffectiveCount": 0.19811381584939625
+    },
+    {
+     "rank": 2,
+     "value": 150.86,
+     "deltaEffectiveCount": 0.03798060180418261
+    },
+    {
+     "rank": 3,
+     "value": 128.45,
+     "deltaEffectiveCount": -0.5325051637588878
+    },
+    {
+     "rank": 4,
+     "value": 97.18,
+     "deltaEffectiveCount": -0.938102766164409
+    },
+    {
+     "rank": 5,
+     "value": 97.09,
+     "deltaEffectiveCount": -0.9387037644215539
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99973,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00438
+    },
+    "+/-5%": {
+     "spearman": 0.99931,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.01008
+    },
+    "+/-10%": {
+     "spearman": 0.99856,
+     "top10Overlap": 0.997,
+     "maxHcMove": 0.02059
+    }
+   }
+  },
+  {
+   "set": "Fossil",
+   "era": "vintage",
+   "universe": "A",
+   "n": 62,
+   "hhi": 0.113071,
+   "hill": {
+    "D1": 17.9656,
+    "D2": 8.844,
+    "D3": 6.1882,
+    "D4": 5.1817,
+    "Dinf": 3.4495,
+    "D2_minus_D4": 3.6623,
+    "D2_over_D4": 1.7068
+   },
+   "nHC": 1.7788,
+   "hcTop1": 0.74324,
+   "hcTop3": 0.8635,
+   "hcTop5": 0.92009,
+   "hcTop10": 0.96765,
+   "hcMedian": 8.881e-05,
+   "hcTopOverMedian": 8368.8,
+   "cardsFor25": 1,
+   "cardsFor50": 1,
+   "cardsFor75": 2,
+   "cardsFor90": 5,
+   "evt": {
+    "supported": true,
+    "n": 62,
+    "tailK": 10,
+    "threshold": 50.21,
+    "hillIndex": 0.7989065962906763,
+    "hillCv": 0.017879347062599475,
+    "gpd": null,
+    "tailFraction": 0.16129032258064516
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 601.49,
+     "deltaEffectiveCount": 8.52477169913483
+    },
+    {
+     "rank": 2,
+     "value": 188.98,
+     "deltaEffectiveCount": -0.9591828073859512
+    },
+    {
+     "rank": 3,
+     "value": 151.08,
+     "deltaEffectiveCount": -0.8670084008944832
+    },
+    {
+     "rank": 4,
+     "value": 117.42,
+     "deltaEffectiveCount": -0.7432249577676089
+    },
+    {
+     "rank": 5,
+     "value": 117.29,
+     "deltaEffectiveCount": -0.7426715377735409
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99978,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00494
+    },
+    "+/-5%": {
+     "spearman": 0.99938,
+     "top10Overlap": 0.993,
+     "maxHcMove": 0.01037
+    },
+    "+/-10%": {
+     "spearman": 0.99868,
+     "top10Overlap": 0.96,
+     "maxHcMove": 0.02394
+    }
+   }
+  },
+  {
+   "set": "Neo Destiny",
+   "era": "vintage",
+   "universe": "A",
+   "n": 113,
+   "hhi": 0.123345,
+   "hill": {
+    "D1": 16.1579,
+    "D2": 8.1074,
+    "D3": 6.5359,
+    "D4": 5.9543,
+    "Dinf": 4.5538,
+    "D2_minus_D4": 2.1531,
+    "D2_over_D4": 1.3616
+   },
+   "nHC": 3.2117,
+   "hcTop1": 0.39096,
+   "hcTop3": 0.93191,
+   "hcTop5": 0.96351,
+   "hcTop10": 0.9839,
+   "hcMedian": 4.793e-06,
+   "hcTopOverMedian": 81577.4,
+   "cardsFor25": 1,
+   "cardsFor50": 2,
+   "cardsFor75": 3,
+   "cardsFor90": 3,
+   "evt": {
+    "supported": true,
+    "n": 113,
+    "tailK": 18,
+    "threshold": 152.97,
+    "hillIndex": 1.2302940555133393,
+    "hillCv": 0.027088763035758835,
+    "gpd": null,
+    "tailFraction": 0.1592920353982301
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 4249.99,
+     "deltaEffectiveCount": -0.00012808284050791485
+    },
+    {
+     "rank": 2,
+     "value": 3998.99,
+     "deltaEffectiveCount": -0.3027309505306617
+    },
+    {
+     "rank": 3,
+     "value": 3000.0,
+     "deltaEffectiveCount": -0.9181457639767254
+    },
+    {
+     "rank": 4,
+     "value": 1051.5,
+     "deltaEffectiveCount": -0.6792645461389171
+    },
+    {
+     "rank": 5,
+     "value": 595.0,
+     "deltaEffectiveCount": -0.4320232570419549
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.9999,
+     "top10Overlap": 0.977,
+     "maxHcMove": 0.00684
+    },
+    "+/-5%": {
+     "spearman": 0.99969,
+     "top10Overlap": 0.97,
+     "maxHcMove": 0.01698
+    },
+    "+/-10%": {
+     "spearman": 0.99911,
+     "top10Overlap": 0.967,
+     "maxHcMove": 0.02917
+    }
+   }
+  },
+  {
+   "set": "Champion's Path",
+   "era": "swsh",
+   "universe": "A",
+   "n": 81,
+   "hhi": 0.364215,
+   "hill": {
+    "D1": 4.5042,
+    "D2": 2.7456,
+    "D3": 2.5333,
+    "D4": 2.4578,
+    "Dinf": 2.1826,
+    "D2_minus_D4": 0.2878,
+    "D2_over_D4": 1.1171
+   },
+   "nHC": 1.9695,
+   "hcTop1": 0.57636,
+   "hcTop3": 0.99819,
+   "hcTop5": 0.99895,
+   "hcTop10": 0.99962,
+   "hcMedian": 3.533e-07,
+   "hcTopOverMedian": 1631580.4,
+   "cardsFor25": 1,
+   "cardsFor50": 1,
+   "cardsFor75": 2,
+   "cardsFor90": 2,
+   "evt": {
+    "supported": true,
+    "n": 81,
+    "tailK": 18,
+    "threshold": 1.49,
+    "hillIndex": 1.2887962024816044,
+    "hillCv": 0.030192710630900156,
+    "gpd": null,
+    "tailFraction": 0.2222222222222222
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 268.24,
+     "deltaEffectiveCount": -0.8429202432591698
+    },
+    {
+     "rank": 2,
+     "value": 228.7,
+     "deltaEffectiveCount": -0.9909453802592652
+    },
+    {
+     "rank": 3,
+     "value": 18.89,
+     "deltaEffectiveCount": -0.166947612788932
+    },
+    {
+     "rank": 4,
+     "value": 7.02,
+     "deltaEffectiveCount": -0.06439013557030338
+    },
+    {
+     "rank": 5,
+     "value": 6.83,
+     "deltaEffectiveCount": -0.06268501167098828
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99835,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00592
+    },
+    "+/-5%": {
+     "spearman": 0.99692,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.01635
+    },
+    "+/-10%": {
+     "spearman": 0.99187,
+     "top10Overlap": 0.987,
+     "maxHcMove": 0.034
+    }
+   }
+  },
+  {
+   "set": "Evolving Skies",
+   "era": "swsh",
+   "universe": "A",
+   "n": 237,
+   "hhi": 0.120289,
+   "hill": {
+    "D1": 17.6927,
+    "D2": 8.3133,
+    "D3": 6.1684,
+    "D4": 5.3051,
+    "Dinf": 3.5746,
+    "D2_minus_D4": 3.0082,
+    "D2_over_D4": 1.567
+   },
+   "nHC": 2.1604,
+   "hcTop1": 0.65061,
+   "hcTop3": 0.8761,
+   "hcTop5": 0.92545,
+   "hcTop10": 0.98644,
+   "hcMedian": 1.248e-08,
+   "hcTopOverMedian": 52143743.6,
+   "cardsFor25": 1,
+   "cardsFor50": 1,
+   "cardsFor75": 2,
+   "cardsFor90": 4,
+   "evt": {
+    "supported": true,
+    "n": 237,
+    "tailK": 33,
+    "threshold": 19.67,
+    "hillIndex": 1.5337844845798063,
+    "hillCv": 0.00421857098019144,
+    "gpd": null,
+    "tailFraction": 0.13924050632911392
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 2310.74,
+     "deltaEffectiveCount": 4.029992032179704
+    },
+    {
+     "rank": 2,
+     "value": 1249.13,
+     "deltaEffectiveCount": -0.918317026793952
+    },
+    {
+     "rank": 3,
+     "value": 538.69,
+     "deltaEffectiveCount": -0.782709691308229
+    },
+    {
+     "rank": 4,
+     "value": 484.62,
+     "deltaEffectiveCount": -0.7298715537085023
+    },
+    {
+     "rank": 5,
+     "value": 412.53,
+     "deltaEffectiveCount": -0.650762314490553
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99966,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00518
+    },
+    "+/-5%": {
+     "spearman": 0.9995,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.01481
+    },
+    "+/-10%": {
+     "spearman": 0.9988,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.0338
+    }
+   }
+  },
+  {
+   "set": "Crown Zenith",
+   "era": "swsh",
+   "universe": "A",
+   "n": 161,
+   "hhi": 0.058571,
+   "hill": {
+    "D1": 37.109,
+    "D2": 17.0733,
+    "D3": 11.3269,
+    "D4": 9.0616,
+    "Dinf": 5.2694,
+    "D2_minus_D4": 8.0118,
+    "D2_over_D4": 1.8842
+   },
+   "nHC": 2.5525,
+   "hcTop1": 0.61488,
+   "hcTop3": 0.73062,
+   "hcTop5": 0.81843,
+   "hcTop10": 0.92591,
+   "hcMedian": 1.009e-05,
+   "hcTopOverMedian": 60910.2,
+   "cardsFor25": 1,
+   "cardsFor50": 1,
+   "cardsFor75": 4,
+   "cardsFor90": 9,
+   "evt": {
+    "supported": true,
+    "n": 161,
+    "tailK": 32,
+    "threshold": 1.75,
+    "hillIndex": 1.003800669584913,
+    "hillCv": 0.011100105317352664,
+    "gpd": null,
+    "tailFraction": 0.19875776397515527
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 49.36,
+     "deltaEffectiveCount": 12.029293061390586
+    },
+    {
+     "rank": 2,
+     "value": 16.24,
+     "deltaEffectiveCount": -0.9953309327348272
+    },
+    {
+     "rank": 3,
+     "value": 13.96,
+     "deltaEffectiveCount": -0.9926415860631046
+    },
+    {
+     "rank": 4,
+     "value": 13.54,
+     "deltaEffectiveCount": -0.9870312929902454
+    },
+    {
+     "rank": 5,
+     "value": 12.83,
+     "deltaEffectiveCount": -0.9740132982886607
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99944,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00468
+    },
+    "+/-5%": {
+     "spearman": 0.99926,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.01317
+    },
+    "+/-10%": {
+     "spearman": 0.99842,
+     "top10Overlap": 0.99,
+     "maxHcMove": 0.02554
+    }
+   }
+  },
+  {
+   "set": "Cosmic Eclipse",
+   "era": "sm",
+   "universe": "A",
+   "n": 271,
+   "hhi": 0.035159,
+   "hill": {
+    "D1": 45.5785,
+    "D2": 28.4425,
+    "D3": 22.4949,
+    "D4": 19.5113,
+    "Dinf": 11.3232,
+    "D2_minus_D4": 8.9311,
+    "D2_over_D4": 1.4577
+   },
+   "nHC": 9.1817,
+   "hcTop1": 0.22183,
+   "hcTop3": 0.51036,
+   "hcTop5": 0.63177,
+   "hcTop10": 0.82577,
+   "hcMedian": 1.213e-07,
+   "hcTopOverMedian": 1829191.8,
+   "cardsFor25": 2,
+   "cardsFor50": 3,
+   "cardsFor75": 8,
+   "cardsFor90": 16,
+   "evt": {
+    "supported": true,
+    "n": 271,
+    "tailK": 59,
+    "threshold": 12.69,
+    "hillIndex": 1.5960667690507797,
+    "hillCv": 0.0028870244628638802,
+    "gpd": null,
+    "tailFraction": 0.2177121771217712
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 568.04,
+     "deltaEffectiveCount": 1.9373802828716222
+    },
+    {
+     "rank": 2,
+     "value": 494.2,
+     "deltaEffectiveCount": 0.6885988062921307
+    },
+    {
+     "rank": 3,
+     "value": 418.85,
+     "deltaEffectiveCount": -0.17423180241188518
+    },
+    {
+     "rank": 4,
+     "value": 320.63,
+     "deltaEffectiveCount": -0.8121430110666026
+    },
+    {
+     "rank": 5,
+     "value": 271.65,
+     "deltaEffectiveCount": -0.9573390930972039
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99976,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00429
+    },
+    "+/-5%": {
+     "spearman": 0.99927,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.01124
+    },
+    "+/-10%": {
+     "spearman": 0.99759,
+     "top10Overlap": 0.997,
+     "maxHcMove": 0.02178
+    }
+   }
+  },
+  {
+   "set": "Paradox Rift",
+   "era": "sv",
+   "universe": "A",
+   "n": 266,
+   "hhi": 0.028145,
+   "hill": {
+    "D1": 58.8005,
+    "D2": 35.5298,
+    "D3": 26.0179,
+    "D4": 20.9282,
+    "Dinf": 10.2685,
+    "D2_minus_D4": 14.6015,
+    "D2_over_D4": 1.6977
+   },
+   "nHC": 7.2613,
+   "hcTop1": 0.33696,
+   "hcTop3": 0.48135,
+   "hcTop5": 0.58694,
+   "hcTop10": 0.74679,
+   "hcMedian": 8.602e-07,
+   "hcTopOverMedian": 391744.2,
+   "cardsFor25": 1,
+   "cardsFor50": 4,
+   "cardsFor75": 11,
+   "cardsFor90": 21,
+   "evt": {
+    "supported": true,
+    "n": 266,
+    "tailK": 49,
+    "threshold": 5.97,
+    "hillIndex": 1.0470745161081576,
+    "hillCv": 0.006542285890429223,
+    "gpd": null,
+    "tailFraction": 0.18421052631578946
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 118.92,
+     "deltaEffectiveCount": 8.127610354460636
+    },
+    {
+     "rank": 2,
+     "value": 55.13,
+     "deltaEffectiveCount": -0.6066337220771345
+    },
+    {
+     "rank": 3,
+     "value": 54.96,
+     "deltaEffectiveCount": -0.6132354461186367
+    },
+    {
+     "rank": 4,
+     "value": 48.5,
+     "deltaEffectiveCount": -0.8209210228699675
+    },
+    {
+     "rank": 5,
+     "value": 45.6,
+     "deltaEffectiveCount": -0.8876556332197296
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99941,
+     "top10Overlap": 0.997,
+     "maxHcMove": 0.00437
+    },
+    "+/-5%": {
+     "spearman": 0.9992,
+     "top10Overlap": 0.96,
+     "maxHcMove": 0.01041
+    },
+    "+/-10%": {
+     "spearman": 0.99782,
+     "top10Overlap": 0.937,
+     "maxHcMove": 0.02573
+    }
+   },
+   "universeB": {
+    "n": 428,
+    "hhi": 0.026608,
+    "nHC": 7.2641,
+    "hcTop1": 0.33689,
+    "D2": 37.5823,
+    "cardsFor50": 4
+   },
+   "evHHI": {
+    "hhiEV": 0.029537,
+    "nEffEV": 33.856,
+    "nEffValueB": 37.582,
+    "nHC_EV": 9.4238
+   }
+  },
+  {
+   "set": "Paldean Fates",
+   "era": "sv",
+   "universe": "A",
+   "n": 247,
+   "hhi": 0.143038,
+   "hill": {
+    "D1": 27.593,
+    "D2": 6.9911,
+    "D3": 4.7156,
+    "D4": 4.0182,
+    "Dinf": 2.8449,
+    "D2_minus_D4": 2.9729,
+    "D2_over_D4": 1.7399
+   },
+   "nHC": 1.3274,
+   "hcTop1": 0.86382,
+   "hcTop3": 0.97249,
+   "hcTop5": 0.98123,
+   "hcTop10": 0.98987,
+   "hcMedian": 6.911e-06,
+   "hcTopOverMedian": 124993.2,
+   "cardsFor25": 1,
+   "cardsFor50": 1,
+   "cardsFor75": 1,
+   "cardsFor90": 2,
+   "evt": {
+    "supported": true,
+    "n": 247,
+    "tailK": 59,
+    "threshold": 6.22,
+    "hillIndex": 0.9237406849051575,
+    "hillCv": 0.0066904521907596845,
+    "gpd": null,
+    "tailFraction": 0.2388663967611336
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 929.82,
+     "deltaEffectiveCount": 14.598067481715313
+    },
+    {
+     "rank": 2,
+     "value": 280.79,
+     "deltaEffectiveCount": -0.9278054485450209
+    },
+    {
+     "rank": 3,
+     "value": 172.99,
+     "deltaEffectiveCount": -0.6962886804597277
+    },
+    {
+     "rank": 4,
+     "value": 78.28,
+     "deltaEffectiveCount": -0.3670999270363051
+    },
+    {
+     "rank": 5,
+     "value": 51.19,
+     "deltaEffectiveCount": -0.2503169970055188
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.9998,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00282
+    },
+    "+/-5%": {
+     "spearman": 0.99958,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00676
+    },
+    "+/-10%": {
+     "spearman": 0.99883,
+     "top10Overlap": 0.98,
+     "maxHcMove": 0.01262
+    }
+   },
+   "universeB": {
+    "n": 326,
+    "hhi": 0.141045,
+    "nHC": 1.3274,
+    "hcTop1": 0.86381,
+    "D2": 7.0899,
+    "cardsFor50": 1
+   },
+   "evHHI": {
+    "hhiEV": 0.144799,
+    "nEffEV": 6.906,
+    "nEffValueB": 7.09,
+    "nHC_EV": 1.3441
+   }
+  },
+  {
+   "set": "Phantasmal Flames",
+   "era": "sv",
+   "universe": "A",
+   "n": 132,
+   "hhi": 0.390547,
+   "hill": {
+    "D1": 5.07,
+    "D2": 2.5605,
+    "D3": 2.1958,
+    "D4": 2.0487,
+    "Dinf": 1.7223,
+    "D2_minus_D4": 0.5118,
+    "D2_over_D4": 1.2498
+   },
+   "nHC": 1.3116,
+   "hcTop1": 0.86322,
+   "hcTop3": 0.99588,
+   "hcTop5": 0.99743,
+   "hcTop10": 0.99953,
+   "hcMedian": 5.676e-08,
+   "hcTopOverMedian": 15207833.4,
+   "cardsFor25": 1,
+   "cardsFor50": 1,
+   "cardsFor75": 1,
+   "cardsFor90": 2,
+   "evt": {
+    "supported": true,
+    "n": 132,
+    "tailK": 29,
+    "threshold": 1.43,
+    "hillIndex": 1.5593318581812556,
+    "hillCv": 0.00753954531014373,
+    "gpd": null,
+    "tailFraction": 0.2196969696969697
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 701.95,
+     "deltaEffectiveCount": 0.7318621659094013
+    },
+    {
+     "rank": 2,
+     "value": 273.86,
+     "deltaEffectiveCount": -0.7969410996347603
+    },
+    {
+     "rank": 3,
+     "value": 26.9,
+     "deltaEffectiveCount": -0.10957167693824532
+    },
+    {
+     "rank": 4,
+     "value": 21.67,
+     "deltaEffectiveCount": -0.0889365453338713
+    },
+    {
+     "rank": 5,
+     "value": 20.42,
+     "deltaEffectiveCount": -0.08395798273921651
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99907,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00314
+    },
+    "+/-5%": {
+     "spearman": 0.9988,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00688
+    },
+    "+/-10%": {
+     "spearman": 0.99747,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.01499
+    }
+   },
+   "universeB": {
+    "n": 214,
+    "hhi": 0.380712,
+    "nHC": 1.3116,
+    "hcTop1": 0.86323,
+    "D2": 2.6267,
+    "cardsFor50": 1
+   },
+   "evHHI": {
+    "hhiEV": 0.433035,
+    "nEffEV": 2.309,
+    "nEffValueB": 2.627,
+    "nHC_EV": 1.8991
+   }
+  },
+  {
+   "set": "Shrouded Fable",
+   "era": "sv",
+   "universe": "A",
+   "n": 107,
+   "hhi": 0.041828,
+   "hill": {
+    "D1": 30.5291,
+    "D2": 23.9075,
+    "D3": 20.9942,
+    "D4": 19.1667,
+    "Dinf": 11.6539,
+    "D2_minus_D4": 4.7408,
+    "D2_over_D4": 1.2473
+   },
+   "nHC": 12.3189,
+   "hcTop1": 0.17603,
+   "hcTop3": 0.39229,
+   "hcTop5": 0.55879,
+   "hcTop10": 0.76111,
+   "hcMedian": 2.792e-06,
+   "hcTopOverMedian": 63051.2,
+   "cardsFor25": 2,
+   "cardsFor50": 5,
+   "cardsFor75": 10,
+   "cardsFor90": 17,
+   "evt": {
+    "supported": true,
+    "n": 107,
+    "tailK": 20,
+    "threshold": 17.01,
+    "hillIndex": 0.6655073313421008,
+    "hillCv": 0.04949801728361961,
+    "gpd": null,
+    "tailFraction": 0.18691588785046728
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 75.33,
+     "deltaEffectiveCount": 0.3417492815851446
+    },
+    {
+     "rank": 2,
+     "value": 59.77,
+     "deltaEffectiveCount": -0.5568702383946622
+    },
+    {
+     "rank": 3,
+     "value": 58.3,
+     "deltaEffectiveCount": -0.6139269442437687
+    },
+    {
+     "rank": 4,
+     "value": 53.52,
+     "deltaEffectiveCount": -0.7702760729581399
+    },
+    {
+     "rank": 5,
+     "value": 50.03,
+     "deltaEffectiveCount": -0.8575608780682202
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99945,
+     "top10Overlap": 0.977,
+     "maxHcMove": 0.00377
+    },
+    "+/-5%": {
+     "spearman": 0.99923,
+     "top10Overlap": 0.967,
+     "maxHcMove": 0.00962
+    },
+    "+/-10%": {
+     "spearman": 0.99817,
+     "top10Overlap": 0.94,
+     "maxHcMove": 0.01773
+    }
+   },
+   "universeB": {
+    "n": 162,
+    "hhi": 0.040259,
+    "nHC": 12.3392,
+    "hcTop1": 0.17589,
+    "D2": 24.8391,
+    "cardsFor50": 5
+   },
+   "evHHI": {
+    "hhiEV": 0.064659,
+    "nEffEV": 15.466,
+    "nEffValueB": 24.839,
+    "nHC_EV": 4.4964
+   }
+  },
+  {
+   "set": "Ascended Heroes",
+   "era": "sv",
+   "universe": "A",
+   "n": 305,
+   "hhi": 0.092439,
+   "hill": {
+    "D1": 20.35,
+    "D2": 10.8179,
+    "D3": 8.6278,
+    "D4": 7.7008,
+    "Dinf": 5.4916,
+    "D2_minus_D4": 3.1171,
+    "D2_over_D4": 1.4048
+   },
+   "nHC": 3.9023,
+   "hcTop1": 0.35871,
+   "hcTop3": 0.81881,
+   "hcTop5": 0.90836,
+   "hcTop10": 0.97951,
+   "hcMedian": 1.936e-08,
+   "hcTopOverMedian": 18528720.2,
+   "cardsFor25": 1,
+   "cardsFor50": 2,
+   "cardsFor75": 3,
+   "cardsFor90": 5,
+   "evt": {
+    "supported": true,
+    "n": 305,
+    "tailK": 68,
+    "threshold": 2.76,
+    "hillIndex": 1.9231187309805908,
+    "hillCv": 0.0068487752237830915,
+    "gpd": null,
+    "tailFraction": 0.22295081967213115
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 1033.08,
+     "deltaEffectiveCount": 0.4668780246790849
+    },
+    {
+     "rank": 2,
+     "value": 975.64,
+     "deltaEffectiveCount": 0.08846216753458691
+    },
+    {
+     "rank": 3,
+     "value": 645.8,
+     "deltaEffectiveCount": -0.9377124141747188
+    },
+    {
+     "rank": 4,
+     "value": 387.31,
+     "deltaEffectiveCount": -0.928003146816847
+    },
+    {
+     "rank": 5,
+     "value": 341.22,
+     "deltaEffectiveCount": -0.8729798502714097
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99949,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.00618
+    },
+    "+/-5%": {
+     "spearman": 0.99894,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.0153
+    },
+    "+/-10%": {
+     "spearman": 0.99657,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.02458
+    }
+   },
+   "universeB": {
+    "n": 464,
+    "hhi": 0.087643,
+    "nHC": 3.903,
+    "hcTop1": 0.35868,
+    "D2": 11.4099,
+    "cardsFor50": 2
+   },
+   "evHHI": {
+    "hhiEV": 0.108191,
+    "nEffEV": 9.243,
+    "nEffValueB": 11.41,
+    "nHC_EV": 3.8089
+   }
+  },
+  {
+   "set": "Prismatic Evolutions",
+   "era": "sv",
+   "universe": "A",
+   "n": 181,
+   "hhi": 0.119531,
+   "hill": {
+    "D1": 16.3934,
+    "D2": 8.366,
+    "D3": 6.0743,
+    "D4": 5.1389,
+    "Dinf": 3.4375,
+    "D2_minus_D4": 3.2271,
+    "D2_over_D4": 1.628
+   },
+   "nHC": 1.939,
+   "hcTop1": 0.70798,
+   "hcTop3": 0.84465,
+   "hcTop5": 0.90787,
+   "hcTop10": 0.98323,
+   "hcMedian": 2.615e-08,
+   "hcTopOverMedian": 27069350.8,
+   "cardsFor25": 1,
+   "cardsFor50": 1,
+   "cardsFor75": 2,
+   "cardsFor90": 5,
+   "evt": {
+    "supported": true,
+    "n": 181,
+    "tailK": 41,
+    "threshold": 4.47,
+    "hillIndex": 2.225295335176429,
+    "hillCv": 0.017464354947969767,
+    "gpd": null,
+    "tailFraction": 0.2265193370165746
+   },
+   "removalInfluenceTop5": [
+    {
+     "rank": 1,
+     "value": 1456.79,
+     "deltaEffectiveCount": 6.039201790787688
+    },
+    {
+     "rank": 2,
+     "value": 541.74,
+     "deltaEffectiveCount": -0.9900028182114102
+    },
+    {
+     "rank": 3,
+     "value": 340.87,
+     "deltaEffectiveCount": -0.8071603592283525
+    },
+    {
+     "rank": 4,
+     "value": 320.12,
+     "deltaEffectiveCount": -0.7759237317690131
+    },
+    {
+     "rank": 5,
+     "value": 295.02,
+     "deltaEffectiveCount": -0.7351206567901674
+    }
+   ],
+   "uniformScaleExact": true,
+   "priceNoise": {
+    "+/-2%": {
+     "spearman": 0.99952,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.0041
+    },
+    "+/-5%": {
+     "spearman": 0.99936,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.0122
+    },
+    "+/-10%": {
+     "spearman": 0.99881,
+     "top10Overlap": 1.0,
+     "maxHcMove": 0.02443
+    }
+   },
+   "universeB": {
+    "n": 448,
+    "hhi": 0.092507,
+    "nHC": 1.96,
+    "hcTop1": 0.70417,
+    "D2": 10.81,
+    "cardsFor50": 1
+   },
+   "evHHI": {
+    "hhiEV": 0.09452,
+    "nEffEV": 10.58,
+    "nEffValueB": 10.81,
+    "nHC_EV": 1.9785
+   }
+  }
+ ]
+}
