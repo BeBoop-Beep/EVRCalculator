@@ -9,6 +9,7 @@ import { test } from "node:test";
 // fs.readFileSync source-string assertions instead of a real import). See
 // task-10-report.md for details.
 import { resolvePaidCardMode } from "./resolvePaidCardMode.mjs";
+import { resolveConfirmOutcome } from "./resolveConfirmOutcome.mjs";
 
 test("basic user sees checkout for both plus and premium", () => {
   const status = { effectivePlan: null, billingManaged: false, pendingChangeState: "none" };
@@ -36,4 +37,26 @@ test("premium user with scheduled downgrade sees pending mode on plus card", () 
 test("unmanaged basic-tier user with no billing relationship falls back to checkout, never portal", () => {
   const status = { effectivePlan: null, billingManaged: false, pendingChangeState: "none" };
   assert.equal(resolvePaidCardMode("plus", status), "checkout");
+});
+
+test("confirm result with paymentResult succeeded is treated as success", () => {
+  assert.deepEqual(resolveConfirmOutcome({ action: "upgrade_now", paymentResult: "succeeded" }), {
+    status: "success",
+  });
+});
+
+test("confirm result with no paymentResult field (downgrade) is treated as success", () => {
+  assert.deepEqual(resolveConfirmOutcome({ action: "schedule_downgrade" }), { status: "success" });
+});
+
+test("confirm result with paymentResult requires_action is NOT treated as success", () => {
+  const outcome = resolveConfirmOutcome({ action: "upgrade_now", paymentResult: "requires_action" });
+  assert.notEqual(outcome.status, "success");
+  assert.deepEqual(outcome, { status: "requires_action" });
+});
+
+test("confirm result with paymentResult failed is NOT treated as success", () => {
+  const outcome = resolveConfirmOutcome({ action: "upgrade_now", paymentResult: "failed" });
+  assert.notEqual(outcome.status, "success");
+  assert.deepEqual(outcome, { status: "failed" });
 });

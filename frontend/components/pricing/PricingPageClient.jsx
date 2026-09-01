@@ -23,8 +23,9 @@ import { normalizeIndexPlan } from "@/lib/access/indexPlanAccess.mjs";
 import { PlanBadge } from "@/components/membership/PlanLock";
 import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
 import { resolvePaidCardMode } from "./resolvePaidCardMode.mjs";
+import { resolveConfirmOutcome } from "./resolveConfirmOutcome.mjs";
 
-export { resolvePaidCardMode };
+export { resolvePaidCardMode, resolveConfirmOutcome };
 
 const BASIC = [
   "Public rankings and market pulse",
@@ -68,7 +69,46 @@ function FeatureList({ items }) {
   );
 }
 
-function PlanChangeConfirmPanel({ mode, preview, onConfirm, onDismiss, pending }) {
+function PlanChangePaymentIssueNotice({ paymentIssue, onDismiss }) {
+  const message =
+    paymentIssue === "requires_action"
+      ? "Your bank needs to verify this payment before it can go through."
+      : "This payment could not be completed.";
+  return (
+    <div className="mt-3 rounded-lg border border-rose-400/40 bg-rose-500/10 p-3">
+      <p className="text-sm font-semibold text-rose-200">{message}</p>
+      <p className="mt-1 text-sm text-rose-100/90">
+        Update your payment method from your account&apos;s Manage Billing
+        section, then try again.
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="mt-3 min-h-11 w-full rounded-lg border border-[var(--border-subtle)] px-4 font-semibold text-[var(--text-secondary)]"
+      >
+        Dismiss
+      </button>
+    </div>
+  );
+}
+
+function PlanChangeConfirmPanel({
+  mode,
+  preview,
+  onConfirm,
+  onDismiss,
+  pending,
+  paymentIssue,
+  onDismissPaymentIssue,
+}) {
+  if (paymentIssue) {
+    return (
+      <PlanChangePaymentIssueNotice
+        paymentIssue={paymentIssue}
+        onDismiss={onDismissPaymentIssue}
+      />
+    );
+  }
   if (!preview) return null;
   if (mode === "upgrade") {
     const copy = upgradeConfirmationCopy({
@@ -159,6 +199,8 @@ function PaidCard({
   onConfirmPlanChange,
   onDismissPlanChange,
   confirmPending,
+  paymentIssue,
+  onDismissPaymentIssue,
 }) {
   const offer = interval === "year" ? summary.annual : summary.monthly;
   const annual = summary.annualSummary;
@@ -238,6 +280,8 @@ function PaidCard({
           onConfirm={onConfirmPlanChange}
           onDismiss={onDismissPlanChange}
           pending={confirmPending}
+          paymentIssue={paymentIssue}
+          onDismissPaymentIssue={onDismissPaymentIssue}
         />
       )}
     </article>
@@ -255,6 +299,7 @@ export default function PricingPageClient() {
   const [error, setError] = useState("");
   const [planChangePreview, setPlanChangePreview] = useState(null);
   const [confirmPending, setConfirmPending] = useState(false);
+  const [paymentIssue, setPaymentIssue] = useState(null);
   useEffect(() => {
     getBillingCatalog()
       .then(setCatalog)
@@ -328,9 +373,19 @@ export default function PricingPageClient() {
     setConfirmPending(true);
     setError("");
     try {
-      await confirmPlanChange(planChangePreview.offerKey, planChangePreview.previewToken);
-      setPlanChangePreview(null);
-      await refreshStatus();
+      const result = await confirmPlanChange(planChangePreview.offerKey, planChangePreview.previewToken);
+      const outcome = resolveConfirmOutcome(result);
+      if (outcome.status === "success") {
+        setPlanChangePreview(null);
+        setPaymentIssue(null);
+        await refreshStatus();
+      } else {
+        // Payment did not succeed: Premium must never be treated as
+        // granted here. Keep the preview's plan association (for card
+        // targeting) but swap the confirm panel for a payment-issue notice
+        // directing the user to Manage Billing instead of silently closing.
+        setPaymentIssue(outcome.status);
+      }
     } catch {
       setError("Unable to confirm this plan change right now.");
     } finally {
@@ -340,6 +395,7 @@ export default function PricingPageClient() {
   function dismissPlanChangePreview() {
     if (confirmPending) return;
     setPlanChangePreview(null);
+    setPaymentIssue(null);
   }
   useEffect(() => {
     if (params.get("interval") === "month" || params.get("interval") === "year")
@@ -415,6 +471,8 @@ export default function PricingPageClient() {
           onConfirmPlanChange={confirmPlanChangeAction}
           onDismissPlanChange={dismissPlanChangePreview}
           confirmPending={confirmPending}
+          paymentIssue={planChangePreview?.plan === "plus" ? paymentIssue : null}
+          onDismissPaymentIssue={dismissPlanChangePreview}
         />
         <PaidCard
           plan="premium"
@@ -428,6 +486,8 @@ export default function PricingPageClient() {
           onConfirmPlanChange={confirmPlanChangeAction}
           onDismissPlanChange={dismissPlanChangePreview}
           confirmPending={confirmPending}
+          paymentIssue={planChangePreview?.plan === "premium" ? paymentIssue : null}
+          onDismissPaymentIssue={dismissPlanChangePreview}
         />
       </section>
     </main>

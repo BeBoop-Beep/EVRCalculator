@@ -118,7 +118,12 @@ class BillingService:
         customer, subscription, item, current_offer = self._resolve_current_subscription(user_id)
 
         target_offer = self.offers.get(offer_key)
-        if target_offer is None or not target_offer.purchasable:
+        # Plan-change is decoupled from BILLING_CHECKOUT_ENABLED: an existing
+        # subscriber changing their already-active subscription's plan is a
+        # different action from a new Checkout purchase, so this checks the
+        # offer is real and priced (`is_priced`), not whether new-purchase
+        # checkout is currently enabled (`purchasable`).
+        if target_offer is None or not target_offer.is_priced:
             raise PlanChangeNotAllowed(f"Offer {offer_key} is not available")
 
         action = classify_transition(current_offer.plan, target_offer.plan)
@@ -177,7 +182,9 @@ class BillingService:
         customer, subscription, item, current_offer = self._resolve_current_subscription(user_id)
 
         target_offer = self.offers.get(offer_key)
-        if target_offer is None or not target_offer.purchasable:
+        # Plan-change is decoupled from BILLING_CHECKOUT_ENABLED: see the
+        # matching comment in preview_plan_change above.
+        if target_offer is None or not target_offer.is_priced:
             raise PlanChangeNotAllowed(f"Offer {offer_key} is not available")
 
         action = classify_transition(current_offer.plan, target_offer.plan)

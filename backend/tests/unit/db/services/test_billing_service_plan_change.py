@@ -369,6 +369,59 @@ def test_preview_duplicate_active_local_subscriptions_rejected():
         service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")
 
 
+def test_preview_and_confirm_succeed_when_target_offer_checkout_disabled():
+    """Regression test: BILLING_CHECKOUT_ENABLED=false makes every offer's
+    `enabled` (and therefore `purchasable`) False, but plan-change for an
+    existing subscriber must not be gated on that flag -- only on the offer
+    being real and priced. Before this fix, both preview and confirm raised
+    PlanChangeNotAllowed for every plan-change while checkout was disabled,
+    even though the offer had a fully valid Stripe price mapping."""
+    disabled_premium_monthly = CommercialOffer(
+        "premium_monthly", "premium", "month", False, "price_premium_monthly", 2499, "usd"
+    )
+    assert disabled_premium_monthly.purchasable is False  # sanity: this is the regressed flag
+    offers = dict(OFFERS)
+    offers["premium_monthly"] = disabled_premium_monthly
+
+    repository = _FakeRepository(
+        customer={"provider_customer_id": "cus_1"},
+        subscriptions=[{"provider_subscription_id": "sub_1", "status": "active", "commercial_mapping_status": "mapped"}],
+    )
+    provider = _FakeProvider(_plus_subscription())
+    service = BillingService(repository=repository, provider=provider, offers=offers)
+
+    preview = service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")
+    assert preview["action"] == "upgrade_now"
+
+    result = service.confirm_plan_change(
+        user_id="user-1", offer_key="premium_monthly", preview_token=preview["previewToken"]
+    )
+    assert result["paymentResult"] == "succeeded"
+
+
+def test_preview_and_confirm_reject_offer_missing_price_mapping():
+    """Negative counterpart: an offer without a real Stripe price mapping
+    must still be rejected, proving the weakened check isn't a no-op that
+    lets any offer through regardless of pricing."""
+    unmapped_premium_monthly = CommercialOffer(
+        "premium_monthly", "premium", "month", True, None, None, None
+    )
+    offers = dict(OFFERS)
+    offers["premium_monthly"] = unmapped_premium_monthly
+
+    repository = _FakeRepository(
+        customer={"provider_customer_id": "cus_1"},
+        subscriptions=[{"provider_subscription_id": "sub_1", "status": "active", "commercial_mapping_status": "mapped"}],
+    )
+    provider = _FakeProvider(_plus_subscription())
+    service = BillingService(repository=repository, provider=provider, offers=offers)
+
+    with pytest.raises(PlanChangeNotAllowed):
+        service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")
+    with pytest.raises(PlanChangeNotAllowed):
+        service.confirm_plan_change(user_id="user-1", offer_key="premium_monthly", preview_token="anything")
+
+
 def test_preview_no_entitled_local_subscription_rejected():
     repository = _FakeRepository(
         customer={"provider_customer_id": "cus_1"},

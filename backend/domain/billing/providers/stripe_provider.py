@@ -119,18 +119,35 @@ class StripeProvider:
                 {"from_subscription": subscription_id},
                 options={"idempotency_key": idempotency_key},
             )
+        except BillingNotConfigured: raise
+        except Exception as exc: raise BillingProviderError("Stripe downgrade schedule creation failed") from exc
+
+        schedule_id = _field(schedule, "id")
+        try:
             phases = _field(schedule, "phases")
             current_phase = phases[0]
             updated_phases = [
-                current_phase,
+                _writable_phase_payload(current_phase, end_date=current_period_end),
                 {"items": [{"price": target_price_id}], "start_date": current_period_end},
             ]
             return self._client().v1.subscription_schedules.update(
-                _field(schedule, "id"),
+                schedule_id,
                 {"end_behavior": "release", "phases": updated_phases},
+                options={"idempotency_key": idempotency_key},
             )
         except BillingNotConfigured: raise
-        except Exception as exc: raise BillingProviderError("Stripe downgrade schedule creation failed") from exc
+        except Exception as exc:
+            # The schedule from the `create` call above already exists on the
+            # subscription. If the phase-2 `update` fails, release it so we
+            # don't leave an orphaned single-phase schedule behind -- that
+            # shape blocks all future plan-change retries and cannot be
+            # cancelled through cancel_scheduled_plan_change (which only
+            # recognizes the full 2-phase shape).
+            try:
+                self._client().v1.subscription_schedules.release(schedule_id)
+            except Exception:
+                pass
+            raise BillingProviderError("Stripe downgrade schedule creation failed") from exc
 
     def release_schedule(self, *, schedule_id: str) -> None:
         try:
@@ -167,6 +184,30 @@ def _field(value, name, default=None):
     if isinstance(value, dict):
         return value.get(name, default)
     return getattr(value, name, default)
+
+
+def _writable_phase_payload(phase, *, end_date) -> dict:
+    """Project a schedule phase read back from `create` down to the
+    documented-writable subset before resubmitting it to `update`.
+
+    The `create` response phase can carry read-only/expanded fields (e.g. a
+    fully expanded price object, computed proration fields) that a real
+    `subscription_schedules.update` call rejects. Only known-writable keys
+    are included here: `items` (price id + quantity), `start_date`, and
+    `end_date` (which must equal the subscription's current_period_end).
+    """
+    items = _field(phase, "items") or []
+    projected_items = []
+    for item in items:
+        price = _field(item, "price")
+        price_id = price if isinstance(price, str) or price is None else _field(price, "id")
+        quantity = _field(item, "quantity", 1) or 1
+        projected_items.append({"price": price_id, "quantity": quantity})
+    return {
+        "items": projected_items,
+        "start_date": _field(phase, "start_date"),
+        "end_date": end_date,
+    }
 
 
 def _normalize_payment_result(subscription) -> str:
