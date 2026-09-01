@@ -106,15 +106,14 @@ def test_confirm_preview_stale_maps_to_409(monkeypatch):
     assert response.json()["detail"]["code"] == "PLAN_CHANGE_PREVIEW_STALE"
 
 
-def test_confirm_ignores_extra_browser_supplied_fields(monkeypatch):
+def test_confirm_rejects_extra_browser_supplied_fields_before_service_call(monkeypatch):
+    """extra="forbid" means a browser-supplied identifier beyond
+    offerKey/previewToken is rejected with 422 before the service layer is
+    ever reached -- not silently dropped and proceeded with."""
     from backend.db.services import billing_service as billing_service_module
 
-    captured = {}
-
     def fake_confirm(self, *, user_id, offer_key, preview_token):
-        captured["user_id"] = user_id
-        captured["offer_key"] = offer_key
-        return {"action": "upgrade_now", "paymentResult": "succeeded"}
+        raise AssertionError("confirm_plan_change must not be called when extra fields are rejected")
 
     monkeypatch.setattr(billing_service_module.BillingService, "confirm_plan_change", fake_confirm)
 
@@ -129,8 +128,31 @@ def test_confirm_ignores_extra_browser_supplied_fields(monkeypatch):
         },
         headers=_auth_headers(monkeypatch, "user-1"),
     )
+    assert response.status_code == 422
+
+
+def test_confirm_uses_server_resolved_user_id_not_body(monkeypatch):
+    """With only the two allowed fields present, user_id still comes from
+    the authenticated session, never from the request body (the body has no
+    field that could even supply one, by construction of the strict model)."""
+    from backend.db.services import billing_service as billing_service_module
+
+    captured = {}
+
+    def fake_confirm(self, *, user_id, offer_key, preview_token):
+        captured["user_id"] = user_id
+        captured["offer_key"] = offer_key
+        return {"action": "upgrade_now", "paymentResult": "succeeded"}
+
+    monkeypatch.setattr(billing_service_module.BillingService, "confirm_plan_change", fake_confirm)
+
+    response = client.post(
+        "/billing/change-plan/confirm",
+        json={"offerKey": "premium_monthly", "previewToken": "tok"},
+        headers=_auth_headers(monkeypatch, "user-1"),
+    )
     assert response.status_code == 200
-    assert captured["user_id"] == "user-1"  # server-resolved from auth, not from body
+    assert captured["user_id"] == "user-1"
 
 
 def test_cancel_scheduled_success(monkeypatch):

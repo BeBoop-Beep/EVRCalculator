@@ -94,14 +94,21 @@ def test_cancel_scheduled_ignores_browser_supplied_schedule_id(monkeypatch):
     assert response.status_code in (200, 403, 409, 503)
 
 
-@pytest.mark.parametrize("field", ["subscriptionId", "customerId", "priceId", "userId", "amountDueNow", "currentPlan"])
-def test_preview_request_model_rejects_unknown_fields_silently(field, monkeypatch):
+@pytest.mark.parametrize(
+    "field",
+    [
+        "subscriptionId", "customerId", "priceId", "userId", "amountDueNow", "currentPlan",
+        "subscriptionItemId", "productId", "currency", "prorationDate", "periodEnd",
+    ],
+)
+def test_preview_request_model_rejects_unknown_fields_before_service_mutation(field, monkeypatch):
+    """extra="forbid" must reject any browser-supplied field beyond offerKey
+    with 422 BEFORE the service layer is ever reached -- not silently drop
+    it and proceed."""
     from backend.db.services import billing_service as billing_service_module
 
     def fake_preview(self, *, user_id, offer_key):
-        assert user_id == "user-1"
-        assert offer_key == "premium_monthly"
-        return {"action": "upgrade_now", "fromPlan": "plus", "toPlan": "premium", "amountDueNow": 1500, "previewToken": "tok"}
+        raise AssertionError("preview_plan_change must not be called when extra fields are rejected")
 
     monkeypatch.setattr(billing_service_module.BillingService, "preview_plan_change", fake_preview)
 
@@ -110,5 +117,27 @@ def test_preview_request_model_rejects_unknown_fields_silently(field, monkeypatc
         json={"offerKey": "premium_monthly", field: "malicious-value"},
         headers=_auth_headers(monkeypatch, "user-1"),
     )
-    # Must not 500; pydantic drops unknown fields by default rather than trusting them.
-    assert response.status_code != 500
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "subscriptionId", "customerId", "priceId", "userId", "amountDueNow", "currentPlan",
+        "subscriptionItemId", "productId", "currency", "prorationDate", "periodEnd",
+    ],
+)
+def test_confirm_request_model_rejects_unknown_fields_before_service_mutation(field, monkeypatch):
+    from backend.db.services import billing_service as billing_service_module
+
+    def fake_confirm(self, *, user_id, offer_key, preview_token):
+        raise AssertionError("confirm_plan_change must not be called when extra fields are rejected")
+
+    monkeypatch.setattr(billing_service_module.BillingService, "confirm_plan_change", fake_confirm)
+
+    response = client.post(
+        "/billing/change-plan/confirm",
+        json={"offerKey": "premium_monthly", "previewToken": "tok", field: "malicious-value"},
+        headers=_auth_headers(monkeypatch, "user-1"),
+    )
+    assert response.status_code == 422

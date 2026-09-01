@@ -267,12 +267,14 @@ class BillingCheckoutRequest(BaseModel):
 
 
 class BillingPlanChangePreviewRequest(BaseModel):
-    offerKey: str
+    model_config = ConfigDict(extra="forbid")
+    offerKey: str = Field(min_length=1, max_length=80)
 
 
 class BillingPlanChangeConfirmRequest(BaseModel):
-    offerKey: str
-    previewToken: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+    offerKey: str = Field(min_length=1, max_length=80)
+    previewToken: Optional[str] = Field(default=None, max_length=4096)
 
 
 def _auth_env_presence() -> Dict[str, bool]:
