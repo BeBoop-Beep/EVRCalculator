@@ -3,7 +3,8 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { buildAuthCallbackUrl, currentReturnPath, sanitizeReturnPath } from "@/lib/auth/returnPath.mjs";
+import { buildAuthCallbackUrl, buildAuthCallbackUrlWithNext, currentReturnPath, sanitizeReturnPath } from "@/lib/auth/returnPath.mjs";
+import { serializeOAuthReturnCookie } from "@/lib/auth/oauthState.mjs";
 
 const initialState = { mode: "login", email: "", password: "", confirm: "", code: "", error: "", message: "", pending: false };
 function reducer(state, action) {
@@ -57,16 +58,20 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  const callbackUrl = (next = destination) => buildAuthCallbackUrl(window.location.origin, next);
+  const callbackUrl = () => buildAuthCallbackUrl(window.location.origin);
   const succeed = async () => {
     await refreshUser();
     onClose?.();
   };
   // OAuth is deliberately one continue flow. Supabase creates new provider users and
   // links a verified same-email provider identity to an existing Auth user when allowed.
+  // The Supabase redirectTo is a stable, query-free `/auth/callback` URL (allow-list
+  // friendly); the destination we actually want to return to travels via a short-lived
+  // same-site cookie instead, consumed and cleared by the callback route.
   const continueWithProvider = async (provider) => {
     dispatch({ type: "pending", value: true });
     try {
+      document.cookie = serializeOAuthReturnCookie(destination, { secure: window.location.protocol === "https:" });
       const { error } = await createClient().auth.signInWithOAuth({ provider, options: { redirectTo: callbackUrl() } });
       if (error) throw error;
     } catch (error) {
@@ -89,7 +94,7 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     try {
       const { data, error } = await createClient().auth.signUp({
         email: state.email.trim().toLowerCase(), password: state.password,
-        options: { emailRedirectTo: callbackUrl() },
+        options: { emailRedirectTo: buildAuthCallbackUrlWithNext(window.location.origin, destination) },
       });
       if (error) throw error;
       if (!data.session) return dispatch({ type: "mode", mode: "confirmation-sent" });
@@ -122,7 +127,7 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     dispatch({ type: "pending", value: true });
     try {
       const resetNext = `/login?mode=reset-password&next=${encodeURIComponent(destination)}`;
-      const { error } = await createClient().auth.resetPasswordForEmail(state.email.trim().toLowerCase(), { redirectTo: callbackUrl(resetNext) });
+      const { error } = await createClient().auth.resetPasswordForEmail(state.email.trim().toLowerCase(), { redirectTo: buildAuthCallbackUrlWithNext(window.location.origin, resetNext) });
       if (error) throw error;
       dispatch({ type: "message", value: "If an account can receive recovery mail, a reset link is on its way." });
     } catch (error) { dispatch({ type: "error", value: friendlyError(error, "Unable to send a recovery email. Please try again.") }); }

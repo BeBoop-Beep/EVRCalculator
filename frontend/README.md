@@ -17,16 +17,28 @@ Google OAuth is intentionally one **Continue with Google** flow for both login a
 
 ### Supabase Auth URL configuration
 
-Production uses the apex domain as the canonical application URL. Configure Supabase **Authentication → URL Configuration** with:
+The application's OAuth `redirectTo` is always the **stable, query-free** path `/auth/callback` on the origin that initiated PKCE (`window.location.origin`) — never `/auth/callback?next=...`. The post-auth destination is *not* part of that URL; it travels separately in a short-lived, same-site `pkce_return_path` cookie (`lib/auth/oauthState.mjs`) that the callback route reads once and clears. This is deliberate: Supabase's redirect allow-list must match the callback URL, and a query string is part of that match for any origin other than the configured Site URL, so a stable, argument-free callback URL is what actually stays allow-list friendly.
 
-- Site URL: `https://inthedex.io`
+Configure Supabase **Authentication → URL Configuration** with:
+
+- Site URL: `https://inthedex.io` (the apex domain currently serving production traffic)
 - Redirect URL: `https://inthedex.io/auth/callback`
-- If `www` can initiate authentication: `https://www.inthedex.io/auth/callback`
+- If `www` can initiate authentication: also add `https://www.inthedex.io/auth/callback`
 - Local development: `http://localhost:3000/auth/callback`
+- Vercel previews: not enabled by default — see below if you turn them on
 
-The application builds `/auth/callback` on the same origin that initiated PKCE. This is deliberate: the PKCE verifier and the resulting host-scoped application session must not be moved to a different hostname in the middle of authentication. Prefer redirecting `www` traffic to the apex site before login begins; if both hosts can initiate auth, allow both exact callback URLs in Supabase.
+This app has a separate, pre-existing SEO canonical-domain policy (`lib/seo/siteUrl.mjs`, currently `https://www.inthedex.io`) for `og:url`/sitemap purposes. That policy governs crawler-facing metadata only and has no bearing on the auth redirect URLs above; do not try to make the two agree by editing either one, and do not add a second "canonical production domain" constant to the auth code. If the apex-vs-`www` split itself needs to be resolved, that is a separate decision — see Follow-ups below.
 
-The exact callback URL must be present in Supabase's redirect allow-list. If `redirectTo` is not allowed, Supabase can fall back to the configured Site URL; a stale Site URL such as `http://localhost:3000` can therefore send a production OAuth completion to localhost instead of `/auth/callback`.
+Because the PKCE verifier and the resulting host-scoped application session must not move to a different hostname mid-flow, the app always builds `/auth/callback` on the *same* origin that started the request. Prefer redirecting `www` traffic to the apex before login begins; if both hosts can genuinely initiate auth, add both exact callback URLs to Supabase's allow-list as shown above.
+
+The exact callback URL must be present in Supabase's redirect allow-list. If `redirectTo` is not allowed, Supabase falls back to the configured Site URL instead of erroring — so a stale Site URL (e.g. still `http://localhost:3000`) can silently send a production OAuth completion back to localhost.
+
+**Server-generated email links** (signup confirmation, password recovery) are opened directly from an email client, possibly on a different device, so there's no prior request on which to set a cookie. Those links keep the return path in the callback URL's query string (`buildAuthCallbackUrlWithNext`) and are built from a trusted, configured origin (`NEXT_PUBLIC_BASE_URL` via `lib/runtimeUrls.js`) — never from the raw request `Host` header, which a client can spoof. If Vercel previews need email-link support, set `NEXT_PUBLIC_BASE_URL` to the preview's own origin in that deployment's environment and add its exact `/auth/callback` URL to Supabase's redirect allow-list; there is no wildcard/any-host fallback.
+
+### Follow-ups (not part of this change)
+
+- **Apex vs. `www`**: production traffic and `SEO`/backend config disagree on the canonical host (`lib/seo/siteUrl.mjs` defaults to `www`, `backend/.env.example` and the auth redirect URL above use the apex). Resolving that is a separate decision, not an auth fix.
+- **Email confirmation across devices**: signup/password-recovery links currently rely on PKCE, which requires completing the flow in the same browser that started it. Supabase's token-hash confirmation endpoints are more robust for cross-device email confirmation; adopting them would be a deliberate, scoped follow-up, not something bundled into Google-auth hardening.
 
 ## inDex Mobile UI Invariants
 
