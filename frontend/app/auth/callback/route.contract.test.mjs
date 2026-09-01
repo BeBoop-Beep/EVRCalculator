@@ -12,3 +12,9 @@ test("callback exchanges PKCE code, bridges server-side, and writes only the app
 });
 
 test("callback uses the canonical return-path sanitizer", () => assert.match(source, /sanitizeReturnPath/));
+
+test("callback canonicalizes the app origin before success or error redirects", () => {
+  assert.match(source, /normalizeAuthOrigin\(url\.origin\)/);
+  assert.match(source, /new URL\("\/login", appOrigin\)/);
+  assert.match(source, /new URL\(next, appOrigin\)/);
+});
