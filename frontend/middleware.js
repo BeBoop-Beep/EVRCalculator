@@ -3,16 +3,29 @@ import { isLegacySetDetailTabAlias } from "@/lib/explore/ripStatisticsRouting";
 import { sanitizeReturnPath } from "@/lib/auth/returnPath.mjs";
 
 /**
- * Edge-compatible middleware. Two responsibilities, in this order:
+ * Edge-compatible middleware. Three responsibilities, in this order:
  *
  *   1. Canonical URL normalization for public set-detail URLs.
- *   2. A fast auth gate on protected routes.
+ *   2. A temporary hard block on profile and portfolio surfaces while those
+ *      experiences are not ready for public access.
+ *   3. A fast auth gate on the remaining protected routes.
  *
  * Full JWT verification happens in /api/auth/me (Node.js runtime) — this
  * middleware only acts as a fast gate for obviously unauthenticated requests.
  */
 
 const SET_DETAIL_PATH_PREFIX = "/TCGs/Pokemon/Sets/";
+
+const TEMPORARILY_BLOCKED_ROUTES = [
+  "/profile",
+  "/my-portfolio",
+  "/my-collection",
+  "/u",
+];
+
+function matchesRoute(pathname, route) {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
 
 /**
  * Collapse the legacy spellings of the set page's DEFAULT view onto the bare
@@ -61,10 +74,30 @@ function normalizeLegacySetDetailTab(req) {
   return NextResponse.redirect(url, 308);
 }
 
+function blockTemporarilyUnavailableRoutes(req) {
+  const isBlocked = TEMPORARILY_BLOCKED_ROUTES.some((route) =>
+    matchesRoute(req.nextUrl.pathname, route)
+  );
+
+  if (!isBlocked) {
+    return null;
+  }
+
+  const homeUrl = req.nextUrl.clone();
+  homeUrl.pathname = "/";
+  homeUrl.search = "";
+  return NextResponse.redirect(homeUrl, 307);
+}
+
 export function middleware(req) {
   const canonicalRedirect = normalizeLegacySetDetailTab(req);
   if (canonicalRedirect) {
     return canonicalRedirect;
+  }
+
+  const temporaryBlockRedirect = blockTemporarilyUnavailableRoutes(req);
+  if (temporaryBlockRedirect) {
+    return temporaryBlockRedirect;
   }
 
   const token = req.cookies.get("token")?.value;
@@ -77,10 +110,8 @@ export function middleware(req) {
     "/account-settings",
   ];
 
-  const isProtectedRoute = protectedRoutes.some(
-    (route) =>
-      req.nextUrl.pathname === route ||
-      req.nextUrl.pathname.startsWith(`${route}/`)
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    matchesRoute(req.nextUrl.pathname, route)
   );
 
   if (isProtectedRoute && !token) {
@@ -99,6 +130,7 @@ export const config = {
     "/profile/:path*",
     "/my-portfolio/:path*",
     "/my-collection/:path*",
+    "/u/:path*",
     "/account-settings/:path*",
     // Public, unauthenticated: matched only so the legacy default-view tab
     // aliases above can be collapsed onto the canonical set URL. No auth check
