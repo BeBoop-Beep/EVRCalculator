@@ -1,6 +1,5 @@
 import StickyNav from "@/components/StickyNav";
 import GlobalMobileBottomNav from "@/components/GlobalMobileBottomNav";
-import { CartContextProvider } from "@/components/Cart/CartContext";
 import { AuthProvider } from "@/components/AuthContext";
 import RouteTransitionFeedback from "@/components/navigation/RouteTransitionFeedback";
 import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
@@ -83,7 +82,6 @@ export default async function RootLayout({ children }) {
     <html lang="en">
       <body className={`${manrope.variable} flex flex-col min-h-screen`}>
         {/* Header */}
-        <CartContextProvider>
           <AuthProvider initialUser={initialUser}>
             <StickyNav />
             {/*
@@ -101,7 +99,6 @@ export default async function RootLayout({ children }) {
             <main className="app-canvas flex-1 w-full pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
             <GlobalMobileBottomNav />
           </AuthProvider>
-        </CartContextProvider>
       </body>
     </html>
   );

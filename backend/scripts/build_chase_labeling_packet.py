@@ -89,6 +89,15 @@ def cards_for_set(config: Any, canonical_key: str, preparation: Any) -> List[Dic
     Base and reverse columns are separate printings with separate prices and
     separate identifiers, exactly as the simulator treats them, so a labeler is
     never asked to judge "Charizard" without knowing which printing.
+
+    A REVERSE ROW IS ONLY EMITTED WHEN THE REVERSE PRINTING GENUINELY EXISTS.
+    ``EVRInputPreparationService`` populates ``reverse_variant_id`` for every
+    row, falling back to the BASE variant id for cards that have no separate
+    reverse printing. Emitting a reverse row unconditionally therefore produced
+    an exact duplicate of the base row for those cards - it doubled the packet
+    to 806 rows over 403 distinct printings and would have asked a human to
+    label the same card twice. The identity check below is the fix; the
+    ``(set_id, card_variant_id)`` invariant in ``labeling`` is the backstop.
     """
     prepared = preparation.prepare_for_set(
         config, canonical_key, str(getattr(config, "SET_NAME", canonical_key)))
@@ -109,7 +118,7 @@ def cards_for_set(config: Any, canonical_key: str, preparation: Any) -> List[Dic
                 "image_url": "",
             })
         reverse_variant = _text(row.get("reverse_variant_id"))
-        if reverse_variant:
+        if reverse_variant and reverse_variant != base_variant:
             rows.append({
                 "card_id": _text(row.get("card_id")),
                 "card_variant_id": reverse_variant,
@@ -257,6 +266,14 @@ def build(client: Any, *, out_dir: Path, stage2_path: Path,
             "Packet columns are a closed allow-list enforced by "
             "labeling.assert_packet_is_blind. No model output, score, rank, "
             "probability or algorithm selection is present.",
+        "uniquenessGuarantee":
+            "Every (set_id, card_variant_id) appears exactly once, enforced by "
+            "labeling.assert_packet_rows_are_unique on both writers. A reverse "
+            "printing is emitted only when its variant id genuinely differs "
+            "from the base variant id; the input service echoes the base id for "
+            "cards with no separate reverse printing.",
+        "distinctPrintings": len({(row["set_id"], row["card_variant_id"])
+                                  for row in all_rows}),
         "sets": per_set,
         "skipped": skipped,
         "files": {

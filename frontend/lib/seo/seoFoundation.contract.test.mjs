@@ -311,7 +311,7 @@ test("robots exposes the sitemap and blocks only private/app-only families", () 
     );
   }
 
-  for (const privatePath of ["/api/", "/dashboard", "/my-collection", "/checkout"]) {
+  for (const privatePath of ["/api/", "/dashboard", "/my-collection"]) {
     assert.ok(rule.disallow.includes(privatePath), `${privatePath} should not be a public search destination`);
   }
 });

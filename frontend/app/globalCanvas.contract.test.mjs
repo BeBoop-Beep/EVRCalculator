@@ -36,7 +36,6 @@ test("legacy full-page wrappers use the shared canvas without changing component
     "app/TCGs/Pokemon/Sets/loading.js",
     "app/waitlist/verify/page.js",
     "app/waitlist/verified/page.js",
-    "components/Products/ProductDetails.js",
     "components/Featured.js",
   ];
 

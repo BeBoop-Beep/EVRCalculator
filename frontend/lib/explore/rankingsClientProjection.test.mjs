@@ -17,7 +17,7 @@ import {
   readSortValue,
   sortRankingsRows,
 } from "../../components/explore/rankingsSort.mjs";
-import { projectRankingsTargets, projectRankingsClientBase, RANKINGS_CLIENT_FIELDS } from "./rankingsClientProjection.mjs";
+import { projectRankingsTargets, projectRankingsClientBase, projectRankingsClientPublicSetLeaderboard, RANKINGS_CLIENT_FIELDS } from "./rankingsClientProjection.mjs";
 import { readCanonicalOverallRipV10 } from "../../components/explore/canonicalRipV7.mjs";
 
 /** A target carrying every field the table reads, plus the heavy blocks it does not. */
@@ -194,6 +194,28 @@ test("a 22-set API cohort remains renderable with canonical Set RIP rank and tie
     projected.map((row) => [row.setRipV1.rank, row.setRipV1.tier]),
     source.map((row) => [row.setRipV1.rank, row.setRipV1.tier]),
   );
+});
+
+test("anonymous public Set projection keeps only leaderboard Set RIP evidence", () => {
+  const source = target(4, {
+    setRipV1: {
+      score: 73.1, rank: 4, tier: "B", cohortSize: 22, rankable: true,
+      methodologyVersion: "set-rip-v1", participatingFamilyCount: 1,
+      participatingFamilies: ["booster_box"], skuEvidenceCount: 2,
+      familyScores: [{ family: "booster_box", score: 81, rank: 3, tier: "A" }],
+      displayFamilyScores: [{ family: "booster_box", score: 81, rank: 3, tier: "A" }],
+      privateRawInputs: { secret: true },
+    },
+  });
+  const [projected] = projectRankingsClientPublicSetLeaderboard([source]);
+  assert.equal(projected.setRipV1.score, 73.1);
+  assert.equal(projected.setRipV1.rank, 4);
+  assert.equal(projected.setRipV1.tier, "B");
+  assert.equal(projected.setRipV1.participatingFamilyCount, 1);
+  assert.equal(projected.setRipV1.displayFamilyScores[0].family, "booster_box");
+  assert.equal("privateRawInputs" in projected.setRipV1, false);
+  for (const paid of ["overallRipV10", "financialRipV4", "publicRipContractV10", "openingExperience"])
+    assert.equal(paid in projected, false, paid);
 });
 
 test("packaged V10 survives projection and resolves through the strict headline reader", () => {

@@ -1,0 +1,191 @@
+{
+  "<10": {
+    "supported": false,
+    "metrics": {
+      "n": 6800,
+      "treatments": 34,
+      "mae": 0.7052230053399617,
+      "medianAbsoluteError": 0.5301776883011766,
+      "rmse": 0.9175999449006922,
+      "p75AbsoluteError": 1.0491350574226574,
+      "p90AbsoluteError": 1.5750465160488254,
+      "maximumAbsoluteError": 2.9242790141953163,
+      "spearman": 0.37948954852493383,
+      "kendall": 0.2616487455197133,
+      "orderingAccuracy": 0.6308243727598566,
+      "bias": 0.010613722219150185,
+      "interval80Coverage": 0.7698529411764706,
+      "interval95Coverage": 0.9341176470588235,
+      "averageInterval80Width": 2.2718157598094693,
+      "averageInterval95Width": 3.474374913566292,
+      "averageShrinkage": 0.02532778069630152
+    },
+    "rank": {
+      "spearman": 0.35572216242299565,
+      "kendall": 0.25091397849462366,
+      "orderingAccuracy": 0.6254569892473119
+    }
+  },
+  "10-14": {
+    "supported": false,
+    "metrics": {
+      "n": 6800,
+      "treatments": 34,
+      "mae": 0.7055323753449166,
+      "medianAbsoluteError": 0.5341309521367559,
+      "rmse": 0.9151816854537386,
+      "p75AbsoluteError": 1.0834998328435623,
+      "p90AbsoluteError": 1.5641340319750852,
+      "maximumAbsoluteError": 2.920720303129764,
+      "spearman": 0.37734985715185726,
+      "kendall": 0.26881720430107525,
+      "orderingAccuracy": 0.6344086021505376,
+      "bias": 0.011919301646835663,
+      "interval80Coverage": 0.7597058823529412,
+      "interval95Coverage": 0.9391176470588235,
+      "averageInterval80Width": 2.2582227418068856,
+      "averageInterval95Width": 3.4535865901541003,
+      "averageShrinkage": 0.013608225421838245
+    },
+    "rank": {
+      "spearman": 0.3702170431246085,
+      "kendall": 0.2613440860215054,
+      "orderingAccuracy": 0.6306720430107526
+    }
+  },
+  "15-19": {
+    "supported": false,
+    "metrics": {
+      "n": 6800,
+      "treatments": 34,
+      "mae": 0.7046631601832082,
+      "medianAbsoluteError": 0.5351786448208005,
+      "rmse": 0.9131117325088953,
+      "p75AbsoluteError": 1.1087235129338715,
+      "p90AbsoluteError": 1.567719482125517,
+      "maximumAbsoluteError": 2.8141508406300515,
+      "spearman": 0.3834632610749331,
+      "kendall": 0.27598566308243727,
+      "orderingAccuracy": 0.6379928315412187,
+      "bias": 0.010498704288384826,
+      "interval80Coverage": 0.7523529411764706,
+      "interval95Coverage": 0.9376470588235294,
+      "averageInterval80Width": 2.25321970492219,
+      "averageInterval95Width": 3.445935254094485,
+      "averageShrinkage": 0.009578250612663966
+    },
+    "rank": {
+      "spearman": 0.3832477635866447,
+      "kendall": 0.27148745519713263,
+      "orderingAccuracy": 0.6357437275985663
+    }
+  },
+  "20-24": {
+    "supported": false,
+    "metrics": {
+      "n": 6800,
+      "treatments": 34,
+      "mae": 0.7043495193899245,
+      "medianAbsoluteError": 0.5378785067803902,
+      "rmse": 0.9118839902467906,
+      "p75AbsoluteError": 1.1217172285502917,
+      "p90AbsoluteError": 1.5603151156156276,
+      "maximumAbsoluteError": 2.791422724977024,
+      "spearman": 0.3813235697018566,
+      "kendall": 0.26523297491039427,
+      "orderingAccuracy": 0.6326164874551972,
+      "bias": 0.010751771020952367,
+      "interval80Coverage": 0.7476470588235294,
+      "interval95Coverage": 0.9376470588235294,
+      "averageInterval80Width": 2.2507338990333583,
+      "averageInterval95Width": 3.4421336158749862,
+      "averageShrinkage": 0.007348706312934737
+    },
+    "rank": {
+      "spearman": 0.3815360104881835,
+      "kendall": 0.2672759856630824,
+      "orderingAccuracy": 0.6336379928315412
+    }
+  },
+  ">=25": {
+    "supported": false,
+    "metrics": {
+      "n": 6800,
+      "treatments": 34,
+      "mae": 0.703488450941546,
+      "medianAbsoluteError": 0.5378633784220161,
+      "rmse": 0.9106710296179337,
+      "p75AbsoluteError": 1.120498750832864,
+      "p90AbsoluteError": 1.5572133604975598,
+      "maximumAbsoluteError": 2.7575895813951856,
+      "spearman": 0.3828519206826255,
+      "kendall": 0.2724014336917563,
+      "orderingAccuracy": 0.6362007168458781,
+      "bias": 0.011600386165707926,
+      "interval80Coverage": 0.7483823529411765,
+      "interval95Coverage": 0.9392647058823529,
+      "averageInterval80Width": 2.249177763262453,
+      "averageInterval95Width": 3.4397537577983828,
+      "averageShrinkage": 0.006037055663467195
+    },
+    "rank": {
+      "spearman": 0.3881293166192208,
+      "kendall": 0.2732974910394265,
+      "orderingAccuracy": 0.6366487455197133
+    }
+  },
+  "ONE_SET": {
+    "supported": false,
+    "metrics": {
+      "n": 6800,
+      "treatments": 34,
+      "mae": 0.7181228173399694,
+      "medianAbsoluteError": 0.5546460182505513,
+      "rmse": 0.9243411403099427,
+      "p75AbsoluteError": 1.0617443224223333,
+      "p90AbsoluteError": 1.5676999692151994,
+      "maximumAbsoluteError": 2.829310147395729,
+      "spearman": 0.38254625048647173,
+      "kendall": 0.26523297491039427,
+      "orderingAccuracy": 0.6326164874551972,
+      "bias": -0.01210543873271069,
+      "interval80Coverage": 0.7733823529411765,
+      "interval95Coverage": 0.946764705882353,
+      "averageInterval80Width": 2.2511937025806525,
+      "averageInterval95Width": 3.4428368110627954,
+      "averageShrinkage": 0.0072581542135594194
+    },
+    "rank": {
+      "spearman": 0.360727511885014,
+      "kendall": 0.25589605734767024,
+      "orderingAccuracy": 0.6279480286738351
+    }
+  },
+  "TWO_SET": {
+    "supported": false,
+    "metrics": {
+      "n": 6800,
+      "treatments": 34,
+      "mae": 0.7125774704234925,
+      "medianAbsoluteError": 0.5383932713597028,
+      "rmse": 0.9166848169476554,
+      "p75AbsoluteError": 1.086777431719982,
+      "p90AbsoluteError": 1.548284133434023,
+      "maximumAbsoluteError": 2.802262493452461,
+      "spearman": 0.3926333669595469,
+      "kendall": 0.2724014336917563,
+      "orderingAccuracy": 0.6362007168458781,
+      "bias": 0.004478176381635967,
+      "interval80Coverage": 0.7617647058823529,
+      "interval95Coverage": 0.9451470588235295,
+      "averageInterval80Width": 2.2471442544008275,
+      "averageInterval95Width": 3.43664383475782,
+      "averageShrinkage": 0.003912945231179782
+    },
+    "rank": {
+      "spearman": 0.3652606008939748,
+      "kendall": 0.25849462365591397,
+      "orderingAccuracy": 0.629247311827957
+    }
+  }
+}

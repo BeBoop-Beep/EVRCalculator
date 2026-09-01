@@ -643,6 +643,7 @@ class EVRRunOrchestrator:
             pack_value_vs_cost_comparison=pack_value_vs_cost_comparison,
             etb_value_vs_cost_comparison=etb_value_vs_cost_comparison_for_persistence,
             booster_box_value_vs_cost_comparison=booster_box_value_vs_cost_comparison,
+            market_date=metadata.get("market_date"),
         )
         run_id = persisted_parent["run_id"]
 

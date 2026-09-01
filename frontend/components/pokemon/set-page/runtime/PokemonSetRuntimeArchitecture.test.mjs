@@ -5,6 +5,43 @@ import { buildCardsRequestKey } from "../tabs/cardsRequestKey.mjs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
+test("Pokemon Set entrypoint preserves the established rich Set UI", () => {
+  const entrypoint = read("../PokemonSetPageClient.jsx");
+  assert.match(entrypoint, /dynamic\(\s*\(\) => import\(["']@\/components\/pokemon\/set-page\/PokemonSetRichPageClient["']\)/);
+  assert.match(entrypoint, /<PokemonSetRichPageClient \{\.\.\.props\} \/>/);
+  assert.doesNotMatch(entrypoint, /RipStatisticsPageClient/);
+  assert.doesNotMatch(entrypoint, /PokemonSetRuntimeShell/);
+});
+
+test("canonical rich Set parent lazy-loads only the active tab and owns no tab controllers", () => {
+  const parent = read("../PokemonSetRichPageClient.jsx");
+  for (const tab of ["RichRipSetTab", "RichMarketSetTab", "RichCardsSetTab", "RichPullRatesSetTab"]) {
+    assert.match(parent, new RegExp(`const load${tab} = \\(\\) => import\\(["']\\.\\/rich\\/${tab}["']\\)`));
+    assert.match(parent, new RegExp(`dynamic\\(load${tab},`));
+  }
+  for (const controller of ["useSetRipProgressiveController", "useSetMarketController", "useSetCardsController", "useSetPullRatesController"]) {
+    assert.doesNotMatch(parent, new RegExp(controller));
+  }
+  assert.doesNotMatch(parent, /RipStatisticsPageClient/);
+  assert.doesNotMatch(parent, /PokemonSetRuntimeShell/);
+});
+
+test("same-Set views use native history while different-Set selection remains Next navigation", () => {
+  const parent = read("../PokemonSetRichPageClient.jsx");
+  const tabs = read("../rich/RichSetSectionTabs.jsx");
+  const segmented = read("../../../ui/SegmentedControl.jsx");
+  assert.match(parent, /window\.history\.pushState\(/);
+  assert.match(parent, /buildSameSetViewUrl/);
+  assert.doesNotMatch(parent, /selectTab[^;]+router\.push/);
+  assert.match(parent, /startTransition\(\(\) => router\.push\(/);
+  assert.match(parent, /onTabIntent=\{tabIntent\}/);
+  assert.match(parent, /ripBootstrapController\.preload\(\)/);
+  assert.match(tabs, /onOptionIntent\?\.\(option\.value, intentType\)/);
+  assert.match(segmented, /onPointerEnter=\{\(\) => option\?\.onIntent\?\.\("pointerenter"\)\}/);
+  assert.match(segmented, /onFocus=\{\(\) => option\?\.onIntent\?\.\("focus"\)\}/);
+  assert.match(segmented, /onPointerDown=\{\(\) => option\?\.onIntent\?\.\("pointerdown"\)\}/);
+});
+
 test("Set runtime shell remains dependency-light and tabs own endpoint imports", () => {
   const shell = read("./PokemonSetRuntimeShell.jsx");
   const fallback = read("../../../explore/RipStatisticsPageClient.jsx");
@@ -17,6 +54,8 @@ test("Set runtime shell remains dependency-light and tabs own endpoint imports",
   assert.match(pullRates, /from ["']@\/lib\/pokemon\/pokemonSetPullRatesClient["']/);
   assert.match(shell, /dynamic\(\(\) => import\(["']\.\.\/tabs\/CardsSetTab["']\)/);
   assert.match(shell, /dynamic\(\(\) => import\(["']\.\.\/tabs\/PullRatesSetTab["']\)/);
+  assert.match(shell, /dynamic\(\(\) => import\(["']\.\.\/tabs\/MarketSetTab["']\)/);
+  assert.doesNotMatch(shell, /from ["']@\/lib\/pokemon\/pokemonSetMarketClient["']/);
   assert.doesNotMatch(fallback, /from ["']@\/lib\/pokemon\/pokemonSetCardsClient["']/);
   assert.doesNotMatch(fallback, /from ["']@\/lib\/pokemon\/pokemonSetPullRatesClient["']/);
 });
@@ -38,4 +77,74 @@ test("set switches are guarded by set-scoped runtime state", () => {
   assert.match(cards, /activeRequestRef\.current !== requestKey/);
   assert.match(pullRates, /state\.setId === setId/);
   assert.match(pullRates, /cancelled/);
+});
+
+test("rich Pull Rates resource ownership is isolated without moving its presentation", () => {
+  const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const richPullRates = read("../rich/RichPullRatesSetTab.jsx");
+  const controller = read("../../../../hooks/pokemon/useSetPullRatesController.js");
+  assert.match(rich, /dynamic\(\(\) => import\(["']@\/components\/pokemon\/set-page\/rich\/RichPullRatesSetTab["']\)\)/);
+  assert.match(richPullRates, /useSetPullRatesController\(\{/);
+  assert.match(richPullRates, /<PullRatesTab/);
+  assert.doesNotMatch(rich, /getPokemonSetPullRates\(/);
+  assert.doesNotMatch(rich, /\[pullRatesState, setPullRatesState\]/);
+  assert.match(controller, /pokemonSetPullRatesClient/);
+  assert.match(controller, /activeSetIdRef\.current !== setId/);
+  assert.match(controller, /previous\.setId === setId && previous\.pullRateAssumptions \? "success_stale"/);
+});
+
+test("rich Cards resource ownership is isolated without moving its presentation", () => {
+  const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const richCards = read("../rich/RichCardsSetTab.jsx");
+  const controller = read("../../../../hooks/pokemon/useSetCardsController.js");
+  assert.match(richCards, /useSetCardsController\(\{/);
+  assert.doesNotMatch(rich, /useSetCardsController/);
+  assert.doesNotMatch(rich, /getPokemonSetCardsPage\(/);
+  assert.doesNotMatch(rich, /\[cardsPageState, setCardsPageState\]/);
+  assert.match(controller, /activeRequestKeyRef\.current !== requestKey/);
+  assert.match(controller, /activeSetIdRef\.current !== setId/);
+  assert.match(controller, /buildCardsRequestKey/);
+});
+
+test("rich Market resources are isolated without moving Market presentation", () => {
+  const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const richMarket = read("../rich/RichMarketSetTab.jsx");
+  const controller = read("../../../../hooks/pokemon/useSetMarketController.js");
+  assert.match(richMarket, /useSetMarketController\(\{/);
+  assert.doesNotMatch(rich, /useSetMarketController/);
+  assert.doesNotMatch(rich, /MarketOverviewSection=|ChaseCardsPanel=/);
+  assert.doesNotMatch(rich, /function SetMarketOverviewSection|function TopChaseCardsPanel/);
+  assert.match(richMarket, /<RichMarketOverviewSection/);
+  assert.match(richMarket, /<RichTopChaseCardsPanel/);
+  assert.doesNotMatch(rich, /getPokemonSetOverview\(/);
+  assert.doesNotMatch(rich, /getPokemonSetTopChase\(/);
+  assert.doesNotMatch(rich, /getPokemonSetMarketMovers\(/);
+  assert.match(controller, /activeRequestKeyRef\.current !== requestKey/);
+  assert.match(controller, /activeSetIdRef\.current !== setId/);
+  assert.match(controller, /topChasePreviewOnly/);
+  assert.doesNotMatch(controller, /SetMarketMobile|SetMarketSignals/);
+});
+
+test("shared rich Set view model stays pure and endpoint-independent", () => {
+  const selector = read("../rich/setRichSharedViewModel.mjs");
+  assert.match(selector, /export function selectSetRichSharedViewModel/);
+  assert.doesNotMatch(selector, /pokemonSet(?:Cards|Market|PullRates)Client/);
+  assert.doesNotMatch(selector, /getPokemonSet(?:Cards|Overview|TopChase|MarketMovers|PullRates)/);
+});
+
+test("rich RIP progressive resources are isolated and retain same-run and access gates", () => {
+  const rich = read("../../../explore/RipStatisticsPageClient.jsx");
+  const richRip = read("../rich/RichRipSetTab.jsx");
+  const controller = read("../../../../hooks/pokemon/useSetRipProgressiveController.js");
+  assert.match(rich, /dynamic\(\(\) => import\(["']@\/components\/pokemon\/set-page\/rich\/RichRipSetTab["']\)\)/);
+  assert.match(richRip, /useSetRipProgressiveController\(\{/);
+  assert.match(richRip, /<RipDecisionPage/);
+  assert.doesNotMatch(rich, /getPokemonSetRipRankContext\(/);
+  assert.doesNotMatch(rich, /getPokemonSetRipSimulationEvidence\(/);
+  assert.doesNotMatch(rich, /getPokemonSetRipAdvanced\(/);
+  assert.match(controller, /activeIdentityRef\.current !== identity/);
+  assert.match(controller, /selectSameRunRipSimulation/);
+  assert.match(controller, /selectSameRunRipAdvanced/);
+  assert.match(controller, /!canViewProductRipIntelligence/);
+  assert.doesNotMatch(controller, /RipDecisionPage/);
 });

@@ -13,6 +13,10 @@ from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore[reportMissingImports]
 from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
 from pydantic import BaseModel, Field  # type: ignore[reportMissingImports]
+from pydantic import ConfigDict
+from backend.db.services.billing_service import BillingService
+from backend.domain.billing.catalog import BillingOfferNotConfigured
+from backend.domain.billing.errors import BillingError, BillingProviderError, BillingPortalUnavailable, BillingSubscriptionAlreadyManaged, InvalidWebhookSignature
 
 from backend.db.services.waitlist_signup_service import (
     insert_waitlist_signup,
@@ -57,6 +61,7 @@ from backend.domain.access.index_plan_access import (
     project_insights_critical_response,
     project_product_rankings_response,
     project_product_family_rankings_response,
+    project_public_era_rankings_response,
     project_opening_economics_response,
     project_rankings_response,
     project_sealed_market_response,
@@ -141,6 +146,13 @@ from backend.db.services.pokemon_market_explorer_query_service import (
     build_market_explorer_filter_options,
     run_market_explorer_query,
 )
+from backend.db.services.market_explorer_query_planner import (
+    GLOBAL_MARKET_EXPLORER_PLANNER,
+    GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
+    MarketExplorerBuildInProgress,
+    PersistentMarketExplorerCache,
+    resolve_canonical_through,
+)
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
 from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
 from backend.domain.pokemon.market_explorer_query import (
@@ -166,7 +178,9 @@ logger = logging.getLogger(__name__)
 
 _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS = 300
 _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES = 128
-_market_explorer_query_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
+# Backward-compatible diagnostics/test alias. The planner owns this L1; there
+# is no second endpoint-local query cache.
+_market_explorer_query_cache = GLOBAL_MARKET_EXPLORER_PLANNER.l1._entries
 _MARKET_EXPLORER_OPTIONS_CACHE_TTL_SECONDS = 900
 _market_explorer_options_cache: tuple[float, Dict[str, Any]] | None = None
 
@@ -233,6 +247,11 @@ class MarketExplorerQueryRequest(BaseModel):
     releaseAgeCohortIds: List[str] = Field(default_factory=list)
     mode: str = "all"
     topN: Optional[int] = Field(default=None, ge=1, le=100)
+
+
+class BillingCheckoutRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    offerKey: str = Field(min_length=1, max_length=80)
 
 
 def _auth_env_presence() -> Dict[str, bool]:
@@ -460,6 +479,110 @@ app.middleware("http")(market_request_metrics_middleware)
 def get_health():
     """Deployment identity for operators; contains no configuration secrets."""
     return {"status": "ok", "build": build_identity()}
+
+
+def _billing_redirect_urls() -> tuple[str, str]:
+    origin = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").strip().rstrip("/")
+    if os.getenv("APP_ENV", "").lower() == "production" and not origin.startswith("https://"):
+        raise HTTPException(status_code=503, detail={"code": "BILLING_NOT_CONFIGURED"})
+    return f"{origin}/billing/success", f"{origin}/billing/cancel"
+
+
+def _billing_portal_return_url() -> str:
+    origin = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").strip().rstrip("/")
+    if os.getenv("APP_ENV", "").lower() == "production" and not origin.startswith("https://"):
+        raise HTTPException(status_code=503, detail={"code": "BILLING_NOT_CONFIGURED"})
+    return f"{origin}/account-settings?section=billing"
+
+
+def _enforce_billing_post_origin(request: Request) -> None:
+    """Reject browser cross-site POSTs while preserving non-browser bearer clients."""
+    fetch_site = (request.headers.get("sec-fetch-site") or "").lower()
+    origin = (request.headers.get("origin") or "").rstrip("/")
+    trusted = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").strip().rstrip("/")
+    if fetch_site == "cross-site" or (origin and origin != trusted):
+        raise HTTPException(status_code=403, detail={"code": "BILLING_CROSS_SITE_REQUEST_REJECTED"})
+
+
+@app.post("/billing/checkout-session")
+def create_billing_checkout_session(
+    payload: BillingCheckoutRequest,
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _enforce_billing_post_origin(request)
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    success_url, cancel_url = _billing_redirect_urls()
+    try:
+        checkout_url = BillingService().create_checkout(user_id=user_id, offer_key=payload.offerKey,
+            success_url=success_url, cancel_url=cancel_url)
+        return _tiered_response({"checkoutUrl": checkout_url})
+    except KeyError:
+        raise HTTPException(status_code=404, detail={"code": "BILLING_OFFER_UNKNOWN"})
+    except BillingOfferNotConfigured:
+        raise HTTPException(status_code=409, detail={"code": "BILLING_OFFER_NOT_CONFIGURED"})
+    except BillingProviderError:
+        raise HTTPException(status_code=503, detail={"code": "BILLING_PROVIDER_UNAVAILABLE"})
+    except BillingSubscriptionAlreadyManaged:
+        raise HTTPException(status_code=409, detail={"code": "BILLING_SUBSCRIPTION_ALREADY_MANAGED"})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+
+
+@app.get("/billing/me")
+def get_billing_me(
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    return _tiered_response(BillingService().billing_status(user_id))
+
+
+@app.get("/billing/catalog")
+def get_billing_catalog():
+    """Public commercial display data; contains no provider identifiers."""
+    return _tiered_response(BillingService().public_catalog())
+
+
+@app.post("/billing/customer-portal")
+def create_billing_customer_portal(
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _enforce_billing_post_origin(request)
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    try:
+        portal_url = BillingService().create_customer_portal(
+            user_id=user_id, return_url=_billing_portal_return_url())
+        return _tiered_response({"portalUrl": portal_url})
+    except BillingPortalUnavailable:
+        raise HTTPException(status_code=409, detail={"code": "BILLING_PORTAL_UNAVAILABLE"})
+    except BillingProviderError:
+        raise HTTPException(status_code=503, detail={"code": "BILLING_PROVIDER_UNAVAILABLE"})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+
+
+@app.post("/billing/stripe/webhook")
+async def stripe_billing_webhook(request: Request, stripe_signature: Optional[str] = Header(default=None, alias="Stripe-Signature")):
+    if not stripe_signature:
+        raise HTTPException(status_code=400, detail={"code": "BILLING_INVALID_WEBHOOK_SIGNATURE"})
+    service = BillingService()
+    raw_body = await request.body()
+    try:
+        event = service.provider.construct_event(raw_body, stripe_signature)
+        outcome = service.handle_event(event)
+        return {"received": True, "outcome": outcome}
+    except InvalidWebhookSignature:
+        raise HTTPException(status_code=400, detail={"code": "BILLING_INVALID_WEBHOOK_SIGNATURE"})
+    except BillingError as exc:
+        logger.exception("billing.webhook.failed code=%s", exc.code)
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+    except Exception:
+        logger.exception("billing.webhook.failed code=BILLING_WEBHOOK_PROCESSING_FAILED")
+        raise HTTPException(status_code=503, detail={"code": "BILLING_WEBHOOK_PROCESSING_FAILED"})
 
 
 @app.get("/collection/dashboard")
@@ -778,7 +901,7 @@ def get_explore_rankings_lens(
             return _tiered_response({
                 "meta": {key: (payload.get("meta") or {})[key] for key in ("source", "updatedAt", "warnings", "snapshot", "limit") if key in (payload.get("meta") or {})},
                 "access": {"rankingsIntelligence": entitled, "requiredPlan": "plus"},
-                **({"eraSetStrengthV1": payload.get("eraSetStrengthV1")} if entitled else {}),
+                "eraSetStrengthV1": project_public_era_rankings_response(payload),
             })
         if normalized_lens == "products":
             payload = {
@@ -1038,7 +1161,6 @@ def post_market_explorer_query(
     if payload.mode == "chase" and payload.topN not in (None, 10):
         return JSONResponse(content={"message": "Only Top 10 queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     try:
-        today = date.today().isoformat()
         # Normalized BEFORE the cache is consulted, so an invalid spec is
         # rejected rather than keyed, and equivalent selections share one entry.
         normalized = normalize_query_spec(
@@ -1052,40 +1174,48 @@ def post_market_explorer_query(
         )
         _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
                             route="/market/explorer/query")
-        cache_key = f"{query_fingerprint(normalized)}:{today}"
-        cached = _market_explorer_query_cache.get(cache_key)
-        if cached and cached[0] > time.monotonic():
-            return _tiered_response(cached[1])
         runner = (
             run_sealed_market_explorer_query if payload.asset == ASSET_SEALED
             else run_market_explorer_query
         )
-        result = runner(
-            service_read_client,
-            mode=payload.mode,
-            era_ids=payload.eraIds,
-            set_ids=payload.setIds,
-            segment_ids=payload.segmentIds,
-            pokemon_ids=payload.pokemonIds,
-            price_segment_ids=payload.priceSegmentIds,
-            release_age_cohort_ids=payload.releaseAgeCohortIds,
-            top_n=payload.topN,
-            start_date="1999-01-01",
-            end_date=today,
+        persistent = PersistentMarketExplorerCache(
+            service_read_client, metrics=GLOBAL_MARKET_EXPLORER_PLANNER.metrics,
         )
-        _market_explorer_query_cache[cache_key] = (
-            time.monotonic() + _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS,
-            result,
+
+        def build_market(previous_through: str | None, canonical_date: str) -> Dict[str, Any]:
+            return runner(
+                service_read_client,
+                mode=normalized["mode"],
+                era_ids=normalized["eraIds"], set_ids=normalized["setIds"],
+                segment_ids=normalized["segmentIds"],
+                pokemon_ids=normalized["pokemonIds"],
+                price_segment_ids=normalized["priceSegmentIds"],
+                release_age_cohort_ids=normalized["releaseAgeCohortIds"],
+                top_n=normalized["topN"],
+                # A forward refresh includes the cached anchor date. The
+                # planner rescales/appends and drops that duplicate point.
+                start_date=previous_through or "1999-01-01",
+                end_date=canonical_date,
+            )
+
+        planned = GLOBAL_MARKET_EXPLORER_PLANNER.execute(
+            spec=normalized,
+            prepared=GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
+            persistent=persistent,
+            canonical_through=lambda: resolve_canonical_through(
+                service_read_client, normalized,
+            ),
+            novel_builder=build_market,
         )
-        while len(_market_explorer_query_cache) > _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES:
-            _market_explorer_query_cache.pop(next(iter(_market_explorer_query_cache)), None)
-        return _tiered_response(result)
+        return _tiered_response(planned.payload)
     except HTTPException:
         raise
     except MarketExplorerQueryError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     except (MarketExplorerQueryUnavailable, SealedMarketExplorerQueryUnavailable) as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+    except MarketExplorerBuildInProgress as exc:
+        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_BUILDING"}, status_code=503)
     except Exception:
         logger.exception("/market/explorer/query unexpected error")
         return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "MARKET_EXPLORER_QUERY_FAILED"}, status_code=500)

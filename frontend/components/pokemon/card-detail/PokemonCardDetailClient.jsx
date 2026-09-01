@@ -2,6 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
+import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
+import { INDEX_PLAN_PLUS, INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -178,7 +181,7 @@ function PlusLock({ title }) {
     <section
       data-plus-lock
       aria-labelledby={id}
-      className="set-glass-surface relative min-h-36 overflow-hidden rounded-2xl border"
+      className={`set-glass-surface relative min-h-36 overflow-hidden rounded-2xl border ${planPresentation(INDEX_PLAN_PLUS).panelClassName}`}
     >
       <div
         aria-hidden="true"
@@ -189,18 +192,11 @@ function PlusLock({ title }) {
         <span className="h-16 rounded-xl bg-white/10" />
       </div>
       <div className="relative z-10 flex min-h-36 flex-col items-center justify-center bg-[rgba(2,6,23,.62)] px-5 py-6 text-center">
-        <p className="text-xs font-bold uppercase tracking-[.14em] text-amber-300">
-          🔒 Index Plus
-        </p>
+        <PlanBadge plan={INDEX_PLAN_PLUS} />
         <h2 id={id} className="mt-2 text-xl font-semibold">
           Unlock {title}
         </h2>
-        <Link
-          href="/pricing"
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-amber-300/40 bg-amber-300/10 px-4 text-sm font-semibold text-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
-        >
-          Explore Index Plus
-        </Link>
+        <PlanUpgradeLink requiredPlan={INDEX_PLAN_PLUS} source="card-detail" className="mt-3 min-h-11"/>
       </div>
     </section>
   );
@@ -761,12 +757,10 @@ function OpeningProductsSection({ detail }) {
 }
 
 function PremiumLock() {
-  const premiumTier = getRipTierPresentation("S", { strength: "hero" });
   return (
     <section
       data-chase-efficiency-lock
-      className="set-glass-surface relative min-h-44 overflow-hidden rounded-2xl border border-[var(--tier-border)]"
-      style={premiumTier.style}
+      className={`set-glass-surface relative min-h-44 overflow-hidden rounded-2xl border ${planPresentation(INDEX_PLAN_PREMIUM).panelClassName}`}
     >
       <div
         aria-hidden="true"
@@ -775,25 +769,18 @@ function PremiumLock() {
         {[1, 2, 3, 4].map((key) => (
           <span
             key={key}
-            className="h-16 rounded-xl bg-[var(--tier-surface)]"
+            className="h-16 rounded-xl bg-violet-500/10"
           />
         ))}
       </div>
       <div className="relative z-10 flex min-h-44 flex-col items-center justify-center bg-[rgba(2,6,23,.72)] px-5 py-6 text-center">
-        <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--tier-color)]">
-          Index Premium
-        </p>
+        <PlanBadge plan={INDEX_PLAN_PREMIUM} />
         <h2 className="mt-2 text-xl font-semibold">Unlock Chase Efficiency</h2>
         <p className="mt-1 max-w-lg px-4 text-xs text-[var(--text-secondary)]">
           See how economically favorable this exact printing is to chase, its
           global context, and canonical milestone costs.
         </p>
-        <Link
-          href="/pricing"
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[var(--tier-border)] bg-[var(--tier-surface)] px-4 text-sm font-semibold text-[var(--tier-color)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tier-color)]"
-        >
-          Explore Index Premium
-        </Link>
+        <PlanUpgradeLink requiredPlan={INDEX_PLAN_PREMIUM} source="card-detail" className="mt-3 min-h-11"/>
       </div>
     </section>
   );

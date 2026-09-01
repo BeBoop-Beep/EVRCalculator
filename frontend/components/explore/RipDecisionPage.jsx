@@ -346,7 +346,7 @@ function ChaseReality({
       )}
       <div className={styles.chaseLayout}>
         {chase.imageUrl ? (
-          cardHref ? <Link href={cardHref} className={styles.chaseImage} aria-label={`View ${chase.name || "top chase card"}`}>
+          cardHref ? <Link href={cardHref} prefetch={false} className={styles.chaseImage} aria-label={`View ${chase.name || "top chase card"}`}>
             <Image
               src={chase.imageUrl}
               alt={chase.name || "Top chase card"}
@@ -363,7 +363,7 @@ function ChaseReality({
             Top Chase
           </p>
           <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
-            {cardHref ? <Link href={cardHref}>{chase.name || "Top chase card"}</Link> : (chase.name || "Top chase card")}
+            {cardHref ? <Link href={cardHref} prefetch={false}>{chase.name || "Top chase card"}</Link> : (chase.name || "Top chase card")}
           </h3>
           {chase.rarity ? (
             <p className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">
@@ -378,7 +378,7 @@ function ChaseReality({
             <strong className="text-[var(--text-primary)]">{odds}</strong>
           </p>
           {cardHref ? (
-            <Link href={cardHref} className={`${ANALYTICAL_ACTION_CLASS} mt-3 inline-flex text-sm font-semibold text-teal-300 hover:text-teal-200`}>
+            <Link href={cardHref} prefetch={false} className={`${ANALYTICAL_ACTION_CLASS} mt-3 inline-flex text-sm font-semibold text-teal-300 hover:text-teal-200`}>
               View Card <span aria-hidden="true">→</span>
             </Link>
           ) : null}
@@ -647,7 +647,7 @@ function ProductIdentity({ product, familyRankInfo, setName, isBest }) {
       ) : null}
     </RankedProductIdentity>
   );
-  return href ? <Link href={href} aria-label={`View ${product.label}`}>{content}</Link> : content;
+  return href ? <Link href={href} prefetch={false} aria-label={`View ${product.label}`}>{content}</Link> : content;
 }
 
 function LockedValue({ canView, children }) {
@@ -1131,7 +1131,7 @@ export default function RipDecisionPage({
             <div className={styles.heroLayout}>
               <div className={styles.heroIdentity}>
                 {productImage ? (
-                  <Link href={buildSealedProductHref(heroProduct.sealedProductId)} className={styles.heroProductArt} aria-label={`View ${heroProduct.label}`}>
+                  <Link href={buildSealedProductHref(heroProduct.sealedProductId)} prefetch={false} className={styles.heroProductArt} aria-label={`View ${heroProduct.label}`}>
                     <Image
                       src={productImage.src || productImage}
                       alt={`${heroProduct.label} artwork`}
@@ -1145,7 +1145,7 @@ export default function RipDecisionPage({
                   <h1 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
                     Best in {heroFamilyName}
                   </h1>
-                  <Link href={buildSealedProductHref(heroProduct.sealedProductId)} className="mt-1 block text-lg font-semibold text-[var(--text-primary)] hover:text-teal-200">
+                  <Link href={buildSealedProductHref(heroProduct.sealedProductId)} prefetch={false} className="mt-1 block text-lg font-semibold text-[var(--text-primary)] hover:text-teal-200">
                     {heroProduct.label}
                   </Link>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
@@ -1240,6 +1240,7 @@ export default function RipDecisionPage({
               {heroProduct.sealedProductId ? (
                 <Link
                   href={buildSealedProductHref(heroProduct.sealedProductId)}
+                  prefetch={false}
                   className={`${styles.heroCta} ${ANALYTICAL_ACTION_CLASS}`}
                 >
                   View Product <span aria-hidden="true">→</span>
@@ -1291,7 +1292,7 @@ export default function RipDecisionPage({
                 Index Plus compares every modeled product against equivalent
                 products across eligible sets at today&apos;s market price.
               </p>
-              <a href="/checkout">Unlock with Index Plus</a>
+              <a href="/terms">Index Plus is not yet available</a>
             </div>
           ) : null}
           {/* ONE shared header for the entire table. Family groups below are a
@@ -1525,7 +1526,7 @@ export default function RipDecisionPage({
               tail diagnostics, plus Financial RIP and Collector Appeal factor
               breakdowns.
             </p>
-            <a href="/checkout">Unlock with Index Plus</a>
+            <a href="/terms">Index Plus is not yet available</a>
           </div>
         ) : null}
 

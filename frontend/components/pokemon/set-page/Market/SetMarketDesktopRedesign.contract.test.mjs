@@ -301,6 +301,18 @@ test("Cards Market Index reads the LIVE overview payload, not the retired dead d
   );
 });
 
+test("Cards availability is generic and preserves the backend failure reason", () => {
+  const section = componentSource("SetMarketOverviewSection");
+  assert.ok(section.includes("cardsMarket?.available === false"));
+  assert.ok(section.includes("cardsMarket.reason || cardsMarket.status || SEGMENT_UNAVAILABLE_TEXT"));
+  assert.ok(section.includes("return selectPreparedSegmentTrend({"), "available data still builds Cards");
+  assert.doesNotMatch(
+    code(section),
+    /Ascended Heroes|Prismatic Evolutions|Surging Sparks|Scarlet and Violet 151|Mega Evolution|Temporal Forces|Perfect Order/,
+    "availability cannot be keyed to a set name or slug"
+  );
+});
+
 test("no Low / Medium / High banding is invented for concentration", () => {
   const rail = code(componentSource("SetSignalsRail"));
   assert.ok(!/"(Low|Medium|High)"/.test(rail));

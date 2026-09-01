@@ -89,7 +89,7 @@ from backend.domain.pokemon.market_index import (
     resolve_window_baselines,
 )
 
-MARKET_EXPLORER_QUERY_SERVICE_VERSION = "pokemon-market-explorer-query-service-v1"
+MARKET_EXPLORER_QUERY_SERVICE_VERSION = "pokemon-market-explorer-query-service-v2-variant"
 
 #: Stated in the payload so the distinction can never be lost in a handoff.
 MARKET_EXPLORER_CHASE_VS_SET_AGGREGATED_NOTE = (
@@ -341,6 +341,25 @@ def resolve_pokemon_card_ids(
     return ({str(row.get("pokemon_canonical_card_id")) for row in links}, names)
 
 
+def resolve_pokemon_names(client: Any, pokemon_ids: Sequence[str]) -> dict[str, str]:
+    """Validate lightweight Pokemon references without expanding card rows.
+
+    Canonical-card membership is intersected inside the variant cohort RPC;
+    transporting that potentially broad ID set through the application would
+    recreate the fan-out the interval engine removes.
+    """
+    wanted = {str(value).strip() for value in pokemon_ids if str(value or "").strip()}
+    if not wanted:
+        return {}
+    references = _page_all(lambda: client.table("pokemon_reference")
+                           .select("id,display_name").in_("id", sorted(wanted)))
+    names = {str(row.get("id")): str(row.get("display_name") or "") for row in references}
+    unknown = sorted(wanted - set(names))
+    if unknown:
+        raise MarketExplorerQueryError(f"unknown Pokemon id(s): {unknown}")
+    return names
+
+
 def load_release_dates(client: Any, set_ids: Sequence[str]) -> dict[str, str]:
     rows = _page_all(lambda: client.table("sets").select("id,release_date").in_("id", list(set_ids)))
     return {str(row.get("id")): str(row.get("release_date"))[:10]
@@ -386,6 +405,7 @@ COHORT_RPC = "get_pokemon_market_explorer_daily_cohort"
 #: the actual constituent identities are needed for the published basket.
 BATCHED_CONSTITUENT_RPC = "get_pokemon_cards_daily_constituents"
 FILTERED_COHORT_RPC = "get_pokemon_market_explorer_filtered_cohort"
+DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_daily"
 
 _RPC_MAX_ROWS_PER_RESPONSE = 1000
 
@@ -403,10 +423,13 @@ def load_filtered_daily_cohort_rows(
     start_date: str,
     end_date: str,
     card_ids: Sequence[str] | None,
-    price_segment_ids: Sequence[str],
-    release_age_cohort_ids: Sequence[str],
-    top_n: int | None,
+    segment_ids: Sequence[str] = (),
+    pokemon_ids: Sequence[str] = (),
+    price_segment_ids: Sequence[str] = (),
+    release_age_cohort_ids: Sequence[str] = (),
+    top_n: int | None = None,
     chunk_days: int = COHORT_CHUNK_DAYS,
+    rpc_name: str = FILTERED_COHORT_RPC,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Reduced point-in-time cohort and latest basket from the filtered SQL RPC.
 
@@ -420,6 +443,10 @@ def load_filtered_daily_cohort_rows(
     latest_basket: list[dict[str, Any]] = []
     cursor = first
     previous_observed: str | None = None
+    # Interval fallback work grows with both dates and sets. Keep each fallback
+    # statement bounded at mixed-cohort scale; projection calls are cheap but
+    # use the same overlap contract for deterministic equivalence.
+    chunk_days = min(int(chunk_days), max(3, 70 // max(1, len(set_ids))))
     while cursor <= last:
         chunk_end = min(last, cursor + timedelta(days=max(1, int(chunk_days)) - 1))
         request_start = date.fromisoformat(previous_observed) if previous_observed else cursor
@@ -428,11 +455,13 @@ def load_filtered_daily_cohort_rows(
             "p_start_date": request_start.isoformat(),
             "p_end_date": chunk_end.isoformat(),
             "p_card_ids": [str(value) for value in card_ids] if card_ids is not None else None,
+            "p_segment_ids": list(segment_ids) or None,
+            "p_pokemon_ids": [int(value) for value in pokemon_ids] or None,
             "p_price_segment_ids": list(price_segment_ids) or None,
             "p_release_age_cohort_ids": list(release_age_cohort_ids) or None,
             "p_top_n": int(top_n) if top_n else None,
         }
-        page = list(getattr(client.rpc(FILTERED_COHORT_RPC, payload).execute(), "data", None) or [])
+        page = list(getattr(client.rpc(rpc_name, payload).execute(), "data", None) or [])
         if previous_observed is not None:
             page = [row for row in page if str(row.get("market_date"))[:10] != previous_observed]
         if page:
@@ -451,7 +480,17 @@ def load_filtered_daily_cohort_rows(
         "commonPreviousValue": _numeric(row.get("common_previous_value")),
     } for row in rows]
     basket = [{
+        "cardVariantId": str(row.get("card_variant_id")),
         "canonicalCardId": str(row.get("canonical_card_id")),
+        "legacyCardId": str(row.get("legacy_card_id")),
+        "setId": str(row.get("set_id")),
+        "cardName": row.get("card_name"),
+        "cardNumber": row.get("card_number"),
+        "rarity": row.get("rarity"),
+        "edition": row.get("edition"),
+        "printingType": row.get("printing_type"),
+        "specialType": row.get("special_type"),
+        "imageUrl": row.get("image_url"),
         "marketPrice": _numeric(row.get("market_price")),
         "marketDate": str(row.get("market_date"))[:10],
         "rank": row.get("rank"),
@@ -459,22 +498,24 @@ def load_filtered_daily_cohort_rows(
     return cohorts, basket
 
 
-#: Largest UNRANKED universe the cohort authority can serve over full history.
-#:
-#: RE-DERIVED after the interval-based RPC, the covering index and the VACUUM
-#: that made index-only scans possible. The database work itself is now well
-#: within budget (Global Illustration Rare over full history: 12,271ms -> 789ms),
-#: so what binds is no longer the algorithm but PostgREST's 8s per-statement
-#: ceiling from `authenticator`: a request has one statement's worth of time,
-#: and an unranked full-history panel for a large rarity does not fit in it.
-#:
-#: Measured against the CURRENT architecture, not inherited from the old one:
-#: 222 cards completes (chunked, ~18s wall across chunks) and 363 does not.
-#: 250 still sits between them, so the number is unchanged but the reason is new.
-#:
-#: A `top_n` query is exempt: the database ranks internally, and Global Top 10
-#: now runs in ~4.6s median where it once took 40s.
-COHORT_MAX_UNRANKED_CARDS = 250
+def daily_projection_covers(client: Any, set_ids: Sequence[str], *,
+                            start_date: str, end_date: str) -> bool:
+    """Fail closed unless every set has complete projection coverage."""
+    wanted = {str(value) for value in set_ids}
+    if not wanted:
+        return False
+    try:
+        rows = list((client.table("pokemon_market_explorer_card_daily_coverage")
+                     .select("set_id,first_market_date,computed_through")
+                     .in_("set_id", sorted(wanted)).execute()).data or [])
+    except Exception:
+        return False
+    covered = {
+        str(row.get("set_id")) for row in rows
+        if str(row.get("first_market_date") or "")[:10] <= str(start_date)[:10]
+        and str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
+    }
+    return covered == wanted
 
 
 def _is_statement_timeout(exc: Exception) -> bool:
@@ -485,14 +526,6 @@ def _is_statement_timeout(exc: Exception) -> bool:
     payload = getattr(exc, "args", None)
     text = str(payload[0]) if payload else str(exc)
     return "57014" in text or "statement timeout" in text.lower()
-
-
-def _oversized_unranked_universe_message(card_count: int, set_count: int) -> str:
-    return (
-        "this market is too large to compute over its full history "
-        f"({card_count} cards across {set_count} sets). Narrow the scope to an era "
-        "or a set, or use Top 10, which the database can rank directly."
-    )
 
 
 def load_daily_cohort_rows(
@@ -540,11 +573,6 @@ def load_daily_cohort_rows(
     # after a 60-second statement timeout (or, for Illustration Rare, 66s of
     # chunk retries). Only the unranked panel is bounded: `top_n` is ranked
     # inside the database and never materialises the full card-day panel.
-    if not top_n and card_ids is not None and len(card_ids) > COHORT_MAX_UNRANKED_CARDS:
-        raise MarketExplorerQueryUnavailable(
-            _oversized_unranked_universe_message(len(card_ids), len(set_ids))
-        )
-
     rows: list[dict[str, Any]] = []
     cursor = first
     previous_observed: str | None = None
@@ -562,21 +590,11 @@ def load_daily_cohort_rows(
         }
         try:
             page = list(getattr(client.rpc(COHORT_RPC, payload).execute(), "data", None) or [])
-        except Exception as exc:  # noqa: BLE001 - classified, then re-raised
-            # A statement timeout here is not a server fault, it is this query
-            # being too large for the current cohort authority: without
-            # `p_top_n` the panel does a latest-observation-before-boundary
-            # lookup per card per day, and past roughly 250 cards that exceeds
-            # the statement budget at ANY chunk size. Surfacing it as a generic
-            # 500 told the user "something broke"; naming it lets the UI say
-            # what to do instead. Anything else propagates unchanged.
-            if not _is_statement_timeout(exc):
-                raise
-            raise MarketExplorerQueryUnavailable(
-                _oversized_unranked_universe_message(
-                    len(card_ids) if card_ids is not None else -1, len(set_ids)
-                )
-            ) from exc
+        except Exception:  # noqa: BLE001 - preserve database diagnostics
+            # A valid market is not unsupported merely because its population
+            # is broad. Preserve database timeout/plan evidence for operations
+            # instead of translating it into a size-based product rejection.
+            raise
         if len(page) >= _RPC_MAX_ROWS_PER_RESPONSE:
             raise MarketExplorerQueryUnavailable(
                 f"{COHORT_RPC} hit the {_RPC_MAX_ROWS_PER_RESPONSE}-row response cap; "
@@ -624,6 +642,7 @@ def load_basket_for_date(
     rows = list(getattr(client.rpc(BATCHED_CONSTITUENT_RPC, payload).execute(), "data", None) or [])
     return [
         {
+            "cardVariantId": str(row.get("card_variant_id")),
             "canonicalCardId": str(row.get("canonical_card_id")),
             "marketPrice": _numeric(row.get("market_price")),
             "marketDate": str(row.get("market_date"))[:10],
@@ -672,7 +691,7 @@ def load_constituent_movement_prices(
     """
     prices: dict[str, dict[str, float]] = {
         str(latest_date)[:10]: {
-            str(row["canonicalCardId"]): float(row["marketPrice"])
+            str(row["cardVariantId"]): float(row["marketPrice"])
             for row in latest_rows
             if row.get("marketPrice") is not None
         }
@@ -684,7 +703,7 @@ def load_constituent_movement_prices(
             client, set_ids, market_date=baseline, card_ids=card_ids,
         )
         prices[baseline] = {
-            str(row["canonicalCardId"]): float(row["marketPrice"])
+            str(row["cardVariantId"]): float(row["marketPrice"])
             for row in rows
             if row.get("marketPrice") is not None
         }
@@ -721,7 +740,7 @@ def build_query_series(
     # observations so a Top-N market still reports each member's own real
     # movement rather than only the days it happened to be in the basket.
     constituent_movements = build_constituent_movements(
-        prices_by_date_from_query_rows(rows, id_field="canonicalCardId")
+        prices_by_date_from_query_rows(rows, id_field="cardVariantId")
     )
 
     history = build_chain_linked_history_with_segments(observations)
@@ -745,11 +764,12 @@ def build_query_series(
     # as a top ten a user cannot enumerate.
     constituents = []
     for entry in sorted(latest_observation["constituents"], key=lambda row: row["rank"]):
-        card_id = str(entry["setId"])
-        meta = dict(card_metadata.get(card_id) or {})
+        variant_id = str(entry["setId"])
+        meta = dict(card_metadata.get(variant_id) or {})
         constituents.append({
             "rank": entry["rank"],
-            "canonicalCardId": card_id,
+            "cardVariantId": variant_id,
+            "canonicalCardId": meta.get("canonicalCardId"),
             "cardName": meta.get("cardName"),
             "cardNumber": meta.get("cardNumber"),
             "setId": meta.get("setId"),
@@ -765,7 +785,7 @@ def build_query_series(
             ),
             # The same compact contract prepared segments publish, so Current
             # Constituents renders prepared and dynamic markets identically.
-            "changes": (constituent_movements.get("byConstituent") or {}).get(card_id) or {},
+            "changes": (constituent_movements.get("byConstituent") or {}).get(variant_id) or {},
         })
 
     represented_sets = {row["setId"] for row in constituents if row.get("setId")}
@@ -875,17 +895,23 @@ def build_query_series_from_cohorts(
 
     constituents = []
     for entry in selected:
-        card_id = str(entry["canonicalCardId"])
-        meta = dict(card_metadata.get(card_id) or {})
+        variant_id = str(entry["cardVariantId"])
+        canonical_id = str(entry.get("canonicalCardId") or "")
+        meta = {**dict(card_metadata.get(canonical_id) or {}), **dict(entry)}
         constituents.append({
             "rank": entry["rank"],
-            "canonicalCardId": card_id,
+            "cardVariantId": variant_id,
+            "canonicalCardId": canonical_id or None,
+            "legacyCardId": meta.get("legacyCardId"),
             "cardName": meta.get("cardName"),
             "cardNumber": meta.get("cardNumber"),
             "setId": meta.get("setId"),
             "setName": meta.get("setName"),
             "rarity": meta.get("rarity"),
             "segmentKey": meta.get("segmentKey"),
+            "edition": meta.get("edition"),
+            "printingType": meta.get("printingType"),
+            "specialType": meta.get("specialType"),
             "marketPrice": round(float(entry["marketPrice"]), 2),
             "imageUrl": meta.get("imageUrl"),
             "asOf": latest_row["marketDate"],
@@ -893,7 +919,7 @@ def build_query_series_from_cohorts(
                 f"rank {entry['rank']} by market price within the filtered universe"
                 if mode == MODE_CHASE else "eligible constituent of the filtered universe"
             ),
-            "changes": (constituent_movements.get("byConstituent") or {}).get(card_id) or {},
+            "changes": (constituent_movements.get("byConstituent") or {}).get(variant_id) or {},
         })
 
     represented_sets = {row["setId"] for row in constituents if row.get("setId")}
@@ -917,7 +943,7 @@ def build_query_series_from_cohorts(
         "movementWindows": constituent_movements.get("windows") or {},
         "membershipByDate": [
             {"marketDate": latest_row["marketDate"],
-             "constituentIds": [row["canonicalCardId"] for row in constituents]},
+             "constituentIds": [row["cardVariantId"] for row in constituents]},
         ],
         "reconciliation": {
             "requestedTopN": requested_top_n,
@@ -999,32 +1025,10 @@ def run_market_explorer_query(
     if not scope_set_ids:
         raise MarketExplorerQueryUnavailable("no tracked set satisfies the selected scope")
 
-    card_universe = resolve_segment_card_universe(client, scope_set_ids, spec["segmentIds"])
-    pokemon_card_ids, pokemon_names = resolve_pokemon_card_ids(client, spec["pokemonIds"])
-    if pokemon_card_ids is not None:
-        card_universe = {key: value for key, value in card_universe.items() if key in pokemon_card_ids}
-    if not card_universe:
-        raise MarketExplorerQueryUnavailable("no eligible card satisfies the selected filters")
-
-    # A set that contributes no eligible card after the segment filter cannot
-    # contribute a constituent either, so its constituent read can only return
-    # rows we would discard. Dropping it here is not an optimisation detail: the
-    # per-set RPC is by far the dominant cost of a query, and a rarity that
-    # exists in 22 of 167 tracked sets would otherwise pay for 145 pointless
-    # round trips. This changes cost, never membership.
-    contributing_set_ids = {meta["setId"] for meta in card_universe.values()}
-    scope_set_ids = [set_id for set_id in scope_set_ids if set_id in contributing_set_ids]
-
+    pokemon_names = resolve_pokemon_names(client, spec["pokemonIds"])
     set_names = _load_set_names(client, scope_set_ids)
     era_names = _load_era_names(client, spec["eraIds"])
-    for meta in card_universe.values():
-        meta["setName"] = set_names.get(meta["setId"])
-
-    # Only pass a card filter when the segment filter actually narrowed the
-    # universe. For an "all rarities" query every card in scope is eligible, and
-    # shipping tens of thousands of ids as an array parameter would cost more
-    # than it saves.
-    card_ids = list(card_universe.keys()) if (spec["segmentIds"] or spec["pokemonIds"]) else None
+    card_ids = None
 
     # Narrow an open-ended request to the history that exists, so "everything"
     # does not become hundreds of statements over empty years.
@@ -1036,38 +1040,30 @@ def run_market_explorer_query(
             "the requested date range does not overlap this scope's tracked history"
         )
 
-    dynamic_membership = bool(spec["priceSegmentIds"] or spec["releaseAgeCohortIds"])
-    if dynamic_membership:
-        cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
-            client, scope_set_ids, start_date=effective_start, end_date=effective_end,
-            card_ids=card_ids,
-            price_segment_ids=spec["priceSegmentIds"],
-            release_age_cohort_ids=spec["releaseAgeCohortIds"], top_n=spec["topN"],
-        )
-        if not cohort_rows:
-            raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
-    else:
-        cohort_rows = load_daily_cohort_rows(
-            client, scope_set_ids, start_date=effective_start, end_date=effective_end,
-            card_ids=card_ids, top_n=spec["topN"],
-        )
-        if not cohort_rows:
-            raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
-
-    basket_rows = load_basket_for_date(
-        client, scope_set_ids, market_date=cohort_rows[-1]["marketDate"], card_ids=card_ids,
-    ) if not dynamic_membership else basket_rows
-    # Movement needs the window baseline days, which the cohort path does not
-    # transport. At most four extra single-date basket reads, usually fewer.
-    movement_prices = load_constituent_movement_prices(
-        client, scope_set_ids,
-        market_dates=[row["marketDate"] for row in cohort_rows],
-        latest_date=cohort_rows[-1]["marketDate"],
-        latest_rows=basket_rows,
+    current_only = effective_start == effective_end
+    projection_covered = (not current_only and daily_projection_covers(
+        client, scope_set_ids, start_date=effective_start, end_date=effective_end,
+    ))
+    execution_engine = (
+        "interval_current" if current_only else
+        "daily_projection" if projection_covered else "interval_fallback"
+    )
+    cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
+        client, scope_set_ids, start_date=effective_start, end_date=effective_end,
         card_ids=card_ids,
-    ) if not dynamic_membership else {}
+        segment_ids=spec["segmentIds"], pokemon_ids=spec["pokemonIds"],
+        price_segment_ids=spec["priceSegmentIds"],
+        release_age_cohort_ids=spec["releaseAgeCohortIds"], top_n=spec["topN"],
+        rpc_name=DAILY_PROJECTION_RPC if projection_covered else FILTERED_COHORT_RPC,
+    )
+    if not cohort_rows:
+        raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
+    for row in basket_rows:
+        row["setName"] = set_names.get(str(row.get("setId") or ""))
+        row["segmentKey"] = segment_key_for_rarity(row.get("rarity"))
+    movement_prices: dict[str, dict[str, float]] = {}
     series = build_query_series_from_cohorts(
-        cohort_rows, basket_rows, card_universe, mode=spec["mode"], top_n=spec["topN"],
+        cohort_rows, basket_rows, {}, mode=spec["mode"], top_n=spec["topN"],
         movement_prices=movement_prices,
     )
     if series is None:
@@ -1086,13 +1082,15 @@ def run_market_explorer_query(
         "chaseModelNote": MARKET_EXPLORER_CHASE_VS_SET_AGGREGATED_NOTE,
         "scope": {
             "resolvedSetCount": len(scope_set_ids),
-            "eligibleCardCount": len(card_universe),
+            "eligibleCardCount": series["reconciliation"]["eligibleUniverseCount"],
+            "eligibleVariantCount": series["reconciliation"]["eligibleUniverseCount"],
             "requestedStartDate": str(start_date)[:10],
             "requestedEndDate": str(end_date)[:10],
             "startDate": effective_start,
             "endDate": effective_end,
         },
         "diagnostics": {
+            "executionEngine": execution_engine,
             "cohortRowCount": len(cohort_rows),
             "currentBasketRowCount": len(basket_rows),
             "movementBaselineDateCount": max(0, len(movement_prices) - 1),

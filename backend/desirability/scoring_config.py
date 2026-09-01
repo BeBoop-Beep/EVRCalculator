@@ -372,6 +372,85 @@ OVERALL_RIP_V10_EFFECTIVE_WEIGHTS: Dict[str, float] = {
 }
 
 # ---------------------------------------------------------------------------
+# Overall RIP V11 - 83% Financial V4 + 11% Collector Appeal V5 + 6% Chase
+# ---------------------------------------------------------------------------
+# V11 ADDS A THIRD PILLAR. V10 is untouched: it remains computable, its version
+# string keeps meaning exactly 0.90 F_V4 + 0.10 C_V5, and every row ever written
+# under it stays reproducible. V11 is a NEW identifier, never an alias.
+#
+# LINEAGE
+# -------
+# Stage V-C  - the coupled Core chase contract, core = 3x the product's own
+#              pack-equivalent cost (product_market_cost / random_pack_count).
+#              The Stage IV percentile guardrail was measured inert in 0 of 21
+#              sets and REMOVED; there is no max(5C, V95) term in the validated
+#              lineage.
+# Stage VI   - Core K selected as the Chase construct.
+# Stage VI-A - weight neighbourhood explored (its C1-C5 verdicts were later
+#              shown to describe Candidate B, not the recommendation).
+# Stage VI-B - CHASE_WEIGHT_84_10_06_VALIDATED. Candidate A recomputed from its
+#              own formula, flags YYYYY, and the transform fixed at the 100
+#              scale because 200K/(K+10) exceeds 100 and cannot be a pillar.
+# Stage VII  - COLLECTOR_WEIGHT_11_VALIDATED__PRODUCT_LEVEL_SIGNAL_STRUCTURALLY_ABSENT.
+#              Collector moves 10 -> 11 as the lowest sufficient weight; 12 and
+#              13 buy no information at a real cost in safety margin.
+#
+# The Chase pillar is Core K only. Extended K is NOT part of Overall RIP.
+
+OVERALL_RIP_V11_VERSION = (
+    "overall_rip_v11_83_financial_v4_11_collector_appeal_v5_06_chase_opportunity_v1"
+)
+
+OVERALL_RIP_V11_FINANCIAL_WEIGHT = 0.83
+OVERALL_RIP_V11_COLLECTOR_APPEAL_WEIGHT = 0.11
+OVERALL_RIP_V11_CHASE_OPPORTUNITY_WEIGHT = 0.06
+
+OVERALL_RIP_V11_WEIGHTS: Dict[str, float] = {
+    "financial_rip": OVERALL_RIP_V11_FINANCIAL_WEIGHT,
+    "collector_appeal": OVERALL_RIP_V11_COLLECTOR_APPEAL_WEIGHT,
+    "chase_opportunity": OVERALL_RIP_V11_CHASE_OPPORTUNITY_WEIGHT,
+}
+
+#: Weights must be a partition of 1.0. A renormalizing composition would let a
+#: missing pillar silently reweight the survivors, which V11 forbids outright.
+OVERALL_RIP_V11_WEIGHT_SUM_TOLERANCE = 1e-9
+assert abs(sum(OVERALL_RIP_V11_WEIGHTS.values()) - 1.0) <= OVERALL_RIP_V11_WEIGHT_SUM_TOLERANCE, (
+    "Overall RIP V11 weights must sum to exactly 1.0"
+)
+
+# The effective per-input weights after expanding the six Financial RIP V4
+# components across the 0.83 share.
+OVERALL_RIP_V11_EFFECTIVE_WEIGHTS: Dict[str, float] = {
+    **{
+        component: OVERALL_RIP_V11_WEIGHTS["financial_rip"] * weight
+        for component, weight in _FINANCIAL_RIP_V4_WEIGHTS.items()
+    },
+    "collector_appeal": OVERALL_RIP_V11_WEIGHTS["collector_appeal"],
+    "chase_opportunity": OVERALL_RIP_V11_WEIGHTS["chase_opportunity"],
+}
+
+# The EXACT input identities V11 requires. A canonical V11 score may only be
+# formed from pillars carrying these versions; a mismatch is a hard refusal,
+# never a coerced read. Chase is resolved lazily for the same reason the
+# Collector identity is - to keep this module free of a circular import.
+OVERALL_RIP_V11_REQUIRED_FINANCIAL_VERSION = FINANCIAL_RIP_V4_VERSION
+
+
+def overall_rip_v11_required_collector_appeal_version() -> str:
+    """The Collector Appeal identity Overall RIP V11 requires."""
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
+
+    return COLLECTOR_APPEAL_V5_VERSION
+
+
+def overall_rip_v11_required_chase_opportunity_version() -> str:
+    """The Chase Opportunity identity Overall RIP V11 requires."""
+    from backend.desirability.chase_opportunity import CHASE_OPPORTUNITY_V1_VERSION
+
+    return CHASE_OPPORTUNITY_V1_VERSION
+
+
+# ---------------------------------------------------------------------------
 # Overall RIP sensitivity weights (RESEARCH ONLY - never production)
 # ---------------------------------------------------------------------------
 # The Collector Appeal shares the read-only validation tool reports against the

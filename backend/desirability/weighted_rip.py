@@ -58,6 +58,9 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_V9_VERSION,
     OVERALL_RIP_V9_WEIGHTS,
     OVERALL_RIP_V10_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V11_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V11_VERSION,
+    OVERALL_RIP_V11_WEIGHTS,
     OVERALL_RIP_V10_VERSION,
     OVERALL_RIP_V10_WEIGHTS,
     OVERALL_RIP_WEIGHTS,
@@ -284,6 +287,110 @@ def compute_overall_rip_v10(
         "weights": dict(OVERALL_RIP_V10_WEIGHTS),
         "effectiveWeights": dict(OVERALL_RIP_V10_EFFECTIVE_WEIGHTS),
         "formula": "0.90 * financial_rip_v4 + 0.10 * collector_appeal_v5",
+        "rankable": True,
+    }
+
+
+
+def compute_overall_rip_v11(
+    financial_rip_v4_score: Any,
+    collector_appeal_v5_score: Any,
+    chase_opportunity_score: Any,
+) -> Dict[str, Any]:
+    """Overall RIP V11 = 0.83 * Financial V4 + 0.11 * Collector V5 + 0.06 * Chase.
+
+    The Chase pillar is ``100 * K / (K + 10)`` over the Stage V-C Core chase
+    count, computed by :mod:`backend.desirability.chase_opportunity`. Extended K
+    is not part of this model.
+
+    V10 IS NOT TOUCHED BY THIS FUNCTION. ``compute_overall_rip_v10`` remains
+    exactly 90/10, its version string keeps its original meaning, and no V11
+    score may ever be written into a V10-named field.
+
+    NO RENORMALIZATION, IN ANY DIRECTION
+    ------------------------------------
+    All three pillars are required. When any one is unavailable the result is
+    unavailable and ``rankable`` is False. There is no fallback to Overall RIP
+    V10, no reweighting of the survivors to 1.0, and a missing Chase pillar is
+    never substituted with zero - a valid Core K of 0 is a measured absence of
+    chase and is a different fact from an unmeasured one. Renormalizing would
+    produce a number that LOOKS canonical and sorts beside real V11 scores
+    without being comparable to them.
+
+    Each input must carry its declared canonical version; callers resolve the
+    pillars by DECLARED VERSION, never by field position. Passing a V10 score,
+    a Financial V3 score or the research ``200K/(K+10)`` scale here would
+    silently mint a different model wearing the V11 name.
+    """
+    financial_score = _as_float(financial_rip_v4_score)
+    appeal_score = _as_float(collector_appeal_v5_score)
+    chase_score = _as_float(chase_opportunity_score)
+
+    w_financial = OVERALL_RIP_V11_WEIGHTS["financial_rip"]
+    w_appeal = OVERALL_RIP_V11_WEIGHTS["collector_appeal"]
+    w_chase = OVERALL_RIP_V11_WEIGHTS["chase_opportunity"]
+
+    if financial_score is None or appeal_score is None or chase_score is None:
+        missing: List[str] = []
+        if financial_score is None:
+            missing.append("financial_rip_v4")
+        if appeal_score is None:
+            missing.append("collector_appeal_v5")
+        if chase_score is None:
+            missing.append("chase_opportunity_v1")
+        return {
+            "score": None,
+            "version": OVERALL_RIP_V11_VERSION,
+            "status": "unavailable_missing_input",
+            "statusReason": (
+                "Overall RIP V11 needs a valid Financial RIP V4, Collector "
+                "Appeal V5 and Chase Opportunity V1. Missing: "
+                + ", ".join(missing) + ". No pillar is renormalized, a missing "
+                "Chase Opportunity is not treated as zero, and there is no "
+                "fallback to Overall RIP V10."
+            ),
+            "missingInputs": missing,
+            "components": {},
+            "weights": dict(OVERALL_RIP_V11_WEIGHTS),
+            "rankable": False,
+        }
+
+    financial_contribution = w_financial * financial_score
+    appeal_contribution = w_appeal * appeal_score
+    chase_contribution = w_chase * chase_score
+    total = financial_contribution + appeal_contribution + chase_contribution
+    # Defensive only, matching the established Overall RIP domain behaviour.
+    # With valid pillars all three inputs are already in [0, 100] and the
+    # weights partition 1.0, so this bound is unreachable rather than an
+    # influence cap - asserted by the test suite.
+    score = max(0.0, min(100.0, total))
+    return {
+        "score": round(score, 4),
+        "version": OVERALL_RIP_V11_VERSION,
+        "status": "ready",
+        "components": {
+            "financialRipV4": {
+                "score": round(financial_score, 4),
+                "weight": round(w_financial, 6),
+                "contribution": round(financial_contribution, 4),
+            },
+            "collectorAppeal": {
+                "score": round(appeal_score, 4),
+                "weight": round(w_appeal, 6),
+                "contribution": round(appeal_contribution, 4),
+            },
+            "chaseOpportunity": {
+                "score": round(chase_score, 4),
+                "weight": round(w_chase, 6),
+                "contribution": round(chase_contribution, 4),
+            },
+        },
+        "weights": dict(OVERALL_RIP_V11_WEIGHTS),
+        "effectiveWeights": dict(OVERALL_RIP_V11_EFFECTIVE_WEIGHTS),
+        "formula": (
+            "0.83 * financial_rip_v4 + 0.11 * collector_appeal_v5 "
+            "+ 0.06 * chase_opportunity_v1"
+        ),
         "rankable": True,
     }
 

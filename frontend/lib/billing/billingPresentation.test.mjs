@@ -1,0 +1,8 @@
+import assert from "node:assert/strict"; import test from "node:test";
+import { billingMessage, canManageSubscription, planLabel, selectableOffers, statusPresentation } from "./billingPresentation.mjs";
+test("canonical plan labels",()=>{assert.equal(planLabel(null),"Basic");assert.equal(planLabel("plus"),"Index Plus");assert.equal(planLabel("premium"),"Index Premium");});
+test("manual premium is not presented as Stripe managed",()=>{const dto={effectivePlan:"premium",billingManaged:false,accessManagedByIndex:true,purchasableOfferKeys:[]};assert.equal(planLabel(dto.effectivePlan),"Index Premium");assert.equal(canManageSubscription(dto.subscriptionStatus),false);assert.deepEqual(selectableOffers(dto),[]);});
+test("active cancellation remains access through end date",()=>{assert.equal(statusPresentation("active",true).label,"Scheduled to end");assert.match(billingMessage("active",{cancelAtPeriodEnd:true,currentPeriodEnd:"2026-09-30T00:00:00Z"}),/Access remains active/);});
+test("past due communicates recovery and mixed provenance accurately",()=>{assert.match(billingMessage("past_due",{}),/remains active/);assert.match(billingMessage("unpaid",{effectivePlan:"premium"}),/remains Index Premium/);});
+test("managed subscribers never receive checkout offers",()=>{assert.deepEqual(selectableOffers({billingManaged:true,purchasableOfferKeys:["premium_monthly"]}),[]);assert.deepEqual(selectableOffers({billingManaged:false,purchasableOfferKeys:["plus_monthly"]}),["plus_monthly"]);});
+test("unknown status fails to neutral presentation",()=>assert.equal(statusPresentation("brand_new_status").label,"Billing status unavailable"));

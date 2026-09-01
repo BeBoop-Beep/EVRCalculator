@@ -49,15 +49,35 @@ export const FEATURE_MARKET_EXPLORER_COMPOUND = "market_explorer_compound";
 export const FEATURE_MARKET_EXPLORER_CUSTOM_RANKED = "market_explorer_custom_ranked";
 export const FEATURE_MARKET_EXPLORER_POKEMON = "market_explorer_pokemon";
 export const FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency";
+export const FEATURE_PRODUCT_RIP = "product_rip";
+export const FEATURE_DETAILED_OPENING_ECONOMICS = "detailed_opening_economics";
+export const FEATURE_SET_PACK_ECONOMICS = "set_pack_economics";
+export const FEATURE_ERA_PACK_ECONOMICS = "era_pack_economics";
+export const FEATURE_MARKET_BREADTH = "market_breadth";
+export const FEATURE_CARD_PULL_ODDS = "card_pull_odds";
+export const FEATURE_ACQUISITION_MILESTONES = "acquisition_milestones";
+export const FEATURE_PREPARED_MARKET_INTELLIGENCE = "prepared_market_intelligence";
+export const FEATURE_CHASE_OPENING_ROUTE = "chase_opening_route";
+export const FEATURE_CHASE_VS_BUY = "chase_vs_buy";
+export const FEATURE_CHASE_RANKINGS = "chase_rankings";
+
+export const PLUS_FEATURES = Object.freeze(new Set([
+  FEATURE_PRODUCT_RIP, FEATURE_DETAILED_OPENING_ECONOMICS,
+  FEATURE_SET_PACK_ECONOMICS, FEATURE_ERA_PACK_ECONOMICS,
+  FEATURE_MARKET_BREADTH, FEATURE_CARD_PULL_ODDS,
+  FEATURE_ACQUISITION_MILESTONES, FEATURE_PREPARED_MARKET_INTELLIGENCE,
+  FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS, FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
+]));
+export const PREMIUM_FEATURES = Object.freeze(new Set([
+  FEATURE_CARD_CHASE_EFFICIENCY, FEATURE_CHASE_OPENING_ROUTE,
+  FEATURE_CHASE_VS_BUY, FEATURE_CHASE_RANKINGS,
+  FEATURE_MARKET_EXPLORER_COMPOUND, FEATURE_MARKET_EXPLORER_CUSTOM_RANKED,
+  FEATURE_MARKET_EXPLORER_POKEMON,
+]));
 
 export function hasIndexFeatureAccess(plan, feature) {
-  if (feature === FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS || feature === FEATURE_MARKET_EXPLORER_SINGLE_AXIS) return hasIndexPlusAccess(plan);
-  if (feature === FEATURE_CARD_CHASE_EFFICIENCY) {
-    return hasIndexPremiumAccess(plan);
-  }
-  if (feature === FEATURE_MARKET_EXPLORER_COMPOUND || feature === FEATURE_MARKET_EXPLORER_CUSTOM_RANKED || feature === FEATURE_MARKET_EXPLORER_POKEMON) {
-    return hasIndexPremiumAccess(plan);
-  }
+  if (PREMIUM_FEATURES.has(feature)) return hasIndexPremiumAccess(plan);
+  if (PLUS_FEATURES.has(feature)) return hasIndexPlusAccess(plan);
   return false;
 }
 

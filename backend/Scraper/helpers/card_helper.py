@@ -57,6 +57,8 @@ def parse_tcgplayer_printing(raw_printing: Optional[str]) -> Tuple[str, str]:
     # Check for edition indicators
     if "1st edition" in printing_lower or "1st ed" in printing_lower:
         edition = "1st-edition"
+    elif "shadowless" in printing_lower:
+        edition = "shadowless"
     elif "unlimited" in printing_lower:
         edition = "unlimited"
     
@@ -110,9 +112,9 @@ def normalize_condition(condition):
         if key in condition_lower:
             return value
     
-    # Default to Near Mint if we can't match
-    print(f"[WARN] Unknown condition '{condition}', defaulting to 'Near Mint'")
-    return 'Near Mint'
+    # Variant-state collection must never relabel an unknown provider condition.
+    print(f"[WARN] Unknown condition '{condition}', rejecting price row")
+    return None
 
 def clean_product_name(product_name, remove_special_patterns=False):
     """

@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from backend.domain.pokemon.market_explorer_query import (
+    ASSET_CONSTITUENT_ID_FIELD,
     DEFAULT_CHASE_TOP_N,
     MODE_ALL,
     MODE_CHASE,
@@ -27,6 +28,41 @@ from backend.domain.pokemon.market_explorer_query import (
     price_segment_for,
     release_age_cohort_for,
 )
+
+
+def test_raw_cards_are_keyed_by_variant_while_sealed_keeps_product_identity():
+    assert ASSET_CONSTITUENT_ID_FIELD["cards"] == "cardVariantId"
+    assert ASSET_CONSTITUENT_ID_FIELD["sealed"] == "sealedProductId"
+
+
+def test_first_and_unlimited_are_independent_constituents_and_prices():
+    rows = [
+        {"marketDate": "2026-01-01", "cardVariantId": "dragonite-first", "marketPrice": 500},
+        {"marketDate": "2026-01-01", "cardVariantId": "dragonite-unlimited", "marketPrice": 100},
+        {"marketDate": "2026-01-02", "cardVariantId": "dragonite-first", "marketPrice": 550},
+        {"marketDate": "2026-01-02", "cardVariantId": "dragonite-unlimited", "marketPrice": 100},
+    ]
+    observations = build_query_observations(rows, mode=MODE_ALL, top_n=None)
+    assert [row["setId"] for row in observations[0]["constituents"]] == [
+        "dragonite-first", "dragonite-unlimited",
+    ]
+    assert sum(row["setValue"] for row in observations[1]["constituents"]) == 650
+
+
+def test_variant_entry_exit_is_neutral_in_common_cohort_chain():
+    from backend.domain.pokemon.market_index import build_chain_linked_history_with_segments
+
+    rows = [
+        {"marketDate": "2026-01-01", "cardVariantId": "dragonite-first", "marketPrice": 500},
+        {"marketDate": "2026-01-01", "cardVariantId": "dragonite-unlimited", "marketPrice": 100},
+        {"marketDate": "2026-01-02", "cardVariantId": "dragonite-unlimited", "marketPrice": 100},
+        {"marketDate": "2026-01-02", "cardVariantId": "dragonite-reverse", "marketPrice": 900},
+    ]
+    history = build_chain_linked_history_with_segments(
+        build_query_observations(rows, mode=MODE_ALL, top_n=None)
+    )
+    assert history[1]["normalizedIndexValue"] == pytest.approx(history[0]["normalizedIndexValue"])
+    assert history[1]["basketValue"] != history[0]["basketValue"]
 
 
 def test_pass3_axes_normalize_deduplicate_and_fingerprint_deterministically():
@@ -50,9 +86,9 @@ def test_sealed_rejects_pokemon_axis():
 
 def test_price_segment_membership_is_point_in_time_and_precedes_ranking():
     rows = [
-        {"marketDate": "2026-01-01", "canonicalCardId": "dragonite", "marketPrice": 9},
-        {"marketDate": "2026-04-01", "canonicalCardId": "dragonite", "marketPrice": 50},
-        {"marketDate": "2026-08-01", "canonicalCardId": "dragonite", "marketPrice": 150},
+        {"marketDate": "2026-01-01", "cardVariantId": "dragonite-normal", "marketPrice": 9},
+        {"marketDate": "2026-04-01", "cardVariantId": "dragonite-normal", "marketPrice": 50},
+        {"marketDate": "2026-08-01", "cardVariantId": "dragonite-normal", "marketPrice": 150},
     ]
     assert [row["marketDate"] for row in filter_point_in_time_rows(rows, asset="cards", price_segment_ids=["obtainable"])] == ["2026-01-01"]
     assert [row["marketDate"] for row in filter_point_in_time_rows(rows, asset="cards", price_segment_ids=["intermediate"])] == ["2026-04-01"]
@@ -68,7 +104,7 @@ def test_release_age_membership_transitions_by_observation_date():
 
 
 def _c(card_id: str, price: float) -> dict:
-    return {"canonicalCardId": card_id, "marketPrice": price}
+    return {"cardVariantId": card_id, "marketPrice": price}
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +156,22 @@ def test_differing_selections_do_not_collide():
     assert query_fingerprint(a) != query_fingerprint(b)
 
 
+def test_versioned_fingerprint_golden_vector_and_methodology_rotation():
+    spec = normalize_query_spec(
+        mode=MODE_CHASE, asset="cards", set_ids=["b", "a", "a"],
+        pokemon_ids=["25"], price_segment_ids=["premium"], top_n=10,
+    )
+    assert query_fingerprint(spec) == (
+        "2cb8862bc86ab03be481ae12f163838a5c9a6371ffc5613cbac03d27b139541d"
+    )
+    assert query_fingerprint(
+        spec, instrument_methodology_version="pokemon-physical-market-instrument-v2",
+    ) != query_fingerprint(spec)
+    assert query_fingerprint(
+        spec, service_version="pokemon-market-explorer-query-service-vNext",
+    ) != query_fingerprint(spec)
+
+
 def test_query_key_is_human_readable_and_stable():
     spec = normalize_query_spec(mode=MODE_CHASE, segment_ids=["specialIllustrationRare"])
     assert query_key(spec) == (
@@ -145,14 +197,14 @@ def test_no_set_quota_one_set_may_occupy_most_of_the_basket():
     """Spec section 40. Set A holds 5 of the 10 highest prices; all 5 survive."""
     universe = [_c(f"a{i}", 1000 - i) for i in range(5)] + [_c(f"b{i}", 500 - i) for i in range(10)]
     picked = rank_chase_constituents(universe, 10)
-    assert sum(1 for row in picked if row["canonicalCardId"].startswith("a")) == 5
+    assert sum(1 for row in picked if row["cardVariantId"].startswith("a")) == 5
 
 
 def test_zero_representation_for_a_set_below_the_cutoff():
     """Spec section 41. Set B is cheap everywhere and contributes nothing."""
     universe = [_c(f"a{i}", 1000 - i) for i in range(10)] + [_c(f"b{i}", 1.0) for i in range(10)]
     picked = rank_chase_constituents(universe, 10)
-    assert all(row["canonicalCardId"].startswith("a") for row in picked)
+    assert all(row["cardVariantId"].startswith("a") for row in picked)
 
 
 def test_fewer_than_top_n_returns_what_exists_without_filler():
@@ -161,14 +213,14 @@ def test_fewer_than_top_n_returns_what_exists_without_filler():
     assert len(picked) == 6
 
 
-def test_ties_break_on_canonical_card_id_not_input_order():
+def test_ties_break_on_card_variant_id_not_input_order():
     shuffled = [_c("zzz", 50.0), _c("aaa", 50.0), _c("mmm", 50.0)]
-    assert [row["canonicalCardId"] for row in rank_chase_constituents(shuffled, 2)] == ["aaa", "mmm"]
+    assert [row["cardVariantId"] for row in rank_chase_constituents(shuffled, 2)] == ["aaa", "mmm"]
 
 
 def test_ranking_is_by_price_descending():
     picked = rank_chase_constituents([_c("a", 1.0), _c("b", 99.0), _c("c", 50.0)], 3)
-    assert [row["canonicalCardId"] for row in picked] == ["b", "c", "a"]
+    assert [row["cardVariantId"] for row in picked] == ["b", "c", "a"]
 
 
 # ---------------------------------------------------------------------------
@@ -182,10 +234,10 @@ def test_membership_is_recomputed_per_date_and_never_backfilled():
     must still contain A and must NOT contain B.
     """
     rows = [
-        {"marketDate": "2026-01-01", "canonicalCardId": "A", "marketPrice": 100.0},
-        {"marketDate": "2026-01-01", "canonicalCardId": "B", "marketPrice": 10.0},
-        {"marketDate": "2026-01-02", "canonicalCardId": "A", "marketPrice": 100.0},
-        {"marketDate": "2026-01-02", "canonicalCardId": "B", "marketPrice": 900.0},
+        {"marketDate": "2026-01-01", "cardVariantId": "A", "marketPrice": 100.0},
+        {"marketDate": "2026-01-01", "cardVariantId": "B", "marketPrice": 10.0},
+        {"marketDate": "2026-01-02", "cardVariantId": "A", "marketPrice": 100.0},
+        {"marketDate": "2026-01-02", "cardVariantId": "B", "marketPrice": 900.0},
     ]
     observations = build_query_observations(rows, mode=MODE_CHASE, top_n=1)
     day1, day2 = observations
@@ -195,8 +247,8 @@ def test_membership_is_recomputed_per_date_and_never_backfilled():
 
 def test_all_mode_retains_every_eligible_constituent():
     rows = [
-        {"marketDate": "2026-01-01", "canonicalCardId": "A", "marketPrice": 100.0},
-        {"marketDate": "2026-01-01", "canonicalCardId": "B", "marketPrice": 10.0},
+        {"marketDate": "2026-01-01", "cardVariantId": "A", "marketPrice": 100.0},
+        {"marketDate": "2026-01-01", "cardVariantId": "B", "marketPrice": 10.0},
     ]
     observations = build_query_observations(rows, mode=MODE_ALL, top_n=None)
     assert len(observations[0]["constituents"]) == 2
@@ -204,16 +256,16 @@ def test_all_mode_retains_every_eligible_constituent():
 
 def test_non_positive_prices_are_dropped_not_zero_filled():
     rows = [
-        {"marketDate": "2026-01-01", "canonicalCardId": "A", "marketPrice": 100.0},
-        {"marketDate": "2026-01-01", "canonicalCardId": "B", "marketPrice": 0.0},
-        {"marketDate": "2026-01-01", "canonicalCardId": "C", "marketPrice": None},
+        {"marketDate": "2026-01-01", "cardVariantId": "A", "marketPrice": 100.0},
+        {"marketDate": "2026-01-01", "cardVariantId": "B", "marketPrice": 0.0},
+        {"marketDate": "2026-01-01", "cardVariantId": "C", "marketPrice": None},
     ]
     observations = build_query_observations(rows, mode=MODE_ALL, top_n=None)
     assert [row["setId"] for row in observations[0]["constituents"]] == ["A"]
 
 
 def test_observations_carry_requested_and_actual_counts():
-    rows = [{"marketDate": "2026-01-01", "canonicalCardId": "A", "marketPrice": 5.0}]
+    rows = [{"marketDate": "2026-01-01", "cardVariantId": "A", "marketPrice": 5.0}]
     day = build_query_observations(rows, mode=MODE_CHASE, top_n=10)[0]
     assert day["requestedTopN"] == 10
     assert day["actualConstituentCount"] == 1
@@ -252,7 +304,7 @@ def _cohorts_from_rows(rows, *, mode, top_n):
 
 
 def _row(date_, card, price):
-    return {"marketDate": date_, "canonicalCardId": card, "marketPrice": price}
+    return {"marketDate": date_, "cardVariantId": card, "marketPrice": price}
 
 
 def test_cohort_chain_link_matches_the_row_based_chain_link():

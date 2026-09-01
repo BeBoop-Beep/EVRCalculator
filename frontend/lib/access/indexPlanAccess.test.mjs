@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   FEATURE_CARD_CHASE_EFFICIENCY,
   FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+  PLUS_FEATURES,
+  PREMIUM_FEATURES,
   INDEX_PLAN_LABELS,
   hasIndexPlusAccess,
   hasIndexPremiumAccess,
@@ -13,6 +15,22 @@ import {
   normalizeIndexPlan,
   resolveRankingsPlanAccess,
 } from "./indexPlanAccess.mjs";
+
+test("locked commercial capability sets fail closed and Premium inherits Plus", () => {
+  assert.equal(PLUS_FEATURES.size, 10);
+  assert.equal(PREMIUM_FEATURES.size, 7);
+  for (const feature of PLUS_FEATURES) {
+    assert.equal(hasIndexFeatureAccess(null, feature), false);
+    assert.equal(hasIndexFeatureAccess("plus", feature), true);
+    assert.equal(hasIndexFeatureAccess("premium", feature), true);
+  }
+  for (const feature of PREMIUM_FEATURES) {
+    assert.equal(hasIndexFeatureAccess(null, feature), false);
+    assert.equal(hasIndexFeatureAccess("plus", feature), false);
+    assert.equal(hasIndexFeatureAccess("premium", feature), true);
+  }
+  assert.equal(hasIndexFeatureAccess("premium", "unknown"), false);
+});
 
 test("Card Chase Efficiency is Premium-only", () => {
   assert.equal(FEATURE_CARD_CHASE_EFFICIENCY, "card_chase_efficiency");

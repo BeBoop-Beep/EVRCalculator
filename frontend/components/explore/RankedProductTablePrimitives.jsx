@@ -1,6 +1,8 @@
 "use client";
 
 import InfoPopover from "@/components/ui/InfoPopover";
+import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
+import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import { resolveLooseBoosterPackArtwork } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
 
 export function RankedProductHeader({ children, text = null, info = null }) {
@@ -13,7 +15,8 @@ export function RankedProductHeader({ children, text = null, info = null }) {
 }
 
 export function PremiumMetricLock() {
-  return <span aria-label="Index Plus metric locked" className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-md border border-[rgba(45,212,191,0.22)] bg-[rgba(45,212,191,0.05)] text-xs text-[var(--text-secondary)]">🔒</span>;
+  const presentation = planPresentation(INDEX_PLAN_PLUS);
+  return <span aria-label="Index Plus metric locked" title="Index Plus" className={`inline-flex min-h-7 min-w-7 items-center justify-center rounded-md border text-xs ${presentation.compactClassName}`}>🔒</span>;
 }
 
 export function RankedProductIdentity({ product, secondary, children = null }) {

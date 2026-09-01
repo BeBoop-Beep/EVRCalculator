@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "capturedAt": "2026-08-31T16:58:39.760Z",
+  "routes": {
+    "/tcgs/pokemon/sets": {
+      "file": "d2a4d6ffeb269151.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": false
+    },
+    "/tcgs/pokemon/set-route-directory?limit=150": {
+      "file": "dc7b45e6a07d25f6.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/7a3dd188-4375-41af-94de-c5247fe0b1a6/rip/bootstrap": {
+      "file": "96ebb5b8a0653ec0.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/7a3dd188-4375-41af-94de-c5247fe0b1a6/shell": {
+      "file": "2a978c21ed19a632.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/7a3dd188-4375-41af-94de-c5247fe0b1a6/market/movers?limit=10&metric=absolute-percent&movement=all&snapshot_contract=pricing-v4&surface=set-page&window=7D": {
+      "file": "ae639ec9b2aa9231.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/7a3dd188-4375-41af-94de-c5247fe0b1a6/market/bootstrap?window=365d": {
+      "file": "2520af0a05be8803.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/7a3dd188-4375-41af-94de-c5247fe0b1a6/market/sealed-summary": {
+      "file": "0cf6c54e0d54dd5e.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/7a3dd188-4375-41af-94de-c5247fe0b1a6/market/top-chase?limit=10&snapshot_contract=pricing-v4&window=365d": {
+      "file": "249f8a0d1356bddc.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/7a3dd188-4375-41af-94de-c5247fe0b1a6/market/sealed-consumer": {
+      "file": "9f46d7b2c019f11a.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/7a3dd188-4375-41af-94de-c5247fe0b1a6/cards/page?movement_filter=all&page=1&page_size=60&section=all-cards&snapshot_contract=pricing-v4&sort=set-number&sort_direction=asc": {
+      "file": "9287b6d27b24235d.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/7a3dd188-4375-41af-94de-c5247fe0b1a6/pull-rates": {
+      "file": "e69e4447af62ce1c.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/75cd439d-aaa2-41cb-86f3-2fefa5b26e29/rip/bootstrap": {
+      "file": "0f90830c5d92a4a0.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/75cd439d-aaa2-41cb-86f3-2fefa5b26e29/shell": {
+      "file": "be47eff4e289079f.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/75cd439d-aaa2-41cb-86f3-2fefa5b26e29/market/movers?limit=10&metric=absolute-percent&movement=all&snapshot_contract=pricing-v4&surface=set-page&window=7D": {
+      "file": "98d6eed0857f32d0.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/75cd439d-aaa2-41cb-86f3-2fefa5b26e29/market/bootstrap?window=365d": {
+      "file": "14df34c733825d14.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/75cd439d-aaa2-41cb-86f3-2fefa5b26e29/market/sealed-summary": {
+      "file": "1a7dbcc8267a0352.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/75cd439d-aaa2-41cb-86f3-2fefa5b26e29/market/top-chase?limit=10&snapshot_contract=pricing-v4&window=365d": {
+      "file": "1218a997b84d7e9e.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/75cd439d-aaa2-41cb-86f3-2fefa5b26e29/market/sealed-consumer": {
+      "file": "420b17f0b5f33c86.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/75cd439d-aaa2-41cb-86f3-2fefa5b26e29/cards/page?movement_filter=all&page=1&page_size=60&section=all-cards&snapshot_contract=pricing-v4&sort=set-number&sort_direction=asc": {
+      "file": "d7bb1629b1f1b66c.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    },
+    "/tcgs/pokemon/sets/75cd439d-aaa2-41cb-86f3-2fefa5b26e29/pull-rates": {
+      "file": "7febbaace6238789.json",
+      "status": 200,
+      "contentType": "application/json",
+      "critical": true
+    }
+  }
+}

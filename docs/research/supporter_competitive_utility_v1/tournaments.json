@@ -1,0 +1,276 @@
+[
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a284de7e334c3c9befd25e9",
+    "name": "WORLDS OF DOOM! 2026! DAY ONE!",
+    "date": "2026-08-15T15:00:00.000Z",
+    "format": "STANDARD",
+    "players": 909,
+    "isOnline": true,
+    "organizer": {
+      "id": 349,
+      "name": "Doom's Events and Catering",
+      "logo": "https://limitlesstcg.s3.us-east-2.amazonaws.com/lotp/uploads/profile-pictures/rthil5ms9vwrlwnt"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 909,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a284de7e334c3c9befd25e9/standings",
+    "ingestedAt": "2026-08-31T23:23:43.401041+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a5a50bc52c24ac2da6446d2",
+    "name": "TOURNAMENT OF DOOM! WORLDS LCQ!",
+    "date": "2026-08-08T02:35:00.000Z",
+    "format": "STANDARD",
+    "players": 657,
+    "isOnline": true,
+    "organizer": {
+      "id": 349,
+      "name": "Doom's Events and Catering",
+      "logo": "https://limitlesstcg.s3.us-east-2.amazonaws.com/lotp/uploads/profile-pictures/rthil5ms9vwrlwnt"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 657,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a5a50bc52c24ac2da6446d2/standings",
+    "ingestedAt": "2026-08-31T23:23:43.436640+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a7cce822b308b6067b523e2",
+    "name": "TOURNAMENT OF DOOM! SEASON 3 STARTS NOW!",
+    "date": "2026-08-22T02:35:00.000Z",
+    "format": "STANDARD",
+    "players": 548,
+    "isOnline": true,
+    "organizer": {
+      "id": 349,
+      "name": "Doom's Events and Catering",
+      "logo": "https://limitlesstcg.s3.us-east-2.amazonaws.com/lotp/uploads/profile-pictures/rthil5ms9vwrlwnt"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 548,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a7cce822b308b6067b523e2/standings",
+    "ingestedAt": "2026-08-31T23:23:43.461727+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a5a508552c24ac2da6446cf",
+    "name": "TOURNAMENT OF DOOM! DRAGAPULT IS....",
+    "date": "2026-08-01T02:35:00.000Z",
+    "format": "STANDARD",
+    "players": 514,
+    "isOnline": true,
+    "organizer": {
+      "id": 349,
+      "name": "Doom's Events and Catering",
+      "logo": "https://limitlesstcg.s3.us-east-2.amazonaws.com/lotp/uploads/profile-pictures/rthil5ms9vwrlwnt"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 514,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a5a508552c24ac2da6446cf/standings",
+    "ingestedAt": "2026-08-31T23:23:43.499727+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a75224bcdc0391d7fa5edef",
+    "name": "RCC Showdown #36 | $150 USD PRIZE | NO ENTRY FEE",
+    "date": "2026-08-10T00:00:00.000Z",
+    "format": "STANDARD",
+    "players": 497,
+    "isOnline": true,
+    "organizer": {
+      "id": 2518,
+      "name": "Rare Candy Club"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 497,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a75224bcdc0391d7fa5edef/standings",
+    "ingestedAt": "2026-08-31T23:23:43.522232+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a7b1904cdc0391d7fa63d42",
+    "name": "The Stache Series 1: Mic Check",
+    "date": "2026-08-15T22:00:00.000Z",
+    "format": "STANDARD",
+    "players": 346,
+    "isOnline": true,
+    "organizer": {
+      "id": 2722,
+      "name": "TimDanklin"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 346,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a7b1904cdc0391d7fa63d42/standings",
+    "ingestedAt": "2026-08-31T23:23:43.541387+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a8ab6888302ae761e5fa34f",
+    "name": "PRE Worlds Pumpkaweekly!",
+    "date": "2026-08-24T18:00:00.000Z",
+    "format": "STANDARD",
+    "players": 288,
+    "isOnline": true,
+    "organizer": {
+      "id": 36,
+      "name": "The Dice Town League"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 288,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a8ab6888302ae761e5fa34f/standings",
+    "ingestedAt": "2026-08-31T23:23:43.555232+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a83b0f35a3071409557386e",
+    "name": "Rare Candy Club Showdown #39 (50 CODES)",
+    "date": "2026-08-24T00:00:00.000Z",
+    "format": "STANDARD",
+    "players": 282,
+    "isOnline": true,
+    "organizer": {
+      "id": 2518,
+      "name": "Rare Candy Club"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 282,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a83b0f35a3071409557386e/standings",
+    "ingestedAt": "2026-08-31T23:23:43.567560+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a7f474278baaa6d1c21f248",
+    "name": "\ud83c\udfc6Moujii's Dojo\ud83c\udfc6 (Late Registration Available!)",
+    "date": "2026-08-20T16:10:00.000Z",
+    "format": "STANDARD",
+    "players": 274,
+    "isOnline": true,
+    "organizer": {
+      "id": 35,
+      "name": "Moujii's Dojo"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 274,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a7f474278baaa6d1c21f248/standings",
+    "ingestedAt": "2026-08-31T23:23:43.609670+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a76139d2b308b6067b4cb68",
+    "name": "\ud83c\udfc6Moujii's Dojo\ud83c\udfc6 (Late Registration Available!)",
+    "date": "2026-08-13T16:10:00.000Z",
+    "format": "STANDARD",
+    "players": 265,
+    "isOnline": true,
+    "organizer": {
+      "id": 35,
+      "name": "Moujii's Dojo"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 265,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a76139d2b308b6067b4cb68/standings",
+    "ingestedAt": "2026-08-31T23:23:43.621821+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a6b5b9052c24ac2da64fd67",
+    "name": "\ud83c\udfc6Moujii's Dojo\ud83c\udfc6 (Late Registration Available!)",
+    "date": "2026-08-03T16:10:00.000Z",
+    "format": "STANDARD",
+    "players": 261,
+    "isOnline": true,
+    "organizer": {
+      "id": 35,
+      "name": "Moujii's Dojo"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 261,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a6b5b9052c24ac2da64fd67/standings",
+    "ingestedAt": "2026-08-31T23:23:43.632823+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a82476c5a3071409557297b",
+    "name": "Pumpkaweekly",
+    "date": "2026-08-17T18:00:00.000Z",
+    "format": "STANDARD",
+    "players": 259,
+    "isOnline": true,
+    "organizer": {
+      "id": 36,
+      "name": "The Dice Town League"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 259,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a82476c5a3071409557297b/standings",
+    "ingestedAt": "2026-08-31T23:23:43.644823+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a6ce63dcdc0391d7fa5784b",
+    "name": "\ud83c\udfc6Moujii's Dojo\ud83c\udfc6 (Late Registration Available!)",
+    "date": "2026-08-06T16:10:00.000Z",
+    "format": "STANDARD",
+    "players": 244,
+    "isOnline": true,
+    "organizer": {
+      "id": 35,
+      "name": "Moujii's Dojo"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 244,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a6ce63dcdc0391d7fa5784b/standings",
+    "ingestedAt": "2026-08-31T23:23:43.655823+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a791a40cdc0391d7fa6237a",
+    "name": "Pumpkaweekly",
+    "date": "2026-08-10T18:00:00.000Z",
+    "format": "STANDARD",
+    "players": 237,
+    "isOnline": true,
+    "organizer": {
+      "id": 36,
+      "name": "The Dice Town League"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 237,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a791a40cdc0391d7fa6237a/standings",
+    "ingestedAt": "2026-08-31T23:23:43.665823+00:00"
+  },
+  {
+    "source": "LIMITLESS_PLATFORM_API",
+    "sourceTournamentId": "6a835dea78baaa6d1c22251e",
+    "name": "Sunny's Weekly #270 Trolley Ride to Worlds!",
+    "date": "2026-08-24T22:05:00.000Z",
+    "format": "STANDARD",
+    "players": 237,
+    "isOnline": true,
+    "organizer": {
+      "id": 145,
+      "name": "Sunny's Weekly"
+    },
+    "eventClass": "LARGE_COMPETITIVE_EVENT",
+    "decklistCoverage": 1.0,
+    "decklistsObserved": 237,
+    "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a835dea78baaa6d1c22251e/standings",
+    "ingestedAt": "2026-08-31T23:23:43.675823+00:00"
+  }
+]

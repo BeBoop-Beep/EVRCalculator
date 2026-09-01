@@ -5,8 +5,11 @@
     "weightedInclusionRate": 0.8549523704986208,
     "weightedCopiesPerDeck": 3.2047698124108166,
     "weightedArchetypeBreadth": 0.9472052166189656,
+    "performanceWeightedDemand": 86.65207877461707,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.8618081815056721,
+    "rawCopiesPerDeck": 3.2294602956342384
   },
   {
     "functionalId": "boss s orders",
@@ -14,8 +17,11 @@
     "weightedInclusionRate": 0.9111704239499782,
     "weightedCopiesPerDeck": 2.3462820061146945,
     "weightedArchetypeBreadth": 0.9503059448445702,
+    "performanceWeightedDemand": 90.15317286652079,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.912341010656583,
+    "rawCopiesPerDeck": 2.3599174974217942
   },
   {
     "functionalId": "pok pad",
@@ -23,17 +29,23 @@
     "weightedInclusionRate": 0.8277133868782252,
     "weightedCopiesPerDeck": 2.9568542479969557,
     "weightedArchetypeBreadth": 0.9422534256367429,
+    "performanceWeightedDemand": 84.24507658643327,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.8296665520797525,
+    "rawCopiesPerDeck": 2.9618425575799243
   },
   {
     "functionalId": "ultra ball",
-    "fieldUsageDemand": 78.56239168434276,
-    "weightedInclusionRate": 0.8108764353538986,
+    "fieldUsageDemand": 78.56239168434277,
+    "weightedInclusionRate": 0.8108764353538988,
     "weightedCopiesPerDeck": 2.5184877574007856,
     "weightedArchetypeBreadth": 0.9446171386235955,
+    "performanceWeightedDemand": 86.65207877461707,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.8140254382949467,
+    "rawCopiesPerDeck": 2.5214850464077
   },
   {
     "functionalId": "night stretcher",
@@ -41,17 +53,23 @@
     "weightedInclusionRate": 0.8639407636892676,
     "weightedCopiesPerDeck": 1.6591614859843598,
     "weightedArchetypeBreadth": 0.947153675189313,
+    "performanceWeightedDemand": 86.87089715536105,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.8722928841526297,
+    "rawCopiesPerDeck": 1.676177380543142
   },
   {
     "functionalId": "buddy buddy poffin",
     "fieldUsageDemand": 72.88049580132201,
-    "weightedInclusionRate": 0.7244545605708067,
+    "weightedInclusionRate": 0.7244545605708066,
     "weightedCopiesPerDeck": 2.4791663435543203,
     "weightedArchetypeBreadth": 0.9278955013239407,
+    "performanceWeightedDemand": 71.11597374179432,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.7337573049157786,
+    "rawCopiesPerDeck": 2.5118597456170506
   },
   {
     "functionalId": "special red card",
@@ -59,8 +77,11 @@
     "weightedInclusionRate": 0.5485027275750681,
     "weightedCopiesPerDeck": 0.565430320832508,
     "weightedArchetypeBreadth": 0.9274178126598716,
+    "performanceWeightedDemand": 56.455142231947484,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.5553454795462358,
+    "rawCopiesPerDeck": 0.5720178755586112
   },
   {
     "functionalId": "rare candy",
@@ -68,8 +89,11 @@
     "weightedInclusionRate": 0.3356700307150111,
     "weightedCopiesPerDeck": 0.8162923783757573,
     "weightedArchetypeBreadth": 0.8805199257925022,
+    "performanceWeightedDemand": 30.196936542669583,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.33516672396012376,
+    "rawCopiesPerDeck": 0.8028532141629426
   },
   {
     "functionalId": "crispin",
@@ -77,35 +101,47 @@
     "weightedInclusionRate": 0.3216578356203275,
     "weightedCopiesPerDeck": 0.7696445779100944,
     "weightedArchetypeBreadth": 0.8320844180720403,
+    "performanceWeightedDemand": 40.48140043763676,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.32571330354073563,
+    "rawCopiesPerDeck": 0.7726022688209007
   },
   {
     "functionalId": "air balloon",
     "fieldUsageDemand": 36.44990037189001,
-    "weightedInclusionRate": 0.3299442114891709,
+    "weightedInclusionRate": 0.32994421148917097,
     "weightedCopiesPerDeck": 0.4898631317900524,
     "weightedArchetypeBreadth": 0.9061068739234616,
+    "performanceWeightedDemand": 27.35229759299781,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.33551048470264694,
+    "rawCopiesPerDeck": 0.5
   },
   {
     "functionalId": "team rocket s petrel",
     "fieldUsageDemand": 33.27882706626283,
     "weightedInclusionRate": 0.2611000944121738,
-    "weightedCopiesPerDeck": 0.72293711261457,
+    "weightedCopiesPerDeck": 0.7229371126145702,
     "weightedArchetypeBreadth": 0.8729642965127559,
+    "performanceWeightedDemand": 21.444201312910284,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.26263320728772777,
+    "rawCopiesPerDeck": 0.7253351667239601
   },
   {
     "functionalId": "unfair stamp",
     "fieldUsageDemand": 32.12148346238683,
-    "weightedInclusionRate": 0.29449166086549383,
-    "weightedCopiesPerDeck": 0.29449166086549383,
+    "weightedInclusionRate": 0.2944916608654938,
+    "weightedCopiesPerDeck": 0.2944916608654938,
     "weightedArchetypeBreadth": 0.8407607286698574,
+    "performanceWeightedDemand": 37.85557986870897,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.2980405637676177,
+    "rawCopiesPerDeck": 0.2980405637676177
   },
   {
     "functionalId": "switch",
@@ -113,8 +149,11 @@
     "weightedInclusionRate": 0.2752771954357675,
     "weightedCopiesPerDeck": 0.34180600499531344,
     "weightedArchetypeBreadth": 0.8971574810314478,
+    "performanceWeightedDemand": 28.227571115973742,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.26280508765898936,
+    "rawCopiesPerDeck": 0.32004125128910277
   },
   {
     "functionalId": "dawn",
@@ -122,8 +161,11 @@
     "weightedInclusionRate": 0.22628266878602618,
     "weightedCopiesPerDeck": 0.48070490411624994,
     "weightedArchetypeBreadth": 0.8247532422852815,
+    "performanceWeightedDemand": 25.82056892778993,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.22877277414919217,
+    "rawCopiesPerDeck": 0.47920247507734615
   },
   {
     "functionalId": "secret box",
@@ -131,8 +173,11 @@
     "weightedInclusionRate": 0.24343199860980383,
     "weightedCopiesPerDeck": 0.24343199860980383,
     "weightedArchetypeBreadth": 0.8428554836544212,
+    "performanceWeightedDemand": 24.50765864332604,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.2507734616706772,
+    "rawCopiesPerDeck": 0.2507734616706772
   },
   {
     "functionalId": "hilda",
@@ -140,8 +185,11 @@
     "weightedInclusionRate": 0.2057846040010573,
     "weightedCopiesPerDeck": 0.5317270431483417,
     "weightedArchetypeBreadth": 0.8680420007069838,
+    "performanceWeightedDemand": 15.536105032822759,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.19456858026813337,
+    "rawCopiesPerDeck": 0.49707803368855275
   },
   {
     "functionalId": "pok gear 3 0",
@@ -149,8 +197,11 @@
     "weightedInclusionRate": 0.1729553545939369,
     "weightedCopiesPerDeck": 0.3507844335762178,
     "weightedArchetypeBreadth": 0.8644458283636899,
+    "performanceWeightedDemand": 14.00437636761488,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.1696459264352011,
+    "rawCopiesPerDeck": 0.3477139910622207
   },
   {
     "functionalId": "ciphermaniac s codebreaking",
@@ -158,35 +209,47 @@
     "weightedInclusionRate": 0.16604550435470086,
     "weightedCopiesPerDeck": 0.35509158811052716,
     "weightedArchetypeBreadth": 0.7845550560694401,
+    "performanceWeightedDemand": 22.100656455142232,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.1615675489859058,
+    "rawCopiesPerDeck": 0.34616706772086625
   },
   {
     "functionalId": "judge",
     "fieldUsageDemand": 22.886188943807944,
-    "weightedInclusionRate": 0.1334957327893931,
+    "weightedInclusionRate": 0.13349573278939308,
     "weightedCopiesPerDeck": 0.16979902241010436,
     "weightedArchetypeBreadth": 0.9210134057587471,
+    "performanceWeightedDemand": 10.940919037199125,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.13080096253007906,
+    "rawCopiesPerDeck": 0.16552079752492266
   },
   {
     "functionalId": "lana s aid",
-    "fieldUsageDemand": 22.855651714869065,
-    "weightedInclusionRate": 0.16216929935482086,
-    "weightedCopiesPerDeck": 0.16665775474590147,
+    "fieldUsageDemand": 22.85565171486906,
+    "weightedInclusionRate": 0.16216929935482083,
+    "weightedCopiesPerDeck": 0.1666577547459015,
     "weightedArchetypeBreadth": 0.8055921857611954,
+    "performanceWeightedDemand": 16.630196936542667,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.15847370230319696,
+    "rawCopiesPerDeck": 0.1629425919559986
   },
   {
     "functionalId": "energy switch",
     "fieldUsageDemand": 21.805568789495705,
     "weightedInclusionRate": 0.11897633668289495,
-    "weightedCopiesPerDeck": 0.3087014865304742,
+    "weightedCopiesPerDeck": 0.30870148653047425,
     "weightedArchetypeBreadth": 0.849173619847103,
+    "performanceWeightedDemand": 10.940919037199125,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.11687865245788931,
+    "rawCopiesPerDeck": 0.3011344104503266
   },
   {
     "functionalId": "area zero underdepths",
@@ -194,8 +257,11 @@
     "weightedInclusionRate": 0.13056978235023084,
     "weightedCopiesPerDeck": 0.32658626015779846,
     "weightedArchetypeBreadth": 0.794001214936692,
+    "performanceWeightedDemand": 15.098468271334792,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.1335510484702647,
+    "rawCopiesPerDeck": 0.3312134754211069
   },
   {
     "functionalId": "team rocket s watchtower",
@@ -203,17 +269,23 @@
     "weightedInclusionRate": 0.13558563218326933,
     "weightedCopiesPerDeck": 0.1701817637360378,
     "weightedArchetypeBreadth": 0.8075620719338382,
+    "performanceWeightedDemand": 15.098468271334792,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.13939498109315915,
+    "rawCopiesPerDeck": 0.17531797868683396
   },
   {
     "functionalId": "kieran",
-    "fieldUsageDemand": 20.70421040896285,
-    "weightedInclusionRate": 0.14945551964185963,
+    "fieldUsageDemand": 20.704210408962854,
+    "weightedInclusionRate": 0.14945551964185966,
     "weightedCopiesPerDeck": 0.17841568970261729,
     "weightedArchetypeBreadth": 0.7081187446539944,
+    "performanceWeightedDemand": 14.22319474835886,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.15469233413544173,
+    "rawCopiesPerDeck": 0.18597456170505328
   },
   {
     "functionalId": "risky ruins",
@@ -221,17 +293,23 @@
     "weightedInclusionRate": 0.1477039200168858,
     "weightedCopiesPerDeck": 0.25046988213413224,
     "weightedArchetypeBreadth": 0.6683808191155262,
+    "performanceWeightedDemand": 23.413566739606125,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.14678583705740805,
+    "rawCopiesPerDeck": 0.2516328635269852
   },
   {
     "functionalId": "crushing hammer",
-    "fieldUsageDemand": 19.85554681838625,
+    "fieldUsageDemand": 19.855546818386255,
     "weightedInclusionRate": 0.13002133715225198,
-    "weightedCopiesPerDeck": 0.4767709993988488,
+    "weightedCopiesPerDeck": 0.4767709993988489,
     "weightedArchetypeBreadth": 0.6049631895338886,
+    "performanceWeightedDemand": 15.75492341356674,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.13062908215881747,
+    "rawCopiesPerDeck": 0.47834307322103814
   },
   {
     "functionalId": "hero s cape",
@@ -239,8 +317,11 @@
     "weightedInclusionRate": 0.11091146669213522,
     "weightedCopiesPerDeck": 0.11091146669213522,
     "weightedArchetypeBreadth": 0.8251929555139735,
+    "performanceWeightedDemand": 11.816192560175056,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.10880027500859402,
+    "rawCopiesPerDeck": 0.10880027500859402
   },
   {
     "functionalId": "sacred ash",
@@ -248,8 +329,11 @@
     "weightedInclusionRate": 0.1387523457418561,
     "weightedCopiesPerDeck": 0.14318827152791702,
     "weightedArchetypeBreadth": 0.6858896675679781,
+    "performanceWeightedDemand": 15.098468271334792,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.13853557923685114,
+    "rawCopiesPerDeck": 0.1428325885183912
   },
   {
     "functionalId": "brave bangle",
@@ -257,8 +341,11 @@
     "weightedInclusionRate": 0.1284758826657827,
     "weightedCopiesPerDeck": 0.19946022218858878,
     "weightedArchetypeBreadth": 0.7002993349108115,
+    "performanceWeightedDemand": 13.129102844638949,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.13286352698521828,
+    "rawCopiesPerDeck": 0.20694396699896872
   },
   {
     "functionalId": "bug catching set",
@@ -266,8 +353,11 @@
     "weightedInclusionRate": 0.10733939400485844,
     "weightedCopiesPerDeck": 0.3445209917612012,
     "weightedArchetypeBreadth": 0.6951299543141589,
+    "performanceWeightedDemand": 11.37855579868709,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.11378480577518048,
+    "rawCopiesPerDeck": 0.36318322447576484
   },
   {
     "functionalId": "battle cage",
@@ -275,17 +365,23 @@
     "weightedInclusionRate": 0.09995459588117314,
     "weightedCopiesPerDeck": 0.2204360695760678,
     "weightedArchetypeBreadth": 0.7540633845313601,
+    "performanceWeightedDemand": 8.752735229759299,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.09504984530766586,
+    "rawCopiesPerDeck": 0.20969405293915436
   },
   {
     "functionalId": "gravity mountain",
     "fieldUsageDemand": 17.871715778684898,
-    "weightedInclusionRate": 0.10006063513409955,
+    "weightedInclusionRate": 0.10006063513409953,
     "weightedCopiesPerDeck": 0.14234684795073202,
     "weightedArchetypeBreadth": 0.7318939913964566,
+    "performanceWeightedDemand": 7.658643326039387,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.09728429013406668,
+    "rawCopiesPerDeck": 0.1344104503265727
   },
   {
     "functionalId": "xerosic s machinations",
@@ -293,26 +389,35 @@
     "weightedInclusionRate": 0.06917959471862067,
     "weightedCopiesPerDeck": 0.08358896410735837,
     "weightedArchetypeBreadth": 0.879843138097222,
+    "performanceWeightedDemand": 6.564551422319474,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.06961155036094878,
+    "rawCopiesPerDeck": 0.08387762117566173
   },
   {
     "functionalId": "wally s compassion",
     "fieldUsageDemand": 17.762057880735767,
-    "weightedInclusionRate": 0.06671141501918916,
+    "weightedInclusionRate": 0.06671141501918917,
     "weightedCopiesPerDeck": 0.1184647914834745,
     "weightedArchetypeBreadth": 0.8679312021875136,
+    "performanceWeightedDemand": 4.814004376367615,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.06342385699553112,
+    "rawCopiesPerDeck": 0.11189412169130285
   },
   {
     "functionalId": "cyrano",
     "fieldUsageDemand": 17.539296461615056,
     "weightedInclusionRate": 0.11335813969048554,
-    "weightedCopiesPerDeck": 0.20572855469256723,
+    "weightedCopiesPerDeck": 0.2057285546925672,
     "weightedArchetypeBreadth": 0.6301336408904921,
+    "performanceWeightedDemand": 10.722100656455142,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.11275352354761087,
+    "rawCopiesPerDeck": 0.20367823994499828
   },
   {
     "functionalId": "fighting gong",
@@ -320,17 +425,23 @@
     "weightedInclusionRate": 0.06924502161402706,
     "weightedCopiesPerDeck": 0.2581286431406673,
     "weightedArchetypeBreadth": 0.7596052698315573,
+    "performanceWeightedDemand": 5.908096280087528,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.06514266070814713,
+    "rawCopiesPerDeck": 0.2420075627363355
   },
   {
     "functionalId": "forest of vitality",
-    "fieldUsageDemand": 16.876193801878156,
+    "fieldUsageDemand": 16.876193801878152,
     "weightedInclusionRate": 0.062199000967675847,
-    "weightedCopiesPerDeck": 0.17779162598117557,
+    "weightedCopiesPerDeck": 0.17779162598117554,
     "weightedArchetypeBreadth": 0.8022037387623505,
+    "performanceWeightedDemand": 5.25164113785558,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.0625644551392231,
+    "rawCopiesPerDeck": 0.1797868683396356
   },
   {
     "functionalId": "team rocket s transceiver",
@@ -338,17 +449,23 @@
     "weightedInclusionRate": 0.08146838647433455,
     "weightedCopiesPerDeck": 0.27059353346184956,
     "weightedArchetypeBreadth": 0.6781898251155428,
+    "performanceWeightedDemand": 4.3763676148796495,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.08112753523547611,
+    "rawCopiesPerDeck": 0.27174286696459266
   },
   {
     "functionalId": "rosa s encouragement",
     "fieldUsageDemand": 16.424419854580577,
     "weightedInclusionRate": 0.12388757296000832,
-    "weightedCopiesPerDeck": 0.12436178010063809,
+    "weightedCopiesPerDeck": 0.12436178010063807,
     "weightedArchetypeBreadth": 0.547593623423406,
+    "performanceWeightedDemand": 15.317286652078774,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.1240976280508766,
+    "rawCopiesPerDeck": 0.1246132691646614
   },
   {
     "functionalId": "gwynn",
@@ -356,17 +473,23 @@
     "weightedInclusionRate": 0.09144611721792735,
     "weightedCopiesPerDeck": 0.23783983245724638,
     "weightedArchetypeBreadth": 0.6098444084106351,
+    "performanceWeightedDemand": 7.87746170678337,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.09522172567892746,
+    "rawCopiesPerDeck": 0.24372636644895154
   },
   {
     "functionalId": "jamming tower",
     "fieldUsageDemand": 15.350017076553065,
-    "weightedInclusionRate": 0.07555379459046592,
+    "weightedInclusionRate": 0.0755537945904659,
     "weightedCopiesPerDeck": 0.08161515777640198,
     "weightedArchetypeBreadth": 0.6871129776681733,
+    "performanceWeightedDemand": 7.2210065645514225,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.0713303540735648,
+    "rawCopiesPerDeck": 0.07614300446888965
   },
   {
     "functionalId": "tool scrapper",
@@ -374,17 +497,23 @@
     "weightedInclusionRate": 0.07425059792415806,
     "weightedCopiesPerDeck": 0.07425059792415806,
     "weightedArchetypeBreadth": 0.6703352123123242,
+    "performanceWeightedDemand": 6.3457330415754925,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.07201787555861121,
+    "rawCopiesPerDeck": 0.07201787555861121
   },
   {
     "functionalId": "prime catcher",
     "fieldUsageDemand": 14.77250776440382,
-    "weightedInclusionRate": 0.038649024678437185,
-    "weightedCopiesPerDeck": 0.038649024678437185,
+    "weightedInclusionRate": 0.03864902467843718,
+    "weightedCopiesPerDeck": 0.03864902467843718,
     "weightedArchetypeBreadth": 0.8141339919638239,
+    "performanceWeightedDemand": 2.4070021881838075,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.03832932279133723,
+    "rawCopiesPerDeck": 0.03832932279133723
   },
   {
     "functionalId": "team rocket s factory",
@@ -392,8 +521,11 @@
     "weightedInclusionRate": 0.0382935632168294,
     "weightedCopiesPerDeck": 0.07441456263629823,
     "weightedArchetypeBreadth": 0.7972099840123823,
+    "performanceWeightedDemand": 2.4070021881838075,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.03832932279133723,
+    "rawCopiesPerDeck": 0.07511172224132004
   },
   {
     "functionalId": "handheld fan",
@@ -401,8 +533,11 @@
     "weightedInclusionRate": 0.0769619326892215,
     "weightedCopiesPerDeck": 0.12779674043766892,
     "weightedArchetypeBreadth": 0.6150408434213007,
+    "performanceWeightedDemand": 7.87746170678337,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.07442420075627364,
+    "rawCopiesPerDeck": 0.12169130285321417
   },
   {
     "functionalId": "energy recycler",
@@ -410,8 +545,11 @@
     "weightedInclusionRate": 0.09320088917848317,
     "weightedCopiesPerDeck": 0.1134491643079183,
     "weightedArchetypeBreadth": 0.545275935027403,
+    "performanceWeightedDemand": 5.689277899343545,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.09247163973874184,
+    "rawCopiesPerDeck": 0.11344104503265727
   },
   {
     "functionalId": "jumbo ice cream",
@@ -419,8 +557,11 @@
     "weightedInclusionRate": 0.0942469588623082,
     "weightedCopiesPerDeck": 0.25769585291600594,
     "weightedArchetypeBreadth": 0.46271130682565753,
+    "performanceWeightedDemand": 8.971553610503284,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.09504984530766586,
+    "rawCopiesPerDeck": 0.2586799587487109
   },
   {
     "functionalId": "colress s tenacity",
@@ -428,8 +569,11 @@
     "weightedInclusionRate": 0.028885088545791766,
     "weightedCopiesPerDeck": 0.047904331041450976,
     "weightedArchetypeBreadth": 0.7979891019802554,
+    "performanceWeightedDemand": 1.75054704595186,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.028532141629425918,
+    "rawCopiesPerDeck": 0.04692334135441732
   },
   {
     "functionalId": "wondrous patch",
@@ -437,17 +581,23 @@
     "weightedInclusionRate": 0.08998829887311624,
     "weightedCopiesPerDeck": 0.2386287076266018,
     "weightedArchetypeBreadth": 0.4737618816816347,
+    "performanceWeightedDemand": 12.035010940919037,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.0895496734272946,
+    "rawCopiesPerDeck": 0.23736679271227226
   },
   {
     "functionalId": "energy search",
     "fieldUsageDemand": 13.947965811679378,
-    "weightedInclusionRate": 0.023826152903296153,
-    "weightedCopiesPerDeck": 0.029071058379747418,
+    "weightedInclusionRate": 0.02382615290329615,
+    "weightedCopiesPerDeck": 0.029071058379747414,
     "weightedArchetypeBreadth": 0.8224468348405459,
+    "performanceWeightedDemand": 1.312910284463895,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.023375730491577863,
+    "rawCopiesPerDeck": 0.028188380886902717
   },
   {
     "functionalId": "premium power pro",
@@ -455,8 +605,11 @@
     "weightedInclusionRate": 0.04860631457660118,
     "weightedCopiesPerDeck": 0.16880640651255108,
     "weightedArchetypeBreadth": 0.6347270907449294,
+    "performanceWeightedDemand": 3.938730853391685,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.0445170161567549,
+    "rawCopiesPerDeck": 0.15417669302165693
   },
   {
     "functionalId": "energy retrieval",
@@ -464,26 +617,35 @@
     "weightedInclusionRate": 0.02679124025740791,
     "weightedCopiesPerDeck": 0.036989924273495955,
     "weightedArchetypeBreadth": 0.7592215358854463,
+    "performanceWeightedDemand": 1.312910284463895,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.026469577174286697,
+    "rawCopiesPerDeck": 0.036094877964936406
   },
   {
     "functionalId": "precious trolley",
-    "fieldUsageDemand": 13.21135848836593,
-    "weightedInclusionRate": 0.054169453790673956,
-    "weightedCopiesPerDeck": 0.054169453790673956,
+    "fieldUsageDemand": 13.211358488365931,
+    "weightedInclusionRate": 0.05416945379067396,
+    "weightedCopiesPerDeck": 0.05416945379067396,
     "weightedArchetypeBreadth": 0.6415088116489187,
+    "performanceWeightedDemand": 3.063457330415755,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.055001718803712615,
+    "rawCopiesPerDeck": 0.055001718803712615
   },
   {
     "functionalId": "salvatore",
     "fieldUsageDemand": 12.971347827876222,
-    "weightedInclusionRate": 0.020546549000758575,
+    "weightedInclusionRate": 0.020546549000758578,
     "weightedCopiesPerDeck": 0.029067510537161768,
     "weightedArchetypeBreadth": 0.7704588631315633,
+    "performanceWeightedDemand": 1.312910284463895,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.018391199724991408,
+    "rawCopiesPerDeck": 0.025782055689240288
   },
   {
     "functionalId": "lucky helmet",
@@ -491,8 +653,11 @@
     "weightedInclusionRate": 0.05832043432601054,
     "weightedCopiesPerDeck": 0.06798101422382205,
     "weightedArchetypeBreadth": 0.5938033688583298,
+    "performanceWeightedDemand": 6.12691466083151,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.05723616363011344,
+    "rawCopiesPerDeck": 0.06548642145067034
   },
   {
     "functionalId": "mega signal",
@@ -500,8 +665,11 @@
     "weightedInclusionRate": 0.022760923814907418,
     "weightedCopiesPerDeck": 0.04547425501655191,
     "weightedArchetypeBreadth": 0.7451104794080963,
+    "performanceWeightedDemand": 1.9693654266958425,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.021828807150223443,
+    "rawCopiesPerDeck": 0.0445170161567549
   },
   {
     "functionalId": "az s tranquility",
@@ -509,8 +677,11 @@
     "weightedInclusionRate": 0.023603803668475854,
     "weightedCopiesPerDeck": 0.025270724092531532,
     "weightedArchetypeBreadth": 0.7393361724824461,
+    "performanceWeightedDemand": 1.75054704595186,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.025438294946717083,
+    "rawCopiesPerDeck": 0.027328979030594707
   },
   {
     "functionalId": "brock s scouting",
@@ -518,17 +689,23 @@
     "weightedInclusionRate": 0.036680406018534846,
     "weightedCopiesPerDeck": 0.0820364764131114,
     "weightedArchetypeBreadth": 0.6314279265523476,
+    "performanceWeightedDemand": 1.312910284463895,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.0357511172224132,
+    "rawCopiesPerDeck": 0.07631488484015125
   },
   {
     "functionalId": "prism tower",
-    "fieldUsageDemand": 12.023782461543025,
-    "weightedInclusionRate": 0.0530095113889567,
+    "fieldUsageDemand": 12.023782461543027,
+    "weightedInclusionRate": 0.05300951138895671,
     "weightedCopiesPerDeck": 0.12515386359013678,
     "weightedArchetypeBreadth": 0.537400008717818,
+    "performanceWeightedDemand": 4.595185995623632,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.052939154348573395,
+    "rawCopiesPerDeck": 0.12444138879339979
   },
   {
     "functionalId": "surfer",
@@ -536,8 +713,11 @@
     "weightedInclusionRate": 0.019013447026555347,
     "weightedCopiesPerDeck": 0.02165524527205524,
     "weightedArchetypeBreadth": 0.690598796132888,
+    "performanceWeightedDemand": 1.9693654266958425,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.018563080096253008,
+    "rawCopiesPerDeck": 0.021656926778961843
   },
   {
     "functionalId": "maximum belt",
@@ -545,8 +725,11 @@
     "weightedInclusionRate": 0.020378319017639895,
     "weightedCopiesPerDeck": 0.020378319017639895,
     "weightedArchetypeBreadth": 0.6645350283812631,
+    "performanceWeightedDemand": 1.312910284463895,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.020797524922653833,
+    "rawCopiesPerDeck": 0.020797524922653833
   },
   {
     "functionalId": "surfing beach",
@@ -554,17 +737,23 @@
     "weightedInclusionRate": 0.021548411680129675,
     "weightedCopiesPerDeck": 0.03965630680603227,
     "weightedArchetypeBreadth": 0.6456459132177078,
+    "performanceWeightedDemand": 1.0940919037199124,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.021141285665177038,
+    "rawCopiesPerDeck": 0.03936060501890684
   },
   {
     "functionalId": "briar",
     "fieldUsageDemand": 11.222720838821253,
-    "weightedInclusionRate": 0.025363125564308843,
-    "weightedCopiesPerDeck": 0.025363125564308843,
+    "weightedInclusionRate": 0.02536312556430884,
+    "weightedCopiesPerDeck": 0.02536312556430884,
     "weightedArchetypeBreadth": 0.6361609180123863,
+    "performanceWeightedDemand": 3.063457330415755,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.025094534204193882,
+    "rawCopiesPerDeck": 0.025094534204193882
   },
   {
     "functionalId": "dark bell",
@@ -572,8 +761,11 @@
     "weightedInclusionRate": 0.030531877311769286,
     "weightedCopiesPerDeck": 0.04833569641819,
     "weightedArchetypeBreadth": 0.5963943237033857,
+    "performanceWeightedDemand": 2.1881838074398248,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.034376074252320386,
+    "rawCopiesPerDeck": 0.05482983843245101
   },
   {
     "functionalId": "black belt s training",
@@ -581,8 +773,11 @@
     "weightedInclusionRate": 0.06735976839640602,
     "weightedCopiesPerDeck": 0.07484538161316898,
     "weightedArchetypeBreadth": 0.4088935305649638,
+    "performanceWeightedDemand": 5.25164113785558,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.06909590924716398,
+    "rawCopiesPerDeck": 0.07648676521141286
   },
   {
     "functionalId": "lillie s pearl",
@@ -590,17 +785,23 @@
     "weightedInclusionRate": 0.015057096722926704,
     "weightedCopiesPerDeck": 0.026293858362850718,
     "weightedArchetypeBreadth": 0.6144586128530242,
+    "performanceWeightedDemand": 1.5317286652078774,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.014609831557236164,
+    "rawCopiesPerDeck": 0.025266414575455483
   },
   {
     "functionalId": "lumiose city",
     "fieldUsageDemand": 10.050027162304895,
     "weightedInclusionRate": 0.016642255601411145,
-    "weightedCopiesPerDeck": 0.026477808334227134,
+    "weightedCopiesPerDeck": 0.026477808334227138,
     "weightedArchetypeBreadth": 0.5924003682754204,
+    "performanceWeightedDemand": 1.312910284463895,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.01615675489859058,
+    "rawCopiesPerDeck": 0.026641457545548298
   },
   {
     "functionalId": "eri",
@@ -608,8 +809,11 @@
     "weightedInclusionRate": 0.02544228762258184,
     "weightedCopiesPerDeck": 0.028573996606460983,
     "weightedArchetypeBreadth": 0.5299087595142339,
+    "performanceWeightedDemand": 1.9693654266958425,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.022172567892746648,
+    "rawCopiesPerDeck": 0.025266414575455483
   },
   {
     "functionalId": "janine s secret art",
@@ -617,8 +821,11 @@
     "weightedInclusionRate": 0.024083704047256488,
     "weightedCopiesPerDeck": 0.043489652719300546,
     "weightedArchetypeBreadth": 0.5235128775676438,
+    "performanceWeightedDemand": 1.0940919037199124,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.025094534204193882,
+    "rawCopiesPerDeck": 0.04554829838432451
   },
   {
     "functionalId": "glass trumpet",
@@ -626,17 +833,23 @@
     "weightedInclusionRate": 0.04298463692734711,
     "weightedCopiesPerDeck": 0.07592888277107354,
     "weightedArchetypeBreadth": 0.4288538302899099,
+    "performanceWeightedDemand": 4.3763676148796495,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.04142316947404606,
+    "rawCopiesPerDeck": 0.07201787555861121
   },
   {
     "functionalId": "dusk ball",
     "fieldUsageDemand": 9.381581579395698,
-    "weightedInclusionRate": 0.013184563521814699,
+    "weightedInclusionRate": 0.013184563521814697,
     "weightedCopiesPerDeck": 0.04107450307777737,
     "weightedArchetypeBreadth": 0.5555861415900472,
+    "performanceWeightedDemand": 1.7142857142857144,
     "events": 11,
-    "decksRepresented": 4730
+    "decksRepresented": 4730,
+    "rawInclusionRate": 0.011627906976744186,
+    "rawCopiesPerDeck": 0.03636363636363636
   },
   {
     "functionalId": "powerglass",
@@ -644,8 +857,11 @@
     "weightedInclusionRate": 0.010933759271469515,
     "weightedCopiesPerDeck": 0.014011600867362627,
     "weightedArchetypeBreadth": 0.5740809328514443,
+    "performanceWeightedDemand": 1.312910284463895,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.011000343760742524,
+    "rawCopiesPerDeck": 0.014266070814712959
   },
   {
     "functionalId": "nighttime mine",
@@ -653,17 +869,23 @@
     "weightedInclusionRate": 0.04554794902702518,
     "weightedCopiesPerDeck": 0.10135782976408113,
     "weightedArchetypeBreadth": 0.3965730406122152,
+    "performanceWeightedDemand": 3.938730853391685,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.04245445170161567,
+    "rawCopiesPerDeck": 0.09401856308009625
   },
   {
     "functionalId": "tera orb",
     "fieldUsageDemand": 9.294966981056376,
-    "weightedInclusionRate": 0.010660370171595376,
+    "weightedInclusionRate": 0.010660370171595374,
     "weightedCopiesPerDeck": 0.016916346857784648,
     "weightedArchetypeBreadth": 0.5699745068599668,
+    "performanceWeightedDemand": 1.0940919037199124,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.009969061533172912,
+    "rawCopiesPerDeck": 0.014953592299759368
   },
   {
     "functionalId": "antique armor fossil",
@@ -671,8 +893,11 @@
     "weightedInclusionRate": 0.00996074801055638,
     "weightedCopiesPerDeck": 0.029389713262331547,
     "weightedArchetypeBreadth": 0.547531392461077,
+    "performanceWeightedDemand": 0.6564551422319475,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.008594018563080097,
+    "rawCopiesPerDeck": 0.025438294946717083
   },
   {
     "functionalId": "fossil quarry",
@@ -680,8 +905,11 @@
     "weightedInclusionRate": 0.010048056763166727,
     "weightedCopiesPerDeck": 0.027639047227073166,
     "weightedArchetypeBreadth": 0.5262043061820251,
+    "performanceWeightedDemand": 0.6564551422319475,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.008765898934341699,
+    "rawCopiesPerDeck": 0.023719491234101067
   },
   {
     "functionalId": "pok mon catcher",
@@ -689,17 +917,23 @@
     "weightedInclusionRate": 0.011150379474839163,
     "weightedCopiesPerDeck": 0.024719143995766895,
     "weightedArchetypeBreadth": 0.5127444665343746,
+    "performanceWeightedDemand": 1.0025062656641603,
     "events": 13,
-    "decksRepresented": 5313
+    "decksRepresented": 5313,
+    "rawInclusionRate": 0.00997553171466215,
+    "rawCopiesPerDeck": 0.022397891963109356
   },
   {
     "functionalId": "sparkling crystal",
     "fieldUsageDemand": 8.458399212139616,
-    "weightedInclusionRate": 0.011674321732569822,
-    "weightedCopiesPerDeck": 0.011674321732569822,
+    "weightedInclusionRate": 0.01167432173256982,
+    "weightedCopiesPerDeck": 0.01167432173256982,
     "weightedArchetypeBreadth": 0.5123316931571245,
+    "performanceWeightedDemand": 0.7058823529411765,
     "events": 14,
-    "decksRepresented": 5581
+    "decksRepresented": 5581,
+    "rawInclusionRate": 0.01308009317326644,
+    "rawCopiesPerDeck": 0.01308009317326644
   },
   {
     "functionalId": "morty s conviction",
@@ -707,8 +941,11 @@
     "weightedInclusionRate": 0.009924605235938534,
     "weightedCopiesPerDeck": 0.014492480879092828,
     "weightedArchetypeBreadth": 0.5123012218726165,
+    "performanceWeightedDemand": 0.437636761487965,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.009625300790649707,
+    "rawCopiesPerDeck": 0.014781711928497766
   },
   {
     "functionalId": "redeemable ticket",
@@ -716,8 +953,11 @@
     "weightedInclusionRate": 0.015302723633251664,
     "weightedCopiesPerDeck": 0.015302723633251664,
     "weightedArchetypeBreadth": 0.4797190733330854,
+    "performanceWeightedDemand": 1.0178117048346056,
     "events": 13,
-    "decksRepresented": 5248
+    "decksRepresented": 5248,
+    "rawInclusionRate": 0.015625,
+    "rawCopiesPerDeck": 0.015625
   },
   {
     "functionalId": "festival grounds",
@@ -725,8 +965,11 @@
     "weightedInclusionRate": 0.06540043771224209,
     "weightedCopiesPerDeck": 0.2304290751727539,
     "weightedArchetypeBreadth": 0.18967252153950231,
+    "performanceWeightedDemand": 7.2210065645514225,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.06892402887590238,
+    "rawCopiesPerDeck": 0.24389824682021313
   },
   {
     "functionalId": "hassel",
@@ -734,8 +977,11 @@
     "weightedInclusionRate": 0.010668292916133588,
     "weightedCopiesPerDeck": 0.018251375845029325,
     "weightedArchetypeBreadth": 0.4844616871801838,
+    "performanceWeightedDemand": 0.8264462809917356,
     "events": 12,
-    "decksRepresented": 5078
+    "decksRepresented": 5078,
+    "rawInclusionRate": 0.010043324143363529,
+    "rawCopiesPerDeck": 0.01732965734541158
   },
   {
     "functionalId": "scoop up cyclone",
@@ -743,8 +989,11 @@
     "weightedInclusionRate": 0.009258104723856056,
     "weightedCopiesPerDeck": 0.009258104723856056,
     "weightedArchetypeBreadth": 0.48849719914957296,
+    "performanceWeightedDemand": 1.5,
     "events": 13,
-    "decksRepresented": 5265
+    "decksRepresented": 5265,
+    "rawInclusionRate": 0.009116809116809116,
+    "rawCopiesPerDeck": 0.009116809116809116
   },
   {
     "functionalId": "enhanced hammer",
@@ -752,8 +1001,11 @@
     "weightedInclusionRate": 0.05567582147187125,
     "weightedCopiesPerDeck": 0.07959945258478572,
     "weightedArchetypeBreadth": 0.25605050761554465,
+    "performanceWeightedDemand": 5.032822757111598,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.05207975249226538,
+    "rawCopiesPerDeck": 0.07425232038501203
   },
   {
     "functionalId": "grand tree",
@@ -761,8 +1013,11 @@
     "weightedInclusionRate": 0.014783324324269934,
     "weightedCopiesPerDeck": 0.014783324324269934,
     "weightedArchetypeBreadth": 0.441626328747297,
+    "performanceWeightedDemand": 0.6564551422319475,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.013406668958404951,
+    "rawCopiesPerDeck": 0.013406668958404951
   },
   {
     "functionalId": "team rocket s proton",
@@ -770,8 +1025,11 @@
     "weightedInclusionRate": 0.017110255774094012,
     "weightedCopiesPerDeck": 0.058469793256139845,
     "weightedArchetypeBreadth": 0.39915532658004943,
+    "performanceWeightedDemand": 0.2188183807439825,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.017188037126160193,
+    "rawCopiesPerDeck": 0.058439326228944655
   },
   {
     "functionalId": "team rocket s ariana",
@@ -779,8 +1037,11 @@
     "weightedInclusionRate": 0.016916688558773707,
     "weightedCopiesPerDeck": 0.06499396942775892,
     "weightedArchetypeBreadth": 0.39432656537060723,
+    "performanceWeightedDemand": 0.2188183807439825,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.01701615675489859,
+    "rawCopiesPerDeck": 0.06548642145067034
   },
   {
     "functionalId": "team rocket s giovanni",
@@ -788,8 +1049,11 @@
     "weightedInclusionRate": 0.016916688558773707,
     "weightedCopiesPerDeck": 0.06034350383196705,
     "weightedArchetypeBreadth": 0.39432656537060723,
+    "performanceWeightedDemand": 0.2188183807439825,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.01701615675489859,
+    "rawCopiesPerDeck": 0.06101753179786868
   },
   {
     "functionalId": "ruffian",
@@ -797,17 +1061,23 @@
     "weightedInclusionRate": 0.012803516684201094,
     "weightedCopiesPerDeck": 0.012803516684201094,
     "weightedArchetypeBreadth": 0.42800460630826975,
+    "performanceWeightedDemand": 0.6564551422319475,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.013234788587143349,
+    "rawCopiesPerDeck": 0.013234788587143349
   },
   {
     "functionalId": "brilliant blender",
     "fieldUsageDemand": 7.0166161456919065,
-    "weightedInclusionRate": 0.016628511845134215,
-    "weightedCopiesPerDeck": 0.016628511845134215,
+    "weightedInclusionRate": 0.016628511845134218,
+    "weightedCopiesPerDeck": 0.016628511845134218,
     "weightedArchetypeBreadth": 0.3943318157301176,
+    "performanceWeightedDemand": 1.75054704595186,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.015469233413544173,
+    "rawCopiesPerDeck": 0.015469233413544173
   },
   {
     "functionalId": "binding mochi",
@@ -815,8 +1085,11 @@
     "weightedInclusionRate": 0.05647397873500873,
     "weightedCopiesPerDeck": 0.10659581382507896,
     "weightedArchetypeBreadth": 0.19017940213193782,
+    "performanceWeightedDemand": 5.25164113785558,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.05792368511515985,
+    "rawCopiesPerDeck": 0.10914403575111722
   },
   {
     "functionalId": "carmine",
@@ -824,8 +1097,11 @@
     "weightedInclusionRate": 0.011473105524063942,
     "weightedCopiesPerDeck": 0.03617939702551302,
     "weightedArchetypeBreadth": 0.3960316389415017,
+    "performanceWeightedDemand": 0.437636761487965,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.011515984874527329,
+    "rawCopiesPerDeck": 0.03643863870745961
   },
   {
     "functionalId": "team rocket s archer",
@@ -833,8 +1109,11 @@
     "weightedInclusionRate": 0.015316665389557248,
     "weightedCopiesPerDeck": 0.04781634529532009,
     "weightedArchetypeBreadth": 0.3723400385133434,
+    "performanceWeightedDemand": 0.2188183807439825,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.015297353042282571,
+    "rawCopiesPerDeck": 0.04829838432451014
   },
   {
     "functionalId": "max rod",
@@ -842,8 +1121,11 @@
     "weightedInclusionRate": 0.008153287399930625,
     "weightedCopiesPerDeck": 0.008153287399930625,
     "weightedArchetypeBreadth": 0.4168292488133067,
+    "performanceWeightedDemand": 0.437636761487965,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.008765898934341699,
+    "rawCopiesPerDeck": 0.008765898934341699
   },
   {
     "functionalId": "explorer s guidance",
@@ -851,8 +1133,11 @@
     "weightedInclusionRate": 0.013162806861188552,
     "weightedCopiesPerDeck": 0.033967407268693066,
     "weightedArchetypeBreadth": 0.37348008762256063,
+    "performanceWeightedDemand": 0.87527352297593,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.012547267102096941,
+    "rawCopiesPerDeck": 0.03248539016844276
   },
   {
     "functionalId": "larry s skill",
@@ -860,8 +1145,11 @@
     "weightedInclusionRate": 0.007385386810613694,
     "weightedCopiesPerDeck": 0.015941231796366504,
     "weightedArchetypeBreadth": 0.3994118244257603,
+    "performanceWeightedDemand": 0.2544529262086514,
     "events": 13,
-    "decksRepresented": 4982
+    "decksRepresented": 4982,
+    "rawInclusionRate": 0.006824568446407065,
+    "rawCopiesPerDeck": 0.014050582095543959
   },
   {
     "functionalId": "antique sail fossil",
@@ -869,8 +1157,11 @@
     "weightedInclusionRate": 0.004535379488004472,
     "weightedCopiesPerDeck": 0.010767069972896743,
     "weightedArchetypeBreadth": 0.4124695992809704,
+    "performanceWeightedDemand": 0.0,
     "events": 4,
-    "decksRepresented": 1748
+    "decksRepresented": 1748,
+    "rawInclusionRate": 0.004004576659038902,
+    "rawCopiesPerDeck": 0.008581235697940504
   },
   {
     "functionalId": "light ball",
@@ -878,8 +1169,11 @@
     "weightedInclusionRate": 0.005356431027836762,
     "weightedCopiesPerDeck": 0.005609325604606888,
     "weightedArchetypeBreadth": 0.4029280272682616,
+    "performanceWeightedDemand": 0.625,
     "events": 5,
-    "decksRepresented": 2461
+    "decksRepresented": 2461,
+    "rawInclusionRate": 0.004469727752945957,
+    "rawCopiesPerDeck": 0.004876066639577408
   },
   {
     "functionalId": "iris s fighting spirit",
@@ -887,8 +1181,11 @@
     "weightedInclusionRate": 0.00614485571281138,
     "weightedCopiesPerDeck": 0.011717531420799461,
     "weightedArchetypeBreadth": 0.3937676268033296,
+    "performanceWeightedDemand": 0.2506265664160401,
     "events": 13,
-    "decksRepresented": 5313
+    "decksRepresented": 5313,
+    "rawInclusionRate": 0.005081874647092038,
+    "rawCopiesPerDeck": 0.010351966873706004
   },
   {
     "functionalId": "academy at night",
@@ -896,17 +1193,23 @@
     "weightedInclusionRate": 0.0646802323099102,
     "weightedCopiesPerDeck": 0.2536105229893664,
     "weightedArchetypeBreadth": 0.05269724865276451,
+    "performanceWeightedDemand": 9.846827133479213,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.06479889996562392,
+    "rawCopiesPerDeck": 0.2535235476108628
   },
   {
     "functionalId": "counter gain",
     "fieldUsageDemand": 6.088970085351661,
     "weightedInclusionRate": 0.007520236310118275,
-    "weightedCopiesPerDeck": 0.008412692168668174,
+    "weightedCopiesPerDeck": 0.008412692168668173,
     "weightedArchetypeBreadth": 0.37234510537935916,
+    "performanceWeightedDemand": 0.8174386920980926,
     "events": 12,
-    "decksRepresented": 4765
+    "decksRepresented": 4765,
+    "rawInclusionRate": 0.0062959076600209865,
+    "rawCopiesPerDeck": 0.007345225603357817
   },
   {
     "functionalId": "tarragon",
@@ -914,8 +1217,11 @@
     "weightedInclusionRate": 0.0065080325772142525,
     "weightedCopiesPerDeck": 0.011145287526557178,
     "weightedArchetypeBreadth": 0.37480810197371467,
+    "performanceWeightedDemand": 0.702576112412178,
     "events": 14,
-    "decksRepresented": 5574
+    "decksRepresented": 5574,
+    "rawInclusionRate": 0.006099748833871547,
+    "rawCopiesPerDeck": 0.010584858270541802
   },
   {
     "functionalId": "transformation tome",
@@ -923,26 +1229,35 @@
     "weightedInclusionRate": 0.044740714015043336,
     "weightedCopiesPerDeck": 0.17485743621527086,
     "weightedArchetypeBreadth": 0.13134351569076919,
+    "performanceWeightedDemand": 4.157549234135667,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.04761086283946373,
+    "rawCopiesPerDeck": 0.18580268133379169
   },
   {
     "functionalId": "community center",
     "fieldUsageDemand": 5.722787855879963,
-    "weightedInclusionRate": 0.007699702031646897,
+    "weightedInclusionRate": 0.007699702031646896,
     "weightedCopiesPerDeck": 0.008858285537295306,
     "weightedArchetypeBreadth": 0.3470294299582036,
+    "performanceWeightedDemand": 1.0178117048346056,
     "events": 13,
-    "decksRepresented": 5299
+    "decksRepresented": 5299,
+    "rawInclusionRate": 0.0073598792224948105,
+    "rawCopiesPerDeck": 0.008680883185506699
   },
   {
     "functionalId": "n s pp up",
     "fieldUsageDemand": 5.327096948657804,
-    "weightedInclusionRate": 0.059239992118151535,
+    "weightedInclusionRate": 0.05923999211815153,
     "weightedCopiesPerDeck": 0.17922957383418797,
     "weightedArchetypeBreadth": 0.04350083900700246,
+    "performanceWeightedDemand": 5.25164113785558,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.061189412169130285,
+    "rawCopiesPerDeck": 0.18477139910622206
   },
   {
     "functionalId": "levincia",
@@ -950,8 +1265,11 @@
     "weightedInclusionRate": 0.004395857770729699,
     "weightedCopiesPerDeck": 0.010475556733962216,
     "weightedArchetypeBreadth": 0.3167991890275214,
+    "performanceWeightedDemand": 0.0,
     "events": 9,
-    "decksRepresented": 4145
+    "decksRepresented": 4145,
+    "rawInclusionRate": 0.004101326899879373,
+    "rawCopiesPerDeck": 0.009891435464414958
   },
   {
     "functionalId": "spikemuth gym",
@@ -959,8 +1277,11 @@
     "weightedInclusionRate": 0.04699549319700602,
     "weightedCopiesPerDeck": 0.1739938361623547,
     "weightedArchetypeBreadth": 0.07228864378184487,
+    "performanceWeightedDemand": 3.282275711159737,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.051564111378480576,
+    "rawCopiesPerDeck": 0.19095909247163975
   },
   {
     "functionalId": "lively stadium",
@@ -968,17 +1289,23 @@
     "weightedInclusionRate": 0.005879223099422219,
     "weightedCopiesPerDeck": 0.010364988924703345,
     "weightedArchetypeBreadth": 0.3032314896995601,
+    "performanceWeightedDemand": 0.0,
     "events": 12,
-    "decksRepresented": 5076
+    "decksRepresented": 5076,
+    "rawInclusionRate": 0.00591016548463357,
+    "rawCopiesPerDeck": 0.01024428684003152
   },
   {
     "functionalId": "megaton blower",
     "fieldUsageDemand": 4.7818078830725765,
-    "weightedInclusionRate": 0.0038756419469829825,
-    "weightedCopiesPerDeck": 0.0038756419469829825,
+    "weightedInclusionRate": 0.003875641946982982,
+    "weightedCopiesPerDeck": 0.003875641946982982,
     "weightedArchetypeBreadth": 0.3016697736056636,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 785
+    "decksRepresented": 785,
+    "rawInclusionRate": 0.003821656050955414,
+    "rawCopiesPerDeck": 0.003821656050955414
   },
   {
     "functionalId": "n s castle",
@@ -986,8 +1313,11 @@
     "weightedInclusionRate": 0.05961408113467973,
     "weightedCopiesPerDeck": 0.11160048522837082,
     "weightedArchetypeBreadth": 0.03299996608115215,
+    "performanceWeightedDemand": 5.470459518599562,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.06136129254039189,
+    "rawCopiesPerDeck": 0.11481608800275009
   },
   {
     "functionalId": "jacinthe",
@@ -995,17 +1325,23 @@
     "weightedInclusionRate": 0.005427748965397483,
     "weightedCopiesPerDeck": 0.007702621013709549,
     "weightedArchetypeBreadth": 0.28843684440204886,
+    "performanceWeightedDemand": 0.7380073800738007,
     "events": 9,
-    "decksRepresented": 4298
+    "decksRepresented": 4298,
+    "rawInclusionRate": 0.005118659841786877,
+    "rawCopiesPerDeck": 0.007445323406235459
   },
   {
     "functionalId": "gladion s final battle",
     "fieldUsageDemand": 4.690980524890702,
-    "weightedInclusionRate": 0.0578238412200274,
-    "weightedCopiesPerDeck": 0.11906653580305973,
+    "weightedInclusionRate": 0.05782384122002741,
+    "weightedCopiesPerDeck": 0.11906653580305974,
     "weightedArchetypeBreadth": 0.0318256135279957,
+    "performanceWeightedDemand": 6.3457330415754925,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.06136129254039189,
+    "rawCopiesPerDeck": 0.12667583361980062
   },
   {
     "functionalId": "accompanying flute",
@@ -1013,8 +1349,11 @@
     "weightedInclusionRate": 0.004821607186680099,
     "weightedCopiesPerDeck": 0.009473191857873618,
     "weightedArchetypeBreadth": 0.2893035426291881,
+    "performanceWeightedDemand": 0.0,
     "events": 10,
-    "decksRepresented": 4152
+    "decksRepresented": 4152,
+    "rawInclusionRate": 0.004816955684007707,
+    "rawCopiesPerDeck": 0.00939306358381503
   },
   {
     "functionalId": "fennel",
@@ -1022,8 +1361,11 @@
     "weightedInclusionRate": 0.0024852314609600345,
     "weightedCopiesPerDeck": 0.0024852314609600345,
     "weightedArchetypeBreadth": 0.29784575098105937,
+    "performanceWeightedDemand": 0.0,
     "events": 3,
-    "decksRepresented": 2080
+    "decksRepresented": 2080,
+    "rawInclusionRate": 0.002403846153846154,
+    "rawCopiesPerDeck": 0.002403846153846154
   },
   {
     "functionalId": "punk helmet",
@@ -1031,8 +1373,11 @@
     "weightedInclusionRate": 0.005508543232371551,
     "weightedCopiesPerDeck": 0.010131847769510073,
     "weightedArchetypeBreadth": 0.279205290583081,
+    "performanceWeightedDemand": 0.0,
     "events": 12,
-    "decksRepresented": 4976
+    "decksRepresented": 4976,
+    "rawInclusionRate": 0.00482315112540193,
+    "rawCopiesPerDeck": 0.008440514469453377
   },
   {
     "functionalId": "philippe",
@@ -1040,8 +1385,11 @@
     "weightedInclusionRate": 0.007421831485777842,
     "weightedCopiesPerDeck": 0.010054592173856918,
     "weightedArchetypeBreadth": 0.2659548301531895,
+    "performanceWeightedDemand": 0.437636761487965,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.0075627363355104844,
+    "rawCopiesPerDeck": 0.010140941904434514
   },
   {
     "functionalId": "backtrack badge",
@@ -1049,26 +1397,35 @@
     "weightedInclusionRate": 0.007120650037937797,
     "weightedCopiesPerDeck": 0.014587337360806847,
     "weightedArchetypeBreadth": 0.25801732979138425,
+    "performanceWeightedDemand": 0.0,
     "events": 12,
-    "decksRepresented": 4687
+    "decksRepresented": 4687,
+    "rawInclusionRate": 0.0072541071047578405,
+    "rawCopiesPerDeck": 0.013868145935566461
   },
   {
     "functionalId": "lisia s appeal",
     "fieldUsageDemand": 4.233291173253016,
     "weightedInclusionRate": 0.005586605123592104,
-    "weightedCopiesPerDeck": 0.008943431667596709,
+    "weightedCopiesPerDeck": 0.00894343166759671,
     "weightedArchetypeBreadth": 0.256146561194334,
+    "performanceWeightedDemand": 0.5333333333333333,
     "events": 12,
-    "decksRepresented": 4937
+    "decksRepresented": 4937,
+    "rawInclusionRate": 0.005671460401053271,
+    "rawCopiesPerDeck": 0.008304638444399434
   },
   {
     "functionalId": "iron defender",
     "fieldUsageDemand": 4.231546729988206,
     "weightedInclusionRate": 0.006182594781462304,
-    "weightedCopiesPerDeck": 0.010323337657802207,
+    "weightedCopiesPerDeck": 0.010323337657802205,
     "weightedArchetypeBreadth": 0.2530713455159469,
+    "performanceWeightedDemand": 1.4705882352941175,
     "events": 9,
-    "decksRepresented": 3391
+    "decksRepresented": 3391,
+    "rawInclusionRate": 0.006487761722205839,
+    "rawCopiesPerDeck": 0.01150103214391035
   },
   {
     "functionalId": "lucian",
@@ -1076,8 +1433,11 @@
     "weightedInclusionRate": 0.0049881692701631355,
     "weightedCopiesPerDeck": 0.007276625145126284,
     "weightedArchetypeBreadth": 0.2572114533689208,
+    "performanceWeightedDemand": 0.0,
     "events": 12,
-    "decksRepresented": 4772
+    "decksRepresented": 4772,
+    "rawInclusionRate": 0.004610226320201173,
+    "rawCopiesPerDeck": 0.006496227996647108
   },
   {
     "functionalId": "neutralization zone",
@@ -1085,8 +1445,11 @@
     "weightedInclusionRate": 0.004259984121072444,
     "weightedCopiesPerDeck": 0.004259984121072444,
     "weightedArchetypeBreadth": 0.2524686406152701,
+    "performanceWeightedDemand": 0.36900369003690037,
     "events": 9,
-    "decksRepresented": 3626
+    "decksRepresented": 3626,
+    "rawInclusionRate": 0.004136789851075565,
+    "rawCopiesPerDeck": 0.004136789851075565
   },
   {
     "functionalId": "hop s choice band",
@@ -1094,8 +1457,11 @@
     "weightedInclusionRate": 0.007811978307664141,
     "weightedCopiesPerDeck": 0.031003006644340147,
     "weightedArchetypeBreadth": 0.2262034976400539,
+    "performanceWeightedDemand": 0.2544529262086514,
     "events": 13,
-    "decksRepresented": 5322
+    "decksRepresented": 5322,
+    "rawInclusionRate": 0.007328072153325817,
+    "rawCopiesPerDeck": 0.029124389327320557
   },
   {
     "functionalId": "postwick",
@@ -1103,8 +1469,11 @@
     "weightedInclusionRate": 0.007811978307664141,
     "weightedCopiesPerDeck": 0.030733959149135483,
     "weightedArchetypeBreadth": 0.2262034976400539,
+    "performanceWeightedDemand": 0.2544529262086514,
     "events": 13,
-    "decksRepresented": 5322
+    "decksRepresented": 5322,
+    "rawInclusionRate": 0.007328072153325817,
+    "rawCopiesPerDeck": 0.02893649004133784
   },
   {
     "functionalId": "kofu",
@@ -1112,8 +1481,11 @@
     "weightedInclusionRate": 0.004190952042662762,
     "weightedCopiesPerDeck": 0.008515942146993938,
     "weightedArchetypeBreadth": 0.24989570546354836,
+    "performanceWeightedDemand": 0.27548209366391185,
     "events": 12,
-    "decksRepresented": 4991
+    "decksRepresented": 4991,
+    "rawInclusionRate": 0.003806852334201563,
+    "rawCopiesPerDeck": 0.007613704668403126
   },
   {
     "functionalId": "naveen",
@@ -1121,8 +1493,11 @@
     "weightedInclusionRate": 0.005370189439680148,
     "weightedCopiesPerDeck": 0.008682720674080881,
     "weightedArchetypeBreadth": 0.24341733171166788,
+    "performanceWeightedDemand": 0.0,
     "events": 14,
-    "decksRepresented": 5557
+    "decksRepresented": 5557,
+    "rawInclusionRate": 0.004858736728450603,
+    "rawCopiesPerDeck": 0.007917941335252834
   },
   {
     "functionalId": "hop s bag",
@@ -1130,8 +1505,11 @@
     "weightedInclusionRate": 0.007811978307664141,
     "weightedCopiesPerDeck": 0.016257794938779005,
     "weightedArchetypeBreadth": 0.2262034976400539,
+    "performanceWeightedDemand": 0.2544529262086514,
     "events": 13,
-    "decksRepresented": 5322
+    "decksRepresented": 5322,
+    "rawInclusionRate": 0.007328072153325817,
+    "rawCopiesPerDeck": 0.015407741450582487
   },
   {
     "functionalId": "miracle headset",
@@ -1139,17 +1517,23 @@
     "weightedInclusionRate": 0.011352433196246427,
     "weightedCopiesPerDeck": 0.011352433196246427,
     "weightedArchetypeBreadth": 0.20413795910429958,
+    "performanceWeightedDemand": 0.437636761487965,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.011172224132004124,
+    "rawCopiesPerDeck": 0.011172224132004124
   },
   {
     "functionalId": "great haul net",
     "fieldUsageDemand": 3.6929274126015232,
-    "weightedInclusionRate": 0.005456659013920224,
+    "weightedInclusionRate": 0.005456659013920225,
     "weightedCopiesPerDeck": 0.007251972101054468,
     "weightedArchetypeBreadth": 0.2213468697423146,
+    "performanceWeightedDemand": 0.2188183807439825,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.00532829150910966,
+    "rawCopiesPerDeck": 0.0067033344792024755
   },
   {
     "functionalId": "mystery garden",
@@ -1157,8 +1541,11 @@
     "weightedInclusionRate": 0.006099092895182036,
     "weightedCopiesPerDeck": 0.01499039869414005,
     "weightedArchetypeBreadth": 0.21114838988129797,
+    "performanceWeightedDemand": 0.5089058524173028,
     "events": 13,
-    "decksRepresented": 5299
+    "decksRepresented": 5299,
+    "rawInclusionRate": 0.00585016040762408,
+    "rawCopiesPerDeck": 0.014719758444989621
   },
   {
     "functionalId": "babiri berry",
@@ -1166,17 +1553,23 @@
     "weightedInclusionRate": 0.011912302649285163,
     "weightedCopiesPerDeck": 0.013498803413505917,
     "weightedArchetypeBreadth": 0.1792249178185589,
+    "performanceWeightedDemand": 0.6993006993006993,
     "events": 14,
-    "decksRepresented": 5557
+    "decksRepresented": 5557,
+    "rawInclusionRate": 0.010797192729890229,
+    "rawCopiesPerDeck": 0.012236818427208926
   },
   {
     "functionalId": "canari",
     "fieldUsageDemand": 3.461414833262645,
     "weightedInclusionRate": 0.008415799493888857,
-    "weightedCopiesPerDeck": 0.019432990238036428,
+    "weightedCopiesPerDeck": 0.01943299023803643,
     "weightedArchetypeBreadth": 0.18900071164277243,
+    "performanceWeightedDemand": 0.0,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.008422138191818494,
+    "rawCopiesPerDeck": 0.020110003437607424
   },
   {
     "functionalId": "dangerous laser",
@@ -1184,8 +1577,11 @@
     "weightedInclusionRate": 0.003820794196020925,
     "weightedCopiesPerDeck": 0.003820794196020925,
     "weightedArchetypeBreadth": 0.199884601552336,
+    "performanceWeightedDemand": 0.0,
     "events": 6,
-    "decksRepresented": 2697
+    "decksRepresented": 2697,
+    "rawInclusionRate": 0.004078605858361142,
+    "rawCopiesPerDeck": 0.004078605858361142
   },
   {
     "functionalId": "n s plan",
@@ -1193,17 +1589,23 @@
     "weightedInclusionRate": 0.011772076748021791,
     "weightedCopiesPerDeck": 0.012589657351956003,
     "weightedArchetypeBreadth": 0.15956964488939474,
+    "performanceWeightedDemand": 1.75054704595186,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.012375386730835339,
+    "rawCopiesPerDeck": 0.013062908215881746
   },
   {
     "functionalId": "acerola s mischief",
     "fieldUsageDemand": 3.1314689307521375,
-    "weightedInclusionRate": 0.0038222816988076076,
+    "weightedInclusionRate": 0.003822281698807607,
     "weightedCopiesPerDeck": 0.005531868087555706,
     "weightedArchetypeBreadth": 0.1911705235517639,
+    "performanceWeightedDemand": 0.0,
     "events": 7,
-    "decksRepresented": 3715
+    "decksRepresented": 3715,
+    "rawInclusionRate": 0.004037685060565276,
+    "rawCopiesPerDeck": 0.005652759084791386
   },
   {
     "functionalId": "core memory",
@@ -1211,8 +1613,11 @@
     "weightedInclusionRate": 0.0038537012552888037,
     "weightedCopiesPerDeck": 0.005140897927946147,
     "weightedArchetypeBreadth": 0.18955501093828656,
+    "performanceWeightedDemand": 0.0,
     "events": 6,
-    "decksRepresented": 2937
+    "decksRepresented": 2937,
+    "rawInclusionRate": 0.0030643513789581204,
+    "rawCopiesPerDeck": 0.0040858018386108275
   },
   {
     "functionalId": "roto stick",
@@ -1220,17 +1625,23 @@
     "weightedInclusionRate": 0.012034312395344544,
     "weightedCopiesPerDeck": 0.04262701768344668,
     "weightedArchetypeBreadth": 0.1355040513659955,
+    "performanceWeightedDemand": 0.2188183807439825,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.011515984874527329,
+    "rawCopiesPerDeck": 0.04142316947404606
   },
   {
     "functionalId": "hand trimmer",
     "fieldUsageDemand": 2.9383561515014067,
     "weightedInclusionRate": 0.00466636281132281,
-    "weightedCopiesPerDeck": 0.006626516471887822,
+    "weightedCopiesPerDeck": 0.006626516471887821,
     "weightedArchetypeBreadth": 0.17446391032484931,
+    "performanceWeightedDemand": 0.4705882352941176,
     "events": 14,
-    "decksRepresented": 5581
+    "decksRepresented": 5581,
+    "rawInclusionRate": 0.004479483963447411,
+    "rawCopiesPerDeck": 0.005733739473212686
   },
   {
     "functionalId": "repel",
@@ -1238,17 +1649,23 @@
     "weightedInclusionRate": 0.003004192731012103,
     "weightedCopiesPerDeck": 0.003004192731012103,
     "weightedArchetypeBreadth": 0.17684456872675333,
+    "performanceWeightedDemand": 0.0,
     "events": 3,
-    "decksRepresented": 1694
+    "decksRepresented": 1694,
+    "rawInclusionRate": 0.0023612750885478157,
+    "rawCopiesPerDeck": 0.0023612750885478157
   },
   {
     "functionalId": "grimsley s move",
     "fieldUsageDemand": 2.8018632186258365,
     "weightedInclusionRate": 0.002921927185938335,
-    "weightedCopiesPerDeck": 0.0063471380245646095,
+    "weightedCopiesPerDeck": 0.00634713802456461,
     "weightedArchetypeBreadth": 0.1724585316544005,
+    "performanceWeightedDemand": 0.0,
     "events": 3,
-    "decksRepresented": 1559
+    "decksRepresented": 1559,
+    "rawInclusionRate": 0.003207184092366902,
+    "rawCopiesPerDeck": 0.007055805003207184
   },
   {
     "functionalId": "drayton",
@@ -1256,8 +1673,11 @@
     "weightedInclusionRate": 0.0039060644396845838,
     "weightedCopiesPerDeck": 0.007450723837127801,
     "weightedArchetypeBreadth": 0.16755935942315603,
+    "performanceWeightedDemand": 1.0416666666666665,
     "events": 3,
-    "decksRepresented": 1479
+    "decksRepresented": 1479,
+    "rawInclusionRate": 0.002704530087897228,
+    "rawCopiesPerDeck": 0.004732927653820149
   },
   {
     "functionalId": "heavy baton",
@@ -1265,8 +1685,11 @@
     "weightedInclusionRate": 0.004850122552262902,
     "weightedCopiesPerDeck": 0.007957136506447731,
     "weightedArchetypeBreadth": 0.1626014962972195,
+    "performanceWeightedDemand": 0.0,
     "events": 10,
-    "decksRepresented": 4429
+    "decksRepresented": 4429,
+    "rawInclusionRate": 0.004289907428313389,
+    "rawCopiesPerDeck": 0.006773538044705351
   },
   {
     "functionalId": "rust syndicate grunt",
@@ -1274,8 +1697,11 @@
     "weightedInclusionRate": 0.007387197272858367,
     "weightedCopiesPerDeck": 0.009075274989740718,
     "weightedArchetypeBreadth": 0.15012375114618243,
+    "performanceWeightedDemand": 0.0,
     "events": 11,
-    "decksRepresented": 4581
+    "decksRepresented": 4581,
+    "rawInclusionRate": 0.0056756166775813145,
+    "rawCopiesPerDeck": 0.006985374372407771
   },
   {
     "functionalId": "full metal lab",
@@ -1283,8 +1709,11 @@
     "weightedInclusionRate": 0.004752922999127255,
     "weightedCopiesPerDeck": 0.008718714273812692,
     "weightedArchetypeBreadth": 0.15330203940587725,
+    "performanceWeightedDemand": 0.2331002331002331,
     "events": 14,
-    "decksRepresented": 5557
+    "decksRepresented": 5557,
+    "rawInclusionRate": 0.004318877091956092,
+    "rawCopiesPerDeck": 0.008097894547417672
   },
   {
     "functionalId": "bianca s devotion",
@@ -1292,8 +1721,11 @@
     "weightedInclusionRate": 0.006416744090493674,
     "weightedCopiesPerDeck": 0.006648660185583973,
     "weightedArchetypeBreadth": 0.13097345910763217,
+    "performanceWeightedDemand": 0.8086253369272237,
     "events": 12,
-    "decksRepresented": 4765
+    "decksRepresented": 4765,
+    "rawInclusionRate": 0.0065057712486883525,
+    "rawCopiesPerDeck": 0.006925498426023085
   },
   {
     "functionalId": "pok mon center lady",
@@ -1301,8 +1733,11 @@
     "weightedInclusionRate": 0.005629949495699089,
     "weightedCopiesPerDeck": 0.005629949495699089,
     "weightedArchetypeBreadth": 0.12994138018015022,
+    "performanceWeightedDemand": 0.7371007371007371,
     "events": 13,
-    "decksRepresented": 5283
+    "decksRepresented": 5283,
+    "rawInclusionRate": 0.005300018928639031,
+    "rawCopiesPerDeck": 0.005300018928639031
   },
   {
     "functionalId": "lacey",
@@ -1310,8 +1745,11 @@
     "weightedInclusionRate": 0.0043150615884863285,
     "weightedCopiesPerDeck": 0.006990519437346322,
     "weightedArchetypeBreadth": 0.11541124199456326,
+    "performanceWeightedDemand": 0.0,
     "events": 8,
-    "decksRepresented": 3593
+    "decksRepresented": 3593,
+    "rawInclusionRate": 0.003339827442248817,
+    "rawCopiesPerDeck": 0.0052880601168939605
   },
   {
     "functionalId": "waitress",
@@ -1319,8 +1757,11 @@
     "weightedInclusionRate": 0.0026153071452003672,
     "weightedCopiesPerDeck": 0.004124420143872803,
     "weightedArchetypeBreadth": 0.11617104107920294,
+    "performanceWeightedDemand": 0.0,
     "events": 4,
-    "decksRepresented": 1993
+    "decksRepresented": 1993,
+    "rawInclusionRate": 0.002508780732563974,
+    "rawCopiesPerDeck": 0.004014049172102358
   },
   {
     "functionalId": "gravity gemstone",
@@ -1328,8 +1769,11 @@
     "weightedInclusionRate": 0.004155068792271887,
     "weightedCopiesPerDeck": 0.006358693162618452,
     "weightedArchetypeBreadth": 0.10598389765518136,
+    "performanceWeightedDemand": 0.0,
     "events": 13,
-    "decksRepresented": 5084
+    "decksRepresented": 5084,
+    "rawInclusionRate": 0.003933910306845004,
+    "rawCopiesPerDeck": 0.006490952006294256
   },
   {
     "functionalId": "ethan s adventure",
@@ -1337,8 +1781,11 @@
     "weightedInclusionRate": 0.009774260609216344,
     "weightedCopiesPerDeck": 0.03856029229279477,
     "weightedArchetypeBreadth": 0.06958357357809823,
+    "performanceWeightedDemand": 0.5434782608695652,
     "events": 12,
-    "decksRepresented": 4983
+    "decksRepresented": 4983,
+    "rawInclusionRate": 0.00862933975516757,
+    "rawCopiesPerDeck": 0.03411599438089504
   },
   {
     "functionalId": "team rocket s venture bomb",
@@ -1346,8 +1793,11 @@
     "weightedInclusionRate": 0.003981836737045132,
     "weightedCopiesPerDeck": 0.00780549311212823,
     "weightedArchetypeBreadth": 0.10054913222998511,
+    "performanceWeightedDemand": 0.628930817610063,
     "events": 10,
-    "decksRepresented": 3452
+    "decksRepresented": 3452,
+    "rawInclusionRate": 0.0037659327925840093,
+    "rawCopiesPerDeck": 0.007531865585168019
   },
   {
     "functionalId": "super potion",
@@ -1355,17 +1805,23 @@
     "weightedInclusionRate": 0.006697051750124791,
     "weightedCopiesPerDeck": 0.00694778639728572,
     "weightedArchetypeBreadth": 0.08250140654958957,
+    "performanceWeightedDemand": 0.9925558312655087,
     "events": 13,
-    "decksRepresented": 5307
+    "decksRepresented": 5307,
+    "rawInclusionRate": 0.006595063124175617,
+    "rawCopiesPerDeck": 0.00697192387412851
   },
   {
     "functionalId": "misty s vitality",
     "fieldUsageDemand": 1.3044033643609636,
     "weightedInclusionRate": 0.004155973611779851,
-    "weightedCopiesPerDeck": 0.012418695481596376,
+    "weightedCopiesPerDeck": 0.012418695481596374,
     "weightedArchetypeBreadth": 0.06516187339294635,
+    "performanceWeightedDemand": 0.0,
     "events": 10,
-    "decksRepresented": 3978
+    "decksRepresented": 3978,
+    "rawInclusionRate": 0.004022121669180492,
+    "rawCopiesPerDeck": 0.012066365007541479
   },
   {
     "functionalId": "cynthia s power weight",
@@ -1373,17 +1829,23 @@
     "weightedInclusionRate": 0.013714276279201808,
     "weightedCopiesPerDeck": 0.043268562535258175,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.437636761487965,
     "events": 15,
-    "decksRepresented": 5818
+    "decksRepresented": 5818,
+    "rawInclusionRate": 0.012375386730835339,
+    "rawCopiesPerDeck": 0.038844963905122036
   },
   {
     "functionalId": "firebreather",
     "fieldUsageDemand": 0.4750209423845034,
     "weightedInclusionRate": 0.006572541054370657,
-    "weightedCopiesPerDeck": 0.012906956659562228,
+    "weightedCopiesPerDeck": 0.01290695665956223,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 5,
-    "decksRepresented": 1576
+    "decksRepresented": 1576,
+    "rawInclusionRate": 0.005710659898477157,
+    "rawCopiesPerDeck": 0.011421319796954314
   },
   {
     "functionalId": "granite cave",
@@ -1391,17 +1853,23 @@
     "weightedInclusionRate": 0.004098360655737705,
     "weightedCopiesPerDeck": 0.012295081967213116,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 244
+    "decksRepresented": 244,
+    "rawInclusionRate": 0.004098360655737705,
+    "rawCopiesPerDeck": 0.012295081967213115
   },
   {
     "functionalId": "caretaker",
-    "fieldUsageDemand": 0.30405405405405406,
-    "weightedInclusionRate": 0.0038610038610038607,
-    "weightedCopiesPerDeck": 0.011583011583011584,
+    "fieldUsageDemand": 0.304054054054054,
+    "weightedInclusionRate": 0.003861003861003861,
+    "weightedCopiesPerDeck": 0.011583011583011582,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 259
+    "decksRepresented": 259,
+    "rawInclusionRate": 0.003861003861003861,
+    "rawCopiesPerDeck": 0.011583011583011582
   },
   {
     "functionalId": "potion",
@@ -1409,8 +1877,11 @@
     "weightedInclusionRate": 0.0038314176245210726,
     "weightedCopiesPerDeck": 0.011494252873563218,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 261
+    "decksRepresented": 261,
+    "rawInclusionRate": 0.0038314176245210726,
+    "rawCopiesPerDeck": 0.011494252873563218
   },
   {
     "functionalId": "antique skull fossil",
@@ -1418,8 +1889,11 @@
     "weightedInclusionRate": 0.003546099290780142,
     "weightedCopiesPerDeck": 0.014184397163120569,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 282
+    "decksRepresented": 282,
+    "rawInclusionRate": 0.0035460992907801418,
+    "rawCopiesPerDeck": 0.014184397163120567
   },
   {
     "functionalId": "antique jaw fossil",
@@ -1427,17 +1901,23 @@
     "weightedInclusionRate": 0.0036282313661066996,
     "weightedCopiesPerDeck": 0.011321366014474447,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 4,
-    "decksRepresented": 1435
+    "decksRepresented": 1435,
+    "rawInclusionRate": 0.003484320557491289,
+    "rawCopiesPerDeck": 0.011149825783972125
   },
   {
     "functionalId": "call bell",
     "fieldUsageDemand": 0.2819804289212416,
     "weightedInclusionRate": 0.003899006743026946,
-    "weightedCopiesPerDeck": 0.007686403894339972,
+    "weightedCopiesPerDeck": 0.0076864038943399715,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 3,
-    "decksRepresented": 763
+    "decksRepresented": 763,
+    "rawInclusionRate": 0.003931847968545216,
+    "rawCopiesPerDeck": 0.007863695937090432
   },
   {
     "functionalId": "antique plume fossil",
@@ -1445,8 +1925,11 @@
     "weightedInclusionRate": 0.003246347894609752,
     "weightedCopiesPerDeck": 0.012985391578439007,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 628
+    "decksRepresented": 628,
+    "rawInclusionRate": 0.0031847133757961785,
+    "rawCopiesPerDeck": 0.012738853503184714
   },
   {
     "functionalId": "rescue board",
@@ -1454,8 +1937,11 @@
     "weightedInclusionRate": 0.003546099290780142,
     "weightedCopiesPerDeck": 0.007092198581560284,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 282
+    "decksRepresented": 282,
+    "rawInclusionRate": 0.0035460992907801418,
+    "rawCopiesPerDeck": 0.0070921985815602835
   },
   {
     "functionalId": "antique root fossil",
@@ -1463,8 +1949,11 @@
     "weightedInclusionRate": 0.003185418403191804,
     "weightedCopiesPerDeck": 0.010050965633608553,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 3,
-    "decksRepresented": 1285
+    "decksRepresented": 1285,
+    "rawInclusionRate": 0.0031128404669260703,
+    "rawCopiesPerDeck": 0.010894941634241245
   },
   {
     "functionalId": "billy o nare",
@@ -1472,8 +1961,11 @@
     "weightedInclusionRate": 0.0038314176245210726,
     "weightedCopiesPerDeck": 0.0038314176245210726,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 261
+    "decksRepresented": 261,
+    "rawInclusionRate": 0.0038314176245210726,
+    "rawCopiesPerDeck": 0.0038314176245210726
   },
   {
     "functionalId": "lumiose galette",
@@ -1481,8 +1973,11 @@
     "weightedInclusionRate": 0.00372570973718644,
     "weightedCopiesPerDeck": 0.00372570973718644,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.78125,
     "events": 4,
-    "decksRepresented": 1413
+    "decksRepresented": 1413,
+    "rawInclusionRate": 0.003538570417551309,
+    "rawCopiesPerDeck": 0.003538570417551309
   },
   {
     "functionalId": "cook",
@@ -1490,44 +1985,59 @@
     "weightedInclusionRate": 0.003716690653437032,
     "weightedCopiesPerDeck": 0.003716690653437032,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 532
+    "decksRepresented": 532,
+    "rawInclusionRate": 0.0037593984962406013,
+    "rawCopiesPerDeck": 0.0037593984962406013
   },
   {
     "functionalId": "deduction kit",
-    "fieldUsageDemand": 0.2456647398843931,
-    "weightedInclusionRate": 0.0028901734104046246,
-    "weightedCopiesPerDeck": 0.011560693641618498,
+    "fieldUsageDemand": 0.24566473988439302,
+    "weightedInclusionRate": 0.002890173410404624,
+    "weightedCopiesPerDeck": 0.011560693641618497,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 346
+    "decksRepresented": 346,
+    "rawInclusionRate": 0.002890173410404624,
+    "rawCopiesPerDeck": 0.011560693641618497
   },
   {
     "functionalId": "antique cover fossil",
     "fieldUsageDemand": 0.23903570619247466,
-    "weightedInclusionRate": 0.0028121847787349963,
-    "weightedCopiesPerDeck": 0.011248739114939985,
+    "weightedInclusionRate": 0.002812184778734996,
+    "weightedCopiesPerDeck": 0.011248739114939984,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 4,
-    "decksRepresented": 1796
+    "decksRepresented": 1796,
+    "rawInclusionRate": 0.0022271714922048997,
+    "rawCopiesPerDeck": 0.008908685968819599
   },
   {
     "functionalId": "pok ball",
     "fieldUsageDemand": 0.23869051230530539,
-    "weightedInclusionRate": 0.0033260279161652366,
-    "weightedCopiesPerDeck": 0.006260613973662591,
+    "weightedInclusionRate": 0.003326027916165236,
+    "weightedCopiesPerDeck": 0.00626061397366259,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 3,
-    "decksRepresented": 916
+    "decksRepresented": 916,
+    "rawInclusionRate": 0.0032751091703056767,
+    "rawCopiesPerDeck": 0.006550218340611353
   },
   {
     "functionalId": "energy swatter",
-    "fieldUsageDemand": 0.23854857828604606,
-    "weightedInclusionRate": 0.0031647875257972908,
-    "weightedCopiesPerDeck": 0.007785812278113377,
+    "fieldUsageDemand": 0.23854857828604603,
+    "weightedInclusionRate": 0.0031647875257972903,
+    "weightedCopiesPerDeck": 0.007785812278113376,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 4,
-    "decksRepresented": 1355
+    "decksRepresented": 1355,
+    "rawInclusionRate": 0.002952029520295203,
+    "rawCopiesPerDeck": 0.007380073800738007
   },
   {
     "functionalId": "love ball",
@@ -1535,8 +2045,11 @@
     "weightedInclusionRate": 0.003546099290780142,
     "weightedCopiesPerDeck": 0.003546099290780142,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 282
+    "decksRepresented": 282,
+    "rawInclusionRate": 0.0035460992907801418,
+    "rawCopiesPerDeck": 0.0035460992907801418
   },
   {
     "functionalId": "team rocket s great ball",
@@ -1544,8 +2057,11 @@
     "weightedInclusionRate": 0.003546099290780142,
     "weightedCopiesPerDeck": 0.003546099290780142,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 282
+    "decksRepresented": 282,
+    "rawInclusionRate": 0.0035460992907801418,
+    "rawCopiesPerDeck": 0.0035460992907801418
   },
   {
     "functionalId": "energy search pro",
@@ -1553,8 +2069,11 @@
     "weightedInclusionRate": 0.003472222222222222,
     "weightedCopiesPerDeck": 0.003472222222222222,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 288
+    "decksRepresented": 288,
+    "rawInclusionRate": 0.003472222222222222,
+    "rawCopiesPerDeck": 0.003472222222222222
   },
   {
     "functionalId": "pok vital a",
@@ -1562,8 +2081,11 @@
     "weightedInclusionRate": 0.003472222222222222,
     "weightedCopiesPerDeck": 0.003472222222222222,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 288
+    "decksRepresented": 288,
+    "rawInclusionRate": 0.003472222222222222,
+    "rawCopiesPerDeck": 0.003472222222222222
   },
   {
     "functionalId": "survival brace",
@@ -1571,8 +2093,11 @@
     "weightedInclusionRate": 0.003410776364800565,
     "weightedCopiesPerDeck": 0.003410776364800565,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.5681818181818182,
     "events": 6,
-    "decksRepresented": 2162
+    "decksRepresented": 2162,
+    "rawInclusionRate": 0.0027752081406105457,
+    "rawCopiesPerDeck": 0.0027752081406105457
   },
   {
     "functionalId": "deluxe bomb",
@@ -1580,17 +2105,23 @@
     "weightedInclusionRate": 0.0033114161422125926,
     "weightedCopiesPerDeck": 0.0033114161422125926,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 611
+    "decksRepresented": 611,
+    "rawInclusionRate": 0.0032733224222585926,
+    "rawCopiesPerDeck": 0.0032733224222585926
   },
   {
     "functionalId": "boxed order",
-    "fieldUsageDemand": 0.2092855350853798,
+    "fieldUsageDemand": 0.20928553508537975,
     "weightedInclusionRate": 0.002657594096322283,
-    "weightedCopiesPerDeck": 0.00797278228896685,
+    "weightedCopiesPerDeck": 0.007972782288966848,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 830
+    "decksRepresented": 830,
+    "rawInclusionRate": 0.0024096385542168677,
+    "rawCopiesPerDeck": 0.007228915662650603
   },
   {
     "functionalId": "hyper aroma",
@@ -1598,8 +2129,11 @@
     "weightedInclusionRate": 0.0031128048348323576,
     "weightedCopiesPerDeck": 0.0031128048348323576,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 6,
-    "decksRepresented": 2279
+    "decksRepresented": 2279,
+    "rawInclusionRate": 0.0026327336551118913,
+    "rawCopiesPerDeck": 0.0026327336551118913
   },
   {
     "functionalId": "lt surge s bargain",
@@ -1607,8 +2141,11 @@
     "weightedInclusionRate": 0.002905296163010733,
     "weightedCopiesPerDeck": 0.0037343671639397612,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 4,
-    "decksRepresented": 1667
+    "decksRepresented": 1667,
+    "rawInclusionRate": 0.0023995200959808036,
+    "rawCopiesPerDeck": 0.003599280143971206
   },
   {
     "functionalId": "harlequin",
@@ -1616,8 +2153,11 @@
     "weightedInclusionRate": 0.002796509938268677,
     "weightedCopiesPerDeck": 0.004274234859515523,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 4,
-    "decksRepresented": 1904
+    "decksRepresented": 1904,
+    "rawInclusionRate": 0.0021008403361344537,
+    "rawCopiesPerDeck": 0.003676470588235294
   },
   {
     "functionalId": "payapa berry",
@@ -1625,8 +2165,11 @@
     "weightedInclusionRate": 0.0029349854431811105,
     "weightedCopiesPerDeck": 0.0029349854431811105,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 779
+    "decksRepresented": 779,
+    "rawInclusionRate": 0.0025673940949935813,
+    "rawCopiesPerDeck": 0.0025673940949935813
   },
   {
     "functionalId": "scramble switch",
@@ -1634,17 +2177,23 @@
     "weightedInclusionRate": 0.0029110472514050603,
     "weightedCopiesPerDeck": 0.0029110472514050603,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 7,
-    "decksRepresented": 2730
+    "decksRepresented": 2730,
+    "rawInclusionRate": 0.002564102564102564,
+    "rawCopiesPerDeck": 0.002564102564102564
   },
   {
     "functionalId": "tremendous bomb",
     "fieldUsageDemand": 0.189714241466278,
     "weightedInclusionRate": 0.002734170604172554,
-    "weightedCopiesPerDeck": 0.004106240834547959,
+    "weightedCopiesPerDeck": 0.004106240834547958,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 6,
-    "decksRepresented": 2597
+    "decksRepresented": 2597,
+    "rawInclusionRate": 0.0023103581055063534,
+    "rawCopiesPerDeck": 0.0034655371582595304
   },
   {
     "functionalId": "jasmine s gaze",
@@ -1652,17 +2201,23 @@
     "weightedInclusionRate": 0.0026919783183502193,
     "weightedCopiesPerDeck": 0.004451405268113793,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 3,
-    "decksRepresented": 1444
+    "decksRepresented": 1444,
+    "rawInclusionRate": 0.002077562326869806,
+    "rawCopiesPerDeck": 0.0034626038781163434
   },
   {
     "functionalId": "haban berry",
-    "fieldUsageDemand": 0.18770985495227435,
-    "weightedInclusionRate": 0.002833356301166405,
-    "weightedCopiesPerDeck": 0.002833356301166405,
+    "fieldUsageDemand": 0.1877098549522743,
+    "weightedInclusionRate": 0.0028333563011664047,
+    "weightedCopiesPerDeck": 0.0028333563011664047,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 3,
-    "decksRepresented": 1104
+    "decksRepresented": 1104,
+    "rawInclusionRate": 0.002717391304347826,
+    "rawCopiesPerDeck": 0.002717391304347826
   },
   {
     "functionalId": "perilous jungle",
@@ -1670,8 +2225,11 @@
     "weightedInclusionRate": 0.002571714234818542,
     "weightedCopiesPerDeck": 0.0040544816351326726,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 4,
-    "decksRepresented": 1673
+    "decksRepresented": 1673,
+    "rawInclusionRate": 0.002390914524805738,
+    "rawCopiesPerDeck": 0.0035863717872086074
   },
   {
     "functionalId": "sacred charm",
@@ -1679,8 +2237,11 @@
     "weightedInclusionRate": 0.0025134791142231855,
     "weightedCopiesPerDeck": 0.003356651817711153,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 8,
-    "decksRepresented": 3768
+    "decksRepresented": 3768,
+    "rawInclusionRate": 0.0021231422505307855,
+    "rawCopiesPerDeck": 0.002653927813163482
   },
   {
     "functionalId": "blowtorch",
@@ -1688,8 +2249,11 @@
     "weightedInclusionRate": 0.0025406432398021846,
     "weightedCopiesPerDeck": 0.0025406432398021846,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 6,
-    "decksRepresented": 3017
+    "decksRepresented": 3017,
+    "rawInclusionRate": 0.002320185614849188,
+    "rawCopiesPerDeck": 0.002320185614849188
   },
   {
     "functionalId": "roxie s performance",
@@ -1697,17 +2261,23 @@
     "weightedInclusionRate": 0.002211442135471213,
     "weightedCopiesPerDeck": 0.004243412328745296,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 3,
-    "decksRepresented": 1391
+    "decksRepresented": 1391,
+    "rawInclusionRate": 0.002156721782890007,
+    "rawCopiesPerDeck": 0.004313443565780014
   },
   {
     "functionalId": "amulet of hope",
-    "fieldUsageDemand": 0.15201746729688967,
-    "weightedInclusionRate": 0.0022946032799530517,
-    "weightedCopiesPerDeck": 0.0022946032799530517,
+    "fieldUsageDemand": 0.15201746729688964,
+    "weightedInclusionRate": 0.0022946032799530513,
+    "weightedCopiesPerDeck": 0.0022946032799530513,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 1.5625,
     "events": 2,
-    "decksRepresented": 894
+    "decksRepresented": 894,
+    "rawInclusionRate": 0.0022371364653243847,
+    "rawCopiesPerDeck": 0.0022371364653243847
   },
   {
     "functionalId": "perrin",
@@ -1715,8 +2285,11 @@
     "weightedInclusionRate": 0.0020931036731581193,
     "weightedCopiesPerDeck": 0.0020931036731581193,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 4,
-    "decksRepresented": 2300
+    "decksRepresented": 2300,
+    "rawInclusionRate": 0.0017391304347826088,
+    "rawCopiesPerDeck": 0.0017391304347826088
   },
   {
     "functionalId": "strange timepiece",
@@ -1724,8 +2297,11 @@
     "weightedInclusionRate": 0.0019455252918287936,
     "weightedCopiesPerDeck": 0.0019455252918287936,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 514
+    "decksRepresented": 514,
+    "rawInclusionRate": 0.0019455252918287938,
+    "rawCopiesPerDeck": 0.0019455252918287938
   },
   {
     "functionalId": "meddling memo",
@@ -1733,8 +2309,11 @@
     "weightedInclusionRate": 0.0018248175182481753,
     "weightedCopiesPerDeck": 0.0018248175182481753,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 548
+    "decksRepresented": 548,
+    "rawInclusionRate": 0.0018248175182481751,
+    "rawCopiesPerDeck": 0.0018248175182481751
   },
   {
     "functionalId": "cheren",
@@ -1742,8 +2321,11 @@
     "weightedInclusionRate": 0.0016956229380888908,
     "weightedCopiesPerDeck": 0.0023451516530181384,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 1205
+    "decksRepresented": 1205,
+    "rawInclusionRate": 0.0016597510373443983,
+    "rawCopiesPerDeck": 0.0024896265560165973
   },
   {
     "functionalId": "ogre s mask",
@@ -1751,8 +2333,11 @@
     "weightedInclusionRate": 0.001288966821778865,
     "weightedCopiesPerDeck": 0.0038669004653365947,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 1566
+    "decksRepresented": 1566,
+    "rawInclusionRate": 0.001277139208173691,
+    "rawCopiesPerDeck": 0.0038314176245210726
   },
   {
     "functionalId": "adversity policy",
@@ -1760,8 +2345,11 @@
     "weightedInclusionRate": 0.0015220700152207,
     "weightedCopiesPerDeck": 0.0015220700152207,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 657
+    "decksRepresented": 657,
+    "rawInclusionRate": 0.0015220700152207,
+    "rawCopiesPerDeck": 0.0015220700152207
   },
   {
     "functionalId": "dizzying valley",
@@ -1769,8 +2357,11 @@
     "weightedInclusionRate": 0.0014372107214110112,
     "weightedCopiesPerDeck": 0.0020986630991192143,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 1423
+    "decksRepresented": 1423,
+    "rawInclusionRate": 0.0014054813773717498,
+    "rawCopiesPerDeck": 0.0021082220660576245
   },
   {
     "functionalId": "emma",
@@ -1778,8 +2369,11 @@
     "weightedInclusionRate": 0.001288966821778865,
     "weightedCopiesPerDeck": 0.00257793364355773,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 2,
-    "decksRepresented": 1566
+    "decksRepresented": 1566,
+    "rawInclusionRate": 0.001277139208173691,
+    "rawCopiesPerDeck": 0.002554278416347382
   },
   {
     "functionalId": "hole digging shovel",
@@ -1787,8 +2381,11 @@
     "weightedInclusionRate": 0.0011001100110011,
     "weightedCopiesPerDeck": 0.0033003300330033004,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 909
+    "decksRepresented": 909,
+    "rawInclusionRate": 0.0011001100110011,
+    "rawCopiesPerDeck": 0.0033003300330033004
   },
   {
     "functionalId": "colbur berry",
@@ -1796,7 +2393,10 @@
     "weightedInclusionRate": 0.0011001100110011,
     "weightedCopiesPerDeck": 0.0011001100110011,
     "weightedArchetypeBreadth": 0.0,
+    "performanceWeightedDemand": 0.0,
     "events": 1,
-    "decksRepresented": 909
+    "decksRepresented": 909,
+    "rawInclusionRate": 0.0011001100110011,
+    "rawCopiesPerDeck": 0.0011001100110011
   }
 ]

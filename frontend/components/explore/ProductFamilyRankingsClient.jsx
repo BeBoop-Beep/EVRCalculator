@@ -19,6 +19,8 @@ import { getTierTone } from "@/lib/explore/interpretationTone";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import styles from "./explore.module.css";
+import { buildIndexUpgradeHref } from "@/lib/membership/upgradeFunnel.mjs";
+import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 
 const FAMILY_SORT_OPTIONS = [
   { value: "alphabetical", label: "Alphabetical A–Z" },
@@ -239,7 +241,7 @@ function ProductRankingsTable({
   selectedBudgetKey = "",
   setSelectedBudgetKey,
   canViewProductRipIntelligence = false,
-  onUnlockProductRip = null,
+  onUnlockProductRip = () => window.location.assign(buildIndexUpgradeHref(INDEX_PLAN_PLUS, { source: "rankings" })),
 }) {
   const products = (sourceProducts || []).map((p) => ({
     ...p,
@@ -516,7 +518,7 @@ export default function ProductFamilyRankingsClient({
   openingEconomics = null,
   eraSetStrength = null,
   rankingsMarketDate = null,
-  onUnlockProductRip = null,
+  onUnlockProductRip = () => window.location.assign(buildIndexUpgradeHref(INDEX_PLAN_PLUS, { source: "rankings" })),
 }) {
   const { canViewRankingsIntelligence, canViewCardChaseEfficiency } = useRankingsAccess();
   const canViewProductRipIntelligence = canViewRankingsIntelligence;

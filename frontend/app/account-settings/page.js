@@ -8,6 +8,7 @@ import {
   getTcgOptions,
   updateCurrentUserProfile,
 } from "@/lib/profile/profileClient";
+import MembershipBillingSection from "@/components/account/MembershipBillingSection";
 
 /** @typedef {import("@/types/profile").UserProfileRow} UserProfileRow */
 /** @typedef {import("@/types/profile").TcgOption} TcgOption */
@@ -307,6 +308,7 @@ export default function AccountSettingsPage() {
           </div>
         </form>
       </div>
+      <MembershipBillingSection />
         </div>
       </main>
   );

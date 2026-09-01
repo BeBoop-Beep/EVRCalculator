@@ -14,13 +14,16 @@
 #   sudo crontab -u scrape -e
 
 # =============================================================================
-# Pattern 1: Send alerts every minute (catch-all)
+# REQUIRED production delivery and independent freshness watchdog
 # =============================================================================
 # Use this if you want to ensure no alerts get stuck in the database
-* * * * * /home/scrape/EVRCalculator/.venv/bin/python -m backend.alerts.dispatcher >> /var/log/scrape-alerts.log 2>&1
+* * * * * flock -n /tmp/evr-alert-dispatcher.lock sh -c 'cd /home/scrape/EVRCalculator && set -a && . backend/.env && set +a && ALERT_DISPATCHER_SCHEDULED=true MARKET_FRESHNESS_WATCHDOG_SCHEDULED=true ALERT_SCHEDULES_REQUIRED=true .venv/bin/python -m backend.alerts.dispatcher' >> /var/log/scrape-alerts.log 2>&1
+
+# Runs independently of batch creation, workers, publication, and dispatcher.
+*/5 * * * * flock -n /tmp/evr-market-watchdog.lock sh -c 'cd /home/scrape/EVRCalculator && set -a && . backend/.env && set +a && .venv/bin/python -m backend.alerts.market_freshness_watchdog' >> /var/log/market-freshness-watchdog.log 2>&1
 
 # =============================================================================
-# Pattern 2: Send alerts after nightly scrape (recommended)
+# Historical alternatives below are NOT sufficient for production alerting.
 # =============================================================================
 # Nightly scrape automatic alerts are sent inline during the run.
 # This is just a safety check 30 minutes later for any stragglers.

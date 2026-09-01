@@ -1,0 +1,1062 @@
+{
+  "Base Set": {
+    "nodes": [
+      "common",
+      "rare",
+      "rare_holo",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "rare_holo": 16,
+      "rare": 16,
+      "uncommon": 31,
+      "common": 32
+    },
+    "edges": [],
+    "matchedIdentities": 0,
+    "treatmentContrasts": 0,
+    "components": [
+      [
+        "common"
+      ],
+      [
+        "rare"
+      ],
+      [
+        "rare_holo"
+      ],
+      [
+        "uncommon"
+      ]
+    ],
+    "isolatedTreatments": [
+      "common",
+      "rare",
+      "rare_holo",
+      "uncommon"
+    ],
+    "largestComponentShare": 0.25
+  },
+  "Evolving Skies": {
+    "nodes": [
+      "common",
+      "rare",
+      "rare_holo",
+      "rare_holo_v",
+      "rare_holo_vmax",
+      "rare_rainbow",
+      "rare_secret",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "rare_ultra": 38,
+      "rare_rainbow": 22,
+      "rare": 19,
+      "common": 42,
+      "uncommon": 50,
+      "rare_holo": 20,
+      "rare_holo_v": 18,
+      "rare_holo_vmax": 15,
+      "rare_secret": 9
+    },
+    "edges": [
+      {
+        "source": "rare_rainbow",
+        "target": "rare_ultra",
+        "directContrasts": 16
+      },
+      {
+        "source": "rare_rainbow",
+        "target": "uncommon",
+        "directContrasts": 5
+      },
+      {
+        "source": "rare_ultra",
+        "target": "uncommon",
+        "directContrasts": 5
+      },
+      {
+        "source": "rare_holo_v",
+        "target": "rare_holo_vmax",
+        "directContrasts": 12
+      },
+      {
+        "source": "rare_holo_v",
+        "target": "rare_rainbow",
+        "directContrasts": 11
+      },
+      {
+        "source": "rare_holo_v",
+        "target": "rare_ultra",
+        "directContrasts": 18
+      },
+      {
+        "source": "rare_holo_vmax",
+        "target": "rare_rainbow",
+        "directContrasts": 11
+      },
+      {
+        "source": "rare_holo_vmax",
+        "target": "rare_ultra",
+        "directContrasts": 15
+      },
+      {
+        "source": "rare_secret",
+        "target": "uncommon",
+        "directContrasts": 5
+      }
+    ],
+    "matchedIdentities": 31,
+    "treatmentContrasts": 98,
+    "components": [
+      [
+        "common"
+      ],
+      [
+        "rare"
+      ],
+      [
+        "rare_holo"
+      ],
+      [
+        "rare_holo_v",
+        "rare_holo_vmax",
+        "rare_rainbow",
+        "rare_secret",
+        "rare_ultra",
+        "uncommon"
+      ]
+    ],
+    "isolatedTreatments": [
+      "common",
+      "rare",
+      "rare_holo"
+    ],
+    "largestComponentShare": 0.6666666666666666
+  },
+  "Hidden Fates / Shiny Vault": {
+    "nodes": [
+      "common",
+      "rare",
+      "rare_holo",
+      "rare_holo_gx",
+      "rare_rainbow",
+      "rare_secret",
+      "rare_shiny",
+      "rare_shiny_gx",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "rare_shiny_gx": 35,
+      "common": 18,
+      "uncommon": 17,
+      "rare": 15,
+      "rare_holo_gx": 9,
+      "rare_holo": 6,
+      "rare_ultra": 9,
+      "rare_rainbow": 1,
+      "rare_shiny": 45,
+      "rare_secret": 8
+    },
+    "edges": [
+      {
+        "source": "rare_shiny",
+        "target": "uncommon",
+        "directContrasts": 2
+      },
+      {
+        "source": "common",
+        "target": "rare_shiny",
+        "directContrasts": 3
+      },
+      {
+        "source": "rare_holo_gx",
+        "target": "rare_shiny_gx",
+        "directContrasts": 2
+      },
+      {
+        "source": "rare",
+        "target": "rare_shiny_gx",
+        "directContrasts": 1
+      },
+      {
+        "source": "common",
+        "target": "rare_holo",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_holo",
+        "target": "rare_shiny",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_ultra",
+        "target": "uncommon",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_holo",
+        "target": "rare_ultra",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_shiny",
+        "target": "rare_shiny_gx",
+        "directContrasts": 6
+      }
+    ],
+    "matchedIdentities": 16,
+    "treatmentContrasts": 18,
+    "components": [
+      [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_holo_gx",
+        "rare_shiny",
+        "rare_shiny_gx",
+        "rare_ultra",
+        "uncommon"
+      ],
+      [
+        "rare_rainbow"
+      ],
+      [
+        "rare_secret"
+      ]
+    ],
+    "isolatedTreatments": [
+      "rare_rainbow",
+      "rare_secret"
+    ],
+    "largestComponentShare": 0.8
+  },
+  "Paldean Fates": {
+    "nodes": [
+      "common",
+      "double_rare",
+      "hyper_rare",
+      "illustration_rare",
+      "rare",
+      "shiny_rare",
+      "shiny_ultra_rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "uncommon": 25,
+      "common": 40,
+      "double_rare": 10,
+      "rare": 18,
+      "shiny_rare": 120,
+      "ultra_rare": 5,
+      "special_illustration_rare": 8,
+      "shiny_ultra_rare": 12,
+      "illustration_rare": 3,
+      "hyper_rare": 6
+    },
+    "edges": [
+      {
+        "source": "special_illustration_rare",
+        "target": "ultra_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "special_illustration_rare",
+        "target": "uncommon",
+        "directContrasts": 2
+      },
+      {
+        "source": "ultra_rare",
+        "target": "uncommon",
+        "directContrasts": 1
+      },
+      {
+        "source": "common",
+        "target": "shiny_rare",
+        "directContrasts": 16
+      },
+      {
+        "source": "double_rare",
+        "target": "shiny_ultra_rare",
+        "directContrasts": 7
+      },
+      {
+        "source": "shiny_rare",
+        "target": "uncommon",
+        "directContrasts": 7
+      },
+      {
+        "source": "rare",
+        "target": "shiny_rare",
+        "directContrasts": 10
+      },
+      {
+        "source": "double_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "shiny_ultra_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "common",
+        "target": "special_illustration_rare",
+        "directContrasts": 1
+      },
+      {
+        "source": "common",
+        "target": "ultra_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "illustration_rare",
+        "target": "shiny_rare",
+        "directContrasts": 3
+      },
+      {
+        "source": "shiny_rare",
+        "target": "shiny_ultra_rare",
+        "directContrasts": 1
+      }
+    ],
+    "matchedIdentities": 50,
+    "treatmentContrasts": 56,
+    "components": [
+      [
+        "common",
+        "double_rare",
+        "illustration_rare",
+        "rare",
+        "shiny_rare",
+        "shiny_ultra_rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ],
+      [
+        "hyper_rare"
+      ]
+    ],
+    "isolatedTreatments": [
+      "hyper_rare"
+    ],
+    "largestComponentShare": 0.9
+  },
+  "Scarlet & Violet 151": {
+    "nodes": [
+      "common",
+      "double_rare",
+      "hyper_rare",
+      "illustration_rare",
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "rare": 25,
+      "common": 66,
+      "uncommon": 62,
+      "double_rare": 13,
+      "special_illustration_rare": 7,
+      "illustration_rare": 16,
+      "ultra_rare": 16,
+      "hyper_rare": 2
+    },
+    "edges": [
+      {
+        "source": "common",
+        "target": "illustration_rare",
+        "directContrasts": 8
+      },
+      {
+        "source": "illustration_rare",
+        "target": "uncommon",
+        "directContrasts": 6
+      },
+      {
+        "source": "double_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 5
+      },
+      {
+        "source": "double_rare",
+        "target": "ultra_rare",
+        "directContrasts": 12
+      },
+      {
+        "source": "special_illustration_rare",
+        "target": "ultra_rare",
+        "directContrasts": 7
+      },
+      {
+        "source": "illustration_rare",
+        "target": "rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "double_rare",
+        "target": "hyper_rare",
+        "directContrasts": 1
+      },
+      {
+        "source": "hyper_rare",
+        "target": "ultra_rare",
+        "directContrasts": 1
+      },
+      {
+        "source": "ultra_rare",
+        "target": "uncommon",
+        "directContrasts": 4
+      },
+      {
+        "source": "special_illustration_rare",
+        "target": "uncommon",
+        "directContrasts": 2
+      }
+    ],
+    "matchedIdentities": 32,
+    "treatmentContrasts": 48,
+    "components": [
+      [
+        "common",
+        "double_rare",
+        "hyper_rare",
+        "illustration_rare",
+        "rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ]
+    ],
+    "isolatedTreatments": [],
+    "largestComponentShare": 1.0
+  },
+  "Surging Sparks": {
+    "nodes": [
+      "ace_spec_rare",
+      "common",
+      "double_rare",
+      "hyper_rare",
+      "illustration_rare",
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "ultra_rare": 21,
+      "uncommon": 61,
+      "ace_spec_rare": 7,
+      "special_illustration_rare": 11,
+      "hyper_rare": 5,
+      "common": 88,
+      "double_rare": 18,
+      "rare": 16,
+      "illustration_rare": 23
+    },
+    "edges": [
+      {
+        "source": "common",
+        "target": "ultra_rare",
+        "directContrasts": 1
+      },
+      {
+        "source": "special_illustration_rare",
+        "target": "ultra_rare",
+        "directContrasts": 11
+      },
+      {
+        "source": "special_illustration_rare",
+        "target": "uncommon",
+        "directContrasts": 5
+      },
+      {
+        "source": "ultra_rare",
+        "target": "uncommon",
+        "directContrasts": 7
+      },
+      {
+        "source": "common",
+        "target": "illustration_rare",
+        "directContrasts": 14
+      },
+      {
+        "source": "double_rare",
+        "target": "hyper_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "double_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 7
+      },
+      {
+        "source": "double_rare",
+        "target": "ultra_rare",
+        "directContrasts": 14
+      },
+      {
+        "source": "double_rare",
+        "target": "uncommon",
+        "directContrasts": 3
+      },
+      {
+        "source": "hyper_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "hyper_rare",
+        "target": "ultra_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "hyper_rare",
+        "target": "uncommon",
+        "directContrasts": 3
+      },
+      {
+        "source": "illustration_rare",
+        "target": "uncommon",
+        "directContrasts": 9
+      },
+      {
+        "source": "double_rare",
+        "target": "illustration_rare",
+        "directContrasts": 1
+      }
+    ],
+    "matchedIdentities": 47,
+    "treatmentContrasts": 81,
+    "components": [
+      [
+        "ace_spec_rare"
+      ],
+      [
+        "common",
+        "double_rare",
+        "hyper_rare",
+        "illustration_rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ],
+      [
+        "rare"
+      ]
+    ],
+    "isolatedTreatments": [
+      "ace_spec_rare",
+      "rare"
+    ],
+    "largestComponentShare": 0.7777777777777778
+  },
+  "Cosmic Eclipse": {
+    "nodes": [
+      "common",
+      "rare",
+      "rare_holo",
+      "rare_holo_gx",
+      "rare_rainbow",
+      "rare_secret",
+      "rare_ultra",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "rare_ultra": 27,
+      "uncommon": 65,
+      "rare_holo_gx": 16,
+      "common": 67,
+      "rare": 38,
+      "rare_holo": 22,
+      "rare_secret": 20,
+      "rare_rainbow": 14
+    },
+    "edges": [
+      {
+        "source": "rare_holo_gx",
+        "target": "rare_rainbow",
+        "directContrasts": 6
+      },
+      {
+        "source": "rare_holo_gx",
+        "target": "rare_ultra",
+        "directContrasts": 6
+      },
+      {
+        "source": "rare_rainbow",
+        "target": "rare_ultra",
+        "directContrasts": 6
+      },
+      {
+        "source": "rare_secret",
+        "target": "uncommon",
+        "directContrasts": 7
+      },
+      {
+        "source": "rare",
+        "target": "rare_secret",
+        "directContrasts": 2
+      },
+      {
+        "source": "common",
+        "target": "rare_secret",
+        "directContrasts": 4
+      },
+      {
+        "source": "rare_holo",
+        "target": "rare_holo_gx",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_holo",
+        "target": "rare_secret",
+        "directContrasts": 5
+      },
+      {
+        "source": "rare_holo_gx",
+        "target": "rare_secret",
+        "directContrasts": 1
+      },
+      {
+        "source": "common",
+        "target": "uncommon",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare",
+        "target": "uncommon",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_ultra",
+        "target": "uncommon",
+        "directContrasts": 8
+      },
+      {
+        "source": "rare_holo",
+        "target": "rare_ultra",
+        "directContrasts": 1
+      }
+    ],
+    "matchedIdentities": 33,
+    "treatmentContrasts": 49,
+    "components": [
+      [
+        "common",
+        "rare",
+        "rare_holo",
+        "rare_holo_gx",
+        "rare_rainbow",
+        "rare_secret",
+        "rare_ultra",
+        "uncommon"
+      ]
+    ],
+    "isolatedTreatments": [],
+    "largestComponentShare": 1.0
+  },
+  "Crown Zenith / Galarian Gallery": {
+    "nodes": [
+      "common",
+      "radiant_rare",
+      "rare",
+      "rare_holo",
+      "rare_holo_v",
+      "rare_holo_vmax",
+      "rare_holo_vstar",
+      "rare_secret",
+      "rare_ultra",
+      "trainer_gallery_rare_holo",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "ultra_rare": 1,
+      "common": 42,
+      "uncommon": 29,
+      "rare": 22,
+      "rare_holo_v": 26,
+      "rare_holo_vstar": 18,
+      "rare_holo": 20,
+      "radiant_rare": 3,
+      "rare_holo_vmax": 8,
+      "rare_ultra": 15,
+      "rare_secret": 5,
+      "trainer_gallery_rare_holo": 34
+    },
+    "edges": [
+      {
+        "source": "rare_holo_v",
+        "target": "rare_holo_vstar",
+        "directContrasts": 10
+      },
+      {
+        "source": "radiant_rare",
+        "target": "rare_holo_v",
+        "directContrasts": 1
+      },
+      {
+        "source": "radiant_rare",
+        "target": "rare_holo_vstar",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_holo",
+        "target": "rare_holo_v",
+        "directContrasts": 5
+      },
+      {
+        "source": "rare",
+        "target": "rare_holo_v",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare",
+        "target": "rare_holo_vmax",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare",
+        "target": "rare_holo_vstar",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_holo_v",
+        "target": "rare_holo_vmax",
+        "directContrasts": 4
+      },
+      {
+        "source": "rare_holo_vmax",
+        "target": "rare_holo_vstar",
+        "directContrasts": 2
+      },
+      {
+        "source": "rare_holo",
+        "target": "rare_holo_vstar",
+        "directContrasts": 3
+      },
+      {
+        "source": "rare_holo_v",
+        "target": "trainer_gallery_rare_holo",
+        "directContrasts": 1
+      },
+      {
+        "source": "trainer_gallery_rare_holo",
+        "target": "uncommon",
+        "directContrasts": 2
+      },
+      {
+        "source": "common",
+        "target": "trainer_gallery_rare_holo",
+        "directContrasts": 2
+      },
+      {
+        "source": "rare_holo",
+        "target": "trainer_gallery_rare_holo",
+        "directContrasts": 2
+      },
+      {
+        "source": "rare_ultra",
+        "target": "uncommon",
+        "directContrasts": 2
+      },
+      {
+        "source": "rare_holo",
+        "target": "rare_ultra",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_secret",
+        "target": "trainer_gallery_rare_holo",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_holo_vmax",
+        "target": "trainer_gallery_rare_holo",
+        "directContrasts": 1
+      },
+      {
+        "source": "rare_holo_vstar",
+        "target": "trainer_gallery_rare_holo",
+        "directContrasts": 1
+      }
+    ],
+    "matchedIdentities": 29,
+    "treatmentContrasts": 42,
+    "components": [
+      [
+        "common",
+        "radiant_rare",
+        "rare",
+        "rare_holo",
+        "rare_holo_v",
+        "rare_holo_vmax",
+        "rare_holo_vstar",
+        "rare_secret",
+        "rare_ultra",
+        "trainer_gallery_rare_holo",
+        "uncommon"
+      ],
+      [
+        "ultra_rare"
+      ]
+    ],
+    "isolatedTreatments": [
+      "ultra_rare"
+    ],
+    "largestComponentShare": 0.9166666666666666
+  },
+  "Mega Evolution": {
+    "nodes": [
+      "common",
+      "double_rare",
+      "illustration_rare",
+      "mega_hyper_rare",
+      "promo",
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "promo": 1,
+      "uncommon": 43,
+      "common": 67,
+      "double_rare": 10,
+      "rare": 12,
+      "illustration_rare": 22,
+      "ultra_rare": 22,
+      "special_illustration_rare": 10,
+      "mega_hyper_rare": 2
+    },
+    "edges": [
+      {
+        "source": "common",
+        "target": "illustration_rare",
+        "directContrasts": 10
+      },
+      {
+        "source": "double_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 6
+      },
+      {
+        "source": "double_rare",
+        "target": "ultra_rare",
+        "directContrasts": 10
+      },
+      {
+        "source": "special_illustration_rare",
+        "target": "ultra_rare",
+        "directContrasts": 10
+      },
+      {
+        "source": "illustration_rare",
+        "target": "uncommon",
+        "directContrasts": 10
+      },
+      {
+        "source": "illustration_rare",
+        "target": "rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "double_rare",
+        "target": "mega_hyper_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "mega_hyper_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "mega_hyper_rare",
+        "target": "ultra_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "special_illustration_rare",
+        "target": "uncommon",
+        "directContrasts": 4
+      },
+      {
+        "source": "ultra_rare",
+        "target": "uncommon",
+        "directContrasts": 8
+      },
+      {
+        "source": "common",
+        "target": "ultra_rare",
+        "directContrasts": 1
+      }
+    ],
+    "matchedIdentities": 41,
+    "treatmentContrasts": 67,
+    "components": [
+      [
+        "common",
+        "double_rare",
+        "illustration_rare",
+        "mega_hyper_rare",
+        "rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ],
+      [
+        "promo"
+      ]
+    ],
+    "isolatedTreatments": [
+      "promo"
+    ],
+    "largestComponentShare": 0.8888888888888888
+  },
+  "Ascended Heroes": {
+    "nodes": [
+      "common",
+      "double_rare",
+      "illustration_rare",
+      "mega_attack_rare",
+      "mega_hyper_rare",
+      "rare",
+      "special_illustration_rare",
+      "ultra_rare",
+      "uncommon"
+    ],
+    "nodeCards": {
+      "uncommon": 69,
+      "common": 89,
+      "rare": 28,
+      "double_rare": 39,
+      "illustration_rare": 33,
+      "ultra_rare": 14,
+      "mega_attack_rare": 7,
+      "special_illustration_rare": 22,
+      "mega_hyper_rare": 2
+    },
+    "edges": [
+      {
+        "source": "double_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 15
+      },
+      {
+        "source": "illustration_rare",
+        "target": "uncommon",
+        "directContrasts": 15
+      },
+      {
+        "source": "common",
+        "target": "illustration_rare",
+        "directContrasts": 14
+      },
+      {
+        "source": "common",
+        "target": "double_rare",
+        "directContrasts": 5
+      },
+      {
+        "source": "common",
+        "target": "ultra_rare",
+        "directContrasts": 4
+      },
+      {
+        "source": "double_rare",
+        "target": "ultra_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "double_rare",
+        "target": "mega_attack_rare",
+        "directContrasts": 6
+      },
+      {
+        "source": "mega_attack_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 7
+      },
+      {
+        "source": "double_rare",
+        "target": "mega_hyper_rare",
+        "directContrasts": 2
+      },
+      {
+        "source": "mega_attack_rare",
+        "target": "mega_hyper_rare",
+        "directContrasts": 1
+      },
+      {
+        "source": "mega_hyper_rare",
+        "target": "special_illustration_rare",
+        "directContrasts": 1
+      },
+      {
+        "source": "illustration_rare",
+        "target": "rare",
+        "directContrasts": 5
+      },
+      {
+        "source": "double_rare",
+        "target": "rare",
+        "directContrasts": 1
+      },
+      {
+        "source": "ultra_rare",
+        "target": "uncommon",
+        "directContrasts": 5
+      },
+      {
+        "source": "special_illustration_rare",
+        "target": "ultra_rare",
+        "directContrasts": 1
+      },
+      {
+        "source": "special_illustration_rare",
+        "target": "uncommon",
+        "directContrasts": 2
+      },
+      {
+        "source": "common",
+        "target": "special_illustration_rare",
+        "directContrasts": 3
+      },
+      {
+        "source": "common",
+        "target": "rare",
+        "directContrasts": 1
+      },
+      {
+        "source": "double_rare",
+        "target": "illustration_rare",
+        "directContrasts": 1
+      }
+    ],
+    "matchedIdentities": 64,
+    "treatmentContrasts": 91,
+    "components": [
+      [
+        "common",
+        "double_rare",
+        "illustration_rare",
+        "mega_attack_rare",
+        "mega_hyper_rare",
+        "rare",
+        "special_illustration_rare",
+        "ultra_rare",
+        "uncommon"
+      ]
+    ],
+    "isolatedTreatments": [],
+    "largestComponentShare": 1.0
+  }
+}

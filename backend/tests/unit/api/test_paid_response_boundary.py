@@ -39,6 +39,12 @@ def _rankings_fixture():
     return {
         "targets": [{
             "id": "set-1", "name": "Safe Set", "canonical_key": "safe-set",
+            "setRipV1": {"score": 73.1, "rank": 4, "tier": "B", "cohortSize": 22,
+                         "rankable": True, "methodologyVersion": "set-rip-v1",
+                         "participatingFamilyCount": 1,
+                         "displayFamilyScores": [{"family": "booster_box", "score": 81,
+                                                   "rank": 3, "tier": "A"}],
+                         "privateRawInputs": PREMIUM_VALUE},
             "checklistSetValue": 123.45, "financialRipV4": {"score": PLUS_VALUE},
             "unknownFutureAnalyticalField": PLUS_VALUE,
         }],
@@ -107,7 +113,15 @@ def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
     monkeypatch.setattr(main, "get_pokemon_explore_rankings_lens_payload", lambda lens, limit=None: {
         "targets": _rankings_fixture()["targets"],
         "productFamilyRankings": {"families": {"booster_box": family}},
-        "eraSetStrengthV1": {"secret": PLUS_VALUE}, "meta": {"updatedAt": "now"},
+        "eraSetStrengthV1": {"cohortSize": 1, "secret": PLUS_VALUE, "eras": [{
+            "eraId": "safe-era", "eraName": "Safe Era", "rank": 1, "score": 73.1,
+            "tier": "B", "cohortSize": 1, "modeledSetCount": 3,
+            "strongestSet": {"setId": "set-1", "setName": "Safe Set", "score": 80,
+                              "privateDetail": PREMIUM_VALUE},
+            "constituentSets": [{"setId": "set-1", "setName": "Safe Set", "score": 80,
+                                  "tier": "A", "privateDetail": PREMIUM_VALUE}],
+            "privateEraDetail": PREMIUM_VALUE,
+        }]}, "meta": {"updatedAt": "now"},
     })
     monkeypatch.setattr(main, "read_public_overall_product_rankings", lambda *args, **kwargs: {
         "available": True, "rows": [{"sealedProductId": "product-1", "productName": "Safe Product",
@@ -123,7 +137,18 @@ def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
 
     assert str(PLUS_VALUE) in plus_products.text and str(PLUS_VALUE) in plus_sets.text
     assert str(PLUS_VALUE) not in base_products.text and str(PLUS_VALUE) not in base_sets.text
-    assert "eraSetStrengthV1" not in base_eras.json()
+    assert base_sets.json()["targets"][0]["setRipV1"]["score"] == 73.1
+    assert base_sets.json()["targets"][0]["setRipV1"]["rank"] == 4
+    assert base_sets.json()["targets"][0]["setRipV1"]["tier"] == "B"
+    assert base_sets.json()["targets"][0]["setRipV1"]["participatingFamilyCount"] == 1
+    assert base_sets.json()["targets"][0]["setRipV1"]["displayFamilyScores"][0]["family"] == "booster_box"
+    assert "privateRawInputs" not in base_sets.text
+    assert base_eras.json()["eraSetStrengthV1"]["eras"][0]["rank"] == 1
+    assert base_eras.json()["eraSetStrengthV1"]["eras"][0]["score"] == 73.1
+    assert base_eras.json()["eraSetStrengthV1"]["eras"][0]["tier"] == "B"
+    assert base_eras.json()["eraSetStrengthV1"]["eras"][0]["modeledSetCount"] == 3
+    assert base_eras.json()["eraSetStrengthV1"]["eras"][0]["strongestSet"]["setName"] == "Safe Set"
+    assert "privateEraDetail" not in base_eras.text and "privateDetail" not in base_eras.text
     assert base_eras.json()["access"] == {"rankingsIntelligence": False, "requiredPlan": "plus"}
     assert "unknownFutureField" not in plus_products.text
     assert all(response.headers["cache-control"] == "no-store" for response in (
@@ -213,11 +238,18 @@ def test_chase_efficiency_is_premium_and_gate_precedes_reader(monkeypatch):
     assert reads == [True]
 
 
-def test_custom_market_plus_cannot_reach_normalization_cache_or_runner(monkeypatch):
+def test_custom_market_plus_normalizes_for_access_but_cannot_reach_planner(monkeypatch):
     _install_auth(monkeypatch)
     touched = []
-    monkeypatch.setattr(main, "normalize_query_spec", lambda *args, **kwargs: touched.append("normalize"))
-    main._market_explorer_query_cache["premium-sentinel"] = (10**20, {"value": PREMIUM_VALUE})
+    normalized = {
+        "contractVersion": "test", "asset": "cards", "eraIds": (), "setIds": ("set",),
+        "segmentIds": ("rarity",), "pokemonIds": (), "priceSegmentIds": (),
+        "releaseAgeCohortIds": (), "mode": "all", "topN": None,
+    }
+    monkeypatch.setattr(main, "normalize_query_spec",
+                        lambda *args, **kwargs: touched.append("normalize") or normalized)
+    monkeypatch.setattr(main.GLOBAL_MARKET_EXPLORER_PLANNER, "execute",
+                        lambda **kwargs: touched.append("planner"))
     client = TestClient(main.app)
     response = client.post(
         "/market/explorer/query?plan=premium", json={
@@ -227,20 +259,24 @@ def test_custom_market_plus_cannot_reach_normalization_cache_or_runner(monkeypat
         headers=_headers("plus-token", **{"x-index-plan": "premium"}),
     )
     assert response.status_code == 403
-    assert response.json()["detail"]["code"] == "MARKET_EXPLORER_PREMIUM_REQUIRED"
-    assert touched == []
+    assert response.json()["detail"]["code"] == "MARKET_EXPLORER_PLAN_REQUIRED"
+    assert touched == ["normalize"]
 
 
 def test_custom_market_premium_cache_cannot_be_replayed_to_plus(monkeypatch):
     _install_auth(monkeypatch)
     main._market_explorer_query_cache.clear()
-    monkeypatch.setattr(main, "normalize_query_spec", lambda **kwargs: {"asset": "cards"})
-    monkeypatch.setattr(main, "query_fingerprint", lambda _spec: "shared-query")
+    normalized = {
+        "contractVersion": "test", "asset": "cards", "eraIds": (), "setIds": (),
+        "segmentIds": (), "pokemonIds": (), "priceSegmentIds": (),
+        "releaseAgeCohortIds": (), "mode": "chase", "topN": 10,
+    }
+    monkeypatch.setattr(main, "normalize_query_spec", lambda **kwargs: normalized)
     runs = []
-    monkeypatch.setattr(
-        main, "run_market_explorer_query",
-        lambda *args, **kwargs: runs.append(True) or {"premiumMetric": PREMIUM_VALUE},
-    )
+    from types import SimpleNamespace
+    monkeypatch.setattr(main.GLOBAL_MARKET_EXPLORER_PLANNER, "execute",
+                        lambda **kwargs: runs.append(True) or SimpleNamespace(
+                            payload={"premiumMetric": PREMIUM_VALUE}))
     monkeypatch.setattr(
         main, "build_market_explorer_filter_options",
         lambda _client: {"premiumOptions": PREMIUM_VALUE},
@@ -264,6 +300,6 @@ def test_custom_market_premium_cache_cannot_be_replayed_to_plus(monkeypatch):
 
     assert premium.status_code == 200 and str(PREMIUM_VALUE) in premium.text
     assert plus.status_code == 403 and str(PREMIUM_VALUE) not in plus.text
-    assert options_plus.status_code == 403
+    assert options_plus.status_code == 200
     assert options_premium.status_code == 200 and str(PREMIUM_VALUE) in options_premium.text
     assert runs == [True]

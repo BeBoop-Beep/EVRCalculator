@@ -1,0 +1,1754 @@
+{
+  "prismatic-evolutions__desktop__rip": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 191,
+        "width": 1408,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 2428.7,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "1408px",
+        "childCount": 6
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "a63256970206585a83f7b14de72b0a1be98b4715a247f1c5568387044e77c6f1"
+  },
+  "prismatic-evolutions__desktop__market": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 191,
+        "width": 1408,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 1612.8,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 3
+      },
+      "movers": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 56,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "setValue": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 327,
+        "width": 1408,
+        "height": 664.8,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "topChase": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 1011.8,
+        "width": 1408,
+        "height": 852,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": true,
+      "Set Signals": true
+    },
+    "screenshotSha256": "39677f6df2e66c82698bc913e315bd55412a5b39615ba047345dc28cdd510f51"
+  },
+  "prismatic-evolutions__desktop__cards": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 191,
+        "width": 1408,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 5722,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "grid": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 480,
+        "width": 1408,
+        "height": 5492,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "272px 272px 272px 272px 272px",
+        "childCount": 60
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "ea699f038d4bb954c0633b21148c0255bf1fffa9de963d0cee11c5e057a3827f"
+  },
+  "prismatic-evolutions__desktop__pull-rates": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 191,
+        "width": 1408,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 591,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "d8ca05183efe7053013ef91e7f1dc64971713b46b275275bfdc9d10d1c0fa439"
+  },
+  "prismatic-evolutions__below-boundary__rip": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "contents",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 85,
+        "width": 928,
+        "height": 156,
+        "display": "block",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 257,
+        "width": 928,
+        "height": 3162.7,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "928px",
+        "childCount": 6
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": false,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "5f0d4e08585a9652a64f6cd99051ded126e8237563584da33cf9e194f31af412"
+  },
+  "prismatic-evolutions__below-boundary__market": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "contents",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 85,
+        "width": 928,
+        "height": 156,
+        "display": "block",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 257,
+        "width": 928,
+        "height": 1696.6,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 4
+      },
+      "movers": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 257,
+        "width": 928,
+        "height": 273.1,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "setValue": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 542.1,
+        "width": 928,
+        "height": 876.5,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "topChase": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 1430.6,
+        "width": 928,
+        "height": 523,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": false,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "fb91d34db8231bc13ef8e4d360cce7d5cd803f11d2857ff21df569cad3fb9660"
+  },
+  "prismatic-evolutions__below-boundary__cards": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "contents",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 85,
+        "width": 928,
+        "height": 156,
+        "display": "block",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 257,
+        "width": 928,
+        "height": 6160.1,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "grid": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 502,
+        "width": 928,
+        "height": 5914.1,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "223px 223px 223px 223px",
+        "childCount": 60
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": false,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "6014a9186cf3cb27efcaaa858d692a9c3be473dd757d289ef20ac81aa6bd6bb0"
+  },
+  "prismatic-evolutions__below-boundary__pull-rates": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "contents",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 85,
+        "width": 928,
+        "height": 156,
+        "display": "block",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 135.5,
+        "y": 257,
+        "width": 928,
+        "height": 591,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": false,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "fe9c0ddf020c61e725ae5dca61eaf52afe1f8521d2fca190b3d4a015e697f24b"
+  },
+  "prismatic-evolutions__boundary__rip": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1168,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1168,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 203,
+        "width": 1168,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1168,
+        "height": 3090.7,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "1168px",
+        "childCount": 6
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "515dfd8a836f9d69ed30920c4dccf0878e81c7caec5a426c67141cc0614ac5f9"
+  },
+  "prismatic-evolutions__boundary__market": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1168,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1168,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 203,
+        "width": 1168,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1168,
+        "height": 1612.8,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 3
+      },
+      "movers": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1168,
+        "height": 56,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "setValue": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 339,
+        "width": 1168,
+        "height": 664.8,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "topChase": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 1023.8,
+        "width": 1168,
+        "height": 852,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": true,
+      "Set Signals": true
+    },
+    "screenshotSha256": "0c5ae12c3a381090b7ff2b45043b976f4c4c36808498da8eec4f9d3082ae2435"
+  },
+  "prismatic-evolutions__boundary__cards": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1168,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1168,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 203,
+        "width": 1168,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1168,
+        "height": 7295.1,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "grid": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 492,
+        "width": 1168,
+        "height": 7065.1,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "283px 283px 283px 283px",
+        "childCount": 60
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "9e5b505eddfd2915c492435eeeb1d28445756ff390d9c518130430e6d7e5bbf3"
+  },
+  "prismatic-evolutions__boundary__pull-rates": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1168,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1168,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 203,
+        "width": 1168,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1168,
+        "height": 591,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "facd3a93f21bd67ec0de761bd2bbee58861af6ad1e589c4c45efd03c8f76346a"
+  },
+  "prismatic-evolutions__above-boundary__rip": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1169,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1169,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 203,
+        "width": 1169,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1169,
+        "height": 3090.7,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "1169px",
+        "childCount": 6
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "3f65f5e30c33999b8c003d3646bd34cb338da5dd84fd1d609675245ca3c5e02e"
+  },
+  "prismatic-evolutions__above-boundary__market": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1169,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1169,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 203,
+        "width": 1169,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1169,
+        "height": 1612.8,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 3
+      },
+      "movers": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1169,
+        "height": 56,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "setValue": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 339,
+        "width": 1169,
+        "height": 664.8,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "topChase": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 1023.8,
+        "width": 1169,
+        "height": 852,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": true,
+      "Set Signals": true
+    },
+    "screenshotSha256": "54cf9ce05d0fcb8deccfe4184e3337577a681f47582ef2f5a2e2f7efa3c3a3d7"
+  },
+  "prismatic-evolutions__above-boundary__cards": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1169,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1169,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 203,
+        "width": 1169,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1169,
+        "height": 7300.3,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "grid": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 492,
+        "width": 1169,
+        "height": 7070.3,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "283.25px 283.25px 283.25px 283.25px",
+        "childCount": 60
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "0666078f7cba3f2226cb7e26c86aeb32f82938cfcc3b08a4481b28057e573d09"
+  },
+  "prismatic-evolutions__above-boundary__pull-rates": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1169,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 113,
+        "width": 1169,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 203,
+        "width": 1169,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 263,
+        "width": 1169,
+        "height": 591,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "c80dfafd14b82bfd9b0fa0c1a58c4940cfcf376ae9888baec81bad0202b76bbf"
+  },
+  "prismatic-evolutions__mobile__rip": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "contents",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 79,
+        "width": 388,
+        "height": 152,
+        "display": "block",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 247,
+        "width": 388,
+        "height": 4523.5,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "388px",
+        "childCount": 6
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": false,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "a85812360a822768e6afad33a9df33da9fc5462bafc6fb2b4414b91d8124eb31"
+  },
+  "prismatic-evolutions__mobile__market": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "contents",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 79,
+        "width": 388,
+        "height": 152,
+        "display": "block",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 247,
+        "width": 388,
+        "height": 1714.8,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 4
+      },
+      "movers": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 247,
+        "width": 388,
+        "height": 273.1,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "setValue": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 532.1,
+        "width": 388,
+        "height": 894.7,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "topChase": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 1438.8,
+        "width": 388,
+        "height": 523,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": false,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "c097c8903b72ef27186beaeb54f20ef997ea692e004402ad9075f0b4e1382da1"
+  },
+  "prismatic-evolutions__mobile__cards": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "contents",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 79,
+        "width": 388,
+        "height": 152,
+        "display": "block",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 247,
+        "width": 388,
+        "height": 10763.5,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "grid": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 583,
+        "width": 388,
+        "height": 10426.5,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "188px 188px",
+        "childCount": 60
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": false,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "f32214a558c1043db7df2a47a25a8630890854e2827e0c14ca4ccf510c688bcf"
+  },
+  "prismatic-evolutions__mobile__pull-rates": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "contents",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 79,
+        "width": 388,
+        "height": 152,
+        "display": "block",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 12,
+        "y": 247,
+        "width": 388,
+        "height": 650,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": false,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "f550ea4360a979fc1c54f7f2d174894b212474482d5940bd29a410ace70f5dd5"
+  },
+  "ascended-heroes__desktop__rip": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 191,
+        "width": 1408,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 2373.7,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "1408px",
+        "childCount": 6
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "7f11f88165b12c705af0b9526b962d3c720c692422c6606f34feba32c37f5ac1"
+  },
+  "ascended-heroes__desktop__market": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 191,
+        "width": 1408,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 1612.8,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 3
+      },
+      "movers": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 56,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "setValue": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 327,
+        "width": 1408,
+        "height": 664.8,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "topChase": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 1011.8,
+        "width": 1408,
+        "height": 852,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": true,
+      "Set Signals": true
+    },
+    "screenshotSha256": "225d271fd6540872f6c71bf3b89f794b33fe726721bb9bb4e246e269bcdeed6f"
+  },
+  "ascended-heroes__desktop__cards": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 191,
+        "width": 1408,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 5701,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "grid": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 480,
+        "width": 1408,
+        "height": 5471,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "272px 272px 272px 272px 272px",
+        "childCount": 60
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "bc0b999724ca0ed06c338533c264b8772ec948d253cdfa65bc3773ad8585f998"
+  },
+  "ascended-heroes__desktop__pull-rates": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 134,
+        "display": "flex",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 101,
+        "width": 1408,
+        "height": 90,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 191,
+        "width": 1408,
+        "height": 44,
+        "display": "block",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 251,
+        "width": 1408,
+        "height": 517,
+        "display": "block",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": true,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "d8ca05183efe7053013ef91e7f1dc64971713b46b275275bfdc9d10d1c0fa439"
+  }
+}

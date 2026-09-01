@@ -1,0 +1,388 @@
+Stage VI-A - Chase weight semantics and calibration
+dataset: stage6-chase-pillar-dataset-v1 (2026-08-31T17:03:30.913066+00:00)
+
+=== PHASE 1 - CONTROL reconstruction ===
+  Overall RIP       overall_rip_v10_90_financial_v4_10_collector_appeal_v5
+  Financial RIP     financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5
+  Collector Appeal  collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2
+  weights           {'financial_rip': 0.9, 'collector_appeal': 0.1}
+  cohort            131 products / 21 sets / 8 families
+  CONTROL re-derived through compute_overall_rip_v10: 0 mismatches, worst |delta| 0.00e+00
+  Chase Opportunity transform 200K/(K+10) verified exactly at K = 0,1,2,3,5,10,15,20,30
+
+=== PHASE 2 - Chase scale audit ===
+  Core K: min 0 P25 1 median 4 P75 5 P90 8 max 14
+
+  variant                  min      P5     P10     P25     med     P75     P90     P95     max      sd
+  approved_unclamped      0.00    0.00   18.18   18.18   57.14   66.67   88.89   97.37  116.67   29.11
+  approved_clamped        0.00    0.00   18.18   18.18   57.14   66.67   88.89   97.37  100.00   28.12
+  rescaled_0_100          0.00    0.00    9.09    9.09   28.57   33.33   44.44   48.68   58.33   14.56
+
+  THE ANSWER TO 'A OR B':
+    The approved formula 200K/(K+10) is (B) a saturating index that
+    EXCEEDS 100. It crosses 100 at exactly K=10 and reaches 116.67 at the
+    cohort maximum K=14.
+    Stage VI's IMPLEMENTATION clamped it to [0,100], and its docstring
+    described it as never reaching 100 - true of 100K/(K+10), false of
+    the formula that was approved. The two are not the same pillar:
+    5 products have K>10 and are collapsed onto a single score of 100
+    by the clamp, losing exactly the differentiation at the top of the
+    range that a breadth metric exists to provide.
+
+  representative mappings
+       K   approved_unclamped     approved_clamped     rescaled_0_100
+       0                0.000                0.000              0.000
+       1               18.182               18.182              9.091
+       2               33.333               33.333             16.667
+       3               46.154               46.154             23.077
+       5               66.667               66.667             33.333
+      10              100.000              100.000             50.000
+      15              120.000              100.000             60.000
+      20              133.333              100.000             66.667
+      30              150.000              100.000             75.000
+
+  WHY THE 'LEVERAGE' EXISTS - dispersion, not magic
+  series                      min      max       sd  sd vs FIN
+  financialRip              10.31    57.07     8.48       1.00x
+  collectorAppeal           49.07    99.09    10.91       1.29x
+  overallControl            18.11    58.71     7.49       0.88x
+  chase:approved_unclamped     0.00   116.67    29.11       3.43x
+  chase:approved_clamped     0.00   100.00    28.12       3.32x
+  chase:rescaled_0_100       0.00    58.33    14.56       1.72x
+
+  A weighted sum responds to w*sd, not to a pillar's nominal range.
+  Financial RIP occupies only 47 of its 0-100 range in this cohort;
+  the approved Chase transform occupies 117. That ratio IS the leverage.
+    approved_unclamped   nominal 5% behaves like 17.2% of a Financial-dispersion pillar
+    approved_clamped     nominal 5% behaves like 16.6% of a Financial-dispersion pillar
+    rescaled_0_100       nominal 5% behaves like 8.6% of a Financial-dispersion pillar
+
+=== PHASES 3 & 4 - weight grid and score-point semantics ===
+  Collector held at 10%%; Chase funded ENTIRELY from Financial.
+  F/C/Chase        chase w           +10 Chase pts = Overall       Chase pts per Fin pt
+  90/10/0          0                                  +0.000                          -
+  89/10/1          0.01                               +0.100                       89.0
+  88/10/2          0.02                               +0.200                       44.0
+  87/10/3          0.03                               +0.300                       29.0
+  86/10/4          0.04                               +0.400                       21.5
+  85/10/5          0.05                               +0.500                       17.0
+  84/10/6          0.06                               +0.600                       14.0
+  82.5/10/7.5      0.075                              +0.750                       11.0
+  80/10/10         0.1                                +1.000                        8.0
+
+  What one more Core K buys, at 5%% Chase (approved transform)
+    K step      chase pts        Overall pts        = Financial pts
+    0->1            18.18             0.9091                  1.070
+    1->2            15.15             0.7576                  0.891
+    2->3            12.82             0.6410                  0.754
+    4->5             9.52             0.4762                  0.560
+    9->10            5.26             0.2632                  0.310
+   13->14            3.62             0.1812                  0.213
+  The curve front-loads: the first chase is worth about six times the
+  fourteenth, which is the intended saturating behaviour.
+
+=== PHASE 5 - variance attribution, four methods, no winner declared ===
+  chase w      direct      covar    dropOne    shapley    lev:cov   lev:shap    cov sum   shap sum
+  0            0.0000     0.0000     0.0000     0.0000          -          -     1.0000     1.0000
+  0.01         0.0015     0.0223     0.0237     0.0223       2.23       2.23     1.0000     1.0000
+  0.02         0.0058     0.0461     0.0487     0.0461       2.30       2.30     1.0000     1.0000
+  0.03         0.0127     0.0710     0.0746     0.0710       2.37       2.37     1.0000     1.0000
+  0.04         0.0220     0.0969     0.1013     0.0969       2.42       2.42     1.0000     1.0000
+  0.05         0.0334     0.1234     0.1285     0.1234       2.47       2.47     1.0000     1.0000
+  0.06         0.0466     0.1505     0.1561     0.1505       2.51       2.51     1.0000     1.0000
+  0.075        0.0696     0.1915     0.1976     0.1915       2.55       2.55     1.0000     1.0000
+  0.1          0.1140     0.2597     0.2659     0.2597       2.60       2.60     1.0000     1.0000
+  Leverage is the effective share divided by the nominal weight. The
+  four methods disagree because the pillars are correlated; that
+  disagreement is a finding, not a defect to be resolved by choosing one.
+
+=== PHASE 6 - marginal rank influence ===
+  chase w  spearman  kendall   medMv  meanMv  maxMv inversions    >=1    >=3    >=5   >=10  T5out  tiers
+  0          1.0000   1.0000     0.0    0.00      0        0      0      0      0      0      0      0
+  0.01       0.9989   0.9782     1.0    1.15      7       93     76     21      2      0      0      3
+  0.02       0.9963   0.9551     2.0    2.27     11      191    103     42     18      2      0      7
+  0.03       0.9930   0.9371     2.0    3.01     15      268    106     55     33      9      0     12
+  0.04       0.9898   0.9185     3.0    3.91     17      347    114     69     42     11      1     16
+  0.05       0.9844   0.8990     3.0    4.95     20      430    119     79     55     23      1     17
+  0.06       0.9783   0.8802     3.0    5.71     26      510    117     91     57     28      2     21
+  0.075      0.9698   0.8584     4.0    6.72     33      603    116     96     61     34      2     24
+  0.1        0.9502   0.8161     6.0    8.69     44      783    120     98     75     45      2     34
+
+=== PHASES 7 & 8 - Financial gap bands and pairwise overrides ===
+  Financial RIP: min 10.31 median 28.97 max 57.07 sd 8.48
+  pairwise |Financial gap|: median 8.15 P75 13.86 P90 19.34 max 46.76
+  band population: {'<=2': 1114, '2-5': 1653, '5-10': 2267, '10-15': 1705, '15-20': 1018, '>20': 758}
+  CLOSE := gap <= 2 ; CLEAR := gap >= 10 (all bands still reported)
+
+  chase w     closeOvr%      clearOvr%     clearN    maxGapOvr sameSetOvr
+  0              0.0000        0.00000          0         0.00          0
+  0.01           0.0467        0.00000          0         6.28          1
+  0.02           0.0996        0.00000          0         7.06          2
+  0.03           0.1293        0.00000          0         7.34          5
+  0.04           0.1688        0.00000          0         7.34          8
+  0.05           0.1885        0.00000          0         9.59          9
+  0.06           0.2092        0.00029          1        12.68         11
+  0.075          0.2253        0.00086          3        12.68         12
+  0.1            0.2469        0.00431         15        15.01         18
+
+  per-band override rate (share of pairs in the band that flip)
+  chase w       <=2      2-5     5-10    10-15    15-20      >20
+  0          0.0000   0.0000   0.0000   0.0000   0.0000   0.0000
+  0.01       0.0467   0.0236   0.0009   0.0000   0.0000   0.0000
+  0.02       0.0996   0.0430   0.0040   0.0000   0.0000   0.0000
+  0.03       0.1293   0.0641   0.0079   0.0000   0.0000   0.0000
+  0.04       0.1688   0.0817   0.0106   0.0000   0.0000   0.0000
+  0.05       0.1885   0.1089   0.0176   0.0000   0.0000   0.0000
+  0.06       0.2092   0.1283   0.0282   0.0006   0.0000   0.0000
+  0.075      0.2253   0.1549   0.0410   0.0018   0.0000   0.0000
+  0.1        0.2469   0.2033   0.0693   0.0082   0.0010   0.0000
+
+=== PHASES 9 & 10 - within-set and cross-set decision influence ===
+  chase w    setsExam  winnerChanges   helpful<=2  excessive>=10
+  0                21              0            0              0
+  0.01             21              0            0              0
+  0.02             21              0            0              0
+  0.03             21              0            0              0
+  0.04             21              0            0              0
+  0.05             21              0            0              0
+  0.06             21              0            0              0
+  0.075            21              0            0              0
+  0.1              21              1            0              0
+
+  winner changes at 2% Chase:
+    none
+
+  winner changes at 3% Chase:
+    none
+
+  winner changes at 5% Chase:
+    none
+
+=== PHASE 12 - controlled counterfactuals ===
+  Expected behaviour stated before the numbers:
+    A  K difference alone must separate, and by more at higher weight.
+    B  a 2-point Financial lead is CLOSE; Chase may overturn it.
+    C  a 5-point lead should rarely be overturned.
+    D  a 10-point lead should essentially never be overturned.
+    E  a 20-point lead must never be overturned at any tested weight.
+    F/G  Financial and Collector must still dominate when Chase is equal.
+    H/I/J  K steps must shrink as K grows (saturation).
+
+  A - identical Financial (40) and Collector (70), K=0 vs K=14
+  chase w       K=0 Overall   K=14 Overall            gap
+  0.01              42.6000        43.7667         1.1667
+  0.02              42.2000        44.5333         2.3333
+  0.03              41.8000        45.3000         3.5000
+  0.05              41.0000        46.8333         5.8333
+  0.1               39.0000        50.6667        11.6667
+
+  B-E - can a Chase advantage (K=0 vs K=14) overturn a Financial lead?
+  chase w         2 pts      5 pts     10 pts     20 pts
+  0.01            held      held      held      held
+  0.02      OVERTURNED      held      held      held
+  0.03      OVERTURNED      held      held      held
+  0.05      OVERTURNEDOVERTURNED      held      held
+  0.1       OVERTURNEDOVERTURNEDOVERTURNED      held
+
+  F/G - Chase equal; Financial and Collector must still move the score
+    0.01  +10 Financial = +8.900 | +10 Collector = +1.000
+    0.02  +10 Financial = +8.800 | +10 Collector = +1.000
+    0.03  +10 Financial = +8.700 | +10 Collector = +1.000
+    0.05  +10 Financial = +8.500 | +10 Collector = +1.000
+    0.1  +10 Financial = +8.000 | +10 Collector = +1.000
+
+  H/I/J - saturation: Overall points bought by each K step at 5%% Chase
+    K  0 ->  1 : chase  +18.18  Overall +0.9091
+    K  1 ->  5 : chase  +48.48  Overall +2.4242
+    K 10 -> 20 : chase  +33.33  Overall +1.6667
+
+=== PHASE 13 - transform sensitivity: weight problem or scale problem? ===
+  Same shape, same ORDER of products - only the scale differs. If the
+  behaviour tracks the scale rather than the weight, the Stage VI
+  'leverage' is a scaling artifact.
+  variant               chase w    shapley   leverage   spearman      medMv
+  approved_unclamped       0.05     0.1234       2.47     0.9844        3.0
+  approved_unclamped        0.1     0.2597       2.60     0.9502        6.0
+  approved_clamped         0.05     0.1199       2.40     0.9852        3.0
+  approved_clamped          0.1     0.2523       2.52     0.9522        6.0
+  rescaled_0_100           0.05     0.0603       1.21     0.9943        2.0
+  rescaled_0_100            0.1     0.1318       1.32     0.9812        3.0
+
+  Rank order of products is IDENTICAL across all three variants:
+    rho(approved_unclamped, approved_unclamped) = 1.000000
+    rho(approved_clamped, approved_unclamped) = 0.999931
+    rho(rescaled_0_100, approved_unclamped) = 1.000000
+  so any behavioural difference above is scale, not information.
+
+=== PHASE 14 - outlier leverage ===
+  highest Chase Opportunity products
+    K=14 chase 116.67  Ascended Heroes Booster Pack                         (loose_booster_pack)
+    K=13 chase 113.04  Ascended Heroes Booster Bundle                       (booster_bundle)
+    K=13 chase 113.04  Prismatic Evolutions Booster Bundle                  (booster_bundle)
+    K=13 chase 113.04  Prismatic Evolutions Booster Pack                    (loose_booster_pack)
+    K=12 chase 109.09  Prismatic Evolutions Elite Trainer Box               (elite_trainer_box)
+
+  Shapley Chase share at 5%%, excluding the highest-Chase products
+  cohort                        n    shapley   leverage
+  full cohort                 131     0.1234       2.47
+  drop top 1                  130     0.1215       2.43
+  drop top 5%                 125     0.1122       2.24
+  drop top 10%                118     0.1031       2.06
+  A share that survives dropping the top decile is structural; one that
+  collapses was a handful of extreme products carrying the pillar.
+
+=== PHASE 15 - family leverage ===
+  family                                 n     medK   chaseMed    chaseSd   meanShift@5%
+  booster_box                           14      4.5      61.90      22.29         1.3804
+  booster_bundle                        22      4.0      57.14      31.15         1.2684
+  elite_trainer_box                     26      2.0      33.33      32.17         0.9229
+  enhanced_booster_box                   2      6.5      75.94      26.58         1.9102
+  half_booster_box                       7      4.0      57.14      19.64         1.3832
+  loose_booster_pack                    21      5.0      66.67      28.79         1.5018
+  pokemon_center_elite_trainer_box      25      2.0      33.33      25.48         0.2588
+  sleeved_booster_pack                  14      3.5      51.65      21.95         1.1781
+  Dispersion, not the mean, is what buys influence: a format whose
+  Chase scores are bunched receives little effective weight whatever
+  the coefficient says.
+
+=== PHASE 16 - price shock calibration ===
+  One simulation per set shared across scenarios, so a difference is the
+  shock and nothing else. Core K is recomputed under each shock.
+
+  Chase 2% (approved transform)
+  scenario         n   shapley  leverage    closeOvr%  clearOvr    maxGapOvr  spearman  tiers
+  base           131    0.0505      2.53       0.0987         0         7.06    0.9972     15
+  card+5%        131    0.0517      2.59       0.0996         0         7.06    0.9971     16
+  card-5%        131    0.0515      2.57       0.1050         0         7.06    0.9970     14
+  card+10%       131    0.0505      2.53       0.1005         0         7.06    0.9971     16
+  card-10%       131    0.0512      2.56       0.1041         0         7.06    0.9966     14
+  card+20%       131    0.0492      2.46       0.1050         0         6.77    0.9970     17
+  card-20%       131    0.0527      2.63       0.1050         0         7.06    0.9967     11
+  prod+5%        131    0.0514      2.57       0.1032         0         7.06    0.9971     14
+  prod-5%        131    0.0516      2.58       0.0996         0         7.06    0.9971     16
+  prod+10%       131    0.0514      2.57       0.1077         0         7.06    0.9966     14
+  prod-10%       131    0.0498      2.49       0.1023         0         7.06    0.9971     16
+  prod+20%       131    0.0518      2.59       0.1077         0         7.06    0.9966     12
+  prod-20%       131    0.0485      2.42       0.1095         0         5.05    0.9968     18
+
+  Chase 3% (approved transform)
+  scenario         n   shapley  leverage    closeOvr%  clearOvr    maxGapOvr  spearman  tiers
+  base           131    0.0776      2.59       0.1400         0         7.06    0.9940     21
+  card+5%        131    0.0794      2.65       0.1418         0         7.06    0.9937     21
+  card-5%        131    0.0789      2.63       0.1391         0         7.06    0.9940     19
+  card+10%       131    0.0778      2.59       0.1445         0         7.06    0.9936     23
+  card-10%       131    0.0787      2.62       0.1418         0         7.06    0.9934     19
+  card+20%       131    0.0760      2.53       0.1508         0         7.06    0.9937     23
+  card-20%       131    0.0806      2.69       0.1346         0         7.06    0.9938     19
+  prod+5%        131    0.0788      2.63       0.1391         0         7.06    0.9940     19
+  prod-5%        131    0.0793      2.64       0.1418         0         7.06    0.9939     21
+  prod+10%       131    0.0790      2.63       0.1454         0         7.06    0.9932     19
+  prod-10%       131    0.0767      2.56       0.1472         0         7.06    0.9935     23
+  prod+20%       131    0.0795      2.65       0.1373         0         7.06    0.9936     20
+  prod-20%       131    0.0751      2.50       0.1580         0         7.06    0.9937     23
+
+  Chase 5% (approved transform)
+  scenario         n   shapley  leverage    closeOvr%  clearOvr    maxGapOvr  spearman  tiers
+  base           131    0.1339      2.68       0.1876         0         7.12    0.9868     27
+  card+5%        131    0.1370      2.74       0.1867         0         7.12    0.9869     29
+  card-5%        131    0.1358      2.72       0.1930         0         8.47    0.9865     26
+  card+10%       131    0.1347      2.69       0.1948         0         8.31    0.9867     30
+  card-10%       131    0.1358      2.72       0.1948         0         8.47    0.9853     26
+  card+20%       131    0.1322      2.64       0.1993         0         8.31    0.9869     31
+  card-20%       131    0.1384      2.77       0.1903         0         8.47    0.9853     22
+  prod+5%        131    0.1357      2.71       0.1948         0         8.47    0.9865     26
+  prod-5%        131    0.1366      2.73       0.1858         0         7.12    0.9870     29
+  prod+10%       131    0.1363      2.73       0.1993         0         8.47    0.9855     26
+  prod-10%       131    0.1329      2.66       0.1939         0         8.31    0.9867     30
+  prod+20%       131    0.1368      2.74       0.1957         0         8.47    0.9845     24
+  prod-20%       131    0.1314      2.63       0.2083         0         7.12    0.9861     33
+
+=== PHASE 17 - short-window temporal calibration ===
+  13-day, 9-date, SINGLE-REGIME window with card prices frozen. This is
+  NOT long-term validation and must not be described as one.
+
+  Chase 2% (baseline 2026-08-28)
+  date             n   shapley  leverage    closeOvr%  clearOvr    maxGapOvr  spearman
+  2026-08-16      54    0.0354      1.77       0.0702         0         3.13    0.9979
+  2026-08-17     130    0.0503      2.52       0.0978         0         7.06    0.9972
+  2026-08-22     131    0.0508      2.54       0.1014         0         7.06    0.9972
+  2026-08-24     131    0.0508      2.54       0.1005         0         7.06    0.9972
+  2026-08-25     131    0.0504      2.52       0.1005         0         7.06    0.9972
+  2026-08-26     131    0.0503      2.52       0.1005         0         7.06    0.9972
+  2026-08-27     131    0.0505      2.52       0.1023         0         7.06    0.9971
+  2026-08-28     131    0.0505      2.53       0.0987         0         7.06    0.9972
+
+  Chase 3% (baseline 2026-08-28)
+  date             n   shapley  leverage    closeOvr%  clearOvr    maxGapOvr  spearman
+  2026-08-16      54    0.0551      1.84       0.0994         0         4.43    0.9966
+  2026-08-17     130    0.0774      2.58       0.1400         0         7.06    0.9938
+  2026-08-22     131    0.0779      2.60       0.1436         0         7.06    0.9940
+  2026-08-24     131    0.0780      2.60       0.1436         0         7.06    0.9940
+  2026-08-25     131    0.0775      2.58       0.1436         0         7.06    0.9940
+  2026-08-26     131    0.0773      2.58       0.1436         0         7.06    0.9939
+  2026-08-27     131    0.0775      2.58       0.1436         0         7.06    0.9939
+  2026-08-28     131    0.0776      2.59       0.1400         0         7.06    0.9940
+
+  Chase 5% (baseline 2026-08-28)
+  date             n   shapley  leverage    closeOvr%  clearOvr    maxGapOvr  spearman
+  2026-08-16      54    0.0976      1.95       0.1637         0         4.43    0.9933
+  2026-08-17     130    0.1339      2.68       0.1858         0         7.12    0.9865
+  2026-08-22     131    0.1345      2.69       0.1894         0         7.12    0.9868
+  2026-08-24     131    0.1347      2.69       0.1903         0         7.12    0.9867
+  2026-08-25     131    0.1338      2.68       0.1903         0         7.12    0.9867
+  2026-08-26     131    0.1336      2.67       0.1903         0         7.12    0.9867
+  2026-08-27     131    0.1338      2.68       0.1894         0         7.12    0.9867
+  2026-08-28     131    0.1339      2.68       0.1876         0         7.12    0.9868
+
+=== PHASE 18 - behavioral acceptance criteria ===
+  Derived from the stated product philosophy BEFORE looking at which
+  weight passes. Financial primary, Collector secondary, Chase tertiary.
+
+  C1 CLEAR-FINANCIAL OVERRIDE (binding)
+     Chase must not reverse a pair whose Financial gap is >= 10 points
+     and whose Financial ordering CONTROL already agrees with.
+     Target: rate 0, and the largest Financial gap Chase can overturn
+     must stay below 10 with margin under +/-10% price shocks.
+
+  C2 CLOSE-PAIR INFLUENCE (binding)
+     Chase must settle a material share of near-ties. Target: it
+     reorders at least 10% of pairs whose Financial gap is <= 2 points.
+     Below that it is decoration.
+
+  C3 NOT CO-PRIMARY (binding)
+     Financial's variance share must stay above 0.80 and Chase's below
+     0.20 on every attribution method.
+
+  C4 RANK CONTINUITY (advisory)
+     Spearman vs CONTROL >= 0.98 and Top-5 turnover <= 1, so the
+     published leaderboard is recognisably the same product.
+
+  C5 WITHIN-SET DIFFERENTIATION (advisory)
+     Chase should reorder SOME same-set pairs, since it is the only
+     pillar that can - Collector Appeal is set-level and constant there.
+
+  NOTE ON THE INTENDED HIERARCHY. 'Financial >> Collector > Chase'
+  cannot be satisfied in variance terms at ANY non-zero Chase weight,
+  because Collector Appeal's own variance share in the CURRENT
+  production model is approximately zero (see Phase 5). That is a
+  property of Collector, not a fault of Chase, and it means the
+  hierarchy must be judged behaviourally (C1/C2) rather than by
+  variance share.
+
+=== PHASE 19 - finalist tournament ===
+  chase w      shapley  leverage  closeOvr%    clearOvr maxGapOvr  spearman    T5out   tiers  C1..C5
+  0.02          0.0461      2.30     0.0996           0      7.06    0.9963        0       7   YnYYY
+  0.03          0.0710      2.37     0.1293           0      7.34    0.9930        0      12   YYYYY
+  0.05          0.1234      2.47     0.1885           0      9.59    0.9844        1      17   YYYYY
+
+  worst clear-Financial gap overturned, under shocks (C1 margin)
+  chase w          base   card+10%   card-10%   prod+10%   prod-10%
+  0.02            7.06      7.06      7.06      7.06      7.06
+  0.03            7.06      7.06      7.06      7.06      7.06
+  0.05            7.12      8.31      8.47      8.47      8.31
+
+  temporal spread of the effective Chase share (C3 stability)
+  chase w     min shapley  max shapley       spread
+  0.02             0.0354       0.0508       0.0154
+  0.03             0.0551       0.0780       0.0230
+  0.05             0.0976       0.1347       0.0370

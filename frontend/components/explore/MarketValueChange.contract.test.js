@@ -122,7 +122,8 @@ test("Cards tiles render one Price to Delta to Window market block", () => {
     ['"7D"', '"30D"']
   );
   assert.ok(source.includes("displayedChecklistCards.map((card)"), "all visible and appended rows must reuse ChecklistCardTile");
-  assert.ok(source.includes("dedupeChecklistCards([...previous.cards, ...payload.cards])"));
+  const controllerState = read(new URL("../../hooks/pokemon/setCardsControllerState.mjs", import.meta.url).pathname.replace(/^\//, ""));
+  assert.ok(controllerState.includes("[...previous.cards, ...incoming]"));
 });
 
 test("Set Value cards reserve enough height for the shared price/change stack", () => {

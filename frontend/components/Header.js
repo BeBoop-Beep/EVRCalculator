@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useAuth } from "@/components/AuthContext";
 import { TCGS_NAV_HREF, isTopNavRouteActive } from "@/lib/navigation/tcgsNav.mjs";
 import AuthPopover from "@/components/AuthPopover";
+import MembershipNavLink from "@/components/membership/MembershipNavLink";
 
 function getCleanText(value) {
   if (typeof value !== "string") return null;
@@ -283,6 +284,8 @@ export default function Header() {
             </button>
 
             <div className="hidden xl:flex items-center">
+              <MembershipNavLink />
+              <span className="w-2" aria-hidden="true" />
               {!isAuthenticated ? (
                 <div ref={authRef} className="relative">
                 <button ref={authTriggerRef} type="button" onClick={() => setIsAuthOpen((value) => !value)} aria-expanded={isAuthOpen} aria-haspopup="dialog" className="pl-4 pr-2.5 py-2 text-[16px] font-semibold border-2 border-brand rounded-xl bg-brand text-white hover:bg-brand-dark hover:border-brand-dark transition-colors duration-200 ease-in-out">
@@ -363,6 +366,7 @@ export default function Header() {
             >
               <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">ACCOUNT</div>
               <div className="border-y border-[var(--border-subtle)] mb-6">
+                <MembershipNavLink mobile />
                 {!isAuthenticated ? (
                   <div ref={mobileAuthRef} className="px-3 py-3">
                     <button type="button" onClick={() => setIsAuthOpen((value) => !value)} className="block w-full px-4 py-3 text-left text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors">

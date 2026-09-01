@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Tuple, Set
 
 from supabase import create_client
+from postgrest.exceptions import APIError
 
 from ..clients.supabase_client import SUPABASE_URL, SUPABASE_KEY
 from backend.db.services.supabase_persistence_retry import run_supabase_with_transient_retry

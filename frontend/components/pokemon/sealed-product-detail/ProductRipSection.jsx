@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
+import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
+import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import InfoPopover from "@/components/ui/InfoPopover";
 import RankBadge from "@/components/ui/RankBadge";
 import RipScoreSurface from "@/components/explore/RipScoreSurface.jsx";
@@ -31,7 +34,7 @@ export function ProductRipLock() {
     <section
       data-product-rip-lock
       aria-labelledby="product-rip-lock-title"
-      className="set-glass-surface relative min-h-48 overflow-hidden rounded-2xl border border-amber-300/20"
+      className={`set-glass-surface relative min-h-48 overflow-hidden rounded-2xl border ${planPresentation(INDEX_PLAN_PLUS).panelClassName}`}
     >
       <div
         aria-hidden="true"
@@ -42,9 +45,7 @@ export function ProductRipLock() {
         <span className="rounded-xl bg-white/10" />
       </div>
       <div className="relative z-10 flex min-h-48 flex-col items-center justify-center bg-[rgba(2,6,23,.68)] px-5 py-7 text-center">
-        <p className="text-xs font-bold uppercase tracking-[.14em] text-amber-300">
-          🔒 Index Plus
-        </p>
+        <PlanBadge plan={INDEX_PLAN_PLUS} />
         <h2 id="product-rip-lock-title" className="mt-2 text-2xl font-semibold">
           Unlock Product RIP
         </h2>
@@ -52,12 +53,7 @@ export function ProductRipLock() {
           See how this product ranks within its format and what its modeled
           opening outcomes look like.
         </p>
-        <Link
-          href="/pricing"
-          className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-amber-300/40 bg-amber-300/10 px-4 text-sm font-semibold text-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
-        >
-          Explore Index Plus
-        </Link>
+        <PlanUpgradeLink requiredPlan={INDEX_PLAN_PLUS} source="sealed-product" className="mt-4"/>
       </div>
     </section>
   );

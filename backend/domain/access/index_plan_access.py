@@ -32,6 +32,14 @@ FEATURE_PRODUCT_RIP = "product_rip"
 FEATURE_PACK_ECONOMICS = "pack_economics"
 FEATURE_ACQUISITION_MILESTONES = "acquisition_milestones"
 FEATURE_SET_RIP_ANALYTICS = "set_rip_analytics"
+FEATURE_DETAILED_OPENING_ECONOMICS = "detailed_opening_economics"
+FEATURE_SET_PACK_ECONOMICS = "set_pack_economics"
+FEATURE_ERA_PACK_ECONOMICS = "era_pack_economics"
+FEATURE_CARD_PULL_ODDS = "card_pull_odds"
+FEATURE_PREPARED_MARKET_INTELLIGENCE = "prepared_market_intelligence"
+FEATURE_CHASE_OPENING_ROUTE = "chase_opening_route"
+FEATURE_CHASE_VS_BUY = "chase_vs_buy"
+FEATURE_CHASE_RANKINGS = "chase_rankings"
 
 _PLUS_FEATURES = frozenset({
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
@@ -41,12 +49,20 @@ _PLUS_FEATURES = frozenset({
     FEATURE_PACK_ECONOMICS,
     FEATURE_ACQUISITION_MILESTONES,
     FEATURE_SET_RIP_ANALYTICS,
+    FEATURE_DETAILED_OPENING_ECONOMICS,
+    FEATURE_SET_PACK_ECONOMICS,
+    FEATURE_ERA_PACK_ECONOMICS,
+    FEATURE_CARD_PULL_ODDS,
+    FEATURE_PREPARED_MARKET_INTELLIGENCE,
 })
 _PREMIUM_FEATURES = frozenset({
     FEATURE_MARKET_EXPLORER_COMPOUND,
     FEATURE_MARKET_EXPLORER_CUSTOM_RANKED,
     FEATURE_MARKET_EXPLORER_POKEMON,
     FEATURE_CARD_CHASE_EFFICIENCY,
+    FEATURE_CHASE_OPENING_ROUTE,
+    FEATURE_CHASE_VS_BUY,
+    FEATURE_CHASE_RANKINGS,
 })
 
 
@@ -138,6 +154,19 @@ _PLUS_TARGET_FIELDS = _BASE_TARGET_FIELDS | frozenset({
     "opening_desirability_rank", "opening_desirability_summary",
 })
 _RANKINGS_META_FIELDS = frozenset({"source", "updatedAt", "warnings", "snapshot", "limit"})
+_PUBLIC_SET_RIP_FIELDS = frozenset({
+    "score", "rank", "tier", "cohortSize", "rankable", "methodologyVersion",
+    "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount",
+    "familyScores", "displayFamilyScores",
+})
+
+
+def _project_public_set_leaderboard_target(target: Mapping[str, Any]) -> dict[str, Any]:
+    projected = _pick(target, _BASE_TARGET_FIELDS)
+    set_rip = target.get("setRipV1")
+    if isinstance(set_rip, Mapping):
+        projected["setRipV1"] = _pick(set_rip, _PUBLIC_SET_RIP_FIELDS)
+    return projected
 
 
 def project_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
@@ -145,9 +174,8 @@ def project_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str
     plus = has_index_feature_access(plan, FEATURE_SET_RIP_ANALYTICS)
     target_fields = _PLUS_TARGET_FIELDS if plus else _BASE_TARGET_FIELDS
     targets = [
-        _pick(target, target_fields)
-        for target in payload.get("targets", [])
-        if isinstance(target, Mapping)
+        _pick(target, target_fields) if plus else _project_public_set_leaderboard_target(target)
+        for target in payload.get("targets", []) if isinstance(target, Mapping)
     ]
     result: dict[str, Any] = {
         "targets": targets,
@@ -156,12 +184,42 @@ def project_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str
     }
     default_target = payload.get("default_target") or payload.get("defaultTarget")
     if isinstance(default_target, Mapping):
-        result["default_target"] = _pick(default_target, target_fields)
+        result["default_target"] = (
+            _pick(default_target, target_fields) if plus
+            else _project_public_set_leaderboard_target(default_target)
+        )
     if plus:
         for key in ("setRip", "productFamilyRankings"):
             if key in payload:
                 result[key] = payload[key]
     return result
+
+
+_PUBLIC_ERA_FIELDS = frozenset({
+    "eraName", "eraId", "rank", "score", "tier", "cohortSize",
+    "modeledSetCount", "strongestSet", "constituentSets",
+})
+_PUBLIC_ERA_SET_FIELDS = frozenset({"setId", "setName", "score"})
+
+
+def project_public_era_rankings_response(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose only the prepared fields rendered by the public Era leaderboard."""
+    source = payload.get("eraSetStrengthV1")
+    if not isinstance(source, Mapping):
+        return {"cohortSize": 0, "eras": []}
+    eras = []
+    for row in source.get("eras", []):
+        if not isinstance(row, Mapping):
+            continue
+        projected = _pick(row, _PUBLIC_ERA_FIELDS)
+        strongest = row.get("strongestSet")
+        projected["strongestSet"] = _pick(strongest, _PUBLIC_ERA_SET_FIELDS) if isinstance(strongest, Mapping) else None
+        projected["constituentSets"] = [
+            _pick(item, _PUBLIC_ERA_SET_FIELDS)
+            for item in row.get("constituentSets", []) if isinstance(item, Mapping)
+        ]
+        eras.append(projected)
+    return {"cohortSize": source.get("cohortSize"), "eras": eras}
 
 
 _BASE_PRODUCT_RANKING_FIELDS = frozenset({

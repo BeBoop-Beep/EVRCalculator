@@ -49,6 +49,10 @@ def _get_alerts_enabled() -> bool:
     return value in ("1", "true", "yes")
 
 
+def _env_true(name: str, default: str = "false") -> bool:
+    return os.getenv(name, default).strip().lower() in ("1", "true", "yes")
+
+
 def _get_slack_webhook_url() -> str:
     """Get Slack incoming webhook URL from environment.
     
@@ -104,7 +108,7 @@ def fetch_pending_alerts(limit: int) -> List[Dict[str, Any]]:
         limit: Maximum number of alerts to fetch (should be >= 1).
     
     Returns:
-        List of alert row dicts. Empty list if none found or query fails.
+        List of alert row dicts. Empty only when the queue is genuinely empty.
     """
     if limit < 1:
         limit = 1
@@ -126,7 +130,10 @@ def fetch_pending_alerts(limit: int) -> List[Dict[str, Any]]:
     
     except Exception as exc:
         logger.error("%s failed to fetch pending alerts: %s", _ALERT_TAG, exc)
-        return []
+        # A database read failure is not an empty queue. Raising makes cron and
+        # deployment monitoring see a nonzero dispatcher exit instead of a
+        # false-success run that silently leaves every alert pending.
+        raise RuntimeError("pending alert queue could not be read") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -462,13 +469,35 @@ def get_dispatcher_health() -> Dict[str, Any]:
     if oldest:
         parsed = datetime.fromisoformat(str(oldest).replace("Z", "+00:00"))
         age_minutes = max(0, int((datetime.now(timezone.utc) - parsed).total_seconds() / 60))
+    sent_result = (supabase.table("alert_events")
+                   .select("sent_at").eq("sent", True)
+                   .order("sent_at", desc=True).limit(1).execute())
+    sent_rows = list(sent_result.data or [])
+    alerts_enabled = _get_alerts_enabled()
+    webhook_configured = bool(os.getenv("SLACK_ALERT_WEBHOOK_URL", "").strip())
+    dispatcher_scheduled = _env_true("ALERT_DISPATCHER_SCHEDULED")
+    watchdog_scheduled = _env_true("MARKET_FRESHNESS_WATCHDOG_SCHEDULED")
+    production_mode = any(
+        os.getenv(name, "").strip().lower() in {"production", "prod"}
+        for name in ("APP_ENV", "ENVIRONMENT", "NODE_ENV")
+    )
+    schedules_required = _env_true("ALERT_SCHEDULES_REQUIRED") or production_mode
+    healthy = alerts_enabled and webhook_configured
+    if schedules_required:
+        healthy = healthy and dispatcher_scheduled and watchdog_scheduled
     health = {
-        "alerts_enabled": _get_alerts_enabled(),
-        "slack_webhook_configured": bool(os.getenv("SLACK_ALERT_WEBHOOK_URL", "").strip()),
+        "alerts_enabled": alerts_enabled,
+        "slack_webhook_configured": webhook_configured,
+        "dispatcher_scheduled": dispatcher_scheduled,
+        "freshness_watchdog_scheduled": watchdog_scheduled,
+        "schedules_required": schedules_required,
+        "production_mode": production_mode,
         "database_connected": True,
         "pending_unsuppressed_count": int(getattr(result, "count", None) or len(rows)),
         "oldest_pending_created_at": oldest,
         "oldest_pending_age_minutes": age_minutes,
+        "last_sent_at": sent_rows[0].get("sent_at") if sent_rows else None,
+        "healthy": healthy,
     }
     warning_count = int(os.getenv("ALERT_BACKLOG_WARNING_COUNT", "20"))
     critical_age = int(os.getenv("ALERT_BACKLOG_CRITICAL_AGE_MINUTES", "10"))
@@ -509,7 +538,7 @@ def main() -> int:
         default=None,
         help="Max alerts to send (default: ALERT_BATCH_SIZE env or 25)",
     )
-    parser.add_argument("--health-check", action="store_true",
+    parser.add_argument("--health", "--health-check", dest="health_check", action="store_true",
                         help="Check configuration, database connectivity, and pending backlog")
     parser.add_argument("--send-test", action="store_true",
                         help="Send one explicit test message (requires --health-check)")
@@ -523,7 +552,7 @@ def main() -> int:
             if args.send_test:
                 health["test_message_sent"] = send_test_message()
             print(json.dumps(health, indent=2, sort_keys=True))
-            return 0 if health["database_connected"] and (
+            return 0 if health["database_connected"] and health["healthy"] and (
                 not args.send_test or health.get("test_message_sent")) else 1
         logger.info("%s starting alert dispatch (limit=%s)", _ALERT_TAG, args.limit)
         summary = send_pending_alerts(limit=args.limit)

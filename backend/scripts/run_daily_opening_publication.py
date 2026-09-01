@@ -77,6 +77,8 @@ class SimulationOutcome:
     skipped: bool = False
     reason: Optional[str] = None
     duration_seconds: float = 0.0
+    transient: bool = False
+    attempts: int = 1
 
 
 @dataclass
@@ -204,6 +206,9 @@ def run_simulations_for_sets(
     *,
     python_executable: Optional[str] = None,
     dry_run: bool = False,
+    market_date: Optional[str] = None,
+    sleep=time.sleep,
+    max_attempts: int = 3,
 ) -> List[SimulationOutcome]:
     """Run the existing V2 batch runner once per set that needs work.
 
@@ -214,16 +219,26 @@ def run_simulations_for_sets(
     outcomes: List[SimulationOutcome] = []
     for set_key in set_keys:
         started = time.perf_counter()
-        code = _run_command(
-            [executable, str(REPO_ROOT / "backend" / "scripts" / "run_all_v2_sets.py"), "--set", set_key],
-            dry_run=dry_run,
-        )
+        command = [executable, str(REPO_ROOT / "backend" / "scripts" / "run_all_v2_sets.py"), "--set", set_key]
+        if market_date:
+            command.extend(["--market-date", market_date])
+        attempts = 0
+        while True:
+            attempts += 1
+            code = _run_command(command, dry_run=dry_run)
+            if code != 75 or attempts >= max(1, max_attempts) or dry_run:
+                break
+            delay = float(15 * (2 ** (attempts - 1)))
+            print(f"{TAG} transient simulation failure set={set_key} attempt={attempts}/{max_attempts} retry_in={delay:.0f}s")
+            sleep(delay)
         outcomes.append(
             SimulationOutcome(
                 canonical_key=set_key,
                 succeeded=code == 0,
                 reason=None if code == 0 else f"run_all_v2_sets exited {code}",
                 duration_seconds=round(time.perf_counter() - started, 2),
+                transient=code == 75,
+                attempts=attempts,
             )
         )
     return outcomes
@@ -454,7 +469,12 @@ def orchestrate(
             _persist_rankings_deferral(client, report)
         return summary
 
-    outcomes = run_simulations_for_sets(pending, python_executable=python_executable, dry_run=dry_run)
+    outcomes = run_simulations_for_sets(
+        pending,
+        python_executable=python_executable,
+        dry_run=dry_run,
+        market_date=resolved_market_date,
+    )
     summary.simulation_succeeded = sum(1 for outcome in outcomes if outcome.succeeded)
     summary.simulation_failed = sum(1 for outcome in outcomes if not outcome.succeeded)
     for outcome in outcomes:

@@ -801,6 +801,7 @@ def persist_parent_run_with_price_snapshots(
     pack_value_vs_cost_comparison: Dict[str, Any],
     etb_value_vs_cost_comparison: Dict[str, Any] | None,
     booster_box_value_vs_cost_comparison: Dict[str, Any],
+    market_date: str | None = None,
 ) -> Dict[str, Any]:
     """Persist config, one parent run, and run-level price snapshots."""
     set_row = get_set_by_canonical_key(canonical_key)
@@ -841,6 +842,7 @@ def persist_parent_run_with_price_snapshots(
         notes,
         engine_version,
         comparison_metrics_payload,
+        market_date=market_date,
     )
 
     snapshot_count = 0

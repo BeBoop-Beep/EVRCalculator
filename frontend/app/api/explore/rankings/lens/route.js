@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
-import { projectRankingsTargets } from "@/lib/explore/rankingsClientProjection.mjs";
+import { projectRankingsClientPublicSetLeaderboard } from "@/lib/explore/rankingsClientProjection.mjs";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 export const dynamic = "force-dynamic";
@@ -64,9 +64,7 @@ export async function GET(request) {
     return NextResponse.json(
       {
         status: "available",
-        targets: projectRankingsTargets(rankTargets(eligible), {
-          canViewRankingsIntelligence: payload?.access?.rankingsIntelligence === true,
-        }),
+        targets: projectRankingsClientPublicSetLeaderboard(rankTargets(eligible)),
         access: payload?.access || { rankingsIntelligence: false, requiredPlan: "plus" },
         marketDate: marketDate(payload),
       },
@@ -78,12 +76,6 @@ export async function GET(request) {
     const payload = await preparedLensPayloadForRequest("eras", request);
     const eraSetStrength = payload?.eraSetStrengthV1;
     const access = payload?.access || { rankingsIntelligence: false, requiredPlan: "plus" };
-    if (payload && !payload?.meta?.requestFailed && access.rankingsIntelligence !== true) {
-      return NextResponse.json(
-        { status: "locked", eraSetStrength: null, access, marketDate: marketDate(payload) },
-        { headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" } },
-      );
-    }
     if (!payload || payload?.meta?.requestFailed || !Array.isArray(eraSetStrength?.eras)) {
       return NextResponse.json(
         { status: "unavailable", eraSetStrength: null, marketDate: marketDate(payload) },

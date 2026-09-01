@@ -1,0 +1,310 @@
+[
+  {
+    "case": "modern sparse",
+    "candidate": "Mega Evolution|Mega Evolution|common|Trainer",
+    "analogues": [
+      {
+        "anchor": "Platinum|Platinum_r1|common",
+        "similarity": 0.8233333333333335,
+        "shared": {
+          "family": 1.0,
+          "visual": 1.0,
+          "finish": 1.0,
+          "mechanic": 0.3333333333333333,
+          "historicalRole": 0.25,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      },
+      {
+        "anchor": "Diamond and Pearl|Diamond and Pearl_r1|common",
+        "similarity": 0.8104761904761906,
+        "shared": {
+          "family": 1.0,
+          "visual": 1.0,
+          "finish": 1.0,
+          "mechanic": 0.3333333333333333,
+          "historicalRole": 0.14285714285714285,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      },
+      {
+        "anchor": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|uncommon",
+        "similarity": 0.8000000000000002,
+        "shared": {
+          "family": 1.0,
+          "visual": 1.0,
+          "finish": 1.0,
+          "mechanic": 0.2,
+          "historicalRole": 0.2,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      }
+    ],
+    "result": "UNRESOLVED"
+  },
+  {
+    "case": "gallery/subset",
+    "candidate": "Mega Evolution|Mega Evolution|special_illustration_rare|Pok\u00e9mon",
+    "analogues": [
+      {
+        "anchor": "Scarlet and Violet|Scarlet and Violet|special_illustration_rare",
+        "similarity": 0.8994166666666668,
+        "shared": {
+          "family": 1.0,
+          "visual": 1.0,
+          "finish": 1.0,
+          "mechanic": 0.6666666666666666,
+          "historicalRole": 0.375,
+          "packPosition": null,
+          "pullPosition": 1.0
+        }
+      },
+      {
+        "anchor": "Scarlet and Violet|Scarlet and Violet|illustration_rare",
+        "similarity": 0.8946000000000001,
+        "shared": {
+          "family": 1.0,
+          "visual": 1.0,
+          "finish": 1.0,
+          "mechanic": 0.6,
+          "historicalRole": 0.4,
+          "packPosition": null,
+          "pullPosition": 1.0
+        }
+      },
+      {
+        "anchor": "Diamond and Pearl|Diamond and Pearl_r1|rare_holo",
+        "similarity": 0.5613834586466165,
+        "shared": {
+          "family": 0.0,
+          "visual": 0.8947368421052632,
+          "finish": 1.0,
+          "mechanic": 0.6,
+          "historicalRole": 0.8571428571428571,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      }
+    ],
+    "result": "UNRESOLVED"
+  },
+  {
+    "case": "shiny/radiant",
+    "candidate": "Neo|Neo|rare_shining|Pok\u00e9mon",
+    "analogues": [
+      {
+        "anchor": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|common",
+        "similarity": 0.5082631578947369,
+        "shared": {
+          "family": 0.0,
+          "visual": 0.9473684210526315,
+          "finish": 0.5,
+          "mechanic": 1.0,
+          "historicalRole": 0.4,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      },
+      {
+        "anchor": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|rare_prime",
+        "similarity": 0.48385964912280705,
+        "shared": {
+          "family": 0.0,
+          "visual": 0.8947368421052632,
+          "finish": 1.0,
+          "mechanic": 0.3333333333333333,
+          "historicalRole": 0.5,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      },
+      {
+        "anchor": "Platinum|Platinum_r1|rare_holo",
+        "similarity": 0.48385964912280705,
+        "shared": {
+          "family": 0.0,
+          "visual": 0.8947368421052632,
+          "finish": 1.0,
+          "mechanic": 0.3333333333333333,
+          "historicalRole": 0.5,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      }
+    ],
+    "result": "UNRESOLVED"
+  },
+  {
+    "case": "older special",
+    "candidate": "EX|EX|rare_holo_star|Pok\u00e9mon",
+    "analogues": [
+      {
+        "anchor": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|rare_prime",
+        "similarity": 0.7374561403508773,
+        "shared": {
+          "family": 1.0,
+          "visual": 0.8421052631578947,
+          "finish": 0.5,
+          "mechanic": 0.3333333333333333,
+          "historicalRole": 0.4444444444444444,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      },
+      {
+        "anchor": "Platinum|Platinum_r1|rare_holo_lv_x",
+        "similarity": 0.7088596491228071,
+        "shared": {
+          "family": 1.0,
+          "visual": 0.8947368421052632,
+          "finish": 0.5,
+          "mechanic": 0.0,
+          "historicalRole": 0.4444444444444444,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      },
+      {
+        "anchor": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|common",
+        "similarity": 0.5771929824561404,
+        "shared": {
+          "family": 0.0,
+          "visual": 0.8947368421052632,
+          "finish": 1.0,
+          "mechanic": 1.0,
+          "historicalRole": 0.5555555555555556,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      }
+    ],
+    "result": "UNRESOLVED"
+  },
+  {
+    "case": "unique unresolved",
+    "candidate": "Black and White|Black and White|rare_secret|Pok\u00e9mon",
+    "analogues": [
+      {
+        "anchor": "Diamond and Pearl|Diamond and Pearl_r1|rare_holo",
+        "similarity": 0.5945263157894737,
+        "shared": {
+          "family": 0.0,
+          "visual": 0.8947368421052632,
+          "finish": 1.0,
+          "mechanic": 1.0,
+          "historicalRole": 0.7,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      },
+      {
+        "anchor": "Scarlet and Violet|Scarlet and Violet|illustration_rare",
+        "similarity": 0.5905263157894737,
+        "shared": {
+          "family": 0.0,
+          "visual": 0.8947368421052632,
+          "finish": 1.0,
+          "mechanic": 1.0,
+          "historicalRole": 0.6666666666666666,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      },
+      {
+        "anchor": "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|rare_holo",
+        "similarity": 0.5705263157894738,
+        "shared": {
+          "family": 0.0,
+          "visual": 0.8947368421052632,
+          "finish": 1.0,
+          "mechanic": 1.0,
+          "historicalRole": 0.5,
+          "packPosition": null,
+          "pullPosition": null
+        }
+      }
+    ],
+    "result": "UNRESOLVED"
+  },
+  {
+    "case": "correctly reconstructed holdout",
+    "result": {
+      "nodeId": "Scarlet and Violet|Scarlet and Violet|common",
+      "era": "Scarlet and Violet",
+      "family": "BASE_PRINT",
+      "premium": false,
+      "actual": 5.012027261014039,
+      "predicted": 5.007689120019026,
+      "analogues": [
+        "EX|EX|common",
+        "EX|EX|uncommon",
+        "Diamond and Pearl|Diamond and Pearl_r1|uncommon",
+        "Black and White|Black and White|common"
+      ],
+      "analogueScores": [
+        4.803738618773096,
+        5.217123525274819,
+        5.155011983852892,
+        4.891166310896352
+      ],
+      "similarities": [
+        0.9566666666666668,
+        0.935,
+        0.8675,
+        0.8573333333333334
+      ],
+      "nearestSimilarity": 0.9566666666666668,
+      "sharedFeatures": {
+        "family": 1.0,
+        "visual": 1.0,
+        "finish": 1.0,
+        "mechanic": 0.6666666666666666,
+        "historicalRole": 1.0,
+        "packPosition": null,
+        "pullPosition": null
+      }
+    }
+  },
+  {
+    "case": "badly predicted holdout",
+    "result": {
+      "nodeId": "Black and White|Black and White|rare_holo",
+      "era": "Black and White",
+      "family": "HOLO_HIT",
+      "premium": true,
+      "actual": 2.490492580557743,
+      "predicted": 4.9267521765242925,
+      "analogues": [
+        "Diamond and Pearl|Diamond and Pearl_r1|rare_holo",
+        "HeartGold and SoulSilver|HeartGold and SoulSilver_r1|rare_holo",
+        "Platinum|Platinum_r1|rare_holo",
+        "EX|EX|rare_holo"
+      ],
+      "analogueScores": [
+        4.353993694666057,
+        5.977120162521266,
+        5.0,
+        4.681524809551892
+      ],
+      "similarities": [
+        0.8980000000000001,
+        0.8780000000000001,
+        0.8680000000000001,
+        0.853
+      ],
+      "nearestSimilarity": 0.8980000000000001,
+      "sharedFeatures": {
+        "family": 1.0,
+        "visual": 1.0,
+        "finish": 1.0,
+        "mechanic": 0.6,
+        "historicalRole": 0.5833333333333334,
+        "packPosition": null,
+        "pullPosition": null
+      }
+    }
+  }
+]

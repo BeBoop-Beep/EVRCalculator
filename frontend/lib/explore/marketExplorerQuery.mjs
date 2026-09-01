@@ -25,7 +25,7 @@
 
 import { colorForSeriesFingerprint, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
 
-export const MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v2";
+export const MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v3-variant";
 
 export const QUERY_ASSET_CARDS = "cards";
 export const QUERY_ASSET_SEALED = "sealed";

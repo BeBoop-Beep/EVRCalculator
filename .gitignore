@@ -25,7 +25,9 @@ logs/
 *_debug.json
 payload_debug.json
 cleaned_cards_debug.json
+/backend/constants/tcg/pokemon/scrape_job_reports/scrape_job_*.json
 /bench_out.json
+/artifacts/market_explorer_acceptance/
 debug/
 tmp/
 temp/

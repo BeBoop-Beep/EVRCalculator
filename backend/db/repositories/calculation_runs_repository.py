@@ -598,6 +598,7 @@ def create_parent_calculation_run(
     notes: str,
     engine_version: str,
     comparison_metrics: Optional[Mapping[str, Any]] = None,
+    market_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create one parent run row for a solve."""
     _require_present(config_id, "calculation_config_id")
@@ -621,6 +622,8 @@ def create_parent_calculation_run(
         "notes": str(notes),
         "engine_version": str(engine_version),
     }
+    if market_date:
+        payload["market_date"] = str(market_date)[:10]
 
     if comparison_metrics is not None:
         payload.update(

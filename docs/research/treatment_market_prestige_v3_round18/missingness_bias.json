@@ -1,0 +1,370 @@
+{
+  "conclusion": "MISSINGNESS_NOT_RANDOM",
+  "era": {
+    "Base/WOTC": {
+      "denominator": 441,
+      "directEmpirical": 126,
+      "neutral": 18,
+      "unresolved": 297,
+      "empiricalCoverage": 0.2857142857142857,
+      "usableCoverage": 0.32653061224489793
+    },
+    "Black and White": {
+      "denominator": 1447,
+      "directEmpirical": 1156,
+      "neutral": 16,
+      "unresolved": 275,
+      "empiricalCoverage": 0.7988942639944713,
+      "usableCoverage": 0.8099516240497581
+    },
+    "Diamond and Pearl": {
+      "denominator": 844,
+      "directEmpirical": 714,
+      "neutral": 20,
+      "unresolved": 110,
+      "empiricalCoverage": 0.8459715639810427,
+      "usableCoverage": 0.8696682464454977
+    },
+    "E-Card": {
+      "denominator": 519,
+      "directEmpirical": 0,
+      "neutral": 17,
+      "unresolved": 502,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.03275529865125241
+    },
+    "EX": {
+      "denominator": 1701,
+      "directEmpirical": 1599,
+      "neutral": 70,
+      "unresolved": 32,
+      "empiricalCoverage": 0.9400352733686067,
+      "usableCoverage": 0.9811875367430923
+    },
+    "Gym": {
+      "denominator": 265,
+      "directEmpirical": 0,
+      "neutral": 12,
+      "unresolved": 253,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.045283018867924525
+    },
+    "HeartGold and SoulSilver": {
+      "denominator": 549,
+      "directEmpirical": 420,
+      "neutral": 23,
+      "unresolved": 106,
+      "empiricalCoverage": 0.7650273224043715,
+      "usableCoverage": 0.8069216757741348
+    },
+    "Mega Evolution": {
+      "denominator": 992,
+      "directEmpirical": 88,
+      "neutral": 11,
+      "unresolved": 893,
+      "empiricalCoverage": 0.08870967741935484,
+      "usableCoverage": 0.09979838709677419
+    },
+    "NP": {
+      "denominator": 74,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 74,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "Neo": {
+      "denominator": 364,
+      "directEmpirical": 138,
+      "neutral": 10,
+      "unresolved": 216,
+      "empiricalCoverage": 0.3791208791208791,
+      "usableCoverage": 0.4065934065934066
+    },
+    "Other": {
+      "denominator": 271,
+      "directEmpirical": 0,
+      "neutral": 2,
+      "unresolved": 269,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.007380073800738007
+    },
+    "POP": {
+      "denominator": 153,
+      "directEmpirical": 54,
+      "neutral": 5,
+      "unresolved": 94,
+      "empiricalCoverage": 0.35294117647058826,
+      "usableCoverage": 0.38562091503267976
+    },
+    "Platinum": {
+      "denominator": 517,
+      "directEmpirical": 351,
+      "neutral": 5,
+      "unresolved": 161,
+      "empiricalCoverage": 0.6789168278529981,
+      "usableCoverage": 0.688588007736944
+    },
+    "Scarlet and Violet": {
+      "denominator": 3434,
+      "directEmpirical": 3174,
+      "neutral": 34,
+      "unresolved": 226,
+      "empiricalCoverage": 0.9242865463016889,
+      "usableCoverage": 0.9341875364006988
+    },
+    "Sun and Moon": {
+      "denominator": 2969,
+      "directEmpirical": 1664,
+      "neutral": 36,
+      "unresolved": 1269,
+      "empiricalCoverage": 0.5604580666891209,
+      "usableCoverage": 0.5725833614011452
+    },
+    "Sword and Shield": {
+      "denominator": 3377,
+      "directEmpirical": 615,
+      "neutral": 45,
+      "unresolved": 2717,
+      "empiricalCoverage": 0.18211430263547526,
+      "usableCoverage": 0.19543973941368079
+    },
+    "XY": {
+      "denominator": 1930,
+      "directEmpirical": 897,
+      "neutral": 47,
+      "unresolved": 986,
+      "empiricalCoverage": 0.4647668393782383,
+      "usableCoverage": 0.48911917098445595
+    }
+  },
+  "releaseAge": "Exact release dates are absent from the frozen cohort; era is reported as the preregistered non-price historical proxy and shows strong age/cohort concentration.",
+  "supertype": {
+    "Energy": {
+      "denominator": 371,
+      "directEmpirical": 0,
+      "neutral": 371,
+      "unresolved": 0,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 1.0
+    },
+    "Pok\u00e9mon": {
+      "denominator": 16458,
+      "directEmpirical": 9491,
+      "neutral": 0,
+      "unresolved": 6967,
+      "empiricalCoverage": 0.5766800340260055,
+      "usableCoverage": 0.5766800340260055
+    },
+    "Trainer": {
+      "denominator": 2718,
+      "directEmpirical": 1492,
+      "neutral": 0,
+      "unresolved": 1226,
+      "empiricalCoverage": 0.5489330389992642,
+      "usableCoverage": 0.5489330389992642
+    },
+    "__UNMAPPED__": {
+      "denominator": 300,
+      "directEmpirical": 13,
+      "neutral": 0,
+      "unresolved": 287,
+      "empiricalCoverage": 0.043333333333333335,
+      "usableCoverage": 0.043333333333333335
+    }
+  },
+  "treatmentFamily": {
+    "Trainer": {
+      "denominator": 2718,
+      "directEmpirical": 1492,
+      "neutral": 0,
+      "unresolved": 1226,
+      "empiricalCoverage": 0.5489330389992642,
+      "usableCoverage": 0.5489330389992642
+    },
+    "conventional rare/holo": {
+      "denominator": 4055,
+      "directEmpirical": 2541,
+      "neutral": 67,
+      "unresolved": 1447,
+      "empiricalCoverage": 0.6266337854500617,
+      "usableCoverage": 0.6431565967940813
+    },
+    "ordinary/base printing": {
+      "denominator": 8381,
+      "directEmpirical": 5087,
+      "neutral": 208,
+      "unresolved": 3086,
+      "empiricalCoverage": 0.6069681422264647,
+      "usableCoverage": 0.6317861830330509
+    },
+    "other": {
+      "denominator": 230,
+      "directEmpirical": 0,
+      "neutral": 36,
+      "unresolved": 194,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.1565217391304348
+    },
+    "premium hit": {
+      "denominator": 2975,
+      "directEmpirical": 1369,
+      "neutral": 60,
+      "unresolved": 1546,
+      "empiricalCoverage": 0.46016806722689074,
+      "usableCoverage": 0.48033613445378154
+    },
+    "promo/special release": {
+      "denominator": 737,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 737,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    },
+    "subset/gallery": {
+      "denominator": 751,
+      "directEmpirical": 507,
+      "neutral": 0,
+      "unresolved": 244,
+      "empiricalCoverage": 0.6750998668442078,
+      "usableCoverage": 0.6750998668442078
+    }
+  },
+  "premiumStatus": {
+    "NON_PREMIUM": {
+      "denominator": 15333,
+      "directEmpirical": 8601,
+      "neutral": 311,
+      "unresolved": 6421,
+      "empiricalCoverage": 0.560946977108198,
+      "usableCoverage": 0.5812300267397117
+    },
+    "PREMIUM": {
+      "denominator": 4514,
+      "directEmpirical": 2395,
+      "neutral": 60,
+      "unresolved": 2059,
+      "empiricalCoverage": 0.530571555161719,
+      "usableCoverage": 0.5438635356668143
+    }
+  },
+  "promoStatus": {
+    "OTHER": {
+      "denominator": 19082,
+      "directEmpirical": 10996,
+      "neutral": 371,
+      "unresolved": 7715,
+      "empiricalCoverage": 0.5762498689864795,
+      "usableCoverage": 0.5956922754428257
+    },
+    "PROMO_OR_SPECIAL": {
+      "denominator": 765,
+      "directEmpirical": 0,
+      "neutral": 0,
+      "unresolved": 765,
+      "empiricalCoverage": 0.0,
+      "usableCoverage": 0.0
+    }
+  },
+  "hitEligibility": {
+    "HIT_ELIGIBLE": {
+      "denominator": 5176,
+      "directEmpirical": 2807,
+      "neutral": 0,
+      "unresolved": 2369,
+      "empiricalCoverage": 0.5423106646058733,
+      "usableCoverage": 0.5423106646058733
+    },
+    "NOT_HIT_ELIGIBLE": {
+      "denominator": 14671,
+      "directEmpirical": 8189,
+      "neutral": 371,
+      "unresolved": 6111,
+      "empiricalCoverage": 0.5581759934564787,
+      "usableCoverage": 0.5834639765523822
+    }
+  },
+  "marketPriceDecileDiagnosticOnly": {
+    "1": {
+      "denominator": 1984,
+      "directEmpirical": 1026,
+      "neutral": 5,
+      "unresolved": 953,
+      "empiricalCoverage": 0.5171370967741935,
+      "usableCoverage": 0.5196572580645161
+    },
+    "2": {
+      "denominator": 1985,
+      "directEmpirical": 1095,
+      "neutral": 13,
+      "unresolved": 877,
+      "empiricalCoverage": 0.5516372795969773,
+      "usableCoverage": 0.5581863979848867
+    },
+    "3": {
+      "denominator": 1985,
+      "directEmpirical": 1029,
+      "neutral": 24,
+      "unresolved": 932,
+      "empiricalCoverage": 0.5183879093198992,
+      "usableCoverage": 0.530478589420655
+    },
+    "4": {
+      "denominator": 1984,
+      "directEmpirical": 1214,
+      "neutral": 40,
+      "unresolved": 730,
+      "empiricalCoverage": 0.6118951612903226,
+      "usableCoverage": 0.6320564516129032
+    },
+    "5": {
+      "denominator": 1985,
+      "directEmpirical": 1430,
+      "neutral": 64,
+      "unresolved": 491,
+      "empiricalCoverage": 0.7204030226700252,
+      "usableCoverage": 0.7526448362720403
+    },
+    "6": {
+      "denominator": 1985,
+      "directEmpirical": 1318,
+      "neutral": 67,
+      "unresolved": 600,
+      "empiricalCoverage": 0.6639798488664987,
+      "usableCoverage": 0.6977329974811083
+    },
+    "7": {
+      "denominator": 1984,
+      "directEmpirical": 1133,
+      "neutral": 55,
+      "unresolved": 796,
+      "empiricalCoverage": 0.5710685483870968,
+      "usableCoverage": 0.5987903225806451
+    },
+    "8": {
+      "denominator": 1985,
+      "directEmpirical": 997,
+      "neutral": 50,
+      "unresolved": 938,
+      "empiricalCoverage": 0.5022670025188917,
+      "usableCoverage": 0.527455919395466
+    },
+    "9": {
+      "denominator": 1985,
+      "directEmpirical": 966,
+      "neutral": 37,
+      "unresolved": 982,
+      "empiricalCoverage": 0.4866498740554156,
+      "usableCoverage": 0.5052896725440806
+    },
+    "10": {
+      "denominator": 1985,
+      "directEmpirical": 788,
+      "neutral": 16,
+      "unresolved": 1181,
+      "empiricalCoverage": 0.3969773299748111,
+      "usableCoverage": 0.4050377833753149
+    }
+  }
+}

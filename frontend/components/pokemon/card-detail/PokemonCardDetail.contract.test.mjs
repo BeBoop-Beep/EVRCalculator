@@ -157,13 +157,14 @@ test("card detail shares the dynamic set atmosphere and establishes its stacking
   assert.doesNotMatch(source, /Ascended Heroes.*artwork|Black Bolt.*artwork/);
 });
 
-test("normal card-detail interactions use Market teal while the lock remains amber", () => {
+test("normal card-detail interactions use Market teal while the lock remains canonical Index Plus gold", () => {
   assert.match(
     styles,
     /\.card-detail-environment[\s\S]*--accent: rgb\(45, 212, 191\)/,
   );
-  assert.match(source, /text-amber-300/);
-  assert.match(source, /border-amber-300\/40/);
+  assert.match(source, /PlanBadge, PlanUpgradeLink/);
+  assert.match(source, /planPresentation/);
+  assert.doesNotMatch(source, /text-amber-300|border-amber-300\/40/);
 });
 
 test("product choices use compact labels, scalable desktop navigation, and a mobile select", () => {

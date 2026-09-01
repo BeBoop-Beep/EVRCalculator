@@ -1,0 +1,253 @@
+Stage VII - Collector Appeal weight re-stress test
+dataset: stage6-chase-pillar-dataset-v1 (2026-08-31T17:03:30.913066+00:00)
+
+=== PHASE 7 - preregistration (locked before any candidate result) ===
+  file   docs\research\COLLECTOR_WEIGHT_STAGE7_PREREGISTRATION.json
+  sha256 73190a86ab0a4c9d21dc3414d1f7b457d67561592ce141014a5248e713745274
+  selectable  ['84/10/6', '83/11/6', '82/12/6', '81/13/6']
+  diagnostic  ['94/0/6', '89/5/6', '86.5/7.5/6', '80/14/6', '79/15/6']
+  ceiling     0.13 (0.14/0.15 diagnostic only)
+  funding     financial = 0.94 - collector
+
+=== PHASE 2 - Stage VI-B CONTROL reproduction (gate) ===
+  cohort 131 products / 21 sets / 8 families
+  V10 CONTROL inputs re-derived: 0/131 mismatches, worst |delta| 0.00e+00
+  Stage VI-B 84/10/6 reproduced independently: worst |delta| 0.00e+00
+
+=== PHASE 3 - what Collector Appeal V5 actually is at product level ===
+  series                     min     P05     P25     med    mean     P75     P95     max      sd     IQR distinct
+  Financial RIP V4         10.31   17.10   21.63   28.97   28.72   34.17   42.39   57.07    8.48   12.54      131
+  Collector Appeal V5      49.07   65.30   71.93   80.82   79.50   88.25   96.53   99.09   10.91   16.32       21
+  Chase 100K/(K+10)         0.00    0.00    9.09   28.57   24.99   33.33   48.68   58.33   14.56   24.24       14
+
+  range and dispersion versus Financial
+    Financial RIP V4       range  46.76  sd   8.48  (1.00x Financial sd)
+    Collector Appeal V5    range  50.02  sd  10.91  (1.29x Financial sd)
+    Chase 100K/(K+10)      range  58.33  sd  14.56  (1.72x Financial sd)
+
+  3A. within-set variation
+    verdict: Collector Appeal V5 is exactly constant within every set
+    multi-product sets 21 ; sets with any within-set variation 0
+    for comparison, Financial RIP V4     is genuinely product-specific
+    for comparison, Chase Opportunity    is mostly set-level (20/21 sets vary)
+
+    => Collector Appeal cannot directly change the ordering of
+       products WITHIN a set at any fixed Financial/Chase weighting
+       ratio. Every same-set product carries the identical set score,
+       so the Collector term cancels exactly in a same-set comparison.
+       Any within-set movement observed when the Collector weight is
+       raised is therefore reallocation, not Collector differentiation.
+
+=== PHASE 4 - decomposing the 'approximately zero contribution' finding ===
+
+  A. standalone weighted dispersion  w_i * SD(X_i)
+    Financial  w 0.84  SD   8.481  w*SD  7.1237
+    Collector  w 0.10  SD  10.912  w*SD  1.0912
+    Chase      w 0.06  SD  14.556  w*SD  0.8734
+
+  B. pairwise relationships
+    F vs C   Pearson -0.2025   Spearman -0.1254
+    F vs K   Pearson +0.4940   Spearman +0.5169
+    C vs K   Pearson +0.3391   Spearman +0.3133
+
+  C. covariance-aware contribution to Overall  Cov(w_i X_i, O)/Var(O)
+    financial_rip      +0.9272
+    collector_appeal   -0.0011
+    chase              +0.0738
+    sum 1.000000
+    (negative contributions are real and are not hidden)
+
+  D. incremental explanatory power of each pillar
+    target | controls                    R2     cvR2   resid/sd
+    Collector | Financial            0.0410  -0.0978     0.9793
+    Collector | Chase                0.1150  -0.0286     0.9407
+    Collector | Financial+Chase      0.2961   0.1477     0.8390
+    Financial | Collector+Chase      0.3988   0.3213     0.7754
+    Chase | Financial+Collector      0.4452   0.3537     0.7449
+
+  E. leave-one-pillar-out
+    coefficient DELETION (weights no longer sum to 1; scale shrinks)
+      without collector_appeal   rho vs CONTROL 0.9868
+      without chase              rho vs CONTROL 0.9930
+      without financial_rip      rho vs CONTROL 0.3521
+    BUDGET REALLOCATION (dropped weight returned to the others pro rata)
+      without collector_appeal   rho vs CONTROL 0.9868
+      without chase              rho vs CONTROL 0.9930
+      without financial_rip      rho vs CONTROL 0.3521
+
+=== PHASE 5 - product-weighted versus set-balanced ===
+  set sizes: min 4 max 10 ; a 10-product set otherwise counts 10.0x a single-product set
+
+  covariance share       product-weighted   set-balanced
+  financial_rip                  0.9272         0.9338
+  collector_appeal              -0.0011        -0.0058
+  chase                          0.0738         0.0720
+
+  dispersion under each scheme
+    financial_rip      sd product   8.448   sd set-balanced   8.695
+    collector_appeal   sd product  10.870   sd set-balanced  12.053
+    chase              sd product  14.501   sd set-balanced  14.890
+
+  Collector at SET level only (one observation per set)
+    n 21  min 49.07  median 80.82  max 99.09  sd 12.35
+
+=== PHASE 6 - within-set versus between-set Collector signal ===
+  pair census over 131 products (8515 pairs)
+    same-set pairs                 377 (4.4%) ; C differs in 0 of them
+    cross-set pairs               8138 (95.6%) ; C differs in 8138 of them
+    same-family cross-set pairs   1260
+
+  => Collector Appeal carries information on 95.6% of pairs and is
+     structurally silent on the other 4.4%. Its entire contribution is
+     BETWEEN sets. No same-set comparison can be Collector-driven.
+
+=== PHASE 8 - inherited historical guardrails ===
+  Baseline = 0.94F + 0.06K (the three-pillar analogue of the historical
+  Financial-only baseline these guardrails were written against).
+  Thresholds read from scoring_config.OVERALL_RIP_PRODUCTION_GUARDRAILS.
+
+  F/C/K         spearman     top5     top7    top10      RBO    meanMv   share5    maxMv   gates
+  94/0/6          1.0000     1.00     1.00     1.00   1.0000     0.000   0.0000        0    YYYY  (diagnostic)
+  89/5/6          0.9965     0.80     0.86     0.90   0.9456     2.321   0.1450       10    YYnn  (diagnostic)
+  86.5/7.5/6      0.9917     0.80     0.86     0.90   0.9373     3.527   0.2824       19    YYnn  (diagnostic)
+  84/10/6         0.9859     0.80     0.86     0.80   0.9311     4.611   0.4198       23    YYnn
+  83/11/6         0.9839     0.80     0.71     0.80   0.8971     5.099   0.4733       23    YYnn
+  82/12/6         0.9815     0.80     0.71     0.80   0.8950     5.527   0.5115       24    YYnn
+  81/13/6         0.9787     0.80     0.71     0.80   0.8913     5.924   0.5496       28    YYnn
+  80/14/6         0.9746     0.80     0.71     0.80   0.8852     6.458   0.5573       30    YYnn  (diagnostic)
+  79/15/6         0.9688     0.60     0.57     0.80   0.7928     7.206   0.6031       33    Ynnn  (diagnostic)
+
+  gate order: spearman(>=0.95) top5(>=0.80) meanMove(<=1.5) share5(<=0.10)
+
+  THE TWO MOVEMENT GATES ARE NOT SCALE-FREE, and that is why they fail
+  above even at the SHIPPING 10%% weight. They were calibrated on the V4
+  study's ~21-SET cohort; this cohort is 131 PRODUCTS. '5 ranks of 21' is
+  a quarter of the field; '5 ranks of 131' is under 4% of it.
+  Cohort-normalised equivalents (mean move <= 9.36 ranks; share moving
+  >= 31 ranks <= 0.10):
+  F/C/K             meanMv meanMv/cohort share>=31ranks scaledGates
+  94/0/6             0.000        0.0000        0.0000         YYY  (diag)
+  89/5/6             2.321        0.0177        0.0000         YYY  (diag)
+  86.5/7.5/6         3.527        0.0269        0.0000         YYY  (diag)
+  84/10/6            4.611        0.0352        0.0000         YYY
+  83/11/6            5.099        0.0389        0.0000         YYY
+  82/12/6            5.527        0.0422        0.0000         YYY
+  81/13/6            5.924        0.0452        0.0000         YYY
+  80/14/6            6.458        0.0493        0.0000         YYY  (diag)
+  79/15/6            7.206        0.0550        0.0229         YYY  (diag)
+  historical mean-movement budget as a share of cohort: 0.0714
+
+  CLASSIFICATION of each inherited guardrail under the three-pillar model:
+    min_spearman_vs_financial_only  INHERITED HARD GATE - still the right
+      question, only the baseline changes (Financial-only -> Financial+Chase).
+    max_mean_absolute_rank_movement INHERITED HARD GATE - unchanged meaning.
+    max_share_moving_5_plus_ranks   INHERITED HARD GATE - unchanged meaning.
+    min_top5_overlap                INHERITED DIAGNOSTIC ONLY - the V4 study
+      itself found the top-5 failures WEIGHT-INVARIANT (identical at 10%,
+      7.5% and 5%) and driven by one set, Shrouded Fable, with D=51.07;
+      it recommended RBO or top-7 instead. It is reported, not gated.
+
+=== PHASE 9 - Stage VI-B Chase contract under each Collector weight ===
+  Raising Collector lowers Financial, which changes Chase's RELATIVE
+  strength even though Chase stays pinned at 0.06.
+  F/C/K         shapleyC  shapleyK   closeOvr%  clearOvr   maxGapOvr  spearman sameSet  C1..C5
+  84/10/6        -0.0011    0.0738      0.1346         0        7.34    0.9926       6   YYYYY
+  83/11/6         0.0016    0.0754      0.1293         0        7.34    0.9927       6   YYYYY
+  82/12/6         0.0048    0.0770      0.1122         0        7.34    0.9930       6   YYYYY
+  81/13/6         0.0087    0.0786      0.1113         0        9.59    0.9930       6   YYYYY
+
+  Each row is measured against ITS OWN Chase-free control (1-c)F + cC,
+  which is the Stage VI-B construction transplanted to that Collector
+  weight. C1-C5 therefore keep the meaning they were validated with.
+
+=== PHASE 10 - Financial dominance versus the Financial+Chase baseline ===
+  Baseline B = 0.94F + 0.06K ; candidate O_c = (0.94-c)F + cC + 0.06K
+  F/C/K          closeOvr%  clearOvr   maxGapOvr crossSetRev  sameSetRev
+  94/0/6            0.0000         0        0.00        8138           0  (diagnostic)
+  89/5/6            0.1239         0        4.88        8138           0  (diagnostic)
+  86.5/7.5/6        0.1670         0        7.06        8138           0  (diagnostic)
+  84/10/6           0.2029         0        7.34        8138           1
+  83/11/6           0.2163         0        7.34        8138           1
+  82/12/6           0.2316         0        7.34        8138           1
+  81/13/6           0.2370         0        9.59        8138           1
+  80/14/6           0.2469         0        9.67        8138           1  (diagnostic)
+  79/15/6           0.2567         1       12.68        8138           1  (diagnostic)
+
+  Collector SHOULD resolve close calls; it should not routinely rescue
+  clearly inferior financial opportunities. clearOvr counts pairs where
+  Financial leads by >= 10 and the baseline agreed, yet Collector flipped it.
+
+=== PHASES 11 & 12 - what each extra point of Collector actually buys ===
+  Every reversal is attributed to its CAUSE. For a pair whose Collector
+  scores are equal, 100% of the movement is reallocation - Financial
+  losing weight - and none of it is Collector information.
+
+  step           reversals  collectorRev      reallocDom     sameSet    crossSet    maxFgapByC
+  10%->11%              38            38               0           0          38          6.49
+  11%->12%              39            39               0           0          39          6.54
+  12%->13%              35            35               0           0          35          9.59
+  10%->13%             112           112               0           0         112          9.59
+  13%->14%              47            47               0           0          47          9.67  (diagnostic)
+  14%->15%              65            65               0           0          65         12.68  (diagnostic)
+
+  Same-set reversals are 0 at every step, as they must be.
+  Collector is set-constant, so a same-set pair's Collector term
+  cancels exactly and no Collector weight can reorder it.
+  A reversal counts as Collector-caused ONLY when the direct term
+  delta*dC exceeds the reallocation term -delta*dF in magnitude.
+
+  worst Collector-caused reversals over the full 10%%->13%% move:
+    Mega Evolution Booster Bundle
+      beats Shrouded Fable Pokemon Center Elite Trainer Box (Exclusive)
+      Financial gap 9.59 (5-10) | Collector gap 40.01 | direct +1.2004 vs realloc +0.2876
+    Mega Evolution Elite Trainer Box [Mega Gardevoir]
+      beats Shrouded Fable Pokemon Center Elite Trainer Box (Exclusive)
+      Financial gap 8.78 (5-10) | Collector gap 40.01 | direct +1.2004 vs realloc +0.2634
+    Prismatic Evolutions Booster Pack
+      beats Temporal Forces Elite Trainer Box [Iron Leaves ex]
+      Financial gap 7.45 (5-10) | Collector gap 24.91 | direct +0.7472 vs realloc +0.2236
+    Ascended Heroes Booster Pack
+      beats Chaos Rising Booster Pack
+      Financial gap 7.10 (5-10) | Collector gap 33.80 | direct +1.0140 vs realloc +0.2129
+
+  marginal movement per additional 1% Collector weight
+  F/C/K         spearman   kendall   meanMv    maxMv   changed    top10    tiers
+  94/0/6          0.9859    0.9070     4.61       23       116        2       47  (diag)
+  89/5/6          0.9954    0.9528     2.46       16       104        1       29  (diag)
+  86.5/7.5/6      0.9987    0.9770     1.25        7        81        1       16  (diag)
+  84/10/6         1.0000    1.0000     0.00        0         0        0        0
+  83/11/6         0.9997    0.9911     0.53        3        54        0        6
+  82/12/6         0.9993    0.9819     1.08        4        94        0       11
+  81/13/6         0.9986    0.9737     1.50        8       103        0       16
+  80/14/6         0.9975    0.9627     2.02       10       111        0       19  (diag)
+  79/15/6         0.9956    0.9474     2.81       13       120        0       24  (diag)
+
+=== PHASES 14 & 15 - dates, price shocks and Collector shocks ===
+
+  price shocks and dates - clear-Financial overrides vs the 0.94F+0.06K
+  baseline, and max Financial gap overturned
+  F/C/K        scenario         n  clearOvr   maxGapOvr
+  84/10/6      worst of all     -         0        7.06
+  83/11/6      worst of all     -         0        7.06
+  82/12/6      worst of all     -         0        7.34
+  81/13/6      worst of all     -         0        7.34
+
+  Collector measurement shocks (pre-registered, symmetric)
+  F/C/K        collector shock    closeOvr%  clearOvr   maxGapOvr  spearman
+  84/10/6      C x 0.90              0.1858         0        7.34    0.9997
+  84/10/6      C x 1.10              0.2011         0        7.34    0.9996
+  83/11/6      C x 0.90              0.2029         0        7.34    1.0000
+  83/11/6      C x 1.10              0.2136         0        7.34    0.9994
+  82/12/6      C x 0.90              0.2145         0        7.34    0.9997
+  82/12/6      C x 1.10              0.2217         0        9.59    0.9988
+  81/13/6      C x 0.90              0.2244         0        7.34    0.9994
+  81/13/6      C x 1.10              0.2370         0        9.67    0.9979
+
+=== PHASE 16 - redundancy: is Collector already inside Financial? ===
+  F vs C   Pearson -0.2025   Spearman -0.1254
+  F vs C controlling for Chase: partial Pearson -0.4524  partial Spearman -0.4283
+  Collector reconstructed from Financial+Chase: R2 0.2961  cvR2 0.1477  resid/sd 0.8390
+
+  The relationship with Financial is NEGATIVE, not redundant: collectible
+  sets are, if anything, slightly WORSE financial value. Collector retains
+  84% of its own spread after both other pillars are known.

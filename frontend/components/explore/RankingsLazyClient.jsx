@@ -62,11 +62,6 @@ export default function RankingsLazyClient({
   const warmGeneration = useRef(0);
 
   const loadEra = useCallback(async ({ force = false, foreground = false } = {}) => {
-    if (authStatus !== "resolved" || !canViewRankingsIntelligence) {
-      const locked = { status: "locked", contract: null, marketDate: rankingsMarketDate, cacheIdentity: sessionCache.identity };
-      if (foreground) setEraState(locked);
-      return locked;
-    }
     const cached = !force && sessionCache.peek("eras:rankings");
     if (cached) { setEraState(cached); return cached; }
     if (foreground) setEraState((current) => ({ ...current, status: "loading" }));
@@ -92,7 +87,7 @@ export default function RankingsLazyClient({
       if (foreground) setEraState(failed);
       return failed;
     }
-  }, [authStatus, canViewRankingsIntelligence, rankingsMarketDate, sessionCache]);
+  }, [rankingsMarketDate, sessionCache]);
 
   const loadSets = useCallback(async ({ force = false, foreground = false } = {}) => {
     const cached = !force && sessionCache.peek("sets:rankings");
@@ -280,7 +275,7 @@ export default function RankingsLazyClient({
             {setAnalysisLens === "economics" ? (
               <SetPackMetrics sets={openingEconomics?.sets} targets={setTargets} eraFilter={selectedEra} marketDate={openingEconomics?.marketDate} canViewRankingsIntelligence={canViewRankingsIntelligence} />
             ) : (
-              <ExploreTableClient targets={setTargets} loadError={loadError || setsUnavailable} canViewProductRipIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} />
+              <ExploreTableClient targets={setTargets} loadError={loadError || setsUnavailable} canViewProductRipIntelligence eraFilter={selectedEra} />
             )}
           </>
         )

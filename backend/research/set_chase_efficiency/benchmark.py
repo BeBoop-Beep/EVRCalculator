@@ -69,10 +69,15 @@ def scores(counts: Mapping[str, int]) -> Dict[str, Optional[float]]:
     fn, tn = counts["falseNegatives"], counts["trueNegatives"]
     precision = tp / (tp + fp) if (tp + fp) else None
     recall = tp / (tp + fn) if (tp + fn) else None
-    f1 = (2 * precision * recall / (precision + recall)
-          if precision and recall and (precision + recall) else
-          (0.0 if precision is not None and recall is not None else None))
     union = tp + fp + fn
+    # F1 as 2TP / (2TP + FP + FN) rather than the harmonic mean of precision and
+    # recall. The harmonic form is undefined whenever precision is undefined,
+    # which happens exactly when a rule selects NOTHING - so a rule that misses
+    # every chase in a set would drop out of that set's macro average entirely
+    # and be scored only on the sets where it happened to fire. This form is
+    # 0.0 in that case, which is the truthful answer, and is undefined only when
+    # there is genuinely nothing to measure (no positives, no predictions).
+    f1 = (2 * tp) / (2 * tp + fp + fn) if union else None
     return {
         "precision": None if precision is None else round(precision, 6),
         "recall": None if recall is None else round(recall, 6),

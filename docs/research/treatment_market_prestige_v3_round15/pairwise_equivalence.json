@@ -1,0 +1,1640 @@
+[
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "double_rare",
+    "effectA": -0.017666618688706868,
+    "effectB": -2.1045813354861527,
+    "effectDifference": 2.086914716797446,
+    "bootstrapDifferenceInterval": [
+      1.9978169319079246,
+      2.1784717561892246
+    ],
+    "magnitudeScoreDifference": 1.3032481900825732,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "illustration_rare",
+    "effectA": -0.017666618688706868,
+    "effectB": 0.5778958928056042,
+    "effectDifference": -0.595562511494311,
+    "bootstrapDifferenceInterval": [
+      -0.7443088429071862,
+      -0.4488360486177004
+    ],
+    "magnitudeScoreDifference": -0.3842801004334202,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare",
+    "effectA": -0.017666618688706868,
+    "effectB": -3.7699703395138884,
+    "effectDifference": 3.7523037208251817,
+    "bootstrapDifferenceInterval": [
+      3.659168985801388,
+      3.8472627713117644
+    ],
+    "magnitudeScoreDifference": 2.1725237471703718,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "special_illustration_rare",
+    "effectA": -0.017666618688706868,
+    "effectB": 1.7801878642764315,
+    "effectDifference": -1.7978544829651384,
+    "bootstrapDifferenceInterval": [
+      -2.026889243640849,
+      -1.564116649596565
+    ],
+    "magnitudeScoreDifference": -1.1312314549758087,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "ultra_rare",
+    "effectA": -0.017666618688706868,
+    "effectB": -1.0114611870896,
+    "effectDifference": 0.9937945684008931,
+    "bootstrapDifferenceInterval": [
+      0.8051371177360136,
+      1.1791392601947634
+    ],
+    "magnitudeScoreDifference": 0.6382195019425669,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "uncommon",
+    "effectA": -0.017666618688706868,
+    "effectB": -0.0781082872177777,
+    "effectDifference": 0.06044166852907083,
+    "bootstrapDifferenceInterval": [
+      -0.00103434107040065,
+      0.12308510611478832
+    ],
+    "magnitudeScoreDifference": 0.03913124414660096,
+    "orderingProbability": 0.9719929982495624,
+    "classification": "PRACTICALLY_EQUIVALENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "double_rare",
+    "treatmentB": "illustration_rare",
+    "effectA": -2.1045813354861527,
+    "effectB": 0.5778958928056042,
+    "effectDifference": -2.6824772282917566,
+    "bootstrapDifferenceInterval": [
+      -2.8431208787262223,
+      -2.5236389364153657
+    ],
+    "magnitudeScoreDifference": -1.6875282905159934,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "double_rare",
+    "treatmentB": "rare",
+    "effectA": -2.1045813354861527,
+    "effectB": -3.7699703395138884,
+    "effectDifference": 1.6653890040277357,
+    "bootstrapDifferenceInterval": [
+      1.5492500013715509,
+      1.7830807230728107
+    ],
+    "magnitudeScoreDifference": 0.8692755570877986,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "double_rare",
+    "treatmentB": "special_illustration_rare",
+    "effectA": -2.1045813354861527,
+    "effectB": 1.7801878642764315,
+    "effectDifference": -3.884769199762584,
+    "bootstrapDifferenceInterval": [
+      -4.121454241789069,
+      -3.6377947070880943
+    ],
+    "magnitudeScoreDifference": -2.434479645058382,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "double_rare",
+    "treatmentB": "ultra_rare",
+    "effectA": -2.1045813354861527,
+    "effectB": -1.0114611870896,
+    "effectDifference": -1.0931201483965527,
+    "bootstrapDifferenceInterval": [
+      -1.2998187060381239,
+      -0.8829536061110889
+    ],
+    "magnitudeScoreDifference": -0.6650286881400063,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "double_rare",
+    "treatmentB": "uncommon",
+    "effectA": -2.1045813354861527,
+    "effectB": -0.0781082872177777,
+    "effectDifference": -2.026473048268375,
+    "bootstrapDifferenceInterval": [
+      -2.1226468314939155,
+      -1.928956887592762
+    ],
+    "magnitudeScoreDifference": -1.2641169459359722,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "illustration_rare",
+    "treatmentB": "rare",
+    "effectA": 0.5778958928056042,
+    "effectB": -3.7699703395138884,
+    "effectDifference": 4.347866232319492,
+    "bootstrapDifferenceInterval": [
+      4.192096661824331,
+      4.508708896974846
+    ],
+    "magnitudeScoreDifference": 2.556803847603792,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "illustration_rare",
+    "treatmentB": "special_illustration_rare",
+    "effectA": 0.5778958928056042,
+    "effectB": 1.7801878642764315,
+    "effectDifference": -1.2022919714708273,
+    "bootstrapDifferenceInterval": [
+      -1.464649234855422,
+      -0.9399480946376675
+    ],
+    "magnitudeScoreDifference": -0.7469513545423885,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "illustration_rare",
+    "treatmentB": "ultra_rare",
+    "effectA": 0.5778958928056042,
+    "effectB": -1.0114611870896,
+    "effectDifference": 1.5893570798952041,
+    "bootstrapDifferenceInterval": [
+      1.3680907860027567,
+      1.8286779941954676
+    ],
+    "magnitudeScoreDifference": 1.0224996023759871,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "illustration_rare",
+    "treatmentB": "uncommon",
+    "effectA": 0.5778958928056042,
+    "effectB": -0.0781082872177777,
+    "effectDifference": 0.6560041800233819,
+    "bootstrapDifferenceInterval": [
+      0.5104755428694797,
+      0.8032140565163257
+    ],
+    "magnitudeScoreDifference": 0.42341134458002117,
+    "orderingProbability": 1.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "special_illustration_rare",
+    "effectA": -3.7699703395138884,
+    "effectB": 1.7801878642764315,
+    "effectDifference": -5.550158203790319,
+    "bootstrapDifferenceInterval": [
+      -5.798731730921447,
+      -5.308078548806295
+    ],
+    "magnitudeScoreDifference": -3.3037552021461805,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "ultra_rare",
+    "effectA": -3.7699703395138884,
+    "effectB": -1.0114611870896,
+    "effectDifference": -2.7585091524242884,
+    "bootstrapDifferenceInterval": [
+      -2.9645535695120606,
+      -2.549077727294156
+    ],
+    "magnitudeScoreDifference": -1.5343042452278048,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "uncommon",
+    "effectA": -3.7699703395138884,
+    "effectB": -0.0781082872177777,
+    "effectDifference": -3.6918620522961105,
+    "bootstrapDifferenceInterval": [
+      -3.7879367277886247,
+      -3.598149463941207
+    ],
+    "magnitudeScoreDifference": -2.133392503023771,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "special_illustration_rare",
+    "treatmentB": "ultra_rare",
+    "effectA": 1.7801878642764315,
+    "effectB": -1.0114611870896,
+    "effectDifference": 2.7916490513660315,
+    "bootstrapDifferenceInterval": [
+      2.4945448132232424,
+      3.081737813252984
+    ],
+    "magnitudeScoreDifference": 1.7694509569183756,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "special_illustration_rare",
+    "treatmentB": "uncommon",
+    "effectA": 1.7801878642764315,
+    "effectB": -0.0781082872177777,
+    "effectDifference": 1.8582961514942091,
+    "bootstrapDifferenceInterval": [
+      1.625978985499388,
+      2.0931148364078327
+    ],
+    "magnitudeScoreDifference": 1.1703626991224096,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "POKEMON",
+    "treatmentA": "ultra_rare",
+    "treatmentB": "uncommon",
+    "effectA": -1.0114611870896,
+    "effectB": -0.0781082872177777,
+    "effectDifference": -0.9333528998718222,
+    "bootstrapDifferenceInterval": [
+      -1.1346862023453441,
+      -0.7401272772924631
+    ],
+    "magnitudeScoreDifference": -0.599088257795966,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare",
+    "effectA": -0.024764474751430406,
+    "effectB": 0.7943344819353678,
+    "effectDifference": -0.8190989566867982,
+    "bootstrapDifferenceInterval": [
+      -0.9063628961168756,
+      -0.7322362522394124
+    ],
+    "magnitudeScoreDifference": -0.5266760025020512,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_holo",
+    "effectA": -0.024764474751430406,
+    "effectB": -0.21530950909576807,
+    "effectDifference": 0.19054503434433767,
+    "bootstrapDifferenceInterval": [
+      0.11118827580489125,
+      0.2717908319667439
+    ],
+    "magnitudeScoreDifference": 0.12221380922120417,
+    "orderingProbability": 1.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_holo_ex",
+    "effectA": -0.024764474751430406,
+    "effectB": 0.2801829120393026,
+    "effectDifference": -0.304947386790733,
+    "bootstrapDifferenceInterval": [
+      -0.46278424667514306,
+      -0.15226872610224967
+    ],
+    "magnitudeScoreDifference": -0.19626138122690406,
+    "orderingProbability": 0.00025006251562890725,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "uncommon",
+    "effectA": -0.024764474751430406,
+    "effectB": 0.6176062811034112,
+    "effectDifference": -0.6423707558548416,
+    "bootstrapDifferenceInterval": [
+      -0.7343818934985556,
+      -0.5550231905130926
+    ],
+    "magnitudeScoreDifference": -0.4133849065017232,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_holo",
+    "effectA": 0.7943344819353678,
+    "effectB": -0.21530950909576807,
+    "effectDifference": 1.009643991031136,
+    "bootstrapDifferenceInterval": [
+      0.9140726282278958,
+      1.1046361547213066
+    ],
+    "magnitudeScoreDifference": 0.6488898117232553,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_holo_ex",
+    "effectA": 0.7943344819353678,
+    "effectB": 0.2801829120393026,
+    "effectDifference": 0.5141515698960653,
+    "bootstrapDifferenceInterval": [
+      0.34339793353861725,
+      0.677196959031072
+    ],
+    "magnitudeScoreDifference": 0.3304146212751471,
+    "orderingProbability": 1.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "uncommon",
+    "effectA": 0.7943344819353678,
+    "effectB": 0.6176062811034112,
+    "effectDifference": 0.17672820083195662,
+    "bootstrapDifferenceInterval": [
+      0.07364105563963194,
+      0.28249596558151774
+    ],
+    "magnitudeScoreDifference": 0.11329109600032794,
+    "orderingProbability": 0.9992498124531133,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "rare_holo_ex",
+    "effectA": -0.21530950909576807,
+    "effectB": 0.2801829120393026,
+    "effectDifference": -0.4954924211350707,
+    "bootstrapDifferenceInterval": [
+      -0.653166390654618,
+      -0.3419069047218255
+    ],
+    "magnitudeScoreDifference": -0.31847519044810824,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "uncommon",
+    "effectA": -0.21530950909576807,
+    "effectB": 0.6176062811034112,
+    "effectDifference": -0.8329157901991793,
+    "bootstrapDifferenceInterval": [
+      -0.9322377183697814,
+      -0.7375040386461557
+    ],
+    "magnitudeScoreDifference": -0.5355987157229274,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "EX",
+    "regime": "EX",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo_ex",
+    "treatmentB": "uncommon",
+    "effectA": 0.2801829120393026,
+    "effectB": 0.6176062811034112,
+    "effectDifference": -0.3374233690641086,
+    "bootstrapDifferenceInterval": [
+      -0.5056009718878665,
+      -0.1667157316290027
+    ],
+    "magnitudeScoreDifference": -0.21712352527481915,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare",
+    "effectA": -0.005242767879725568,
+    "effectB": 0.963858634994789,
+    "effectDifference": -0.9691014028745145,
+    "bootstrapDifferenceInterval": [
+      -1.04839172924046,
+      -0.8915085969182718
+    ],
+    "magnitudeScoreDifference": -1.0155949598545888,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_holo",
+    "effectA": -0.005242767879725568,
+    "effectB": -2.722800926330227,
+    "effectDifference": 2.7175581584505015,
+    "bootstrapDifferenceInterval": [
+      2.6435278855048803,
+      2.790857872413773
+    ],
+    "magnitudeScoreDifference": 2.4234166382791233,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "uncommon",
+    "effectA": -0.005242767879725568,
+    "effectB": 0.2355840062400013,
+    "effectDifference": -0.2408267741197269,
+    "bootstrapDifferenceInterval": [
+      -0.29952506343481244,
+      -0.18211032088436366
+    ],
+    "magnitudeScoreDifference": -0.25603495753832384,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "common",
+    "effectA": -0.005242767879725568,
+    "effectB": -0.011727003237963385,
+    "effectDifference": 0.006484235358237817,
+    "bootstrapDifferenceInterval": [
+      -0.03178113919415005,
+      0.04589344160542615
+    ],
+    "magnitudeScoreDifference": -0.038367579331027635,
+    "orderingProbability": 0.622655663915979,
+    "classification": "PRACTICALLY_EQUIVALENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare",
+    "effectA": -0.005242767879725568,
+    "effectB": 0.5845861246345906,
+    "effectDifference": -0.5898288925143161,
+    "bootstrapDifferenceInterval": [
+      -0.6439500061017698,
+      -0.5348037912836473
+    ],
+    "magnitudeScoreDifference": -0.5170682438040677,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_holo",
+    "effectA": -0.005242767879725568,
+    "effectB": -3.4784647657130976,
+    "effectDifference": 3.473221997833372,
+    "bootstrapDifferenceInterval": [
+      3.4067963909249186,
+      3.5405782106997226
+    ],
+    "magnitudeScoreDifference": 2.339563243067067,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "uncommon",
+    "effectA": -0.005242767879725568,
+    "effectB": 0.2110812951441732,
+    "effectDifference": -0.21632406302389878,
+    "bootstrapDifferenceInterval": [
+      -0.27437302518496653,
+      -0.16005644650062545
+    ],
+    "magnitudeScoreDifference": -0.2176673782072962,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_holo",
+    "effectA": 0.963858634994789,
+    "effectB": -2.722800926330227,
+    "effectDifference": 3.686659561325016,
+    "bootstrapDifferenceInterval": [
+      3.5895244856895037,
+      3.7785429474809606
+    ],
+    "magnitudeScoreDifference": 3.439011598133712,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "uncommon",
+    "effectA": 0.963858634994789,
+    "effectB": 0.2355840062400013,
+    "effectDifference": 0.7282746287547877,
+    "bootstrapDifferenceInterval": [
+      0.6457080531885654,
+      0.8153839659504224
+    ],
+    "magnitudeScoreDifference": 0.759560002316265,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "common",
+    "effectA": 0.963858634994789,
+    "effectB": -0.011727003237963385,
+    "effectDifference": 0.9755856382327524,
+    "bootstrapDifferenceInterval": [
+      0.9027336559493162,
+      1.0494326414075048
+    ],
+    "magnitudeScoreDifference": 0.9772273805235612,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare",
+    "effectA": 0.963858634994789,
+    "effectB": 0.5845861246345906,
+    "effectDifference": 0.3792725103601984,
+    "bootstrapDifferenceInterval": [
+      0.2962071922432409,
+      0.46277481628679523
+    ],
+    "magnitudeScoreDifference": 0.4985267160505211,
+    "orderingProbability": 1.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_holo",
+    "effectA": 0.963858634994789,
+    "effectB": -3.4784647657130976,
+    "effectDifference": 4.4423234007078864,
+    "bootstrapDifferenceInterval": [
+      4.348101024218578,
+      4.533295734401172
+    ],
+    "magnitudeScoreDifference": 3.355158202921656,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "uncommon",
+    "effectA": 0.963858634994789,
+    "effectB": 0.2110812951441732,
+    "effectDifference": 0.7527773398506158,
+    "bootstrapDifferenceInterval": [
+      0.6690320623383793,
+      0.837550049458058
+    ],
+    "magnitudeScoreDifference": 0.7979275816472926,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "uncommon",
+    "effectA": -2.722800926330227,
+    "effectB": 0.2355840062400013,
+    "effectDifference": -2.9583849325702283,
+    "bootstrapDifferenceInterval": [
+      -3.0435949174239707,
+      -2.8781148236488234
+    ],
+    "magnitudeScoreDifference": -2.679451595817447,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "common",
+    "effectA": -2.722800926330227,
+    "effectB": -0.011727003237963385,
+    "effectDifference": -2.711073923092264,
+    "bootstrapDifferenceInterval": [
+      -2.7805504993665497,
+      -2.640935822948073
+    ],
+    "magnitudeScoreDifference": -2.461784217610151,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "rare",
+    "effectA": -2.722800926330227,
+    "effectB": 0.5845861246345906,
+    "effectDifference": -3.3073870509648176,
+    "bootstrapDifferenceInterval": [
+      -3.3872987740463905,
+      -3.2304264207201903
+    ],
+    "magnitudeScoreDifference": -2.940484882083191,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "rare_holo",
+    "effectA": -2.722800926330227,
+    "effectB": -3.4784647657130976,
+    "effectDifference": 0.7556638393828705,
+    "bootstrapDifferenceInterval": [
+      0.6713296051518078,
+      0.8447797750282987
+    ],
+    "magnitudeScoreDifference": -0.08385339521205637,
+    "orderingProbability": 1.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "uncommon",
+    "effectA": -2.722800926330227,
+    "effectB": 0.2110812951441732,
+    "effectDifference": -2.9338822214744003,
+    "bootstrapDifferenceInterval": [
+      -3.0191863395991283,
+      -2.8530443025789936
+    ],
+    "magnitudeScoreDifference": -2.6410840164864196,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "uncommon",
+    "treatmentB": "common",
+    "effectA": 0.2355840062400013,
+    "effectB": -0.011727003237963385,
+    "effectDifference": 0.2473110094779647,
+    "bootstrapDifferenceInterval": [
+      0.19431706566539964,
+      0.30053563506546993
+    ],
+    "magnitudeScoreDifference": 0.2176673782072962,
+    "orderingProbability": 1.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "uncommon",
+    "treatmentB": "rare",
+    "effectA": 0.2355840062400013,
+    "effectB": 0.5845861246345906,
+    "effectDifference": -0.3490021183945893,
+    "bootstrapDifferenceInterval": [
+      -0.41534505389104304,
+      -0.2859524546838368
+    ],
+    "magnitudeScoreDifference": -0.26103328626574385,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "uncommon",
+    "treatmentB": "rare_holo",
+    "effectA": 0.2355840062400013,
+    "effectB": -3.4784647657130976,
+    "effectDifference": 3.714048771953099,
+    "bootstrapDifferenceInterval": [
+      3.638429837009832,
+      3.7916554252722654
+    ],
+    "magnitudeScoreDifference": 2.595598200605391,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "uncommon",
+    "treatmentB": "uncommon",
+    "effectA": 0.2355840062400013,
+    "effectB": 0.2110812951441732,
+    "effectDifference": 0.024502711095828106,
+    "bootstrapDifferenceInterval": [
+      -0.044535965246906305,
+      0.09363068720675176
+    ],
+    "magnitudeScoreDifference": 0.038367579331027635,
+    "orderingProbability": 0.749187296824206,
+    "classification": "PRACTICALLY_EQUIVALENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare",
+    "effectA": -0.011727003237963385,
+    "effectB": 0.5845861246345906,
+    "effectDifference": -0.596313127872554,
+    "bootstrapDifferenceInterval": [
+      -0.6463166966654744,
+      -0.547640692916826
+    ],
+    "magnitudeScoreDifference": -0.47870066447304005,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_holo",
+    "effectA": -0.011727003237963385,
+    "effectB": -3.4784647657130976,
+    "effectDifference": 3.4667377624751343,
+    "bootstrapDifferenceInterval": [
+      3.4061501912582184,
+      3.526569996847286
+    ],
+    "magnitudeScoreDifference": 2.3779308223980946,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "uncommon",
+    "effectA": -0.011727003237963385,
+    "effectB": 0.2110812951441732,
+    "effectDifference": -0.2228082983821366,
+    "bootstrapDifferenceInterval": [
+      -0.2729959549359882,
+      -0.1715111919478209
+    ],
+    "magnitudeScoreDifference": -0.17929979887626857,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_holo",
+    "effectA": 0.5845861246345906,
+    "effectB": -3.4784647657130976,
+    "effectDifference": 4.0630508903476885,
+    "bootstrapDifferenceInterval": [
+      3.9916605476035296,
+      4.136186385508806
+    ],
+    "magnitudeScoreDifference": 2.8566314868711347,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "uncommon",
+    "effectA": 0.5845861246345906,
+    "effectB": 0.2110812951441732,
+    "effectDifference": 0.3735048294904174,
+    "bootstrapDifferenceInterval": [
+      0.3107270661235893,
+      0.43496583107489983
+    ],
+    "magnitudeScoreDifference": 0.2994008655967715,
+    "orderingProbability": 1.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Black and White",
+    "regime": "Black and White",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "uncommon",
+    "effectA": -3.4784647657130976,
+    "effectB": 0.2110812951441732,
+    "effectDifference": -3.6895460608572708,
+    "bootstrapDifferenceInterval": [
+      -3.7680622043297465,
+      -3.6148590988956406
+    ],
+    "magnitudeScoreDifference": -2.557230621274363,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare",
+    "effectA": 0.0011416717130635931,
+    "effectB": 1.628236477407286,
+    "effectDifference": -1.6270948056942223,
+    "bootstrapDifferenceInterval": [
+      -1.7013510427087857,
+      -1.5554401357313927
+    ],
+    "magnitudeScoreDifference": -1.2251290262055106,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_holo",
+    "effectA": 0.0011416717130635931,
+    "effectB": -0.6443229470203385,
+    "effectDifference": 0.6454646187334021,
+    "bootstrapDifferenceInterval": [
+      0.5499194800164634,
+      0.7452555795731212
+    ],
+    "magnitudeScoreDifference": 0.49099432148105127,
+    "orderingProbability": 1.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "uncommon",
+    "effectA": 0.0011416717130635931,
+    "effectB": 0.4042842210410816,
+    "effectDifference": -0.40314254932801796,
+    "bootstrapDifferenceInterval": [
+      -0.4566942460197697,
+      -0.35171973136769075
+    ],
+    "magnitudeScoreDifference": -0.3100239677057832,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_holo",
+    "effectA": 1.628236477407286,
+    "effectB": -0.6443229470203385,
+    "effectDifference": 2.2725594244276244,
+    "bootstrapDifferenceInterval": [
+      2.1658955126795867,
+      2.373140585884945
+    ],
+    "magnitudeScoreDifference": 1.7161233476865618,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "uncommon",
+    "effectA": 1.628236477407286,
+    "effectB": 0.4042842210410816,
+    "effectDifference": 1.2239522563662044,
+    "bootstrapDifferenceInterval": [
+      1.1577521607129098,
+      1.2881878060885512
+    ],
+    "magnitudeScoreDifference": 0.9151050584997273,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Diamond and Pearl",
+    "regime": "Diamond and Pearl_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "uncommon",
+    "effectA": -0.6443229470203385,
+    "effectB": 0.4042842210410816,
+    "effectDifference": -1.0486071680614202,
+    "bootstrapDifferenceInterval": [
+      -1.1384962005609138,
+      -0.9582827160700111
+    ],
+    "magnitudeScoreDifference": -0.8010182891868345,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare",
+    "effectA": -0.016424514443378706,
+    "effectB": 2.693971170818589,
+    "effectDifference": -2.7103956852619677,
+    "bootstrapDifferenceInterval": [
+      -2.8187139779039496,
+      -2.6033708565572593
+    ],
+    "magnitudeScoreDifference": -1.7011515445889325,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_holo",
+    "effectA": -0.016424514443378706,
+    "effectB": 0.054638826561946005,
+    "effectDifference": -0.07106334100532471,
+    "bootstrapDifferenceInterval": [
+      -0.2105782955603864,
+      0.06860514828131291
+    ],
+    "magnitudeScoreDifference": -0.04735980210827684,
+    "orderingProbability": 0.16079019754938734,
+    "classification": "PRACTICALLY_EQUIVALENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_holo_lv_x",
+    "effectA": -0.016424514443378706,
+    "effectB": -0.036800119959146685,
+    "effectDifference": 0.02037560551576798,
+    "bootstrapDifferenceInterval": [
+      -0.4418897959602209,
+      0.450820584902522
+    ],
+    "magnitudeScoreDifference": 0.013577351623741407,
+    "orderingProbability": 0.5373843460865216,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_holo",
+    "effectA": 2.693971170818589,
+    "effectB": 0.054638826561946005,
+    "effectDifference": 2.6393323442566428,
+    "bootstrapDifferenceInterval": [
+      2.4885318296490717,
+      2.7886057175725543
+    ],
+    "magnitudeScoreDifference": 1.6537917424806556,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_holo_lv_x",
+    "effectA": 2.693971170818589,
+    "effectB": -0.036800119959146685,
+    "effectDifference": 2.7307712907777355,
+    "bootstrapDifferenceInterval": [
+      2.299115032360759,
+      3.180629336789294
+    ],
+    "magnitudeScoreDifference": 1.7147288962126739,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Platinum",
+    "regime": "Platinum_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "rare_holo_lv_x",
+    "effectA": 0.054638826561946005,
+    "effectB": -0.036800119959146685,
+    "effectDifference": 0.09143894652109269,
+    "bootstrapDifferenceInterval": [
+      -0.372733084238192,
+      0.5376261242128992
+    ],
+    "magnitudeScoreDifference": 0.060937153732018245,
+    "orderingProbability": 0.6509127281820455,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare",
+    "effectA": 0.010797232804348026,
+    "effectB": 1.116687680660439,
+    "effectDifference": -1.1058904478560911,
+    "bootstrapDifferenceInterval": [
+      -1.1621580919134331,
+      -1.0484355011349102
+    ],
+    "magnitudeScoreDifference": -0.757022033499311,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_holo",
+    "effectA": 0.010797232804348026,
+    "effectB": 2.555998388822124,
+    "effectDifference": -2.545201156017776,
+    "bootstrapDifferenceInterval": [
+      -2.566271734285009,
+      -2.5239514997118615
+    ],
+    "magnitudeScoreDifference": -1.734142196020577,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "rare_prime",
+    "effectA": 0.010797232804348026,
+    "effectB": 3.9929031062305502,
+    "effectDifference": -3.9821058734262023,
+    "bootstrapDifferenceInterval": [
+      -4.190490858340394,
+      -3.7613727739247986
+    ],
+    "magnitudeScoreDifference": -2.599901380089566,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "common",
+    "treatmentB": "uncommon",
+    "effectA": 0.010797232804348026,
+    "effectB": 0.14778256937360051,
+    "effectDifference": -0.1369853365692525,
+    "bootstrapDifferenceInterval": [
+      -0.19388636370425996,
+      -0.08074944190615538
+    ],
+    "magnitudeScoreDifference": -0.09191152361714217,
+    "orderingProbability": 0.0,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_holo",
+    "effectA": 1.116687680660439,
+    "effectB": 2.555998388822124,
+    "effectDifference": -1.439310708161685,
+    "bootstrapDifferenceInterval": [
+      -1.4932436110777505,
+      -1.3867905344335838
+    ],
+    "magnitudeScoreDifference": -0.977120162521266,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "rare_prime",
+    "effectA": 1.116687680660439,
+    "effectB": 3.9929031062305502,
+    "effectDifference": -2.876215425570111,
+    "bootstrapDifferenceInterval": [
+      -3.0979043485974382,
+      -2.657083764703393
+    ],
+    "magnitudeScoreDifference": -1.842879346590255,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "uncommon",
+    "effectA": 1.116687680660439,
+    "effectB": 0.14778256937360051,
+    "effectDifference": 0.9689051112868385,
+    "bootstrapDifferenceInterval": [
+      0.8921127022952782,
+      1.0429293386731218
+    ],
+    "magnitudeScoreDifference": 0.6651105098821688,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "rare_prime",
+    "effectA": 2.555998388822124,
+    "effectB": 3.9929031062305502,
+    "effectDifference": -1.4369047174084262,
+    "bootstrapDifferenceInterval": [
+      -1.644682737506053,
+      -1.2210771636667292
+    ],
+    "magnitudeScoreDifference": -0.8657591840689891,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_holo",
+    "treatmentB": "uncommon",
+    "effectA": 2.555998388822124,
+    "effectB": 0.14778256937360051,
+    "effectDifference": 2.4082158194485235,
+    "bootstrapDifferenceInterval": [
+      2.353603326126793,
+      2.4628704286029564
+    ],
+    "magnitudeScoreDifference": 1.6422306724034348,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "regime": "HeartGold and SoulSilver_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare_prime",
+    "treatmentB": "uncommon",
+    "effectA": 3.9929031062305502,
+    "effectB": 0.14778256937360051,
+    "effectDifference": 3.8451205368569497,
+    "bootstrapDifferenceInterval": [
+      3.634187377911111,
+      4.06789940005695
+    ],
+    "magnitudeScoreDifference": 2.507989856472424,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Neo",
+    "regime": "Neo_r1",
+    "supertype": "POKEMON",
+    "treatmentA": "rare",
+    "treatmentB": "uncommon",
+    "effectA": 2.238499826507523,
+    "effectB": 0.8878041839150284,
+    "effectDifference": 1.3506956425924945,
+    "bootstrapDifferenceInterval": [
+      1.239574735366115,
+      1.4645675247372762
+    ],
+    "magnitudeScoreDifference": 0.9612127688114,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "TRAINER_SUPPORTER",
+    "treatmentA": "uncommon",
+    "treatmentB": "special_illustration_rare",
+    "effectA": 0.0,
+    "effectB": 4.682186863935707,
+    "effectDifference": -4.682186863935707,
+    "bootstrapDifferenceInterval": [
+      -5.053574716842153,
+      -4.333140423004167
+    ],
+    "magnitudeScoreDifference": null,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "TRAINER_SUPPORTER",
+    "treatmentA": "uncommon",
+    "treatmentB": "ultra_rare",
+    "effectA": 0.0,
+    "effectB": 2.7436804000006365,
+    "effectDifference": -2.7436804000006365,
+    "bootstrapDifferenceInterval": [
+      -3.087298755258192,
+      -2.3933114773629494
+    ],
+    "magnitudeScoreDifference": null,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Scarlet and Violet",
+    "regime": "Scarlet and Violet",
+    "supertype": "TRAINER_SUPPORTER",
+    "treatmentA": "special_illustration_rare",
+    "treatmentB": "ultra_rare",
+    "effectA": 4.682186863935707,
+    "effectB": 2.7436804000006365,
+    "effectDifference": 1.9385064639350702,
+    "bootstrapDifferenceInterval": [
+      1.6753876588834442,
+      2.211375862125995
+    ],
+    "magnitudeScoreDifference": null,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": true
+  },
+  {
+    "era": "Sun and Moon",
+    "regime": "Sun and Moon",
+    "supertype": "TRAINER_SUPPORTER",
+    "treatmentA": "uncommon",
+    "treatmentB": "rare_ultra",
+    "effectA": 0.0,
+    "effectB": 4.856272404608976,
+    "effectDifference": -4.856272404608976,
+    "bootstrapDifferenceInterval": [
+      -5.2312917115116795,
+      -4.474350893692803
+    ],
+    "magnitudeScoreDifference": null,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Sword and Shield",
+    "regime": "Sword and Shield",
+    "supertype": "TRAINER_SUPPORTER",
+    "treatmentA": "rare_ultra",
+    "treatmentB": "rare_rainbow",
+    "effectA": 0.0,
+    "effectB": 0.28904676925649087,
+    "effectDifference": -0.28904676925649087,
+    "bootstrapDifferenceInterval": [
+      -0.6238158672376007,
+      0.029065624865051192
+    ],
+    "magnitudeScoreDifference": null,
+    "orderingProbability": 0.040260065016254065,
+    "classification": "SLIGHTLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Sword and Shield",
+    "regime": "Sword and Shield",
+    "supertype": "TRAINER_SUPPORTER",
+    "treatmentA": "rare_ultra",
+    "treatmentB": "uncommon",
+    "effectA": 0.0,
+    "effectB": -3.568779346681903,
+    "effectDifference": 3.568779346681903,
+    "bootstrapDifferenceInterval": [
+      3.2474516430731986,
+      3.893870763678018
+    ],
+    "magnitudeScoreDifference": null,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Sword and Shield",
+    "regime": "Sword and Shield",
+    "supertype": "TRAINER_SUPPORTER",
+    "treatmentA": "rare_rainbow",
+    "treatmentB": "uncommon",
+    "effectA": 0.28904676925649087,
+    "effectB": -3.568779346681903,
+    "effectDifference": 3.8578261159383938,
+    "bootstrapDifferenceInterval": [
+      3.6581845979388232,
+      4.063084541784826
+    ],
+    "magnitudeScoreDifference": null,
+    "orderingProbability": 1.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Sun and Moon",
+    "regime": "Sun and Moon",
+    "supertype": "TRAINER_ITEM",
+    "treatmentA": "uncommon",
+    "treatmentB": "rare_secret",
+    "effectA": -1.7098290114074148,
+    "effectB": 1.7098290114074148,
+    "effectDifference": -3.4196580228148297,
+    "bootstrapDifferenceInterval": [
+      -3.8348028044027807,
+      -2.998031772612462
+    ],
+    "magnitudeScoreDifference": -1.9598124935058827,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  },
+  {
+    "era": "Sword and Shield",
+    "regime": "Sword and Shield",
+    "supertype": "TRAINER_ITEM",
+    "treatmentA": "uncommon",
+    "treatmentB": "rare_secret",
+    "effectA": -1.551821946134767,
+    "effectB": 1.551821946134767,
+    "effectDifference": -3.103643892269534,
+    "bootstrapDifferenceInterval": [
+      -3.517914743596317,
+      -2.6905514612902754
+    ],
+    "magnitudeScoreDifference": -5.227079573808565,
+    "orderingProbability": 0.0,
+    "classification": "MEANINGFULLY_DIFFERENT",
+    "scarcityEligible": false
+  }
+]

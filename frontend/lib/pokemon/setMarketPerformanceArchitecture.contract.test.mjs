@@ -5,9 +5,12 @@ import test from "node:test";
 const route = fs.readFileSync(new URL("../../app/TCGs/Pokemon/Sets/[setSlug]/page.js", import.meta.url), "utf8");
 const snapshots = fs.readFileSync(new URL("./pokemonSetInitialSnapshotsServer.js", import.meta.url), "utf8");
 const client = fs.readFileSync(new URL("../../components/explore/RipStatisticsPageClient.jsx", import.meta.url), "utf8");
+const richMarket = fs.readFileSync(new URL("../../components/pokemon/set-page/rich/RichMarketSetTab.jsx", import.meta.url), "utf8");
+const richOverview = fs.readFileSync(new URL("../../components/pokemon/set-page/rich/market/RichMarketOverviewSection.jsx", import.meta.url), "utf8");
 const sealedHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetSealedMarket.js", import.meta.url), "utf8");
 const marketClient = fs.readFileSync(new URL("./pokemonSetMarketClient.js", import.meta.url), "utf8");
 const signalsHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetMarketSignals.js", import.meta.url), "utf8");
+const marketController = fs.readFileSync(new URL("../../hooks/pokemon/useSetMarketController.js", import.meta.url), "utf8");
 
 test("Market and RIP routes use the slim route directory", () => {
   assert.match(route, /getPokemonSetRouteDirectory\(\{ limit: 150 \}\)/);
@@ -21,14 +24,17 @@ test("Market server seed uses the dedicated bootstrap projection", () => {
 });
 
 test("a valid Market bootstrap seed suppresses immediate duplicate overview fetch", () => {
-  assert.match(client, /seededOverviewPayload && overviewRetryNonce === 0/);
-  assert.match(client, /overview\.seed_satisfied_initial_resource/);
+  assert.match(marketController, /const overview = useMarketResource\(\{[\s\S]*seed: overviewSeed/);
+  assert.match(marketController, /seedSatisfies = Boolean\(seed\)/);
+  assert.match(marketController, /if \(seedSatisfies\) \{[\s\S]*lastRequestKeyRef\.current/);
 });
 
 test("compact Top Chase preview rides bootstrap while full histories remain progressive", () => {
   assert.match(snapshots, /marketBootstrapPromise/);
   assert.doesNotMatch(snapshots, /wantsMarketSeed \? getPokemonSetTopChaseInitialSnapshot/);
-  assert.match(client, /topChasePreviewOnly !== true/);
+  assert.match(marketController, /topChasePreviewOnly !== true/);
+  assert.match(marketController, /if \(seedSatisfies\) \{[\s\S]*lastRequestKeyRef\.current/);
+  assert.match(marketController, /\[retryNonce, seed, seedSatisfies, setId, sourceWindow\]/);
 });
 
 test("consumer sealed is opt-in and uses a bounded completed-resource cache", () => {
@@ -46,20 +52,20 @@ test("legacy and consumer Sealed transports remain distinct", () => {
 });
 
 test("paid Market signals use a separate authenticated no-store request", () => {
-  assert.match(client, /usePokemonSetMarketSignals/);
+  assert.match(richOverview, /usePokemonSetMarketSignals/);
   assert.match(signalsHook, /getPokemonSetMarketSignals/);
   assert.match(marketClient, /market\/signals/);
   assert.match(marketClient, /cache: "no-store"/);
 });
 
 test("bootstrap breadth seeds both responsive compositions without an initial duplicate", () => {
-  assert.match(client, /initialPayload: seededSignals/);
+  assert.match(richOverview, /initialPayload: seededSignals/);
   assert.match(signalsHook, /validSeed && requestVersion === 0/);
 });
 
 test("desktop and mobile share the bounded Market Signals retry hook", () => {
   const mobile = fs.readFileSync(new URL("../../components/pokemon/set-page/Market/SetMarketMobile.jsx", import.meta.url), "utf8");
-  assert.match(client, /usePokemonSetMarketSignals\(setId/);
+  assert.match(richOverview, /usePokemonSetMarketSignals\(setId/);
   assert.match(mobile, /usePokemonSetMarketSignals\(setId/);
   assert.match(signalsHook, /attempt === 0 && isRetryableMarketSignalsError/);
   assert.match(signalsHook, /setTimeout\(\(\) => load\(1\)/);
@@ -76,5 +82,13 @@ test("Market Signals request normalizes window for URL and request key", () => {
 
 test("bootstrap concentration summary survives normalization", () => {
   assert.match(marketClient, /chaseConcentration/);
-  assert.match(client, /seededOverviewPayload\?\.chaseConcentration\?\.top10/);
+  assert.match(richMarket, /overviewSeed\?\.chaseConcentration\?\.top10/);
+});
+
+test("the rich Market runtime owns its hooks without parent component injection", () => {
+  assert.match(richMarket, /usePokemonSetSealedSummary/);
+  assert.match(richMarket, /usePokemonSetSealedMarket/);
+  assert.doesNotMatch(client, /usePokemonSetSealedSummary/);
+  assert.doesNotMatch(client, /usePokemonSetSealedMarket/);
+  assert.doesNotMatch(client, /usePokemonSetMarketSignals/);
 });

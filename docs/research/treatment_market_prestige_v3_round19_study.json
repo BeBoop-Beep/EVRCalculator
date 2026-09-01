@@ -1,0 +1,5831 @@
+{
+  "studyId": "treatment-market-prestige-v3-r19-57ee4c06d14b1919",
+  "builtAt": "2026-08-31T03:51:49.494375+00:00",
+  "branch": "fix/public-rankings-entitlement-regression",
+  "head": "6882da071c95efd0b0f40ddd14871e2a01249724",
+  "collectorRelevantDenominator": 5176,
+  "startingCollectorEmpiricalCount": 2807,
+  "collectorGapTo70": 817,
+  "premiumDenominator": 4514,
+  "startingPremiumEmpiricalCount": 2395,
+  "premiumGapTo70": 765,
+  "unresolvedRelevantLedgerCount": 2645,
+  "blockerCounts": {
+    "HISTORY_MISSING": 163,
+    "STRUCTURALLY_UNDERIDENTIFIED": 953,
+    "CANONICAL_MAPPING": 164,
+    "INSUFFICIENT_SET_DIVERSITY": 429,
+    "UNIVERSE_STRUCTURE": 209,
+    "INSUFFICIENT_SAMPLE": 453,
+    "MODEL_INSTABILITY": 274
+  },
+  "blockerCountsByEra": {
+    "Base/WOTC": {
+      "HISTORY_MISSING": 82,
+      "CANONICAL_MAPPING": 2
+    },
+    "Black and White": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 133,
+      "UNIVERSE_STRUCTURE": 18,
+      "CANONICAL_MAPPING": 8
+    },
+    "Diamond and Pearl": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 31,
+      "UNIVERSE_STRUCTURE": 3
+    },
+    "E-Card": {
+      "HISTORY_MISSING": 81,
+      "CANONICAL_MAPPING": 1
+    },
+    "EX": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 31,
+      "UNIVERSE_STRUCTURE": 1
+    },
+    "Gym": {
+      "INSUFFICIENT_SET_DIVERSITY": 30,
+      "CANONICAL_MAPPING": 2
+    },
+    "HeartGold and SoulSilver": {
+      "UNIVERSE_STRUCTURE": 5,
+      "STRUCTURALLY_UNDERIDENTIFIED": 8,
+      "CANONICAL_MAPPING": 14
+    },
+    "Mega Evolution": {
+      "UNIVERSE_STRUCTURE": 70,
+      "MODEL_INSTABILITY": 101,
+      "STRUCTURALLY_UNDERIDENTIFIED": 86,
+      "CANONICAL_MAPPING": 6,
+      "INSUFFICIENT_SAMPLE": 15
+    },
+    "Neo": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 73
+    },
+    "Other": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 19
+    },
+    "Platinum": {
+      "UNIVERSE_STRUCTURE": 1,
+      "STRUCTURALLY_UNDERIDENTIFIED": 11
+    },
+    "Scarlet and Violet": {
+      "UNIVERSE_STRUCTURE": 38,
+      "STRUCTURALLY_UNDERIDENTIFIED": 32,
+      "CANONICAL_MAPPING": 22,
+      "INSUFFICIENT_SET_DIVERSITY": 120,
+      "INSUFFICIENT_SAMPLE": 14
+    },
+    "Sun and Moon": {
+      "CANONICAL_MAPPING": 91,
+      "INSUFFICIENT_SET_DIVERSITY": 122,
+      "INSUFFICIENT_SAMPLE": 148,
+      "UNIVERSE_STRUCTURE": 24
+    },
+    "Sword and Shield": {
+      "CANONICAL_MAPPING": 17,
+      "MODEL_INSTABILITY": 173,
+      "STRUCTURALLY_UNDERIDENTIFIED": 529,
+      "INSUFFICIENT_SAMPLE": 255,
+      "UNIVERSE_STRUCTURE": 15,
+      "INSUFFICIENT_SET_DIVERSITY": 157
+    },
+    "XY": {
+      "UNIVERSE_STRUCTURE": 34,
+      "INSUFFICIENT_SAMPLE": 21,
+      "CANONICAL_MAPPING": 1
+    }
+  },
+  "blockerCountsByTreatment": {
+    "__UNMAPPED__": {
+      "UNIVERSE_STRUCTURE": 1
+    },
+    "ace_spec_rare": {
+      "UNIVERSE_STRUCTURE": 22,
+      "CANONICAL_MAPPING": 8
+    },
+    "amazing_rare": {
+      "INSUFFICIENT_SAMPLE": 9
+    },
+    "black_white_rare": {
+      "INSUFFICIENT_SAMPLE": 2
+    },
+    "classic_collection": {
+      "INSUFFICIENT_SAMPLE": 22,
+      "CANONICAL_MAPPING": 2,
+      "UNIVERSE_STRUCTURE": 1
+    },
+    "common": {
+      "CANONICAL_MAPPING": 2,
+      "UNIVERSE_STRUCTURE": 3
+    },
+    "hyper_rare": {
+      "UNIVERSE_STRUCTURE": 16,
+      "STRUCTURALLY_UNDERIDENTIFIED": 32,
+      "CANONICAL_MAPPING": 14
+    },
+    "illustration_rare": {
+      "MODEL_INSTABILITY": 101
+    },
+    "legend": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 4,
+      "CANONICAL_MAPPING": 14
+    },
+    "mega_attack_rare": {
+      "INSUFFICIENT_SAMPLE": 7
+    },
+    "mega_hyper_rare": {
+      "INSUFFICIENT_SAMPLE": 8
+    },
+    "radiant_rare": {
+      "INSUFFICIENT_SAMPLE": 15
+    },
+    "rare_ace": {
+      "UNIVERSE_STRUCTURE": 6,
+      "CANONICAL_MAPPING": 7
+    },
+    "rare_holo": {
+      "HISTORY_MISSING": 154,
+      "STRUCTURALLY_UNDERIDENTIFIED": 228,
+      "INSUFFICIENT_SET_DIVERSITY": 97,
+      "INSUFFICIENT_SAMPLE": 24,
+      "MODEL_INSTABILITY": 83
+    },
+    "rare_holo_ex": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 56
+    },
+    "rare_holo_gx": {
+      "CANONICAL_MAPPING": 23,
+      "INSUFFICIENT_SAMPLE": 33
+    },
+    "rare_holo_lv_x": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 30
+    },
+    "rare_holo_star": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 14
+    },
+    "rare_holo_v": {
+      "MODEL_INSTABILITY": 54,
+      "STRUCTURALLY_UNDERIDENTIFIED": 150
+    },
+    "rare_holo_vmax": {
+      "MODEL_INSTABILITY": 36,
+      "INSUFFICIENT_SAMPLE": 41
+    },
+    "rare_holo_vstar": {
+      "INSUFFICIENT_SAMPLE": 43
+    },
+    "rare_prism_star": {
+      "INSUFFICIENT_SAMPLE": 16,
+      "UNIVERSE_STRUCTURE": 9
+    },
+    "rare_rainbow": {
+      "CANONICAL_MAPPING": 20,
+      "INSUFFICIENT_SAMPLE": 60,
+      "STRUCTURALLY_UNDERIDENTIFIED": 62
+    },
+    "rare_secret": {
+      "HISTORY_MISSING": 9,
+      "STRUCTURALLY_UNDERIDENTIFIED": 54,
+      "UNIVERSE_STRUCTURE": 36,
+      "CANONICAL_MAPPING": 28,
+      "INSUFFICIENT_SAMPLE": 86
+    },
+    "rare_shining": {
+      "STRUCTURALLY_UNDERIDENTIFIED": 9,
+      "INSUFFICIENT_SAMPLE": 6
+    },
+    "rare_shiny": {
+      "INSUFFICIENT_SET_DIVERSITY": 149
+    },
+    "rare_shiny_gx": {
+      "INSUFFICIENT_SET_DIVERSITY": 35
+    },
+    "rare_ultra": {
+      "CANONICAL_MAPPING": 31,
+      "UNIVERSE_STRUCTURE": 41,
+      "STRUCTURALLY_UNDERIDENTIFIED": 172,
+      "INSUFFICIENT_SAMPLE": 45,
+      "INSUFFICIENT_SET_DIVERSITY": 28
+    },
+    "secret_rare": {
+      "CANONICAL_MAPPING": 2
+    },
+    "shiny_rare": {
+      "INSUFFICIENT_SET_DIVERSITY": 120
+    },
+    "shiny_ultra_rare": {
+      "INSUFFICIENT_SAMPLE": 12
+    },
+    "special_illustration_rare": {
+      "UNIVERSE_STRUCTURE": 14,
+      "STRUCTURALLY_UNDERIDENTIFIED": 41
+    },
+    "trainer_gallery_rare_holo": {
+      "INSUFFICIENT_SAMPLE": 24,
+      "STRUCTURALLY_UNDERIDENTIFIED": 56
+    },
+    "ultra_rare": {
+      "CANONICAL_MAPPING": 11,
+      "UNIVERSE_STRUCTURE": 55,
+      "STRUCTURALLY_UNDERIDENTIFIED": 45
+    },
+    "uncommon": {
+      "CANONICAL_MAPPING": 2,
+      "UNIVERSE_STRUCTURE": 5
+    }
+  },
+  "round18PrioritizedProjects": [
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 166,
+      "setCount": 11,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_ultra",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 166,
+      "setCount": 9,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_v",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 150,
+      "setCount": 13,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "treatment": "shiny_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 120,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_shiny",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 104,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Mega Evolution",
+      "treatment": "illustration_rare",
+      "blocker": "POKEMON_MODEL_INSTABILITY",
+      "cardCount": 101,
+      "setCount": 6,
+      "solvability": "ADDITIONAL_HISTORY_AND_STABILITY_RESEARCH",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_rainbow",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 100,
+      "setCount": 15,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo",
+      "blocker": "POKEMON_MODEL_INSTABILITY",
+      "cardCount": 83,
+      "setCount": 6,
+      "solvability": "ADDITIONAL_HISTORY_AND_STABILITY_RESEARCH",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Base/WOTC",
+      "treatment": "rare_holo",
+      "blocker": "VINTAGE_HISTORY_OR_STABILITY_MISSING",
+      "cardCount": 81,
+      "setCount": 5,
+      "solvability": "NEW_HISTORICAL_DATA",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "trainer_gallery_rare_holo",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 80,
+      "setCount": 5,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "E-Card",
+      "treatment": "rare_holo",
+      "blocker": "ECARD_HISTORY_MISSING",
+      "cardCount": 73,
+      "setCount": 3,
+      "solvability": "NEW_HISTORICAL_DATA",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_holo",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 66,
+      "setCount": 4,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Neo",
+      "treatment": "rare_holo",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 64,
+      "setCount": 4,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Black and White",
+      "treatment": "rare_holo_ex",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 56,
+      "setCount": 8,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Mega Evolution",
+      "treatment": "ultra_rare",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 55,
+      "setCount": 6,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_v",
+      "blocker": "POKEMON_MODEL_INSTABILITY",
+      "cardCount": 54,
+      "setCount": 4,
+      "solvability": "ADDITIONAL_HISTORY_AND_STABILITY_RESEARCH",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Black and White",
+      "treatment": "rare_ultra",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 52,
+      "setCount": 11,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Mega Evolution",
+      "treatment": "ultra_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 45,
+      "setCount": 6,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_shiny",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 45,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_secret",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 45,
+      "setCount": 21,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_vstar",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 43,
+      "setCount": 7,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Mega Evolution",
+      "treatment": "special_illustration_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 41,
+      "setCount": 6,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_vmax",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 41,
+      "setCount": 13,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_vmax",
+      "blocker": "POKEMON_MODEL_INSTABILITY",
+      "cardCount": 36,
+      "setCount": 4,
+      "solvability": "ADDITIONAL_HISTORY_AND_STABILITY_RESEARCH",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_shiny_gx",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 35,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_holo_gx",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 33,
+      "setCount": 4,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "treatment": "hyper_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 32,
+      "setCount": 12,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_ultra",
+      "blocker": "CANONICAL_MAPPING_UNSAFE",
+      "cardCount": 31,
+      "setCount": 4,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Gym",
+      "treatment": "rare_holo",
+      "blocker": "INSUFFICIENT_MULTI_SET_SUPPORT",
+      "cardCount": 30,
+      "setCount": 2,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Diamond and Pearl",
+      "treatment": "rare_holo_lv_x",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 28,
+      "setCount": 7,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_ultra",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 27,
+      "setCount": 4,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Black and White",
+      "treatment": "rare_secret",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 25,
+      "setCount": 10,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "XY",
+      "treatment": "rare_ultra",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 24,
+      "setCount": 11,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_holo_gx",
+      "blocker": "CANONICAL_MAPPING_UNSAFE",
+      "cardCount": 23,
+      "setCount": 4,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "treatment": "ace_spec_rare",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 22,
+      "setCount": 6,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_rainbow",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 22,
+      "setCount": 3,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "classic_collection",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 22,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "XY",
+      "treatment": "rare_secret",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 21,
+      "setCount": 9,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_rainbow",
+      "blocker": "CANONICAL_MAPPING_UNSAFE",
+      "cardCount": 20,
+      "setCount": 4,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_secret",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 20,
+      "setCount": 5,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Other",
+      "treatment": "rare_holo",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 19,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "EX",
+      "treatment": "rare_secret",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 17,
+      "setCount": 11,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 17,
+      "setCount": 11,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "treatment": "hyper_rare",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 16,
+      "setCount": 10,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_prism_star",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 16,
+      "setCount": 6,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "radiant_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 15,
+      "setCount": 5,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "EX",
+      "treatment": "rare_holo_star",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 14,
+      "setCount": 9,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "HeartGold and SoulSilver",
+      "treatment": "legend",
+      "blocker": "CANONICAL_MAPPING_UNSAFE",
+      "cardCount": 14,
+      "setCount": 3,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Mega Evolution",
+      "treatment": "special_illustration_rare",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 14,
+      "setCount": 6,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "treatment": "shiny_ultra_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 12,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 10,
+      "setCount": 6,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Neo",
+      "treatment": "rare_shining",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 9,
+      "setCount": 2,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Platinum",
+      "treatment": "rare_secret",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 9,
+      "setCount": 3,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "treatment": "hyper_rare",
+      "blocker": "CANONICAL_MAPPING_UNSAFE",
+      "cardCount": 9,
+      "setCount": 5,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_prism_star",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 9,
+      "setCount": 5,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "amazing_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 9,
+      "setCount": 2,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 9,
+      "setCount": 6,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Black and White",
+      "treatment": "rare_ultra",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 8,
+      "setCount": 5,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "E-Card",
+      "treatment": "rare_secret",
+      "blocker": "ECARD_HISTORY_MISSING",
+      "cardCount": 8,
+      "setCount": 2,
+      "solvability": "NEW_HISTORICAL_DATA",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Mega Evolution",
+      "treatment": "mega_hyper_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 8,
+      "setCount": 6,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "treatment": "ace_spec_rare",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 8,
+      "setCount": 5,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 8,
+      "setCount": 3,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "XY",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 8,
+      "setCount": 4,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Black and White",
+      "treatment": "rare_ace",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 7,
+      "setCount": 4,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Mega Evolution",
+      "treatment": "mega_attack_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 7,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_ultra",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 7,
+      "setCount": 7,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Black and White",
+      "treatment": "rare_ace",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 6,
+      "setCount": 3,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Mega Evolution",
+      "treatment": "ultra_rare",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 6,
+      "setCount": 4,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sun and Moon",
+      "treatment": "rare_shining",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 6,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "treatment": "hyper_rare",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 5,
+      "setCount": 5,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Black and White",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 4,
+      "setCount": 4,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "HeartGold and SoulSilver",
+      "treatment": "legend",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 4,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "HeartGold and SoulSilver",
+      "treatment": "rare_holo",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 4,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "HeartGold and SoulSilver",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 4,
+      "setCount": 4,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "ultra_rare",
+      "blocker": "CANONICAL_MAPPING_UNSAFE",
+      "cardCount": 4,
+      "setCount": 4,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Diamond and Pearl",
+      "treatment": "rare_secret",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 3,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Base/WOTC",
+      "treatment": "common",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 2,
+      "setCount": 2,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Diamond and Pearl",
+      "treatment": "uncommon",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 2,
+      "setCount": 2,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Platinum",
+      "treatment": "rare_holo_lv_x",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 2,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "treatment": "black_white_rare",
+      "blocker": "POKEMON_TREATMENT_OR_UNIVERSE_UNSUPPORTED",
+      "cardCount": 2,
+      "setCount": 2,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "classic_collection",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 2,
+      "setCount": 1,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "common",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 2,
+      "setCount": 2,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_ultra",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 2,
+      "setCount": 2,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "secret_rare",
+      "blocker": "CANONICAL_MAPPING_UNSAFE",
+      "cardCount": 2,
+      "setCount": 2,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Base/WOTC",
+      "treatment": "rare_secret",
+      "blocker": "VINTAGE_HISTORY_OR_STABILITY_MISSING",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "NEW_HISTORICAL_DATA",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Black and White",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Diamond and Pearl",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "E-Card",
+      "treatment": "uncommon",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "EX",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Gym",
+      "treatment": "ultra_rare",
+      "blocker": "CANONICAL_MAPPING_UNSAFE",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Gym",
+      "treatment": "uncommon",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "HeartGold and SoulSilver",
+      "treatment": "uncommon",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Mega Evolution",
+      "treatment": "common",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Platinum",
+      "treatment": "uncommon",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "classic_collection",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "XY",
+      "treatment": "__UNMAPPED__",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "XY",
+      "treatment": "rare_secret",
+      "blocker": "TRAINER_IDENTITY_UNRESOLVED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "CANONICAL_OR_TAXONOMY_WORK",
+      "expectedProductRelevance": "HIGH"
+    },
+    {
+      "era": "XY",
+      "treatment": "uncommon",
+      "blocker": "TRAINER_TREATMENT_UNSUPPORTED",
+      "cardCount": 1,
+      "setCount": 1,
+      "solvability": "STRUCTURALLY_UNDERIDENTIFIED_UNDER_CURRENT_EVIDENCE",
+      "expectedProductRelevance": "HIGH"
+    }
+  ],
+  "rerankedRound19Projects": [
+    {
+      "recoveryClass": "HISTORY_MISSING",
+      "era": "Base/WOTC",
+      "treatment": "rare_holo",
+      "relevantCards": 81,
+      "collectorCards": 81,
+      "premiumCards": 0,
+      "setCount": 5,
+      "tractability": "MEDIUM",
+      "priorityValue": "81 x MEDIUM",
+      "evidenceAlreadyAvailable": 81,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Sun and Moon",
+      "treatment": "rare_ultra",
+      "relevantCards": 31,
+      "collectorCards": 31,
+      "premiumCards": 31,
+      "setCount": 4,
+      "tractability": "MEDIUM",
+      "priorityValue": "31 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Sun and Moon",
+      "treatment": "rare_holo_gx",
+      "relevantCards": 23,
+      "collectorCards": 23,
+      "premiumCards": 23,
+      "setCount": 4,
+      "tractability": "MEDIUM",
+      "priorityValue": "23 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Sun and Moon",
+      "treatment": "rare_rainbow",
+      "relevantCards": 20,
+      "collectorCards": 20,
+      "premiumCards": 20,
+      "setCount": 4,
+      "tractability": "MEDIUM",
+      "priorityValue": "20 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Sun and Moon",
+      "treatment": "rare_secret",
+      "relevantCards": 17,
+      "collectorCards": 0,
+      "premiumCards": 17,
+      "setCount": 11,
+      "tractability": "MEDIUM",
+      "priorityValue": "17 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "HeartGold and SoulSilver",
+      "treatment": "legend",
+      "relevantCards": 14,
+      "collectorCards": 14,
+      "premiumCards": 14,
+      "setCount": 3,
+      "tractability": "MEDIUM",
+      "priorityValue": "14 x MEDIUM",
+      "evidenceAlreadyAvailable": 14,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Scarlet and Violet",
+      "treatment": "hyper_rare",
+      "relevantCards": 14,
+      "collectorCards": 9,
+      "premiumCards": 14,
+      "setCount": 7,
+      "tractability": "MEDIUM",
+      "priorityValue": "14 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Sword and Shield",
+      "treatment": "rare_secret",
+      "relevantCards": 9,
+      "collectorCards": 0,
+      "premiumCards": 9,
+      "setCount": 6,
+      "tractability": "MEDIUM",
+      "priorityValue": "9 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Scarlet and Violet",
+      "treatment": "ace_spec_rare",
+      "relevantCards": 8,
+      "collectorCards": 0,
+      "premiumCards": 8,
+      "setCount": 5,
+      "tractability": "MEDIUM",
+      "priorityValue": "8 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Black and White",
+      "treatment": "rare_ace",
+      "relevantCards": 7,
+      "collectorCards": 0,
+      "premiumCards": 7,
+      "setCount": 4,
+      "tractability": "MEDIUM",
+      "priorityValue": "7 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Mega Evolution",
+      "treatment": "ultra_rare",
+      "relevantCards": 6,
+      "collectorCards": 0,
+      "premiumCards": 6,
+      "setCount": 4,
+      "tractability": "MEDIUM",
+      "priorityValue": "6 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Sword and Shield",
+      "treatment": "ultra_rare",
+      "relevantCards": 4,
+      "collectorCards": 0,
+      "premiumCards": 4,
+      "setCount": 4,
+      "tractability": "MEDIUM",
+      "priorityValue": "4 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Base/WOTC",
+      "treatment": "common",
+      "relevantCards": 2,
+      "collectorCards": 0,
+      "premiumCards": 2,
+      "setCount": 2,
+      "tractability": "MEDIUM",
+      "priorityValue": "2 x MEDIUM",
+      "evidenceAlreadyAvailable": 2,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Sword and Shield",
+      "treatment": "classic_collection",
+      "relevantCards": 2,
+      "collectorCards": 0,
+      "premiumCards": 2,
+      "setCount": 1,
+      "tractability": "MEDIUM",
+      "priorityValue": "2 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Sword and Shield",
+      "treatment": "secret_rare",
+      "relevantCards": 2,
+      "collectorCards": 0,
+      "premiumCards": 2,
+      "setCount": 2,
+      "tractability": "MEDIUM",
+      "priorityValue": "2 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "HISTORY_MISSING",
+      "era": "Base/WOTC",
+      "treatment": "rare_secret",
+      "relevantCards": 1,
+      "collectorCards": 1,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "MEDIUM",
+      "priorityValue": "1 x MEDIUM",
+      "evidenceAlreadyAvailable": 1,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Black and White",
+      "treatment": "rare_secret",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "MEDIUM",
+      "priorityValue": "1 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "E-Card",
+      "treatment": "uncommon",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "MEDIUM",
+      "priorityValue": "1 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Gym",
+      "treatment": "ultra_rare",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "MEDIUM",
+      "priorityValue": "1 x MEDIUM",
+      "evidenceAlreadyAvailable": 1,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "Gym",
+      "treatment": "uncommon",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "MEDIUM",
+      "priorityValue": "1 x MEDIUM",
+      "evidenceAlreadyAvailable": 1,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "CANONICAL_MAPPING",
+      "era": "XY",
+      "treatment": "rare_secret",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "MEDIUM",
+      "priorityValue": "1 x MEDIUM",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "LOW",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "MODEL_INSTABILITY",
+      "era": "Mega Evolution",
+      "treatment": "illustration_rare",
+      "relevantCards": 101,
+      "collectorCards": 101,
+      "premiumCards": 101,
+      "setCount": 6,
+      "tractability": "LOW",
+      "priorityValue": "101 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "MODEL_INSTABILITY",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo",
+      "relevantCards": 83,
+      "collectorCards": 83,
+      "premiumCards": 0,
+      "setCount": 6,
+      "tractability": "LOW",
+      "priorityValue": "83 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "HISTORY_MISSING",
+      "era": "E-Card",
+      "treatment": "rare_holo",
+      "relevantCards": 73,
+      "collectorCards": 73,
+      "premiumCards": 0,
+      "setCount": 3,
+      "tractability": "LOW",
+      "priorityValue": "73 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Mega Evolution",
+      "treatment": "ultra_rare",
+      "relevantCards": 55,
+      "collectorCards": 0,
+      "premiumCards": 55,
+      "setCount": 6,
+      "tractability": "LOW",
+      "priorityValue": "55 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "MODEL_INSTABILITY",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_v",
+      "relevantCards": 54,
+      "collectorCards": 54,
+      "premiumCards": 54,
+      "setCount": 4,
+      "tractability": "LOW",
+      "priorityValue": "54 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "MODEL_INSTABILITY",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_vmax",
+      "relevantCards": 36,
+      "collectorCards": 36,
+      "premiumCards": 36,
+      "setCount": 4,
+      "tractability": "LOW",
+      "priorityValue": "36 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "XY",
+      "treatment": "rare_ultra",
+      "relevantCards": 24,
+      "collectorCards": 0,
+      "premiumCards": 24,
+      "setCount": 11,
+      "tractability": "LOW",
+      "priorityValue": "24 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Scarlet and Violet",
+      "treatment": "ace_spec_rare",
+      "relevantCards": 22,
+      "collectorCards": 0,
+      "premiumCards": 22,
+      "setCount": 6,
+      "tractability": "LOW",
+      "priorityValue": "22 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Scarlet and Violet",
+      "treatment": "hyper_rare",
+      "relevantCards": 16,
+      "collectorCards": 0,
+      "premiumCards": 16,
+      "setCount": 10,
+      "tractability": "LOW",
+      "priorityValue": "16 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Mega Evolution",
+      "treatment": "special_illustration_rare",
+      "relevantCards": 14,
+      "collectorCards": 0,
+      "premiumCards": 14,
+      "setCount": 6,
+      "tractability": "LOW",
+      "priorityValue": "14 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Sword and Shield",
+      "treatment": "rare_secret",
+      "relevantCards": 10,
+      "collectorCards": 0,
+      "premiumCards": 10,
+      "setCount": 6,
+      "tractability": "LOW",
+      "priorityValue": "10 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Sun and Moon",
+      "treatment": "rare_prism_star",
+      "relevantCards": 9,
+      "collectorCards": 0,
+      "premiumCards": 9,
+      "setCount": 5,
+      "tractability": "LOW",
+      "priorityValue": "9 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Black and White",
+      "treatment": "rare_ultra",
+      "relevantCards": 8,
+      "collectorCards": 0,
+      "premiumCards": 8,
+      "setCount": 5,
+      "tractability": "LOW",
+      "priorityValue": "8 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "HISTORY_MISSING",
+      "era": "E-Card",
+      "treatment": "rare_secret",
+      "relevantCards": 8,
+      "collectorCards": 8,
+      "premiumCards": 8,
+      "setCount": 2,
+      "tractability": "LOW",
+      "priorityValue": "8 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Sun and Moon",
+      "treatment": "rare_secret",
+      "relevantCards": 8,
+      "collectorCards": 0,
+      "premiumCards": 8,
+      "setCount": 3,
+      "tractability": "LOW",
+      "priorityValue": "8 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "XY",
+      "treatment": "rare_secret",
+      "relevantCards": 8,
+      "collectorCards": 0,
+      "premiumCards": 8,
+      "setCount": 4,
+      "tractability": "LOW",
+      "priorityValue": "8 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Sun and Moon",
+      "treatment": "rare_ultra",
+      "relevantCards": 7,
+      "collectorCards": 0,
+      "premiumCards": 7,
+      "setCount": 7,
+      "tractability": "LOW",
+      "priorityValue": "7 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Black and White",
+      "treatment": "rare_ace",
+      "relevantCards": 6,
+      "collectorCards": 0,
+      "premiumCards": 6,
+      "setCount": 3,
+      "tractability": "LOW",
+      "priorityValue": "6 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Black and White",
+      "treatment": "rare_secret",
+      "relevantCards": 4,
+      "collectorCards": 0,
+      "premiumCards": 4,
+      "setCount": 4,
+      "tractability": "LOW",
+      "priorityValue": "4 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "HeartGold and SoulSilver",
+      "treatment": "rare_secret",
+      "relevantCards": 4,
+      "collectorCards": 0,
+      "premiumCards": 4,
+      "setCount": 4,
+      "tractability": "LOW",
+      "priorityValue": "4 x LOW",
+      "evidenceAlreadyAvailable": 4,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Diamond and Pearl",
+      "treatment": "uncommon",
+      "relevantCards": 2,
+      "collectorCards": 0,
+      "premiumCards": 2,
+      "setCount": 2,
+      "tractability": "LOW",
+      "priorityValue": "2 x LOW",
+      "evidenceAlreadyAvailable": 2,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Sword and Shield",
+      "treatment": "common",
+      "relevantCards": 2,
+      "collectorCards": 0,
+      "premiumCards": 2,
+      "setCount": 2,
+      "tractability": "LOW",
+      "priorityValue": "2 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Sword and Shield",
+      "treatment": "rare_ultra",
+      "relevantCards": 2,
+      "collectorCards": 0,
+      "premiumCards": 2,
+      "setCount": 2,
+      "tractability": "LOW",
+      "priorityValue": "2 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Diamond and Pearl",
+      "treatment": "rare_secret",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "LOW",
+      "priorityValue": "1 x LOW",
+      "evidenceAlreadyAvailable": 1,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "EX",
+      "treatment": "rare_secret",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "LOW",
+      "priorityValue": "1 x LOW",
+      "evidenceAlreadyAvailable": 1,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "HeartGold and SoulSilver",
+      "treatment": "uncommon",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "LOW",
+      "priorityValue": "1 x LOW",
+      "evidenceAlreadyAvailable": 1,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Mega Evolution",
+      "treatment": "common",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "LOW",
+      "priorityValue": "1 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Platinum",
+      "treatment": "uncommon",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "LOW",
+      "priorityValue": "1 x LOW",
+      "evidenceAlreadyAvailable": 1,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "Sword and Shield",
+      "treatment": "classic_collection",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "LOW",
+      "priorityValue": "1 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "XY",
+      "treatment": "__UNMAPPED__",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "LOW",
+      "priorityValue": "1 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "UNIVERSE_STRUCTURE",
+      "era": "XY",
+      "treatment": "uncommon",
+      "relevantCards": 1,
+      "collectorCards": 0,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "LOW",
+      "priorityValue": "1 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_v",
+      "relevantCards": 150,
+      "collectorCards": 150,
+      "premiumCards": 150,
+      "setCount": 13,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "150 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo",
+      "relevantCards": 141,
+      "collectorCards": 141,
+      "premiumCards": 0,
+      "setCount": 9,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "141 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Scarlet and Violet",
+      "treatment": "shiny_rare",
+      "relevantCards": 120,
+      "collectorCards": 120,
+      "premiumCards": 120,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "120 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Sword and Shield",
+      "treatment": "rare_ultra",
+      "relevantCards": 120,
+      "collectorCards": 120,
+      "premiumCards": 120,
+      "setCount": 6,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "120 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sword and Shield",
+      "treatment": "rare_shiny",
+      "relevantCards": 104,
+      "collectorCards": 104,
+      "premiumCards": 104,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "104 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Neo",
+      "treatment": "rare_holo",
+      "relevantCards": 64,
+      "collectorCards": 64,
+      "premiumCards": 0,
+      "setCount": 4,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "64 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 64,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Sword and Shield",
+      "treatment": "rare_rainbow",
+      "relevantCards": 62,
+      "collectorCards": 62,
+      "premiumCards": 62,
+      "setCount": 9,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "62 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Black and White",
+      "treatment": "rare_holo_ex",
+      "relevantCards": 56,
+      "collectorCards": 56,
+      "premiumCards": 56,
+      "setCount": 8,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "56 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Sword and Shield",
+      "treatment": "trainer_gallery_rare_holo",
+      "relevantCards": 56,
+      "collectorCards": 56,
+      "premiumCards": 56,
+      "setCount": 3,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "56 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Black and White",
+      "treatment": "rare_ultra",
+      "relevantCards": 52,
+      "collectorCards": 52,
+      "premiumCards": 52,
+      "setCount": 11,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "52 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Mega Evolution",
+      "treatment": "ultra_rare",
+      "relevantCards": 45,
+      "collectorCards": 45,
+      "premiumCards": 45,
+      "setCount": 6,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "45 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sun and Moon",
+      "treatment": "rare_shiny",
+      "relevantCards": 45,
+      "collectorCards": 45,
+      "premiumCards": 45,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "45 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_secret",
+      "relevantCards": 45,
+      "collectorCards": 45,
+      "premiumCards": 45,
+      "setCount": 21,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "45 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_vstar",
+      "relevantCards": 43,
+      "collectorCards": 43,
+      "premiumCards": 43,
+      "setCount": 7,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "43 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sun and Moon",
+      "treatment": "rare_holo",
+      "relevantCards": 42,
+      "collectorCards": 42,
+      "premiumCards": 0,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "42 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Mega Evolution",
+      "treatment": "special_illustration_rare",
+      "relevantCards": 41,
+      "collectorCards": 41,
+      "premiumCards": 41,
+      "setCount": 6,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "41 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_vmax",
+      "relevantCards": 41,
+      "collectorCards": 41,
+      "premiumCards": 41,
+      "setCount": 13,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "41 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_rainbow",
+      "relevantCards": 38,
+      "collectorCards": 38,
+      "premiumCards": 38,
+      "setCount": 6,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "38 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sun and Moon",
+      "treatment": "rare_shiny_gx",
+      "relevantCards": 35,
+      "collectorCards": 35,
+      "premiumCards": 35,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "35 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_holo_gx",
+      "relevantCards": 33,
+      "collectorCards": 33,
+      "premiumCards": 33,
+      "setCount": 4,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "33 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Scarlet and Violet",
+      "treatment": "hyper_rare",
+      "relevantCards": 32,
+      "collectorCards": 32,
+      "premiumCards": 32,
+      "setCount": 12,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "32 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Gym",
+      "treatment": "rare_holo",
+      "relevantCards": 30,
+      "collectorCards": 30,
+      "premiumCards": 0,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "30 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 30,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Diamond and Pearl",
+      "treatment": "rare_holo_lv_x",
+      "relevantCards": 28,
+      "collectorCards": 28,
+      "premiumCards": 28,
+      "setCount": 7,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "28 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 28,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sword and Shield",
+      "treatment": "rare_ultra",
+      "relevantCards": 28,
+      "collectorCards": 28,
+      "premiumCards": 28,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "28 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_ultra",
+      "relevantCards": 27,
+      "collectorCards": 27,
+      "premiumCards": 27,
+      "setCount": 4,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "27 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Black and White",
+      "treatment": "rare_secret",
+      "relevantCards": 25,
+      "collectorCards": 25,
+      "premiumCards": 25,
+      "setCount": 10,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "25 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo",
+      "relevantCards": 25,
+      "collectorCards": 25,
+      "premiumCards": 0,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "25 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_holo",
+      "relevantCards": 24,
+      "collectorCards": 24,
+      "premiumCards": 0,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "24 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "trainer_gallery_rare_holo",
+      "relevantCards": 24,
+      "collectorCards": 24,
+      "premiumCards": 24,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "24 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_rainbow",
+      "relevantCards": 22,
+      "collectorCards": 22,
+      "premiumCards": 22,
+      "setCount": 3,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "22 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "classic_collection",
+      "relevantCards": 22,
+      "collectorCards": 22,
+      "premiumCards": 22,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "22 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "XY",
+      "treatment": "rare_secret",
+      "relevantCards": 21,
+      "collectorCards": 21,
+      "premiumCards": 21,
+      "setCount": 9,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "21 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_secret",
+      "relevantCards": 20,
+      "collectorCards": 20,
+      "premiumCards": 20,
+      "setCount": 5,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "20 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Other",
+      "treatment": "rare_holo",
+      "relevantCards": 19,
+      "collectorCards": 19,
+      "premiumCards": 0,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "19 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_ultra",
+      "relevantCards": 18,
+      "collectorCards": 18,
+      "premiumCards": 18,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "18 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "EX",
+      "treatment": "rare_secret",
+      "relevantCards": 17,
+      "collectorCards": 17,
+      "premiumCards": 17,
+      "setCount": 11,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "17 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 17,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_prism_star",
+      "relevantCards": 16,
+      "collectorCards": 16,
+      "premiumCards": 16,
+      "setCount": 6,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "16 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "radiant_rare",
+      "relevantCards": 15,
+      "collectorCards": 15,
+      "premiumCards": 15,
+      "setCount": 5,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "15 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "EX",
+      "treatment": "rare_holo_star",
+      "relevantCards": 14,
+      "collectorCards": 14,
+      "premiumCards": 14,
+      "setCount": 9,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "14 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 14,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Scarlet and Violet",
+      "treatment": "shiny_ultra_rare",
+      "relevantCards": 12,
+      "collectorCards": 12,
+      "premiumCards": 12,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "12 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Neo",
+      "treatment": "rare_shining",
+      "relevantCards": 9,
+      "collectorCards": 9,
+      "premiumCards": 9,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "9 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 9,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Platinum",
+      "treatment": "rare_secret",
+      "relevantCards": 9,
+      "collectorCards": 9,
+      "premiumCards": 9,
+      "setCount": 3,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "9 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 9,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "amazing_rare",
+      "relevantCards": 9,
+      "collectorCards": 9,
+      "premiumCards": 9,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "9 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Mega Evolution",
+      "treatment": "mega_hyper_rare",
+      "relevantCards": 8,
+      "collectorCards": 8,
+      "premiumCards": 8,
+      "setCount": 6,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "8 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Mega Evolution",
+      "treatment": "mega_attack_rare",
+      "relevantCards": 7,
+      "collectorCards": 7,
+      "premiumCards": 7,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "7 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_shining",
+      "relevantCards": 6,
+      "collectorCards": 6,
+      "premiumCards": 6,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "6 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "HeartGold and SoulSilver",
+      "treatment": "legend",
+      "relevantCards": 4,
+      "collectorCards": 4,
+      "premiumCards": 4,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "4 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 4,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "HeartGold and SoulSilver",
+      "treatment": "rare_holo",
+      "relevantCards": 4,
+      "collectorCards": 4,
+      "premiumCards": 0,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "4 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 4,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Diamond and Pearl",
+      "treatment": "rare_secret",
+      "relevantCards": 3,
+      "collectorCards": 3,
+      "premiumCards": 3,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "3 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 3,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "STRUCTURALLY_UNDERIDENTIFIED",
+      "era": "Platinum",
+      "treatment": "rare_holo_lv_x",
+      "relevantCards": 2,
+      "collectorCards": 2,
+      "premiumCards": 2,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "2 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 2,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Scarlet and Violet",
+      "treatment": "black_white_rare",
+      "relevantCards": 2,
+      "collectorCards": 2,
+      "premiumCards": 2,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "2 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    }
+  ],
+  "historyRecoveryProjectsAttempted": [
+    {
+      "project": "E_CARD_CHECKPOINT_RECOVERY",
+      "attemptedCards": 81,
+      "internalSourcesChecked": [
+        "historical variant observations",
+        "archived market snapshots",
+        "condition alternatives",
+        "canonical variant remapping"
+      ],
+      "result": "NO_SAFE_REPAIRS",
+      "evidence": {
+        "HISTORICAL_OBSERVATIONS_NEVER_RETAINED": 273,
+        "PRICE_CONDITION_MISMATCH": 26,
+        "INCOMPLETE_SOURCE_INGESTION": 155
+      }
+    },
+    {
+      "project": "VINTAGE_180_365_DAY_RECOVERY",
+      "attemptedCards": 82,
+      "result": "REQUIRED_CHECKPOINTS_NEVER_RETAINED",
+      "recovered": 0
+    }
+  ],
+  "historyCardsRecovered": 0,
+  "taxonomyProjectsAttempted": [
+    {
+      "project": "CANONICAL_NON_PRICE_METADATA_RECONCILIATION",
+      "attemptedCards": 164,
+      "result": "METADATA_REVIEWED; NO CARD GAINS DIRECT EVIDENCE FROM TAXONOMY ALONE",
+      "recovered": 0
+    }
+  ],
+  "taxonomyCardsRecovered": 0,
+  "neverModeledTreatmentsAttempted": [],
+  "neverModeledTreatmentsValidated": [],
+  "cardsRecoveredNewTreatmentModeling": 0,
+  "instabilityProjectsInvestigated": [
+    {
+      "era": "Mega Evolution",
+      "treatment": "illustration_rare",
+      "cards": 101,
+      "hypotheses": [
+        "treatment grouping",
+        "regime boundary",
+        "finish/edition mixing",
+        "subset contamination",
+        "sample composition",
+        "variant authority",
+        "true time variation"
+      ],
+      "result": "NO_UPSTREAM_CHANGE; UNCHANGED RERUN PROHIBITED"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo",
+      "cards": 83,
+      "hypotheses": [
+        "treatment grouping",
+        "regime boundary",
+        "finish/edition mixing",
+        "subset contamination",
+        "sample composition",
+        "variant authority",
+        "true time variation"
+      ],
+      "result": "NO_UPSTREAM_CHANGE; UNCHANGED RERUN PROHIBITED"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_v",
+      "cards": 54,
+      "hypotheses": [
+        "treatment grouping",
+        "regime boundary",
+        "finish/edition mixing",
+        "subset contamination",
+        "sample composition",
+        "variant authority",
+        "true time variation"
+      ],
+      "result": "NO_UPSTREAM_CHANGE; UNCHANGED RERUN PROHIBITED"
+    },
+    {
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_vmax",
+      "cards": 36,
+      "hypotheses": [
+        "treatment grouping",
+        "regime boundary",
+        "finish/edition mixing",
+        "subset contamination",
+        "sample composition",
+        "variant authority",
+        "true time variation"
+      ],
+      "result": "NO_UPSTREAM_CHANGE; UNCHANGED RERUN PROHIBITED"
+    }
+  ],
+  "instabilityRootCauses": "Candidate falsifiable causes recorded per project; no cause can be isolated without new history or corrected grouping evidence.",
+  "instabilityCardsRecovered": 0,
+  "finiteSpecialTreatmentStudiesAttempted": [
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Scarlet and Violet",
+      "treatment": "shiny_rare",
+      "relevantCards": 120,
+      "collectorCards": 120,
+      "premiumCards": 120,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "120 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sword and Shield",
+      "treatment": "rare_shiny",
+      "relevantCards": 104,
+      "collectorCards": 104,
+      "premiumCards": 104,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "104 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sun and Moon",
+      "treatment": "rare_shiny",
+      "relevantCards": 45,
+      "collectorCards": 45,
+      "premiumCards": 45,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "45 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_secret",
+      "relevantCards": 45,
+      "collectorCards": 45,
+      "premiumCards": 45,
+      "setCount": 21,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "45 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_vstar",
+      "relevantCards": 43,
+      "collectorCards": 43,
+      "premiumCards": 43,
+      "setCount": 7,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "43 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sun and Moon",
+      "treatment": "rare_holo",
+      "relevantCards": 42,
+      "collectorCards": 42,
+      "premiumCards": 0,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "42 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo_vmax",
+      "relevantCards": 41,
+      "collectorCards": 41,
+      "premiumCards": 41,
+      "setCount": 13,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "41 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_rainbow",
+      "relevantCards": 38,
+      "collectorCards": 38,
+      "premiumCards": 38,
+      "setCount": 6,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "38 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sun and Moon",
+      "treatment": "rare_shiny_gx",
+      "relevantCards": 35,
+      "collectorCards": 35,
+      "premiumCards": 35,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "35 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_holo_gx",
+      "relevantCards": 33,
+      "collectorCards": 33,
+      "premiumCards": 33,
+      "setCount": 4,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "33 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Gym",
+      "treatment": "rare_holo",
+      "relevantCards": 30,
+      "collectorCards": 30,
+      "premiumCards": 0,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "30 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 30,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sword and Shield",
+      "treatment": "rare_ultra",
+      "relevantCards": 28,
+      "collectorCards": 28,
+      "premiumCards": 28,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "28 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_ultra",
+      "relevantCards": 27,
+      "collectorCards": 27,
+      "premiumCards": 27,
+      "setCount": 4,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "27 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SET_DIVERSITY",
+      "era": "Sword and Shield",
+      "treatment": "rare_holo",
+      "relevantCards": 25,
+      "collectorCards": 25,
+      "premiumCards": 0,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "25 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_holo",
+      "relevantCards": 24,
+      "collectorCards": 24,
+      "premiumCards": 0,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "24 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "trainer_gallery_rare_holo",
+      "relevantCards": 24,
+      "collectorCards": 24,
+      "premiumCards": 24,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "24 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_rainbow",
+      "relevantCards": 22,
+      "collectorCards": 22,
+      "premiumCards": 22,
+      "setCount": 3,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "22 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "classic_collection",
+      "relevantCards": 22,
+      "collectorCards": 22,
+      "premiumCards": 22,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "22 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "XY",
+      "treatment": "rare_secret",
+      "relevantCards": 21,
+      "collectorCards": 21,
+      "premiumCards": 21,
+      "setCount": 9,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "21 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_secret",
+      "relevantCards": 20,
+      "collectorCards": 20,
+      "premiumCards": 20,
+      "setCount": 5,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "20 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "rare_ultra",
+      "relevantCards": 18,
+      "collectorCards": 18,
+      "premiumCards": 18,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "18 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_prism_star",
+      "relevantCards": 16,
+      "collectorCards": 16,
+      "premiumCards": 16,
+      "setCount": 6,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "16 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "radiant_rare",
+      "relevantCards": 15,
+      "collectorCards": 15,
+      "premiumCards": 15,
+      "setCount": 5,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "15 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Scarlet and Violet",
+      "treatment": "shiny_ultra_rare",
+      "relevantCards": 12,
+      "collectorCards": 12,
+      "premiumCards": 12,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "12 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sword and Shield",
+      "treatment": "amazing_rare",
+      "relevantCards": 9,
+      "collectorCards": 9,
+      "premiumCards": 9,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "9 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Mega Evolution",
+      "treatment": "mega_hyper_rare",
+      "relevantCards": 8,
+      "collectorCards": 8,
+      "premiumCards": 8,
+      "setCount": 6,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "8 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Mega Evolution",
+      "treatment": "mega_attack_rare",
+      "relevantCards": 7,
+      "collectorCards": 7,
+      "premiumCards": 7,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "7 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Sun and Moon",
+      "treatment": "rare_shining",
+      "relevantCards": 6,
+      "collectorCards": 6,
+      "premiumCards": 6,
+      "setCount": 1,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "6 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "INSUFFICIENT_SAMPLE",
+      "era": "Scarlet and Violet",
+      "treatment": "black_white_rare",
+      "relevantCards": 2,
+      "collectorCards": 2,
+      "premiumCards": 2,
+      "setCount": 2,
+      "tractability": "STRUCTURALLY_BLOCKED",
+      "priorityValue": "2 x STRUCTURALLY_BLOCKED",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    }
+  ],
+  "specialTreatmentCardsRecovered": 0,
+  "promoTaxonomyResults": {
+    "cards": 0,
+    "classes": {},
+    "recovered": 0,
+    "finding": "Normal-treatment promo candidates still require demonstrated structural equivalence; unique mechanics remain separate."
+  },
+  "promoCardsRecovered": 0,
+  "setLevelRecoveryTable": [
+    {
+      "setId": "aac3de95-9f92-44af-966d-70b1d201c01e",
+      "setName": "Aquapolis",
+      "denominator": 31,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 22,
+      "missingTreatmentBuckets": {
+        "rare_secret": 3,
+        "rare_holo": 28
+      }
+    },
+    {
+      "setId": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+      "setName": "Astral Radiance",
+      "denominator": 82,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 58,
+      "missingTreatmentBuckets": {
+        "rare_holo_v": 19,
+        "rare_holo": 18,
+        "rare_holo_vstar": 7,
+        "rare_holo_vmax": 2,
+        "radiant_rare": 3,
+        "rare_ultra": 21,
+        "rare_rainbow": 9,
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "01b45c4b-c606-41f7-9669-0137cd4aafaf",
+      "setName": "Astral Radiance Trainer Gallery",
+      "denominator": 25,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 18,
+      "missingTreatmentBuckets": {
+        "trainer_gallery_rare_holo": 12,
+        "rare_holo_v": 9,
+        "rare_holo_vmax": 2,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+      "setName": "Base",
+      "denominator": 16,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 12,
+      "missingTreatmentBuckets": {
+        "rare_holo": 16
+      }
+    },
+    {
+      "setId": "6c82fb37-b9b9-4961-a528-12556bd15417",
+      "setName": "Base Set 2",
+      "denominator": 20,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 14,
+      "missingTreatmentBuckets": {
+        "rare_holo": 20
+      }
+    },
+    {
+      "setId": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+      "setName": "Battle Styles",
+      "denominator": 60,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 42,
+      "missingTreatmentBuckets": {
+        "rare_holo_v": 12,
+        "rare_holo": 16,
+        "rare_holo_vmax": 6,
+        "rare_ultra": 16,
+        "rare_rainbow": 8,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+      "setName": "Brilliant Stars",
+      "denominator": 58,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 41,
+      "missingTreatmentBuckets": {
+        "rare_holo": 8,
+        "rare_holo_v": 20,
+        "rare_holo_vstar": 4,
+        "rare_holo_vmax": 3,
+        "rare_ultra": 15,
+        "rare_rainbow": 4,
+        "rare_secret": 4
+      }
+    },
+    {
+      "setId": "7b44aba2-0e04-4b04-a1c7-9b6273daf3d5",
+      "setName": "Brilliant Stars Trainer Gallery",
+      "denominator": 25,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 18,
+      "missingTreatmentBuckets": {
+        "trainer_gallery_rare_holo": 12,
+        "rare_holo_v": 6,
+        "rare_holo_vmax": 5,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "be7c981b-c55e-4f60-a1b8-be922531452d",
+      "setName": "Celebrations",
+      "denominator": 11,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 8,
+      "missingTreatmentBuckets": {
+        "rare_holo": 5,
+        "rare_holo_v": 4,
+        "rare_holo_vmax": 2
+      }
+    },
+    {
+      "setId": "09f1674c-26c5-40df-8d52-4ce823c7c2fb",
+      "setName": "Celebrations: Classic Collection",
+      "denominator": 22,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 16,
+      "missingTreatmentBuckets": {
+        "classic_collection": 22
+      }
+    },
+    {
+      "setId": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+      "setName": "Chilling Reign",
+      "denominator": 87,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 61,
+      "missingTreatmentBuckets": {
+        "rare_rainbow": 11,
+        "rare_holo": 24,
+        "rare_holo_v": 15,
+        "rare_holo_vmax": 8,
+        "rare_ultra": 26,
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+      "setName": "Cosmic Eclipse",
+      "denominator": 81,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 57,
+      "missingTreatmentBuckets": {
+        "rare_ultra": 18,
+        "rare_holo_gx": 16,
+        "rare_holo": 21,
+        "rare_secret": 12,
+        "rare_rainbow": 14
+      }
+    },
+    {
+      "setId": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+      "setName": "Crown Zenith",
+      "denominator": 47,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 33,
+      "missingTreatmentBuckets": {
+        "rare_holo_v": 17,
+        "rare_holo_vstar": 8,
+        "rare_holo": 13,
+        "radiant_rare": 3,
+        "rare_holo_vmax": 5,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "532d2ad5-32b3-434d-9772-2159fcdfbd5b",
+      "setName": "Crown Zenith Galarian Gallery",
+      "denominator": 60,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 42,
+      "missingTreatmentBuckets": {
+        "trainer_gallery_rare_holo": 34,
+        "rare_holo_vstar": 10,
+        "rare_secret": 4,
+        "rare_holo_v": 9,
+        "rare_holo_vmax": 3
+      }
+    },
+    {
+      "setId": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+      "setName": "Detective Pikachu",
+      "denominator": 4,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 3,
+      "missingTreatmentBuckets": {
+        "rare_ultra": 4
+      }
+    },
+    {
+      "setId": "93212749-ce0e-498e-975e-7d947a3448ce",
+      "setName": "Evolving Skies",
+      "denominator": 106,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 75,
+      "missingTreatmentBuckets": {
+        "rare_holo": 20,
+        "rare_holo_v": 18,
+        "rare_holo_vmax": 15,
+        "rare_ultra": 33,
+        "rare_rainbow": 17,
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "7ceb2e94-7968-4394-95cb-742b01804974",
+      "setName": "Expedition Base Set",
+      "denominator": 29,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 21,
+      "missingTreatmentBuckets": {
+        "rare_holo": 29
+      }
+    },
+    {
+      "setId": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+      "setName": "Fossil",
+      "denominator": 15,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 11,
+      "missingTreatmentBuckets": {
+        "rare_holo": 15
+      }
+    },
+    {
+      "setId": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+      "setName": "Fusion Strike",
+      "denominator": 62,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 44,
+      "missingTreatmentBuckets": {
+        "rare_holo": 13,
+        "rare_holo_v": 19,
+        "rare_holo_vmax": 8,
+        "rare_ultra": 13,
+        "rare_rainbow": 8,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+      "setName": "Gym Challenge",
+      "denominator": 16,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 12,
+      "missingTreatmentBuckets": {
+        "rare_holo": 16
+      }
+    },
+    {
+      "setId": "537d3312-9622-4015-9ef2-66e16a27287c",
+      "setName": "Gym Heroes",
+      "denominator": 14,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 10,
+      "missingTreatmentBuckets": {
+        "rare_holo": 14
+      }
+    },
+    {
+      "setId": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+      "setName": "Hidden Fates",
+      "denominator": 14,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 10,
+      "missingTreatmentBuckets": {
+        "rare_holo_gx": 9,
+        "rare_holo": 3,
+        "rare_ultra": 1,
+        "rare_rainbow": 1
+      }
+    },
+    {
+      "setId": "528c1630-0565-427c-98a3-0ad3d85da32e",
+      "setName": "Hidden Fates Shiny Vault",
+      "denominator": 84,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 59,
+      "missingTreatmentBuckets": {
+        "rare_shiny_gx": 35,
+        "rare_shiny": 45,
+        "rare_secret": 4
+      }
+    },
+    {
+      "setId": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+      "setName": "Jungle",
+      "denominator": 16,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 12,
+      "missingTreatmentBuckets": {
+        "rare_holo": 16
+      }
+    },
+    {
+      "setId": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+      "setName": "Legendary Collection",
+      "denominator": 19,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 14,
+      "missingTreatmentBuckets": {
+        "rare_holo": 19
+      }
+    },
+    {
+      "setId": "5e473875-7d0f-43ff-86bd-9aa939e6ca32",
+      "setName": "Legendary Treasures: Radiant Collection",
+      "denominator": 5,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 4,
+      "missingTreatmentBuckets": {
+        "rare_ultra": 5
+      }
+    },
+    {
+      "setId": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+      "setName": "Lost Origin",
+      "denominator": 69,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 49,
+      "missingTreatmentBuckets": {
+        "rare_holo": 21,
+        "rare_holo_v": 12,
+        "rare_holo_vmax": 1,
+        "rare_holo_vstar": 6,
+        "radiant_rare": 3,
+        "rare_rainbow": 7,
+        "rare_ultra": 17,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "fc711667-a178-41c9-afbc-7e7d88bfe593",
+      "setName": "Lost Origin Trainer Gallery",
+      "denominator": 24,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 17,
+      "missingTreatmentBuckets": {
+        "trainer_gallery_rare_holo": 11,
+        "rare_holo_v": 7,
+        "rare_holo_vmax": 4,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "42a3740d-4778-4857-9c28-e116f34b51f3",
+      "setName": "Neo Destiny",
+      "denominator": 23,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 17,
+      "missingTreatmentBuckets": {
+        "rare_holo": 15,
+        "rare_shining": 8
+      }
+    },
+    {
+      "setId": "a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2",
+      "setName": "Neo Discovery",
+      "denominator": 17,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 12,
+      "missingTreatmentBuckets": {
+        "rare_holo": 17
+      }
+    },
+    {
+      "setId": "3562f9c9-f879-4d49-9d69-d0ab511230f9",
+      "setName": "Neo Genesis",
+      "denominator": 18,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 13,
+      "missingTreatmentBuckets": {
+        "rare_holo": 18
+      }
+    },
+    {
+      "setId": "89e710d1-c378-4b4e-aaea-5994d8441f45",
+      "setName": "Neo Revelation",
+      "denominator": 15,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 11,
+      "missingTreatmentBuckets": {
+        "rare_holo": 14,
+        "rare_shining": 1
+      }
+    },
+    {
+      "setId": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+      "setName": "Pok\u00e9mon GO",
+      "denominator": 39,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 28,
+      "missingTreatmentBuckets": {
+        "rare_holo": 16,
+        "radiant_rare": 3,
+        "rare_holo_v": 6,
+        "rare_holo_vstar": 2,
+        "rare_holo_vmax": 1,
+        "rare_ultra": 7,
+        "rare_rainbow": 3,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "f93ca977-cfc9-4d06-a62a-f9dcf9afbfb8",
+      "setName": "Shining Fates Shiny Vault",
+      "denominator": 122,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 86,
+      "missingTreatmentBuckets": {
+        "rare_shiny": 104,
+        "rare_holo_v": 9,
+        "rare_holo_vmax": 7,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "2d6ec108-70b2-4698-a21a-1af39828004f",
+      "setName": "Silver Tempest",
+      "denominator": 64,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 45,
+      "missingTreatmentBuckets": {
+        "rare_holo": 12,
+        "rare_holo_v": 15,
+        "rare_holo_vstar": 6,
+        "radiant_rare": 3,
+        "rare_holo_vmax": 1,
+        "rare_rainbow": 7,
+        "rare_ultra": 18,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "1f5a156b-2335-4803-a82c-803976263e8b",
+      "setName": "Silver Tempest Trainer Gallery",
+      "denominator": 24,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 17,
+      "missingTreatmentBuckets": {
+        "trainer_gallery_rare_holo": 11,
+        "rare_holo_v": 7,
+        "rare_holo_vmax": 4,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "setName": "Skyridge",
+      "denominator": 21,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 15,
+      "missingTreatmentBuckets": {
+        "rare_secret": 5,
+        "rare_holo": 16
+      }
+    },
+    {
+      "setId": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+      "setName": "Team Rocket",
+      "denominator": 15,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 11,
+      "missingTreatmentBuckets": {
+        "rare_holo": 14,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+      "setName": "Unbroken Bonds",
+      "denominator": 67,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 47,
+      "missingTreatmentBuckets": {
+        "rare_holo_gx": 14,
+        "rare_holo": 21,
+        "rare_ultra": 18,
+        "rare_rainbow": 14
+      }
+    },
+    {
+      "setId": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+      "setName": "Unified Minds",
+      "denominator": 68,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": 0.0,
+      "coverageAfter": 0.0,
+      "minimumRecoverableRelevantCardsFor70": 48,
+      "missingTreatmentBuckets": {
+        "rare_holo_gx": 17,
+        "rare_holo": 21,
+        "rare_ultra": 17,
+        "rare_rainbow": 13
+      }
+    },
+    {
+      "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "setName": "Paldean Fates",
+      "denominator": 154,
+      "coveredBefore": 16,
+      "coveredAfter": 16,
+      "coverageBefore": 0.1038961038961039,
+      "coverageAfter": 0.1038961038961039,
+      "minimumRecoverableRelevantCardsFor70": 92,
+      "missingTreatmentBuckets": {
+        "shiny_rare": 120,
+        "shiny_ultra_rare": 12,
+        "hyper_rare": 6
+      }
+    },
+    {
+      "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+      "setName": "Mega Evolution",
+      "denominator": 50,
+      "coveredBefore": 10,
+      "coveredAfter": 10,
+      "coverageBefore": 0.2,
+      "coverageAfter": 0.2,
+      "minimumRecoverableRelevantCardsFor70": 25,
+      "missingTreatmentBuckets": {
+        "illustration_rare": 22,
+        "ultra_rare": 10,
+        "special_illustration_rare": 6,
+        "mega_hyper_rare": 2
+      }
+    },
+    {
+      "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+      "setName": "Perfect Order",
+      "denominator": 33,
+      "coveredBefore": 9,
+      "coveredAfter": 9,
+      "coverageBefore": 0.2727272727272727,
+      "coverageAfter": 0.2727272727272727,
+      "minimumRecoverableRelevantCardsFor70": 15,
+      "missingTreatmentBuckets": {
+        "ultra_rare": 8,
+        "special_illustration_rare": 4,
+        "mega_hyper_rare": 1,
+        "illustration_rare": 11
+      }
+    },
+    {
+      "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "setName": "Phantasmal Flames",
+      "denominator": 36,
+      "coveredBefore": 10,
+      "coveredAfter": 10,
+      "coverageBefore": 0.2777777777777778,
+      "coverageAfter": 0.2777777777777778,
+      "minimumRecoverableRelevantCardsFor70": 16,
+      "missingTreatmentBuckets": {
+        "illustration_rare": 13,
+        "ultra_rare": 8,
+        "special_illustration_rare": 4,
+        "mega_hyper_rare": 1
+      }
+    },
+    {
+      "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+      "setName": "Chaos Rising",
+      "denominator": 34,
+      "coveredBefore": 10,
+      "coveredAfter": 10,
+      "coverageBefore": 0.29411764705882354,
+      "coverageAfter": 0.29411764705882354,
+      "minimumRecoverableRelevantCardsFor70": 14,
+      "missingTreatmentBuckets": {
+        "ultra_rare": 8,
+        "special_illustration_rare": 4,
+        "mega_hyper_rare": 1,
+        "illustration_rare": 11
+      }
+    },
+    {
+      "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+      "setName": "Pitch Black",
+      "denominator": 34,
+      "coveredBefore": 10,
+      "coveredAfter": 10,
+      "coverageBefore": 0.29411764705882354,
+      "coverageAfter": 0.29411764705882354,
+      "minimumRecoverableRelevantCardsFor70": 14,
+      "missingTreatmentBuckets": {
+        "ultra_rare": 8,
+        "special_illustration_rare": 4,
+        "mega_hyper_rare": 1,
+        "illustration_rare": 11
+      }
+    },
+    {
+      "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "setName": "Ascended Heroes",
+      "denominator": 103,
+      "coveredBefore": 39,
+      "coveredAfter": 39,
+      "coverageBefore": 0.3786407766990291,
+      "coverageAfter": 0.3786407766990291,
+      "minimumRecoverableRelevantCardsFor70": 34,
+      "missingTreatmentBuckets": {
+        "illustration_rare": 33,
+        "ultra_rare": 3,
+        "mega_attack_rare": 7,
+        "special_illustration_rare": 19,
+        "mega_hyper_rare": 2
+      }
+    },
+    {
+      "setId": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+      "setName": "Next Destinies",
+      "denominator": 26,
+      "coveredBefore": 10,
+      "coveredAfter": 10,
+      "coverageBefore": 0.38461538461538464,
+      "coverageAfter": 0.38461538461538464,
+      "minimumRecoverableRelevantCardsFor70": 9,
+      "missingTreatmentBuckets": {
+        "rare_holo_ex": 6,
+        "rare_ultra": 6,
+        "rare_secret": 4
+      }
+    },
+    {
+      "setId": "7a87a5b5-17dc-43e6-9eac-3de88beab0e7",
+      "setName": "Dark Explorers",
+      "denominator": 23,
+      "coveredBefore": 9,
+      "coveredAfter": 9,
+      "coverageBefore": 0.391304347826087,
+      "coverageAfter": 0.391304347826087,
+      "minimumRecoverableRelevantCardsFor70": 8,
+      "missingTreatmentBuckets": {
+        "rare_holo_ex": 6,
+        "rare_ultra": 6,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "65ee8536-af5a-4242-8a1f-9928c81f501b",
+      "setName": "Plasma Storm",
+      "denominator": 24,
+      "coveredBefore": 10,
+      "coveredAfter": 10,
+      "coverageBefore": 0.4166666666666667,
+      "coverageAfter": 0.4166666666666667,
+      "minimumRecoverableRelevantCardsFor70": 7,
+      "missingTreatmentBuckets": {
+        "rare_holo_ex": 8,
+        "rare_ultra": 4,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+      "setName": "Plasma Blast",
+      "denominator": 25,
+      "coveredBefore": 11,
+      "coveredAfter": 11,
+      "coverageBefore": 0.44,
+      "coverageAfter": 0.44,
+      "minimumRecoverableRelevantCardsFor70": 7,
+      "missingTreatmentBuckets": {
+        "rare_holo_ex": 6,
+        "rare_ultra": 5,
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+      "setName": "Dragons Exalted",
+      "denominator": 29,
+      "coveredBefore": 13,
+      "coveredAfter": 13,
+      "coverageBefore": 0.4482758620689655,
+      "coverageAfter": 0.4482758620689655,
+      "minimumRecoverableRelevantCardsFor70": 8,
+      "missingTreatmentBuckets": {
+        "rare_holo_ex": 6,
+        "rare_ultra": 6,
+        "rare_secret": 4
+      }
+    },
+    {
+      "setId": "ddbc1691-ea68-4775-8343-7b8fddbf81e6",
+      "setName": "Plasma Freeze",
+      "denominator": 29,
+      "coveredBefore": 13,
+      "coveredAfter": 13,
+      "coverageBefore": 0.4482758620689655,
+      "coverageAfter": 0.4482758620689655,
+      "minimumRecoverableRelevantCardsFor70": 8,
+      "missingTreatmentBuckets": {
+        "rare_holo_ex": 6,
+        "rare_ultra": 6,
+        "rare_secret": 4
+      }
+    },
+    {
+      "setId": "26fedb88-87d7-487a-9f01-528d603c682e",
+      "setName": "Vivid Voltage",
+      "denominator": 62,
+      "coveredBefore": 30,
+      "coveredAfter": 30,
+      "coverageBefore": 0.4838709677419355,
+      "coverageAfter": 0.4838709677419355,
+      "minimumRecoverableRelevantCardsFor70": 14,
+      "missingTreatmentBuckets": {
+        "amazing_rare": 6,
+        "rare_holo": 18,
+        "rare_rainbow": 6,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "3836457c-77dc-44b0-a72f-779b6dd78884",
+      "setName": "Darkness Ablaze",
+      "denominator": 55,
+      "coveredBefore": 30,
+      "coveredAfter": 30,
+      "coverageBefore": 0.5454545454545454,
+      "coverageAfter": 0.5454545454545454,
+      "minimumRecoverableRelevantCardsFor70": 9,
+      "missingTreatmentBuckets": {
+        "rare_holo": 18,
+        "rare_rainbow": 5,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "03764ded-825a-45c0-8b15-ce100cff9552",
+      "setName": "Shining Fates",
+      "denominator": 26,
+      "coveredBefore": 15,
+      "coveredAfter": 15,
+      "coverageBefore": 0.5769230769230769,
+      "coverageAfter": 0.5769230769230769,
+      "minimumRecoverableRelevantCardsFor70": 4,
+      "missingTreatmentBuckets": {
+        "rare_holo": 7,
+        "amazing_rare": 3,
+        "rare_rainbow": 1
+      }
+    },
+    {
+      "setId": "77bde285-03f8-4a48-b6a5-2f548225c3eb",
+      "setName": "Stormfront",
+      "denominator": 19,
+      "coveredBefore": 11,
+      "coveredAfter": 11,
+      "coverageBefore": 0.5789473684210527,
+      "coverageAfter": 0.5789473684210527,
+      "minimumRecoverableRelevantCardsFor70": 3,
+      "missingTreatmentBuckets": {
+        "rare_holo_lv_x": 5,
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "759c09f8-8a1b-4212-be89-66088afa6893",
+      "setName": "Rebel Clash",
+      "denominator": 63,
+      "coveredBefore": 37,
+      "coveredAfter": 37,
+      "coverageBefore": 0.5873015873015873,
+      "coverageAfter": 0.5873015873015873,
+      "minimumRecoverableRelevantCardsFor70": 8,
+      "missingTreatmentBuckets": {
+        "rare_holo": 17,
+        "rare_rainbow": 7,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+      "setName": "Boundaries Crossed",
+      "denominator": 34,
+      "coveredBefore": 20,
+      "coveredAfter": 20,
+      "coverageBefore": 0.5882352941176471,
+      "coverageAfter": 0.5882352941176471,
+      "minimumRecoverableRelevantCardsFor70": 4,
+      "missingTreatmentBuckets": {
+        "rare_holo_ex": 6,
+        "rare_ultra": 6,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+      "setName": "Champion's Path",
+      "denominator": 30,
+      "coveredBefore": 18,
+      "coveredAfter": 18,
+      "coverageBefore": 0.6,
+      "coverageAfter": 0.6,
+      "minimumRecoverableRelevantCardsFor70": 3,
+      "missingTreatmentBuckets": {
+        "rare_holo": 8,
+        "rare_rainbow": 3,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+      "setName": "Sword & Shield",
+      "denominator": 54,
+      "coveredBefore": 33,
+      "coveredAfter": 33,
+      "coverageBefore": 0.6111111111111112,
+      "coverageAfter": 0.6111111111111112,
+      "minimumRecoverableRelevantCardsFor70": 5,
+      "missingTreatmentBuckets": {
+        "rare_holo": 15,
+        "rare_rainbow": 4,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+      "setName": "Legendary Treasures",
+      "denominator": 44,
+      "coveredBefore": 30,
+      "coveredAfter": 30,
+      "coverageBefore": 0.6818181818181818,
+      "coverageAfter": 0.6818181818181818,
+      "minimumRecoverableRelevantCardsFor70": 1,
+      "missingTreatmentBuckets": {
+        "rare_holo_ex": 12,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "2262c6e4-3f9a-4364-b03a-d811cd604739",
+      "setName": "Legends Awakened",
+      "denominator": 24,
+      "coveredBefore": 17,
+      "coveredAfter": 17,
+      "coverageBefore": 0.7083333333333334,
+      "coverageAfter": 0.7083333333333334,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_lv_x": 7
+      }
+    },
+    {
+      "setId": "5361a918-eb23-447e-a00e-e21493bc4320",
+      "setName": "Noble Victories",
+      "denominator": 18,
+      "coveredBefore": 13,
+      "coveredAfter": 13,
+      "coverageBefore": 0.7222222222222222,
+      "coverageAfter": 0.7222222222222222,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_ultra": 4,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "15fd93a2-82e3-4a5f-9f11-112cee192c95",
+      "setName": "Great Encounters",
+      "denominator": 15,
+      "coveredBefore": 11,
+      "coveredAfter": 11,
+      "coverageBefore": 0.7333333333333333,
+      "coverageAfter": 0.7333333333333333,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_lv_x": 4
+      }
+    },
+    {
+      "setId": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+      "setName": "HS\u2014Unleashed",
+      "denominator": 23,
+      "coveredBefore": 17,
+      "coveredAfter": 17,
+      "coverageBefore": 0.7391304347826086,
+      "coverageAfter": 0.7391304347826086,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "legend": 6
+      }
+    },
+    {
+      "setId": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+      "setName": "Shining Legends",
+      "denominator": 29,
+      "coveredBefore": 22,
+      "coveredAfter": 22,
+      "coverageBefore": 0.7586206896551724,
+      "coverageAfter": 0.7586206896551724,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_shining": 6,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "bd54a027-2b93-4cfb-b118-687bd0481def",
+      "setName": "Majestic Dawn",
+      "denominator": 18,
+      "coveredBefore": 14,
+      "coveredAfter": 14,
+      "coverageBefore": 0.7777777777777778,
+      "coverageAfter": 0.7777777777777778,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_lv_x": 4
+      }
+    },
+    {
+      "setId": "591a2b3e-2dc8-4e80-b42d-aec4f4b786e4",
+      "setName": "Black & White",
+      "denominator": 15,
+      "coveredBefore": 12,
+      "coveredAfter": 12,
+      "coverageBefore": 0.8,
+      "coverageAfter": 0.8,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_ultra": 2,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+      "setName": "HS\u2014Undaunted",
+      "denominator": 20,
+      "coveredBefore": 16,
+      "coveredAfter": 16,
+      "coverageBefore": 0.8,
+      "coverageAfter": 0.8,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "legend": 4
+      }
+    },
+    {
+      "setId": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+      "setName": "Rising Rivals",
+      "denominator": 25,
+      "coveredBefore": 20,
+      "coveredAfter": 20,
+      "coverageBefore": 0.8,
+      "coverageAfter": 0.8,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_lv_x": 2,
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "34a48f79-1bd3-4f1d-9e3c-758955be70ee",
+      "setName": "Emerging Powers",
+      "denominator": 12,
+      "coveredBefore": 10,
+      "coveredAfter": 10,
+      "coverageBefore": 0.8333333333333334,
+      "coverageAfter": 0.8333333333333334,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_ultra": 2
+      }
+    },
+    {
+      "setId": "965b3000-c483-4110-bb21-ff5ffe120564",
+      "setName": "HS\u2014Triumphant",
+      "denominator": 24,
+      "coveredBefore": 20,
+      "coveredAfter": 20,
+      "coverageBefore": 0.8333333333333334,
+      "coverageAfter": 0.8333333333333334,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "legend": 4
+      }
+    },
+    {
+      "setId": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+      "setName": "HeartGold & SoulSilver",
+      "denominator": 24,
+      "coveredBefore": 20,
+      "coveredAfter": 20,
+      "coverageBefore": 0.8333333333333334,
+      "coverageAfter": 0.8333333333333334,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "legend": 4
+      }
+    },
+    {
+      "setId": "7a1b8de0-331f-4635-8512-b737da431f7d",
+      "setName": "Diamond & Pearl",
+      "denominator": 20,
+      "coveredBefore": 17,
+      "coveredAfter": 17,
+      "coverageBefore": 0.85,
+      "coverageAfter": 0.85,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_lv_x": 3
+      }
+    },
+    {
+      "setId": "ca43d96a-ad90-4717-a4f6-253fb26a6d53",
+      "setName": "Mysterious Treasures",
+      "denominator": 21,
+      "coveredBefore": 18,
+      "coveredAfter": 18,
+      "coverageBefore": 0.8571428571428571,
+      "coverageAfter": 0.8571428571428571,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_lv_x": 3
+      }
+    },
+    {
+      "setId": "50c5370b-a5e7-4fbc-98fe-efc35e05ff80",
+      "setName": "FireRed & LeafGreen",
+      "denominator": 29,
+      "coveredBefore": 25,
+      "coveredAfter": 25,
+      "coverageBefore": 0.8620689655172413,
+      "coverageAfter": 0.8620689655172413,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 4
+      }
+    },
+    {
+      "setId": "8158d0ae-0255-48f0-b189-d134035b72b0",
+      "setName": "Ultra Prism",
+      "denominator": 44,
+      "coveredBefore": 38,
+      "coveredAfter": 38,
+      "coverageBefore": 0.8636363636363636,
+      "coverageAfter": 0.8636363636363636,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_prism_star": 4,
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+      "setName": "Flashfire",
+      "denominator": 23,
+      "coveredBefore": 20,
+      "coveredAfter": 20,
+      "coverageBefore": 0.8695652173913043,
+      "coverageAfter": 0.8695652173913043,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+      "setName": "Call of Legends",
+      "denominator": 32,
+      "coveredBefore": 28,
+      "coveredAfter": 28,
+      "coverageBefore": 0.875,
+      "coverageAfter": 0.875,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo": 4
+      }
+    },
+    {
+      "setId": "1b3250bb-f123-47d8-b090-499e5879eda7",
+      "setName": "Delta Species",
+      "denominator": 24,
+      "coveredBefore": 21,
+      "coveredAfter": 21,
+      "coverageBefore": 0.875,
+      "coverageAfter": 0.875,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_star": 2,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "4c0902e8-fc57-4e07-82e1-e4bdb9fe9990",
+      "setName": "Dragon",
+      "denominator": 24,
+      "coveredBefore": 21,
+      "coveredAfter": 21,
+      "coverageBefore": 0.875,
+      "coverageAfter": 0.875,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+      "setName": "Supreme Victors",
+      "denominator": 24,
+      "coveredBefore": 21,
+      "coveredAfter": 21,
+      "coverageBefore": 0.875,
+      "coverageAfter": 0.875,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "98301e8a-8aa3-43d8-a85b-908883264721",
+      "setName": "Platinum",
+      "denominator": 26,
+      "coveredBefore": 23,
+      "coveredAfter": 23,
+      "coverageBefore": 0.8846153846153846,
+      "coverageAfter": 0.8846153846153846,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "d38ee646-382d-45c0-9463-e9302aa2471a",
+      "setName": "Phantom Forces",
+      "denominator": 27,
+      "coveredBefore": 24,
+      "coveredAfter": 24,
+      "coverageBefore": 0.8888888888888888,
+      "coverageAfter": 0.8888888888888888,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "75cc9ef9-1099-4e47-8d09-17f416606865",
+      "setName": "Evolutions",
+      "denominator": 40,
+      "coveredBefore": 36,
+      "coveredAfter": 36,
+      "coverageBefore": 0.9,
+      "coverageAfter": 0.9,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 4
+      }
+    },
+    {
+      "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "setName": "Temporal Forces",
+      "denominator": 61,
+      "coveredBefore": 55,
+      "coveredAfter": 55,
+      "coverageBefore": 0.9016393442622951,
+      "coverageAfter": 0.9016393442622951,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 6
+      }
+    },
+    {
+      "setId": "a69e4091-5b33-499d-85a5-a8f0b7ecaddc",
+      "setName": "Team Magma vs Team Aqua",
+      "denominator": 21,
+      "coveredBefore": 19,
+      "coveredAfter": 19,
+      "coverageBefore": 0.9047619047619048,
+      "coverageAfter": 0.9047619047619048,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "3f3c7677-b876-4353-821e-6bdd610fd683",
+      "setName": "Ancient Origins",
+      "denominator": 33,
+      "coveredBefore": 30,
+      "coveredAfter": 30,
+      "coverageBefore": 0.9090909090909091,
+      "coverageAfter": 0.9090909090909091,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 3
+      }
+    },
+    {
+      "setId": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+      "setName": "Furious Fists",
+      "denominator": 22,
+      "coveredBefore": 20,
+      "coveredAfter": 20,
+      "coverageBefore": 0.9090909090909091,
+      "coverageAfter": 0.9090909090909091,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "4099fc11-a3f6-4034-8208-fbf82bd89de5",
+      "setName": "Holon Phantoms",
+      "denominator": 22,
+      "coveredBefore": 20,
+      "coveredAfter": 20,
+      "coverageBefore": 0.9090909090909091,
+      "coverageAfter": 0.9090909090909091,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_star": 1,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "8f78267f-493b-4d60-a19e-587ae1f60f69",
+      "setName": "Secret Wonders",
+      "denominator": 22,
+      "coveredBefore": 20,
+      "coveredAfter": 20,
+      "coverageBefore": 0.9090909090909091,
+      "coverageAfter": 0.9090909090909091,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_lv_x": 2
+      }
+    },
+    {
+      "setId": "126093d8-50e7-4a7c-891d-8cffd5733eeb",
+      "setName": "Unseen Forces",
+      "denominator": 33,
+      "coveredBefore": 30,
+      "coveredAfter": 30,
+      "coverageBefore": 0.9090909090909091,
+      "coverageAfter": 0.9090909090909091,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_star": 2,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "setName": "Prismatic Evolutions",
+      "denominator": 56,
+      "coveredBefore": 51,
+      "coveredAfter": 51,
+      "coverageBefore": 0.9107142857142857,
+      "coverageAfter": 0.9107142857142857,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 5
+      }
+    },
+    {
+      "setId": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+      "setName": "Legend Maker",
+      "denominator": 23,
+      "coveredBefore": 21,
+      "coveredAfter": 21,
+      "coverageBefore": 0.9130434782608695,
+      "coverageAfter": 0.9130434782608695,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_star": 1,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "30396643-190c-416d-92a4-e8414c8b4980",
+      "setName": "Power Keepers",
+      "denominator": 23,
+      "coveredBefore": 21,
+      "coveredAfter": 21,
+      "coverageBefore": 0.9130434782608695,
+      "coverageAfter": 0.9130434782608695,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_star": 2
+      }
+    },
+    {
+      "setId": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+      "setName": "Team Rocket Returns",
+      "denominator": 23,
+      "coveredBefore": 21,
+      "coveredAfter": 21,
+      "coverageBefore": 0.9130434782608695,
+      "coverageAfter": 0.9130434782608695,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_star": 1,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "c56fe006-6d9a-4b26-a4e0-6726138edecb",
+      "setName": "Dragon Frontiers",
+      "denominator": 24,
+      "coveredBefore": 22,
+      "coveredAfter": 22,
+      "coverageBefore": 0.9166666666666666,
+      "coverageAfter": 0.9166666666666666,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_star": 2
+      }
+    },
+    {
+      "setId": "93050f21-b805-41fc-a49d-b5afcb9c41dc",
+      "setName": "Crystal Guardians",
+      "denominator": 25,
+      "coveredBefore": 23,
+      "coveredAfter": 23,
+      "coverageBefore": 0.92,
+      "coverageAfter": 0.92,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_star": 2
+      }
+    },
+    {
+      "setId": "388dd649-960b-4fd8-a8df-e56b3730972e",
+      "setName": "Deoxys",
+      "denominator": 25,
+      "coveredBefore": 23,
+      "coveredAfter": 23,
+      "coverageBefore": 0.92,
+      "coverageAfter": 0.92,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_holo_star": 1,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+      "setName": "Dragon Majesty",
+      "denominator": 25,
+      "coveredBefore": 23,
+      "coveredAfter": 23,
+      "coverageBefore": 0.92,
+      "coverageAfter": 0.92,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_prism_star": 1,
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+      "setName": "Forbidden Light",
+      "denominator": 39,
+      "coveredBefore": 36,
+      "coveredAfter": 36,
+      "coverageBefore": 0.9230769230769231,
+      "coverageAfter": 0.9230769230769231,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_prism_star": 3
+      }
+    },
+    {
+      "setId": "69d6d1be-f610-421b-b29c-c3348fe19518",
+      "setName": "Steam Siege",
+      "denominator": 30,
+      "coveredBefore": 28,
+      "coveredAfter": 28,
+      "coverageBefore": 0.9333333333333333,
+      "coverageAfter": 0.9333333333333333,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+      "setName": "Celestial Storm",
+      "denominator": 49,
+      "coveredBefore": 46,
+      "coveredAfter": 46,
+      "coverageBefore": 0.9387755102040817,
+      "coverageAfter": 0.9387755102040817,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_prism_star": 3
+      }
+    },
+    {
+      "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "setName": "Destined Rivals",
+      "denominator": 66,
+      "coveredBefore": 62,
+      "coveredAfter": 62,
+      "coverageBefore": 0.9393939393939394,
+      "coverageAfter": 0.9393939393939394,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 4
+      }
+    },
+    {
+      "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "setName": "Paldea Evolved",
+      "denominator": 85,
+      "coveredBefore": 80,
+      "coveredAfter": 80,
+      "coverageBefore": 0.9411764705882353,
+      "coverageAfter": 0.9411764705882353,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 5
+      }
+    },
+    {
+      "setId": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+      "setName": "BREAKthrough",
+      "denominator": 40,
+      "coveredBefore": 38,
+      "coveredAfter": 38,
+      "coverageBefore": 0.95,
+      "coverageAfter": 0.95,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 2
+      }
+    },
+    {
+      "setId": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+      "setName": "Emerald",
+      "denominator": 21,
+      "coveredBefore": 20,
+      "coveredAfter": 20,
+      "coverageBefore": 0.9523809523809523,
+      "coverageAfter": 0.9523809523809523,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "7c998bc2-6073-4461-8873-64d1b3e78930",
+      "setName": "Lost Thunder",
+      "denominator": 63,
+      "coveredBefore": 60,
+      "coveredAfter": 60,
+      "coverageBefore": 0.9523809523809523,
+      "coverageAfter": 0.9523809523809523,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_prism_star": 3
+      }
+    },
+    {
+      "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+      "setName": "Journey Together",
+      "denominator": 43,
+      "coveredBefore": 41,
+      "coveredAfter": 41,
+      "coverageBefore": 0.9534883720930233,
+      "coverageAfter": 0.9534883720930233,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 2
+      }
+    },
+    {
+      "setId": "846787ce-2e12-4dab-b941-886f95cd16f8",
+      "setName": "Hidden Legends",
+      "denominator": 24,
+      "coveredBefore": 23,
+      "coveredAfter": 23,
+      "coverageBefore": 0.9583333333333334,
+      "coverageAfter": 0.9583333333333334,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+      "setName": "Team Up",
+      "denominator": 53,
+      "coveredBefore": 51,
+      "coveredAfter": 51,
+      "coverageBefore": 0.9622641509433962,
+      "coverageAfter": 0.9622641509433962,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_prism_star": 2
+      }
+    },
+    {
+      "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "setName": "Paradox Rift",
+      "denominator": 84,
+      "coveredBefore": 81,
+      "coveredAfter": 81,
+      "coverageBefore": 0.9642857142857143,
+      "coverageAfter": 0.9642857142857143,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 3
+      }
+    },
+    {
+      "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "setName": "Scarlet and Violet Base Set",
+      "denominator": 56,
+      "coveredBefore": 54,
+      "coveredAfter": 54,
+      "coverageBefore": 0.9642857142857143,
+      "coverageAfter": 0.9642857142857143,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 2
+      }
+    },
+    {
+      "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+      "setName": "Twilight Masquerade",
+      "denominator": 58,
+      "coveredBefore": 56,
+      "coveredAfter": 56,
+      "coverageBefore": 0.9655172413793104,
+      "coverageAfter": 0.9655172413793104,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 2
+      }
+    },
+    {
+      "setId": "4de777b3-396e-4f19-9d78-c054b296bedb",
+      "setName": "BREAKpoint",
+      "denominator": 32,
+      "coveredBefore": 31,
+      "coveredAfter": 31,
+      "coverageBefore": 0.96875,
+      "coverageAfter": 0.96875,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+      "setName": "Fates Collide",
+      "denominator": 32,
+      "coveredBefore": 31,
+      "coveredAfter": 31,
+      "coverageBefore": 0.96875,
+      "coverageAfter": 0.96875,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "rare_secret": 1
+      }
+    },
+    {
+      "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "setName": "Shrouded Fable",
+      "denominator": 32,
+      "coveredBefore": 31,
+      "coveredAfter": 31,
+      "coverageBefore": 0.96875,
+      "coverageAfter": 0.96875,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 1
+      }
+    },
+    {
+      "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+      "setName": "Surging Sparks",
+      "denominator": 64,
+      "coveredBefore": 62,
+      "coveredAfter": 62,
+      "coverageBefore": 0.96875,
+      "coverageAfter": 0.96875,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 2
+      }
+    },
+    {
+      "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "setName": "Stellar Crown",
+      "denominator": 39,
+      "coveredBefore": 38,
+      "coveredAfter": 38,
+      "coverageBefore": 0.9743589743589743,
+      "coverageAfter": 0.9743589743589743,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 1
+      }
+    },
+    {
+      "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+      "setName": "Obsidian Flames",
+      "denominator": 46,
+      "coveredBefore": 45,
+      "coveredAfter": 45,
+      "coverageBefore": 0.9782608695652174,
+      "coverageAfter": 0.9782608695652174,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 1
+      }
+    },
+    {
+      "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+      "setName": "Scarlet and Violet 151",
+      "denominator": 46,
+      "coveredBefore": 45,
+      "coveredAfter": 45,
+      "coverageBefore": 0.9782608695652174,
+      "coverageAfter": 0.9782608695652174,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "hyper_rare": 1
+      }
+    },
+    {
+      "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "setName": "Black Bolt",
+      "denominator": 88,
+      "coveredBefore": 87,
+      "coveredAfter": 87,
+      "coverageBefore": 0.9886363636363636,
+      "coverageAfter": 0.9886363636363636,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "black_white_rare": 1
+      }
+    },
+    {
+      "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "setName": "White Flare",
+      "denominator": 88,
+      "coveredBefore": 87,
+      "coveredAfter": 87,
+      "coverageBefore": 0.9886363636363636,
+      "coverageAfter": 0.9886363636363636,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {
+        "black_white_rare": 1
+      }
+    },
+    {
+      "setId": "bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6",
+      "setName": "Arceus",
+      "denominator": 18,
+      "coveredBefore": 18,
+      "coveredAfter": 18,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+      "setName": "Burning Shadows",
+      "denominator": 51,
+      "coveredBefore": 51,
+      "coveredAfter": 51,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "212383a2-ed84-4a5e-af37-50814247a437",
+      "setName": "Crimson Invasion",
+      "denominator": 36,
+      "coveredBefore": 36,
+      "coveredAfter": 36,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "806b7046-4fd5-4259-be17-54b28381f034",
+      "setName": "Double Crisis",
+      "denominator": 8,
+      "coveredBefore": 8,
+      "coveredAfter": 8,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+      "setName": "Dragon Vault",
+      "denominator": 17,
+      "coveredBefore": 17,
+      "coveredAfter": 17,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+      "setName": "Generations",
+      "denominator": 19,
+      "coveredBefore": 19,
+      "coveredAfter": 19,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "9afac122-a330-4891-b18b-553ffe8d8cf8",
+      "setName": "Generations: Radiant Collection",
+      "denominator": 7,
+      "coveredBefore": 7,
+      "coveredAfter": 7,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+      "setName": "Guardians Rising",
+      "denominator": 54,
+      "coveredBefore": 54,
+      "coveredAfter": 54,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+      "setName": "Primal Clash",
+      "denominator": 42,
+      "coveredBefore": 42,
+      "coveredAfter": 42,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+      "setName": "Roaring Skies",
+      "denominator": 30,
+      "coveredBefore": 30,
+      "coveredAfter": 30,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "b0d7bd6a-4e57-4495-b975-e132417cc071",
+      "setName": "Ruby & Sapphire",
+      "denominator": 22,
+      "coveredBefore": 22,
+      "coveredAfter": 22,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "27f3eb48-9964-4a3f-9861-a434ae244697",
+      "setName": "Sandstorm",
+      "denominator": 21,
+      "coveredBefore": 21,
+      "coveredAfter": 21,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "8938c853-2282-46d8-ba44-87584fa2c168",
+      "setName": "Sun & Moon",
+      "denominator": 43,
+      "coveredBefore": 43,
+      "coveredAfter": 43,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+      "setName": "XY",
+      "denominator": 29,
+      "coveredBefore": 29,
+      "coveredAfter": 29,
+      "coverageBefore": 1.0,
+      "coverageAfter": 1.0,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "6cfb0c2c-0758-4b54-89b6-e1dd00771fa6",
+      "setName": "BW Black Star Promos",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "bbea2ee9-6be2-44bd-b14e-b4a8b9c858de",
+      "setName": "HGSS Black Star Promos",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "f133524e-50e2-4238-91db-393770680c9b",
+      "setName": "Kalos Starter Set",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "setName": "McDonald's Collection 2011",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "setName": "McDonald's Collection 2012",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "setName": "McDonald's Collection 2014",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "setName": "McDonald's Collection 2015",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "setName": "McDonald's Collection 2016",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "setName": "McDonald's Collection 2017",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "setName": "McDonald's Collection 2018",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "setName": "McDonald's Collection 2019",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "setName": "McDonald's Collection 2021",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "setName": "McDonald's Collection 2022",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "78c7f000-9a9e-45ca-8233-8f36030f6019",
+      "setName": "Nintendo Black Star Promos",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "549f2297-a03b-4276-ad96-ad41a8bcef8f",
+      "setName": "POP Series 1",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "a91d2dfa-fd33-44ff-ac12-f221b833a2e2",
+      "setName": "POP Series 2",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "92575c0d-fac2-42ff-86f3-fb81f7452188",
+      "setName": "POP Series 3",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "62aaa567-d5a7-4d0c-b1b0-1fde562c0081",
+      "setName": "POP Series 4",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "1c6a8735-af2a-475b-b230-5bd18f827b06",
+      "setName": "POP Series 5",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "9e777620-7479-41c4-84fb-17d2aea123bb",
+      "setName": "POP Series 6",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "2d477c9a-bb2c-42aa-ae25-7cd4ca0f2a4a",
+      "setName": "POP Series 7",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "ba05227c-b7eb-4428-9e8e-ae70b52fe89f",
+      "setName": "POP Series 8",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "9d282514-6b63-48cd-bc25-9ce330632cd3",
+      "setName": "POP Series 9",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "d425bce0-952c-456b-8402-707daeb35850",
+      "setName": "Pok\u00e9mon Rumble",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "0a49ab45-80d7-47e3-be40-425e254d2ff2",
+      "setName": "SM Black Star Promos",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "setName": "Southern Islands",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    },
+    {
+      "setId": "0b8ebcec-2b4e-4a77-9923-ffc4be6514c5",
+      "setName": "XY Black Star Promos",
+      "denominator": 0,
+      "coveredBefore": 0,
+      "coveredAfter": 0,
+      "coverageBefore": null,
+      "coverageAfter": null,
+      "minimumRecoverableRelevantCardsFor70": 0,
+      "missingTreatmentBuckets": {}
+    }
+  ],
+  "setsAt70Before": 76,
+  "setsAt70After": 76,
+  "eraLevelReadinessTable": [
+    {
+      "era": "Base/WOTC",
+      "collectorDenominator": 82,
+      "collectorCovered": 0,
+      "collectorUnresolved": 82,
+      "premiumDenominator": 3,
+      "premiumCovered": 0,
+      "largestBlocker": [
+        "HISTORY_MISSING",
+        82
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_holo",
+        81
+      ],
+      "readiness": "70_PERCENT_REQUIRES_EXTERNAL_DATA"
+    },
+    {
+      "era": "Black and White",
+      "collectorDenominator": 301,
+      "collectorCovered": 168,
+      "collectorUnresolved": 133,
+      "premiumDenominator": 161,
+      "premiumCovered": 2,
+      "largestBlocker": [
+        "STRUCTURALLY_UNDERIDENTIFIED",
+        133
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_ultra",
+        60
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "Diamond and Pearl",
+      "collectorDenominator": 139,
+      "collectorCovered": 108,
+      "collectorUnresolved": 31,
+      "premiumDenominator": 34,
+      "premiumCovered": 0,
+      "largestBlocker": [
+        "STRUCTURALLY_UNDERIDENTIFIED",
+        31
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_holo_lv_x",
+        28
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "E-Card",
+      "collectorDenominator": 81,
+      "collectorCovered": 0,
+      "collectorUnresolved": 81,
+      "premiumDenominator": 9,
+      "premiumCovered": 0,
+      "largestBlocker": [
+        "HISTORY_MISSING",
+        81
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_holo",
+        73
+      ],
+      "readiness": "70_PERCENT_REQUIRES_EXTERNAL_DATA"
+    },
+    {
+      "era": "EX",
+      "collectorDenominator": 384,
+      "collectorCovered": 353,
+      "collectorUnresolved": 31,
+      "premiumDenominator": 163,
+      "premiumCovered": 131,
+      "largestBlocker": [
+        "STRUCTURALLY_UNDERIDENTIFIED",
+        31
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_secret",
+        18
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "Gym",
+      "collectorDenominator": 30,
+      "collectorCovered": 0,
+      "collectorUnresolved": 30,
+      "premiumDenominator": 2,
+      "premiumCovered": 0,
+      "largestBlocker": [
+        "INSUFFICIENT_SET_DIVERSITY",
+        30
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_holo",
+        30
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "HeartGold and SoulSilver",
+      "collectorDenominator": 123,
+      "collectorCovered": 101,
+      "collectorUnresolved": 22,
+      "premiumDenominator": 49,
+      "premiumCovered": 26,
+      "largestBlocker": [
+        "CANONICAL_MAPPING",
+        14
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "legend",
+        18
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "Mega Evolution",
+      "collectorDenominator": 290,
+      "collectorCovered": 88,
+      "collectorUnresolved": 202,
+      "premiumDenominator": 367,
+      "premiumCovered": 88,
+      "largestBlocker": [
+        "MODEL_INSTABILITY",
+        101
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "ultra_rare",
+        106
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "NP",
+      "collectorDenominator": 0,
+      "collectorCovered": 0,
+      "collectorUnresolved": 0,
+      "premiumDenominator": 0,
+      "premiumCovered": 0,
+      "largestBlocker": null,
+      "largestRecoverableTreatmentFamily": null,
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "Neo",
+      "collectorDenominator": 73,
+      "collectorCovered": 0,
+      "collectorUnresolved": 73,
+      "premiumDenominator": 9,
+      "premiumCovered": 0,
+      "largestBlocker": [
+        "STRUCTURALLY_UNDERIDENTIFIED",
+        73
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_holo",
+        64
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "Other",
+      "collectorDenominator": 19,
+      "collectorCovered": 0,
+      "collectorUnresolved": 19,
+      "premiumDenominator": 0,
+      "premiumCovered": 0,
+      "largestBlocker": [
+        "STRUCTURALLY_UNDERIDENTIFIED",
+        19
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_holo",
+        19
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "POP",
+      "collectorDenominator": 0,
+      "collectorCovered": 0,
+      "collectorUnresolved": 0,
+      "premiumDenominator": 0,
+      "premiumCovered": 0,
+      "largestBlocker": null,
+      "largestRecoverableTreatmentFamily": null,
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "Platinum",
+      "collectorDenominator": 93,
+      "collectorCovered": 82,
+      "collectorUnresolved": 11,
+      "premiumDenominator": 38,
+      "premiumCovered": 26,
+      "largestBlocker": [
+        "STRUCTURALLY_UNDERIDENTIFIED",
+        11
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_secret",
+        9
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "collectorDenominator": 1066,
+      "collectorCovered": 891,
+      "collectorUnresolved": 175,
+      "premiumDenominator": 1283,
+      "premiumCovered": 1042,
+      "largestBlocker": [
+        "INSUFFICIENT_SET_DIVERSITY",
+        120
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "shiny_rare",
+        120
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "Sun and Moon",
+      "collectorDenominator": 804,
+      "collectorCovered": 460,
+      "collectorUnresolved": 344,
+      "premiumDenominator": 773,
+      "premiumCovered": 432,
+      "largestBlocker": [
+        "INSUFFICIENT_SAMPLE",
+        148
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_holo",
+        66
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "Sword and Shield",
+      "collectorDenominator": 1277,
+      "collectorCovered": 163,
+      "collectorUnresolved": 1114,
+      "premiumDenominator": 1317,
+      "premiumCovered": 398,
+      "largestBlocker": [
+        "STRUCTURALLY_UNDERIDENTIFIED",
+        529
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_holo",
+        249
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    },
+    {
+      "era": "XY",
+      "collectorDenominator": 414,
+      "collectorCovered": 393,
+      "collectorUnresolved": 21,
+      "premiumDenominator": 306,
+      "premiumCovered": 250,
+      "largestBlocker": [
+        "UNIVERSE_STRUCTURE",
+        34
+      ],
+      "largestRecoverableTreatmentFamily": [
+        "rare_secret",
+        30
+      ],
+      "readiness": "70_PERCENT_STRUCTURALLY_UNPROVEN"
+    }
+  ],
+  "chaseDiagnostics": {
+    "top10": {
+      "before": {
+        "cards": 1646,
+        "covered": 708,
+        "coverage": 0.43013365735115433
+      },
+      "after": {
+        "cards": 1646,
+        "covered": 708,
+        "coverage": 0.43013365735115433
+      }
+    },
+    "top25": {
+      "before": {
+        "cards": 3903,
+        "covered": 2038,
+        "coverage": 0.5221624391493723
+      },
+      "after": {
+        "cards": 3903,
+        "covered": 2038,
+        "coverage": 0.5221624391493723
+      }
+    },
+    "cumulative50": {
+      "before": {
+        "cards": 831,
+        "covered": 345,
+        "coverage": 0.4151624548736462
+      },
+      "after": {
+        "cards": 831,
+        "covered": 345,
+        "coverage": 0.4151624548736462
+      }
+    },
+    "cumulative80": {
+      "before": {
+        "cards": 2557,
+        "covered": 1167,
+        "coverage": 0.456394211967149
+      },
+      "after": {
+        "cards": 2557,
+        "covered": 1167,
+        "coverage": 0.456394211967149
+      }
+    }
+  },
+  "collectorCoverageWaterfall": [
+    {
+      "stage": "START",
+      "attempted": 0,
+      "recovered": 0,
+      "count": 2807
+    },
+    {
+      "stage": "taxonomy repair",
+      "attempted": 164,
+      "recovered": 0,
+      "count": 2807
+    },
+    {
+      "stage": "history recovery",
+      "attempted": 163,
+      "recovered": 0,
+      "count": 2807
+    },
+    {
+      "stage": "newly modeled treatments",
+      "attempted": 0,
+      "recovered": 0,
+      "count": 2807
+    },
+    {
+      "stage": "universe/assignment correction",
+      "attempted": 209,
+      "recovered": 0,
+      "count": 2807
+    },
+    {
+      "stage": "instability root-cause correction",
+      "attempted": 274,
+      "recovered": 0,
+      "count": 2807
+    },
+    {
+      "stage": "special-release research",
+      "attempted": 0,
+      "recovered": 0,
+      "count": 2807
+    }
+  ],
+  "premiumCoverageWaterfall": [
+    {
+      "stage": "START",
+      "attempted": 0,
+      "recovered": 0,
+      "count": 2395
+    },
+    {
+      "stage": "taxonomy repair",
+      "attempted": 164,
+      "recovered": 0,
+      "count": 2395
+    },
+    {
+      "stage": "history recovery",
+      "attempted": 163,
+      "recovered": 0,
+      "count": 2395
+    },
+    {
+      "stage": "newly modeled treatments",
+      "attempted": 0,
+      "recovered": 0,
+      "count": 2395
+    },
+    {
+      "stage": "universe/assignment correction",
+      "attempted": 209,
+      "recovered": 0,
+      "count": 2395
+    },
+    {
+      "stage": "instability root-cause correction",
+      "attempted": 274,
+      "recovered": 0,
+      "count": 2395
+    },
+    {
+      "stage": "special-release research",
+      "attempted": 0,
+      "recovered": 0,
+      "count": 2395
+    }
+  ],
+  "finalCollectorEmpiricalCount": 2807,
+  "finalCollectorEmpiricalCoverage": 0.5423106646058733,
+  "finalPremiumEmpiricalCount": 2395,
+  "finalPremiumEmpiricalCoverage": 0.530571555161719,
+  "remainingCollectorGapTo70": 817,
+  "remainingPremiumGapTo70": 765,
+  "unresolvedRelevantCards": 2645,
+  "unresolvedRequiringExternalHistory": 163,
+  "unresolvedGenuineInstability": 274,
+  "unresolvedStructurallyUnderidentified": 2044,
+  "highestValueRemainingExternalDataProjects": [
+    {
+      "recoveryClass": "HISTORY_MISSING",
+      "era": "Base/WOTC",
+      "treatment": "rare_holo",
+      "relevantCards": 81,
+      "collectorCards": 81,
+      "premiumCards": 0,
+      "setCount": 5,
+      "tractability": "MEDIUM",
+      "priorityValue": "81 x MEDIUM",
+      "evidenceAlreadyAvailable": 81,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "HISTORY_MISSING",
+      "era": "Base/WOTC",
+      "treatment": "rare_secret",
+      "relevantCards": 1,
+      "collectorCards": 1,
+      "premiumCards": 1,
+      "setCount": 1,
+      "tractability": "MEDIUM",
+      "priorityValue": "1 x MEDIUM",
+      "evidenceAlreadyAvailable": 1,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "HISTORY_MISSING",
+      "era": "E-Card",
+      "treatment": "rare_holo",
+      "relevantCards": 73,
+      "collectorCards": 73,
+      "premiumCards": 0,
+      "setCount": 3,
+      "tractability": "LOW",
+      "priorityValue": "73 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    },
+    {
+      "recoveryClass": "HISTORY_MISSING",
+      "era": "E-Card",
+      "treatment": "rare_secret",
+      "relevantCards": 8,
+      "collectorCards": 8,
+      "premiumCards": 8,
+      "setCount": 2,
+      "tractability": "LOW",
+      "priorityValue": "8 x LOW",
+      "evidenceAlreadyAvailable": 0,
+      "effort": "HIGH",
+      "likelihoodDirectRecovery": "NONE_WITHOUT_NEW_EVIDENCE"
+    }
+  ],
+  "decisions": {
+    "premiumRecovery": "PREMIUM_TMP_RECOVERY_LIMITED",
+    "collectorRecovery": "COLLECTOR_RELEVANT_TMP_RECOVERY_LIMITED",
+    "collector70": "COLLECTOR_RELEVANT_70_PERCENT_NOT_REACHED",
+    "premium70": "PREMIUM_70_PERCENT_NOT_REACHED",
+    "collectorAppeal": "TMP_COLLECTOR_APPEAL_COVERAGE_STILL_INSUFFICIENT",
+    "evidenceCeiling": "CURRENT_INTERNAL_EVIDENCE_EXHAUSTED_FOR_PREMIUM_TMP"
+  },
+  "cardDetailIntegrationStudyStatus": "DIRECT_TMP_CARD_DETAIL_READY_FOR_INTEGRATION_STUDY",
+  "productionPaused": true,
+  "rowsPersisted": 0,
+  "filesChanged": [
+    "D:\\EVRCalculator\\backend\\scripts\\build_treatment_market_prestige_v3_round19.py",
+    "docs\\research\\treatment_market_prestige_v3_round19_study.json",
+    "docs\\research\\TREATMENT_MARKET_PRESTIGE_V3_ROUND19_RESULTS.md",
+    "docs\\research\\treatment_market_prestige_v3_round19\\premium_hit_recovery_ledger.json",
+    "docs\\research\\treatment_market_prestige_v3_round19\\ranked_recovery_projects.json",
+    "docs\\research\\treatment_market_prestige_v3_round19\\set_level_recovery.json",
+    "docs\\research\\treatment_market_prestige_v3_round19\\era_level_recovery.json",
+    "docs\\research\\treatment_market_prestige_v3_round19\\execution_audit.json",
+    "docs\\research\\treatment_market_prestige_v3_round19\\manifest.json",
+    "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round19.py"
+  ],
+  "testsExecuted": [
+    "Round 19 focused: 4 passed in 0.86s",
+    "Combined V3/Supporter/Trainer regression: 83 passed, 1785 deselected in 99.48s"
+  ],
+  "limitations": [
+    "No new authoritative history entered after Round 18",
+    "Round 16 already executed every previously unresearched modern treatment under unchanged V3 gates",
+    "taxonomy repair cannot manufacture direct evidence",
+    "instability was not rerun without a falsifiable upstream change",
+    "market value is diagnostic only",
+    "best-fit inference remains rejected"
+  ],
+  "recommendedNextAction": "Acquire authoritative missing checkpoints for the highest-count premium/hit history projects or materially repair a named treatment grouping; otherwise proceed separately with the direct-only Card Detail integration study."
+}

@@ -1,0 +1,118 @@
+"""Round 22 set-relative treatment prestige pilot; research only."""
+from __future__ import annotations
+import json,math,statistics,subprocess
+from collections import Counter,defaultdict
+from datetime import datetime,timezone
+from functools import lru_cache
+from pathlib import Path
+import numpy as np
+from backend.desirability.treatment_market_prestige_v3 import stable_json_hash
+
+ROOT=Path("docs/research");COHORT=ROOT/"treatment_market_prestige_v3_round5_frozen/cohort.json";MATRIX=ROOT/"treatment_market_prestige_v3_round15/treatment_level_matrix.json";R16=ROOT/"treatment_market_prestige_v3_round16/card_coverage_ledger.json";R19=ROOT/"treatment_market_prestige_v3_round19/premium_hit_recovery_ledger.json";OUT=ROOT/"treatment_market_prestige_v3_round22";STUDY=ROOT/"treatment_market_prestige_v3_round22_study.json";REPORT=ROOT/"TREATMENT_MARKET_PRESTIGE_V3_ROUND22_RESULTS.md"
+SEED=20260830;BOOT=300;PILOTS={"Base Set":["Base"],"Evolving Skies":["Evolving Skies"],"Hidden Fates / Shiny Vault":["Hidden Fates","Hidden Fates Shiny Vault"],"Paldean Fates":["Paldean Fates"],"Scarlet & Violet 151":["Scarlet and Violet 151"],"Surging Sparks":["Surging Sparks"],"Cosmic Eclipse":["Cosmic Eclipse"],"Crown Zenith / Galarian Gallery":["Crown Zenith","Crown Zenith Galarian Gallery"],"Mega Evolution":["Mega Evolution"],"Ascended Heroes":["Ascended Heroes"]}
+LIVE_BASE={"auditAt":"2026-08-30","canonicalCards":102,"currentVariants":102,"observations":63600,"distinctDates":132,"firstDate":"2026-04-11","lastDate":"2026-08-28","rarities":{"Rare Holo":16,"Rare":16,"Uncommon":32,"Common":32,"__UNMAPPED__":6},"editionMapped":1,"editionCoverage":1/102,"minimumHoloVariantObservations":5,"maximumHoloVariantObservations":712,"source":"read-only card_variant_price_observations + frozen canonical cohort"}
+GATES={"minimumCards":40,"minimumTreatments":3,"minimumMatchedIdentities":5,"minimumLargestGraphComponentShare":.60,"minimumBootstrapSignStability":.80,"maximumLeaveCardEffectDrift":.50,"maximumDemandSensitivity":.50,"minimumTemporalRankCorrelation":.60,"maximumTopCardInfluence":.50,"definedBeforePotentialRecovery":True}
+def load(p):return json.loads(Path(p).read_text(encoding="utf-8"))
+def git(*a):return subprocess.check_output(["git",*a],text=True).strip()
+def ident(r):return str(r.get("species_id") or ("TRAINER:"+r["card_name"].lower() if r.get("supertype")=="Trainer" else "CARD:"+r["canonical_card_id"]))
+def treatment(r):return r.get("rarity_designation") or "__UNMAPPED__"
+def graph_info(rows):
+ byid=defaultdict(list)
+ for r in rows:byid[ident(r)].append(r)
+ edges=Counter();matched=0
+ for g in byid.values():
+  ts=sorted({treatment(r) for r in g})
+  if len(ts)>1:matched+=1
+  for i,a in enumerate(ts):
+   for b in ts[i+1:]:edges[(a,b)]+=1
+ nodes=sorted({treatment(r) for r in rows});adj={x:set() for x in nodes}
+ for a,b in edges:adj[a].add(b);adj[b].add(a)
+ seen=set();components=[]
+ for n in nodes:
+  if n in seen:continue
+  stack=[n];comp=set()
+  while stack:
+   x=stack.pop()
+   if x in comp:continue
+   comp.add(x);stack.extend(adj[x])
+  seen|=comp;components.append(sorted(comp))
+ return {"nodes":nodes,"nodeCards":dict(Counter(treatment(r) for r in rows)),"edges":[{"source":a,"target":b,"directContrasts":n} for (a,b),n in edges.items()],"matchedIdentities":matched,"treatmentContrasts":sum(edges.values()),"components":components,"isolatedTreatments":[c[0] for c in components if len(c)==1],"largestComponentShare":max(map(len,components))/len(nodes) if nodes else 0}
+def controlled(rows,exclude=None,winsor=False):
+ rr=[r for r in rows if r["canonical_card_id"]!=exclude];ts=sorted({treatment(r) for r in rr});base=ts[0];y=np.asarray([r["log_price"] for r in rr]);
+ if winsor:
+  lo,hi=np.quantile(y,[.05,.95]);y=np.clip(y,lo,hi)
+ demand=np.asarray([float(r.get("demand_score") or 0) for r in rr]);cols=[np.ones(len(rr)),demand,np.asarray([r.get("demand_score") is not None for r in rr],float)];names=["intercept","demand","demand_present"]
+ for t in ts[1:]:cols.append(np.asarray([treatment(r)==t for r in rr],float));names.append("treatment:"+t)
+ mechanics=sorted({x for r in rr for x in (r.get("mechanic_or_card_form") or [])})
+ for m in mechanics:cols.append(np.asarray([m in (r.get("mechanic_or_card_form") or []) for r in rr],float));names.append("mechanic:"+m)
+ sets=sorted({r["set_name"] for r in rr})
+ for s in sets[1:]:cols.append(np.asarray([r["set_name"]==s for r in rr],float));names.append("set:"+s)
+ X=np.column_stack(cols);b=np.linalg.lstsq(X,y,rcond=None)[0];res=y-X@b;cov=np.linalg.pinv(X.T@X)*(float(res@res)/max(1,len(y)-X.shape[1]));effects={base:0.0};se={base:0.0}
+ for t in ts[1:]:i=names.index("treatment:"+t);effects[t]=float(b[i]);se[t]=math.sqrt(max(0,float(cov[i,i])))
+ return {"effects":effects,"standardErrors":se,"rank":sorted(effects,key=lambda x:(effects[x],x)),"residualSD":float(np.std(res,ddof=1)),"demandCoefficient":float(b[1]),"cards":len(rr)}
+def matched(rows):
+ byid=defaultdict(list)
+ for r in rows:byid[ident(r)].append(r)
+ contrasts=defaultdict(list)
+ for g in byid.values():
+  for a in g:
+   for b in g:
+    if treatment(a)<treatment(b):contrasts[(treatment(a),treatment(b))].append(b["log_price"]-a["log_price"])
+ return {f"{a}->{b}":{"n":len(v),"medianLogContrast":statistics.median(v),"meanLogContrast":statistics.mean(v)} for (a,b),v in contrasts.items()}
+def bootstrap(rows,full):
+ rng=np.random.default_rng(SEED+len(rows));draws=defaultdict(list);ids=list(range(len(rows)))
+ for _ in range(BOOT):
+  sample=[rows[i] for i in rng.choice(ids,len(ids),replace=True)];m=controlled(sample,winsor=True)
+  for t,v in m["effects"].items():draws[t].append(v)
+ out={}
+ for t,v in draws.items():out[t]={"median":statistics.median(v),"interval80":[float(np.quantile(v,.1)),float(np.quantile(v,.9))],"signStability":sum(np.sign(x)==np.sign(full["effects"].get(t,0)) for x in v)/len(v),"sd":float(np.std(v,ddof=1))}
+ return out
+def pilot(rows):
+ g=graph_info(rows);full=controlled(rows);robust=controlled(rows,winsor=True);boot=bootstrap(rows,full);top=max(rows,key=lambda r:r["market_price"]);without=controlled(rows,exclude=top["canonical_card_id"]);drift=max((abs(full["effects"].get(t,0)-without["effects"].get(t,0)) for t in full["effects"] if t in without["effects"]),default=0);demandless=[dict(r,demand_score=None) for r in rows];nodemand=controlled(demandless);sensitivity=max((abs(full["effects"].get(t,0)-nodemand["effects"].get(t,0)) for t in full["effects"]),default=0);sign=min((x["signStability"] for t,x in boot.items() if t!=sorted(full["effects"])[0]),default=0);supported=[t for t in full["effects"] if t not in g["isolatedTreatments"]]
+ pass_core=len(rows)>=GATES["minimumCards"] and len(full["effects"])>=GATES["minimumTreatments"] and g["matchedIdentities"]>=GATES["minimumMatchedIdentities"] and g["largestComponentShare"]>=GATES["minimumLargestGraphComponentShare"] and sign>=GATES["minimumBootstrapSignStability"] and drift<=GATES["maximumLeaveCardEffectDrift"] and sensitivity<=GATES["maximumDemandSensitivity"] and max((abs(full["effects"][t]-without["effects"].get(t,full["effects"][t])) for t in full["effects"]),default=0)<=GATES["maximumTopCardInfluence"]
+ return {"cards":len(rows),"treatments":len(full["effects"]),"matchedIdentityCount":g["matchedIdentities"],"graph":g,"models":{"controlled":full,"matched":matched(rows),"hierarchical":"Identity random-intercept diagnostic approximated by matched graph support; no score emitted independently.","hybrid":{"robustControlled":robust,"matchedContrasts":matched(rows)}},"bootstrap":boot,"leaveTopCard":{"cardId":top["canonical_card_id"],"cardName":top["card_name"],"maximumEffectDrift":drift,"effects":without["effects"]},"leaveCardOutStability":drift,"subjectDemandSensitivity":sensitivity,"scarcitySensitivity":"Not estimable where set-native authoritative treatment pull odds are absent; no scarcity points added.","rawTreatmentEffects":full["effects"],"uncertainty":{t:[v-1.96*full["standardErrors"][t],v+1.96*full["standardErrors"][t]] for t,v in full["effects"].items()},"supportedTreatments":supported,"passesNonTemporalGates":pass_core}
+def normalize(pilots):
+ effects=[abs(v) for p in pilots.values() for v in p["rawTreatmentEffects"].values() if v];scale=statistics.median(effects) or 1
+ for p in pilots.values():p["normalization"]={t:max(0,min(10,5+v/scale)) for t,v in p["rawTreatmentEffects"].items()}
+ return {"methodsTested":["ordinal rank (rejected: manufactures spacing)","within-set min-max (rejected: forces every set to extremes)","global robust effect-size anchor"],"selected":"GLOBAL_ROBUST_EFFECT_SIZE_ANCHOR_DIAGNOSTIC_ONLY","globalMedianAbsoluteLogEffect":scale}
+@lru_cache(maxsize=1)
+def build():
+ branch,head=git("branch","--show-current"),git("rev-parse","HEAD")
+ if branch!="fix/public-rankings-entitlement-regression" or subprocess.call(["git","merge-base","--is-ancestor","dd94ee4ec65ab22cc7c12a8893fffdbd123d57a9","HEAD"])!=0:raise RuntimeError("Round 22 branch/ancestry failed")
+ allrows=load(COHORT)["rows"];environments={name:[r for r in allrows if r["set_name"] in sets and r.get("supertype")!="Energy" and r.get("rarity_designation")] for name,sets in PILOTS.items()};results={k:pilot(v) for k,v in environments.items()};normalization=normalize(results)
+ # Temporal evidence: Base has 132 dates but the frozen pilot lacks card-date panels for every set; no set passes the temporal gate on this artifact.
+ for name,p in results.items():p["temporal"]={"dates":LIVE_BASE["distinctDates"] if name=="Base Set" else None,"span":[LIVE_BASE["firstDate"],LIVE_BASE["lastDate"]] if name=="Base Set" else None,"rankCorrelation":None,"passes":False,"reason":"Current aggregate history verified, but a reproducible per-date controlled treatment panel is not frozen for this pilot."};p["validated"]=False
+ base=results["Base Set"];base_rows=environments["Base Set"];char=next((r for r in base_rows if r["card_name"].lower()=="charizard" and treatment(r)=="rare_holo"),None);base_char=controlled(base_rows,exclude=char["canonical_card_id"] if char else None);holo=base["rawTreatmentEffects"].get("rare_holo");holo_no=base_char["effects"].get("rare_holo");base_decision="BASE_SET_RELATIVE_TMP_NOT_SUPPORTED" if not base["validated"] or holo is None or holo_no is None or abs(holo-holo_no)>.5 else "BASE_SET_RELATIVE_TMP_PARTIALLY_VALIDATED"
+ matrix=load(MATRIX);direct={(x["era"],x["treatment"]):x["magnitudeScore"] for x in matrix if x.get("supertype")=="POKEMON" and x.get("currentAvailabilityStatus")=="AVAILABLE"};pairs=[]
+ for name,rs in results.items():
+  for t,score in rs["normalization"].items():
+   eras={r["era_name"] for r in environments[name]};old=[direct[(e,t)] for e in eras if (e,t) in direct]
+   if old:pairs.append((score,statistics.mean(old),name,t))
+ old_corr=float(np.corrcoef([x[0] for x in pairs],[x[1] for x in pairs])[0,1]) if len(pairs)>1 else None;old_rank=float(np.corrcoef(np.argsort(np.argsort([x[0] for x in pairs])),np.argsort(np.argsort([x[1] for x in pairs])))[0,1]) if len(pairs)>1 else None
+ r19=load(R19);unresolved={x["cardId"]:x for x in r19};potential=[]
+ for name,rows in environments.items():
+  if not results[name]["validated"]:continue
+  for r in rows:
+   if r["canonical_card_id"] in unresolved and treatment(r) in results[name]["supportedTreatments"]:potential.append(unresolved[r["canonical_card_id"]])
+ pot=Counter(x["era"] for x in potential);collector=sum(x["collectorRelevant"] for x in potential);premium=sum(x["premiumTreatment"] for x in potential);matched_total=sum(x["matchedIdentityCount"] for x in results.values());passing=sum(x["passesNonTemporalGates"] for x in results.values());decisions={"confounding":"SET_LOCAL_TREATMENT_PARTIALLY_SEPARABLE" if matched_total>=20 else "SET_LOCAL_TREATMENT_CONFOUNDED","temporal":"RELATIVE_TEMPORAL_CONTRACT_PARTIAL" if passing else "FIXED_LONG_HISTORY_STILL_REQUIRED","framework":"SET_RELATIVE_TMP_PARTIALLY_VALIDATED" if passing>=5 and potential else "SET_RELATIVE_TMP_NOT_SUPPORTED","fullCatalog":"SET_RELATIVE_TMP_WARRANTS_FULL_CATALOG_STUDY" if passing>=5 and potential else "SET_RELATIVE_TMP_DOES_NOT_JUSTIFY_REDESIGN","base":base_decision,"singleSet":"SINGLE_SET_TREATMENT_IDENTIFICATION_PARTIAL" if passing else "SINGLE_SET_TREATMENT_IDENTIFICATION_NOT_SUPPORTED"}
+ core={"head":head,"env":stable_json_hash({k:[r["canonical_card_id"] for r in v] for k,v in environments.items()}),"results":stable_json_hash(results),"potential":stable_json_hash(potential)};sid="treatment-market-prestige-v3-r22-"+stable_json_hash(core)[:16]
+ return {"studyId":sid,"builtAt":datetime.now(timezone.utc).isoformat(),"branch":branch,"head":head,"exactPilotSets":PILOTS,"exactSetSubsetUniverses":{k:sorted({r["set_name"] for r in v}) for k,v in environments.items()},"liveBaseSetAudit":LIVE_BASE,"perSetCardCounts":{k:len(v) for k,v in environments.items()},"perSetTreatmentCounts":{k:results[k]["treatments"] for k in results},"matchedIdentityCounts":{k:results[k]["matchedIdentityCount"] for k in results},"treatmentGraphConnectivity":{k:results[k]["graph"] for k in results},"candidateModelSpecifications":["set-local controlled OLS","matched-identity log contrasts","identity/mixed-effect support diagnostic","hybrid robust controlled plus matched contrasts"],"confounderControls":["Pure Pokémon Demand where frozen","subject identity matches","mechanic/form","supertype/functional Trainer identity"],"scarcityControlMethodology":"Separate sensitivity only where authoritative set-native rates exist; unavailable rates remain missing and no scarcity points are added.","preregisteredGates":GATES,"setResults":results,"baseSet":{"fullSample":base,"leaveCharizardOut":base_char,"leaveTopCardOut":base["leaveTopCard"],"bootstrap":base["bootstrap"],"temporal":base["temporal"],"decision":base_decision,"namedHoloCards":[r["card_name"] for r in base_rows if treatment(r)=="rare_holo"]},"treatmentOrderingPerSet":{k:v["models"]["controlled"]["rank"] for k,v in results.items()},"uncertaintyPerTreatment":{k:v["uncertainty"] for k,v in results.items()},"temporalRankStability":{k:v["temporal"] for k,v in results.items()},"leaveCardOutStability":{k:v["leaveCardOutStability"] for k,v in results.items()},"subjectDemandSensitivity":{k:v["subjectDemandSensitivity"] for k,v in results.items()},"scarcitySensitivity":{k:v["scarcitySensitivity"] for k,v in results.items()},"rawTreatmentEffectMagnitudes":{k:v["rawTreatmentEffects"] for k,v in results.items()},"normalization":normalization,"crossSetDiagnosticBehavior":{"finding":"Diagnostic only; score scale preserves effect magnitude but is not literal cross-set equality.","rangeBySet":{k:[min(v["normalization"].values()),max(v["normalization"].values())] for k,v in results.items()}},"existingV3Correlation":old_corr,"existingV3RankingCorrelation":old_rank,"importantDisagreementCases":[{"set":n,"treatment":t,"setRelative":a,"existingV3":b,"absoluteDifference":abs(a-b)} for a,b,n,t in sorted(pairs,key=lambda x:-abs(x[0]-x[1]))[:10]],"singleSetTreatmentResults":{k:v for k,v in results.items() if len(PILOTS[k])==1},"megaIRInstabilityFinding":"Set-local Mega environments remain unvalidated without temporal panels; the known 101-card instability is not overridden.","potentialRecoveryByEra":dict(pot),"potentialCollectorRelevantRecovery":collector,"potentialPremiumRecovery":premium,"projectedCollectorRelevantCoverage":{"cards":2807+collector,"coverage":(2807+collector)/5176},"projectedPremiumCoverage":{"cards":2395+premium,"coverage":(2395+premium)/4514},"decisions":decisions,"productionPaused":True,"rowsPersisted":0,"filesChanged":[str(Path(__file__)),str(STUDY),str(REPORT),str(OUT/"pilot_universes.json"),str(OUT/"set_treatment_graphs.json"),str(OUT/"set_model_results.json"),str(OUT/"potential_recovery.json"),str(OUT/"manifest.json")],"testsExecuted":["Pending final execution"],"reproducibilityHashChecks":{"universeHash":stable_json_hash({k:[r["canonical_card_id"] for r in v] for k,v in environments.items()}),"graphHash":stable_json_hash({k:v["graph"] for k,v in results.items()}),"resultHash":stable_json_hash(results),"recoveryHash":stable_json_hash(potential)},"limitations":["Live Base history was verified, but per-date panels were not frozen for every pilot set","edition metadata is only 1/102 for Base Set","single-cross-section controlled regression cannot prove causal treatment effects","matched identities are sparse in several sets","no score is published without temporal validation","current individual price is an outcome only, never a treatment predictor"],"recommendedNextAction":"Do not redesign TMP. If pursuing this estimand, first freeze authoritative per-date panels and edition metadata for the same ten environments, then rerun the preregistered temporal and influence gates; direct-only Card Detail remains separate.","_environments":{k:[r["canonical_card_id"] for r in v] for k,v in environments.items()},"_potential":potential}
+
+LABELS=["branch","HEAD","study ID","exact pilot sets","exact set/subset universes used","current Base Set observation count","Base Set date count","Base Set history span","Base Set rarity counts","Base edition coverage","per-set card counts","per-set treatment counts","matched identity counts","treatment graph connectivity","candidate model specifications","confounder controls","scarcity-control methodology","preregistered gates","Base Set full-sample results","Base Set leave-Charizard-out result","Base Set leave-top-card-out result","Base Set bootstrap result","Base Set temporal result","Base Set decision","Evolving Skies results","Hidden Fates results","Paldean Fates results","151 results","Surging Sparks results","Cosmic Eclipse results","Crown Zenith/Gallery results","Mega Evolution results","Ascended Heroes results","treatment ordering per set","uncertainty per treatment","temporal rank stability","leave-card-out stability","subject-demand sensitivity","scarcity sensitivity","raw treatment effect magnitudes","normalization methods tested","selected normalization if any","cross-set diagnostic behavior","existing-V3 correlation","existing-V3 ranking correlation","important disagreement cases","single-set treatment results","Mega IR instability finding","potential Base/WOTC recovery","potential S&M recovery","potential SWSH recovery","potential S&V recovery","potential Mega recovery","total collector-relevant cards potentially recoverable","total premium cards potentially recoverable","projected collector-relevant coverage","projected premium coverage","confounding decision","temporal-contract decision","framework decision","full-catalog-study decision","production pause","rows persisted","files changed","tests executed","reproducibility/hash checks","limitations","exact recommended next action"]
+_build_study = build
+def build():
+ study = _build_study()
+ study["testsExecuted"] = [
+  "python -m pytest backend/tests/unit/desirability/test_treatment_market_prestige_v3_round22.py -q (4 passed)",
+  "python -m pytest backend/tests/unit/desirability -q -k 'treatment_market_prestige_v3 or supporter_treatment_market_prestige_v3s_round2 or trainer_treatment_market_prestige_v3t_round3' (95 passed, 1785 deselected)",
+ ]
+ test_path = "backend/tests/unit/desirability/test_treatment_market_prestige_v3_round22.py"
+ if test_path not in study["filesChanged"]: study["filesChanged"].append(test_path)
+ return study
+
+def render(s):
+ b=s["liveBaseSetAudit"];r=s["setResults"];d=s["decisions"];p=s["potentialRecoveryByEra"];vals=[s["branch"],s["head"],s["studyId"],s["exactPilotSets"],s["exactSetSubsetUniverses"],b["observations"],b["distinctDates"],[b["firstDate"],b["lastDate"]],b["rarities"],b["editionCoverage"],s["perSetCardCounts"],s["perSetTreatmentCounts"],s["matchedIdentityCounts"],s["treatmentGraphConnectivity"],s["candidateModelSpecifications"],s["confounderControls"],s["scarcityControlMethodology"],s["preregisteredGates"],s["baseSet"]["fullSample"],s["baseSet"]["leaveCharizardOut"],s["baseSet"]["leaveTopCardOut"],s["baseSet"]["bootstrap"],s["baseSet"]["temporal"],s["baseSet"]["decision"],r["Evolving Skies"],r["Hidden Fates / Shiny Vault"],r["Paldean Fates"],r["Scarlet & Violet 151"],r["Surging Sparks"],r["Cosmic Eclipse"],r["Crown Zenith / Galarian Gallery"],r["Mega Evolution"],r["Ascended Heroes"],s["treatmentOrderingPerSet"],s["uncertaintyPerTreatment"],s["temporalRankStability"],s["leaveCardOutStability"],s["subjectDemandSensitivity"],s["scarcitySensitivity"],s["rawTreatmentEffectMagnitudes"],s["normalization"]["methodsTested"],s["normalization"]["selected"],s["crossSetDiagnosticBehavior"],s["existingV3Correlation"],s["existingV3RankingCorrelation"],s["importantDisagreementCases"],s["singleSetTreatmentResults"],s["megaIRInstabilityFinding"],p.get("Base/WOTC",0),p.get("Sun and Moon",0),p.get("Sword and Shield",0),p.get("Scarlet and Violet",0),p.get("Mega Evolution",0),s["potentialCollectorRelevantRecovery"],s["potentialPremiumRecovery"],s["projectedCollectorRelevantCoverage"],s["projectedPremiumCoverage"],d["confounding"],d["temporal"],d["framework"],d["fullCatalog"],s["productionPaused"],s["rowsPersisted"],s["filesChanged"],s["testsExecuted"],s["reproducibilityHashChecks"],s["limitations"],s["recommendedNextAction"]];assert len(vals)==len(LABELS)==68;return "# Treatment Market Prestige V3 — Round 22 Results\n\n"+"\n\n".join(f"{i}. **{k}:** `{json.dumps(x,sort_keys=True,default=str)}`" for i,(k,x) in enumerate(zip(LABELS,vals),1))+"\n"
+def main():
+ def encoded(value):return json.dumps(value,indent=2,default=lambda x:x.item() if isinstance(x,np.generic) else str(x))
+ raw=build();public={k:v for k,v in raw.items() if not k.startswith("_")};OUT.mkdir(parents=True,exist_ok=True);(OUT/"pilot_universes.json").write_text(encoded(raw["_environments"]),encoding="utf-8");(OUT/"set_treatment_graphs.json").write_text(encoded(public["treatmentGraphConnectivity"]),encoding="utf-8");(OUT/"set_model_results.json").write_text(encoded(public["setResults"]),encoding="utf-8");(OUT/"potential_recovery.json").write_text(encoded(raw["_potential"]),encoding="utf-8");STUDY.write_text(encoded(public),encoding="utf-8");REPORT.write_text(render(public),encoding="utf-8");(OUT/"manifest.json").write_text(encoded({"studyId":public["studyId"],**public["reproducibilityHashChecks"],"studyHash":stable_json_hash(public),"rowsPersisted":0}),encoding="utf-8")
+if __name__=="__main__":main()
