@@ -1,0 +1,615 @@
+{
+ "stage": "stage10-chase-separability-v1",
+ "universe": "A - pokemon_canonical_card_market_prices_latest (canonical card)",
+ "universeNote": "Universe B (drawable card_variant) exists only for the 22 simulated modern sets and is 1.5-2.5x larger; it shifts 1/HHI by 1.4-53% but preserves rank order and shape class. Vintage sets have no Universe B.",
+ "productInvariance": "no sealed-product price of any kind is read",
+ "gates": {
+  "minDeltaBic": 10.0,
+  "minAshmanD": 2.0,
+  "minPosterior": 0.8,
+  "minComponentFraction": 0.02,
+  "minComponentCount": 3
+ },
+ "sets": [
+  {
+   "set": "Base",
+   "era": "vintage",
+   "setId": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+   "n": 102,
+   "state": "UPPER_TAIL_PRESENT_BUT_CONTINUOUS",
+   "selectedK": 1,
+   "bic": {
+    "1": 396.53,
+    "2": 386.32,
+    "3": 391.4
+   },
+   "silvermanP": 0.4267,
+   "gates": {
+    "deltaBic_1_2": 10.2139,
+    "ashmanD_2": 1.9364,
+    "upperCount": 29,
+    "upperFraction": 0.2843,
+    "upperPosterior": 0.888
+   },
+   "roster": null,
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-10%": {
+     "stateStable": 0.9,
+     "coreJaccard": 0.9
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.5
+  },
+  {
+   "set": "Jungle",
+   "era": "vintage",
+   "setId": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+   "n": 64,
+   "state": "DISTRIBUTED_VALUE",
+   "selectedK": 1,
+   "bic": {
+    "1": 267.42,
+    "2": 265.01,
+    "3": 273.94
+   },
+   "silvermanP": 0.2133,
+   "gates": {
+    "deltaBic_1_2": 2.4071,
+    "ashmanD_2": 3.3849,
+    "upperCount": 44,
+    "upperFraction": 0.6875,
+    "upperPosterior": 0.9759
+   },
+   "roster": null,
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-10%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.675
+  },
+  {
+   "set": "Fossil",
+   "era": "vintage",
+   "setId": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+   "n": 62,
+   "state": "UPPER_TAIL_PRESENT_BUT_CONTINUOUS",
+   "selectedK": 1,
+   "bic": {
+    "1": 262.38,
+    "2": 268.82,
+    "3": 280.4
+   },
+   "silvermanP": 0.7,
+   "gates": {
+    "deltaBic_1_2": -6.4403,
+    "ashmanD_2": 2.5601,
+    "upperCount": 43,
+    "upperFraction": 0.6935,
+    "upperPosterior": 0.965
+   },
+   "roster": null,
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-10%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 1.0
+  },
+  {
+   "set": "Neo Destiny",
+   "era": "vintage",
+   "setId": "42a3740d-4778-4857-9c28-e116f34b51f3",
+   "n": 113,
+   "state": "UPPER_TAIL_PRESENT_BUT_CONTINUOUS",
+   "selectedK": 1,
+   "bic": {
+    "1": 483.66,
+    "2": 488.18,
+    "3": 495.6
+   },
+   "silvermanP": 0.3733,
+   "gates": {
+    "deltaBic_1_2": -4.517,
+    "ashmanD_2": 1.7823,
+    "upperCount": 37,
+    "upperFraction": 0.3274,
+    "upperPosterior": 0.8671
+   },
+   "roster": null,
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-10%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.95
+  },
+  {
+   "set": "Champion's Path",
+   "era": "swsh",
+   "setId": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+   "n": 81,
+   "state": "UPPER_TAIL_PRESENT_BUT_CONTINUOUS",
+   "selectedK": 1,
+   "bic": {
+    "1": 316.0,
+    "2": 232.86,
+    "3": 245.87
+   },
+   "silvermanP": 0.0333,
+   "gates": {
+    "deltaBic_1_2": 83.1395,
+    "ashmanD_2": 1.9845,
+    "upperCount": 28,
+    "upperFraction": 0.3457,
+    "upperPosterior": 0.9867
+   },
+   "roster": null,
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 0.95,
+     "coreJaccard": 0.95
+    },
+    "+/-5%": {
+     "stateStable": 0.65,
+     "coreJaccard": 0.65
+    },
+    "+/-10%": {
+     "stateStable": 0.55,
+     "coreJaccard": 0.55
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.4
+  },
+  {
+   "set": "Evolving Skies",
+   "era": "swsh",
+   "setId": "93212749-ce0e-498e-975e-7d947a3448ce",
+   "n": 237,
+   "state": "CORE_SEPARABLE",
+   "selectedK": 2,
+   "bic": {
+    "1": 1130.75,
+    "2": 1049.8,
+    "3": 1058.73
+   },
+   "silvermanP": 0.02,
+   "gates": {
+    "deltaBic_1_2": 80.9482,
+    "ashmanD_2": 2.6305,
+    "upperCount": 107,
+    "upperFraction": 0.4515,
+    "upperPosterior": 0.9803,
+    "deltaBic_2_3": -8.9372,
+    "ashmanD_23": 3.1351,
+    "sizes_3": [
+     134,
+     90,
+     13
+    ]
+   },
+   "roster": {
+    "coreCount": 107,
+    "corePrices": [
+     2310.74,
+     1249.13,
+     538.69,
+     484.62,
+     412.53,
+     390.25,
+     390.07,
+     310.98,
+     239.44,
+     204.96,
+     160.56,
+     152.92
+    ],
+    "extendedCount": null
+   },
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-10%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.285
+  },
+  {
+   "set": "Crown Zenith",
+   "era": "swsh",
+   "setId": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+   "n": 161,
+   "state": "CORE_SEPARABLE",
+   "selectedK": 2,
+   "bic": {
+    "1": 628.77,
+    "2": 600.67,
+    "3": 607.79
+   },
+   "silvermanP": 0.1067,
+   "gates": {
+    "deltaBic_1_2": 28.0962,
+    "ashmanD_2": 3.0582,
+    "upperCount": 50,
+    "upperFraction": 0.3106,
+    "upperPosterior": 0.9485,
+    "deltaBic_2_3": -7.1172,
+    "ashmanD_23": 2.7568,
+    "sizes_3": [
+     29,
+     80,
+     52
+    ]
+   },
+   "roster": {
+    "coreCount": 50,
+    "corePrices": [
+     49.36,
+     16.24,
+     13.96,
+     13.54,
+     12.83,
+     11.84,
+     9.98,
+     8.44,
+     7.79,
+     7.36,
+     6.41,
+     6.36
+    ],
+    "extendedCount": null
+   },
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 0.998
+    },
+    "+/-10%": {
+     "stateStable": 1.0,
+     "coreJaccard": 0.994
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.181
+  },
+  {
+   "set": "Cosmic Eclipse",
+   "era": "sm",
+   "setId": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+   "n": 271,
+   "state": "CORE_SEPARABLE",
+   "selectedK": 2,
+   "bic": {
+    "1": 1235.62,
+    "2": 1023.96,
+    "3": 1027.99
+   },
+   "silvermanP": 0.1533,
+   "gates": {
+    "deltaBic_1_2": 211.6571,
+    "ashmanD_2": 2.1179,
+    "upperCount": 130,
+    "upperFraction": 0.4797,
+    "upperPosterior": 0.9671,
+    "deltaBic_2_3": -4.0355,
+    "ashmanD_23": 2.9168,
+    "sizes_3": [
+     130,
+     53,
+     88
+    ]
+   },
+   "roster": {
+    "coreCount": 130,
+    "corePrices": [
+     568.04,
+     494.2,
+     418.85,
+     320.63,
+     271.65,
+     268.38,
+     247.88,
+     234.68,
+     225.09,
+     207.32,
+     183.42,
+     138.07
+    ],
+    "extendedCount": null
+   },
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 0.995
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 0.991
+    },
+    "+/-10%": {
+     "stateStable": 1.0,
+     "coreJaccard": 0.974
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.261
+  },
+  {
+   "set": "Paradox Rift",
+   "era": "sv",
+   "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+   "n": 266,
+   "state": "CORE_SEPARABLE",
+   "selectedK": 2,
+   "bic": {
+    "1": 1153.67,
+    "2": 994.98,
+    "3": 988.69
+   },
+   "silvermanP": 0.0,
+   "gates": {
+    "deltaBic_1_2": 158.6962,
+    "ashmanD_2": 3.5036,
+    "upperCount": 104,
+    "upperFraction": 0.391,
+    "upperPosterior": 0.9918,
+    "deltaBic_2_3": 6.2844,
+    "ashmanD_23": 3.3526,
+    "sizes_3": [
+     57,
+     105,
+     104
+    ]
+   },
+   "roster": {
+    "coreCount": 104,
+    "corePrices": [
+     118.92,
+     55.13,
+     54.96,
+     48.5,
+     45.6,
+     40.84,
+     39.5,
+     36.43,
+     34.11,
+     31.46,
+     30.84,
+     29.31
+    ],
+    "extendedCount": null
+   },
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-10%": {
+     "stateStable": 0.95,
+     "coreJaccard": 1.0
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.235
+  },
+  {
+   "set": "Paldean Fates",
+   "era": "sv",
+   "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+   "n": 247,
+   "state": "CORE_SEPARABLE",
+   "selectedK": 2,
+   "bic": {
+    "1": 1093.41,
+    "2": 1035.49,
+    "3": 1028.03
+   },
+   "silvermanP": 0.0067,
+   "gates": {
+    "deltaBic_1_2": 57.918,
+    "ashmanD_2": 3.9411,
+    "upperCount": 164,
+    "upperFraction": 0.664,
+    "upperPosterior": 0.9903,
+    "deltaBic_2_3": 7.4644,
+    "ashmanD_23": 0.165,
+    "sizes_3": [
+     83,
+     106,
+     58
+    ]
+   },
+   "roster": {
+    "coreCount": 164,
+    "corePrices": [
+     929.82,
+     280.79,
+     172.99,
+     78.28,
+     51.19,
+     50.73,
+     46.89,
+     39.35,
+     37.17,
+     30.7,
+     29.14,
+     25.95
+    ],
+    "extendedCount": null
+   },
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-10%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.302
+  },
+  {
+   "set": "Phantasmal Flames",
+   "era": "sv",
+   "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+   "n": 132,
+   "state": "UPPER_TAIL_PRESENT_BUT_CONTINUOUS",
+   "selectedK": 1,
+   "bic": {
+    "1": 553.32,
+    "2": 506.98,
+    "3": 515.94
+   },
+   "silvermanP": 0.2,
+   "gates": {
+    "deltaBic_1_2": 46.3369,
+    "ashmanD_2": 1.9461,
+    "upperCount": 48,
+    "upperFraction": 0.3636,
+    "upperPosterior": 0.987
+   },
+   "roster": null,
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-10%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.7
+  },
+  {
+   "set": "Shrouded Fable",
+   "era": "sv",
+   "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+   "n": 107,
+   "state": "CORE_SEPARABLE",
+   "selectedK": 2,
+   "bic": {
+    "1": 495.02,
+    "2": 435.95,
+    "3": 442.38
+   },
+   "silvermanP": 0.0067,
+   "gates": {
+    "deltaBic_1_2": 59.0723,
+    "ashmanD_2": 4.9508,
+    "upperCount": 37,
+    "upperFraction": 0.3458,
+    "upperPosterior": 0.9847,
+    "deltaBic_2_3": -6.4328,
+    "ashmanD_23": 2.2024,
+    "sizes_3": [
+     69,
+     13,
+     25
+    ]
+   },
+   "roster": {
+    "coreCount": 37,
+    "corePrices": [
+     75.33,
+     59.77,
+     58.3,
+     53.52,
+     50.03,
+     42.58,
+     39.16,
+     33.6,
+     32.44,
+     31.53,
+     31.24,
+     29.11
+    ],
+    "extendedCount": null
+   },
+   "priceNoise": {
+    "+/-2%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-5%": {
+     "stateStable": 1.0,
+     "coreJaccard": 1.0
+    },
+    "+/-10%": {
+     "stateStable": 1.0,
+     "coreJaccard": 0.999
+    }
+   },
+   "uniformScaleInvariant": true,
+   "bootstrapCoreJaccard": 0.199
+  }
+ ]
+}
