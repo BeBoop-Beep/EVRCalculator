@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { currentReturnPath, sanitizeReturnPath } from "@/lib/auth/returnPath.mjs";
+import { buildAuthCallbackUrl, currentReturnPath, sanitizeReturnPath } from "@/lib/auth/returnPath.mjs";
 
 const initialState = { mode: "login", email: "", password: "", confirm: "", code: "", error: "", message: "", pending: false };
 function reducer(state, action) {
@@ -57,16 +57,14 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  const callbackUrl = (next = destination) => {
-    const url = new URL("/auth/callback", window.location.origin);
-    url.searchParams.set("next", sanitizeReturnPath(next));
-    return url.toString();
-  };
+  const callbackUrl = (next = destination) => buildAuthCallbackUrl(window.location.origin, next);
   const succeed = async () => {
     await refreshUser();
     onClose?.();
   };
-  const providerLogin = async (provider) => {
+  // OAuth is deliberately one continue flow. Supabase creates new provider users and
+  // links a verified same-email provider identity to an existing Auth user when allowed.
+  const continueWithProvider = async (provider) => {
     dispatch({ type: "pending", value: true });
     try {
       const { error } = await createClient().auth.signInWithOAuth({ provider, options: { redirectTo: callbackUrl() } });
@@ -161,7 +159,7 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
     <section ref={panelRef} role="dialog" aria-modal={!embedded} aria-labelledby="auth-title" className={`${embedded ? "w-full" : "absolute right-0 top-full mt-2 w-[min(390px,calc(100vw-1rem))]"} set-dropdown-glass z-[1200] rounded-2xl p-5 shadow-2xl`}>
       <div className="flex items-start justify-between gap-4"><div><h2 id="auth-title" className="text-xl font-semibold text-[var(--text-primary)]">{title}</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{state.mode === "confirmation-sent" ? "Use the confirmation link to finish creating your account." : "Sign in without leaving what you were exploring."}</p></div>{onClose && <button type="button" onClick={onClose} aria-label="Close authentication" className="rounded-md px-2 py-1 text-xl text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">×</button>}</div>
       {state.mode === "confirmation-sent" ? <button type="button" onClick={() => dispatch({ type: "mode", mode: "login" })} className="mt-5 w-full rounded-lg bg-brand px-4 py-2.5 font-semibold text-white">Back to login</button> : <>
-        {showProviders && <><div className="mt-5 grid gap-2">{googleEnabled && <button type="button" disabled={state.pending} onClick={() => providerLogin("google")} className="flex items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-white px-4 py-2.5 font-semibold text-slate-900 disabled:opacity-60"><ProviderIcon provider="google" />Continue with Google</button>}{appleEnabled && <button type="button" disabled={state.pending} onClick={() => providerLogin("apple")} className="flex items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-black px-4 py-2.5 font-semibold text-white disabled:opacity-60"><ProviderIcon provider="apple" />Continue with Apple</button>}</div><div className="my-4 flex items-center gap-3 text-xs text-[var(--text-secondary)]"><span className="h-px flex-1 bg-[var(--border-subtle)]" />or<span className="h-px flex-1 bg-[var(--border-subtle)]" /></div></>}
+        {showProviders && <><div className="mt-5 grid gap-2">{googleEnabled && <button type="button" disabled={state.pending} onClick={() => continueWithProvider("google")} className="flex items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-white px-4 py-2.5 font-semibold text-slate-900 disabled:opacity-60"><ProviderIcon provider="google" />Continue with Google</button>}{appleEnabled && <button type="button" disabled={state.pending} onClick={() => continueWithProvider("apple")} className="flex items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-black px-4 py-2.5 font-semibold text-white disabled:opacity-60"><ProviderIcon provider="apple" />Continue with Apple</button>}</div><div className="my-4 flex items-center gap-3 text-xs text-[var(--text-secondary)]"><span className="h-px flex-1 bg-[var(--border-subtle)]" />or<span className="h-px flex-1 bg-[var(--border-subtle)]" /></div></>}
         <form onSubmit={submit} className="grid gap-3">
           {showEmail && <label className="grid gap-1 text-sm font-medium">Email<input type="email" required autoComplete="email" value={state.email} disabled={state.mode === "email-code-verify"} onChange={(e) => dispatch({ type: "field", name: "email", value: e.target.value })} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]" /></label>}
           {showPassword && <label className="grid gap-1 text-sm font-medium">Password<input type="password" required minLength={8} autoComplete={state.mode === "login" ? "current-password" : "new-password"} value={state.password} onChange={(e) => dispatch({ type: "field", name: "password", value: e.target.value })} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]" /></label>}
