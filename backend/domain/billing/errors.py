@@ -11,3 +11,11 @@ class BillingOwnershipError(BillingError): code = "BILLING_OWNERSHIP_MISMATCH"
 class BillingPortalUnavailable(BillingError): code = "BILLING_PORTAL_UNAVAILABLE"
 class BillingSubscriptionAlreadyManaged(BillingError): code = "BILLING_SUBSCRIPTION_ALREADY_MANAGED"
 class StripeCustomerMissing(BillingError): code = "STRIPE_CUSTOMER_MISSING"
+
+
+class PlanChangeNotAllowed(BillingError):
+    pass
+
+
+class PlanChangePreviewStale(BillingError):
+    pass
