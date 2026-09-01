@@ -233,3 +233,17 @@ product pages as a descriptive metric while a different Chase construct enters O
 
 That framing question must be settled before any transform, any coefficient, or any
 resumption of Overall RIP V11.
+
+---
+
+## Forward reference
+
+Stage XIII (`CHASE_OPPORTUNITY_COMPARISON_FRAME_STAGE13.md`) settled §15's framing question and
+returned `CHASE_ACCESSIBILITY_VALIDATED_AT_SET_LEVEL__PRODUCT_OPPORTUNITY_DESCRIPTIVE`.
+
+It closed the two items left open here: guaranteed components were exercised against real
+compositions (**0 of 81 are in the random-pack universe** - all are promos), and composition
+differences were enumerated (**none exist**; every product is n packs of its own set's single
+distribution). Consequently `O_p = n * O_pack` to within 1.2-7.3% with Spearman exactly 1.0000,
+and whole-product Opportunity is **not** supported as an Overall RIP pillar. `O_pack` is validated
+as a set-level metric.

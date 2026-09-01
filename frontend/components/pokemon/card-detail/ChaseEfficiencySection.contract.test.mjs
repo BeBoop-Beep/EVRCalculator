@@ -75,10 +75,10 @@ test("lock content establishes height and Premium reuses canonical S-tier purple
   assert.doesNotMatch(plus, /className="absolute inset-0 flex/);
   assert.doesNotMatch(premium, /className="absolute inset-0 flex/);
   assert.match(plus, /relative z-10[\s\S]*?py-6/);
-  assert.match(plus, /text-amber-300/);
-  assert.match(premium, /getRipTierPresentation\("S", \{ strength: "hero" \}\)/);
-  assert.match(premium, /var\(--tier-color\)/);
-  assert.doesNotMatch(premium, /45,212,191|var\(--accent\)/);
+  assert.match(plus, /planPresentation\(INDEX_PLAN_PLUS\)\.panelClassName/);
+  assert.doesNotMatch(plus, /text-amber-300/);
+  assert.match(premium, /planPresentation\(INDEX_PLAN_PREMIUM\)\.panelClassName/);
+  assert.doesNotMatch(premium, /getRipTierPresentation\("S"|45,212,191|var\(--accent\)/);
   assert.match(plus, /min-h-11/);
   assert.match(premium, /min-h-11/);
 });

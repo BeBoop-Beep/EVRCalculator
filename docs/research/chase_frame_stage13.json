@@ -1,0 +1,470 @@
+{
+ "stage": "stage13-chase-comparison-frame-v1",
+ "question": "what comparison frame does Chase Opportunity belong to",
+ "financialProbeNote": "Pack values are an independent-Bernoulli proxy reproducing each card's authoritative per-pack marginal. It is NOT the production simulator and assumes cross-card independence the real pack lacks. Valid here only because the same proxy is used at every n, so the assumption cancels in the pack-count comparison.",
+ "proportionalPricing": "product cost = n x pack cost, value-to-cost held at 0.55",
+ "sets": [
+  {
+   "set": "Phantasmal Flames",
+   "n": 214,
+   "perPackOpportunity": 0.0023381,
+   "evPerPack": 4.4521,
+   "packCost": 8.0948,
+   "byPacks": {
+    "1": {
+     "financialV4": 27.5742,
+     "chanceToRecover": 0.04635,
+     "medianValue": 1.6,
+     "p95": 7.83,
+     "opportunity": 0.002338,
+     "linearOpportunity": 0.002338,
+     "saturationRatio": 1.0
+    },
+    "3": {
+     "financialV4": 31.0341,
+     "chanceToRecover": 0.06013,
+     "medianValue": 5.69,
+     "p95": 25.5,
+     "opportunity": 0.006997,
+     "linearOpportunity": 0.007014,
+     "saturationRatio": 0.997465
+    },
+    "6": {
+     "financialV4": 28.5557,
+     "chanceToRecover": 0.02783,
+     "medianValue": 13.13,
+     "p95": 38.65,
+     "opportunity": 0.01394,
+     "linearOpportunity": 0.014029,
+     "saturationRatio": 0.993681
+    },
+    "9": {
+     "financialV4": 27.4276,
+     "chanceToRecover": 0.0277,
+     "medianValue": 20.62,
+     "p95": 53.92,
+     "opportunity": 0.020831,
+     "linearOpportunity": 0.021043,
+     "saturationRatio": 0.98992
+    },
+    "11": {
+     "financialV4": 27.4659,
+     "chanceToRecover": 0.0328,
+     "medianValue": 25.92,
+     "p95": 64.26,
+     "opportunity": 0.025396,
+     "linearOpportunity": 0.025719,
+     "saturationRatio": 0.987425
+    },
+    "18": {
+     "financialV4": 39.3864,
+     "chanceToRecover": 0.05117,
+     "medianValue": 46.13,
+     "p95": 305.66,
+     "opportunity": 0.041192,
+     "linearOpportunity": 0.042086,
+     "saturationRatio": 0.978767
+    },
+    "36": {
+     "financialV4": 45.1663,
+     "chanceToRecover": 0.10065,
+     "medianValue": 97.42,
+     "p95": 789.84,
+     "opportunity": 0.080553,
+     "linearOpportunity": 0.084172,
+     "saturationRatio": 0.957014
+    }
+   },
+   "withinSetPackFit": {
+    "r2ThroughOrigin": 0.999623,
+    "spearman": 1.0,
+    "maxResidualPct": 3.485
+   }
+  },
+  {
+   "set": "Paldean Fates",
+   "n": 326,
+   "perPackOpportunity": 0.00217754,
+   "evPerPack": 7.5083,
+   "packCost": 13.6515,
+   "byPacks": {
+    "1": {
+     "financialV4": 31.1578,
+     "chanceToRecover": 0.07257,
+     "medianValue": 1.7,
+     "p95": 17.93,
+     "opportunity": 0.002178,
+     "linearOpportunity": 0.002178,
+     "saturationRatio": 1.0
+    },
+    "3": {
+     "financialV4": 34.5397,
+     "chanceToRecover": 0.07425,
+     "medianValue": 8.91,
+     "p95": 52.36,
+     "opportunity": 0.006518,
+     "linearOpportunity": 0.006533,
+     "saturationRatio": 0.997796
+    },
+    "6": {
+     "financialV4": 34.2396,
+     "chanceToRecover": 0.0617,
+     "medianValue": 21.36,
+     "p95": 96.14,
+     "opportunity": 0.012993,
+     "linearOpportunity": 0.013065,
+     "saturationRatio": 0.994505
+    },
+    "9": {
+     "financialV4": 38.5227,
+     "chanceToRecover": 0.06843,
+     "medianValue": 34.51,
+     "p95": 206.7,
+     "opportunity": 0.019426,
+     "linearOpportunity": 0.019598,
+     "saturationRatio": 0.991231
+    },
+    "11": {
+     "financialV4": 39.631,
+     "chanceToRecover": 0.07692,
+     "medianValue": 44.14,
+     "p95": 258.22,
+     "opportunity": 0.023691,
+     "linearOpportunity": 0.023953,
+     "saturationRatio": 0.989056
+    },
+    "18": {
+     "financialV4": 39.7414,
+     "chanceToRecover": 0.09395,
+     "medianValue": 77.95,
+     "p95": 376.5,
+     "opportunity": 0.038471,
+     "linearOpportunity": 0.039196,
+     "saturationRatio": 0.981502
+    },
+    "36": {
+     "financialV4": 44.6691,
+     "chanceToRecover": 0.09493,
+     "medianValue": 170.33,
+     "p95": 1075.08,
+     "opportunity": 0.075448,
+     "linearOpportunity": 0.078391,
+     "saturationRatio": 0.962453
+    }
+   },
+   "withinSetPackFit": {
+    "r2ThroughOrigin": 0.999715,
+    "spearman": 1.0,
+    "maxResidualPct": 3.067
+   }
+  },
+  {
+   "set": "Ascended Heroes",
+   "n": 464,
+   "perPackOpportunity": 0.00080223,
+   "evPerPack": 9.1259,
+   "packCost": 16.5925,
+   "byPacks": {
+    "1": {
+     "financialV4": 26.9316,
+     "chanceToRecover": 0.043,
+     "medianValue": 3.22,
+     "p95": 14.32,
+     "opportunity": 0.000802,
+     "linearOpportunity": 0.000802,
+     "saturationRatio": 1.0
+    },
+    "3": {
+     "financialV4": 36.3151,
+     "chanceToRecover": 0.07997,
+     "medianValue": 11.9,
+     "p95": 71.18,
+     "opportunity": 0.002405,
+     "linearOpportunity": 0.002407,
+     "saturationRatio": 0.999122
+    },
+    "6": {
+     "financialV4": 36.1865,
+     "chanceToRecover": 0.07075,
+     "medianValue": 25.8,
+     "p95": 137.43,
+     "opportunity": 0.004803,
+     "linearOpportunity": 0.004813,
+     "saturationRatio": 0.997807
+    },
+    "9": {
+     "financialV4": 40.1633,
+     "chanceToRecover": 0.07847,
+     "medianValue": 40.66,
+     "p95": 271.72,
+     "opportunity": 0.007195,
+     "linearOpportunity": 0.00722,
+     "saturationRatio": 0.996497
+    },
+    "11": {
+     "financialV4": 41.5794,
+     "chanceToRecover": 0.08408,
+     "medianValue": 51.11,
+     "p95": 354.28,
+     "opportunity": 0.008786,
+     "linearOpportunity": 0.008825,
+     "saturationRatio": 0.995625
+    },
+    "18": {
+     "financialV4": 42.0049,
+     "chanceToRecover": 0.10347,
+     "medianValue": 93.0,
+     "p95": 521.24,
+     "opportunity": 0.014333,
+     "linearOpportunity": 0.01444,
+     "saturationRatio": 0.992588
+    },
+    "36": {
+     "financialV4": 45.244,
+     "chanceToRecover": 0.11108,
+     "medianValue": 216.0,
+     "p95": 1156.64,
+     "opportunity": 0.028443,
+     "linearOpportunity": 0.02888,
+     "saturationRatio": 0.984869
+    }
+   },
+   "withinSetPackFit": {
+    "r2ThroughOrigin": 0.999955,
+    "spearman": 1.0,
+    "maxResidualPct": 1.199
+   }
+  },
+  {
+   "set": "Paradox Rift",
+   "n": 428,
+   "perPackOpportunity": 0.00208481,
+   "evPerPack": 3.9718,
+   "packCost": 7.2214,
+   "byPacks": {
+    "1": {
+     "financialV4": 42.2143,
+     "chanceToRecover": 0.09877,
+     "medianValue": 1.59,
+     "p95": 17.42,
+     "opportunity": 0.002085,
+     "linearOpportunity": 0.002085,
+     "saturationRatio": 1.0
+    },
+    "3": {
+     "financialV4": 44.1365,
+     "chanceToRecover": 0.13998,
+     "medianValue": 5.59,
+     "p95": 44.07,
+     "opportunity": 0.00624,
+     "linearOpportunity": 0.006254,
+     "saturationRatio": 0.997766
+    },
+    "6": {
+     "financialV4": 42.8765,
+     "chanceToRecover": 0.14047,
+     "medianValue": 14.2,
+     "p95": 65.72,
+     "opportunity": 0.012439,
+     "linearOpportunity": 0.012509,
+     "saturationRatio": 0.994437
+    },
+    "9": {
+     "financialV4": 43.1149,
+     "chanceToRecover": 0.12337,
+     "medianValue": 25.72,
+     "p95": 88.2,
+     "opportunity": 0.018597,
+     "linearOpportunity": 0.018763,
+     "saturationRatio": 0.991133
+    },
+    "11": {
+     "financialV4": 42.9949,
+     "chanceToRecover": 0.10762,
+     "medianValue": 33.67,
+     "p95": 105.1,
+     "opportunity": 0.022679,
+     "linearOpportunity": 0.022933,
+     "saturationRatio": 0.988944
+    },
+    "18": {
+     "financialV4": 41.502,
+     "chanceToRecover": 0.08632,
+     "medianValue": 61.01,
+     "p95": 155.14,
+     "opportunity": 0.036827,
+     "linearOpportunity": 0.037527,
+     "saturationRatio": 0.981361
+    },
+    "36": {
+     "financialV4": 36.849,
+     "chanceToRecover": 0.04232,
+     "medianValue": 132.28,
+     "p95": 252.61,
+     "opportunity": 0.072228,
+     "linearOpportunity": 0.075053,
+     "saturationRatio": 0.962364
+    }
+   },
+   "withinSetPackFit": {
+    "r2ThroughOrigin": 0.999716,
+    "spearman": 1.0,
+    "maxResidualPct": 3.066
+   }
+  },
+  {
+   "set": "Shrouded Fable",
+   "n": 162,
+   "perPackOpportunity": 0.00449665,
+   "evPerPack": 6.0248,
+   "packCost": 10.9541,
+   "byPacks": {
+    "1": {
+     "financialV4": 42.8416,
+     "chanceToRecover": 0.11442,
+     "medianValue": 2.02,
+     "p95": 32.48,
+     "opportunity": 0.004497,
+     "linearOpportunity": 0.004497,
+     "saturationRatio": 1.0
+    },
+    "3": {
+     "financialV4": 45.1695,
+     "chanceToRecover": 0.17993,
+     "medianValue": 8.63,
+     "p95": 64.35,
+     "opportunity": 0.013414,
+     "linearOpportunity": 0.01349,
+     "saturationRatio": 0.994336
+    },
+    "6": {
+     "financialV4": 44.6252,
+     "chanceToRecover": 0.15895,
+     "medianValue": 24.68,
+     "p95": 95.81,
+     "opportunity": 0.026603,
+     "linearOpportunity": 0.02698,
+     "saturationRatio": 0.986014
+    },
+    "9": {
+     "financialV4": 43.955,
+     "chanceToRecover": 0.12087,
+     "medianValue": 45.35,
+     "p95": 125.15,
+     "opportunity": 0.039574,
+     "linearOpportunity": 0.04047,
+     "saturationRatio": 0.977873
+    },
+    "11": {
+     "financialV4": 42.67,
+     "chanceToRecover": 0.10018,
+     "medianValue": 56.56,
+     "p95": 142.5,
+     "opportunity": 0.048105,
+     "linearOpportunity": 0.049463,
+     "saturationRatio": 0.972537
+    },
+    "18": {
+     "financialV4": 39.0345,
+     "chanceToRecover": 0.06057,
+     "medianValue": 100.2,
+     "p95": 203.94,
+     "opportunity": 0.077245,
+     "linearOpportunity": 0.08094,
+     "saturationRatio": 0.954356
+    },
+    "36": {
+     "financialV4": 34.1203,
+     "chanceToRecover": 0.01667,
+     "medianValue": 208.78,
+     "p95": 347.22,
+     "opportunity": 0.147391,
+     "linearOpportunity": 0.161879,
+     "saturationRatio": 0.910498
+    }
+   },
+   "withinSetPackFit": {
+    "r2ThroughOrigin": 0.998263,
+    "spearman": 1.0,
+    "maxResidualPct": 7.312
+   }
+  },
+  {
+   "set": "Prismatic Evolutions",
+   "n": 448,
+   "perPackOpportunity": 0.00083994,
+   "evPerPack": 6.3803,
+   "packCost": 11.6005,
+   "byPacks": {
+    "1": {
+     "financialV4": 26.2825,
+     "chanceToRecover": 0.04395,
+     "medianValue": 1.66,
+     "p95": 10.25,
+     "opportunity": 0.00084,
+     "linearOpportunity": 0.00084,
+     "saturationRatio": 1.0
+    },
+    "3": {
+     "financialV4": 32.5974,
+     "chanceToRecover": 0.06782,
+     "medianValue": 5.81,
+     "p95": 46.33,
+     "opportunity": 0.002518,
+     "linearOpportunity": 0.00252,
+     "saturationRatio": 0.999151
+    },
+    "6": {
+     "financialV4": 36.832,
+     "chanceToRecover": 0.07923,
+     "medianValue": 13.34,
+     "p95": 120.36,
+     "opportunity": 0.005029,
+     "linearOpportunity": 0.00504,
+     "saturationRatio": 0.997881
+    },
+    "9": {
+     "financialV4": 40.3889,
+     "chanceToRecover": 0.08895,
+     "medianValue": 21.67,
+     "p95": 224.21,
+     "opportunity": 0.007534,
+     "linearOpportunity": 0.007559,
+     "saturationRatio": 0.996613
+    },
+    "11": {
+     "financialV4": 42.3952,
+     "chanceToRecover": 0.09707,
+     "medianValue": 27.5,
+     "p95": 311.57,
+     "opportunity": 0.0092,
+     "linearOpportunity": 0.009239,
+     "saturationRatio": 0.99577
+    },
+    "18": {
+     "financialV4": 42.5144,
+     "chanceToRecover": 0.13253,
+     "medianValue": 50.89,
+     "p95": 381.62,
+     "opportunity": 0.015011,
+     "linearOpportunity": 0.015119,
+     "saturationRatio": 0.992828
+    },
+    "36": {
+     "financialV4": 41.5087,
+     "chanceToRecover": 0.12402,
+     "medianValue": 122.97,
+     "p95": 657.62,
+     "opportunity": 0.029794,
+     "linearOpportunity": 0.030238,
+     "saturationRatio": 0.985326
+    }
+   },
+   "withinSetPackFit": {
+    "r2ThroughOrigin": 0.999958,
+    "spearman": 1.0,
+    "maxResidualPct": 1.196
+   }
+  }
+ ]
+}
