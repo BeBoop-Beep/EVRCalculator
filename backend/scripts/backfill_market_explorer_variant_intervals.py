@@ -71,12 +71,23 @@ def _paged(query_factory, *, page_size: int = 1000) -> list[dict[str, Any]]:
         start += page_size
 
 
-def load_set_ids(client: Any, requested: Iterable[str]) -> list[str]:
+def load_set_ids(client: Any, requested: Iterable[str], era_ids: Iterable[str] = (),
+                 *, exclude_covered: bool = False) -> list[str]:
     selected = sorted(set(requested))
     if selected:
         return selected
-    rows = _paged(lambda: client.table("sets").select("id").order("id"))
-    return sorted(str(row["id"]) for row in rows)
+    eras = sorted(set(era_ids))
+    def query():
+        request = client.table("sets").select("id").order("id")
+        return request.in_("era_id", eras) if eras else request
+    rows = _paged(query)
+    resolved = sorted(str(row["id"]) for row in rows)
+    if exclude_covered and resolved:
+        covered = _paged(lambda: client.table("pokemon_market_explorer_card_daily_coverage")
+                         .select("set_id").in_("set_id", resolved).order("set_id"))
+        covered_ids = {str(row["set_id"]) for row in covered}
+        resolved = [set_id for set_id in resolved if set_id not in covered_ids]
+    return resolved
 
 
 def load_variant_ids_for_set(client: Any, set_id: str) -> list[str]:
@@ -99,6 +110,8 @@ def run_backfill(
     commit: bool,
     batch_size: int,
     set_ids: Sequence[str] = (),
+    era_ids: Sequence[str] = (),
+    exclude_covered: bool = False,
     variant_ids: Sequence[str] = (),
     resume_after: str | None = None,
 ) -> dict[str, Any]:
@@ -106,7 +119,8 @@ def run_backfill(
     summary = Summary(dry_run=not commit)
     cursor = decode_cursor(resume_after)
     explicit_variants = sorted(set(variant_ids))
-    scopes = load_set_ids(client, set_ids) if not explicit_variants else ["explicit"]
+    scopes = (load_set_ids(client, set_ids, era_ids, exclude_covered=exclude_covered)
+              if not explicit_variants else ["explicit"])
 
     for set_id in scopes:
         variants = explicit_variants if explicit_variants else load_variant_ids_for_set(client, set_id)
@@ -161,6 +175,9 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--commit", action="store_true", help="Execute bounded service-role refresh RPCs.")
     parser.add_argument("--batch-size", type=int, default=100, help="Variants per transaction (default: 100).")
     parser.add_argument("--set-id", action="append", default=[], help="Limit to a set UUID; repeatable.")
+    parser.add_argument("--era-id", action="append", default=[], help="Resolve all set UUIDs in an era; repeatable.")
+    parser.add_argument("--exclude-covered", action="store_true",
+                        help="Skip sets already present in daily projection coverage.")
     parser.add_argument("--variant-id", action="append", default=[], help="Retry exact variant UUIDs; repeatable.")
     parser.add_argument("--resume-after", help="Skip through the printed SET_UUID:VARIANT_UUID cursor.")
     return parser
@@ -173,7 +190,9 @@ def main() -> int:
         raise SystemExit("--batch-size must be positive")
     report = run_backfill(
         create_service_role_client(), commit=bool(args.commit), batch_size=args.batch_size,
-        set_ids=args.set_id, variant_ids=args.variant_id, resume_after=args.resume_after,
+        set_ids=args.set_id, era_ids=args.era_id, exclude_covered=args.exclude_covered,
+        variant_ids=args.variant_id,
+        resume_after=args.resume_after,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
     return 1 if report["failures"] else 0
