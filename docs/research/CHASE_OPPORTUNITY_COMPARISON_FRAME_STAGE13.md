@@ -198,3 +198,13 @@ self-contained deliverable that does not touch Overall RIP.
 
 The Economic Chase Efficiency layer, which is where sealed-product price legitimately
 belongs, remains untouched and is the natural stage after that.
+
+---
+
+## Forward reference
+
+Stage XIV (`CHASE_ACCESSIBILITY_STAGE14.md`) acted on §13's next step and returned
+`CHASE_ACCESSIBILITY_PUBLICATION_CONTRACT_VALIDATED`. It ratified the missing-data gate at
+0.99 against observed coverage (worst real unmapped HC mass 0.0025), selected absolute
+percentage presentation, confirmed all four Depth x Accessibility quadrants have real
+representatives, and recorded the formal supersession of Overall RIP V11 and the old Core K.
