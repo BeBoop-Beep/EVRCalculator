@@ -16,7 +16,18 @@ from pydantic import BaseModel, Field  # type: ignore[reportMissingImports]
 from pydantic import ConfigDict
 from backend.db.services.billing_service import BillingService
 from backend.domain.billing.catalog import BillingOfferNotConfigured
-from backend.domain.billing.errors import BillingError, BillingProviderError, BillingPortalUnavailable, BillingSubscriptionAlreadyManaged, InvalidWebhookSignature
+from backend.domain.billing.errors import (
+    BillingError,
+    BillingOwnershipError,
+    BillingProviderError,
+    BillingPortalUnavailable,
+    BillingSubscriptionAlreadyManaged,
+    InvalidWebhookSignature,
+    PlanChangeNotAllowed,
+    PlanChangePreviewStale,
+    UnmappedStripePrice,
+    UnsupportedSubscriptionShape,
+)
 
 from backend.db.services.waitlist_signup_service import (
     insert_waitlist_signup,
@@ -253,6 +264,15 @@ class MarketExplorerQueryRequest(BaseModel):
 class BillingCheckoutRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     offerKey: str = Field(min_length=1, max_length=80)
+
+
+class BillingPlanChangePreviewRequest(BaseModel):
+    offerKey: str
+
+
+class BillingPlanChangeConfirmRequest(BaseModel):
+    offerKey: str
+    previewToken: Optional[str] = None
 
 
 def _auth_env_presence() -> Dict[str, bool]:
@@ -527,6 +547,83 @@ def create_billing_checkout_session(
         raise HTTPException(status_code=503, detail={"code": "BILLING_PROVIDER_UNAVAILABLE"})
     except BillingSubscriptionAlreadyManaged:
         raise HTTPException(status_code=409, detail={"code": "BILLING_SUBSCRIPTION_ALREADY_MANAGED"})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+
+
+@app.post("/billing/change-plan/preview")
+def preview_billing_plan_change(
+    payload: BillingPlanChangePreviewRequest,
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _enforce_billing_post_origin(request)
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    try:
+        dto = BillingService().preview_plan_change(user_id=user_id, offer_key=payload.offerKey)
+        return _tiered_response(dto)
+    except PlanChangeNotAllowed as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingOwnershipError as exc:
+        raise HTTPException(status_code=403, detail={"code": exc.code, "message": str(exc)})
+    except UnsupportedSubscriptionShape as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except UnmappedStripePrice as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingProviderError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+
+
+@app.post("/billing/change-plan/confirm")
+def confirm_billing_plan_change(
+    payload: BillingPlanChangeConfirmRequest,
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _enforce_billing_post_origin(request)
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    try:
+        dto = BillingService().confirm_plan_change(
+            user_id=user_id, offer_key=payload.offerKey, preview_token=payload.previewToken
+        )
+        return _tiered_response(dto)
+    except PlanChangePreviewStale as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except PlanChangeNotAllowed as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingOwnershipError as exc:
+        raise HTTPException(status_code=403, detail={"code": exc.code, "message": str(exc)})
+    except UnsupportedSubscriptionShape as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except UnmappedStripePrice as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingProviderError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+
+
+@app.post("/billing/change-plan/cancel-scheduled")
+def cancel_billing_scheduled_plan_change(
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _enforce_billing_post_origin(request)
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    try:
+        dto = BillingService().cancel_scheduled_plan_change(user_id=user_id)
+        return _tiered_response(dto)
+    except PlanChangeNotAllowed as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingOwnershipError as exc:
+        raise HTTPException(status_code=403, detail={"code": exc.code, "message": str(exc)})
+    except BillingProviderError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
     except BillingError as exc:
         raise HTTPException(status_code=503, detail={"code": exc.code})
 
