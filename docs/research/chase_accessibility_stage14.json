@@ -1,0 +1,609 @@
+{
+ "stage": "stage14-chase-accessibility-v1",
+ "version": "chase_accessibility_stage14_hc_weighted_per_pack_probability",
+ "minMappedHcMass": 0.99,
+ "redundancy": {
+  "evPerPack": 0.0254,
+  "nHC": 0.1361,
+  "hcTop1": -0.013,
+  "n": -0.2829,
+  "setValue": -0.5878,
+  "medianValue": -0.3642
+ },
+ "sets": [
+  {
+   "set": "Obsidian Flames",
+   "n": 406,
+   "accessibility": 0.00561818,
+   "accessibilityPct": 0.56182,
+   "parityDelta": 0.0,
+   "mappedHcMass": 1.0,
+   "nHC": 2.4209,
+   "hcTop1": 0.62653,
+   "shareTop1": 0.5816,
+   "evPerPack": 4.3924,
+   "setValue": 527.72,
+   "medianValue": 0.22,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00108
+    },
+    "5%": {
+     "relSd": 0.00299
+    },
+    "10%": {
+     "relSd": 0.0069
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Stellar Crown",
+   "n": 300,
+   "accessibility": 0.00493258,
+   "accessibilityPct": 0.49326,
+   "parityDelta": 0.0,
+   "mappedHcMass": 1.0,
+   "nHC": 3.6402,
+   "hcTop1": 0.38223,
+   "shareTop1": 0.4522,
+   "evPerPack": 4.4533,
+   "setValue": 637.74,
+   "medianValue": 0.22,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00338
+    },
+    "5%": {
+     "relSd": 0.00628
+    },
+    "10%": {
+     "relSd": 0.01406
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Scarlet and Violet 151",
+   "n": 361,
+   "accessibility": 0.00457472,
+   "accessibilityPct": 0.45747,
+   "parityDelta": 8.673617379884035e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 2.9877,
+   "hcTop1": 0.56358,
+   "shareTop1": 0.5311,
+   "evPerPack": 12.7553,
+   "setValue": 2081.42,
+   "medianValue": 0.29,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00078
+    },
+    "5%": {
+     "relSd": 0.00206
+    },
+    "10%": {
+     "relSd": 0.00386
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Shrouded Fable",
+   "n": 162,
+   "accessibility": 0.00449665,
+   "accessibilityPct": 0.44966,
+   "parityDelta": 8.673617379884035e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 12.3392,
+   "hcTop1": 0.17589,
+   "shareTop1": 0.2178,
+   "evPerPack": 5.997,
+   "setValue": 895.2,
+   "medianValue": 0.225,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00208
+    },
+    "5%": {
+     "relSd": 0.00574
+    },
+    "10%": {
+     "relSd": 0.00961
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Scarlet and Violet Base Set",
+   "n": 445,
+   "accessibility": 0.00321454,
+   "accessibilityPct": 0.32145,
+   "parityDelta": 0.0,
+   "mappedHcMass": 1.0,
+   "nHC": 8.5783,
+   "hcTop1": 0.24621,
+   "shareTop1": 0.2469,
+   "evPerPack": 4.0265,
+   "setValue": 819.12,
+   "medianValue": 0.21,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 8e-05
+    },
+    "5%": {
+     "relSd": 0.0002
+    },
+    "10%": {
+     "relSd": 0.00037
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Temporal Forces",
+   "n": 358,
+   "accessibility": 0.00268595,
+   "accessibilityPct": 0.2686,
+   "parityDelta": 0.0,
+   "mappedHcMass": 1.0,
+   "nHC": 13.4114,
+   "hcTop1": 0.18657,
+   "shareTop1": 0.2403,
+   "evPerPack": 5.5601,
+   "setValue": 1291.0,
+   "medianValue": 0.22,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00232
+    },
+    "5%": {
+     "relSd": 0.0075
+    },
+    "10%": {
+     "relSd": 0.01548
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Phantasmal Flames",
+   "n": 214,
+   "accessibility": 0.0023381,
+   "accessibilityPct": 0.23381,
+   "parityDelta": 4.336808689942018e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 1.3116,
+   "hcTop1": 0.86323,
+   "shareTop1": 0.9444,
+   "evPerPack": 4.7334,
+   "setValue": 1224.46,
+   "medianValue": 0.21,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00225
+    },
+    "5%": {
+     "relSd": 0.00779
+    },
+    "10%": {
+     "relSd": 0.01417
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Journey Together",
+   "n": 333,
+   "accessibility": 0.00228099,
+   "accessibilityPct": 0.2281,
+   "parityDelta": 8.673617379884035e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 3.2542,
+   "hcTop1": 0.5086,
+   "shareTop1": 0.4294,
+   "evPerPack": 3.4639,
+   "setValue": 539.27,
+   "medianValue": 0.25,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00224
+    },
+    "5%": {
+     "relSd": 0.00514
+    },
+    "10%": {
+     "relSd": 0.00948
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Paldean Fates",
+   "n": 326,
+   "accessibility": 0.00217754,
+   "accessibilityPct": 0.21775,
+   "parityDelta": 0.0,
+   "mappedHcMass": 1.0,
+   "nHC": 1.3274,
+   "hcTop1": 0.86381,
+   "shareTop1": 0.864,
+   "evPerPack": 7.466,
+   "setValue": 2663.85,
+   "medianValue": 0.58,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 8e-05
+    },
+    "5%": {
+     "relSd": 0.00019
+    },
+    "10%": {
+     "relSd": 0.00036
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Paldea Evolved",
+   "n": 455,
+   "accessibility": 0.00214837,
+   "accessibilityPct": 0.21484,
+   "parityDelta": 4.336808689942018e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 2.0479,
+   "hcTop1": 0.69373,
+   "shareTop1": 0.6991,
+   "evPerPack": 5.7954,
+   "setValue": 2007.06,
+   "medianValue": 0.21,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00014
+    },
+    "5%": {
+     "relSd": 0.00032
+    },
+    "10%": {
+     "relSd": 0.00065
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Paradox Rift",
+   "n": 428,
+   "accessibility": 0.00208481,
+   "accessibilityPct": 0.20848,
+   "parityDelta": 4.336808689942018e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 7.2641,
+   "hcTop1": 0.33689,
+   "shareTop1": 0.36,
+   "evPerPack": 3.9487,
+   "setValue": 1256.03,
+   "medianValue": 0.2,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00084
+    },
+    "5%": {
+     "relSd": 0.00241
+    },
+    "10%": {
+     "relSd": 0.00433
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Pitch Black",
+   "n": 194,
+   "accessibility": 0.00183556,
+   "accessibilityPct": 0.18356,
+   "parityDelta": 4.336808689942018e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 2.8831,
+   "hcTop1": 0.48285,
+   "shareTop1": 0.5735,
+   "evPerPack": 3.5498,
+   "setValue": 811.48,
+   "medianValue": 0.21,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00333
+    },
+    "5%": {
+     "relSd": 0.00997
+    },
+    "10%": {
+     "relSd": 0.0157
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Chaos Rising",
+   "n": 198,
+   "accessibility": 0.00159836,
+   "accessibilityPct": 0.15984,
+   "parityDelta": 2.168404344971009e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 2.4483,
+   "hcTop1": 0.47662,
+   "shareTop1": 0.5716,
+   "evPerPack": 3.0025,
+   "setValue": 659.49,
+   "medianValue": 0.23,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00434
+    },
+    "5%": {
+     "relSd": 0.0074
+    },
+    "10%": {
+     "relSd": 0.02138
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Perfect Order",
+   "n": 202,
+   "accessibility": 0.00159617,
+   "accessibilityPct": 0.15962,
+   "parityDelta": 2.168404344971009e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 3.5857,
+   "hcTop1": 0.37527,
+   "shareTop1": 0.1277,
+   "evPerPack": 3.1103,
+   "setValue": 637.28,
+   "medianValue": 0.21,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00695
+    },
+    "5%": {
+     "relSd": 0.0145
+    },
+    "10%": {
+     "relSd": 0.02847
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Twilight Masquerade",
+   "n": 373,
+   "accessibility": 0.00123743,
+   "accessibilityPct": 0.12374,
+   "parityDelta": 2.168404344971009e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 1.8339,
+   "hcTop1": 0.72268,
+   "shareTop1": 0.5875,
+   "evPerPack": 4.6671,
+   "setValue": 1394.07,
+   "medianValue": 0.24,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00403
+    },
+    "5%": {
+     "relSd": 0.0096
+    },
+    "10%": {
+     "relSd": 0.01772
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Surging Sparks",
+   "n": 417,
+   "accessibility": 0.00108652,
+   "accessibilityPct": 0.10865,
+   "parityDelta": 0.0,
+   "mappedHcMass": 1.0,
+   "nHC": 2.6932,
+   "hcTop1": 0.55468,
+   "shareTop1": 0.5263,
+   "evPerPack": 3.5198,
+   "setValue": 1296.66,
+   "medianValue": 0.22,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00085
+    },
+    "5%": {
+     "relSd": 0.0026
+    },
+    "10%": {
+     "relSd": 0.00518
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Destined Rivals",
+   "n": 409,
+   "accessibility": 0.00099154,
+   "accessibilityPct": 0.09915,
+   "parityDelta": 2.168404344971009e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 2.1287,
+   "hcTop1": 0.66264,
+   "shareTop1": 0.6095,
+   "evPerPack": 4.4721,
+   "setValue": 1876.67,
+   "medianValue": 0.25,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00131
+    },
+    "5%": {
+     "relSd": 0.00343
+    },
+    "10%": {
+     "relSd": 0.00711
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Prismatic Evolutions",
+   "n": 448,
+   "accessibility": 0.00083994,
+   "accessibilityPct": 0.08399,
+   "parityDelta": 3.2526065174565133e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 1.96,
+   "hcTop1": 0.70417,
+   "shareTop1": 0.7042,
+   "evPerPack": 6.5578,
+   "setValue": 5707.82,
+   "medianValue": 0.33,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00015
+    },
+    "5%": {
+     "relSd": 0.0003
+    },
+    "10%": {
+     "relSd": 0.00076
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Black Bolt",
+   "n": 407,
+   "accessibility": 0.0008182,
+   "accessibilityPct": 0.08182,
+   "parityDelta": 2.168404344971009e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 3.1641,
+   "hcTop1": 0.39587,
+   "shareTop1": 0.3561,
+   "evPerPack": 5.9047,
+   "setValue": 4449.89,
+   "medianValue": 0.46,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00133
+    },
+    "5%": {
+     "relSd": 0.00306
+    },
+    "10%": {
+     "relSd": 0.00645
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Ascended Heroes",
+   "n": 464,
+   "accessibility": 0.00080223,
+   "accessibilityPct": 0.08022,
+   "parityDelta": 1.0842021724855044e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 3.903,
+   "hcTop1": 0.35868,
+   "shareTop1": 0.3532,
+   "evPerPack": 8.9778,
+   "setValue": 5826.72,
+   "medianValue": 0.48,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.0004
+    },
+    "5%": {
+     "relSd": 0.00115
+    },
+    "10%": {
+     "relSd": 0.00185
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "White Flare",
+   "n": 405,
+   "accessibility": 0.00077701,
+   "accessibilityPct": 0.0777,
+   "parityDelta": 1.0842021724855044e-19,
+   "mappedHcMass": 1.0,
+   "nHC": 2.8579,
+   "hcTop1": 0.47362,
+   "shareTop1": 0.4322,
+   "evPerPack": 5.5902,
+   "setValue": 3935.6,
+   "medianValue": 0.46,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00144
+    },
+    "5%": {
+     "relSd": 0.00297
+    },
+    "10%": {
+     "relSd": 0.00545
+    }
+   },
+   "pullMonotone": true
+  },
+  {
+   "set": "Mega Evolution",
+   "n": 310,
+   "accessibility": 0.00074435,
+   "accessibilityPct": 0.07444,
+   "parityDelta": 0.0,
+   "mappedHcMass": 1.0,
+   "nHC": 5.3467,
+   "hcTop1": 0.30407,
+   "shareTop1": 0.156,
+   "evPerPack": 3.8297,
+   "setValue": 1648.6,
+   "medianValue": 0.23,
+   "uniformScaleExact": true,
+   "priceShock": {
+    "2%": {
+     "relSd": 0.00411
+    },
+    "5%": {
+     "relSd": 0.01178
+    },
+    "10%": {
+     "relSd": 0.02469
+    }
+   },
+   "pullMonotone": true
+  }
+ ]
+}

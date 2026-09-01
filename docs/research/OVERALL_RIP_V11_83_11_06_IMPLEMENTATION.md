@@ -1,5 +1,20 @@
 # Overall RIP V11 — 83/11/6 Implementation Record
 
+> ## `OVERALL_RIP_V11_83_11_06_SUPERSEDED_BEFORE_CUTOVER`
+>
+> **This candidate is retired. Do not resume it.** Stage XIII
+> (`CHASE_OPPORTUNITY_COMPARISON_FRAME_STAGE13.md`) invalidated the product-level Chase
+> pillar this model rests on: whole-product Chase Opportunity decomposes into
+> `set accessibility x pack count` (within-set R^2 0.9983-0.99996, Spearman exactly
+> 1.0000) and carries no third component, so it would credit pack quantity without its
+> price. Stage XIV validated Chase Accessibility as *set-level* information instead.
+>
+> Canonical Overall RIP remains **V10** (`0.90 F_V4 + 0.10 C_V5`). Migration 074 remains
+> **unapplied**. The code and schema below are preserved unmodified as historical record;
+> no runtime behaviour depends on any V11 constant. Collector Appeal stays at **10%** -
+> the 11% validation occurred inside an architecture containing a 6% Chase pillar and
+> does not transfer.
+
 **Status: BLOCKED — scoring core verified; canonical cutover STOPPED by a Core K lineage failure (see §13).**
 
 > This task implements the model in code and schema. It does **not** publish or

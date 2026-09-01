@@ -67,6 +67,7 @@ from backend.domain.access.index_plan_access import (
     project_sealed_market_response,
     project_sealed_product_detail_response,
     project_set_page_response,
+    project_set_rip_simulation_evidence_response,
 )
 from backend.db.services.chase_efficiency_query_service import (
     get_card_chase_efficiency as read_card_chase_efficiency,
@@ -1658,14 +1659,22 @@ def get_pokemon_set_rip_simulation_evidence(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    user_id = _require_index_feature(
-        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
-        message="RIP simulation evidence requires Index Plus.",
-        authorization=authorization, token_cookie=token_cookie,
-    )
-    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_INTERACTIVE_DETAIL,
-                        route="/tcgs/pokemon/sets/{set_id}/rip/simulation-evidence")
-    return _set_rip_response(get_pokemon_set_rip_simulation_evidence_snapshot_payload, set_id)
+    # PUBLIC (auth-invariant): the opening-distribution graph must render for
+    # anonymous/Base callers. Access is resolved for cache/abuse isolation
+    # only — never used to reject the request — and the response is run
+    # through project_set_rip_simulation_evidence_response() before it
+    # leaves this process, so Base/anonymous physically cannot receive paid
+    # fields (openingOutcomeProfile, evRepresentativeness, financialRip,
+    # collectorAppeal, advanced evidence, or any unknown future field).
+    access_context = _resolve_request_access(authorization, token_cookie, feature=FEATURE_SET_RIP_ANALYTICS)
+    _limit_paid_projection(request, authorization=authorization, token_cookie=token_cookie,
+                           feature=FEATURE_SET_RIP_ANALYTICS, policy_class=POLICY_INTERACTIVE_DETAIL,
+                           route="/tcgs/pokemon/sets/{set_id}/rip/simulation-evidence",
+                           access_context=access_context)
+    result = _set_rip_response(get_pokemon_set_rip_simulation_evidence_snapshot_payload, set_id)
+    if isinstance(result, JSONResponse):
+        return result
+    return _tiered_response(project_set_rip_simulation_evidence_response(result, access_context["plan"]))
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/rip/advanced")
