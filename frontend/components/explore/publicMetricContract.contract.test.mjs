@@ -61,6 +61,20 @@ const MODEL_COLLECTOR_APPEAL = 53.2;
 
 const COHORT = 22;
 
+// The public Set RIP V1 block — the homepage's ranking authority. Set to
+// disagree with Overall RIP's rank/tier so a surface reading the wrong
+// metric cannot coincidentally produce the right answer.
+const PUBLIC_SET_RIP_SCORE = 76.1;
+const PUBLIC_SET_RIP_RANK = 5;
+const PUBLIC_SET_RIP_TIER = "B";
+const SET_RIP_V1 = {
+  score: PUBLIC_SET_RIP_SCORE,
+  rank: PUBLIC_SET_RIP_RANK,
+  tier: PUBLIC_SET_RIP_TIER,
+  cohortSize: COHORT,
+  rankable: true,
+};
+
 function financialComponent(score, relativeScore, rank, raw) {
   return { score, absoluteScore: score, relativeScore, rank, cohortSize: COHORT, rankedSetCount: COHORT, tier: "A", raw };
 }
@@ -158,6 +172,7 @@ const TARGET = {
   pack_rank: 17,
   pack_tier: "D",
   openingDesirability: { collectorAppealScore: 44.4, chaseAppealScore: 33.3 },
+  setRipV1: SET_RIP_V1,
 };
 
 const CANONICAL = resolveCanonicalRipV7(TARGET);
@@ -166,7 +181,12 @@ const CANONICAL = resolveCanonicalRipV7(TARGET);
 // 1. Same set + same concept = the same public number on every surface.
 // =============================================================================
 
-test("RIP Score is one number on every public surface", () => {
+test("RIP Score is one number on every public surface that displays Overall RIP", () => {
+  // Home is NOT part of this set: the homepage set leaderboard's ranking
+  // authority is Set RIP V1, not Overall RIP (see the dedicated Home/Rankings
+  // Set RIP test below) — a set's Overall RIP and Set RIP V1 are deliberately
+  // different numbers in this fixture, so a surface reading the wrong one
+  // cannot coincidentally pass.
   const readings = {
     // Set page hero + Insights headline.
     hero: selectRipHeroScoreMode({ canonical: CANONICAL }).publicScore,
@@ -174,14 +194,29 @@ test("RIP Score is one number on every public surface", () => {
     summary: readCanonicalBlock(CANONICAL.overall).publicScore,
     // Explore / Rankings leaderboard column.
     explore: getScoreForMode(TARGET, "overall"),
-    // Home.
-    home: selectLandingHeroEntries([TARGET])[0].score,
   };
   for (const [surface, value] of Object.entries(readings)) {
     assert.equal(value, PUBLIC_RIP_SCORE, `${surface} must show the canonical public RIP Score`);
     assert.notEqual(value, MODEL_RIP_SCORE, `${surface} must not show the fixed-anchor model score`);
   }
   assert.equal(new Set(Object.values(readings)).size, 1, "every surface must agree");
+});
+
+test("Home Set RIP === Rankings Sets lens setRipV1 (score, rank, tier)", () => {
+  // The homepage's #1/#2/#3 must be driven by the SAME public setRipV1 block
+  // the Rankings "sets" lens reads (projectRankingsClientPublicSetLeaderboard
+  // passes target.setRipV1 straight through) — never Overall RIP, never a
+  // legacy pack_rank. This fixture's Overall RIP (88.4/rank 2/tier S) and Set
+  // RIP V1 (76.1/rank 5/tier B) deliberately disagree, so a homepage reading
+  // the wrong metric cannot coincidentally land on the right number.
+  const home = selectLandingHeroEntries([TARGET])[0];
+  assert.equal(home.score, TARGET.setRipV1.score);
+  assert.equal(home.rank, TARGET.setRipV1.rank);
+  assert.equal(home.tier, TARGET.setRipV1.tier);
+  assert.equal(home.score, PUBLIC_SET_RIP_SCORE);
+  assert.equal(home.rank, PUBLIC_SET_RIP_RANK);
+  assert.equal(home.tier, PUBLIC_SET_RIP_TIER);
+  assert.notEqual(home.score, PUBLIC_RIP_SCORE, "Home must not show Overall RIP's score");
 });
 
 test("Financial RIP is one number on every public surface", () => {
@@ -200,8 +235,9 @@ test("Financial RIP is one number on every public surface", () => {
     driver: driver.score,
     // Explore / Rankings "FINANCIAL RIP" column.
     explore: getScoreForMode(TARGET, "financial"),
-    // Home.
-    home: selectLandingHeroEntries([TARGET])[0].financialRipScore,
+    // Home does NOT read Financial RIP at all any more — the homepage set
+    // leaderboard entry carries no financialRipScore field (see the Set RIP
+    // authority test above), so it is intentionally excluded here.
   };
   for (const [surface, value] of Object.entries(readings)) {
     assert.equal(value, PUBLIC_FINANCIAL_RIP, `${surface} must show the canonical public Financial RIP`);
@@ -649,7 +685,8 @@ test("the canonical public names are the ones actually rendered", () => {
     overall: readCanonicalBlock(CANONICAL.overall),
   });
   assert.deepEqual(drivers.drivers.map((d) => d.label).sort(), ["Collector Appeal", "Financial RIP"]);
-  assert.equal(selectLandingHeroEntries([TARGET])[0].scoreLabel, "Overall RIP");
+  // Home's scoreLabel is truthfully "Set RIP" — it is Set RIP V1, not Overall RIP.
+  assert.equal(selectLandingHeroEntries([TARGET])[0].scoreLabel, "Set RIP");
   assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "OVERALL RIP");
   assert.equal(EXPLORE_RANKING_MODES.financial.scoreLabel, "FINANCIAL RIP");
 });

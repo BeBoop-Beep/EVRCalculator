@@ -65,6 +65,42 @@ function summaryNumber(summary, snakeKey, camelKey) {
   return snake !== null ? snake : toNumber(summary[camelKey]);
 }
 
+// The set of marker keys a Base/anonymous viewer may see the real value for.
+// Everything else must be presented as locked (value: null, locked: true) —
+// never leaked — because pack-cost/median/mean are the only figures the
+// public simulation-evidence contract actually exposes. Any surface showing
+// the public distribution (the Set RIP tab, the homepage) must filter through
+// this SAME list rather than deciding independently which markers are public.
+export const PUBLIC_RIP_DISTRIBUTION_MARKER_KEYS = Object.freeze(["pack-cost", "median", "mean"]);
+
+const LOCKED_MARKER_DEFS = Object.freeze([
+  ["p25", RIP_DISTRIBUTION_MARKER_LABELS.p25],
+  ["p75", RIP_DISTRIBUTION_MARKER_LABELS.p75],
+  ["bad-floor", RIP_DISTRIBUTION_MARKER_LABELS.badFloor],
+  ["big-hit", RIP_DISTRIBUTION_MARKER_LABELS.bigHit],
+  ["big-hit-upside", RIP_DISTRIBUTION_MARKER_LABELS.bigHitUpside],
+  ["god-pull-upside", RIP_DISTRIBUTION_MARKER_LABELS.godPullUpside],
+  ["max", RIP_DISTRIBUTION_MARKER_LABELS.bestPull],
+]);
+
+/**
+ * Filters a full marker list down to the Basic/public policy: the public
+ * markers keep their real value, everything else becomes an explicit locked
+ * placeholder (value: null, locked: true) rather than being dropped, so
+ * callers can still render a "locked" row instead of nothing. The single
+ * source of the public/locked split — RipDecisionPage, the Set RIP tab, and
+ * the homepage distribution all filter through this rather than each
+ * deciding independently which markers are safe to show.
+ */
+export function selectBasicRipDistributionMarkers(markers) {
+  const list = Array.isArray(markers) ? markers : [];
+  const publicMarkers = list.filter((marker) =>
+    PUBLIC_RIP_DISTRIBUTION_MARKER_KEYS.includes(marker?.key),
+  );
+  const lockedMarkers = LOCKED_MARKER_DEFS.map(([key, label]) => ({ key, label, value: null, locked: true }));
+  return [...publicMarkers, ...lockedMarkers];
+}
+
 export function buildRipDistributionMarkers({ summary, percentiles } = {}) {
   const packCost = summaryNumber(summary, "pack_cost", "packCost");
   const p95Ratio = summaryNumber(summary, "p95_value_to_cost_ratio", "p95ValueToCostRatio");

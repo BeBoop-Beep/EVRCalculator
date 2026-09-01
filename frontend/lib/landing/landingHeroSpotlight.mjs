@@ -1,21 +1,19 @@
 // Which set the landing hero's Live Set Intelligence panel shows, and the small
 // ranked strip beneath the hero.
 //
-// CANONICAL CONTRACT ONLY. Both selectors read Overall RIP V7 through
-// selectRipHeroScoreMode — the same reader the RIP Statistics hero uses — so
-// the marketing surface can never show a different number than the product
-// surface for the same set. That shared reader previously resolved the legacy
-// `rip` (Overall RIP v4) object, which made this page publish a superseded
-// blend under the name "RIP Score"; it now resolves the canonical V7 contract
-// and nothing else. The legacy cohort min-max fields (`pack_score`,
-// `relative_pack_score`, `pack_rank`) are likewise not read. A set without a
-// canonical V7 score is skipped, not patched.
+// PUBLIC SET RIP (setRipV1) IS THE HOMEPAGE'S RANKING AUTHORITY. The homepage
+// is a public marketing surface: its #1/#2/#3 must be identical for anonymous,
+// Base, Plus and Premium visitors, so it cannot be gated on Overall RIP (which
+// is not published to anonymous/Base callers). setRipV1 IS published to every
+// plan tier (see backend index_plan_access._project_public_set_leaderboard_target),
+// so it is the only metric that can decide set-level homepage ranking without
+// login state changing the answer. A set with no rankable setRipV1 is skipped —
+// this file never substitutes Overall RIP, Financial RIP, or the legacy
+// `pack_rank` field to invent a ranking setRipV1 doesn't have.
 //
-// Dependency-free apart from the score reader so landingHeroSpotlight.test.mjs
-// can run it directly under `node --test` / `tsx --test`, which cannot resolve
-// the "@/" specifiers the Next bundler uses.
-
-import { readCanonicalBlock, resolveCanonicalRipV7 } from "../../components/explore/canonicalRipV7.mjs";
+// Dependency-free (no score-reader import) so landingHeroSpotlight.test.mjs can
+// run it directly under `node --test` / `tsx --test`, which cannot resolve the
+// "@/" specifiers the Next bundler uses.
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") {
@@ -102,20 +100,6 @@ function readOpeningEconomics(target) {
   };
 }
 
-function readDistribution(financialRip, target) {
-  const components = financialRip?.components || {};
-  return {
-    simulationCount:
-      toOptionalNumber(financialRip?.sourceRun?.simulationCount) ??
-      toOptionalNumber(target?.financial_rip_v3_simulation_count) ??
-      toOptionalNumber(target?.financialRipV3SimulationCount),
-    p05Value: toOptionalNumber(financialRip?.distributionDisclosures?.p05Value),
-    p95Value: toOptionalNumber(components?.realisticUpside?.raw?.p95ThresholdValue),
-    p99Value: toOptionalNumber(components?.jackpotUpside?.raw?.p99ThresholdValue),
-    maxValue: toOptionalNumber(target?.max_value) ?? toOptionalNumber(target?.maxValue),
-  };
-}
-
 function buildRipLink(target) {
   const targetType = toOptionalString(target?.target_type);
   const targetId = toOptionalString(target?.target_id);
@@ -125,20 +109,45 @@ function buildRipLink(target) {
   return `/Explore/rip-statistics?target_type=${encodeURIComponent(targetType)}&target_id=${encodeURIComponent(targetId)}`;
 }
 
+function toOptionalPositiveInt(value) {
+  const parsed = toOptionalNumber(value);
+  return parsed !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 /**
- * A target -> spotlight entry, or null when the canonical RIP Score is not
+ * The public Set RIP V1 block: score, rank, tier, cohortSize. Read straight
+ * through — never derived, never backfilled from Overall RIP. A set is
+ * "rankable" only when the backend actually published a positive integer
+ * rank; an unrankable/missing block returns nulls, and the caller drops the
+ * entry rather than inventing a rank from another metric.
+ */
+function readSetRipV1(target) {
+  const block = target?.setRipV1;
+  if (!block || typeof block !== "object") {
+    return { available: false, score: null, rank: null, tier: null, cohortSize: null };
+  }
+  const rank = toOptionalPositiveInt(block.rank);
+  const rankable = block.rankable !== false && rank !== null;
+  return {
+    available: rankable,
+    score: toOptionalNumber(block.score),
+    rank,
+    tier: toOptionalString(block.tier),
+    cohortSize: toOptionalNumber(block.cohortSize),
+  };
+}
+
+/**
+ * A target -> spotlight entry, or null when the public Set RIP V1 rank is not
  * available for it.
  */
 function toEntry(target) {
-  const canonical = resolveCanonicalRipV7(target);
-  const overall = readCanonicalBlock(canonical.overall);
-  const financial = readCanonicalBlock(canonical.financialRip);
-  if (!overall.available) {
+  const setRip = readSetRipV1(target);
+  if (!setRip.available) {
     return null;
   }
 
   const economics = readOpeningEconomics(target);
-  const cohortSize = toOptionalNumber(overall.cohortSize);
 
   return {
     key: `${toOptionalString(target?.target_type) || "set"}:${toOptionalString(target?.target_id) || ""}`,
@@ -149,16 +158,16 @@ function toEntry(target) {
       toOptionalString(target?.slug),
     name: toOptionalString(target?.name) || toOptionalString(target?.target_id) || "Unknown set",
     era: toOptionalString(target?.era),
+    heroImageUrl: toOptionalString(target?.hero_image_url) ?? toOptionalString(target?.heroImageUrl),
     logoUrl: toOptionalString(target?.logo_image_url),
     symbolUrl: toOptionalString(target?.symbol_image_url),
-    // THE canonical public RIP Score — the same cohort-relative 0-100 value
-    // Explore and the set page print. Never the fixed-anchor model score.
-    score: overall.publicScore,
-    scoreLabel: "Overall RIP",
-    tier: toOptionalString(overall.tier),
-    rank: toOptionalNumber(overall.rank),
-    financialRipScore: financial.available ? financial.publicScore : null,
-    cohortSize,
+    // THE public Set RIP V1 score — the same set-level ranking authority the
+    // Rankings "sets" lens uses. Never Overall RIP, never a legacy pack_rank.
+    score: setRip.score,
+    scoreLabel: "Set RIP",
+    tier: setRip.tier,
+    rank: setRip.rank,
+    cohortSize: setRip.cohortSize,
     setValue: readSetValue(target),
     setValueAsOf:
       toOptionalString(target?.currentChecklistSetValueDate) ??
@@ -172,21 +181,11 @@ function toEntry(target) {
     medianValue: economics.medianValue,
     probProfit: economics.probProfit,
     expectedLossPerPack: economics.expectedLossPerPack,
-    ...readDistribution(canonical.financialRip, target),
-    // NO INTERPRETATION COPY. `decisionLabel` / `decisionSeverity` (from
-    // `leaderboard_label`, `canonical_recommendation_header` and
-    // `recommendation_severity`) and `interpretationLabel` /
-    // `interpretationSummary` all carried the retired Profit/Safety/Stability
-    // interpretation engine's verdict. That engine describes neither Financial
-    // RIP V3 nor Collector Appeal V3, so none of them are read here in any code
-    // path — including as a fallback or as an eligibility signal.
-    //
-    // What replaces them for the sections that used to gate on a verdict being
-    // present: an explicit statement of what this entry actually has. It is
-    // taken from the canonical hero result above, so it can only be true when a
-    // canonical Overall RIP V7 score really resolved — the presence of any
-    // legacy field cannot turn it on.
-    hasCanonicalOverallRipV7: overall.available === true,
+    // NO INTERPRETATION COPY, and no Financial RIP internals read here. This
+    // entry's only ranking authority is setRipV1 (see readSetRipV1 above) —
+    // `hasCanonicalOverallRipV7` and the old p05/p95/p99/max distribution
+    // fields (sourced from Financial RIP's paid internals) do not belong on
+    // the public homepage set leaderboard and are not read.
     ...readDesirabilityFields(target),
     href: buildRipLink(target),
   };

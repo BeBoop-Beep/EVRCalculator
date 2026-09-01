@@ -37,15 +37,43 @@ function SupportingSetVisual({ row }) {
 function Metrics({ set }) {
   return (
     <dl className={styles.metricGrid}>
-      <div><dt>Overall RIP</dt><dd><Score value={set?.score} /></dd></div>
-      <div><dt>Financial RIP</dt><dd><Score value={set?.financialRipScore} /></dd></div>
+      <div><dt>Set RIP</dt><dd><Score value={set?.score} /></dd></div>
       <div><dt>Expected Value</dt><dd><Money value={set?.meanValue} /></dd></div>
       <div><dt>Typical Opening</dt><dd><Money value={set?.medianValue} /></dd></div>
     </dl>
   );
 }
 
-function Theater({ set, rows, boosterPackImage }) {
+function HeroVisual({ set, heroVisual }) {
+  if (heroVisual?.type === "pack" && heroVisual.asset) {
+    return (
+      <Image
+        className={styles.packImage}
+        src={heroVisual.asset.src}
+        width={heroVisual.asset.width}
+        height={heroVisual.asset.height}
+        sizes="(max-width: 767px) 84vw, 480px"
+        priority
+        alt={`${set?.name || "Featured Pokémon"} booster pack`}
+      />
+    );
+  }
+  if (heroVisual?.type === "hero-image" && heroVisual.src) {
+    const optimizedSrc = optimizedImageUrl(heroVisual.src, SET_LOGO_WIDTH);
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- remote hero art is already delivered pre-optimized by optimizedImageUrl
+      <img
+        className={styles.packImage}
+        src={optimizedSrc || heroVisual.src}
+        loading="eager"
+        alt={`${set?.name || "Featured set"} artwork`}
+      />
+    );
+  }
+  return <div className={styles.logoStage}><SetMark set={set} className={styles.heroLogo} /></div>;
+}
+
+function Theater({ set, rows, heroVisual }) {
   return (
     <div className={styles.theater}>
       {rows.slice(1, 3).map((row, index) => (
@@ -62,19 +90,7 @@ function Theater({ set, rows, boosterPackImage }) {
         href={set?.href || "/Explore/rip-statistics"}
         aria-label={`View ${set?.name || "featured set"} RIP analysis`}
       >
-        {boosterPackImage ? (
-          <Image
-            className={styles.packImage}
-            src={boosterPackImage.src}
-            width={boosterPackImage.width}
-            height={boosterPackImage.height}
-            sizes="(max-width: 767px) 84vw, 480px"
-            priority
-            alt={`${set?.name || "Featured Pokémon"} booster pack`}
-          />
-        ) : (
-          <div className={styles.logoStage}><SetMark set={set} className={styles.heroLogo} /></div>
-        )}
+        <HeroVisual set={set} heroVisual={heroVisual} />
       </Link>
     </div>
   );
@@ -87,8 +103,8 @@ function DistributionVisual({ distribution }) {
   return (
     <div className={styles.outcomeLayout}>
       <dl className={styles.outcomeStats}>
-        {distribution.markers.map((marker) => <div key={marker.key}>
-          <dt><span>{marker.short}</span>{marker.label}</dt>
+        {distribution.markers.filter((marker) => !marker.locked && marker.value !== null).map((marker) => <div key={marker.key}>
+          <dt>{marker.label}</dt>
           <dd>{money.format(marker.value)}</dd>
         </div>)}
       </dl>
@@ -105,7 +121,7 @@ function DistributionVisual({ distribution }) {
   );
 }
 
-export default function RankingTheaterHomepage({ set, rankingRows = [], boosterPackImage = null, distribution = null, marketContext = null }) {
+export default function RankingTheaterHomepage({ set, rankingRows = [], heroVisual = null, distribution = null, marketContext = null }) {
   return (
     <>
       <section className={styles.hero} aria-labelledby="landing-hero-headline">
@@ -118,23 +134,22 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
               <span>#1&nbsp; BEST SET TO RIP RIGHT NOW</span>
               <strong>{set?.name || "Ranking temporarily unavailable"}</strong>
             </div>
-            <div className={styles.mobileTheater}><Theater set={set} rows={rankingRows} boosterPackImage={boosterPackImage} /></div>
+            <div className={styles.mobileTheater}><Theater set={set} rows={rankingRows} heroVisual={heroVisual} /></div>
             <Metrics set={set} />
             <Link className={styles.primaryCta} href="/Rankings">See Full Rankings <span aria-hidden="true">→</span></Link>
           </div>
-          <div className={styles.desktopTheater}><Theater set={set} rows={rankingRows} boosterPackImage={boosterPackImage} /></div>
+          <div className={styles.desktopTheater}><Theater set={set} rows={rankingRows} heroVisual={heroVisual} /></div>
         </div>
       </section>
 
       <section className={styles.section} aria-labelledby="best-sets-heading">
         <div className={styles.shell}>
-          <div className={styles.sectionHead}><p className={styles.eyebrow}>Published Overall RIP ranking</p><h2 id="best-sets-heading">BEST SETS TO RIP RIGHT NOW</h2></div>
+          <div className={styles.sectionHead}><p className={styles.eyebrow}>Published Set RIP ranking</p><h2 id="best-sets-heading">BEST SETS TO RIP RIGHT NOW</h2></div>
           {rankingRows.length ? <ol className={styles.rankingBoard}>
             {rankingRows.map((row) => <li key={row.key}><Link href={row.href} className={styles.rankingRow}>
               <span className={styles.rank}>#{row.rank}</span><SetMark set={row} className={styles.rowLogo} />
               <span className={styles.rowName}><strong>{row.name}</strong><small>{row.tier ? `${row.tier} tier` : "Tier unavailable"}</small></span>
-              <span className={styles.rowMetric}><small>Overall RIP</small><Score value={row.score} /></span>
-              <span className={styles.rowMetric}><small>Financial RIP</small><Score value={row.financialRipScore} /></span>
+              <span className={styles.rowMetric}><small>Set RIP</small><Score value={row.score} /></span>
               <span className={`${styles.rowMetric} ${styles.optionalMetric}`}><small>Pack price</small><Money value={row.packCost} /></span>
             </Link></li>)}
           </ol> : <p className={styles.unavailable}>Published rankings are refreshing.</p>}
@@ -145,7 +160,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
       <section className={`${styles.section} ${styles.proofSection}`} aria-labelledby="simulation-heading">
         <div className={styles.shell}>
           <div className={styles.sectionHead}><p className={styles.eyebrow}>Opening outcome profile</p><h2 id="simulation-heading">What does one million simulated openings actually look like?</h2>
-            <p>{set?.simulationCount ? `${integer.format(set.simulationCount)} simulated openings for ${set.name}. Most openings cluster on the left; farther right means rarer, more valuable outcomes.` : "Simulation count is unavailable in the current published payload."}</p></div>
+            <p>{distribution?.simulationCount ? `${integer.format(distribution.simulationCount)} simulated openings for ${set?.name}. Most openings cluster on the left; farther right means rarer, more valuable outcomes.` : "Simulation count is unavailable in the current published payload."}</p></div>
           <DistributionVisual distribution={distribution} />
         </div>
       </section>
