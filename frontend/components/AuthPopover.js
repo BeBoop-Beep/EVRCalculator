@@ -4,7 +4,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { buildAuthCallbackUrl, buildAuthCallbackUrlWithNext, currentReturnPath, sanitizeReturnPath } from "@/lib/auth/returnPath.mjs";
-import { serializeOAuthReturnCookie } from "@/lib/auth/oauthState.mjs";
+import { clearOAuthReturnCookie, serializeOAuthReturnCookie } from "@/lib/auth/oauthState.mjs";
 
 const initialState = { mode: "login", email: "", password: "", confirm: "", code: "", error: "", message: "", pending: false };
 function reducer(state, action) {
@@ -71,10 +71,15 @@ export default function AuthPopover({ onClose, initialMode = "login", nextPath, 
   const continueWithProvider = async (provider) => {
     dispatch({ type: "pending", value: true });
     try {
-      document.cookie = serializeOAuthReturnCookie(destination, { secure: window.location.protocol === "https:" });
+      const secure = window.location.protocol === "https:";
+      document.cookie = serializeOAuthReturnCookie(destination, { secure });
       const { error } = await createClient().auth.signInWithOAuth({ provider, options: { redirectTo: callbackUrl() } });
       if (error) throw error;
     } catch (error) {
+      // The browser never left the page, so the transient return-path cookie
+      // just written above would otherwise linger unused — clear it rather
+      // than leaving stale OAuth state behind for a later navigation.
+      document.cookie = clearOAuthReturnCookie({ secure: window.location.protocol === "https:" });
       dispatch({ type: "error", value: friendlyError(error, `Unable to continue with ${provider === "apple" ? "Apple" : "Google"}.`) });
     }
   };

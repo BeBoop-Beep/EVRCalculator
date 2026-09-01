@@ -23,14 +23,33 @@ export function serializeOAuthReturnCookie(nextPath, { secure = true } = {}) {
   return attrs.join("; ");
 }
 
-// The cookie (this browser's own OAuth attempt) always wins over a `next`
-// query param, which only exists for server-generated email links that never
-// had a chance to set it. Both pass through the same sanitizer, so a missing
-// or tampered cookie/query value falls back to "/" rather than ever becoming
-// an open redirect.
+// Expires the transient OAuth-return cookie immediately. Used both by the
+// callback route (server-side, on every response) and by the client when
+// signInWithOAuth() fails before the browser ever leaves the page — the
+// cookie was already written and would otherwise linger for up to
+// OAUTH_RETURN_COOKIE_MAX_AGE with nothing left to consume it.
+export function clearOAuthReturnCookie({ secure = true } = {}) {
+  const attrs = [`${OAUTH_RETURN_COOKIE}=`, "Path=/", "Max-Age=0", "SameSite=Lax"];
+  if (secure) attrs.push("Secure");
+  return attrs.join("; ");
+}
+
+// An explicit `next` query param always wins, even a malformed one: it means
+// this is a server-generated email link (signup confirmation, password
+// recovery) that intentionally carries its own destination and was never
+// preceded by a request that could set the OAuth cookie. The cookie is only
+// consulted when there is no query `next` at all — i.e. a genuine OAuth
+// round trip, where the query-free callback URL never carries one. This
+// ordering also prevents a stale cookie left over from an earlier OAuth
+// attempt from hijacking an email-link callback's destination. Both sources
+// pass through the same sanitizer, so a missing or tampered value falls back
+// to "/" rather than ever becoming an open redirect.
 export function resolveCallbackNext({ queryNext, cookieNext } = {}) {
+  if (typeof queryNext === "string" && queryNext) {
+    return sanitizeReturnPath(queryNext);
+  }
   if (typeof cookieNext === "string" && cookieNext) {
     return sanitizeReturnPath(cookieNext);
   }
-  return sanitizeReturnPath(queryNext);
+  return sanitizeReturnPath(undefined);
 }
