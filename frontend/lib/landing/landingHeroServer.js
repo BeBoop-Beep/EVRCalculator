@@ -14,9 +14,14 @@ function withRoutes(entry) {
   return { ...entry, href: ripHref, overviewHref: ripHref, ripScoreHref: ripHref };
 }
 
-/** Public landing data is derived only from the backend's Base projection. */
+/**
+ * Public landing data is derived only from the backend's Base projection.
+ * `public: true` forces the rankings fetch through getPublicBackendRequestHeaders()
+ * (Accept only — no Cookie/Authorization), so this homepage read can never
+ * become richer because the visitor happens to have a Plus session cookie.
+ */
 export async function getLandingPageData() {
-  const payload = await getRipStatisticsTargets({ limit: LANDING_TARGETS_LIMIT }).catch(() => null);
+  const payload = await getRipStatisticsTargets({ limit: LANDING_TARGETS_LIMIT, public: true }).catch(() => null);
   const targets = Array.isArray(payload?.targets) ? payload.targets : [];
   const entries = selectLandingHeroEntries(
     targets.filter(isPublicAnalyticsEligiblePokemonSet),

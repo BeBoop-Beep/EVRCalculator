@@ -1,5 +1,5 @@
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
-import { getBackendRequestAuthHeaders } from "@/lib/authServer";
+import { getBackendRequestAuthHeaders, getPublicBackendRequestHeaders } from "@/lib/authServer";
 import { normaliseRipStatisticsPayload } from "./ripStatisticsNormalizer.mjs";
 
 const BACKEND_URL = getBackendApiBaseUrl();
@@ -80,7 +80,7 @@ function getRecoverableTargetsPayload(warning) {
   });
 }
 
-async function _fetchRipStatisticsTargets(request = null) {
+async function _fetchRipStatisticsTargets(request = null, { publicOnly = false } = {}) {
   const limit = CANONICAL_COHORT_LIMIT;
     const url = new URL(`${BACKEND_URL}/explore/rip-statistics/targets`);
     url.searchParams.set("limit", String(CANONICAL_COHORT_LIMIT));
@@ -90,9 +90,15 @@ async function _fetchRipStatisticsTargets(request = null) {
       // The bounded process cache below is the single cross-request freshness
       // boundary. A second Next data-cache TTL used to stack with it and could
       // keep a superseded persisted snapshot visible unpredictably longer.
+      //
+      // publicOnly callers (the homepage/landing reader) must never resolve
+      // ambient request cookies/headers, so they get the fixed public header
+      // set instead of getBackendRequestAuthHeaders(request).
       res = await fetch(url.toString(), {
         cache: "no-store",
-        headers: await getBackendRequestAuthHeaders(request),
+        headers: publicOnly
+          ? await getPublicBackendRequestHeaders()
+          : await getBackendRequestAuthHeaders(request),
       });
     } catch (error) {
       const warning = toBackendFailureWarning({ detail: error?.message || String(error) });
@@ -132,7 +138,9 @@ async function _fetchRipStatisticsTargets(request = null) {
 
 export async function getRipStatisticsTargets(options = {}) {
   const limit = sanitiseLimit(options.limit, DEFAULT_TARGETS_LIMIT, MAX_TARGETS_LIMIT);
-  const cohort = await _fetchRipStatisticsTargets(options.request || null);
+  const cohort = await _fetchRipStatisticsTargets(options.request || null, {
+    publicOnly: Boolean(options.public),
+  });
   // Return a fresh payload per caller — the cached cohort object is shared by
   // every consumer in this process and must never be truncated in place.
   return {
