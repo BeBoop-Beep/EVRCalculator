@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import stripe
 
-from backend.domain.billing.errors import BillingNotConfigured, BillingProviderError, InvalidWebhookSignature, StripeCustomerMissing
+from backend.domain.billing.errors import BillingNotConfigured, BillingProviderError, InvalidWebhookSignature, PlanChangeNotAllowed, StripeCustomerMissing
 
 
 class StripeProvider:
@@ -135,7 +135,21 @@ class StripeProvider:
                 {"end_behavior": "release", "phases": updated_phases},
                 options={"idempotency_key": idempotency_key},
             )
-        except BillingNotConfigured: raise
+        except BillingNotConfigured:
+            raise
+        except PlanChangeNotAllowed:
+            # The current phase carries billing-affecting state (e.g. a
+            # discount) that _writable_phase_payload could not confidently
+            # and losslessly represent through the writable phase schema.
+            # Fail closed: release the schedule the `create` call above
+            # already attached, so the subscription is left exactly as it
+            # was found, and let the caller see this as a rejected plan
+            # change rather than a generic provider error.
+            try:
+                self._client().v1.subscription_schedules.release(schedule_id)
+            except Exception:
+                pass
+            raise
         except Exception as exc:
             # The schedule from the `create` call above already exists on the
             # subscription. If the phase-2 `update` fails, release it so we
@@ -186,28 +200,182 @@ def _field(value, name, default=None):
     return getattr(value, name, default)
 
 
+def _resource_id(value):
+    """Extract a resource id from a plain id string, a dict-shaped expanded
+    resource, or a StripeObject-shaped expanded resource. Returns None if the
+    value cannot be confidently reduced to an id."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    resolved = _field(value, "id")
+    return resolved if isinstance(resolved, str) else None
+
+
 def _writable_phase_payload(phase, *, end_date) -> dict:
     """Project a schedule phase read back from `create` down to the
-    documented-writable subset before resubmitting it to `update`.
+    documented-writable subset (stripe-python 15.4.0
+    `SubscriptionScheduleUpdateParamsPhase`) before resubmitting it to
+    `update`.
 
-    The `create` response phase can carry read-only/expanded fields (e.g. a
+    The `create` response phase carries read-only/expanded fields (e.g. a
     fully expanded price object, computed proration fields) that a real
-    `subscription_schedules.update` call rejects. Only known-writable keys
-    are included here: `items` (price id + quantity), `start_date`, and
-    `end_date` (which must equal the subscription's current_period_end).
+    `subscription_schedules.update` call rejects if resubmitted verbatim.
+    Every field below is deliberately narrowed to what that write schema
+    actually accepts. Billing-affecting state that IS present on the read
+    phase but cannot be confidently and losslessly reduced to a valid write
+    value raises `PlanChangeNotAllowed` -- the caller must fail the plan
+    change closed rather than silently drop it.
     """
     items = _field(phase, "items") or []
     projected_items = []
     for item in items:
-        price = _field(item, "price")
-        price_id = price if isinstance(price, str) or price is None else _field(price, "id")
+        price_id = _resource_id(_field(item, "price"))
+        if price_id is None:
+            raise PlanChangeNotAllowed(
+                "Unable to safely represent the current subscription phase's price for a scheduled downgrade"
+            )
         quantity = _field(item, "quantity", 1) or 1
         projected_items.append({"price": price_id, "quantity": quantity})
-    return {
+
+    payload = {
         "items": projected_items,
         "start_date": _field(phase, "start_date"),
         "end_date": end_date,
     }
+
+    collection_method = _field(phase, "collection_method")
+    if collection_method:
+        if collection_method not in ("charge_automatically", "send_invoice"):
+            raise PlanChangeNotAllowed(
+                "Unsupported billing collection method on the current subscription phase"
+            )
+        payload["collection_method"] = collection_method
+
+    application_fee_percent = _field(phase, "application_fee_percent")
+    if application_fee_percent is not None:
+        payload["application_fee_percent"] = application_fee_percent
+
+    on_behalf_of_id = _resource_id(_field(phase, "on_behalf_of"))
+    if _field(phase, "on_behalf_of") is not None and on_behalf_of_id is None:
+        raise PlanChangeNotAllowed(
+            "Unable to safely represent connected-account billing state for a scheduled downgrade"
+        )
+    if on_behalf_of_id:
+        payload["on_behalf_of"] = on_behalf_of_id
+
+    if _field(phase, "trial"):
+        payload["trial"] = True
+    trial_end = _field(phase, "trial_end")
+    if trial_end:
+        payload["trial_end"] = trial_end
+
+    default_tax_rates = _field(phase, "default_tax_rates")
+    if default_tax_rates:
+        rate_ids = [_resource_id(rate) for rate in default_tax_rates]
+        if any(rate_id is None for rate_id in rate_ids):
+            raise PlanChangeNotAllowed(
+                "Unable to safely represent the current subscription's tax rates for a scheduled downgrade"
+            )
+        payload["default_tax_rates"] = rate_ids
+
+    discounts = _field(phase, "discounts")
+    if discounts:
+        discount_refs = []
+        for discount in discounts:
+            discount_id = _resource_id(discount)
+            if discount_id is None:
+                raise PlanChangeNotAllowed(
+                    "Unable to safely represent an active discount for a scheduled downgrade"
+                )
+            discount_refs.append({"discount": discount_id})
+        payload["discounts"] = discount_refs
+
+    billing_thresholds = _field(phase, "billing_thresholds")
+    if billing_thresholds:
+        amount_gte = _field(billing_thresholds, "amount_gte")
+        reset_anchor = _field(billing_thresholds, "reset_billing_cycle_anchor")
+        if amount_gte is None and reset_anchor is None:
+            raise PlanChangeNotAllowed(
+                "Unable to safely represent billing thresholds on the current subscription phase for a scheduled downgrade"
+            )
+        projected_thresholds = {}
+        if amount_gte is not None:
+            projected_thresholds["amount_gte"] = amount_gte
+        if reset_anchor is not None:
+            projected_thresholds["reset_billing_cycle_anchor"] = reset_anchor
+        payload["billing_thresholds"] = projected_thresholds
+
+    automatic_tax = _field(phase, "automatic_tax")
+    if automatic_tax:
+        enabled = _field(automatic_tax, "enabled")
+        if enabled is None:
+            raise PlanChangeNotAllowed(
+                "Unable to safely represent automatic tax settings on the current subscription phase for a scheduled downgrade"
+            )
+        projected_automatic_tax = {"enabled": bool(enabled)}
+        liability = _field(automatic_tax, "liability")
+        if liability:
+            liability_id = _resource_id(_field(liability, "account"))
+            liability_type = _field(liability, "type")
+            if liability_type is None:
+                raise PlanChangeNotAllowed(
+                    "Unable to safely represent automatic tax liability settings for a scheduled downgrade"
+                )
+            projected_liability = {"type": liability_type}
+            if liability_id:
+                projected_liability["account"] = liability_id
+            projected_automatic_tax["liability"] = projected_liability
+        payload["automatic_tax"] = projected_automatic_tax
+
+    invoice_settings = _field(phase, "invoice_settings")
+    if invoice_settings:
+        projected_invoice_settings = {}
+        days_until_due = _field(invoice_settings, "days_until_due")
+        if days_until_due is not None:
+            projected_invoice_settings["days_until_due"] = days_until_due
+        description = _field(invoice_settings, "description")
+        if description:
+            projected_invoice_settings["description"] = description
+        footer = _field(invoice_settings, "footer")
+        if footer:
+            projected_invoice_settings["footer"] = footer
+        account_tax_ids = _field(invoice_settings, "account_tax_ids")
+        if account_tax_ids:
+            tax_id_ids = [_resource_id(tax_id) for tax_id in account_tax_ids]
+            if any(tax_id is None for tax_id in tax_id_ids):
+                raise PlanChangeNotAllowed(
+                    "Unable to safely represent invoice tax id settings for a scheduled downgrade"
+                )
+            projected_invoice_settings["account_tax_ids"] = tax_id_ids
+        custom_fields = _field(invoice_settings, "custom_fields")
+        if custom_fields:
+            projected_custom_fields = []
+            for custom_field in custom_fields:
+                name = _field(custom_field, "name")
+                value = _field(custom_field, "value")
+                if not isinstance(name, str) or not isinstance(value, str):
+                    raise PlanChangeNotAllowed(
+                        "Unable to safely represent invoice custom fields for a scheduled downgrade"
+                    )
+                projected_custom_fields.append({"name": name, "value": value})
+            projected_invoice_settings["custom_fields"] = projected_custom_fields
+        issuer = _field(invoice_settings, "issuer")
+        if issuer:
+            issuer_type = _field(issuer, "type")
+            if issuer_type is None:
+                raise PlanChangeNotAllowed(
+                    "Unable to safely represent invoice issuer settings for a scheduled downgrade"
+                )
+            projected_issuer = {"type": issuer_type}
+            issuer_account_id = _resource_id(_field(issuer, "account"))
+            if issuer_account_id:
+                projected_issuer["account"] = issuer_account_id
+            projected_invoice_settings["issuer"] = projected_issuer
+        if projected_invoice_settings:
+            payload["invoice_settings"] = projected_invoice_settings
+
+    return payload
 
 
 def _normalize_payment_result(subscription) -> str:

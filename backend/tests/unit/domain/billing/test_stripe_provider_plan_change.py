@@ -147,9 +147,11 @@ def test_create_downgrade_schedule_builds_from_subscription():
 
 def test_create_downgrade_schedule_projects_phase1_to_writable_subset_only():
     """A 'rich' create response can carry read-only/expanded fields (e.g. a
-    fully expanded price object, or extra computed keys). The resubmitted
-    phase-1 payload must contain only the documented-writable subset, not
-    those extra keys."""
+    fully expanded price object, or extra computed keys with no writable
+    counterpart at all). The resubmitted phase-1 payload must contain
+    `collection_method` (a real writable field, correctly preserved) but
+    must NOT contain `proration_behavior` (a read-only-ish computed field
+    with no equivalent in the writable phase schema)."""
 
     class Schedules:
         def __init__(self):
@@ -163,7 +165,7 @@ def test_create_downgrade_schedule_projects_phase1_to_writable_subset_only():
                         "items": [{"price": {"id": "price_a", "object": "price", "unit_amount": 999}, "quantity": 2}],
                         "start_date": 1735689600,
                         "end_date": 1738368000,
-                        "proration_behavior": "none",  # read-only-ish extra field that must not survive projection
+                        "proration_behavior": "none",  # not a writable phase field; must not survive projection
                         "collection_method": "charge_automatically",
                     }
                 ],
@@ -187,8 +189,9 @@ def test_create_downgrade_schedule_projects_phase1_to_writable_subset_only():
         "items": [{"price": "price_a", "quantity": 2}],
         "start_date": 1735689600,
         "end_date": 1738368000,
+        "collection_method": "charge_automatically",
     }
-    assert set(phase1.keys()) == {"items", "start_date", "end_date"}
+    assert "proration_behavior" not in phase1
 
 
 def test_create_downgrade_schedule_releases_schedule_when_second_call_fails():
@@ -246,3 +249,122 @@ def test_preview_subscription_update_requires_configured_client():
             subscription_id="sub_1", subscription_item_id="si_1",
             target_price_id="price_target", proration_date=1735689600,
         )
+
+
+def test_create_downgrade_schedule_preserves_active_discount():
+    """An active discount on the current phase must be carried forward into
+    the resubmitted phase-1 payload as a `{"discount": <id>}` reference, not
+    silently dropped."""
+
+    class Schedules:
+        def __init__(self):
+            self.update_calls = []
+
+        def create(self, params, options=None):
+            return {
+                "id": "sub_sched_1",
+                "phases": [
+                    {
+                        "items": [{"price": "price_a", "quantity": 1}],
+                        "start_date": 1735689600,
+                        "end_date": 1738368000,
+                        "discounts": [{"id": "di_active_coupon", "object": "discount", "coupon": {"id": "co_1"}}],
+                    }
+                ],
+            }
+
+        def update(self, schedule_id, params, options=None):
+            self.update_calls.append((schedule_id, params, options))
+            return {"id": "sub_sched_1"}
+
+    schedules = Schedules()
+    provider = StripeProvider(secret_key="nonempty-test-key")
+    provider.client = _client_with(schedules=schedules)
+
+    provider.create_downgrade_schedule(
+        subscription_id="sub_1", target_price_id="price_plus_monthly",
+        current_period_end=1738368000, idempotency_key="key_1",
+    )
+
+    phase1 = schedules.update_calls[0][1]["phases"][0]
+    assert phase1["discounts"] == [{"discount": "di_active_coupon"}]
+
+
+def test_create_downgrade_schedule_preserves_default_tax_rates_and_collection_method():
+    class Schedules:
+        def __init__(self):
+            self.update_calls = []
+
+        def create(self, params, options=None):
+            return {
+                "id": "sub_sched_1",
+                "phases": [
+                    {
+                        "items": [{"price": "price_a", "quantity": 1}],
+                        "start_date": 1735689600,
+                        "end_date": 1738368000,
+                        "default_tax_rates": [{"id": "txr_1", "object": "tax_rate"}],
+                        "collection_method": "send_invoice",
+                    }
+                ],
+            }
+
+        def update(self, schedule_id, params, options=None):
+            self.update_calls.append((schedule_id, params, options))
+            return {"id": "sub_sched_1"}
+
+    schedules = Schedules()
+    provider = StripeProvider(secret_key="nonempty-test-key")
+    provider.client = _client_with(schedules=schedules)
+
+    provider.create_downgrade_schedule(
+        subscription_id="sub_1", target_price_id="price_plus_monthly",
+        current_period_end=1738368000, idempotency_key="key_1",
+    )
+
+    phase1 = schedules.update_calls[0][1]["phases"][0]
+    assert phase1["default_tax_rates"] == ["txr_1"]
+    assert phase1["collection_method"] == "send_invoice"
+
+
+def test_create_downgrade_schedule_fails_closed_on_unrepresentable_discount_and_releases_schedule():
+    """If a discount cannot be reduced to a resource id (unexpected shape),
+    the schedule must fail closed -- PlanChangeNotAllowed, not a silent drop
+    -- and the schedule created by the earlier `create` call must be
+    released so the subscription is left exactly as it was found."""
+    from backend.domain.billing.errors import PlanChangeNotAllowed
+
+    class Schedules:
+        def __init__(self):
+            self.release_calls = []
+
+        def create(self, params, options=None):
+            return {
+                "id": "sub_sched_1",
+                "phases": [
+                    {
+                        "items": [{"price": "price_a", "quantity": 1}],
+                        "start_date": 1735689600,
+                        "end_date": 1738368000,
+                        "discounts": [{"object": "discount"}],  # no resolvable id
+                    }
+                ],
+            }
+
+        def update(self, schedule_id, params, options=None):
+            raise AssertionError("update must not be called when phase-1 projection fails closed")
+
+        def release(self, schedule_id):
+            self.release_calls.append(schedule_id)
+
+    schedules = Schedules()
+    provider = StripeProvider(secret_key="nonempty-test-key")
+    provider.client = _client_with(schedules=schedules)
+
+    with pytest.raises(PlanChangeNotAllowed):
+        provider.create_downgrade_schedule(
+            subscription_id="sub_1", target_price_id="price_plus_monthly",
+            current_period_end=1738368000, idempotency_key="key_1",
+        )
+
+    assert schedules.release_calls == ["sub_sched_1"]
