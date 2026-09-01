@@ -13,9 +13,5 @@ class BillingSubscriptionAlreadyManaged(BillingError): code = "BILLING_SUBSCRIPT
 class StripeCustomerMissing(BillingError): code = "STRIPE_CUSTOMER_MISSING"
 
 
-class PlanChangeNotAllowed(BillingError):
-    pass
-
-
-class PlanChangePreviewStale(BillingError):
-    pass
+class PlanChangeNotAllowed(BillingError): code = "PLAN_CHANGE_NOT_ALLOWED"
+class PlanChangePreviewStale(BillingError): code = "PLAN_CHANGE_PREVIEW_STALE"
