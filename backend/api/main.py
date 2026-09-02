@@ -259,6 +259,12 @@ class MarketExplorerQueryRequest(BaseModel):
     releaseAgeCohortIds: List[str] = Field(default_factory=list)
     mode: str = "all"
     topN: Optional[int] = Field(default=None, ge=1, le=100)
+    responseMode: str = "full"
+
+
+class MarketExplorerConstituentPageRequest(MarketExplorerQueryRequest):
+    limit: int = Field(default=100, ge=1, le=100)
+    afterRank: int = Field(default=0, ge=0)
 
 
 class BillingCheckoutRequest(BaseModel):
@@ -1258,6 +1264,8 @@ def post_market_explorer_query(
     """
     if payload.asset not in SUPPORTED_ASSETS:
         return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+    if payload.responseMode not in ("full", "summary"):
+        return JSONResponse(content={"message": "responseMode must be full or summary", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     if payload.mode == "chase" and payload.topN not in (None, 10):
         return JSONResponse(content={"message": "Only Top 10 queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     try:
@@ -1306,6 +1314,7 @@ def post_market_explorer_query(
                 service_read_client, normalized,
             ),
             novel_builder=build_market,
+            summary=payload.responseMode == "summary",
         )
         return _tiered_response(planned.payload)
     except HTTPException:
@@ -1319,6 +1328,33 @@ def post_market_explorer_query(
     except Exception:
         logger.exception("/market/explorer/query unexpected error")
         return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "MARKET_EXPLORER_QUERY_FAILED"}, status_code=500)
+
+
+@app.post("/market/explorer/query/constituents")
+def post_market_explorer_query_constituents(
+    request: Request,
+    payload: MarketExplorerConstituentPageRequest,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    normalized = normalize_query_spec(
+        asset=payload.asset, mode=payload.mode, era_ids=payload.eraIds,
+        set_ids=payload.setIds, segment_ids=payload.segmentIds,
+        pokemon_ids=payload.pokemonIds, price_segment_ids=payload.priceSegmentIds,
+        release_age_cohort_ids=payload.releaseAgeCohortIds, top_n=payload.topN,
+    )
+    user_id = _require_market_explorer_query_access(
+        normalized, authorization=authorization, token_cookie=token_cookie,
+    )
+    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+                        route="/market/explorer/query/constituents")
+    page = PersistentMarketExplorerCache(service_read_client).constituent_page(
+        query_fingerprint(normalized), limit=payload.limit, after_rank=payload.afterRank,
+    )
+    if page is None:
+        return JSONResponse(content={"message": "Market summary must be built first",
+                                     "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+    return _tiered_response(page)
 
 
 @app.get("/auth/me")

@@ -51,6 +51,7 @@ from backend.scripts.pokemon_snapshot_builders import (
     build_explore_rankings_snapshot_row,
 )
 from backend.db.services.set_rip_service import METHODOLOGY_VERSION as SET_RIP_METHODOLOGY_VERSION
+from backend.db.services.chase_accessibility_service import SNAPSHOT_TABLE as CHASE_ACCESSIBILITY_SNAPSHOT_TABLE
 from backend.db.services.rankings_publication_lifecycle import (
     FAILED_POST_PUBLICATION_PARITY,
     FAILED_PUBLICATION_RPC,
@@ -563,6 +564,27 @@ def validate_publication_payload(
         )
 
 
+def _load_chase_accessibility_rows_for_readiness(client: Any) -> Any:
+    """Every published Chase Accessibility snapshot row, for the readiness gate.
+
+    Read-only; failures here must never be interpreted as "no integrity
+    problem" — an unreadable table blocks publication for every
+    simulation-supported set exactly like a missing row would, because
+    ``publication_integrity_failures`` treats an absent row as
+    ``missing_chase_accessibility_row``.
+    """
+    try:
+        response = client.table(CHASE_ACCESSIBILITY_SNAPSHOT_TABLE).select("*").execute()
+        return list(getattr(response, "data", None) or [])
+    except Exception:
+        logger.exception(
+            "[rankings-publish] could not read %s for the Chase Accessibility "
+            "readiness gate; treating as no rows (fail-closed)",
+            CHASE_ACCESSIBILITY_SNAPSHOT_TABLE,
+        )
+        return []
+
+
 def publish_explore_rip_rankings_snapshot(
     client: Any, *, limit: int = DEFAULT_RANKINGS_LIMIT,
     market_date: Optional[str] = None, commit: bool = True,
@@ -582,10 +604,12 @@ def publish_explore_rip_rankings_snapshot(
     if commit:
         _reuse_publication_id(client, snapshot)
     attach_publication_metadata(row, snapshot)
+    chase_accessibility_rows = _load_chase_accessibility_rows_for_readiness(client)
     readiness = evaluate_rankings_publication_readiness(
         row, snapshot, expected_market_date=market_date,
         sealed_product_finalization_status=sealed_product_finalization_status,
         sealed_product_finalization_report=sealed_product_finalization_report,
+        chase_accessibility_rows=chase_accessibility_rows,
     )
     lifecycle_persistence = commit and _rankings_lifecycle_persistence_supported(client)
     prior = read_active_publication(client) if lifecycle_persistence else {}

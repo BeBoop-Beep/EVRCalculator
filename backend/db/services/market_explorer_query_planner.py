@@ -28,6 +28,8 @@ from backend.domain.pokemon.market_index import compute_strict_window_movements
 logger = logging.getLogger(__name__)
 
 CACHE_TABLE = "pokemon_market_explorer_query_cache"
+SUMMARY_READ_RPC = "get_pokemon_market_explorer_query_cache_summary"
+CONSTITUENT_PAGE_RPC = "get_pokemon_market_explorer_query_cache_constituent_page"
 CLAIM_RPC = "claim_pokemon_market_explorer_query_cache_build"
 PUBLISH_RPC = "publish_pokemon_market_explorer_query_cache_build"
 FAIL_RPC = "fail_pokemon_market_explorer_query_cache_build"
@@ -142,7 +144,11 @@ class MarketExplorerL1Cache:
             self._entries.pop(key, None)
             return None
         self._entries.move_to_end(key)
-        return copy.deepcopy(entry[1])
+        # Cache entries are owned snapshots: put() copies once before storing,
+        # and planner/API consumers treat result payloads as immutable. A deep
+        # copy on every hit traversed multi-megabyte constituent payloads twice
+        # (here and in _done), turning an in-process lookup into ~100 ms work.
+        return entry[1]
 
     def put(self, fingerprint: str, generation: PublicationGeneration,
             payload: Mapping[str, Any]) -> None:
@@ -161,17 +167,29 @@ class MarketExplorerL1Cache:
 class PersistentMarketExplorerCache:
     """Thin service-role repository over the deployment-pending L2 schema."""
 
-    def __init__(self, client: Any, *, metrics: PlannerMetrics | None = None) -> None:
+    def __init__(self, client: Any, *, metrics: PlannerMetrics | None = None,
+                 build_lease_seconds: int = BUILD_LEASE_SECONDS) -> None:
+        if build_lease_seconds < 1 or build_lease_seconds > 300:
+            raise ValueError("build_lease_seconds must be between 1 and 300")
         self.client = client
         self.metrics = metrics
+        self.build_lease_seconds = int(build_lease_seconds)
 
-    def read(self, fingerprint: str) -> dict[str, Any] | None:
+    def read(self, fingerprint: str, *, summary: bool = False) -> dict[str, Any] | None:
         try:
-            rows = list((self.client.table(CACHE_TABLE).select(
-                "query_fingerprint,status,computed_from,computed_through,series_payload,"
-                "build_token,build_expires_at"
-            )
-                         .eq("query_fingerprint", fingerprint).limit(1).execute()).data or [])
+            if summary:
+                rows = list(self.client.rpc(SUMMARY_READ_RPC, {
+                    "p_query_fingerprint": fingerprint,
+                }).execute().data or [])
+            else:
+                rows = list((self.client.table(CACHE_TABLE).select(
+                    "query_fingerprint,status,computed_from,computed_through,series_payload,"
+                    "current_constituents,build_token,build_expires_at"
+                ).eq("query_fingerprint", fingerprint).limit(1).execute()).data or [])
+                if rows and rows[0].get("status") == "ready":
+                    payload = dict(rows[0].get("series_payload") or {})
+                    payload["currentConstituents"] = list(rows[0].get("current_constituents") or [])
+                    rows[0]["series_payload"] = payload
             return dict(rows[0]) if rows else None
         except Exception as exc:  # migration is intentionally not deployed yet
             if self.metrics:
@@ -192,7 +210,7 @@ class PersistentMarketExplorerCache:
                 "p_asset": asset,
                 "p_normalized_spec": json_spec(spec),
                 "p_build_token": token,
-                "p_lease_seconds": BUILD_LEASE_SECONDS,
+                "p_lease_seconds": self.build_lease_seconds,
             }).execute()
             return bool(response.data)
         except Exception as exc:
@@ -209,7 +227,10 @@ class PersistentMarketExplorerCache:
                 "p_build_token": token,
                 "p_computed_from": payload.get("historyStartDate"),
                 "p_computed_through": payload.get("asOf"),
-                "p_series_payload": dict(payload),
+                "p_series_payload": {
+                    key: value for key, value in payload.items()
+                    if key != "currentConstituents"
+                },
                 "p_current_value": payload.get("indexValue"),
                 "p_constituent_count": (payload.get("metadata") or {}).get("constituentCount"),
                 "p_eligible_universe_count":
@@ -223,6 +244,17 @@ class PersistentMarketExplorerCache:
             logger.warning("market_explorer_cache_publish_failed fingerprint=%s error=%s",
                            fingerprint[:12], type(exc).__name__)
             return False
+
+    def constituent_page(self, fingerprint: str, *, limit: int = 100,
+                         after_rank: int = 0) -> dict[str, Any] | None:
+        if limit < 1 or limit > 100:
+            raise ValueError("limit must be between 1 and 100")
+        rows = list(self.client.rpc(CONSTITUENT_PAGE_RPC, {
+            "p_query_fingerprint": fingerprint,
+            "p_limit": limit,
+            "p_after_rank": max(0, int(after_rank)),
+        }).execute().data or [])
+        return dict(rows[0]) if rows else None
 
     def fail(self, *, fingerprint: str, token: str) -> None:
         try:
@@ -325,7 +357,10 @@ class MarketExplorerQueryPlanner:
         elapsed = (time.perf_counter() - started) * 1000
         self.metrics.record(source, elapsed)
         logger.info("market_explorer_planner source=%s elapsedMs=%.3f", source, elapsed)
-        return PlannerResult(copy.deepcopy(dict(payload)), source, elapsed)
+        # Nested Market Explorer payloads are immutable after construction.
+        # Preserve a distinct top-level mapping without recursively copying a
+        # 3+ MB cached result on every request.
+        return PlannerResult(dict(payload), source, elapsed)
 
     def execute(
         self,
@@ -335,9 +370,21 @@ class MarketExplorerQueryPlanner:
         persistent: PersistentMarketExplorerCache,
         canonical_through: Callable[[], str],
         novel_builder: Callable[[str | None, str], dict[str, Any]],
+        summary: bool = False,
     ) -> PlannerResult:
         started = time.perf_counter()
         fingerprint = query_fingerprint(spec)
+        l1_key = f"{fingerprint}:summary" if summary else fingerprint
+
+        def response(payload: Mapping[str, Any]) -> dict[str, Any]:
+            if not summary:
+                return dict(payload)
+            return {key: value for key, value in payload.items()
+                    if key not in ("currentConstituents", "membershipByDate")}
+
+        def read_cache(*, full: bool = False) -> dict[str, Any] | None:
+            return (persistent.read(fingerprint, summary=True)
+                    if summary and not full else persistent.read(fingerprint))
 
         prepared_payload = prepared.resolve(spec)
         if prepared_payload is not None:
@@ -353,15 +400,15 @@ class MarketExplorerQueryPlanner:
         through = generation.canonical_through
 
         if generation.trusted:
-            hot = self.l1.get(fingerprint, generation)
+            hot = self.l1.get(l1_key, generation)
             if hot is not None:
                 return self._done(started, "memory_cache", hot)
 
-        row = persistent.read(fingerprint)
+        row = read_cache()
         if row and row.get("status") == "ready" and str(row.get("computed_through"))[:10] == through:
             payload = dict(row.get("series_payload") or {})
             if generation.trusted:
-                self.l1.put(fingerprint, generation, payload)
+                self.l1.put(l1_key, generation, payload)
             return self._done(started, "persistent_cache", payload)
 
         token = str(uuid4())
@@ -370,12 +417,12 @@ class MarketExplorerQueryPlanner:
             self.metrics.record("build_contention", 0)
             for _ in range(FOLLOWER_READ_ATTEMPTS):
                 self.sleep(FOLLOWER_WAIT_SECONDS)
-                follower = persistent.read(fingerprint)
+                follower = read_cache()
                 if (follower and follower.get("status") == "ready"
                         and str(follower.get("computed_through"))[:10] == through):
                     payload = dict(follower.get("series_payload") or {})
                     if generation.trusted:
-                        self.l1.put(fingerprint, generation, payload)
+                        self.l1.put(l1_key, generation, payload)
                     return self._done(started, "persistent_cache", payload)
 
             raise MarketExplorerBuildInProgress(
@@ -385,15 +432,17 @@ class MarketExplorerQueryPlanner:
         # status=stale is the historical-repair signal and must rebuild from
         # source. A normal forward publication leaves the prior row ready but
         # behind the canonical watermark, which is safe to append.
+        build_row = read_cache(full=True) if summary else row
         previous = (
-            str(row.get("computed_through"))[:10]
-            if row and row.get("status") == "ready" and row.get("series_payload") else None
+            str(build_row.get("computed_through"))[:10]
+            if build_row and build_row.get("status") == "ready"
+            and build_row.get("series_payload") else None
         )
         try:
             delta = novel_builder(previous, through)
             engine = (delta.get("diagnostics") or {}).get("executionEngine")
-            if previous and previous < through and row:
-                payload = merge_incremental_result(row.get("series_payload") or {}, delta)
+            if previous and previous < through and build_row:
+                payload = merge_incremental_result(build_row.get("series_payload") or {}, delta)
                 source = f"cache_incremental_{engine}" if engine else "cache_incremental"
             else:
                 payload = delta
@@ -401,8 +450,8 @@ class MarketExplorerQueryPlanner:
             if won is True and not persistent.publish(fingerprint=fingerprint, token=token, payload=payload):
                 self.metrics.record("cache_build_failures", 0)
             if generation.trusted:
-                self.l1.put(fingerprint, generation, payload)
-            return self._done(started, source, payload)
+                self.l1.put(l1_key, generation, response(payload))
+            return self._done(started, source, response(payload))
         except Exception:
             if won is True:
                 persistent.fail(fingerprint=fingerprint, token=token)

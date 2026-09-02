@@ -510,10 +510,14 @@ def daily_projection_covers(client: Any, set_ids: Sequence[str], *,
                      .in_("set_id", sorted(wanted)).execute()).data or [])
     except Exception:
         return False
+    # ``first_market_date`` is the first authoritative state this individual
+    # set can contribute.  A later-starting set must not suppress valid earlier
+    # history from the other requested sets.  Completeness therefore depends
+    # only on every requested set having a coverage row current through the
+    # requested end date.
     covered = {
         str(row.get("set_id")) for row in rows
-        if str(row.get("first_market_date") or "")[:10] <= str(start_date)[:10]
-        and str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
+        if str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
     }
     return covered == wanted
 
