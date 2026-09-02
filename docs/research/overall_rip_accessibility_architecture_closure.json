@@ -1,0 +1,90 @@
+{
+  "decision_label": "OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_BLOCKED_INCOMPLETE_PHASES_8_9_10_11",
+  "start_head": "c4ff0f81f3cd40fb593ee0abb1062143e3b264f1",
+  "end_head": "c4ff0f81f3cd40fb593ee0abb1062143e3b264f1",
+  "concurrent_movement_observed": false,
+  "authority": {
+    "financial_rip_version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+    "collector_appeal_version": "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2",
+    "overall_rip_version_current": "overall_rip_v10_90_financial_v4_10_collector_appeal_v5",
+    "chase_accessibility_version": "chase_accessibility_v1_hc_value_squared_modeled_probability",
+    "chase_significance_version": "chase_significance_v1_squared_value_share",
+    "chase_depth_version": "chase_depth_v1_hc_effective_count",
+    "probability_authority_used": "modeled_probability",
+    "budget_ranking_snapshot_id": "46c24231-034a-4a2b-890d-25993296e6f7",
+    "budget_ranking_market_date": "2026-08-27",
+    "accessibility_audit_market_date": "2026-08-31",
+    "date_offset_days": 4
+  },
+  "cohort": {
+    "accessibility_sets_supported": 20,
+    "accessibility_sets_total_targets": 22,
+    "accessibility_unsupported_sets": ["Destined Rivals", "Journey Together"],
+    "budget_ranking_products_total": 138,
+    "products_joined_to_accessibility_cohort": 123,
+    "distinct_sets_in_joined_cohort": 20,
+    "stage14_parity_mismatches": 0
+  },
+  "transform": {
+    "family": "A_score(k) = 100 * A_raw / (A_raw + k)",
+    "k_values_tested": [0.0005, 0.001, 0.002, 0.004, 0.008],
+    "k_selected": 0.002,
+    "k_interpretation": "A_raw = k maps to A_score = 50; A_raw cohort range was [0.00074, 0.00562], median 0.00208 -- k=0.002 sits essentially at the cohort median O_pack, i.e. a set with roughly median real Accessibility scores near 50 on the Overall-composition sub-scale",
+    "a_raw_min": 0.00074435,
+    "a_raw_median": 0.00208481,
+    "a_raw_max": 0.00561818
+  },
+  "weight_sweep_84_6_10_vs_v10": {
+    "financial_weight": 0.84,
+    "accessibility_weight": 0.06,
+    "collector_weight": 0.10,
+    "spearman_vs_v10": 0.98420,
+    "kendall_vs_v10": 0.90057,
+    "top5_overlap_of_5": 5,
+    "top10_overlap_of_10": 9,
+    "clear_pair_overrides": 0,
+    "close_pair_reversal_rate_baseline_Aw0": 0.2636,
+    "close_pair_reversal_rate_Aw06": 0.3141,
+    "close_pair_incremental_discrimination": true
+  },
+  "weight_sweep_88_8_10_for_loso_contrast": {
+    "financial_weight": 0.82,
+    "accessibility_weight": 0.08,
+    "collector_weight": 0.10,
+    "spearman_vs_v10_at_k002": 0.97048,
+    "note": "fails Spearman >= 0.98 guardrail at k=0.002; only k=0.0005 and k=0.008 clear 0.98 at Aw=0.08, and none clear the LOSO 0.98 minimum (see loso)"
+  },
+  "loso": {
+    "aw_006_min_spearman": 0.98200,
+    "aw_006_mean_spearman": 0.98414,
+    "aw_008_min_spearman": 0.96675,
+    "aw_008_mean_spearman": 0.97043,
+    "conclusion": "6% clears the LOSO >=0.98 minimum by a thin margin (0.98200); 8% fails it (0.96675). This is the distinguishing evidence the spec asked for."
+  },
+  "nested_vs_flat_parity": {
+    "formula_nested": "MarketBased = (0.84/0.90)*F + (0.06/0.90)*A_score(k); Overall = 0.90*MarketBased + 0.10*C",
+    "formula_flat": "Overall = 0.84*F + 0.06*A_score(k) + 0.10*C",
+    "max_abs_diff_over_cohort": 7.105427357601002e-15,
+    "verified_at_weights": "84/6/10 (the winning candidate)"
+  },
+  "redundancy_phase7": {
+    "n_products": 123,
+    "spearman_A_raw_vs_financial_rip_v4": -0.2485,
+    "spearman_A_raw_vs_collector_appeal": -0.4552,
+    "spearman_A_raw_vs_product_market_price": 0.0804,
+    "spearman_A_raw_vs_expected_value": -0.2246,
+    "spearman_A_raw_vs_N_HC_chase_depth": 0.1371,
+    "note": "Only a subset of the required Phase 7 correlates (6 Financial sub-components, P95/cost, P99/cost, pack count, effective pack cost) were computed in this pass; the remainder require pulling per-component Financial RIP breakdowns and were not completed -- see limitations."
+  },
+  "product_invariance_phase6": {
+    "max_within_set_variance_of_A_raw": 1.88079096131566e-37,
+    "conclusion": "Confirmed: Accessibility is exactly constant within a set (float noise only). No same-set product reversal can be caused by Accessibility."
+  },
+  "phases_not_completed_with_full_rigor": {
+    "phase_8_ECE_falsification": "NOT RUN. Requires effective pack cost / random_pack_count per product and a full partial-correlation + regression-reconstruction workflow. Not attempted in this pass.",
+    "phase_9_core_k_historical_comparison": "NOT RUN. Migration 074 was read for identity but chase_core_k_v1_stage5c_3x_pack_equivalent_cost was not numerically reconstructed against the current cohort.",
+    "phase_10_shock_robustness": "PARTIAL. Only the algebraic/structural argument for card-price scale invariance (HC_i is a ratio of squares of price, so a uniform positive scalar cancels) and the already-computed zero within-set variance (product-price independence proxy) are reported. No live product-price shock re-run, no independent per-card noise shocks with multiple seeds, and no pull-rate shocks were executed against compute_chase_accessibility in this pass.",
+    "phase_11_temporal_replay": "NOT RUN beyond the single 2026-08-31 Accessibility date already used. A genuinely independent second date with its own coherent Financial RIP V4 + Collector Appeal V5 + Accessibility triple was not assembled in this pass.",
+    "phase_2_coherence": "The Accessibility cohort (market_date 2026-08-31) and the budget-ranking snapshot carrying Financial RIP V4 / Collector Appeal V5 (market_date 2026-08-27, snapshot 46c24231) are 4 days apart and were NOT produced by the same calculation run. This is the strongest reproducible pairing found, but it is not the same-run coherence Phase 2 asks for."
+  }
+}

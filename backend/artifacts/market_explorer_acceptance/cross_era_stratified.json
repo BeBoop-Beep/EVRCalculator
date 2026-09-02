@@ -1,0 +1,61 @@
+{
+  "name": "cross_era_stratified",
+  "eraIds": [],
+  "setIds": [
+    "01b45c4b-c606-41f7-9669-0137cd4aafaf",
+    "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+    "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+    "472f851c-2e41-4c80-b6fc-8478d1d92730",
+    "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+    "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+    "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+    "d001d563-988b-4f8e-904f-acb926748e22"
+  ],
+  "setCount": 8,
+  "allExact": true,
+  "correctness": {
+    "rarity": {
+      "exact": true,
+      "rows": 137,
+      "projectionRows": 137,
+      "firstDifference": null,
+      "elapsedMs": 295162.88509999996
+    },
+    "top10": {
+      "exact": true,
+      "rows": 137,
+      "projectionRows": 137,
+      "firstDifference": null,
+      "elapsedMs": 295172.869
+    },
+    "premium": {
+      "exact": true,
+      "rows": 137,
+      "projectionRows": 137,
+      "firstDifference": null,
+      "elapsedMs": 252172.73739999995
+    },
+    "pokemon": {
+      "exact": true,
+      "rows": 137,
+      "projectionRows": 137,
+      "firstDifference": null,
+      "elapsedMs": 252164.82560000004
+    },
+    "compoundPremium": {
+      "exact": true,
+      "rows": 137,
+      "projectionRows": 137,
+      "firstDifference": null,
+      "elapsedMs": 243680.16180000006
+    },
+    "full": {
+      "exact": true,
+      "rows": 137,
+      "projectionRows": 137,
+      "firstDifference": null,
+      "elapsedMs": 966657.2738999999
+    }
+  },
+  "performance": {}
+}

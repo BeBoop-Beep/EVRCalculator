@@ -1,9 +1,9 @@
 from pathlib import Path
 
 
-MIGRATION = Path(__file__).resolve().parents[4] / "supabase/migrations/20260901030000_fix_market_explorer_staggered_start_coverage.sql"
+MIGRATION = Path(__file__).resolve().parents[4] / "supabase/migrations/20260901171835_fix_market_explorer_staggered_start_coverage.sql"
 SQL = " ".join(MIGRATION.read_text(encoding="utf-8").lower().split())
-TIMEOUT_MIGRATION = Path(__file__).resolve().parents[4] / "supabase/migrations/20260901031000_bound_market_explorer_daily_candidate_build_timeout.sql"
+TIMEOUT_MIGRATION = Path(__file__).resolve().parents[4] / "supabase/migrations/20260901172910_bound_market_explorer_daily_candidate_build_timeout.sql"
 TIMEOUT_SQL = " ".join(TIMEOUT_MIGRATION.read_text(encoding="utf-8").lower().split())
 
 
