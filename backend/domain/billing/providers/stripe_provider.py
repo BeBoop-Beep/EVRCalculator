@@ -105,6 +105,15 @@ class StripeProvider:
                     "proration_behavior": "always_invoice",
                     "proration_date": proration_date,
                     "payment_behavior": "pending_if_incomplete",
+                    # Without this, Stripe returns `latest_invoice` as a bare
+                    # invoice-ID string, not the expanded object. Confirmed
+                    # against a real Stripe sandbox upgrade during the full
+                    # application E2E test: `_normalize_payment_result` then
+                    # reads `.status`/`.payment_intent` off that string (both
+                    # silently None via `_field`'s getattr fallback) and
+                    # misreports "requires_action" even when the invoice was
+                    # paid synchronously and successfully.
+                    "expand": ["latest_invoice.payment_intent"],
                 },
                 options={"idempotency_key": idempotency_key},
             )
