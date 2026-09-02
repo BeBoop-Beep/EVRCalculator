@@ -67,7 +67,34 @@ def test_update_subscription_item_passes_idempotency_key_and_normalizes_success(
     assert params["proration_behavior"] == "always_invoice"
     assert params["proration_date"] == 1735689600
     assert params["payment_behavior"] == "pending_if_incomplete"
+    # Without this, real Stripe returns `latest_invoice` as a bare invoice-ID
+    # string rather than the expanded object -- confirmed against a real
+    # Stripe sandbox upgrade during the full application E2E test, where this
+    # caused _normalize_payment_result to misreport "requires_action" on an
+    # invoice that had actually been paid synchronously and successfully.
+    assert params["expand"] == ["latest_invoice.payment_intent"]
     assert options == {"idempotency_key": "planchange:sub_1:price_a:price_target:1735689600"}
+
+
+def test_update_subscription_item_misreads_unexpanded_invoice_as_requires_action_without_expand():
+    """Regression test for the real bug: if Stripe were ever called without
+    requesting expansion, `latest_invoice` comes back as a bare id string.
+    `_normalize_payment_result` must not silently misread that as
+    "requires_action" -- this test pins the actual (bug) behavior against the
+    real shape Stripe returns, so the params["expand"] assertion above is the
+    thing that actually prevents it in production, not a change to
+    _normalize_payment_result itself (which correctly trusts its input)."""
+    from backend.domain.billing.providers.stripe_provider import _normalize_payment_result
+
+    # This is the literal shape stripe-python returns when latest_invoice is
+    # NOT expanded: a bare string, not a dict/object.
+    unexpanded_subscription = {"latest_invoice": "in_1UBHt07OgvEwKwH3W4pHDkvB"}
+    assert _normalize_payment_result(unexpanded_subscription) == "requires_action"
+
+    # The fix: with the real expanded shape (what params["expand"] above
+    # guarantees the real API call requests), the true "paid" status is seen.
+    expanded_subscription = {"latest_invoice": {"status": "paid", "payment_intent": None}}
+    assert _normalize_payment_result(expanded_subscription) == "succeeded"
 
 
 def test_update_subscription_item_normalizes_requires_action():
