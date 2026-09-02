@@ -15,9 +15,14 @@ test("the footer Product column no longer offers Tools", () => {
 });
 
 test("the footer exposes the public architecture and preserves existing destinations", () => {
-  for (const href of ["/Rankings", "/Market", "/Articles", "/TCGs", "/my-collection", "/about", "/blog", "/careers", "/contact", "/terms", "/privacy", "/cookies"]) {
+  for (const href of ["/Rankings", "/Market", "/Articles", "/TCGs", "/about", "/blog", "/careers", "/contact", "/terms", "/privacy", "/cookies"]) {
     assert.ok(source.includes(`href: "${href}"`), `${href} must survive`);
   }
+});
+
+test("the footer no longer links to the disabled Portfolio surface", () => {
+  assert.ok(!source.includes('href: "/my-collection"'), "the footer must not link to /my-collection");
+  assert.ok(!/label: "My Portfolio"/.test(source), "the My Portfolio label must be removed");
 });
 
 test("the footer column structure is untouched", () => {
