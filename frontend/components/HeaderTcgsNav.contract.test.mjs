@@ -111,9 +111,6 @@ test("the primary public architecture and account destinations are present", () 
   assert.ok(primaryNav.includes('href="/Rankings"'));
   assert.ok(primaryNav.includes('href="/Market"'));
   assert.ok(primaryNav.includes('href="/Articles"'));
-  assert.ok(headerSource.includes('href="/my-portfolio"'));
-  assert.ok(headerSource.includes('href="/my-portfolio/collection"'));
-  assert.ok(headerSource.includes('href="/my-portfolio/wishlist"'));
   assert.ok(headerSource.includes('aria-haspopup="dialog"'));
   assert.ok(headerSource.includes("<AuthPopover"));
   assert.ok(headerSource.includes('href="/account-settings"'));
@@ -121,15 +118,31 @@ test("the primary public architecture and account destinations are present", () 
   assert.ok(headerSource.includes('aria-controls="mobile-header-menu"'), "the mobile menu toggle is preserved");
 });
 
-test("the shared dropdown primitives survive for the menus that still use them", () => {
-  // My Portfolio and the account menu are untouched, so their trigger, panel
-  // and item classes must all remain — only the TCGs usage was removed.
-  for (const token of ["navDropTrigger", "navDropPanel", "navDropItem", "navDropTriggerActive", "navDropTriggerClosed"]) {
-    assert.ok(headerSource.includes(token), `${token} is still used by the remaining menus`);
+test("the shared dropdown primitives survive for the account menu", () => {
+  // The My Portfolio dropdown is removed; the account menu is untouched, so
+  // its trigger, panel and item classes must all remain.
+  for (const token of ["navDropTrigger", "navDropPanel", "navDropItem", "navDropTriggerClosed"]) {
+    assert.ok(headerSource.includes(token), `${token} is still used by the account menu`);
   }
-  assert.ok(headerSource.includes("isCollectionDropdownOpen"));
   assert.ok(headerSource.includes("isUserDropdownOpen"));
+  assert.ok(!headerSource.includes("isCollectionDropdownOpen"), "the My Portfolio dropdown state must be removed");
   assert.ok(globalsSource.includes(".dropdown-enter"), "the shared dropdown entrance stays for the remaining menus");
+});
+
+test("My Portfolio and Public Profile are gone from the header", () => {
+  assert.ok(!headerSource.includes('href="/my-portfolio"'), "no header link may point at /my-portfolio");
+  assert.ok(!headerSource.includes('href="/my-portfolio/collection"'));
+  assert.ok(!headerSource.includes('href="/my-portfolio/wishlist"'));
+  assert.ok(!headerSource.includes('href="/my-collection/collection"'), "no header link may point at /my-collection");
+  assert.ok(!/>\s*My Portfolio\s*</.test(headerSource), "the My Portfolio label must be removed");
+  assert.ok(!/>\s*Public Profile\s*</.test(headerSource), "the Public Profile label must be removed");
+  assert.ok(!headerSource.includes("publicProfileHref"));
+  assert.ok(!headerSource.includes("collectionDropdownRef"));
+});
+
+test("Account Settings still renders in the account menu and mobile menu", () => {
+  const accountSettingsHrefs = headerSource.match(/href="\/account-settings"/g) || [];
+  assert.ok(accountSettingsHrefs.length >= 2, "Account Settings must appear in both the desktop account menu and the mobile menu");
 });
 
 test("the Pokémon Sets route no longer renders a secondary Overview / Sets bar", () => {
