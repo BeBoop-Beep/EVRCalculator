@@ -1,0 +1,83 @@
+{
+  "weight_tested_pct": 6,
+  "k_used": 0.002,
+  "n_products_total_cohort": 138,
+  "n_products_matched_to_accessibility_supported_sets": 138,
+  "n_products_excluded_set_not_in_primary_cohort": 0,
+  "family_summary": {
+    "pokemon_center_elite_trainer_box": {
+      "n": 26,
+      "avg_rank_movement_abs": 4.5,
+      "median_rank_movement_abs": 4,
+      "avg_signed_movement": -1.1923076923076923,
+      "risers": 16,
+      "fallers": 9,
+      "unchanged": 1
+    },
+    "booster_bundle": {
+      "n": 23,
+      "avg_rank_movement_abs": 3.1739130434782608,
+      "median_rank_movement_abs": 2,
+      "avg_signed_movement": 1.0,
+      "risers": 7,
+      "fallers": 13,
+      "unchanged": 3
+    },
+    "loose_booster_pack": {
+      "n": 22,
+      "avg_rank_movement_abs": 4.5,
+      "median_rank_movement_abs": 4,
+      "avg_signed_movement": -0.3181818181818182,
+      "risers": 12,
+      "fallers": 10,
+      "unchanged": 0
+    },
+    "elite_trainer_box": {
+      "n": 27,
+      "avg_rank_movement_abs": 4.592592592592593,
+      "median_rank_movement_abs": 4,
+      "avg_signed_movement": 0.6666666666666666,
+      "risers": 9,
+      "fallers": 15,
+      "unchanged": 3
+    },
+    "sleeved_booster_pack": {
+      "n": 15,
+      "avg_rank_movement_abs": 5.6,
+      "median_rank_movement_abs": 3,
+      "avg_signed_movement": -1.7333333333333334,
+      "risers": 6,
+      "fallers": 6,
+      "unchanged": 3
+    },
+    "booster_box": {
+      "n": 15,
+      "avg_rank_movement_abs": 4.2,
+      "median_rank_movement_abs": 3,
+      "avg_signed_movement": 0.6,
+      "risers": 6,
+      "fallers": 5,
+      "unchanged": 4
+    },
+    "half_booster_box": {
+      "n": 8,
+      "avg_rank_movement_abs": 5.0,
+      "median_rank_movement_abs": 4,
+      "avg_signed_movement": 1.25,
+      "risers": 3,
+      "fallers": 4,
+      "unchanged": 1
+    },
+    "enhanced_booster_box": {
+      "n": 2,
+      "avg_rank_movement_abs": 4.0,
+      "median_rank_movement_abs": 6,
+      "avg_signed_movement": 2.0,
+      "risers": 1,
+      "fallers": 1,
+      "unchanged": 0
+    }
+  },
+  "same_set_accessibility_reversals": 0,
+  "same_set_reversals_note": "Must be 0 by construction: A_raw/A_score is set-constant, so within a set every product's candidate score shifts by the exact same additive/multiplicative amount relative to V10 and relative product ordering (by Financial+Collector) cannot flip."
+}

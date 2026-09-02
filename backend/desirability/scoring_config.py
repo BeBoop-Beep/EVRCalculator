@@ -451,6 +451,111 @@ def overall_rip_v11_required_chase_opportunity_version() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Overall RIP V12 - 86% Financial V4 + 4% Chase Accessibility (transformed)
+#                    + 10% Collector Appeal V5
+# ---------------------------------------------------------------------------
+# V12 ADDS A THIRD PILLAR, DIFFERENT FROM V11's. V11 already claimed the "add a
+# Chase pillar" slot with `chase_opportunity_v1` (Core K, product-level, 3x
+# pack-equivalent cost). V12 is a SEPARATE historical lineage: the Overall RIP
+# Accessibility research program (`docs/research/OVERALL_RIP_ACCESSIBILITY_*`),
+# which uses Chase ACCESSIBILITY (`chase_accessibility_v1_hc_value_squared_
+# modeled_probability`, set-level, HC-weighted modeled-probability reachability)
+# instead of Core K. V11 is untouched by this addition: it remains computable,
+# its version string keeps its original meaning, and neither V10 nor V11 are
+# ever produced by this function.
+#
+# LOCKED BY RESEARCH (docs/research/OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_
+# CLOSURE.md, FINAL CLOSURE / Pass 1C, decision label
+# OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_VALIDATED):
+#
+#     Overall RIP = 0.86 * FinancialRIPv4
+#                 + 0.04 * ChaseAccessibilityScore(k=0.002)
+#                 + 0.10 * CollectorAppealV5
+#
+# The public/raw Chase Accessibility metric (`A_raw`, a decimal fraction such
+# as 0.002 = 0.20%) is NOT what enters this blend directly. It first passes
+# through the fixed-anchor saturating transform in
+# :mod:`backend.desirability.chase_accessibility_overall_score`:
+#
+#     A_score(k) = 100 * A_raw / (A_raw + k), k = 0.002 (fixed, never re-anchored)
+#
+# ONE canonical place converts raw Accessibility into A_score - that module -
+# so no second call site can reimplement (and silently drift from) the
+# transform.
+#
+# NOT CANONICAL. ``CANONICAL_OVERALL_RIP_VERSION`` continues to resolve to V10
+# (see the cutover switches below); this prompt implements the scoring
+# function only, does not flip any selector, and performs no publication,
+# migration or deployment.
+
+OVERALL_RIP_V12_VERSION = (
+    "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5"
+)
+
+OVERALL_RIP_V12_FINANCIAL_WEIGHT = 0.86
+OVERALL_RIP_V12_CHASE_ACCESSIBILITY_WEIGHT = 0.04
+OVERALL_RIP_V12_COLLECTOR_APPEAL_WEIGHT = 0.10
+
+OVERALL_RIP_V12_WEIGHTS: Dict[str, float] = {
+    "financial_rip": OVERALL_RIP_V12_FINANCIAL_WEIGHT,
+    "chase_accessibility": OVERALL_RIP_V12_CHASE_ACCESSIBILITY_WEIGHT,
+    "collector_appeal": OVERALL_RIP_V12_COLLECTOR_APPEAL_WEIGHT,
+}
+
+#: Weights must be a partition of 1.0. No pillar renormalizes on its own when
+#: another is missing - V12 fails closed instead (see ``compute_overall_rip_v12``).
+OVERALL_RIP_V12_WEIGHT_SUM_TOLERANCE = 1e-9
+assert abs(sum(OVERALL_RIP_V12_WEIGHTS.values()) - 1.0) <= OVERALL_RIP_V12_WEIGHT_SUM_TOLERANCE, (
+    "Overall RIP V12 weights must sum to exactly 1.0"
+)
+
+# The "Market-Based Opening Quality" grouping (Financial + Accessibility) is an
+# EXPLANATORY DECOMPOSITION ONLY (research closure F10): it is never persisted
+# or published as its own metric. These shares are DERIVED, not hand-typed, so
+# they can never silently drift from the two weights they are computed from.
+OVERALL_RIP_V12_MARKET_BASED_WEIGHT = (
+    OVERALL_RIP_V12_FINANCIAL_WEIGHT + OVERALL_RIP_V12_CHASE_ACCESSIBILITY_WEIGHT
+)
+OVERALL_RIP_V12_FINANCIAL_SHARE_OF_MARKET_BASED = (
+    OVERALL_RIP_V12_FINANCIAL_WEIGHT / OVERALL_RIP_V12_MARKET_BASED_WEIGHT
+)
+OVERALL_RIP_V12_CHASE_ACCESSIBILITY_SHARE_OF_MARKET_BASED = (
+    OVERALL_RIP_V12_CHASE_ACCESSIBILITY_WEIGHT / OVERALL_RIP_V12_MARKET_BASED_WEIGHT
+)
+
+# The effective per-input weights after expanding the six Financial RIP V4
+# components across the 0.86 share.
+OVERALL_RIP_V12_EFFECTIVE_WEIGHTS: Dict[str, float] = {
+    **{
+        component: OVERALL_RIP_V12_WEIGHTS["financial_rip"] * weight
+        for component, weight in _FINANCIAL_RIP_V4_WEIGHTS.items()
+    },
+    "chase_accessibility": OVERALL_RIP_V12_WEIGHTS["chase_accessibility"],
+    "collector_appeal": OVERALL_RIP_V12_WEIGHTS["collector_appeal"],
+}
+
+# The EXACT input identities V12 requires. A canonical V12 score may only be
+# formed from pillars carrying these versions; a mismatch is a hard refusal,
+# never a coerced read. Chase Accessibility and Collector Appeal are resolved
+# lazily to avoid a circular import, the same pattern V11 already uses.
+OVERALL_RIP_V12_REQUIRED_FINANCIAL_VERSION = FINANCIAL_RIP_V4_VERSION
+
+
+def overall_rip_v12_required_collector_appeal_version() -> str:
+    """The Collector Appeal identity Overall RIP V12 requires."""
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
+
+    return COLLECTOR_APPEAL_V5_VERSION
+
+
+def overall_rip_v12_required_chase_accessibility_version() -> str:
+    """The Chase Accessibility identity Overall RIP V12 requires."""
+    from backend.desirability.chase_accessibility import CHASE_ACCESSIBILITY_VERSION
+
+    return CHASE_ACCESSIBILITY_VERSION
+
+
+# ---------------------------------------------------------------------------
 # Overall RIP sensitivity weights (RESEARCH ONLY - never production)
 # ---------------------------------------------------------------------------
 # The Collector Appeal shares the read-only validation tool reports against the

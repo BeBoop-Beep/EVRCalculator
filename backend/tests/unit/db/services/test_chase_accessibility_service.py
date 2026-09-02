@@ -27,6 +27,12 @@ class _Query:
         self._recorder.setdefault("eq", []).append((column, value))
         return self
 
+    def in_(self, column, values):
+        self._recorder.setdefault("in_", []).append((column, list(values)))
+        wanted = set(values)
+        self._rows = [row for row in self._rows if row.get(column) in wanted]
+        return self
+
     def gt(self, column, value):
         self._recorder.setdefault("gt", []).append((column, value))
         return self

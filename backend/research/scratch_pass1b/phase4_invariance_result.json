@@ -1,0 +1,60 @@
+{
+  "card_price_scaling": {
+    "0.5": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22
+    },
+    "2.0": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22
+    },
+    "10.0": {
+      "worst_abs_delta": 8.673617379884035e-19,
+      "n_sets_checked": 22
+    }
+  },
+  "product_price_change": {
+    "-20": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22,
+      "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+    },
+    "-10": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22,
+      "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+    },
+    "-5": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22,
+      "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+    },
+    "-2": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22,
+      "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+    },
+    "2": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22,
+      "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+    },
+    "5": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22,
+      "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+    },
+    "10": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22,
+      "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+    },
+    "20": {
+      "worst_abs_delta": 0.0,
+      "n_sets_checked": 22,
+      "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+    }
+  },
+  "worst_delta_card_price_scaling_overall": 8.673617379884035e-19,
+  "worst_delta_product_price_change_overall": 0.0
+}

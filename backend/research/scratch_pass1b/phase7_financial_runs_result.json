@@ -1,0 +1,838 @@
+{
+  "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": [
+    {
+      "calculation_run_id": "47d51e4c-7c43-4ac0-9ff0-2ba351bdc4f8",
+      "created_at": "2026-08-20T19:59:15.84766+00:00",
+      "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+      "product_market_cost": 8.44
+    },
+    {
+      "calculation_run_id": "bc40be6a-0eef-4545-b200-91a1ce4e027e",
+      "created_at": "2026-08-22T22:27:02.849161+00:00",
+      "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+      "product_market_cost": 8.3
+    },
+    {
+      "calculation_run_id": "0e6d9c07-738e-4699-88b3-5ed46b4c1261",
+      "created_at": "2026-08-24T21:46:15.900312+00:00",
+      "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+      "product_market_cost": 8.19
+    },
+    {
+      "calculation_run_id": "ea0f35a5-5add-4127-8187-6d0184116eca",
+      "created_at": "2026-08-25T17:18:08.575653+00:00",
+      "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+      "product_market_cost": 8.16
+    },
+    {
+      "calculation_run_id": "c55c56b4-c6fe-4766-bcd8-f4c0473efca8",
+      "created_at": "2026-08-26T17:14:20.340635+00:00",
+      "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+      "product_market_cost": 8.06
+    },
+    {
+      "calculation_run_id": "a7045029-2d8c-4daa-930f-6e4d4f911087",
+      "created_at": "2026-08-27T17:27:10.792008+00:00",
+      "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+      "product_market_cost": 7.89
+    }
+  ],
+  "7a3dd188-4375-41af-94de-c5247fe0b1a6": [
+    {
+      "calculation_run_id": "59c016cb-699a-4c86-b6a6-c3a59e97d921",
+      "created_at": "2026-08-20T19:48:03.837912+00:00",
+      "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+      "product_market_cost": 14.77
+    },
+    {
+      "calculation_run_id": "25bf50bf-bd10-40b0-bf34-df74cba05dc3",
+      "created_at": "2026-08-22T22:36:45.334578+00:00",
+      "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+      "product_market_cost": 15.1
+    },
+    {
+      "calculation_run_id": "dcde5cf1-857c-4138-978a-0f885ab6b34d",
+      "created_at": "2026-08-24T22:06:10.172393+00:00",
+      "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+      "product_market_cost": 15.09
+    },
+    {
+      "calculation_run_id": "aba9e098-36b2-4617-98e9-40904dae83ca",
+      "created_at": "2026-08-25T17:38:07.88032+00:00",
+      "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+      "product_market_cost": 15.05
+    },
+    {
+      "calculation_run_id": "07f48095-92e0-4524-ae5b-c0131e01a4fd",
+      "created_at": "2026-08-26T17:32:29.273015+00:00",
+      "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+      "product_market_cost": 14.9
+    },
+    {
+      "calculation_run_id": "7a5b5a0d-1c80-4ee5-b1e3-8c9640c6b686",
+      "created_at": "2026-08-27T17:54:22.808203+00:00",
+      "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+      "product_market_cost": 14.93
+    }
+  ],
+  "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": [
+    {
+      "calculation_run_id": "30f66902-a189-4a2b-b693-c6b6c43e28d8",
+      "created_at": "2026-08-20T19:55:33.404651+00:00",
+      "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+      "product_market_cost": 8.79
+    },
+    {
+      "calculation_run_id": "cb69a4d0-34c6-49b4-9269-b0745cdcbf89",
+      "created_at": "2026-08-22T22:44:35.501963+00:00",
+      "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+      "product_market_cost": 8.86
+    },
+    {
+      "calculation_run_id": "30610cdd-599c-41c8-8da2-50bea7b66a8c",
+      "created_at": "2026-08-24T22:49:35.84233+00:00",
+      "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+      "product_market_cost": 8.8
+    },
+    {
+      "calculation_run_id": "f600a32a-7cff-4059-a20f-b92efffc8f36",
+      "created_at": "2026-08-25T17:56:11.639909+00:00",
+      "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+      "product_market_cost": 8.8
+    },
+    {
+      "calculation_run_id": "7c2ecdd5-ee6e-4482-83fd-80a930606b7c",
+      "created_at": "2026-08-26T17:49:03.950339+00:00",
+      "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+      "product_market_cost": 8.79
+    },
+    {
+      "calculation_run_id": "48907836-a7b6-45f7-ae32-962f3289877f",
+      "created_at": "2026-08-27T18:21:00.887998+00:00",
+      "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+      "product_market_cost": 8.75
+    }
+  ],
+  "142d3869-9d39-48b6-a810-751af2aac748": [
+    {
+      "calculation_run_id": "f9194acd-d61b-4511-b429-419768c93715",
+      "created_at": "2026-08-20T19:41:57.071791+00:00",
+      "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+      "product_market_cost": 6.27
+    },
+    {
+      "calculation_run_id": "75220055-ecfe-4bcc-81dd-a85bc6b268f4",
+      "created_at": "2026-08-22T22:25:48.752105+00:00",
+      "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+      "product_market_cost": 6.4
+    },
+    {
+      "calculation_run_id": "2d9c64d7-7ec4-43c3-9fb7-23cc3505890b",
+      "created_at": "2026-08-24T21:44:12.766545+00:00",
+      "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+      "product_market_cost": 6.52
+    },
+    {
+      "calculation_run_id": "450c8106-db2c-43f8-8f8d-4c6bfb1b29af",
+      "created_at": "2026-08-25T17:13:01.756595+00:00",
+      "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+      "product_market_cost": 6.58
+    },
+    {
+      "calculation_run_id": "8efdd730-93be-4dc7-9309-90c1d9ecf802",
+      "created_at": "2026-08-26T17:12:14.100216+00:00",
+      "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+      "product_market_cost": 6.56
+    },
+    {
+      "calculation_run_id": "597e7856-6844-4d3a-a481-461248c3ed53",
+      "created_at": "2026-08-27T17:24:15.348737+00:00",
+      "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+      "product_market_cost": 6.52
+    }
+  ],
+  "b4b34b61-ce48-4fc4-bd91-201a350b2600": [
+    {
+      "calculation_run_id": "1ffdc6cc-4263-48aa-814a-4e44c2c4b4b3",
+      "created_at": "2026-08-20T19:43:03.322174+00:00",
+      "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+      "product_market_cost": 12.92
+    },
+    {
+      "calculation_run_id": "528199b8-05af-4ba9-9bc5-8d5ed376685c",
+      "created_at": "2026-08-22T22:28:13.08+00:00",
+      "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+      "product_market_cost": 13.09
+    },
+    {
+      "calculation_run_id": "0bd50490-760b-47bf-b91d-094649012181",
+      "created_at": "2026-08-24T21:48:23.921157+00:00",
+      "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+      "product_market_cost": 13.09
+    },
+    {
+      "calculation_run_id": "90c33269-f274-43e2-85ec-839dc1bb2b42",
+      "created_at": "2026-08-25T17:21:16.041433+00:00",
+      "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+      "product_market_cost": 13.1
+    },
+    {
+      "calculation_run_id": "fe6f1a2d-7dd1-4465-b93c-f5c5a78ea9f7",
+      "created_at": "2026-08-26T17:17:04.079754+00:00",
+      "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+      "product_market_cost": 13.02
+    },
+    {
+      "calculation_run_id": "f3f779a2-e9e2-46a7-bda6-59b3b259c395",
+      "created_at": "2026-08-27T17:30:26.809351+00:00",
+      "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+      "product_market_cost": 12.98
+    }
+  ],
+  "f59f25a2-d3da-4100-a918-901271a99925": [
+    {
+      "calculation_run_id": "5c10198f-78af-4101-8993-22c34c3dadd2",
+      "created_at": "2026-08-20T19:53:16.466396+00:00",
+      "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+      "product_market_cost": 8.07
+    },
+    {
+      "calculation_run_id": "c5c81ccc-460f-43e7-b0bb-cc19d880e4ae",
+      "created_at": "2026-08-22T22:42:16.832881+00:00",
+      "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+      "product_market_cost": 7.78
+    },
+    {
+      "calculation_run_id": "10097365-f887-4835-99e4-865ef519a98f",
+      "created_at": "2026-08-24T22:17:48.104064+00:00",
+      "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+      "product_market_cost": 7.79
+    },
+    {
+      "calculation_run_id": "27893114-54e9-4621-93c6-fadd0303c368",
+      "created_at": "2026-08-25T17:51:45.072983+00:00",
+      "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+      "product_market_cost": 7.83
+    },
+    {
+      "calculation_run_id": "d26ba258-e696-41cd-b0cd-cc7b10bbc74b",
+      "created_at": "2026-08-26T17:44:01.536088+00:00",
+      "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+      "product_market_cost": 7.8
+    },
+    {
+      "calculation_run_id": "e159f4b4-e16d-49ce-887d-71fab757b470",
+      "created_at": "2026-08-27T18:05:35.667795+00:00",
+      "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+      "product_market_cost": 7.75
+    }
+  ],
+  "5e99f658-39f0-4845-9228-db8db3965f32": [
+    {
+      "calculation_run_id": "f7ddfed2-0aa3-4215-a0db-7bef3a7b82a2",
+      "created_at": "2026-08-20T20:00:09.772634+00:00",
+      "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+      "product_market_cost": 5.65
+    },
+    {
+      "calculation_run_id": "774a1fcb-ed7d-4b99-94d2-49f5dbc06f9c",
+      "created_at": "2026-08-22T22:33:09.331158+00:00",
+      "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+      "product_market_cost": 5.45
+    },
+    {
+      "calculation_run_id": "d3a9e61e-c76e-4886-949d-ce8d9449478c",
+      "created_at": "2026-08-24T21:59:22.246046+00:00",
+      "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+      "product_market_cost": 5.47
+    },
+    {
+      "calculation_run_id": "6d527db7-b18f-4d0c-97eb-70ea695c8ff5",
+      "created_at": "2026-08-25T17:29:57.604909+00:00",
+      "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+      "product_market_cost": 5.45
+    },
+    {
+      "calculation_run_id": "4fbdf4c2-c897-4ec6-8e91-872aa5298f06",
+      "created_at": "2026-08-26T17:25:51.397545+00:00",
+      "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+      "product_market_cost": 5.58
+    },
+    {
+      "calculation_run_id": "9fd50ae1-df15-4a6a-9f16-b759e23daad4",
+      "created_at": "2026-08-27T17:46:30.487463+00:00",
+      "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+      "product_market_cost": 5.5
+    }
+  ],
+  "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": [
+    {
+      "calculation_run_id": "018ba637-d4cb-42ca-9f6e-b7922a1cc484",
+      "created_at": "2026-08-20T19:52:09.905008+00:00",
+      "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+      "product_market_cost": 10.59
+    },
+    {
+      "calculation_run_id": "ad120bac-9242-43cf-a0eb-c379c6b684bd",
+      "created_at": "2026-08-22T22:41:05.900018+00:00",
+      "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+      "product_market_cost": 10.58
+    },
+    {
+      "calculation_run_id": "e8e6c158-ec5d-4edd-86fe-eaa56ec9ef6f",
+      "created_at": "2026-08-24T22:15:37.041993+00:00",
+      "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+      "product_market_cost": 10.57
+    },
+    {
+      "calculation_run_id": "61ceb6ad-3353-4bef-bc3b-2db92da6a838",
+      "created_at": "2026-08-25T17:49:01.321626+00:00",
+      "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+      "product_market_cost": 10.65
+    },
+    {
+      "calculation_run_id": "40da6a73-b628-4647-879a-eb40c2ecbb04",
+      "created_at": "2026-08-26T17:41:54.405096+00:00",
+      "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+      "product_market_cost": 10.65
+    },
+    {
+      "calculation_run_id": "587f51ce-5389-4643-b931-a73f8c141858",
+      "created_at": "2026-08-27T18:03:11.394561+00:00",
+      "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+      "product_market_cost": 10.59
+    }
+  ],
+  "472f851c-2e41-4c80-b6fc-8478d1d92730": [
+    {
+      "calculation_run_id": "755a31f9-0084-4396-89af-6e1befa2ce6b",
+      "created_at": "2026-08-20T20:02:55.19744+00:00",
+      "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+      "product_market_cost": 6.03
+    },
+    {
+      "calculation_run_id": "c6cd123b-c1cb-4d05-91a7-3aabf68501c6",
+      "created_at": "2026-08-22T22:35:11.585034+00:00",
+      "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+      "product_market_cost": 5.97
+    },
+    {
+      "calculation_run_id": "f7d5f49a-6466-4945-801a-9e792f8d4ea6",
+      "created_at": "2026-08-24T22:03:13.43705+00:00",
+      "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+      "product_market_cost": 5.5
+    },
+    {
+      "calculation_run_id": "58a7140e-9003-4682-9b3d-e6d8f22ae63a",
+      "created_at": "2026-08-25T17:34:21.440167+00:00",
+      "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+      "product_market_cost": 5.75
+    },
+    {
+      "calculation_run_id": "1958b51a-7759-46d9-ba9f-f3a7c5f36ce9",
+      "created_at": "2026-08-26T17:29:39.986632+00:00",
+      "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+      "product_market_cost": 5.63
+    },
+    {
+      "calculation_run_id": "53ba1d75-f8c3-45b2-9e91-6ae69092fba5",
+      "created_at": "2026-08-27T17:51:06.849111+00:00",
+      "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+      "product_market_cost": 5.64
+    }
+  ],
+  "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": [
+    {
+      "calculation_run_id": "892e6bcc-2059-448e-bf4f-0ffd896a546c",
+      "created_at": "2026-08-20T19:58:12.153764+00:00",
+      "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+      "product_market_cost": 13.31
+    },
+    {
+      "calculation_run_id": "687b238f-44ef-427f-aa01-c47d24497a04",
+      "created_at": "2026-08-22T22:20:27.334574+00:00",
+      "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+      "product_market_cost": 13.87
+    },
+    {
+      "calculation_run_id": "da78866f-4414-4a50-bb3e-31be51eabaa4",
+      "created_at": "2026-08-24T21:32:23.589193+00:00",
+      "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+      "product_market_cost": 13.9
+    },
+    {
+      "calculation_run_id": "9ede0f8e-91d9-491e-8dc6-3f2d7aaa567a",
+      "created_at": "2026-08-25T17:03:36.315058+00:00",
+      "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+      "product_market_cost": 13.98
+    },
+    {
+      "calculation_run_id": "7ab12594-1847-4780-94d0-74892f708250",
+      "created_at": "2026-08-26T17:03:21.618318+00:00",
+      "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+      "product_market_cost": 13.92
+    },
+    {
+      "calculation_run_id": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+      "created_at": "2026-08-27T17:03:55.083816+00:00",
+      "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+      "product_market_cost": 13.85
+    }
+  ],
+  "202518a0-5e86-4949-b1cd-c1c8ad95b616": [
+    {
+      "calculation_run_id": "b088cf28-10e6-4f6d-9878-011e5e307728",
+      "created_at": "2026-08-20T19:44:15.650307+00:00",
+      "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+      "product_market_cost": 16.07
+    },
+    {
+      "calculation_run_id": "14323aa8-03e8-408d-a34d-351aa4a60da0",
+      "created_at": "2026-08-22T22:29:31.260956+00:00",
+      "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+      "product_market_cost": 16.05
+    },
+    {
+      "calculation_run_id": "4546c337-2389-44eb-87bf-2e8063acec39",
+      "created_at": "2026-08-24T21:50:39.32572+00:00",
+      "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+      "product_market_cost": 16.21
+    },
+    {
+      "calculation_run_id": "633338e0-1825-4525-a8b6-60143a7b49b4",
+      "created_at": "2026-08-25T17:23:30.002443+00:00",
+      "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+      "product_market_cost": 16.25
+    },
+    {
+      "calculation_run_id": "0b315ac4-bea9-4000-8058-5ed8dc6409b7",
+      "created_at": "2026-08-26T17:19:36.803646+00:00",
+      "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+      "product_market_cost": 16.28
+    },
+    {
+      "calculation_run_id": "d5bf5544-fcc4-4435-8b46-8844b9d2daa9",
+      "created_at": "2026-08-27T17:34:35.719601+00:00",
+      "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+      "product_market_cost": 16.25
+    }
+  ],
+  "fd1538dd-36b9-4d02-98dc-fd65a5230d27": [
+    {
+      "calculation_run_id": "752b8938-be68-41c1-a163-08144f561a19",
+      "created_at": "2026-08-20T19:45:22.826885+00:00",
+      "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+      "product_market_cost": 23.43
+    },
+    {
+      "calculation_run_id": "993f324e-2189-472f-9149-02dfd800b200",
+      "created_at": "2026-08-22T22:30:45.395843+00:00",
+      "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+      "product_market_cost": 23.1
+    },
+    {
+      "calculation_run_id": "ff85ec44-5b70-415f-aaa7-f41710ec889e",
+      "created_at": "2026-08-24T21:53:44.047243+00:00",
+      "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+      "product_market_cost": 23.17
+    },
+    {
+      "calculation_run_id": "3fad4678-e951-44cb-aefe-d66a0ab042f4",
+      "created_at": "2026-08-25T17:25:37.720593+00:00",
+      "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+      "product_market_cost": 23.17
+    },
+    {
+      "calculation_run_id": "689c2a0e-aa0f-4784-b2f1-1fa97abcc758",
+      "created_at": "2026-08-26T17:21:42.603017+00:00",
+      "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+      "product_market_cost": 23.17
+    },
+    {
+      "calculation_run_id": "355f1d39-e252-48ef-bd49-67b564f101e2",
+      "created_at": "2026-08-27T17:41:37.632518+00:00",
+      "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+      "product_market_cost": 23.18
+    }
+  ],
+  "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": [
+    {
+      "calculation_run_id": "ea8a9d22-0ab0-4492-ae4a-9d019777de4f",
+      "created_at": "2026-08-20T19:51:11.128421+00:00",
+      "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+      "product_market_cost": 14.73
+    },
+    {
+      "calculation_run_id": "e6940d26-49f9-4b46-9625-2c97d5395035",
+      "created_at": "2026-08-22T22:40:04.775332+00:00",
+      "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+      "product_market_cost": 14.79
+    },
+    {
+      "calculation_run_id": "12ed2b4d-1c5f-4d51-a9bf-24ef5b4ad43b",
+      "created_at": "2026-08-24T22:13:21.748575+00:00",
+      "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+      "product_market_cost": 14.83
+    },
+    {
+      "calculation_run_id": "0be6c56b-dfc3-436b-b677-3c41dce02d76",
+      "created_at": "2026-08-25T17:46:24.39947+00:00",
+      "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+      "product_market_cost": 14.83
+    },
+    {
+      "calculation_run_id": "224a0e90-4af2-425a-bef9-a3a29fb99589",
+      "created_at": "2026-08-26T17:39:25.678423+00:00",
+      "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+      "product_market_cost": 14.83
+    },
+    {
+      "calculation_run_id": "871692b4-a521-441e-b334-e8efc77d8760",
+      "created_at": "2026-08-27T18:01:04.29344+00:00",
+      "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+      "product_market_cost": 14.81
+    }
+  ],
+  "3c459327-59d0-41d5-b21e-aae36361cc77": [
+    {
+      "calculation_run_id": "fe35ccb6-7a58-4dd2-aec8-db80316203d8",
+      "created_at": "2026-08-20T19:50:20.541182+00:00",
+      "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+      "product_market_cost": 8.97
+    },
+    {
+      "calculation_run_id": "b0caac26-e38e-4201-96b7-44ddc8126bd9",
+      "created_at": "2026-08-22T22:39:11.573502+00:00",
+      "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+      "product_market_cost": 9.18
+    },
+    {
+      "calculation_run_id": "de04c83c-a849-4b00-9b31-35306520181e",
+      "created_at": "2026-08-24T22:10:51.145832+00:00",
+      "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+      "product_market_cost": 9.19
+    },
+    {
+      "calculation_run_id": "1374cbce-61ce-41a2-8b8c-4daa2ce6a7cb",
+      "created_at": "2026-08-25T17:43:55.579599+00:00",
+      "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+      "product_market_cost": 9.19
+    },
+    {
+      "calculation_run_id": "4fd1166f-fb92-4494-9434-604b30e05d9e",
+      "created_at": "2026-08-26T17:37:00.66695+00:00",
+      "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+      "product_market_cost": 9.22
+    },
+    {
+      "calculation_run_id": "9cc40f31-9b7a-40de-a5d1-6f31328347c8",
+      "created_at": "2026-08-27T17:59:08.883828+00:00",
+      "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+      "product_market_cost": 9.21
+    }
+  ],
+  "5d3d5c23-7098-4393-ad63-6ad9372aee30": [
+    {
+      "calculation_run_id": "a4f0fece-12f5-4254-8af9-bf25e2588974",
+      "created_at": "2026-08-20T19:46:34.28173+00:00",
+      "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+      "product_market_cost": 8.41
+    },
+    {
+      "calculation_run_id": "73be42a8-991a-46b5-9ae3-c810f48e7664",
+      "created_at": "2026-08-22T22:32:07.162184+00:00",
+      "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+      "product_market_cost": 8.4
+    },
+    {
+      "calculation_run_id": "c478ab04-d33b-4377-8a55-330c52066a0c",
+      "created_at": "2026-08-24T21:57:25.002465+00:00",
+      "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+      "product_market_cost": 8.34
+    },
+    {
+      "calculation_run_id": "f631328a-c9b5-4923-baec-47e43c882189",
+      "created_at": "2026-08-25T17:27:52.384526+00:00",
+      "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+      "product_market_cost": 8.25
+    },
+    {
+      "calculation_run_id": "691f97c8-9a27-496a-ac94-9a875f633f15",
+      "created_at": "2026-08-26T17:23:54.932347+00:00",
+      "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+      "product_market_cost": 8.31
+    },
+    {
+      "calculation_run_id": "f45a2692-999e-4c70-9aff-be4adcb992c9",
+      "created_at": "2026-08-27T17:44:18.518613+00:00",
+      "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+      "product_market_cost": 8.24
+    }
+  ],
+  "41a0ac1c-27ca-444b-8665-8ba35e583a3b": [
+    {
+      "calculation_run_id": "8a887d42-33b2-4f35-a440-2611c3c824c8",
+      "created_at": "2026-08-20T19:39:45.809316+00:00",
+      "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+      "product_market_cost": 14.99
+    },
+    {
+      "calculation_run_id": "48c725d9-21dd-4264-8f69-13043e89ff51",
+      "created_at": "2026-08-22T22:21:48.600686+00:00",
+      "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+      "product_market_cost": 14.59
+    },
+    {
+      "calculation_run_id": "f6dd06c1-f25b-4c2e-97ef-0922b11ea3d2",
+      "created_at": "2026-08-24T21:34:56.569482+00:00",
+      "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+      "product_market_cost": 14.49
+    },
+    {
+      "calculation_run_id": "8d9944e7-0157-491b-9988-b52e71c379d7",
+      "created_at": "2026-08-25T17:06:30.423023+00:00",
+      "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+      "product_market_cost": 14.53
+    },
+    {
+      "calculation_run_id": "7f1cecce-4a26-4164-b058-a4c73d2f1dd9",
+      "created_at": "2026-08-26T17:06:10.91222+00:00",
+      "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+      "product_market_cost": 14.53
+    },
+    {
+      "calculation_run_id": "e88c8392-ebc8-4db1-83f7-e299202d26f6",
+      "created_at": "2026-08-27T17:09:02.479288+00:00",
+      "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+      "product_market_cost": 14.68
+    }
+  ],
+  "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": [
+    {
+      "calculation_run_id": "3178c30b-45ee-4a1e-9c3b-1db578ef93d8",
+      "created_at": "2026-08-20T19:56:52.533055+00:00",
+      "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+      "product_market_cost": 14.37
+    },
+    {
+      "calculation_run_id": "b572193b-a72a-48d9-9c06-797f70ca2971",
+      "created_at": "2026-08-22T22:45:55.536049+00:00",
+      "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+      "product_market_cost": 13.45
+    },
+    {
+      "calculation_run_id": "259b137f-5e8c-46a4-8f6a-f75d64086b2f",
+      "created_at": "2026-08-24T22:50:57.368792+00:00",
+      "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+      "product_market_cost": 13.37
+    },
+    {
+      "calculation_run_id": "15b731eb-b039-4895-b0cb-526fb469d111",
+      "created_at": "2026-08-25T17:58:39.08879+00:00",
+      "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+      "product_market_cost": 13.43
+    },
+    {
+      "calculation_run_id": "01add7cd-3cd3-4424-936b-8100066ecff5",
+      "created_at": "2026-08-26T17:52:02.045347+00:00",
+      "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+      "product_market_cost": 13.46
+    },
+    {
+      "calculation_run_id": "a26aac2e-7187-47b9-8a29-87a5e9618e53",
+      "created_at": "2026-08-27T18:25:10.150987+00:00",
+      "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+      "product_market_cost": 13.52
+    }
+  ],
+  "de291399-ead5-41dc-bc12-e7c587684f85": [
+    {
+      "calculation_run_id": "1f72718d-390e-4fce-bda2-15ed058b0b29",
+      "created_at": "2026-08-20T19:40:55.425346+00:00",
+      "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+      "product_market_cost": 8.48
+    },
+    {
+      "calculation_run_id": "5a4f1a2c-216b-44f0-bd80-7a683a6b9d68",
+      "created_at": "2026-08-22T22:23:58.984147+00:00",
+      "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+      "product_market_cost": 9.44
+    },
+    {
+      "calculation_run_id": "76eb772e-daac-499c-bcf7-2d5467474dc4",
+      "created_at": "2026-08-24T21:40:27.212966+00:00",
+      "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+      "product_market_cost": 9.24
+    },
+    {
+      "calculation_run_id": "5cf70c37-673d-4808-a3e9-62cde5942003",
+      "created_at": "2026-08-25T17:10:45.449832+00:00",
+      "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+      "product_market_cost": 9.19
+    },
+    {
+      "calculation_run_id": "5e1bb2e8-c62d-411b-af4d-458e33957f98",
+      "created_at": "2026-08-26T17:10:10.839984+00:00",
+      "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+      "product_market_cost": 9.04
+    },
+    {
+      "calculation_run_id": "de161271-7398-44a1-a24d-0c17d6f5ba85",
+      "created_at": "2026-08-27T17:18:21.673931+00:00",
+      "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+      "product_market_cost": 8.98
+    }
+  ],
+  "d001d563-988b-4f8e-904f-acb926748e22": [
+    {
+      "calculation_run_id": "f1b38102-cbda-4d90-a522-a345cc2f7e5a",
+      "created_at": "2026-08-20T19:49:12.006773+00:00",
+      "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+      "product_market_cost": 28.86
+    },
+    {
+      "calculation_run_id": "6d902b21-a0da-4d63-8a2f-064880697869",
+      "created_at": "2026-08-22T22:37:56.135541+00:00",
+      "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+      "product_market_cost": 28.92
+    },
+    {
+      "calculation_run_id": "1c000400-06c7-4c1b-a86b-c58ab6dcac05",
+      "created_at": "2026-08-24T22:08:39.570943+00:00",
+      "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+      "product_market_cost": 29.53
+    },
+    {
+      "calculation_run_id": "7be09a3f-856a-4ac9-b02d-f3bcc859ac58",
+      "created_at": "2026-08-25T17:41:07.175513+00:00",
+      "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+      "product_market_cost": 29.49
+    },
+    {
+      "calculation_run_id": "d4d751e8-7cfa-44ac-8bae-1e1a19f21613",
+      "created_at": "2026-08-26T17:34:44.479156+00:00",
+      "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+      "product_market_cost": 29.48
+    },
+    {
+      "calculation_run_id": "bc4c2393-942b-4e5b-8a8c-ab48ac61b64e",
+      "created_at": "2026-08-27T17:56:50.056893+00:00",
+      "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+      "product_market_cost": 29.69
+    }
+  ],
+  "91442900-3949-4ba4-8398-9e3dc2db1fa6": [
+    {
+      "calculation_run_id": "c3b46892-be05-44bd-bdde-f6890d5b404a",
+      "created_at": "2026-08-20T19:54:24.512578+00:00",
+      "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+      "product_market_cost": 11.49
+    },
+    {
+      "calculation_run_id": "2116e5f9-e556-4c1f-88cc-ad226f751e85",
+      "created_at": "2026-08-22T22:43:25.448386+00:00",
+      "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+      "product_market_cost": 11.37
+    },
+    {
+      "calculation_run_id": "8adf3492-342f-4e76-9a92-d43f190be458",
+      "created_at": "2026-08-24T22:21:01.16504+00:00",
+      "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+      "product_market_cost": 11.29
+    },
+    {
+      "calculation_run_id": "5c9257f1-f727-48ee-b251-a8cb6a23f8f4",
+      "created_at": "2026-08-25T17:53:57.025241+00:00",
+      "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+      "product_market_cost": 11.29
+    },
+    {
+      "calculation_run_id": "4ad379cf-a5f8-4275-8fd3-dd75f6042118",
+      "created_at": "2026-08-26T17:46:12.531371+00:00",
+      "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+      "product_market_cost": 11.33
+    },
+    {
+      "calculation_run_id": "f31dad41-6fd6-47af-9ee4-dc3c3e82e7ac",
+      "created_at": "2026-08-27T18:11:27.390868+00:00",
+      "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+      "product_market_cost": 11.25
+    }
+  ],
+  "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": [
+    {
+      "calculation_run_id": "84080871-1155-4e75-b8ab-60605ad64038",
+      "created_at": "2026-08-20T20:02:01.216304+00:00",
+      "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+      "product_market_cost": 5.67
+    },
+    {
+      "calculation_run_id": "d2572d76-ef4d-4478-b2c1-38dcd65e0c25",
+      "created_at": "2026-08-22T22:22:46.060515+00:00",
+      "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+      "product_market_cost": 5.54
+    },
+    {
+      "calculation_run_id": "0445dfd0-7ba1-46ff-96ba-930bc7bb0f29",
+      "created_at": "2026-08-24T21:38:15.609556+00:00",
+      "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+      "product_market_cost": 5.56
+    },
+    {
+      "calculation_run_id": "4ab189dc-0a8c-4777-a31e-e4b96b485ec9",
+      "created_at": "2026-08-25T17:08:30.805939+00:00",
+      "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+      "product_market_cost": 5.54
+    },
+    {
+      "calculation_run_id": "5809b80c-0aa8-4113-86fc-cf733a3e3757",
+      "created_at": "2026-08-26T17:08:04.152535+00:00",
+      "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+      "product_market_cost": 5.55
+    },
+    {
+      "calculation_run_id": "97327aad-d167-4f2e-935d-59e7dc678cf5",
+      "created_at": "2026-08-27T17:14:41.419524+00:00",
+      "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+      "product_market_cost": 5.32
+    }
+  ],
+  "0f7e51e2-5a78-4500-9c9c-f690e934a069": [
+    {
+      "calculation_run_id": "ad91c981-d7ab-4b2a-acea-da404bc96eaa",
+      "created_at": "2026-08-20T20:01:05.54093+00:00",
+      "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+      "product_market_cost": 10.94
+    },
+    {
+      "calculation_run_id": "a1c0ed85-ff61-4dfb-9969-3cc315f561fd",
+      "created_at": "2026-08-22T22:34:11.46739+00:00",
+      "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+      "product_market_cost": 11.69
+    },
+    {
+      "calculation_run_id": "a01b0b07-74a2-4724-8f8a-3c0d187848f7",
+      "created_at": "2026-08-24T22:01:18.768188+00:00",
+      "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+      "product_market_cost": 11.58
+    },
+    {
+      "calculation_run_id": "ced5e296-88f2-4e9c-ad2d-e148d3de0380",
+      "created_at": "2026-08-25T17:32:00.10187+00:00",
+      "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+      "product_market_cost": 11.61
+    },
+    {
+      "calculation_run_id": "220fb68c-050d-4956-97b7-0028bed40787",
+      "created_at": "2026-08-26T17:27:45.135177+00:00",
+      "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+      "product_market_cost": 11.61
+    },
+    {
+      "calculation_run_id": "e26bfac0-e608-4c85-9857-1f912f3ab383",
+      "created_at": "2026-08-27T17:48:51.371439+00:00",
+      "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+      "product_market_cost": 11.6
+    }
+  ]
+}

@@ -195,6 +195,42 @@ def read_chase_accessibility_snapshot(*, set_id: Any, client: Any) -> Dict[str, 
     return project_chase_accessibility(rows[0] if rows else None)
 
 
+def read_chase_accessibility_snapshots_for_sets(
+    *, set_ids: Sequence[Any], client: Any
+) -> Dict[str, Dict[str, Any]]:
+    """Every RAW snapshot row for a batch of sets, keyed by ``set_id``.
+
+    ONE query for the whole cohort - the batch-read path a per-product-row
+    consumer (e.g. Overall RIP V12 finalization) must use instead of issuing a
+    per-set read inside a row loop. Rows are paged the same way
+    :func:`load_drawable_variants` pages, since a large enough cohort could
+    exceed PostgREST's 1000-row cap.
+
+    Returns RAW rows (dict, matching the table's columns), not the projected
+    public shape - a caller that needs ``calculation_run_id`` authority
+    checking needs the raw column, which :func:`project_chase_accessibility`
+    deliberately omits from its public projection in some fields.
+    """
+    resolved_ids = sorted({_optional_str(value) for value in set_ids if _optional_str(value)})
+    if not resolved_ids:
+        return {}
+    collected: List[Dict[str, Any]] = []
+    page = 0
+    while True:
+        response = (client.table(SNAPSHOT_TABLE)
+                    .select("*")
+                    .in_("set_id", resolved_ids)
+                    .order("set_id")
+                    .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
+                    .execute())
+        batch = _rows(response)
+        collected.extend(batch)
+        if len(batch) < PAGE_SIZE:
+            break
+        page += 1
+    return {str(row.get("set_id")): row for row in collected if row.get("set_id") is not None}
+
+
 # --------------------------------------------------------------------------
 # Publication
 # --------------------------------------------------------------------------

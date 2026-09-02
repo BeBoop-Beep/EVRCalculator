@@ -1,0 +1,45 @@
+{
+  "state2_set_count": 22,
+  "state2_accessibility_market_dates_range": [
+    "2026-08-27T23:14:10.920443+00:00",
+    "2026-08-28T18:16:50.321394+00:00"
+  ],
+  "state2_financial_market_dates_range": [
+    "2026-08-27T17:03:55.083816+00:00",
+    "2026-08-27T18:25:10.150987+00:00"
+  ],
+  "state2_offset_days_max": 1.0001940787962964,
+  "state2_offset_days_median": 0.9956041902662036,
+  "a_raw_min": 0.0007498463697051532,
+  "a_raw_median": 0.0021119827668204046,
+  "a_raw_max": 0.005640055894560097,
+  "candidate_diagnostics_k0.002": {
+    "4": {
+      "spearman": 0.9875776397515529,
+      "kendall": 0.9393939393939393,
+      "top5_overlap": 4,
+      "top10_overlap": 9,
+      "close_reversal_rate": 0.12195121951219512,
+      "clear_overrides_flipped": 0,
+      "max_financial_gap_overturned": 0.0
+    },
+    "6": {
+      "spearman": 0.979672501411632,
+      "kendall": 0.8961038961038961,
+      "top5_overlap": 4,
+      "top10_overlap": 9,
+      "close_reversal_rate": 0.14634146341463414,
+      "clear_overrides_flipped": 0,
+      "max_financial_gap_overturned": 0.0
+    },
+    "8": {
+      "spearman": 0.9649915302089217,
+      "kendall": 0.8614718614718614,
+      "top5_overlap": 4,
+      "top10_overlap": 9,
+      "close_reversal_rate": 0.17073170731707318,
+      "clear_overrides_flipped": 0,
+      "max_financial_gap_overturned": 0.0
+    }
+  }
+}

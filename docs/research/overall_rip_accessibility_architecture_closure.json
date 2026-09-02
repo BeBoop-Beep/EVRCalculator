@@ -86,5 +86,152 @@
     "phase_10_shock_robustness": "PARTIAL. Only the algebraic/structural argument for card-price scale invariance (HC_i is a ratio of squares of price, so a uniform positive scalar cancels) and the already-computed zero within-set variance (product-price independence proxy) are reported. No live product-price shock re-run, no independent per-card noise shocks with multiple seeds, and no pull-rate shocks were executed against compute_chase_accessibility in this pass.",
     "phase_11_temporal_replay": "NOT RUN beyond the single 2026-08-31 Accessibility date already used. A genuinely independent second date with its own coherent Financial RIP V4 + Collector Appeal V5 + Accessibility triple was not assembled in this pass.",
     "phase_2_coherence": "The Accessibility cohort (market_date 2026-08-31) and the budget-ranking snapshot carrying Financial RIP V4 / Collector Appeal V5 (market_date 2026-08-27, snapshot 46c24231) are 4 days apart and were NOT produced by the same calculation run. This is the strongest reproducible pairing found, but it is not the same-run coherence Phase 2 asks for."
+  },
+  "final_closure_pass_1c": {
+    "decision_label": "OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_VALIDATED",
+    "start_head": "65f16867b810085df49b2b675a70b25ff1e5cb1a",
+    "supersedes_weight_and_transform_conclusions_of": "OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_BLOCKED_INCOMPLETE_PHASES_8_9_10_11 (the top-level decision_label and all fields above this key are preserved verbatim as historical record and NOT overwritten)",
+    "built_on": [
+      "OVERALL_RIP_ACCESSIBILITY_PASS_1A_ECE (22-set primary cohort)",
+      "OVERALL_RIP_ACCESSIBILITY_PASS_1A_PRODUCT_SUPPLEMENT (138-product cohort)",
+      "OVERALL_RIP_ACCESSIBILITY_PASS_1B_ROBUSTNESS (full transform x weight grid, LOSO, shocks, temporal replay)"
+    ],
+    "evidence_integrity_phase0": {
+      "artifacts_cross_checked": [
+        "overall_rip_accessibility_primary_cohort.json",
+        "overall_rip_accessibility_authority.json",
+        "overall_rip_accessibility_pass_1a_ece.json",
+        "overall_rip_accessibility_product_cohort.json",
+        "overall_rip_accessibility_pass_1a_product_supplement.json",
+        "overall_rip_accessibility_pass_1b_robustness.json"
+      ],
+      "material_discrepancy_found": false,
+      "result": "PASS"
+    },
+    "locked_decisions_reaffirmed": {
+      "ece_overall_weight": 0.0,
+      "ece_same_set_placebo_reversals": "102/102 identical to price-only ranking",
+      "core_k_status": "superseded_not_restored",
+      "core_k_shock_instability_pct_at_2pct": 18.2,
+      "chase_depth_status": "independent_diagnostic_not_merged_with_accessibility"
+    },
+    "transform_phase2": {
+      "family": "A_score(k) = 100 * A_raw / (A_raw + k)",
+      "k_selected": 0.002,
+      "selection_basis": "geometric_center_of_pre_registered_log2_spaced_k_grid_not_fit_to_cohort",
+      "anchor_table": {
+        "0.0005": {"score25_pct": 0.01667, "score50_pct": 0.05, "score75_pct": 0.15},
+        "0.001": {"score25_pct": 0.03333, "score50_pct": 0.10, "score75_pct": 0.30},
+        "0.002": {"score25_pct": 0.06667, "score50_pct": 0.20, "score75_pct": 0.60},
+        "0.004": {"score25_pct": 0.13333, "score50_pct": 0.40, "score75_pct": 1.20},
+        "0.008": {"score25_pct": 0.26667, "score50_pct": 0.80, "score75_pct": 2.40}
+      }
+    },
+    "accessibility_weight_phase3": {
+      "selected_weight_pct": 4.0,
+      "min_transform_spearman_all_k": 0.9876,
+      "min_loso_spearman_all_k": 0.9857,
+      "worst_shock_spearman": 0.9876,
+      "temporal_state1_spearman": 0.9876,
+      "temporal_state2_spearman": 0.9876,
+      "close_pair_reversal_rate_at_k002": 0.122,
+      "rejected_6pct_reason": "min transform Spearman 0.9797 at k=0.002 (<0.98 gate); fails LOSO at 3/5 k anchors, min 0.9766",
+      "rejected_8pct_reason": "fails transform gate at 4/5 k, fails LOSO at all 5 k",
+      "rejected_10pct_reason": "fails transform gate at 4/5 k, fails LOSO at all 5 k",
+      "0pct_reason": "discards a signal shown non-redundant with Financial, Collector, and Chase Depth",
+      "2pct_note": "passes every hard gate tested but was never independently shock- or LOSO-tested by any pass"
+    },
+    "financial_accessibility_split_phase4": {
+      "financial_weight": 0.86,
+      "accessibility_weight": 0.04,
+      "collector_weight": 0.10,
+      "market_based_bucket_pct": 0.90,
+      "internal_split_financial_of_market_based": 0.955556,
+      "internal_split_accessibility_of_market_based": 0.044444
+    },
+    "quadrants_phase5": {
+      "concentrated_accessible": {"set": "Obsidian Flames", "a_raw": 0.00562, "n_hc": 2.42},
+      "concentrated_inaccessible": {"set": "Phantasmal Flames", "a_raw": 0.00234, "n_hc": 1.31, "alt_clearer_example": {"set": "Ascended Heroes", "a_raw": 0.00080, "n_hc": 3.90}},
+      "deep_accessible": [
+        {"set": "Scarlet and Violet Base Set", "a_raw": 0.00321, "n_hc": 8.58},
+        {"set": "Paradox Rift", "a_raw": 0.00208, "n_hc": 7.26}
+      ],
+      "deep_inaccessible": [
+        {"set": "Temporal Forces", "a_raw": 0.00269, "n_hc": 13.41},
+        {"set": "Shrouded Fable", "a_raw": 0.00450, "n_hc": 12.34}
+      ],
+      "a_raw_vs_n_hc_product_level_spearman": 0.1371
+    },
+    "collector_appeal_v5_source_audit_phase6": {
+      "source_file": "backend/desirability/collector_appeal.py",
+      "canonical_version": "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2",
+      "formula_version": "collector_appeal_h_only_centred_asymmetric_modifier_v1",
+      "scored_factors": ["roster_desirability", "desirable_outcome_frequency"],
+      "diagnostic_not_scored_factors": ["dual_path_depth"],
+      "excluded_inputs_confirmed": ["market_price", "expected_value", "pack_cost", "profitability", "financial_score", "market_rank_proxy", "scarcity_price_proxy", "dual_path_depth"],
+      "treatment_conflated_with_collector_appeal": false,
+      "discrepancy_vs_prior_docs": false
+    },
+    "collector_sensitivity_phase7": {
+      "accessibility_weight_fixed_pct": 4.0,
+      "k_fixed": 0.002,
+      "cohort": "frozen 22-set primary cohort (no live query)",
+      "results": {
+        "5.0": {"financial_pct": 91.0, "spearman": 0.9853190287972897, "kendall": 0.922077922077922, "top5_overlap": 5, "top10_overlap": 9, "close_reversal_rate": 0.17073170731707318, "clear_flips": 0, "max_financial_gap_overturned": 0.0},
+        "7.5": {"financial_pct": 88.5, "spearman": 0.9864483342744214, "kendall": 0.9307359307359306, "top5_overlap": 5, "top10_overlap": 9, "close_reversal_rate": 0.14634146341463414, "clear_flips": 0, "max_financial_gap_overturned": 0.0},
+        "10.0": {"financial_pct": 86.0, "spearman": 0.9875776397515529, "kendall": 0.9393939393939393, "top5_overlap": 4, "top10_overlap": 9, "close_reversal_rate": 0.12195121951219512, "clear_flips": 0, "max_financial_gap_overturned": 0.0},
+        "11.0": {"financial_pct": 85.0, "spearman": 0.9887069452286844, "kendall": 0.9393939393939393, "top5_overlap": 4, "top10_overlap": 9, "close_reversal_rate": 0.12195121951219512, "clear_flips": 0, "max_financial_gap_overturned": 0.0},
+        "12.5": {"financial_pct": 83.5, "spearman": 0.9875776397515529, "kendall": 0.922077922077922, "top5_overlap": 4, "top10_overlap": 10, "close_reversal_rate": 0.17073170731707318, "clear_flips": 0, "max_financial_gap_overturned": 0.0},
+        "15.0": {"financial_pct": 81.0, "spearman": 0.9728966685488425, "kendall": 0.8787878787878788, "top5_overlap": 4, "top10_overlap": 10, "close_reversal_rate": 0.17073170731707318, "clear_flips": 0, "max_financial_gap_overturned": 0.0}
+      },
+      "conclusion": "5%-12.5% all behaviorally compatible; no construct-level evidence found to move off the existing 10% Collector budget; 10% preserved.",
+      "final_collector_weight_pct": 10.0
+    },
+    "final_formula_phase8": "Overall RIP = 0.86 * FinancialRIPv4 + 0.04 * AccessibilityScore(k=0.002) + 0.10 * CollectorAppealV5",
+    "nested_vs_flat_parity_phase9": {
+      "weights_verified": "86/4/10, k=0.002",
+      "max_abs_diff_over_22_set_cohort": 1.4210854715202004e-14,
+      "two_bucket_architecture_valid": true
+    },
+    "market_based_persistence_phase10": {
+      "recommendation": "DO_NOT_PERSIST_AS_NEW_METRIC",
+      "reason": "explanatory-only; no product requirement found for a separately-stored/ranked score"
+    },
+    "temporal_coherence_decision_phase11": {
+      "classification": "A_operational_pipeline_cadence_limitation",
+      "blocks_methodology_validation": false,
+      "cross_state_a_raw_spearman": 0.9977,
+      "state2_offset_days": "0.26-1.00",
+      "migration_077_applied_to_live_env": false,
+      "migration_077_misclassification_avoided": "unapplied schema is distinct from a methodology failure; Chase Accessibility was independently, math-identically reconstructed from upstream tables in every pass"
+    },
+    "product_chase_architecture_phase12": {
+      "chase_accessibility_set_level": "eligible_overall_input_validated_this_pass",
+      "product_ece_overall_weight": 0.0,
+      "product_ece_role": "within_family_descriptive_only_not_universal_cross_format",
+      "explicit_budget_authority": "O_budget = sum(HC_i * (1-(1-p_i)^packs))",
+      "card_chase_efficiency_exists_separately": true,
+      "card_chase_efficiency_source": "backend/db/services/chase_efficiency_service.py"
+    },
+    "final_methodology_decision_phase13": {
+      "accessibility_enters_overall": true,
+      "accessibility_weight_pct": 4.0,
+      "k": 0.002,
+      "financial_dominant": true,
+      "financial_weight_pct": 86.0,
+      "collector_weight_pct": 10.0,
+      "ece_enters_overall": false,
+      "chase_depth_enters_overall": false,
+      "market_based_explanatory_only": true,
+      "evidence_sufficient_despite_cadence_limitation": true
+    },
+    "production_impact": "none",
+    "files_created": [
+      "docs/research/OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_CLOSURE.md (appended)",
+      "docs/research/overall_rip_accessibility_architecture_closure.json (appended)",
+      "backend/research/scratch_pass1c/phase7_collector_sensitivity.py",
+      "backend/research/scratch_pass1c/phase7_collector_sensitivity_result.json"
+    ],
+    "final_label": "OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_VALIDATED"
   }
 }
