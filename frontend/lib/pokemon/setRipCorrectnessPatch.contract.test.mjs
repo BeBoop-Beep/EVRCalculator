@@ -65,8 +65,49 @@ test("simulation profile is same-run and no longer comes from rank context", () 
   assert.doesNotMatch(page, /openingOutcomeProfile=\{ripRankContext/);
 });
 
-test("dead EV realization disclosure is completely absent", () => {
-  assert.doesNotMatch(decision, /When Does EV Start Looking Real|deep-dive-ev-realization|EvRepresentativenessSection/);
+test("the old free-standing EV realization deep-dive row is not resurrected", () => {
+  // The row/component this used to guard were removed because their data
+  // came from the "global context" publication, which can legitimately lag
+  // the set's own calculation run. That is a staleness bug, not a reason to
+  // ban the metric forever: it now rides the same-run simulation-evidence
+  // payload instead (see the invariant below), rendered inline as a compact
+  // headline rather than a duplicate section/row.
+  assert.doesNotMatch(decision, /deep-dive-ev-realization|EvRepresentativenessSection/);
+});
+
+test("EV realization headline only ever renders from the same calculationRunId as the active simulation", () => {
+  const report = read("components/explore/SimulationFullReport.jsx");
+  const selector = read("components/explore/evRepresentativenessSelector.mjs");
+  // The headline lives in the same-run simulation evidence report, not in a
+  // dedicated section/request.
+  assert.match(report, /evRep\?\.realizationHorizon/);
+  assert.doesNotMatch(report, /EvRepresentativenessSection/);
+  // Its selector refuses to project anything for a mismatched run.
+  assert.match(selector, /String\(value\.calculationRunId\) !== String\(expectedCalculationRunId\)/);
+
+  const sameRun = selectSameRunRipSimulation(
+    {
+      contractVersion: "pokemon-set-rip-simulation-evidence-v1",
+      setId: "set-a",
+      calculationRunId: "run-a",
+      evRepresentativeness: { calculationRunId: "run-a", contractVersion: "ev_representativeness_public_v1", methodVersion: "ev_representativeness_v1", realizationHorizon: { targetEvRatio: 0.8, openerProbability: 0.8, packCount: 420, status: "confirmed" } },
+    },
+    { setId: "set-a", calculationRunId: "run-a" },
+  );
+  assert.equal(sameRun.evRepresentativeness.realizationHorizon.packCount, 420);
+
+  // A stale/different-run evRepresentativeness block never survives the
+  // same-run gate, even when the rest of the simulation payload matches.
+  const staleRun = selectSameRunRipSimulation(
+    {
+      contractVersion: "pokemon-set-rip-simulation-evidence-v1",
+      setId: "set-a",
+      calculationRunId: "run-a",
+      evRepresentativeness: { calculationRunId: "run-old", contractVersion: "ev_representativeness_public_v1", methodVersion: "ev_representativeness_v1", realizationHorizon: { targetEvRatio: 0.8, openerProbability: 0.8, packCount: 420, status: "confirmed" } },
+    },
+    { setId: "set-a", calculationRunId: "run-a" },
+  );
+  assert.equal(staleRun, null);
 });
 
 test("sealed summary is aggregate-only and full products stay deferred", () => {

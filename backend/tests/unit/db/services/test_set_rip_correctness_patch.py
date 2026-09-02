@@ -102,6 +102,75 @@ def test_ascended_current_run_projects_persisted_same_run_outcome_profile():
     assert under_half["probability"] == pytest.approx(0.850646)
 
 
+def test_simulation_evidence_projects_confirmed_realization_horizon_from_the_same_query(monkeypatch):
+    """The confirmed EV realization headline must ride the SAME read that
+    already fetches ev_representativeness_run_summary for the outcome
+    profile - no second query, no curve rows, just a wider column select."""
+    payload = {"contractVersion": "pokemon-set-rip-simulation-evidence-v1", "setId": "set-a", "calculationRunId": "run-current", "meta": {}}
+    monkeypatch.setattr(service, "_read_set_rip_projection", lambda *_args, **_kwargs: payload)
+    calls = {}
+
+    class Query:
+        def select(self, columns): calls["select"] = columns; return self
+        def eq(self, key, value): calls.setdefault("eq", []).append((key, value)); return self
+        def limit(self, value): return self
+        def execute(self):
+            return SimpleNamespace(data=[{
+                "calculation_run_id": "run-current",
+                "research_method_version": service.EV_REPRESENTATIVENESS_VERSION,
+                "typical_capture": 0.42,
+                "top1_outcome_ev_share": 0.11,
+                "horizon_r80_c80_stable": 420,
+                "horizon_r80_c80_status": "resolved",
+                "horizon_tau20_c80_stable": None,
+                "horizon_tau20_c80_status": "exceeds_search_cap",
+            }])
+    class Client:
+        def table(self, name): calls.setdefault("tables", []).append(name); return Query()
+
+    monkeypatch.setattr(service, "run_public_read_with_retry", lambda loader, **_kwargs: loader(Client()))
+    result = service.get_pokemon_set_rip_simulation_evidence_snapshot_payload("set-a")
+
+    # Exactly one table read backs both projections.
+    assert calls["tables"] == ["ev_representativeness_run_summary"]
+    assert "horizon_r80_c80_stable" in calls["select"]
+    assert "horizon_r80_c80_status" in calls["select"]
+
+    ev_rep = result["evRepresentativeness"]
+    assert ev_rep["calculationRunId"] == "run-current"
+    assert ev_rep["realizationHorizon"] == {"targetEvRatio": 0.80, "openerProbability": 0.80, "packCount": 420, "status": "confirmed"}
+    # Confirmed realization is real; the unresolved convergence horizon is
+    # never fabricated as a number.
+    assert ev_rep["convergenceHorizon"] is None
+    # No curve rows were fetched for the headline - a second table would show
+    # up in `calls["tables"]` if they had been.
+    assert ev_rep["realizationByPackCount"] == []
+
+
+def test_simulation_evidence_omits_realization_horizon_for_a_different_run(monkeypatch):
+    payload = {"contractVersion": "pokemon-set-rip-simulation-evidence-v1", "setId": "set-a", "calculationRunId": "run-current", "meta": {}}
+    monkeypatch.setattr(service, "_read_set_rip_projection", lambda *_args, **_kwargs: payload)
+
+    class Query:
+        def select(self, columns): return self
+        def eq(self, key, value): return self
+        def limit(self, value): return self
+        def execute(self):
+            return SimpleNamespace(data=[{
+                "calculation_run_id": "run-DIFFERENT",
+                "research_method_version": service.EV_REPRESENTATIVENESS_VERSION,
+                "horizon_r80_c80_stable": 420,
+                "horizon_r80_c80_status": "resolved",
+            }])
+    class Client:
+        def table(self, name): return Query()
+
+    monkeypatch.setattr(service, "run_public_read_with_retry", lambda loader, **_kwargs: loader(Client()))
+    result = service.get_pokemon_set_rip_simulation_evidence_snapshot_payload("set-a")
+    assert result["evRepresentativeness"] is None
+    assert "Exact-run EV realization research is unavailable." in result["meta"]["warnings"]
+
+
 def test_optional_research_failure_appends_warning_without_failing_simulation(monkeypatch):
     payload = {"contractVersion": "pokemon-set-rip-simulation-evidence-v1", "setId": "set-a", "calculationRunId": "run-current", "distributionBins": [{"x": 1}], "meta": {"warnings": ["existing warning"]}}
     monkeypatch.setattr(service, "_read_set_rip_projection", lambda *_args, **_kwargs: payload)
@@ -109,5 +178,6 @@ def test_optional_research_failure_appends_warning_without_failing_simulation(mo
     result = service.get_pokemon_set_rip_simulation_evidence_snapshot_payload("set-a")
     assert result["distributionBins"] == [{"x": 1}]
     assert result["openingOutcomeProfile"] is None
+    assert result["evRepresentativeness"] is None
     assert result["meta"]["warnings"][0] == "existing warning"
     assert len(result["meta"]["warnings"]) == 2
