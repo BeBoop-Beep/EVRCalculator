@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 import stripe
 
 from backend.domain.billing.errors import BillingNotConfigured, BillingProviderError, InvalidWebhookSignature, PlanChangeNotAllowed, StripeCustomerMissing
@@ -46,10 +47,8 @@ class StripeProvider:
 
     def retrieve_subscription(self, subscription_id: str, expand=None):
         try:
-            kwargs = {}
-            if expand:
-                kwargs["expand"] = expand
-            return self._client().v1.subscriptions.retrieve(subscription_id, **kwargs)
+            params = {"expand": expand} if expand else None
+            return self._client().v1.subscriptions.retrieve(subscription_id, params)
         except BillingNotConfigured: raise
         except Exception as exc: raise BillingProviderError("Stripe subscription retrieval failed") from exc
 
@@ -115,9 +114,28 @@ class StripeProvider:
 
     def create_downgrade_schedule(self, *, subscription_id: str, target_price_id: str, current_period_end: int, idempotency_key: str) -> dict:
         try:
+            # A purely input-derived idempotency_key (subscription/prices/
+            # period_end -- see plan_change.downgrade_idempotency_key) is
+            # stable for an entire billing period. Confirmed against a real
+            # Stripe sandbox: Stripe caches the FIRST response for a given
+            # idempotency key on this create endpoint for its full retention
+            # window, so a legitimate second scheduling attempt within the
+            # same period (e.g. schedule -> cancel -> schedule again) would
+            # replay the first, now-released/stale schedule and fail on the
+            # phase-2 update rather than creating a fresh one. A per-call
+            # nonce keeps genuine network-level duplicate submissions from
+            # a single attempt safe (Stripe still dedupes those, since a
+            # true duplicate request is retried by application/HTTP-layer
+            # logic within the same call, not by regenerating this method's
+            # arguments), while a real subsequent user action always gets a
+            # fresh key. Cross-schedule double-submission (e.g. a double
+            # click) is independently guarded by Stripe itself: `create`
+            # with `from_subscription` on a subscription that already has an
+            # active schedule attached is rejected by Stripe regardless of
+            # idempotency key.
             schedule = self._client().v1.subscription_schedules.create(
                 {"from_subscription": subscription_id},
-                options={"idempotency_key": idempotency_key},
+                options={"idempotency_key": f"{idempotency_key}:{uuid.uuid4().hex}"},
             )
         except BillingNotConfigured: raise
         except Exception as exc: raise BillingProviderError("Stripe downgrade schedule creation failed") from exc
@@ -133,7 +151,15 @@ class StripeProvider:
             return self._client().v1.subscription_schedules.update(
                 schedule_id,
                 {"end_behavior": "release", "phases": updated_phases},
-                options={"idempotency_key": idempotency_key},
+                # Stripe scopes idempotency keys per endpoint -- the same key
+                # cannot be reused across the `create` call above (POST
+                # /v1/subscription_schedules) and this `update` call (POST
+                # /v1/subscription_schedules/{id}); Stripe rejects that with
+                # IdempotencyError. Scoped to this specific schedule's own id
+                # (globally unique per successful create), so it's naturally
+                # collision-free across schedules while still stable for a
+                # retry of this exact schedule's phase-2 update.
+                options={"idempotency_key": f"{schedule_id}:phase2"},
             )
         except BillingNotConfigured:
             raise

@@ -36,7 +36,15 @@ RECONCILING_EVENTS = frozenset({
     "invoice.paid", "invoice.payment_failed", "invoice.payment_action_required",
 })
 
-def _plain(value): return value.to_dict_recursive() if hasattr(value, "to_dict_recursive") else dict(value)
+def _plain(value):
+    # stripe-python 15.4.0's StripeObject has no `to_dict_recursive` (that
+    # method name does not exist on this SDK version -- confirmed via a real
+    # Stripe sandbox call during the plan-change smoke test); `to_dict()` is
+    # the real method, and it DOES recursively convert nested StripeObjects
+    # (list items, nested resources) into plain dicts despite the
+    # non-"recursive" name. `dict(value)` is kept only as the fallback for
+    # already-dict test doubles, which have neither method.
+    return value.to_dict() if hasattr(value, "to_dict") else dict(value)
 def _iso(epoch): return datetime.fromtimestamp(epoch, timezone.utc).isoformat() if epoch else None
 def _period_end(subscription, item):
     """Some Stripe API versions report the period on the subscription item, not

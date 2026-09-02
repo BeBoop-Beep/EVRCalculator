@@ -130,7 +130,14 @@ def test_create_downgrade_schedule_builds_from_subscription():
     assert result["id"] == "sub_sched_1"
     create_params, create_options = schedules.create_calls[0]
     assert create_params == {"from_subscription": "sub_1"}
-    assert create_options == {"idempotency_key": "plandowngrade:sub_1:price_a:price_plus_monthly:1738368000"}
+    # The create call's idempotency key is namespaced by the caller-supplied
+    # base key but suffixed with a fresh per-call nonce -- confirmed against
+    # a real Stripe sandbox that a purely input-derived (stable-for-a-whole-
+    # billing-period) key causes Stripe to replay a stale cached response
+    # (the first, possibly since-released, schedule) on any later legitimate
+    # re-attempt with the same inputs, rather than creating a fresh schedule.
+    assert create_options["idempotency_key"].startswith("plandowngrade:sub_1:price_a:price_plus_monthly:1738368000:")
+    assert create_options["idempotency_key"] != "plandowngrade:sub_1:price_a:price_plus_monthly:1738368000"
     update_schedule_id, update_params, update_options = schedules.update_calls[0]
     assert update_schedule_id == "sub_sched_1"
     assert update_params["end_behavior"] == "release"
@@ -142,7 +149,52 @@ def test_create_downgrade_schedule_builds_from_subscription():
         "end_date": 1738368000,
     }
     assert update_params["phases"][1] == {"items": [{"price": "price_plus_monthly"}], "start_date": 1738368000}
-    assert update_options == {"idempotency_key": "plandowngrade:sub_1:price_a:price_plus_monthly:1738368000"}
+    # The update call's idempotency key is scoped to this specific schedule's
+    # own (globally unique) id, not the base key -- Stripe scopes idempotency
+    # keys per endpoint and rejects reuse of the same key across
+    # /v1/subscription_schedules (create) and /v1/subscription_schedules/{id}
+    # (update) with IdempotencyError, as discovered against the real sandbox.
+    assert update_options == {"idempotency_key": "sub_sched_1:phase2"}
+
+
+def test_create_downgrade_schedule_uses_a_fresh_create_key_on_each_call():
+    """Two calls with the identical caller-supplied idempotency_key (e.g. a
+    legitimate schedule -> release -> schedule-again sequence within the same
+    billing period, where subscription/prices/period_end are all unchanged)
+    must not send the same key to Stripe's create endpoint twice -- doing so
+    would replay the first call's cached response instead of creating a
+    fresh schedule."""
+
+    class Schedules:
+        def __init__(self):
+            self.create_calls = []
+
+        def create(self, params, options=None):
+            self.create_calls.append(options)
+            return {"id": "sub_sched_1", "phases": [{"items": [{"price": "price_a"}]}]}
+
+        def update(self, schedule_id, params, options=None):
+            return {"id": schedule_id}
+
+    schedules = Schedules()
+    provider = StripeProvider(secret_key="nonempty-test-key")
+    provider.client = _client_with(schedules=schedules)
+
+    same_base_key = "plandowngrade:sub_1:price_a:price_plus_monthly:1738368000"
+    provider.create_downgrade_schedule(
+        subscription_id="sub_1", target_price_id="price_plus_monthly",
+        current_period_end=1738368000, idempotency_key=same_base_key,
+    )
+    provider.create_downgrade_schedule(
+        subscription_id="sub_1", target_price_id="price_plus_monthly",
+        current_period_end=1738368000, idempotency_key=same_base_key,
+    )
+
+    first_key = schedules.create_calls[0]["idempotency_key"]
+    second_key = schedules.create_calls[1]["idempotency_key"]
+    assert first_key != second_key
+    assert first_key.startswith(same_base_key)
+    assert second_key.startswith(same_base_key)
 
 
 def test_create_downgrade_schedule_projects_phase1_to_writable_subset_only():

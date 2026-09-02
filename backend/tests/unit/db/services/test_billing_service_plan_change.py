@@ -70,10 +70,16 @@ class _FakeProvider:
 
 class _StripeObjectFake:
     """Mimics a real stripe-python 15.4.0 StripeObject: attribute access works,
-    but there is no `.get(...)` and no subscripting -- both raise AttributeError
-    / TypeError, exactly like the real SDK response `_plain(...)` exists to
-    flatten away. Proves `_resolve_current_subscription` actually wraps the
-    fresh provider response instead of touching it directly."""
+    but there is no `.get(...)` and no subscripting or iteration -- all raise
+    AttributeError / TypeError, exactly like the real SDK response `_plain(...)`
+    exists to flatten away. Proves `_resolve_current_subscription` actually
+    wraps the fresh provider response instead of touching it directly.
+
+    The real SDK's serialization method is `.to_dict()` -- confirmed against a
+    real Stripe sandbox response during the plan-change smoke test; there is
+    no `.to_dict_recursive()` on stripe-python 15.4.0, and `dict(a_real_stripe_object)`
+    raises TypeError (StripeObject is not a Mapping and is not iterable as
+    pairs). This fake matches that real shape, not an earlier incorrect guess."""
 
     def __init__(self, data):
         object.__setattr__(self, "_data", data)
@@ -84,7 +90,7 @@ class _StripeObjectFake:
         except KeyError:
             raise AttributeError(name)
 
-    def to_dict_recursive(self):
+    def to_dict(self):
         return self._data
 
 
