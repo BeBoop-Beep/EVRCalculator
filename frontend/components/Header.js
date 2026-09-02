@@ -31,11 +31,14 @@ export default function Header() {
   const { user, logout } = useAuth();
   const isAuthenticated = !!user;
   const accountLabel = getPreferredAccountLabel(user);
+  const accountUsername = getCleanText(user?.username);
 
   const [isClient, setIsClient] = useState(false); // Track if the component is rendered on the client
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [isCollectionDropdownOpen, setIsCollectionDropdownOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const collectionDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
   const authRef = useRef(null);
   const mobileAuthRef = useRef(null);
@@ -62,6 +65,8 @@ export default function Header() {
 
   const isTopNavActive = (path) => isTopNavRouteActive(pathname, path);
   const isTcgsRouteActive = isTopNavActive('/TCGs');
+  const isMyCollectionRouteActive = isTopNavActive('/my-portfolio') || isTopNavActive('/dashboard');
+  const publicProfileHref = accountUsername ? `/u/${encodeURIComponent(accountUsername)}/collection` : "/profile";
 
   const handleHeaderSearch = (query) => {
     if (!query) return;
@@ -92,6 +97,13 @@ export default function Header() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
+      if (
+        collectionDropdownRef.current &&
+        !collectionDropdownRef.current.contains(event.target)
+      ) {
+        setIsCollectionDropdownOpen(false);
+      }
+
       if (
         userDropdownRef.current &&
         !userDropdownRef.current.contains(event.target)
@@ -207,6 +219,42 @@ export default function Header() {
             </nav>
           </div>
 
+          <div className="absolute left-[calc(50%+260px)] 2xl:left-[calc(50%+280px)] top-1/2 hidden -translate-y-1/2 xl:flex items-center">
+            <div className="hidden xl:flex justify-end">
+              <div ref={collectionDropdownRef} className="relative">
+                <button
+                  onClick={() => setIsCollectionDropdownOpen((prev) => !prev)}
+                  className={`${navDropTrigger} ${(isMyCollectionRouteActive || isCollectionDropdownOpen) ? navDropTriggerActive : navDropTriggerClosed}`}
+                  aria-expanded={isCollectionDropdownOpen}
+                  aria-haspopup="menu"
+                >
+                  My Portfolio
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${isCollectionDropdownOpen ? 'rotate-180' : ''}`}
+                  >
+                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {isCollectionDropdownOpen && (
+                  <div className={`${navDropPanel} ${navDropPanelCompact} left-1/2 -translate-x-1/2`}>
+                    <Link href="/my-portfolio" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                      Overview
+                    </Link>
+                    <Link href="/my-portfolio/collection" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                      Collection
+                    </Link>
+                    <Link href="/my-portfolio/wishlist" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                      Wishlist
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div
             className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 xl:flex items-center"
             onClickCapture={() => setIsMobileMenuOpen(false)}
@@ -257,7 +305,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => setIsUserDropdownOpen((prev) => !prev)}
-                    className={`${navDropTrigger} ${navDropPanelAccount} justify-between ${(isTopNavActive('/account-settings') || isUserDropdownOpen) ? navDropTriggerOpen : navDropTriggerClosed}`}
+                    className={`${navDropTrigger} ${navDropPanelAccount} justify-between ${(isTopNavActive('/profile') || isTopNavActive('/u') || isTopNavActive('/my-portfolio') || isTopNavActive('/account-settings') || isUserDropdownOpen) ? navDropTriggerOpen : navDropTriggerClosed}`}
                     aria-expanded={isUserDropdownOpen}
                     aria-haspopup="menu"
                   >
@@ -277,6 +325,13 @@ export default function Header() {
 
                   {isUserDropdownOpen && (
                     <div className={`${navDropPanel} ${navDropPanelAccount} left-1/2 -translate-x-1/2`}>
+                      <Link
+                        href={publicProfileHref}
+                        className={navDropItem}
+                        onClick={() => setIsUserDropdownOpen(false)}
+                      >
+                        Public Profile
+                      </Link>
                       <Link
                         href="/account-settings"
                         className={navDropItem}
@@ -328,7 +383,13 @@ export default function Header() {
                   </div>
                 ) : (
                   <>
-                    <Link href="/account-settings" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Link href={publicProfileHref} className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                      Public Profile
+                    </Link>
+                    <Link href="/my-collection/collection" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                      My Portfolio
+                    </Link>
+                    <Link href="/account-settings" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                       Account Settings
                     </Link>
                     <button

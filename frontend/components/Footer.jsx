@@ -9,6 +9,7 @@ const NAV_COLUMNS = [
       { label: "Market", href: "/Market" },
       { label: "Articles", href: "/Articles" },
       { label: "TCGs", href: "/TCGs" },
+      { label: "My Portfolio", href: "/my-collection" },
     ],
   },
   {
