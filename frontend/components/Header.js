@@ -85,7 +85,6 @@ export default function Header() {
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
-    setIsCollectionDropdownOpen(false);
     setIsUserDropdownOpen(false);
     setIsAuthOpen(false);
   }, [pathname]);
