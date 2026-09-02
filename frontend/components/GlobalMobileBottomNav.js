@@ -7,12 +7,6 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
 import { TCGS_NAV_HREF } from "@/lib/navigation/tcgsNav.mjs";
 
-function getCleanText(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length ? trimmed : null;
-}
-
 function normalizePath(value) {
   if (typeof value !== "string" || value.length === 0) {
     return "/";
@@ -71,17 +65,6 @@ function navItemIcon(id, isActive) {
     );
   }
 
-  if (id === "portfolio") {
-    return (
-      <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-5 w-5 ${activeClass}`} fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4.5 7h15" />
-        <path d="M7.5 12h9" />
-        <path d="M10.5 17h3" />
-        <rect x="3.75" y="4" width="16.5" height="16" rx="2.5" />
-      </svg>
-    );
-  }
-
   if (id === "tcgs") {
     // Two offset card outlines. Same 24x24 grid, same h-5 w-5 box, same 1.85
     // stroke weight and round caps/joins as every other icon here - the recipe
@@ -105,8 +88,7 @@ function navItemIcon(id, isActive) {
 export default function GlobalMobileBottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const accountUsername = getCleanText(user?.username);
-  const profileHref = user ? (accountUsername ? `/u/${encodeURIComponent(accountUsername)}/collection` : "/profile") : "/pricing";
+  const accountHref = user ? "/account-settings" : "/pricing";
   const normalizedPathname = useMemo(() => normalizePath(pathname), [pathname]);
 
   const shouldHide = useMemo(() => {
@@ -141,20 +123,14 @@ export default function GlobalMobileBottomNav() {
         isActive: isPathMatch(normalizedPathname, ["/Articles"], { caseInsensitive: true }),
       },
       {
-        id: "portfolio",
-        label: "Portfolio",
-        href: "/my-collection/collection",
-        isActive: isPathMatch(normalizedPathname, ["/my-collection", "/my-portfolio", "/portfolio"], { caseInsensitive: true }),
-      },
-      {
         id: "profile",
-        label: "Profile",
-        displayLabel: user ? "Profile" : "Upgrade",
-        href: profileHref,
-        isActive: isPathMatch(normalizedPathname, ["/profile", "/u", "/account-settings"], { caseInsensitive: true }),
+        label: "Account",
+        displayLabel: user ? "Account" : "Upgrade",
+        href: accountHref,
+        isActive: isPathMatch(normalizedPathname, ["/account-settings"], { caseInsensitive: true }),
       },
     ],
-    [normalizedPathname, profileHref, user]
+    [normalizedPathname, accountHref, user]
   );
 
   if (shouldHide) {
@@ -167,7 +143,7 @@ export default function GlobalMobileBottomNav() {
       className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur lg:hidden"
       style={{ paddingBottom: "max(0.6rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="mx-auto grid max-w-xl grid-cols-6 gap-0.5 px-1.5 pt-2">
+      <div className="mx-auto grid max-w-xl grid-cols-5 gap-0.5 px-1.5 pt-2">
         {items.map((item) => (
           <Link
             key={item.id}
