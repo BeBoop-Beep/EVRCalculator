@@ -594,11 +594,77 @@ def test_daily_projection_coverage_requires_every_set_and_full_range():
         start_date="2026-04-11", end_date="2026-08-31")
 
 
+def test_daily_projection_coverage_allows_staggered_set_starts():
+    class Query:
+        def select(self, *_args): return self
+        def in_(self, *_args): return self
+        def execute(self):
+            return _RpcResult([
+                {"set_id": "set-a", "first_market_date": "2026-04-11",
+                 "computed_through": "2026-08-31"},
+                {"set_id": "set-b", "first_market_date": "2026-04-23",
+                 "computed_through": "2026-08-31"},
+                {"set_id": "set-c", "first_market_date": "2026-08-01",
+                 "computed_through": "2026-08-31"},
+            ])
+    class Client:
+        def table(self, _name): return Query()
+
+    assert svc.daily_projection_covers(Client(), ["set-a", "set-b", "set-c"],
+        start_date="2026-04-11", end_date="2026-08-31")
+
+
+def test_daily_projection_coverage_rejects_stale_late_start_set():
+    class Query:
+        def select(self, *_args): return self
+        def in_(self, *_args): return self
+        def execute(self):
+            return _RpcResult([
+                {"set_id": "set-a", "first_market_date": "2026-04-11",
+                 "computed_through": "2026-08-31"},
+                {"set_id": "set-b", "first_market_date": "2026-04-23",
+                 "computed_through": "2026-08-30"},
+            ])
+    class Client:
+        def table(self, _name): return Query()
+
+    assert not svc.daily_projection_covers(Client(), ["set-a", "set-b"],
+        start_date="2026-04-11", end_date="2026-08-31")
+
+
 def test_daily_projection_coverage_failure_falls_back_closed():
     class Client:
         def table(self, _name): raise RuntimeError("controlled coverage failure")
     assert not svc.daily_projection_covers(Client(), ["set-a"],
         start_date="2026-04-11", end_date="2026-08-31")
+
+
+def test_future_set_fixture_enters_only_on_its_first_market_date():
+    """A later release must not invalidate or retroactively change older dates."""
+    first_dates = {"set-a": "2026-04-11", "set-b": "2026-04-11",
+                   "set-c": "2026-04-21", "set-d": "2026-09-01"}
+    requested_dates = [f"2026-04-{day:02d}" for day in range(11, 23)]
+    active_counts = [sum(first <= market_date for first in first_dates.values())
+                     for market_date in requested_dates]
+    assert active_counts == ([2] * 10) + ([3] * 2)
+    assert all(first_dates["set-d"] > market_date for market_date in requested_dates)
+
+
+def test_uncovered_range_uses_bounded_interval_fallback(monkeypatch):
+    seen = []
+    original = svc.load_filtered_daily_cohort_rows
+
+    def recording_loader(*args, **kwargs):
+        seen.append(kwargs.get("rpc_name"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(svc, "daily_projection_covers", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", recording_loader)
+    result = _run(mode=MODE_ALL, set_ids=["set-ah"])
+
+    assert result["diagnostics"]["executionEngine"] == "interval_fallback"
+    assert seen == [svc.FILTERED_COHORT_RPC]
+    assert [row[0] for row in result["trend"]] == DATES
 
 
 def test_filtered_cohort_chunks_overlap_once_without_dropping_dates():

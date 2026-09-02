@@ -13,6 +13,7 @@ from typing import Any
 from backend.db.clients.supabase_client import create_service_role_client
 
 INTERVAL_RPC = "get_pokemon_market_explorer_filtered_cohort"
+ORACLE_RPC = "accept_pokemon_market_explorer_filtered_cohort_two_date"
 DAILY_RPC = "get_pokemon_market_explorer_filtered_cohort_daily"
 
 
@@ -51,7 +52,18 @@ def _chunked(client: Any, rpc: str, value: dict[str, Any], days: int) -> list[di
     while cursor <= last:
         end = min(last, cursor + timedelta(days=days - 1))
         request = {**value, "p_start_date": previous or cursor.isoformat(), "p_end_date": end.isoformat()}
-        page = list(client.rpc(rpc, request).execute().data or [])
+        for attempt in range(1, 4):
+            try:
+                page = list(client.rpc(rpc, request).execute().data or [])
+                break
+            except Exception:
+                print(json.dumps({"event": "chunk_retry", "rpc": rpc,
+                                  "start": request["p_start_date"],
+                                  "end": request["p_end_date"],
+                                  "attempt": attempt}), flush=True)
+                if attempt == 3:
+                    raise
+                time.sleep(attempt)
         if previous:
             page = [row for row in page if str(row.get("market_date"))[:10] != previous]
         if page:
@@ -59,6 +71,44 @@ def _chunked(client: Any, rpc: str, value: dict[str, Any], days: int) -> list[di
             previous = str(page[-1].get("market_date"))[:10]
         cursor = end + timedelta(days=1)
     return rows
+
+
+def _approved_dates(client: Any, start: str, end: str) -> list[str]:
+    rows = _paged(lambda: client.table("pokemon_market_date_quality").select("market_date")
+                  .eq("tcg", "pokemon").in_("status", ["READY", "LEGACY_VERIFIED"])
+                  .gte("market_date", start).lte("market_date", end).order("market_date"))
+    return [str(row["market_date"])[:10] for row in rows]
+
+
+def _two_date_oracle(client: Any, value: dict[str, Any]) -> list[dict[str, Any]]:
+    dates = _approved_dates(client, value["p_start_date"], value["p_end_date"])
+    retained: list[dict[str, Any]] = []
+    for index, current in enumerate(dates):
+        previous = dates[index - 1] if index else current
+        request = {**value, "p_start_date": previous, "p_end_date": current}
+        last_error = None
+        for attempt in range(1, 4):
+            try:
+                page = list(client.rpc(ORACLE_RPC, request).execute().data or [])
+                break
+            except Exception as exc:
+                last_error = exc
+                print(json.dumps({"event": "oracle_retry", "date": current,
+                                  "attempt": attempt, "error": type(exc).__name__}), flush=True)
+                if attempt == 3:
+                    raise
+                time.sleep(attempt)
+        else:  # pragma: no cover - loop either breaks or raises
+            raise last_error  # type: ignore[misc]
+        current_rows = [row for row in page if str(row.get("market_date"))[:10] == current]
+        if current_rows:
+            row = dict(current_rows[-1])
+            if index < len(dates) - 1:
+                row["current_constituents"] = None
+            retained.append(row)
+        print(json.dumps({"event": "oracle_date", "date": current,
+                          "index": index + 1, "total": len(dates)}), flush=True)
+    return retained
 
 
 def _timed(client: Any, rpc: str, value: dict[str, Any], samples: int = 5) -> dict[str, Any]:
@@ -84,15 +134,22 @@ def _timed(client: Any, rpc: str, value: dict[str, Any], samples: int = 5) -> di
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--era-id", action="append", required=True)
+    parser.add_argument("--era-id", action="append", default=[])
+    parser.add_argument("--set-id", action="append", default=[])
     parser.add_argument("--name", required=True)
     parser.add_argument("--chunk-days", type=int, default=3)
     parser.add_argument("--case", action="append", default=[])
     parser.add_argument("--skip-performance", action="store_true")
+    parser.add_argument("--oracle", action="store_true")
+    parser.add_argument("--validate-oracle", action="store_true")
+    parser.add_argument("--start-date", default="2026-04-11")
+    parser.add_argument("--end-date", default="2026-08-31")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     client = create_service_role_client()
-    set_ids = _set_ids(client, args.era_id)
+    set_ids = sorted(set(args.set_id)) if args.set_id else _set_ids(client, args.era_id)
+    if not set_ids:
+        parser.error("at least one --era-id or --set-id with coverage is required")
     cases = {
         "full": _params(set_ids), "top10": _params(set_ids, p_top_n=10),
         "rarity": _params(set_ids, p_segment_ids=["rareHolo"]),
@@ -110,14 +167,31 @@ def main() -> None:
     }
     if args.case:
         cases = {name: value for name, value in cases.items() if name in set(args.case)}
+    cases = {name: {**value, "p_start_date": args.start_date,
+                    "p_end_date": args.end_date} for name, value in cases.items()}
     def compare(item: tuple[str, dict[str, Any]]) -> tuple[str, dict[str, Any]]:
         name, value = item
         worker = create_service_role_client()
         started = time.perf_counter()
         try:
-            interval = _chunked(worker, INTERVAL_RPC, value, args.chunk_days)
-            projection = _chunked(worker, DAILY_RPC, value, args.chunk_days)
-            result = {"exact": interval == projection, "rows": len(interval),
+            interval = (_two_date_oracle(worker, value) if args.oracle else
+                        _chunked(worker, INTERVAL_RPC, value, args.chunk_days))
+            projection = (_chunked(worker, INTERVAL_RPC, value, 10_000)
+                          if args.validate_oracle else
+                          _chunked(worker, DAILY_RPC, value, 10_000 if args.oracle else args.chunk_days))
+            exact = interval == projection
+            first_difference = None
+            if not exact:
+                for index, (interval_row, projection_row) in enumerate(zip(interval, projection)):
+                    if interval_row != projection_row:
+                        first_difference = {"index": index, "interval": interval_row,
+                                            "projection": projection_row}
+                        break
+                if first_difference is None:
+                    first_difference = {"intervalRows": len(interval),
+                                        "projectionRows": len(projection)}
+            result = {"exact": exact, "rows": len(interval),
+                      "projectionRows": len(projection), "firstDifference": first_difference,
                       "elapsedMs": (time.perf_counter() - started) * 1000}
         except Exception as exc:
             result = {"exact": False, "error": f"{type(exc).__name__}: {exc}",

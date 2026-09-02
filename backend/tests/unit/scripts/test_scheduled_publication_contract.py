@@ -1,20 +1,17 @@
-"""The unattended publication path: production-only checkout, three-way success.
+"""The unattended publication path: active local checkout, three-way success.
 
-TWO DEFECTS THIS FILE PINS
---------------------------
-1. The Windows scheduled task launched ``run_simulations.sh`` with no
-   environment at all. That script defaults to LOCAL checkout mode, which
-   deliberately permits a feature branch, tracked uncommitted changes and a HEAD
-   that differs from origin/main - correct for a developer at a keyboard, and
-   unacceptable for a job that publishes public snapshots at 3am from whatever
-   happens to be checked out in the development tree.
+TWO CONTRACTS THIS FILE PINS
+----------------------------
+1. The Windows scheduled task must run the repository the developer actually
+   uses at ``D:\\EVRCalculator``. This project intentionally advances one active
+   feature branch at a time, so branch name, HEAD, and working-tree state are
+   diagnostics for the unattended run rather than checkout gates. The task must
+   never switch branches, stash/reset work, or require a second hard-coded
+   production worktree.
 
-2. Success was gated on the opening-analytics audit alone. That audit answers
-   "did Opening Profit vs Cost reach the promoted market date?". A scoring-
-   version regression moves no timestamp and changes no market date, so it
-   passes straight through the exact failure the public RIP audit exists to
-   catch - which is how a green Slack message accompanied a leaderboard
-   published under a superseded contract.
+2. Success is gated on all publication audits, not opening-analytics freshness
+   alone. A scoring-version regression moves no timestamp and changes no market
+   date, so the public RIP audit remains an independent success condition.
 
 Neither script can run under pytest, so these are source contracts.
 """
@@ -147,68 +144,52 @@ def test_a_failing_public_rip_audit_exits_nonzero(script_text):
 
 
 # ---------------------------------------------------------------------------
-# The Windows scheduled entry point is production-mode only
+# The Windows scheduled entry point runs the active local checkout
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize(
     ("name", "value"),
     [
-        ("EVR_PUBLICATION_CHECKOUT_MODE", "production"),
-        ("EXPECTED_PUBLICATION_BRANCH", "main"),
-        ("PUBLICATION_FETCH_ORIGIN", "1"),
-        ("ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT", "0"),
-        ("EVR_PRODUCTION_REPO_DIR", "/d/EVRCalculator-production"),
+        ("EVR_PUBLICATION_CHECKOUT_MODE", "local"),
+        ("PUBLICATION_FETCH_ORIGIN", "0"),
+        ("EVR_PRODUCTION_REPO_DIR", "/d/EVRCalculator"),
     ],
 )
-def test_scheduled_task_opts_into_production_mode(task_bat, name, value):
+def test_scheduled_task_runs_the_active_local_checkout(task_bat, name, value):
     assert 'set "' + name + "=" + value + '"' in task_bat
 
 
-def test_scheduled_task_compares_against_a_freshly_fetched_origin(task_bat, script_text):
-    """A stale remote-tracking ref makes the HEAD-vs-origin check meaningless.
-
-    Without a fetch, a production worktree that has not run git for a week
-    validates its HEAD against a week-old origin/main and publishes happily.
-    The fetch must be requested by the scheduled task AND be fail-closed in the
-    script it launches.
-    """
-    assert 'set "PUBLICATION_FETCH_ORIGIN=1"' in task_bat
-    assert 'set "PUBLICATION_FETCH_ORIGIN=0"' not in task_bat
-    assert 'if ! git fetch --quiet origin "$EXPECTED_PUBLICATION_BRANCH"; then' in script_text
-    assert 'failure_reason="git fetch origin $EXPECTED_PUBLICATION_BRANCH failed"' in script_text
+def test_scheduled_task_does_not_pin_a_branch_or_checkout_override(task_bat):
+    assert 'set "EXPECTED_PUBLICATION_BRANCH=' not in task_bat
+    assert 'set "ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT=' not in task_bat
 
 
-def test_scheduled_task_never_publishes_from_the_development_tree(task_bat):
-    assert "EVRCalculator-production" in task_bat
-    assert "cd /d D:\\EVRCalculator\n" not in task_bat
+def test_scheduled_task_uses_the_development_checkout(task_bat):
+    assert 'set "EVR_PRODUCTION_WINDOWS_DIR=D:\\EVRCalculator"' in task_bat
+    assert 'set "EVR_PRODUCTION_REPO_DIR=/d/EVRCalculator"' in task_bat
+    assert "EVRCalculator-production" not in task_bat
     assert 'cd /d "%EVR_PRODUCTION_WINDOWS_DIR%"' in task_bat
-    # The bash invocation must target the production path, never the dev one.
     invocation = task_bat[task_bat.index("bash.exe") :]
     invocation = invocation[: invocation.index("\n")]
     assert "%EVR_PRODUCTION_REPO_DIR%" in invocation
-    assert "/d/EVRCalculator " not in invocation
 
 
-def test_scheduled_task_refuses_a_missing_production_worktree(task_bat):
+def test_scheduled_task_refuses_only_a_missing_configured_repository(task_bat):
     assert 'if not exist "%EVR_PRODUCTION_WINDOWS_DIR%"' in task_bat
+    assert "Repository missing: %EVR_PRODUCTION_WINDOWS_DIR%" in task_bat
     assert "exit /b 2" in task_bat
-    assert "Refusing to fall back to the development checkout." in task_bat
+    assert "Refusing to fall back to the development checkout." not in task_bat
 
 
-def test_scheduled_task_pins_the_emergency_override_off(task_bat):
-    """The override must be pinned to 0, not merely left unset.
-
-    A scheduled task inherits the machine and user environment. If an operator
-    exported ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT=1 for a manual emergency run,
-    an unset variable here would silently inherit that value at 3am and disable
-    every checkout guard. Assigning 0 makes the bypass un-inheritable.
-    """
-    assert 'set "ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT=0"' in task_bat
-    assert "ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT=1" not in task_bat
+def test_local_scheduler_does_not_fetch_or_compare_origin(task_bat):
+    assert 'set "PUBLICATION_FETCH_ORIGIN=0"' in task_bat
+    assert 'set "PUBLICATION_FETCH_ORIGIN=1"' not in task_bat
+    assert "git fetch" not in task_bat
+    assert "origin/main" not in task_bat
 
 
-def test_the_override_remains_available_on_the_manual_shell_path(script_text):
-    """Pinning it off in the scheduled task must not remove the operator tool."""
+def test_production_override_remains_available_on_the_manual_shell_path(script_text):
+    """Scheduler local mode does not remove the optional manual production path."""
     assert (
         'ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT="${ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT:-0}"'
         in script_text
@@ -232,7 +213,7 @@ def test_scheduled_task_propagates_the_real_exit_code(task_bat):
 
 
 # ---------------------------------------------------------------------------
-# Fail-closed preconditions and environment provenance
+# Fail-closed startup checks and environment provenance
 # ---------------------------------------------------------------------------
 
 def test_wrapper_refuses_a_missing_repository_directory(script_text):
@@ -243,18 +224,28 @@ def test_wrapper_refuses_a_missing_repository_directory(script_text):
 
 
 def test_wrapper_refuses_a_missing_virtual_environment(script_text):
-    assert "if [ ! -f .venv/Scripts/activate ]; then" in script_text
-    assert "no virtual environment at $REPO_DIR/.venv" in script_text
+    assert "if [ ! -f backend/.venv/Scripts/activate ]; then" in script_text
+    assert "no virtual environment at $REPO_DIR/backend/.venv" in script_text
 
 
 def test_production_mode_dispatch_is_explicitly_fail_closed(script_text):
     assert "verify_production_checkout || exit $?" in script_text
 
 
-def test_local_mode_remains_available_for_manual_runs(script_text):
-    """Local mode is not removed - the SCHEDULED TASK just may not use it."""
+def test_local_mode_is_the_scheduler_compatible_default(script_text):
     assert 'EVR_PUBLICATION_CHECKOUT_MODE="${EVR_PUBLICATION_CHECKOUT_MODE:-local}"' in script_text
     assert "  *)\n    log_local_checkout\n    ;;" in script_text
+
+
+def test_local_checkout_logs_branch_head_and_dirty_state_without_gating(script_text):
+    body = script_text[script_text.index("log_local_checkout()") :]
+    body = body[: body.index("verify_production_checkout()")]
+    assert "ACTUAL_PUBLICATION_BRANCH=$(git symbolic-ref --short -q HEAD || true)" in body
+    assert "PUBLICATION_HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || true)" in body
+    assert "git status --porcelain --untracked-files=no" in body
+    assert "[publication-checkout] mode=local" in body
+    assert "return 0" in body
+    assert "EXPECTED_PUBLICATION_BRANCH" not in body
 
 
 def test_wrapper_logs_environment_provenance_without_secrets(script_text):
@@ -273,7 +264,7 @@ def test_wrapper_logs_environment_provenance_without_secrets(script_text):
     ["repo=$REPO_DIR", "branch=", "expected_branch=$EXPECTED_PUBLICATION_BRANCH",
      "head=", "origin_sha=", "working_tree=$PUBLICATION_WORKING_TREE_STATE"],
 )
-def test_production_checkout_line_reports_every_required_field(script_text, field):
+def test_optional_production_checkout_line_reports_every_required_field(script_text, field):
     line = script_text[script_text.index("[publication-checkout] mode=production") :]
     line = line[: line.index('"\n')]
     assert field in line

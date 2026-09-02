@@ -21,7 +21,16 @@ class CommercialOffer:
 
     @property
     def purchasable(self) -> bool:
-        return (self.enabled and bool((self.provider_price_id or "").strip())
+        return self.enabled and self.is_priced
+
+    @property
+    def is_priced(self) -> bool:
+        """Whether this offer is a real, priced offer with a mapped Stripe
+        price — independent of BILLING_CHECKOUT_ENABLED. New Checkout
+        purchases go through `purchasable` (which also requires `enabled`);
+        plan changes for an already-active subscriber only need the offer to
+        be real and priced, so they use this weaker check instead."""
+        return (bool((self.provider_price_id or "").strip())
                 and isinstance(self.unit_amount_minor, int) and self.unit_amount_minor > 0
                 and bool((self.currency or "").strip()))
 

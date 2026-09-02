@@ -88,7 +88,9 @@ export function selectExploreRankingRows(entries, limit = 5) {
       name: entry.name,
       canonicalKey: entry.canonicalKey || null,
       era: entry.era,
+      heroImageUrl: entry.heroImageUrl || null,
       logoUrl: entry.logoUrl || entry.symbolUrl || null,
+      symbolUrl: entry.symbolUrl || null,
       rank: toFiniteNumber(entry.rank),
       score: toFiniteNumber(entry.score),
       scoreLabel: entry.scoreLabel,
@@ -107,16 +109,27 @@ export function selectExploreRankingRows(entries, limit = 5) {
 /**
  * Attach the homepage hero's visual meaning by ranking position. The resolver
  * is injected so this selector stays dependency-free and testable: only the
- * first ranked row may request pack art; every later row keeps its canonical
- * set logo.
+ * first ranked row gets the large hero treatment; every later row keeps its
+ * canonical set logo.
+ *
+ * #1 fallback order (never fabricated): authentic local booster pack asset
+ * -> the set's own hero image -> logo/symbol -> caller's neutral fallback.
+ * Each tier is only tried when the one before it is unavailable.
  */
 export function selectHeroRankingVisuals(rows, resolvePackAsset) {
-  return toList(rows).map((row, index) => ({
-    ...row,
-    heroVisual: index === 0
-      ? { type: "pack", asset: typeof resolvePackAsset === "function" ? resolvePackAsset(row?.canonicalKey) : null }
-      : { type: "set", src: row?.logoUrl || null },
-  }));
+  return toList(rows).map((row, index) => {
+    if (index !== 0) {
+      return { ...row, heroVisual: { type: "set", src: row?.logoUrl || null } };
+    }
+    const asset = typeof resolvePackAsset === "function" ? resolvePackAsset(row?.canonicalKey) : null;
+    if (asset) {
+      return { ...row, heroVisual: { type: "pack", asset } };
+    }
+    if (row?.heroImageUrl) {
+      return { ...row, heroVisual: { type: "hero-image", src: row.heroImageUrl } };
+    }
+    return { ...row, heroVisual: { type: "set", src: row?.logoUrl || row?.symbolUrl || null } };
+  });
 }
 
 /**

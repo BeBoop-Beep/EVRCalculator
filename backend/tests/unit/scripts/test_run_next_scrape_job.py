@@ -297,3 +297,106 @@ def test_failed_set_finalizes_then_worker_continues(monkeypatch):
     dispatcher.dispatch_next_scrape_job()
     assert [call[0][0] for call in calls] == [1, 2]
     assert [call[1]["final_status"] for call in calls] == ["failed", "completed"]
+
+
+# --- immediate post-scrape publication handoff -----------------------------
+#
+# `_run_idle_completion_check` calls `run_batch_completion_and_repair` (the
+# authoritative batch-cohort completion boundary) and then reacts to its
+# result via `_maybe_trigger_post_scrape_publication`. These tests exercise
+# that wiring directly rather than mocking `_run_idle_completion_check` away,
+# so removing the trigger call (or firing it on a non-"complete" status)
+# would make them fail.
+
+
+def test_batch_still_running_does_not_trigger_publication(monkeypatch):
+    monkeypatch.setattr(
+        "backend.db.services.scrape_batch_service.run_batch_completion_and_repair",
+        lambda market_date=None: {"ok": True, "status": "running", "active": 3},
+    )
+    triggered = []
+    monkeypatch.setattr(dispatcher, "_maybe_trigger_post_scrape_publication",
+                        lambda summary: triggered.append(summary))
+    dispatcher._run_idle_completion_check("2026-09-01")
+    assert triggered == [{"ok": True, "status": "running", "active": 3}]
+
+
+def test_batch_incomplete_does_not_launch_publication(monkeypatch):
+    monkeypatch.setattr(
+        "backend.db.services.scrape_batch_service.run_batch_completion_and_repair",
+        lambda market_date=None: {
+            "ok": True, "status": "incomplete", "market_date": "2026-09-01",
+        },
+    )
+    launched = []
+    monkeypatch.setattr(
+        "backend.db.services.post_scrape_publication_trigger.trigger_post_scrape_publication_if_needed",
+        lambda market_date, **kw: launched.append(market_date),
+    )
+    dispatcher._run_idle_completion_check("2026-09-01")
+    assert launched == []
+
+
+def test_cohort_repair_requeue_does_not_launch_publication(monkeypatch):
+    monkeypatch.setattr(
+        "backend.db.services.scrape_batch_service.run_batch_completion_and_repair",
+        lambda market_date=None: {
+            "ok": True, "status": "running", "requeued": 2, "market_date": "2026-09-01",
+        },
+    )
+    launched = []
+    monkeypatch.setattr(
+        "backend.db.services.post_scrape_publication_trigger.trigger_post_scrape_publication_if_needed",
+        lambda market_date, **kw: launched.append(market_date),
+    )
+    dispatcher._run_idle_completion_check("2026-09-01")
+    assert launched == []
+
+
+def test_batch_complete_launches_publication_for_exact_market_date(monkeypatch):
+    monkeypatch.setattr(
+        "backend.db.services.scrape_batch_service.run_batch_completion_and_repair",
+        lambda market_date=None: {
+            "ok": True, "status": "complete", "market_date": "2026-09-01", "promoted": True,
+        },
+    )
+    launched = []
+    monkeypatch.setattr(
+        "backend.db.services.post_scrape_publication_trigger.trigger_post_scrape_publication_if_needed",
+        lambda market_date, **kw: launched.append(market_date),
+    )
+    dispatcher._run_idle_completion_check("2026-09-01")
+    assert launched == ["2026-09-01"]
+
+
+def test_publication_trigger_failure_does_not_break_idle_completion_check(monkeypatch):
+    monkeypatch.setattr(
+        "backend.db.services.scrape_batch_service.run_batch_completion_and_repair",
+        lambda market_date=None: {"ok": True, "status": "complete", "market_date": "2026-09-01"},
+    )
+
+    def boom(market_date, **kw):
+        raise RuntimeError("subprocess launch exploded")
+
+    monkeypatch.setattr(
+        "backend.db.services.post_scrape_publication_trigger.trigger_post_scrape_publication_if_needed",
+        boom,
+    )
+    # Must not raise: the scrape batch completion result is independent of a
+    # publication-launch failure.
+    result = dispatcher._run_idle_completion_check("2026-09-01")
+    assert result.get("status") == "complete"
+
+
+def test_complete_batch_without_market_date_does_not_crash(monkeypatch):
+    monkeypatch.setattr(
+        "backend.db.services.scrape_batch_service.run_batch_completion_and_repair",
+        lambda market_date=None: {"ok": True, "status": "complete"},
+    )
+    launched = []
+    monkeypatch.setattr(
+        "backend.db.services.post_scrape_publication_trigger.trigger_post_scrape_publication_if_needed",
+        lambda market_date, **kw: launched.append(market_date),
+    )
+    dispatcher._run_idle_completion_check("2026-09-01")
+    assert launched == []

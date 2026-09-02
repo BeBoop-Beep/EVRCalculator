@@ -93,6 +93,20 @@ def test_anomalies_and_provider_failures_are_classified_and_bulk_continues():
     assert BillingReconciler(svc).reconcile_all().as_dict()["categories"]["PROVIDER_ERROR"] == 1
 
 
+def test_reconcile_subscription_price_change_updates_plan():
+    # A stored subscription is currently mapped to premium (e.g. price_premium).
+    # Stripe then reports the SAME subscription id now on price_plus -- this is
+    # what a fired downgrade-schedule phase 2 looks like from the reconciler's
+    # point of view: no schedule-awareness needed, just a re-derive from Price ID.
+    svc, repo, provider = setup([subscription(price="price_premium")])
+    BillingReconciler(svc).reconcile_all(dry_run=False)
+    assert repo.plan == "premium"
+    provider.remote = [subscription(price="price_plus")]
+    BillingReconciler(svc).reconcile_all(dry_run=False)
+    assert repo.plan == "plus"
+    assert repo.rows[0]["plan"] == "plus"
+
+
 def test_cli_is_dry_by_default_and_doctor_never_returns_secret_values():
     svc, repo, _ = setup([subscription()])
     result = run(Namespace(user_id="u1", customer_id=None, subscription_id=None, all=False, repair=False), svc)

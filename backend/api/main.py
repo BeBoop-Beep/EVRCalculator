@@ -16,7 +16,18 @@ from pydantic import BaseModel, Field  # type: ignore[reportMissingImports]
 from pydantic import ConfigDict
 from backend.db.services.billing_service import BillingService
 from backend.domain.billing.catalog import BillingOfferNotConfigured
-from backend.domain.billing.errors import BillingError, BillingProviderError, BillingPortalUnavailable, BillingSubscriptionAlreadyManaged, InvalidWebhookSignature
+from backend.domain.billing.errors import (
+    BillingError,
+    BillingOwnershipError,
+    BillingProviderError,
+    BillingPortalUnavailable,
+    BillingSubscriptionAlreadyManaged,
+    InvalidWebhookSignature,
+    PlanChangeNotAllowed,
+    PlanChangePreviewStale,
+    UnmappedStripePrice,
+    UnsupportedSubscriptionShape,
+)
 
 from backend.db.services.waitlist_signup_service import (
     insert_waitlist_signup,
@@ -67,6 +78,7 @@ from backend.domain.access.index_plan_access import (
     project_sealed_market_response,
     project_sealed_product_detail_response,
     project_set_page_response,
+    project_set_rip_simulation_evidence_response,
 )
 from backend.db.services.chase_efficiency_query_service import (
     get_card_chase_efficiency as read_card_chase_efficiency,
@@ -247,11 +259,28 @@ class MarketExplorerQueryRequest(BaseModel):
     releaseAgeCohortIds: List[str] = Field(default_factory=list)
     mode: str = "all"
     topN: Optional[int] = Field(default=None, ge=1, le=100)
+    responseMode: str = "full"
+
+
+class MarketExplorerConstituentPageRequest(MarketExplorerQueryRequest):
+    limit: int = Field(default=100, ge=1, le=100)
+    afterRank: int = Field(default=0, ge=0)
 
 
 class BillingCheckoutRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     offerKey: str = Field(min_length=1, max_length=80)
+
+
+class BillingPlanChangePreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    offerKey: str = Field(min_length=1, max_length=80)
+
+
+class BillingPlanChangeConfirmRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    offerKey: str = Field(min_length=1, max_length=80)
+    previewToken: Optional[str] = Field(default=None, max_length=4096)
 
 
 def _auth_env_presence() -> Dict[str, bool]:
@@ -546,6 +575,83 @@ def create_billing_checkout_session(
         raise HTTPException(status_code=503, detail={"code": "BILLING_PROVIDER_UNAVAILABLE"})
     except BillingSubscriptionAlreadyManaged:
         raise HTTPException(status_code=409, detail={"code": "BILLING_SUBSCRIPTION_ALREADY_MANAGED"})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+
+
+@app.post("/billing/change-plan/preview")
+def preview_billing_plan_change(
+    payload: BillingPlanChangePreviewRequest,
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _enforce_billing_post_origin(request)
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    try:
+        dto = BillingService().preview_plan_change(user_id=user_id, offer_key=payload.offerKey)
+        return _tiered_response(dto)
+    except PlanChangeNotAllowed as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingOwnershipError as exc:
+        raise HTTPException(status_code=403, detail={"code": exc.code, "message": str(exc)})
+    except UnsupportedSubscriptionShape as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except UnmappedStripePrice as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingProviderError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+
+
+@app.post("/billing/change-plan/confirm")
+def confirm_billing_plan_change(
+    payload: BillingPlanChangeConfirmRequest,
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _enforce_billing_post_origin(request)
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    try:
+        dto = BillingService().confirm_plan_change(
+            user_id=user_id, offer_key=payload.offerKey, preview_token=payload.previewToken
+        )
+        return _tiered_response(dto)
+    except PlanChangePreviewStale as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except PlanChangeNotAllowed as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingOwnershipError as exc:
+        raise HTTPException(status_code=403, detail={"code": exc.code, "message": str(exc)})
+    except UnsupportedSubscriptionShape as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except UnmappedStripePrice as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingProviderError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+    except BillingError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
+
+
+@app.post("/billing/change-plan/cancel-scheduled")
+def cancel_billing_scheduled_plan_change(
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _enforce_billing_post_origin(request)
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    try:
+        dto = BillingService().cancel_scheduled_plan_change(user_id=user_id)
+        return _tiered_response(dto)
+    except PlanChangeNotAllowed as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)})
+    except BillingOwnershipError as exc:
+        raise HTTPException(status_code=403, detail={"code": exc.code, "message": str(exc)})
+    except BillingProviderError as exc:
+        raise HTTPException(status_code=503, detail={"code": exc.code})
     except BillingError as exc:
         raise HTTPException(status_code=503, detail={"code": exc.code})
 
@@ -1138,6 +1244,8 @@ def post_market_explorer_query(
     """
     if payload.asset not in SUPPORTED_ASSETS:
         return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+    if payload.responseMode not in ("full", "summary"):
+        return JSONResponse(content={"message": "responseMode must be full or summary", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     if payload.mode == "chase" and payload.topN not in (None, 10):
         return JSONResponse(content={"message": "Only Top 10 queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     try:
@@ -1186,6 +1294,7 @@ def post_market_explorer_query(
                 service_read_client, normalized,
             ),
             novel_builder=build_market,
+            summary=payload.responseMode == "summary",
         )
         return _tiered_response(planned.payload)
     except HTTPException:
@@ -1199,6 +1308,33 @@ def post_market_explorer_query(
     except Exception:
         logger.exception("/market/explorer/query unexpected error")
         return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "MARKET_EXPLORER_QUERY_FAILED"}, status_code=500)
+
+
+@app.post("/market/explorer/query/constituents")
+def post_market_explorer_query_constituents(
+    request: Request,
+    payload: MarketExplorerConstituentPageRequest,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    normalized = normalize_query_spec(
+        asset=payload.asset, mode=payload.mode, era_ids=payload.eraIds,
+        set_ids=payload.setIds, segment_ids=payload.segmentIds,
+        pokemon_ids=payload.pokemonIds, price_segment_ids=payload.priceSegmentIds,
+        release_age_cohort_ids=payload.releaseAgeCohortIds, top_n=payload.topN,
+    )
+    user_id = _require_market_explorer_query_access(
+        normalized, authorization=authorization, token_cookie=token_cookie,
+    )
+    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+                        route="/market/explorer/query/constituents")
+    page = PersistentMarketExplorerCache(service_read_client).constituent_page(
+        query_fingerprint(normalized), limit=payload.limit, after_rank=payload.afterRank,
+    )
+    if page is None:
+        return JSONResponse(content={"message": "Market summary must be built first",
+                                     "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+    return _tiered_response(page)
 
 
 @app.get("/auth/me")
@@ -1639,14 +1775,22 @@ def get_pokemon_set_rip_simulation_evidence(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    user_id = _require_index_feature(
-        feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
-        message="RIP simulation evidence requires Index Plus.",
-        authorization=authorization, token_cookie=token_cookie,
-    )
-    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_INTERACTIVE_DETAIL,
-                        route="/tcgs/pokemon/sets/{set_id}/rip/simulation-evidence")
-    return _set_rip_response(get_pokemon_set_rip_simulation_evidence_snapshot_payload, set_id)
+    # PUBLIC (auth-invariant): the opening-distribution graph must render for
+    # anonymous/Base callers. Access is resolved for cache/abuse isolation
+    # only — never used to reject the request — and the response is run
+    # through project_set_rip_simulation_evidence_response() before it
+    # leaves this process, so Base/anonymous physically cannot receive paid
+    # fields (openingOutcomeProfile, evRepresentativeness, financialRip,
+    # collectorAppeal, advanced evidence, or any unknown future field).
+    access_context = _resolve_request_access(authorization, token_cookie, feature=FEATURE_SET_RIP_ANALYTICS)
+    _limit_paid_projection(request, authorization=authorization, token_cookie=token_cookie,
+                           feature=FEATURE_SET_RIP_ANALYTICS, policy_class=POLICY_INTERACTIVE_DETAIL,
+                           route="/tcgs/pokemon/sets/{set_id}/rip/simulation-evidence",
+                           access_context=access_context)
+    result = _set_rip_response(get_pokemon_set_rip_simulation_evidence_snapshot_payload, set_id)
+    if isinstance(result, JSONResponse):
+        return result
+    return _tiered_response(project_set_rip_simulation_evidence_response(result, access_context["plan"]))
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/rip/advanced")

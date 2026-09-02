@@ -12,7 +12,7 @@ export const metadata = buildRouteMetadata({
 });
 
 export default async function HomePage() {
-  const { openingSpotlightSet, openingBoosterPackImage, openingRankingRows, openingDistribution, marketContext } =
+  const { openingSpotlightSet, openingHeroVisual, openingRankingRows, openingDistribution, marketContext } =
     await getLandingPageData();
 
   return (
@@ -33,7 +33,7 @@ export default async function HomePage() {
       <RankingTheaterHomepage
         set={openingSpotlightSet}
         rankingRows={openingRankingRows}
-        boosterPackImage={openingBoosterPackImage}
+        heroVisual={openingHeroVisual}
         distribution={openingDistribution}
         marketContext={marketContext}
       />

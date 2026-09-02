@@ -12,3 +12,6 @@ export function getBillingStatus(options = {}) { return request("/api/billing/me
 export function getBillingCatalog(options = {}) { return request("/api/billing/catalog", { signal: options.signal }); }
 export function createCheckoutSession(offerKey) { return request("/api/billing/checkout-session", { method: "POST", body: JSON.stringify({ offerKey }) }); }
 export function createCustomerPortalSession() { return request("/api/billing/customer-portal", { method: "POST" }); }
+export function previewPlanChange(offerKey) { return request("/api/billing/change-plan/preview", { method: "POST", body: JSON.stringify({ offerKey }) }); }
+export function confirmPlanChange(offerKey, previewToken) { return request("/api/billing/change-plan/confirm", { method: "POST", body: JSON.stringify({ offerKey, previewToken }) }); }
+export function cancelScheduledPlanChange() { return request("/api/billing/change-plan/cancel-scheduled", { method: "POST" }); }

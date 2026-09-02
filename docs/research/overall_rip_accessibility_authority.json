@@ -1,0 +1,48 @@
+{
+  "pass": "OVERALL_RIP_ACCESSIBILITY_PASS_1A",
+  "workspace": {
+    "branch": "fix/public-rankings-entitlement-regression-2",
+    "head_at_start": "c4ff0f81f3cd40fb593ee0abb1062143e3b264f1"
+  },
+  "authority_current_state": {
+    "financial_rip_v4_version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+    "collector_appeal_v5_version": "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2",
+    "overall_rip_v10_version_control": "overall_rip_v10_90_financial_v4_10_collector_appeal_v5",
+    "chase_accessibility_version": "chase_accessibility_v1_hc_value_squared_modeled_probability",
+    "modeled_probability_authority": "simulation_card_variant_pull_rates.modeled_probability (never effective_pull_rate directly; p_i = 1/effective_pull_rate is the derived identity, not a substitute)",
+    "price_used_authority": "simulation_card_variant_pull_rates.price_used (per-variant, same row as modeled_probability)",
+    "product_market_price_authority": "simulation_sealed_product_results.product_market_cost",
+    "random_pack_count_authority": "simulation_sealed_product_results.random_pack_count -- CRITICAL FINDING: populated for only 55 of 138 rows (39.9%) in the current cohort. Populated exclusively for product_family in {elite_trainer_box, pokemon_center_elite_trainer_box, enhanced_booster_box}. NULL for booster_bundle, booster_box, loose_booster_pack, sleeved_booster_pack, half_booster_box. This is an authority gap, not zero packs -- it restricts every metric requiring an effective-pack-cost denominator (ECE, Section 4-8) to the 55-row ETB-family subset.",
+    "calculation_run_id_authority": "Two DISTINCT calculation-run lineages coexist for the same set: (1) simulation_sealed_product_results.calculation_run_id, the per-product/per-simulation-batch run that carries product_market_cost, the outcome distribution, Financial RIP V4, Collector Appeal V5 and Overall RIP V10; (2) simulation_card_variant_pull_rates.calculation_run_id, the per-set card-draw model run that carries price_used and modeled_probability and is the sole input to Chase Accessibility. These are NEVER the same UUID for a given set in the live data. There is no live-table Chase Accessibility snapshot to bridge them (see below).",
+    "chase_accessibility_snapshot_table_status": "MISSING FROM LIVE DATABASE. backend/db/migrations/077_create_pokemon_set_chase_accessibility_snapshot.sql exists in the repo migrations directory but has NOT been applied to the live Supabase project used by backend/.venv (confirmed via PostgREST PGRST205 'Could not find the table public.pokemon_set_chase_accessibility_snapshot_latest in the schema cache' -- checked the exact SNAPSHOT_TABLE constant from chase_accessibility_service.py and three plausible name variants, all 404). This contradicts the docs/research/CHASE_ACCESSIBILITY_V1_IMPLEMENTATION.md claim of 'persistence ... live read path' being complete for this environment. Chase Accessibility for this pass was therefore RECONSTRUCTED directly from simulation_card_variant_pull_rates using the exact pure-math functions in backend/desirability/chase_accessibility.py (compute_chase_accessibility), imported unmodified and called read-only -- no formula was reimplemented or approximated.",
+    "supported_set_cohort": "22 sets, all with overall_rip_v10_score populated at price_as_of=2026-08-27 and all with a resolvable simulation_card_variant_pull_rates calculation run. 138 product rows total across those 22 sets."
+  },
+  "primary_cohort": {
+    "product_row_count": 138,
+    "set_count": 22,
+    "financial_v4_collector_v10_snapshot_date": "2026-08-27",
+    "accessibility_source_dates_observed": ["2026-08-28", "2026-08-31", "2026-09-01"],
+    "coherence_limitation": "Financial RIP V4 / Collector Appeal V5 / Overall RIP V10 / product_market_cost all come from the SAME simulation_sealed_product_results row (fully coherent with each other, one row = one calculation_run_id). Chase Accessibility (A_raw, N_HC) is reconstructed from a DIFFERENT calculation run per set -- the most recent simulation_card_variant_pull_rates run for that set_id, dated 1 to 5 days LATER than the Financial/Collector snapshot (2026-08-28 to 2026-09-01 vs 2026-08-27). This mirrors and reproduces the prior architecture-closure finding (docs/research/overall_rip_accessibility_architecture_closure.json), which found a comparable non-same-run offset. No exact same-run coherence exists anywhere in the live data for these two lineages as of 2026-09-01; this cohort is the strongest reproducible substitute and is used as the primary cohort for the entire pass with this limitation documented rather than hidden.",
+    "ece_eligible_subset": {
+      "row_count": 55,
+      "reason": "requires random_pack_count, populated only for elite_trainer_box (27), pokemon_center_elite_trainer_box (26), enhanced_booster_box (2)",
+      "excluded_families_and_counts": {
+        "booster_bundle": 23,
+        "booster_box": 15,
+        "loose_booster_pack": 22,
+        "sleeved_booster_pack": 15,
+        "half_booster_box": 8
+      }
+    },
+    "chase_accessibility_recompute_diagnostics": "All 22 sets returned status=ready with mappedHcMass=1.0 (full coverage, well above the 0.99 gate) using compute_chase_accessibility() from backend/desirability/chase_accessibility.py called against pull_count>0 rows per set/run."
+  },
+  "temporal_replication_cohort_identified_not_analyzed": {
+    "candidate_price_as_of_dates_with_v10_populated": ["2026-08-17", "2026-08-22", "2026-08-24", "2026-08-25", "2026-08-26"],
+    "recommended_candidate": "2026-08-17",
+    "note": "Identified only, per task scope. Not queried further or analyzed in this pass."
+  },
+  "files_produced": [
+    "docs/research/overall_rip_accessibility_primary_cohort.json",
+    "docs/research/overall_rip_accessibility_authority.json"
+  ]
+}

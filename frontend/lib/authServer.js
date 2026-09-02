@@ -21,6 +21,16 @@ async function getCookiesStore() {
   }
 }
 
+/**
+ * Headers for a public backend read (e.g. the homepage/landing rankings
+ * fetch). Deliberately never touches request headers or the cookie store —
+ * unlike getBackendRequestAuthHeaders, it cannot pick up an ambient session,
+ * so the result is provably invariant to the caller's login/plan state.
+ */
+export async function getPublicBackendRequestHeaders() {
+  return { Accept: "application/json" };
+}
+
 /** Credentials for a caller-scoped backend read. Authorization remains backend-owned. */
 export async function getBackendRequestAuthHeaders(request = null) {
   const result = { Accept: "application/json" };

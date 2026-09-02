@@ -16,6 +16,7 @@ def diagnose(repository=None, environ=None):
         "configuration": {
             "stripeSecretConfigured": bool((source.get("STRIPE_SECRET_KEY") or "").strip()),
             "webhookSecretConfigured": bool((source.get("STRIPE_WEBHOOK_SECRET") or "").strip()),
+            "planChangeSigningSecretConfigured": bool((source.get("BILLING_PLAN_CHANGE_SIGNING_SECRET") or "").strip()),
             "frontendBaseUrlConfigured": bool((source.get("FRONTEND_BASE_URL") or "").strip()),
             "billingCurrencyApproved": (source.get("BILLING_CURRENCY") or "usd").strip().lower() == "usd",
             "checkoutEnabled": (source.get("BILLING_CHECKOUT_ENABLED") or "").strip().lower() in {"1", "true", "yes"},

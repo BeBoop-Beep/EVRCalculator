@@ -1,0 +1,16 @@
+{
+  "fingerprint": "27cd5cd9a1a7149d13350c222ac97b94a0a256870cc8cede89f6d2577768713a",
+  "exact": true,
+  "expectedCount": 7580,
+  "actualCount": 7580,
+  "duplicateVariantIds": 0,
+  "pageCount": 76,
+  "firstPageMs": 115.69399999999996,
+  "middlePageMs": 98.2523999999998,
+  "lastPageMs": 56.51949999999939,
+  "firstPageBytes": 60654,
+  "middlePageBytes": 57704,
+  "lastPageBytes": 45681,
+  "totalBytes": 4387301,
+  "maxPageMs": 198.3151000000001
+}

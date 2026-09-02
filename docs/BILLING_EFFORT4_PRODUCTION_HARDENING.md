@@ -11,8 +11,19 @@ Browser -> no-store Next billing proxy -> authenticated Python API
 
 The offer catalog is `backend/domain/billing/catalog.py`; subscription policy is
 `backend/domain/billing/policy.py`. Stripe schema assumptions remain isolated in
-`StripeProvider` and `BillingService.subscription_row`. Ordinary authorization and
-`GET /billing/me` use local synchronized records and never call Stripe.
+`StripeProvider` and `BillingService.subscription_row`. Ordinary authorization
+(every paid-content entitlement check) is local and reconciliation-driven and never
+depends on a live Stripe request -- `effectivePlan`/`billingPlan` on `GET /billing/me`
+always come from synchronized local records, even if Stripe is unreachable.
+
+As of the Plus/Premium plan-change feature (`docs/superpowers/specs/2026-09-01-billing-plan-change-design.md`),
+`GET /billing/me` additionally *enriches* its response with a live Stripe lookup when
+`billingManaged` is true, to compute `pendingChangeState`/`pendingPlan`/`pendingOfferKey`/
+`pendingChangeEffectiveAt` (whether a Plus<->Premium plan change is currently scheduled).
+This enrichment is best-effort and non-fatal: if the Stripe lookup fails for any reason,
+`pendingChangeState` becomes `"unknown"` and the four pending-state fields are omitted, but
+`effectivePlan`/`billingPlan`/every other pre-existing field is entirely unaffected -- a
+Stripe outage can degrade pending-change visibility, never entitlement.
 
 ## 2. Migration verification
 

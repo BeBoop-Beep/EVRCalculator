@@ -11,6 +11,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from backend.db.clients.supabase_client import create_short_timeout_service_client, create_service_role_client, service_read_client
 from backend.db.services.chase_economics_service import read_chase_economics_snapshot
+from backend.db.services.chase_accessibility_service import (
+    project_chase_accessibility,
+    read_chase_accessibility_snapshot,
+)
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.ev_representativeness_public_service import project_opening_outcome_profile_v1
@@ -7146,6 +7150,26 @@ def _empty_insights_secondary_payload(
     }
 
 
+def _read_chase_accessibility_for_set(resolved_set_id: str) -> Dict[str, Any]:
+    """The live Chase Accessibility read model for one set, read-path only.
+
+    Reads the SAME persisted row ``chase_accessibility_service.project_chase_accessibility``
+    projects from ``pokemon_set_chase_accessibility_snapshot_latest`` (migration
+    077) - never a second computation. A read failure (missing table, transient
+    DB error) degrades to the explicit unavailable projection rather than ever
+    fabricating a value; ``chaseAccessibility`` stays ``None``, never ``0``.
+    """
+    try:
+        return read_chase_accessibility_snapshot(
+            set_id=resolved_set_id, client=create_service_role_client()
+        )
+    except Exception:
+        logger.exception(
+            "[pokemon-snapshot] chase accessibility read failed set_id=%s", resolved_set_id
+        )
+        return project_chase_accessibility(None)
+
+
 def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str, Any]:
     """Priority 1-3 slice of the Insights tab: RIP Score hero, pillar cards
     (interpretation), and the recommendation/"what usually happens" copy.
@@ -7342,6 +7366,8 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         else {}
     )
 
+    chase_accessibility = _read_chase_accessibility_for_set(resolved_set_id)
+
     warnings: List[str] = []
     if not summary_camel:
         warnings.append("RIP summary is not available for this set yet.")
@@ -7396,6 +7422,14 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         "overallRipV10": overall_rip_v10,
         "financialRipV4": financial_rip_v4,
         "publicRipContractV10": public_rip_contract_v10,
+        # Chase Accessibility V1 - independent of Overall RIP, zero product-price
+        # dependency. Null + status, never a fabricated 0, when unavailable.
+        "chaseAccessibility": chase_accessibility.get("chaseAccessibility"),
+        "chaseAccessibilityPct": chase_accessibility.get("chaseAccessibilityPct"),
+        "chaseAccessibilityStatus": chase_accessibility.get("chaseAccessibilityStatus"),
+        "chaseAccessibilityVersion": chase_accessibility.get("chaseAccessibilityVersion"),
+        "chaseDepth": chase_accessibility.get("chaseDepth"),
+        "mappedHcMass": chase_accessibility.get("mappedHcMass"),
         "openingExperience": opening_experience,
         "publicAnalyticsCohort": public_cohort,
         "publicAnalyticsStatus": _to_optional_str(payload_json.get("publicAnalyticsStatus")),

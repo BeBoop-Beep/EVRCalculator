@@ -22,6 +22,9 @@ from backend.db.services.public_rip_publication_contract import (
     canonical_publication_identity,
     supported_cohort_fingerprint,
 )
+from backend.db.services.chase_accessibility_service import (
+    publication_integrity_failures as chase_accessibility_integrity_failures,
+)
 
 READY = "READY"
 DEFERRED_SIMULATION_COHORT_INCOMPLETE = "DEFERRED_SIMULATION_COHORT_INCOMPLETE"
@@ -29,6 +32,7 @@ DEFERRED_SIMULATION_DATE_ROLLOVER = "DEFERRED_SIMULATION_DATE_ROLLOVER"
 DEFERRED_SEALED_PRODUCT_FINALIZATION_INCOMPLETE = "DEFERRED_SEALED_PRODUCT_FINALIZATION_INCOMPLETE"
 DEFERRED_PRODUCT_RANKINGS_INCOMPLETE = "DEFERRED_PRODUCT_RANKINGS_INCOMPLETE"
 DEFERRED_SET_RIP_INCOMPLETE = "DEFERRED_SET_RIP_INCOMPLETE"
+DEFERRED_CHASE_ACCESSIBILITY_INTEGRITY = "DEFERRED_CHASE_ACCESSIBILITY_INTEGRITY"
 FAILED_PUBLICATION_CONTRACT = "FAILED_PUBLICATION_CONTRACT"
 FAILED_PUBLICATION_RPC = "FAILED_PUBLICATION_RPC"
 FAILED_POST_PUBLICATION_PARITY = "FAILED_POST_PUBLICATION_PARITY"
@@ -116,6 +120,7 @@ def evaluate_rankings_publication_readiness(
     expected_market_date: Optional[str] = None,
     sealed_product_finalization_status: Optional[str] = None,
     sealed_product_finalization_report: Optional[Mapping[str, Any]] = None,
+    chase_accessibility_rows: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> RankingsReadinessReport:
     """Evaluate the already-built candidate before the publication RPC."""
     payload = row.get("ranking_payload_json") if isinstance(row, Mapping) else None
@@ -237,6 +242,30 @@ def evaluate_rankings_publication_readiness(
             source_run_ids=source_runs, source_run_fingerprint=source_run_fingerprint(source_runs),
             problems=set_rip_problems,
         )
+
+    if chase_accessibility_rows is not None:
+        chase_failures = chase_accessibility_integrity_failures(
+            chase_accessibility_rows,
+            simulation_supported_set_ids=list(source_runs.keys()),
+            expected_run_by_set=source_runs,
+        )
+        if chase_failures:
+            detail = "; ".join(
+                f"{failure.get('setId')}: {failure.get('reason')} ({failure.get('detail')})"
+                for failure in chase_failures
+            )
+            return RankingsReadinessReport(
+                status=DEFERRED_CHASE_ACCESSIBILITY_INTEGRITY,
+                reason_code=DEFERRED_CHASE_ACCESSIBILITY_INTEGRITY,
+                detail=detail, market_date=market_date,
+                expected_supported_cohort_count=expected_count,
+                verified_simulation_cohort_count=len(ranked),
+                sealed_product_finalized_set_count=finalized_sets,
+                sealed_product_finalized_product_row_count=finalized_rows,
+                product_family_readiness=family_summary, set_rip_ranked_set_count=ranked_set_rip,
+                source_run_ids=source_runs, source_run_fingerprint=source_run_fingerprint(source_runs),
+                problems=[failure.get("detail", "") for failure in chase_failures],
+            )
 
     identity = canonical_publication_identity()
     versions = {

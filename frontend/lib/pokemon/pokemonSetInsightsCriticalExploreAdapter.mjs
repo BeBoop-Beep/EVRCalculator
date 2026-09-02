@@ -28,5 +28,14 @@ export function adaptCriticalInsightsToExplorePayload(critical) {
     financialRipV4: critical?.financialRipV4 || null,
     overallRipV10: critical?.overallRipV10 || null,
     publicRipContractV10: critical?.publicRipContractV10 || null,
+    // Chase Accessibility V1. Independent of every RIP block above; carried
+    // verbatim including null/status so an unsupported/insufficient-coverage
+    // set never renders as a measured 0%.
+    chaseAccessibility: critical?.chaseAccessibility ?? null,
+    chaseAccessibilityPct: critical?.chaseAccessibilityPct ?? null,
+    chaseAccessibilityStatus: critical?.chaseAccessibilityStatus ?? null,
+    chaseAccessibilityVersion: critical?.chaseAccessibilityVersion ?? null,
+    chaseDepth: critical?.chaseDepth ?? null,
+    mappedHcMass: critical?.mappedHcMass ?? null,
   };
 }

@@ -4,17 +4,28 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
 import {
   createCheckoutSession,
-  createCustomerPortalSession,
   getBillingCatalog,
   getBillingStatus,
+  previewPlanChange,
+  confirmPlanChange,
+  cancelScheduledPlanChange,
 } from "@/lib/billing/billingClient.mjs";
 import {
   formatMinorAmount,
   planPricingSummary,
 } from "@/lib/billing/billingPricing.mjs";
+import {
+  pendingChangeCopy,
+  upgradeConfirmationCopy,
+  downgradeConfirmationCopy,
+} from "@/lib/billing/billingPresentation.mjs";
 import { normalizeIndexPlan } from "@/lib/access/indexPlanAccess.mjs";
 import { PlanBadge } from "@/components/membership/PlanLock";
 import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
+import { resolvePaidCardMode } from "./resolvePaidCardMode.mjs";
+import { resolveConfirmOutcome } from "./resolveConfirmOutcome.mjs";
+
+export { resolvePaidCardMode, resolveConfirmOutcome };
 
 const BASIC = [
   "Public rankings and market pulse",
@@ -58,6 +69,124 @@ function FeatureList({ items }) {
   );
 }
 
+function PlanChangePaymentIssueNotice({ paymentIssue, onDismiss }) {
+  const message =
+    paymentIssue === "requires_action"
+      ? "Your bank needs to verify this payment before it can go through."
+      : "This payment could not be completed.";
+  return (
+    <div className="mt-3 rounded-lg border border-rose-400/40 bg-rose-500/10 p-3">
+      <p className="text-sm font-semibold text-rose-200">{message}</p>
+      <p className="mt-1 text-sm text-rose-100/90">
+        Update your payment method from your account&apos;s Manage Billing
+        section, then try again.
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="mt-3 min-h-11 w-full rounded-lg border border-[var(--border-subtle)] px-4 font-semibold text-[var(--text-secondary)]"
+      >
+        Dismiss
+      </button>
+    </div>
+  );
+}
+
+function PlanChangeConfirmPanel({
+  mode,
+  preview,
+  onConfirm,
+  onDismiss,
+  pending,
+  paymentIssue,
+  onDismissPaymentIssue,
+}) {
+  if (paymentIssue) {
+    return (
+      <PlanChangePaymentIssueNotice
+        paymentIssue={paymentIssue}
+        onDismiss={onDismissPaymentIssue}
+      />
+    );
+  }
+  if (!preview) return null;
+  if (mode === "upgrade") {
+    const copy = upgradeConfirmationCopy({
+      amountDueNow: preview.amountDueNow,
+      currency: preview.currency,
+      nextRenewalAt: preview.nextRenewalAt,
+    });
+    return (
+      <div
+        className={`mt-4 rounded-xl border p-4 ${planPresentation("premium").panelClassName}`}
+      >
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          Upgrade to Index Premium
+        </h3>
+        <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+          Due now: {copy.dueNowLabel}
+        </p>
+        {copy.bodyLines.map((line) => (
+          <p key={line} className="mt-1 text-sm text-[var(--text-secondary)]">
+            {line}
+          </p>
+        ))}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending}
+            className={`min-h-11 flex-1 rounded-lg px-4 font-semibold disabled:cursor-not-allowed disabled:opacity-55 ${planPresentation("premium").ctaClassName}`}
+          >
+            Confirm upgrade
+          </button>
+          <button
+            type="button"
+            onClick={onDismiss}
+            disabled={pending}
+            className="min-h-11 flex-1 rounded-lg border border-[var(--border-subtle)] px-4 font-semibold text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+  const copy = downgradeConfirmationCopy({ currentPlanUntil: preview.currentPlanUntil });
+  return (
+    <div
+      className={`mt-4 rounded-xl border p-4 ${planPresentation("plus").panelClassName}`}
+    >
+      <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+        Change to Index Plus
+      </h3>
+      {copy.bodyLines.map((line) => (
+        <p key={line} className="mt-1 text-sm text-[var(--text-secondary)]">
+          {line}
+        </p>
+      ))}
+      <div className="mt-4 flex gap-2">
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={pending}
+          className={`min-h-11 flex-1 rounded-lg px-4 font-semibold disabled:cursor-not-allowed disabled:opacity-55 ${planPresentation("plus").ctaClassName}`}
+        >
+          Confirm change
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          disabled={pending}
+          className="min-h-11 flex-1 rounded-lg border border-[var(--border-subtle)] px-4 font-semibold text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-55"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PaidCard({
   plan,
   summary,
@@ -66,23 +195,41 @@ function PaidCard({
   status,
   onAction,
   pending,
+  preview,
+  onConfirmPlanChange,
+  onDismissPlanChange,
+  confirmPending,
+  paymentIssue,
+  onDismissPaymentIssue,
 }) {
   const offer = interval === "year" ? summary.annual : summary.monthly;
   const annual = summary.annualSummary;
-  const current = normalizeIndexPlan(status?.effectivePlan) === plan;
   const managed = Boolean(status?.billingManaged);
   const purchasable = Boolean(offer?.purchasable);
-  let label = "Coming Soon",
+  const mode = resolvePaidCardMode(plan, status);
+  let label = "Coming Soon";
+  let disabled = true;
+  if (mode === "current") {
+    label = "Current Plan";
+  } else if (mode === "upgrade") {
+    label = `Upgrade to Index ${plan === "premium" ? "Premium" : "Plus"}`;
+    disabled = false;
+  } else if (mode === "downgrade") {
+    label = "Change to Index Plus";
+    disabled = false;
+  } else if (mode === "pending-downgrade") {
+    label = "Keep Index Premium";
+    disabled = false;
+  } else if (mode === "pending-unknown") {
+    label = "Unavailable Right Now";
     disabled = true;
-  if (current) label = "Current Plan";
-  else if (managed) {
-    label = "Manage / Upgrade Membership";
-    disabled = false;
-  } else if (purchasable) {
-    label = status
-      ? `Upgrade to Index ${plan === "plus" ? "Plus" : "Premium"}`
-      : `Get Index ${plan === "plus" ? "Plus" : "Premium"}`;
-    disabled = false;
+  } else if (mode === "checkout") {
+    label = purchasable
+      ? (status
+          ? `Upgrade to Index ${plan === "premium" ? "Premium" : "Plus"}`
+          : `Get Index ${plan === "premium" ? "Premium" : "Plus"}`)
+      : "Coming Soon";
+    disabled = !purchasable;
   }
   return (
     <article
@@ -111,19 +258,41 @@ function PaidCard({
         </p>
       ) : null}
       <FeatureList items={plan === "plus" ? PLUS : PREMIUM} />
+      {mode === "pending-downgrade" && (
+        <p className="mt-4 text-sm font-semibold text-[var(--text-secondary)]">
+          {pendingChangeCopy(status)}
+        </p>
+      )}
+      {mode === "pending-unknown" && (
+        <p className="mt-4 text-sm font-semibold text-[var(--text-secondary)]">
+          We can&apos;t verify pending membership changes right now. Your current
+          membership is unaffected. Use Manage Billing for account changes.
+        </p>
+      )}
       <button
         type="button"
         disabled={disabled || pending}
-        onClick={() => onAction(plan, offer, managed)}
+        onClick={() => onAction(plan, offer, mode)}
         className="mt-7 min-h-11 w-full rounded-lg bg-brand px-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-55"
       >
         {pending ? "Opening..." : label}
       </button>
-      {!purchasable && !current && !managed ? (
+      {!purchasable && mode !== "current" && !managed ? (
         <p className="mt-2 text-center text-xs text-[var(--text-secondary)]">
           Subscriptions launching soon
         </p>
       ) : null}
+      {(mode === "upgrade" || mode === "downgrade") && (
+        <PlanChangeConfirmPanel
+          mode={mode}
+          preview={preview}
+          onConfirm={onConfirmPlanChange}
+          onDismiss={onDismissPlanChange}
+          pending={confirmPending}
+          paymentIssue={paymentIssue}
+          onDismissPaymentIssue={onDismissPaymentIssue}
+        />
+      )}
     </article>
   );
 }
@@ -137,17 +306,25 @@ export default function PricingPageClient() {
   const [status, setStatus] = useState(null);
   const [pending, setPending] = useState(null);
   const [error, setError] = useState("");
+  const [planChangePreview, setPlanChangePreview] = useState(null);
+  const [confirmPending, setConfirmPending] = useState(false);
+  const [paymentIssue, setPaymentIssue] = useState(null);
   useEffect(() => {
     getBillingCatalog()
       .then(setCatalog)
       .catch(() => setError("Membership pricing is temporarily unavailable."));
   }, []);
-  useEffect(() => {
+  function refreshStatus() {
     if (user)
-      getBillingStatus()
+      return getBillingStatus()
         .then(setStatus)
         .catch(() => {});
-    else setStatus(null);
+    setStatus(null);
+    return Promise.resolve();
+  }
+  useEffect(() => {
+    refreshStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
   const pricing = useMemo(
     () => ({
@@ -156,14 +333,36 @@ export default function PricingPageClient() {
     }),
     [catalog],
   );
-  async function act(plan, offer, managed) {
+  async function act(plan, offer, mode) {
     if (pending) return;
     setError("");
+    if (mode === "pending-downgrade") {
+      setPending(plan);
+      try {
+        await cancelScheduledPlanChange();
+        await refreshStatus();
+      } catch {
+        setError("Unable to update your scheduled plan change right now.");
+      } finally {
+        setPending(null);
+      }
+      return;
+    }
+    if (mode === "upgrade" || mode === "downgrade") {
+      setPending(plan);
+      try {
+        const preview = await previewPlanChange(offer.offerKey);
+        setPlanChangePreview({ plan, mode, offerKey: offer.offerKey, ...preview });
+      } catch {
+        setError("Unable to preview this plan change right now.");
+      } finally {
+        setPending(null);
+      }
+      return;
+    }
     setPending(plan);
     try {
-      if (managed) {
-        const r = await createCustomerPortalSession();
-        window.location.assign(r.portalUrl);
+      if (mode === "current" || mode === "pending-unknown") {
         return;
       }
       if (!user) {
@@ -177,6 +376,35 @@ export default function PricingPageClient() {
       setError("Unable to open membership purchasing right now.");
       setPending(null);
     }
+  }
+  async function confirmPlanChangeAction() {
+    if (!planChangePreview || confirmPending) return;
+    setConfirmPending(true);
+    setError("");
+    try {
+      const result = await confirmPlanChange(planChangePreview.offerKey, planChangePreview.previewToken);
+      const outcome = resolveConfirmOutcome(result);
+      if (outcome.status === "success") {
+        setPlanChangePreview(null);
+        setPaymentIssue(null);
+        await refreshStatus();
+      } else {
+        // Payment did not succeed: Premium must never be treated as
+        // granted here. Keep the preview's plan association (for card
+        // targeting) but swap the confirm panel for a payment-issue notice
+        // directing the user to Manage Billing instead of silently closing.
+        setPaymentIssue(outcome.status);
+      }
+    } catch {
+      setError("Unable to confirm this plan change right now.");
+    } finally {
+      setConfirmPending(false);
+    }
+  }
+  function dismissPlanChangePreview() {
+    if (confirmPending) return;
+    setPlanChangePreview(null);
+    setPaymentIssue(null);
   }
   useEffect(() => {
     if (params.get("interval") === "month" || params.get("interval") === "year")
@@ -248,6 +476,12 @@ export default function PricingPageClient() {
           status={status}
           onAction={act}
           pending={pending === "plus"}
+          preview={planChangePreview?.plan === "plus" ? planChangePreview : null}
+          onConfirmPlanChange={confirmPlanChangeAction}
+          onDismissPlanChange={dismissPlanChangePreview}
+          confirmPending={confirmPending}
+          paymentIssue={planChangePreview?.plan === "plus" ? paymentIssue : null}
+          onDismissPaymentIssue={dismissPlanChangePreview}
         />
         <PaidCard
           plan="premium"
@@ -257,6 +491,12 @@ export default function PricingPageClient() {
           status={status}
           onAction={act}
           pending={pending === "premium"}
+          preview={planChangePreview?.plan === "premium" ? planChangePreview : null}
+          onConfirmPlanChange={confirmPlanChangeAction}
+          onDismissPlanChange={dismissPlanChangePreview}
+          confirmPending={confirmPending}
+          paymentIssue={planChangePreview?.plan === "premium" ? paymentIssue : null}
+          onDismissPaymentIssue={dismissPlanChangePreview}
         />
       </section>
     </main>

@@ -1,3 +1,5 @@
+import { formatMinorAmount } from "./billingPricing.mjs";
+
 export const PLAN_LABELS = Object.freeze({ basic: "Basic", plus: "Index Plus", premium: "Index Premium" });
 const KNOWN_STATUSES = new Set(["trialing","active","past_due","incomplete","incomplete_expired","unpaid","canceled","paused"]);
 
@@ -32,3 +34,35 @@ export function canManageSubscription(status) { return Boolean(status); }
 export function selectableOffers(dto) { return dto?.billingManaged ? [] : Array.isArray(dto?.purchasableOfferKeys) ? dto.purchasableOfferKeys : []; }
 export function offerPlan(key) { return key?.startsWith("premium_") ? "premium" : key?.startsWith("plus_") ? "plus" : null; }
 export function offerInterval(key) { return key?.endsWith("_annual") ? "Annual" : key?.endsWith("_monthly") ? "Monthly" : ""; }
+
+export function pendingChangeCopy(status) {
+  if (!status || status.pendingChangeState !== "scheduled") {
+    return null;
+  }
+  const planName = planLabel(status.pendingPlan);
+  const date = formatBillingDate(status.pendingChangeEffectiveAt != null ? status.pendingChangeEffectiveAt * 1000 : status.pendingChangeEffectiveAt);
+  return `Changes to ${planName} on ${date}`;
+}
+
+export function upgradeConfirmationCopy({ amountDueNow, currency, nextRenewalAt }) {
+  const dueNowLabel = formatMinorAmount(amountDueNow, currency);
+  const renewalDate = formatBillingDate(nextRenewalAt != null ? nextRenewalAt * 1000 : nextRenewalAt);
+  return {
+    dueNowLabel,
+    bodyLines: [
+      "Your new membership begins immediately after successful payment.",
+      `Next renewal: ${renewalDate}`,
+    ],
+  };
+}
+
+export function downgradeConfirmationCopy({ currentPlanUntil }) {
+  const untilDate = formatBillingDate(currentPlanUntil != null ? currentPlanUntil * 1000 : currentPlanUntil);
+  return {
+    bodyLines: [
+      `You'll keep Index Premium until ${untilDate}.`,
+      "Index Plus begins after that.",
+      "No charge today.",
+    ],
+  };
+}

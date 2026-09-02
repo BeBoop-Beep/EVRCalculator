@@ -1,11 +1,32 @@
 """Canonical checkout, reconciliation, and entitlement synchronization."""
 from __future__ import annotations
 import logging
+import os
+import time
 from datetime import datetime, timezone
 from backend.db.repositories.billing_repository import BillingRepository
 from backend.domain.billing.catalog import OFFERS, BillingOfferNotConfigured, offer_for_price_id
-from backend.domain.billing.errors import BillingOwnershipError, BillingPortalUnavailable, BillingSubscriptionAlreadyManaged
+from backend.domain.billing.errors import (
+    BillingNotConfigured,
+    BillingOwnershipError,
+    BillingPortalUnavailable,
+    BillingSubscriptionAlreadyManaged,
+    PlanChangeNotAllowed,
+    PlanChangePreviewStale,
+    UnmappedStripePrice,
+    UnsupportedSubscriptionShape,
+)
+from backend.domain.billing.plan_change import (
+    PlanChangeAction,
+    build_downgrade_preview_dto,
+    build_upgrade_preview_dto,
+    classify_schedule,
+    classify_transition,
+    downgrade_idempotency_key,
+    upgrade_idempotency_key,
+)
 from backend.domain.billing.policy import effective_plan, has_duplicate_active_subscriptions, subscription_grants_access, PLAN_RANK
+from backend.domain.billing.preview_token import sign_preview_token, verify_preview_token
 from backend.domain.billing.providers.stripe_provider import StripeProvider
 
 logger = logging.getLogger(__name__)
@@ -15,8 +36,20 @@ RECONCILING_EVENTS = frozenset({
     "invoice.paid", "invoice.payment_failed", "invoice.payment_action_required",
 })
 
-def _plain(value): return value.to_dict_recursive() if hasattr(value, "to_dict_recursive") else dict(value)
+def _plain(value):
+    # stripe-python 15.4.0's StripeObject has no `to_dict_recursive` (that
+    # method name does not exist on this SDK version -- confirmed via a real
+    # Stripe sandbox call during the plan-change smoke test); `to_dict()` is
+    # the real method, and it DOES recursively convert nested StripeObjects
+    # (list items, nested resources) into plain dicts despite the
+    # non-"recursive" name. `dict(value)` is kept only as the fallback for
+    # already-dict test doubles, which have neither method.
+    return value.to_dict() if hasattr(value, "to_dict") else dict(value)
 def _iso(epoch): return datetime.fromtimestamp(epoch, timezone.utc).isoformat() if epoch else None
+def _period_end(subscription, item):
+    """Some Stripe API versions report the period on the subscription item, not
+    the subscription itself. Mirrors `subscription_row`'s existing fallback."""
+    return subscription.get("current_period_end") or (item or {}).get("current_period_end")
 def _subscription_id_from_event_object(obj):
     """Normalize Checkout and Dahlia-era Invoice subscription references."""
     reference = obj.get("subscription")
@@ -26,10 +59,211 @@ def _subscription_id_from_event_object(obj):
     return reference
 
 class BillingService:
+    _PLAN_CHANGE_TOKEN_TTL_SECONDS = 300
+
     def __init__(self, repository=None, provider=None, offers=None):
         self.repository = repository or BillingRepository()
         self.provider = provider or StripeProvider()
         self.offers = offers or OFFERS
+
+    def _signing_secret(self):
+        secret = os.environ.get("BILLING_PLAN_CHANGE_SIGNING_SECRET")
+        if not secret:
+            raise BillingNotConfigured("BILLING_PLAN_CHANGE_SIGNING_SECRET is not configured")
+        return secret
+
+    def _resolve_current_subscription(self, user_id):
+        """Stripe is the sole authority for current price/item/period/schedule.
+
+        Local `billing_subscriptions` rows are consulted only to establish
+        ownership (which Stripe subscription belongs to this user) and to
+        fail closed on duplicate active local rows; every other field is
+        read fresh from Stripe on each call.
+        """
+        customer = self.repository.find_customer(user_id)
+        if not customer:
+            raise BillingOwnershipError("No trusted Stripe customer mapping for this user")
+
+        local_rows = self.repository.find_subscriptions(user_id)
+        if has_duplicate_active_subscriptions(local_rows):
+            raise UnsupportedSubscriptionShape("User has multiple active subscriptions")
+
+        owned_row = next(
+            (row for row in local_rows if row.get("status") in ("trialing", "active", "past_due")), None
+        )
+        if not owned_row:
+            raise BillingOwnershipError("No active subscription ownership found for this user")
+        subscription_id = owned_row["provider_subscription_id"]
+
+        # `_plain(...)` mirrors reconcile_subscription's existing convention: real
+        # stripe-python 15.4.0 responses are StripeObject instances that support
+        # attribute access but not `.get(...)`/subscripting, so every fresh Stripe
+        # response must be flattened to a plain dict before this module touches it.
+        subscription = _plain(self.provider.retrieve_subscription(
+            subscription_id, expand=["items.data.price", "schedule", "latest_invoice.payment_intent"]
+        ))
+
+        subscription_customer_id = subscription.get("customer")
+        if isinstance(subscription_customer_id, dict):
+            subscription_customer_id = subscription_customer_id.get("id")
+        if subscription_customer_id and subscription_customer_id != customer.get("provider_customer_id"):
+            raise BillingOwnershipError("Stripe subscription customer does not match trusted customer mapping")
+
+        items = (subscription.get("items") or {}).get("data") or []
+        recurring = [entry for entry in items if (entry.get("price") or {}).get("id")]
+        if len(recurring) != 1:
+            raise UnsupportedSubscriptionShape("Subscription must have exactly one recurring item")
+        item = recurring[0]
+        current_price_id = item["price"]["id"]
+
+        current_offer = offer_for_price_id(current_price_id, self.offers)
+        if current_offer is None:
+            raise UnmappedStripePrice(f"Current Stripe Price {current_price_id} is not mapped")
+
+        return customer, subscription, item, current_offer
+
+    def preview_plan_change(self, *, user_id, offer_key):
+        customer, subscription, item, current_offer = self._resolve_current_subscription(user_id)
+
+        target_offer = self.offers.get(offer_key)
+        # Plan-change is decoupled from BILLING_CHECKOUT_ENABLED: an existing
+        # subscriber changing their already-active subscription's plan is a
+        # different action from a new Checkout purchase, so this checks the
+        # offer is real and priced (`is_priced`), not whether new-purchase
+        # checkout is currently enabled (`purchasable`).
+        if target_offer is None or not target_offer.is_priced:
+            raise PlanChangeNotAllowed(f"Offer {offer_key} is not available")
+
+        action = classify_transition(current_offer.plan, target_offer.plan)
+        subscription_id = subscription["id"]
+        current_period_end = _period_end(subscription, item)
+
+        if action == PlanChangeAction.UPGRADE_NOW:
+            proration_date = int(time.time())
+            preview = self.provider.preview_subscription_update(
+                subscription_id=subscription_id,
+                subscription_item_id=item["id"],
+                target_price_id=target_offer.provider_price_id,
+                proration_date=proration_date,
+            )
+            dto = build_upgrade_preview_dto(
+                from_plan=current_offer.plan,
+                to_plan=target_offer.plan,
+                from_offer_key=current_offer.offer_key,
+                to_offer_key=target_offer.offer_key,
+                currency=preview["currency"],
+                amount_due_now=preview["amount_due"],
+                effective_at=proration_date,
+                next_renewal_at=current_period_end,
+            )
+            expires_at = proration_date + self._PLAN_CHANGE_TOKEN_TTL_SECONDS
+            visible = {
+                "version": 1,
+                "action": dto["action"],
+                "prorationDate": proration_date,
+                "amountDueNow": dto["amountDueNow"],
+                "currency": dto["currency"],
+                "expiresAt": expires_at,
+            }
+            hidden = {
+                "userId": user_id,
+                "subscriptionId": subscription_id,
+                "subscriptionItemId": item["id"],
+                "currentPriceId": item["price"]["id"],
+                "targetPriceId": target_offer.provider_price_id,
+                "currentPeriodEnd": current_period_end,
+                "offerKey": target_offer.offer_key,
+            }
+            token = sign_preview_token(secret=self._signing_secret(), visible=visible, hidden=hidden)
+            dto["previewToken"] = token
+            return dto
+
+        return build_downgrade_preview_dto(
+            from_plan=current_offer.plan,
+            to_plan=target_offer.plan,
+            from_offer_key=current_offer.offer_key,
+            to_offer_key=target_offer.offer_key,
+            current_period_end=current_period_end,
+        )
+
+    def confirm_plan_change(self, *, user_id, offer_key, preview_token):
+        customer, subscription, item, current_offer = self._resolve_current_subscription(user_id)
+
+        target_offer = self.offers.get(offer_key)
+        # Plan-change is decoupled from BILLING_CHECKOUT_ENABLED: see the
+        # matching comment in preview_plan_change above.
+        if target_offer is None or not target_offer.is_priced:
+            raise PlanChangeNotAllowed(f"Offer {offer_key} is not available")
+
+        action = classify_transition(current_offer.plan, target_offer.plan)
+        subscription_id = subscription["id"]
+        current_period_end = _period_end(subscription, item)
+
+        if action == PlanChangeAction.UPGRADE_NOW:
+            if not preview_token:
+                raise PlanChangeNotAllowed("previewToken is required to confirm an upgrade")
+
+            hidden = {
+                "userId": user_id,
+                "subscriptionId": subscription_id,
+                "subscriptionItemId": item["id"],
+                "currentPriceId": item["price"]["id"],
+                "targetPriceId": target_offer.provider_price_id,
+                "currentPeriodEnd": current_period_end,
+                "offerKey": target_offer.offer_key,
+            }
+            visible = verify_preview_token(preview_token, secret=self._signing_secret(), hidden=hidden)
+            proration_date = visible["prorationDate"]
+
+            fresh_preview = self.provider.preview_subscription_update(
+                subscription_id=subscription_id,
+                subscription_item_id=item["id"],
+                target_price_id=target_offer.provider_price_id,
+                proration_date=proration_date,
+            )
+            if fresh_preview["amount_due"] != visible["amountDueNow"] or fresh_preview["currency"] != visible["currency"]:
+                raise PlanChangePreviewStale("Price changed since preview; please re-preview")
+
+            idempotency_key = upgrade_idempotency_key(
+                subscription_id, current_offer.provider_price_id, target_offer.provider_price_id, proration_date
+            )
+            result = self.provider.update_subscription_item(
+                subscription_id=subscription_id,
+                subscription_item_id=item["id"],
+                target_price_id=target_offer.provider_price_id,
+                proration_date=proration_date,
+                idempotency_key=idempotency_key,
+            )
+            return {"action": PlanChangeAction.UPGRADE_NOW.value, "paymentResult": result["payment_result"]}
+
+        idempotency_key = downgrade_idempotency_key(
+            subscription_id, current_offer.provider_price_id, target_offer.provider_price_id, current_period_end
+        )
+        self.provider.create_downgrade_schedule(
+            subscription_id=subscription_id,
+            target_price_id=target_offer.provider_price_id,
+            current_period_end=current_period_end,
+            idempotency_key=idempotency_key,
+        )
+        return {
+            "action": PlanChangeAction.DOWNGRADE_AT_PERIOD_END.value,
+            "pendingChangeEffectiveAt": current_period_end,
+        }
+
+    def cancel_scheduled_plan_change(self, *, user_id):
+        customer, subscription, item, current_offer = self._resolve_current_subscription(user_id)
+        schedule = subscription.get("schedule")
+        classification = classify_schedule(
+            schedule,
+            current_price_id=current_offer.provider_price_id,
+            current_period_end=_period_end(subscription, item),
+            offers=self.offers,
+        )
+        if classification["state"] != "scheduled":
+            raise PlanChangeNotAllowed("No recognized scheduled downgrade to cancel")
+
+        self.provider.release_schedule(schedule_id=schedule["id"])
+        return {"cancelled": True}
 
     def resolve_checkout_offer(self, offer_key):
         offer = self.offers.get(offer_key)
@@ -126,7 +360,7 @@ class BillingService:
                           "unitAmount": offer.unit_amount_minor, "currency": offer.currency,
                           "purchasable": offer.purchasable}
                          for offer in self.offers.values()]
-        return {"effectivePlan": plan, "billingPlan": billing.get("plan") if billing else None,
+        base = {"effectivePlan": plan, "billingPlan": billing.get("plan") if billing else None,
             "billingManaged": bool(customer and billing), "accessManagedByIndex": bool(manual),
             "subscriptionStatus": billing.get("status") if billing else None,
             "offerKey": billing.get("offer_key") if billing else None,
@@ -134,6 +368,29 @@ class BillingService:
             "currentPeriodEnd": billing.get("current_period_end") if billing else None,
             "billingConfigured": bool(purchasable), "purchasableOfferKeys": purchasable,
             "offers": public_offers}
+
+        pending = {"pendingChangeState": "none", "pendingPlan": None, "pendingOfferKey": None, "pendingChangeEffectiveAt": None}
+        if base.get("billingManaged"):
+            try:
+                _, subscription, item, current_offer = self._resolve_current_subscription(user_id)
+                schedule = subscription.get("schedule")
+                classification = classify_schedule(
+                    schedule,
+                    current_price_id=current_offer.provider_price_id,
+                    current_period_end=_period_end(subscription, item),
+                    offers=self.offers,
+                )
+                pending = {
+                    "pendingChangeState": classification["state"],
+                    "pendingPlan": classification["pendingPlan"],
+                    "pendingOfferKey": classification["pendingOfferKey"],
+                    "pendingChangeEffectiveAt": classification["pendingChangeEffectiveAt"],
+                }
+            except Exception:
+                logger.warning("billing.pending_change.lookup_failed user_id=%s", user_id, exc_info=True)
+                pending = {"pendingChangeState": "unknown", "pendingPlan": None, "pendingOfferKey": None, "pendingChangeEffectiveAt": None}
+
+        return {**base, **pending}
 
     def public_catalog(self):
         return {"offers": [{"offerKey": offer.offer_key, "plan": offer.plan,

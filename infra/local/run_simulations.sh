@@ -19,21 +19,69 @@ if [ ! -d "$REPO_DIR" ]; then
   exit 2
 fi
 cd "$REPO_DIR"
+mkdir -p logs
 
-if [ -f backend/.env ]; then
-  set -a
-  source backend/.env
-  set +a
-fi
-
-if [ ! -f .venv/Scripts/activate ]; then
-  mkdir -p logs
-  echo "[publication-checkout] REFUSED: no virtual environment at $REPO_DIR/.venv" \
+# The scheduled publication runtime uses the canonical backend virtualenv.
+if [ ! -f backend/.venv/Scripts/activate ]; then
+  echo "[publication-checkout] REFUSED: no virtual environment at $REPO_DIR/backend/.venv" \
     | tee -a logs/run_simulations.log >&2
   exit 2
 fi
-source .venv/Scripts/activate
-mkdir -p logs
+
+source backend/.venv/Scripts/activate
+
+# backend/.env is a dotenv file, NOT a Bash script.
+#
+# Do not `source backend/.env`: dotenv permits values that are not valid shell
+# syntax. Parse it with python-dotenv from the backend virtualenv, quote every
+# value for Bash, and preserve any variables already supplied by the parent
+# environment (equivalent to load_dotenv(..., override=False)).
+if [ -f backend/.env ]; then
+  ENV_EXPORTS="$(
+    python - <<'PY'
+import os
+import re
+import shlex
+import sys
+
+from dotenv import dotenv_values
+
+try:
+    values = dotenv_values("backend/.env")
+except Exception as exc:
+    print(
+        f"[publication-environment] unable to parse backend/.env: {type(exc).__name__}: {exc}",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+
+for key, value in values.items():
+    if value is None:
+        continue
+
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+        print(
+            f"[publication-environment] invalid environment variable name: {key!r}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+    # Preserve explicitly inherited machine/task environment variables.
+    if key in os.environ:
+        continue
+
+    print(f"export {key}={shlex.quote(value)}")
+PY
+  )" || {
+    ENV_EXIT=$?
+    echo "[publication-environment] REFUSED: unable to load backend/.env" \
+      | tee -a logs/run_simulations.log >&2
+    exit "${ENV_EXIT:-2}"
+  }
+
+  eval "$ENV_EXPORTS"
+  unset ENV_EXPORTS
+fi
 
 notify_slack() {
   if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then

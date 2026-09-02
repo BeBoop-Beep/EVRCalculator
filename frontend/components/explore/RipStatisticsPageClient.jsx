@@ -606,6 +606,15 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
     financialRipV4: normalized?.financialRipV4 || null,
     overallRipV10: normalized?.overallRipV10 || null,
     publicRipContractV10: normalized?.publicRipContractV10 || null,
+    // Chase Accessibility V1. Independent of every RIP block above; carried
+    // verbatim including null/status so an unsupported/insufficient-coverage
+    // set never renders as a measured 0%.
+    chaseAccessibility: normalized?.chaseAccessibility ?? null,
+    chaseAccessibilityPct: normalized?.chaseAccessibilityPct ?? null,
+    chaseAccessibilityStatus: normalized?.chaseAccessibilityStatus ?? null,
+    chaseAccessibilityVersion: normalized?.chaseAccessibilityVersion ?? null,
+    chaseDepth: normalized?.chaseDepth ?? null,
+    mappedHcMass: normalized?.mappedHcMass ?? null,
     rip_statistics: dualKeyCase(normalized?.ripStatistics || {}),
     percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
     distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
@@ -1087,6 +1096,21 @@ function appendSetDetailIntentToHref(href, { tab, section } = {}) {
   const nextQuery = params.toString();
   return `${base}${nextQuery ? `?${nextQuery}` : ""}${hash ? `#${hash}` : ""}`;
 }
+
+// Chase Accessibility V1 carries two DELIBERATELY SEPARATE approved strings —
+// see docs/research/CHASE_ACCESSIBILITY_V1_IMPLEMENTATION.md §2. They must
+// never be merged into one hybrid sentence.
+//   - Public plain-English question: what a non-technical reader asks.
+//   - Technical tooltip: the locked implementation-contract definition,
+//     rendered verbatim via this metric's InfoPopover.
+// MetricRow only exposes a single info-affordance (an InfoPopover, which is a
+// tooltip/help control, not always-visible body copy), so only the technical
+// tooltip is currently rendered; the public question is retained here as its
+// own named, independently-testable constant rather than folded into it.
+const CHASE_ACCESSIBILITY_PUBLIC_QUESTION =
+  "How reachable are this set's most important cards from a pack?";
+const CHASE_ACCESSIBILITY_TECHNICAL_TOOLTIP =
+  "How accessible the set's most important collectible value is from one pack.";
 
 const SIMPLE_PILLAR_INFO_COPY = {
   Profit:
@@ -4201,7 +4225,7 @@ function HorizontalBar({ widthPercent, nonzeroMin = 2 }) {
   );
 }
 
-function MetricRow({ label, value, infoText, trend = null, content = null }) {
+function MetricRow({ label, value, infoText, trend = null, content = null, titleAttr = null }) {
   const friendlyLabel = getFriendlyMetricLabel(label);
   const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
 
@@ -4209,7 +4233,7 @@ function MetricRow({ label, value, infoText, trend = null, content = null }) {
     return (
       <div className="border-b border-[var(--border-subtle)] py-2 last:border-b-0 last:pb-0 first:pt-0">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="text-sm font-medium text-[var(--text-primary)]">{friendlyLabel}</span>
+          <span className="text-sm font-medium text-[var(--text-primary)]" title={titleAttr || undefined}>{friendlyLabel}</span>
           {infoText ? <InfoPopover text={infoText} /> : null}
         </div>
         <div className="mt-2">{content}</div>
@@ -4220,7 +4244,7 @@ function MetricRow({ label, value, infoText, trend = null, content = null }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] py-2 last:border-b-0 last:pb-0 first:pt-0">
       <div className="flex min-w-0 items-center gap-1.5">
-        <span className="text-sm text-[var(--text-secondary)]">{friendlyLabel}</span>
+        <span className="text-sm text-[var(--text-secondary)]" title={titleAttr || undefined}>{friendlyLabel}</span>
         {infoText ? <InfoPopover text={infoText} /> : null}
       </div>
       <span className="inline-flex flex-none items-center gap-1.5 text-sm font-medium" style={isNegativeValue ? getDangerValueStyle() : undefined}>
@@ -11060,7 +11084,23 @@ export default function RipStatisticsPageClient({
   const secondaryDecisionMetrics = decisionMetrics.filter(
     (metric) => !primaryDecisionMetricOrder.includes(metric.label)
   );
+  // Chase Accessibility V1 - a raw percentage, never phrased as a "chance of
+  // pulling a chase card" (there is no discrete chase event; every card
+  // carries continuous Chase Significance). `chaseAccessibilityPct` is
+  // already fraction*100, so it is NOT passed through the `probability`
+  // normalizer. Unavailable is rendered by `formatPercent`'s own "-" for
+  // null, never a fabricated 0.0%.
+  const chaseAccessibilityDisplay =
+    explorePayload?.chaseAccessibilityStatus === "chase_accessibility_insufficient_probability_coverage"
+      ? "Not enough pull-model coverage yet"
+      : formatPercent(explorePayload?.chaseAccessibilityPct);
   const technicalScoreMetrics = [
+    {
+      label: "Chase Accessibility",
+      value: chaseAccessibilityDisplay,
+      infoText: CHASE_ACCESSIBILITY_TECHNICAL_TOOLTIP,
+      titleAttr: CHASE_ACCESSIBILITY_PUBLIC_QUESTION,
+    },
     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
     { label: "Typical Opening (P50) vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
     { label: "Strong Upside (P95) vs Cost", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
@@ -12968,6 +13008,7 @@ export default function RipStatisticsPageClient({
                                 value={metric.value}
                                 trend={metric.trend}
                                 infoText={metric.infoText || getMetricTooltip(metric.label)}
+                                titleAttr={metric.titleAttr}
                               />
                             ))}
                           </div>
@@ -12992,6 +13033,7 @@ export default function RipStatisticsPageClient({
                                 value={metric.value}
                                 trend={metric.trend}
                                 infoText={metric.infoText || getMetricTooltip(metric.label)}
+                                titleAttr={metric.titleAttr}
                               />
                             ))}
                           </MobileMetricAccordion>

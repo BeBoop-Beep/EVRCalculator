@@ -11,6 +11,10 @@ function toNullablePlainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
+function toNullableFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 export function normalizePokemonSetInsightsCriticalPayload(payload) {
   return {
     ripDecision: toNullablePlainObject(payload?.ripDecision),
@@ -41,6 +45,16 @@ export function normalizePokemonSetInsightsCriticalPayload(payload) {
     financialRipV4: toPlainObject(payload?.financialRipV4),
     overallRipV10: toPlainObject(payload?.overallRipV10),
     publicRipContractV10: toPlainObject(payload?.publicRipContractV10),
+    // Chase Accessibility V1. Additive, pass-through only, and independent of
+    // Overall RIP - never derived from any RIP block above. Null/status is
+    // preserved exactly (never coerced to 0) so an unavailable set never
+    // renders as a measured zero.
+    chaseAccessibility: toNullableFiniteNumber(payload?.chaseAccessibility),
+    chaseAccessibilityPct: toNullableFiniteNumber(payload?.chaseAccessibilityPct),
+    chaseAccessibilityStatus: toOptionalString(payload?.chaseAccessibilityStatus),
+    chaseAccessibilityVersion: toOptionalString(payload?.chaseAccessibilityVersion),
+    chaseDepth: toNullableFiniteNumber(payload?.chaseDepth),
+    mappedHcMass: toNullableFiniteNumber(payload?.mappedHcMass),
     openingExperience: toPlainObject(payload?.openingExperience),
     publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
     publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),
