@@ -268,6 +268,26 @@ def _is_truthy(value: Optional[str]) -> bool:
     return normalized in {"1", "true", "yes"}
 
 
+# Profile and Portfolio are not production-ready. Public read surfaces that
+# expose their data are hard-stopped here, BEFORE any DB/service call, so a
+# request can never reach a loader that would leak private collection or
+# profile data. This mirrors the existing "feature not available" convention
+# used for billing (e.g. BILLING_NOT_CONFIGURED / BILLING_PROVIDER_UNAVAILABLE
+# at 503) rather than treating the route as truly nonexistent (404) — the
+# routes are real, temporarily switched off. This must NEVER be applied to
+# /profile/me, auth/session endpoints, or collection/portfolio mutation
+# endpoints — only to public read endpoints that expose Profile/Portfolio
+# data to third parties.
+def _public_profile_portfolio_disabled_response() -> JSONResponse:
+    return JSONResponse(
+        content={
+            "message": "This feature is temporarily unavailable.",
+            "code": "FEATURE_TEMPORARILY_DISABLED",
+        },
+        status_code=503,
+    )
+
+
 def _parse_allowed_origins(raw_value: Optional[str]) -> List[str]:
     if not raw_value:
         return list(_DEFAULT_ALLOWED_ORIGINS)
@@ -648,28 +668,9 @@ def get_public_collection_items(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    include_items = _is_truthy(include_collection_items)
-    viewer_user_id = _get_authenticated_user_id_if_present(
-        authorization=authorization,
-        token_cookie=token_cookie,
-    )
-
-    payload, error = get_public_collection_data_by_username(
-        username=username,
-        include_collection_items=include_items,
-        viewer_user_id=viewer_user_id,
-        db_client=service_read_client,
-    )
-
-    if error == "Invalid username.":
-        raise HTTPException(status_code=400, detail=error)
-    if error == "User not found.":
-        raise HTTPException(status_code=404, detail=error)
-
-    if payload is None:
-        raise HTTPException(status_code=500, detail="Failed to load collection summary.")
-
-    return payload
+    # Public Portfolio surface is not production-ready — hard-stop before any
+    # DB/service call. See _public_profile_portfolio_disabled_response.
+    return _public_profile_portfolio_disabled_response()
 
 
 @app.get("/public/profiles/{username}")
@@ -679,30 +680,9 @@ def get_public_profile_page(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    include_items = _is_truthy(include_collection_items if include_collection_items is not None else "1")
-    viewer_user_id = _get_authenticated_user_id_if_present(
-        authorization=authorization,
-        token_cookie=token_cookie,
-    )
-
-    try:
-        payload = get_public_profile_page_payload(
-            username=username,
-            include_collection_items=include_items,
-            viewer_user_id=viewer_user_id,
-        )
-        return payload
-    except PublicProfilePageError as exc:
-        return JSONResponse(
-            content={"message": exc.message, "code": exc.code},
-            status_code=exc.status_code,
-        )
-    except Exception:
-        logger.exception("/public/profiles/%s unexpected error", username)
-        return JSONResponse(
-            content={"message": "Unable to load public profile", "code": "PUBLIC_PROFILE_PAGE_FAILED"},
-            status_code=500,
-        )
+    # Public Profile surface is not production-ready — hard-stop before any
+    # DB/service call. See _public_profile_portfolio_disabled_response.
+    return _public_profile_portfolio_disabled_response()
 
 
 @app.post("/collection/holdings/mutate")
@@ -1367,8 +1347,9 @@ def profile_public_get(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    payload, status = get_public_profile(username, _extract_token(authorization, token_cookie))
-    return JSONResponse(content=payload, status_code=status)
+    # Public Profile surface is not production-ready — hard-stop before any
+    # DB/service call. See _public_profile_portfolio_disabled_response.
+    return _public_profile_portfolio_disabled_response()
 
 
 @app.get("/profile/tcgs")
