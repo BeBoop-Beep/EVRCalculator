@@ -26,13 +26,13 @@ if [ -f backend/.env ]; then
   set +a
 fi
 
-if [ ! -f .venv/Scripts/activate ]; then
+if [ ! -f backend/.venv/Scripts/activate ]; then
   mkdir -p logs
-  echo "[publication-checkout] REFUSED: no virtual environment at $REPO_DIR/.venv" \
+  echo "[publication-checkout] REFUSED: no virtual environment at $REPO_DIR/backend/.venv" \
     | tee -a logs/run_simulations.log >&2
   exit 2
 fi
-source .venv/Scripts/activate
+source backend/.venv/Scripts/activate
 mkdir -p logs
 
 notify_slack() {

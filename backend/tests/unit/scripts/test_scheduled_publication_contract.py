@@ -224,8 +224,8 @@ def test_wrapper_refuses_a_missing_repository_directory(script_text):
 
 
 def test_wrapper_refuses_a_missing_virtual_environment(script_text):
-    assert "if [ ! -f .venv/Scripts/activate ]; then" in script_text
-    assert "no virtual environment at $REPO_DIR/.venv" in script_text
+    assert "if [ ! -f backend/.venv/Scripts/activate ]; then" in script_text
+    assert "no virtual environment at $REPO_DIR/backend/.venv" in script_text
 
 
 def test_production_mode_dispatch_is_explicitly_fail_closed(script_text):
