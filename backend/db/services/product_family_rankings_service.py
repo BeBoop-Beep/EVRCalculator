@@ -63,6 +63,35 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _compact_set_ev_representativeness(identity: Mapping[str, Any], run_id: str) -> Any:
+    """Carry the SET's own confirmed EV realization headline onto every
+    product row in that set, so a product-detail page can show it without a
+    second query. Deliberately NOT the full research projection: no curve
+    array, no per-pack-count table, just the same-run confirmed horizon that
+    already exists on the set target this row was built from.
+
+    This is offline snapshot-build work - it runs once when the rankings
+    snapshot is published, not per request. The set target's evRepresentativeness
+    was itself attached earlier in this SAME offline build
+    (pokemon_snapshot_builders.attach_public_v1_to_targets), so no additional
+    query is introduced here either.
+    """
+    ev_rep = identity.get("evRepresentativeness")
+    if not isinstance(ev_rep, Mapping):
+        return None
+    if _text(ev_rep.get("calculationRunId")) != run_id:
+        return None
+    horizon = ev_rep.get("realizationHorizon")
+    if not isinstance(horizon, Mapping):
+        return None
+    return {
+        "contractVersion": ev_rep.get("contractVersion"),
+        "methodVersion": ev_rep.get("methodVersion"),
+        "calculationRunId": ev_rep.get("calculationRunId"),
+        "realizationHorizon": dict(horizon),
+    }
+
+
 def _ranked_targets(set_targets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """Use canonical ranked targets when rank blocks are present; keep plain test/input rows usable."""
     has_rank_contract = any(
@@ -176,6 +205,9 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         "guaranteedComponentCount": row.get("guaranteed_component_count"),
         "calculationRunId": row.get("calculation_run_id"),
         "priceAsOf": row.get("price_as_of"),
+        "setEvRepresentativeness": _compact_set_ev_representativeness(
+            identity, _text(row.get("calculation_run_id"))
+        ),
     }
 
 

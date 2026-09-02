@@ -1,3 +1,23 @@
+import { selectEvRepresentativenessPublicV1 } from "../../explore/evRepresentativenessSelector.mjs";
+
+/**
+ * The product's page inherits the SET's own confirmed EV realization
+ * horizon (packs to reach 80% of openers realizing 80% of long-run EV).
+ * This is deliberately NOT a product-specific convergence calculation -
+ * there is exactly one EV representativeness implementation
+ * (selectEvRepresentativenessPublicV1), reused here rather than forked, and
+ * it only ever resolves when `rip.setEvRepresentativeness` carries the
+ * SAME calculationRunId as `rip.calculationRunId` (the product's own
+ * validated RIP run).
+ */
+export function selectSetEvRealizationHeadline(rip) {
+  const projection = selectEvRepresentativenessPublicV1(
+    rip?.setEvRepresentativeness,
+    rip?.calculationRunId,
+  );
+  return projection?.realizationHorizon || null;
+}
+
 export const PRODUCT_MARKET_WINDOWS = Object.freeze([
   { key: "1D", label: "1D" }, { key: "7D", label: "7D" },
   { key: "30D", label: "30D" }, { key: "3M", label: "3M" },

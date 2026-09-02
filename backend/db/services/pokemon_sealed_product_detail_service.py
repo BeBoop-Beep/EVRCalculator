@@ -171,12 +171,22 @@ def _rip_contract(
         "entertainmentCost": None, "composition": None,
         "comparisonScope": scope["comparisonScope"],
         "comparisonScopeVersion": scope["comparisonScopeVersion"],
+        "setEvRepresentativeness": None,
     }
     if not ranking:
         return base
     run_id = _text(ranking.get("calculationRunId"))
     if not detail:
         return {**base, "reason": "authoritative_result_unavailable", "calculationRunId": run_id}
+    # Inherited from the SET's own confirmed EV realization horizon, already
+    # published on this same product-family-rankings row (see
+    # product_family_rankings_service._compact_set_ev_representativeness).
+    # No new table read: only accepted when it carries the exact same run id
+    # this product's own RIP result was just validated against - never a
+    # different or stale run.
+    set_ev_representativeness = ranking.get("setEvRepresentativeness")
+    if not isinstance(set_ev_representativeness, Mapping) or _text(set_ev_representativeness.get("calculationRunId")) != run_id:
+        set_ev_representativeness = None
     composition = {
         "packCount": detail.get("pack_count"),
         "randomPackCount": detail.get("random_pack_count"),
@@ -219,6 +229,7 @@ def _rip_contract(
         "totalValueToCostRatio": detail.get("total_value_to_cost_ratio"),
         "entertainmentCost": entertainment,
         "composition": composition,
+        "setEvRepresentativeness": set_ev_representativeness,
     }
 
 

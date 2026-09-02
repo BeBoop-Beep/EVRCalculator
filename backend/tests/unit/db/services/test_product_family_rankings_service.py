@@ -60,6 +60,54 @@ def test_current_canonical_rows_only_and_deferred_products_are_not_fabricated(mo
     assert payload["partialToCurrentlyScoredProducts"] is True
 
 
+def _ev_representativeness(run_id="current", pack_count=420):
+    return {
+        "contractVersion": "ev_representativeness_public_v1",
+        "methodVersion": "ev_representativeness_v1",
+        "calculationRunId": run_id,
+        "realizationHorizon": {"targetEvRatio": .80, "openerProbability": .80, "packCount": pack_count, "status": "confirmed"},
+    }
+
+
+def test_product_rows_inherit_the_set_evRepresentativeness_only_from_the_same_run():
+    """Every product in a set carries that SAME set's confirmed EV
+    realization headline - not a new per-product calculation - and only
+    when the set target's evRepresentativeness matches the exact run this
+    product family ranking was built from."""
+    payload = service.build_product_family_rankings(
+        Client([row("ranked")]),
+        set_targets=[{
+            "set_id": "set-1", "canonical_key": "alpha", "calculation_run_id": "current",
+            "name": "Alpha", "logo_image_url": "logo",
+            "evRepresentativeness": _ev_representativeness(),
+        }],
+    )
+    product = payload["families"]["booster_box"]["products"][0]
+    assert product["setEvRepresentativeness"]["calculationRunId"] == "current"
+    assert product["setEvRepresentativeness"]["realizationHorizon"]["packCount"] == 420
+    # Compact: no curve/history array copied onto every product row.
+    assert set(product["setEvRepresentativeness"]) == {"contractVersion", "methodVersion", "calculationRunId", "realizationHorizon"}
+
+
+def test_product_rows_omit_set_evRepresentativeness_from_a_different_run():
+    payload = service.build_product_family_rankings(
+        Client([row("ranked")]),
+        set_targets=[{
+            "set_id": "set-1", "canonical_key": "alpha", "calculation_run_id": "current",
+            "name": "Alpha", "logo_image_url": "logo",
+            "evRepresentativeness": _ev_representativeness(run_id="stale-run"),
+        }],
+    )
+    product = payload["families"]["booster_box"]["products"][0]
+    assert product["setEvRepresentativeness"] is None
+
+
+def test_product_rows_omit_set_evRepresentativeness_when_absent():
+    payload = build(None, [row("ranked")])
+    product = payload["families"]["booster_box"]["products"][0]
+    assert product["setEvRepresentativeness"] is None
+
+
 def test_versions_and_rankable_flag_gate_rankings(monkeypatch):
     rows = [row("good"), row("old-ca", collector_appeal_version="v4"), row("old-overall", overall_rip_v10_version="v8"), row("not-rankable", overall_rip_v10_rankable=False)]
     family = build(monkeypatch, rows)["families"]["booster_box"]

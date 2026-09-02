@@ -1,6 +1,37 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
-import { buildProductParentSetHref, comparisonRows, formatStrength, pluralFamilyLabel, productCompositionSummary, selectProductMarketWindow } from "./productDetailModel.mjs";
+import { buildProductParentSetHref, comparisonRows, formatStrength, pluralFamilyLabel, productCompositionSummary, selectProductMarketWindow, selectSetEvRealizationHeadline } from "./productDetailModel.mjs";
+
+const evRep = (runId, packCount = 420) => ({
+  contractVersion: "ev_representativeness_public_v1",
+  methodVersion: "ev_representativeness_v1",
+  calculationRunId: runId,
+  realizationHorizon: { targetEvRatio: 0.8, openerProbability: 0.8, packCount, status: "confirmed" },
+});
+
+test("set EV realization headline renders only from the product's own validated run", () => {
+  const rip = { calculationRunId: "run-a", setEvRepresentativeness: evRep("run-a") };
+  const headline = selectSetEvRealizationHeadline(rip);
+  assert.equal(headline.packCount, 420);
+  assert.equal(headline.targetEvRatio, 0.8);
+  assert.equal(headline.openerProbability, 0.8);
+});
+
+test("set EV realization headline is omitted for a mismatched run, wrong contract, or missing data", () => {
+  assert.equal(selectSetEvRealizationHeadline({ calculationRunId: "run-a", setEvRepresentativeness: evRep("run-b") }), null);
+  assert.equal(selectSetEvRealizationHeadline({ calculationRunId: "run-a", setEvRepresentativeness: { ...evRep("run-a"), contractVersion: "future_v2" } }), null);
+  assert.equal(selectSetEvRealizationHeadline({ calculationRunId: "run-a", setEvRepresentativeness: null }), null);
+  assert.equal(selectSetEvRealizationHeadline({ calculationRunId: "run-a" }), null);
+  assert.equal(selectSetEvRealizationHeadline(null), null);
+});
+
+test("set EV realization headline is the SAME selector Set RIP uses, not a forked implementation", () => {
+  const model = fs.readFileSync(path.resolve("components/pokemon/sealed-product-detail/productDetailModel.mjs"), "utf8");
+  assert.match(model, /import \{ selectEvRepresentativenessPublicV1 \} from "\.\.\/\.\.\/explore\/evRepresentativenessSelector\.mjs"/);
+  assert.doesNotMatch(model, /HEADLINE_REALIZATION_TARGET|HEADLINE_CONFIDENCE|realization_ge_0\.80/);
+});
 
 test("product market windows consume backend movement authority", () => {
   const market = { history: [{ date: "2026-01-01", marketPrice: 10 }, { date: "2026-01-10", marketPrice: 12 }], movements: { "30D": { status: "available", amount: 2, percent: 20, actualStartDate: "2026-01-01", endDate: "2026-01-10", fullWindowCoverage: false } } };

@@ -29,18 +29,28 @@ class Client:
     def table(self, name): self.queries.append(name); return Query(self, name)
 
 
-def ranking(product_id="p1", run_id="run-current", rank=2, family="booster_box"):
+def ranking(product_id="p1", run_id="run-current", rank=2, family="booster_box", set_ev_representativeness=None):
     return {
         "sealedProductId": product_id, "productName": product_id, "productFamily": family,
         "calculationRunId": run_id, "familyRank": rank, "familySize": 4,
         "publicTier": "A", "overallRipLeaderScore": 88, "financialRipLeaderScore": 77,
         "collectorAppealScore": 80, "collectorAppealTier": "A", "overallRipVersion": "overall-rip-v10",
         "financialRipVersion": "financial-rip-v4", "collectorAppealVersion": "collector-v4",
+        "setEvRepresentativeness": set_ev_representativeness,
     }
 
 
-def fixture_data(modeled=True, image="large.png"):
-    rankings = [ranking("leader", rank=1), ranking(), ranking("lower", rank=3), ranking("other", rank=4)] if modeled else []
+def ev_representativeness(run_id="run-current", pack_count=420):
+    return {
+        "contractVersion": "ev_representativeness_public_v1",
+        "methodVersion": "ev_representativeness_v1",
+        "calculationRunId": run_id,
+        "realizationHorizon": {"targetEvRatio": .80, "openerProbability": .80, "packCount": pack_count, "status": "confirmed"},
+    }
+
+
+def fixture_data(modeled=True, image="large.png", p1_set_ev_representativeness=None):
+    rankings = [ranking("leader", rank=1), ranking(set_ev_representativeness=p1_set_ev_representativeness), ranking("lower", rank=3), ranking("other", rank=4)] if modeled else []
     return {
         "sealed_products": [
             {"id": "p1", "set_id": "s1", "name": "Alpha Booster Box", "product_type": "box", "image_small_url": None, "image_large_url": image},
@@ -111,6 +121,39 @@ def test_published_run_is_exact_and_canonical_v10_v4_fields_win():
     assert rip["collectorAppealTier"] == "A"
     assert rip["entertainmentCost"]["expectedValue"] == 80
     assert rip["entertainmentCost"]["entertainmentCost"] == 40  # guaranteed value was not added twice
+
+
+def test_set_ev_representativeness_inherits_from_the_same_run_published_ranking_row():
+    """The product page shows the SET's confirmed EV realization headline,
+    sourced from the exact same published ranking row/query already used for
+    everything else in the RIP contract - no second table read."""
+    data = fixture_data(p1_set_ev_representativeness=ev_representativeness())
+    client = Client(data)
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", client)
+    rip = payload["rip"]
+    assert rip["setEvRepresentativeness"]["calculationRunId"] == "run-current"
+    assert rip["setEvRepresentativeness"]["realizationHorizon"]["packCount"] == 420
+    # No additional table beyond the ones the RIP contract already reads.
+    tables_read = {name for name, *_ in client.executed}
+    assert tables_read <= {
+        "sealed_products", "sets", "sealed_product_price_observations",
+        "pokemon_explore_rankings_snapshot_latest", "simulation_sealed_product_results",
+        "pokemon_set_sealed_market_snapshot_latest",
+    }
+
+
+def test_set_ev_representativeness_omitted_when_run_id_does_not_match():
+    """A different-run set-level headline never survives - it is dropped,
+    never shown as though it belonged to this product's validated run."""
+    data = fixture_data(p1_set_ev_representativeness=ev_representativeness(run_id="run-DIFFERENT"))
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(data))
+    assert payload["rip"]["setEvRepresentativeness"] is None
+
+
+def test_set_ev_representativeness_missing_does_not_break_the_product_rip_contract():
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(fixture_data()))
+    assert payload["rip"]["available"] is True
+    assert payload["rip"]["setEvRepresentativeness"] is None
 
 
 def test_missing_exact_published_run_fails_only_rip_closed():
