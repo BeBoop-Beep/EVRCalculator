@@ -120,7 +120,33 @@ class RpcQuery:
         if self.name == "rebuild_pokemon_card_market_top_hits_by_edition":
             return Response(len(self.params["p_set_ids"]))
         if self.name == "reproject_pokemon_market_explorer_card_daily_states":
-            return Response(len(self.params["p_predecessor_variant_ids"]))
+            return Response(len(self.params["p_set_ids"]))
+        if self.name == "retire_pokemon_card_variant_predecessor":
+            # Simulate the RPC's atomic ledger write (retirement is
+            # ledger-based, not physical deletion of card_variants).
+            ledger_rows = self.client.store.setdefault(MERGE_LEDGER_TABLE, [])
+            ledger_rows.append({
+                "predecessor_variant_id": self.params["p_predecessor_variant_id"],
+                "successor_variant_id": self.params["p_successor_variant_id"],
+                "merge_reason": self.params.get("p_merge_reason"),
+            })
+            return Response(None)
+        if self.name == "invalidate_pokemon_market_explorer_query_cache_scoped":
+            # Simulate the RPC's atomic scoped cache invalidation + Cards
+            # repair_generation bump, done entirely DB-side.
+            affected = set(self.params["p_set_ids"])
+            rows = self.client.store.setdefault(CACHE_TABLE, [])
+            touched = 0
+            for row in rows:
+                set_ids = set(str(sid) for sid in (row.get("normalized_spec") or {}).get("setIds") or [])
+                if affected & set_ids:
+                    row["status"] = "stale"
+                    touched += 1
+            state_rows = self.client.store.setdefault(CACHE_STATE_TABLE, [])
+            for row in state_rows:
+                if row.get("asset") == "cards":
+                    row["repair_generation"] = int(row.get("repair_generation") or 0) + 1
+            return Response(touched)
         return Response(None)
 
 
@@ -281,6 +307,33 @@ def test_idempotent_rerun_produces_no_duplicate_or_changed_state():
     assert len(client.store[MERGE_LEDGER_TABLE]) == 1
 
 
+def test_retirement_is_ledger_based_not_physical_deletion():
+    sets, cards, variants = _fossil_fixture(edition="first")
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
+    report = run_repair(client, commit=True, set_ids=["fossil"])
+    assert report["variants_retired"] == 1
+
+    retire_calls = [call for call in client.rpc_calls
+                    if call[0] == "retire_pokemon_card_variant_predecessor"]
+    assert len(retire_calls) == 1
+    assert retire_calls[0][1] == {
+        "p_predecessor_variant_id": "v-pred-1",
+        "p_successor_variant_id": "v-succ-1",
+        "p_merge_reason": "vintage_predecessor_identity_repair",
+    }
+
+    # The predecessor card_variants row is preserved -- retirement is
+    # ledger-based, never a physical row deletion.
+    predecessor_ids = {row["id"] for row in client.store["card_variants"]}
+    assert "v-pred-1" in predecessor_ids
+
+    # The ledger row is written atomically by the RPC, not by a separate
+    # script-side upsert.
+    ledger_rows = client.store[MERGE_LEDGER_TABLE]
+    assert len(ledger_rows) == 1
+    assert ledger_rows[0]["predecessor_variant_id"] == "v-pred-1"
+
+
 def test_does_not_touch_forbidden_reference_tables():
     sets, cards, variants = _fossil_fixture(edition="first")
     client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
@@ -312,7 +365,7 @@ def test_pilot_projection_scope_limited_to_fossil_and_neo_genesis_only():
     assert set(report["pilot_projection_rows_touched"]) == {"Fossil", "Neo Genesis"}
 
 
-def test_targeted_cache_invalidation_only_touches_affected_caches():
+def test_targeted_cache_invalidation_calls_atomic_scoped_rpc():
     sets, cards, variants = _fossil_fixture(edition="first")
     cache_rows = [
         {"query_fingerprint": "fp-fossil-only", "status": "ready",
@@ -324,6 +377,14 @@ def test_targeted_cache_invalidation_only_touches_affected_caches():
     ]
     client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants, cache_rows=cache_rows))
     report = run_repair(client, commit=True, set_ids=["fossil"])
+
+    scoped_calls = [call for call in client.rpc_calls
+                    if call[0] == "invalidate_pokemon_market_explorer_query_cache_scoped"]
+    assert len(scoped_calls) == 1
+    assert scoped_calls[0][1] == {"p_set_ids": ["fossil"]}
+    # No manual/global blanket invalidation RPC is ever called.
+    assert all(call[0] != "invalidate_pokemon_market_explorer_query_cache" for call in client.rpc_calls)
+
     assert report["cache_entries_invalidated"] == 2
     statuses = {row["query_fingerprint"]: row["status"] for row in client.store[CACHE_TABLE]}
     assert statuses["fp-fossil-only"] == "stale"
@@ -331,11 +392,17 @@ def test_targeted_cache_invalidation_only_touches_affected_caches():
     assert statuses["fp-unrelated"] == "ready"
 
 
-def test_repair_generation_increments_appropriately():
+def test_cache_invalidation_generation_bump_is_atomic_not_read_then_write():
+    """The prior read-then-write repair_generation bump is gone: the script
+    must not read pokemon_market_explorer_cache_state before invalidating,
+    it must simply call the scoped RPC and trust it to be atomic.
+    """
     sets, cards, variants = _fossil_fixture(edition="first")
     client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
                                     cache_state=[{"asset": "cards", "repair_generation": 5}]))
-    report = run_repair(client, commit=True, set_ids=["fossil"])
-    assert report["repair_generation_after"] == 6
+    run_repair(client, commit=True, set_ids=["fossil"])
+    assert CACHE_STATE_TABLE not in client.calls
     stored = next(row for row in client.store[CACHE_STATE_TABLE] if row["asset"] == "cards")
+    # The fake RPC simulates the DB-side atomic bump; the script itself never
+    # reads or writes this table directly.
     assert stored["repair_generation"] == 6

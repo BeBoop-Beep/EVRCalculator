@@ -104,28 +104,46 @@ Phases, run in order for every non-rejected, non-already-merged mapping:
    `pokemon_market_explorer_variant_merge_ledger` to skip pairs already
    merged by a prior run (idempotency).
 3. `merge_observations` — reads predecessor + successor observations, applies
-   `resolve_observation_winners` (the collision/winner rule), and on
-   `--commit` calls `merge_pokemon_card_variant_price_observations` (RPC does
-   not exist yet — see "Blockers" below).
+   `resolve_observation_winners` (the collision/winner rule) for local
+   reporting only, and on `--commit` calls
+   `merge_pokemon_card_variant_price_observations(p_predecessor_variant_id,
+   p_successor_variant_id)` — a real production RPC per migration
+   `20260902221622_add_market_explorer_vintage_identity_repair_primitives`
+   (reported by external process, pending independent verification — the
+   migration SQL itself is not present in this worktree; see
+   PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT below). The RPC applies
+   the same source-winner rule server-side; it does not take per-row
+   winning/discarded observation id lists.
 4. `regenerate_monthly_rollups` — invalidates (deletes, for downstream
    recompute-on-read) monthly rollup rows for touched successor variants.
 5. `regenerate_intervals` — calls the *existing*
    `refresh_pokemon_card_variant_market_price_intervals` RPC (same one the
    backfill script uses) for touched successor variants.
-6. `rebuild_top_hits` — calls `rebuild_pokemon_card_market_top_hits_by_edition`
-   for touched sets (RPC does not exist yet).
+6. `rebuild_top_hits` — calls `rebuild_pokemon_card_market_top_hits_by_edition()`
+   for touched sets (reported real production RPC, per migration
+   `20260902221622_...`).
 7. `retire_predecessor_variants` — calls
-   `retire_pokemon_card_variant_predecessor` per mapping (RPC does not exist
-   yet), then upserts a `pokemon_market_explorer_variant_merge_ledger` row so
-   reruns are idempotent.
+   `retire_pokemon_card_variant_predecessor(p_predecessor_variant_id,
+   p_successor_variant_id, p_merge_reason)` per mapping. Retirement is
+   **ledger-based, not physical deletion**: `card_variants` rows for
+   predecessors are preserved for history/FK safety; the RPC is responsible
+   for marking retirement and writing the
+   `pokemon_market_explorer_variant_merge_ledger` row atomically on the DB
+   side, so this script no longer performs a separate ledger upsert of its
+   own. Market Explorer authority queries are expected to exclude
+   ledger-retired predecessors via that ledger, not via row absence.
 8. `repair_pilot_projections` — scoped strictly to Fossil and Neo Genesis;
-   calls `reproject_pokemon_market_explorer_card_daily_states` (RPC does not
-   exist yet) per pilot set.
-9. `invalidate_targeted_caches` — reads `pokemon_market_explorer_query_cache`
-   rows, marks only rows whose `normalized_spec.setIds` intersects
-   {fossil, neo genesis} as `status = 'stale'`, and increments
-   `pokemon_market_explorer_cache_state.repair_generation` for the `cards`
-   asset by 1 (read-then-write; not atomic — see "Blockers").
+   calls `reproject_pokemon_market_explorer_card_daily_states(p_set_ids,
+   p_start_date, p_end_date)` per pilot set (real production RPC per
+   migration `20260902221622_...`).
+9. `invalidate_targeted_caches` — for the affected pilot set ids, calls the
+   single atomic
+   `invalidate_pokemon_market_explorer_query_cache_scoped(p_set_ids)` RPC,
+   which handles BOTH targeted (scoped, never blanket/global) cache-row
+   invalidation AND the `Cards` `repair_generation` bump atomically on the
+   DB side. The prior read-then-write `repair_generation` bump pattern has
+   been removed — the script now trusts the RPC's atomicity instead of
+   reading-then-writing `pokemon_market_explorer_cache_state` itself.
 
 Mapping safeguards: ambiguous predecessor/successor pairs (more than one
 plausible candidate on either side) are collected into a `rejections` list
@@ -149,14 +167,21 @@ Verified by `test_pilot_projection_scope_limited_to_fossil_and_neo_genesis_only`
 The existing `invalidate_pokemon_market_explorer_query_cache` RPC (found in
 `backend/db/services/market_explorer_query_planner.py` and its migration
 tests) is a **blanket, date-scoped** invalidation across every cached query
-for every asset — broader than what this repair needs. This script instead
-reads `pokemon_market_explorer_query_cache` directly and marks only the rows
-whose `normalized_spec.setIds` intersects the pilot set IDs as stale, then
-increments `pokemon_market_explorer_cache_state.repair_generation` for the
-`cards` asset — the same `repair_generation` field the query planner already
-reads as a cross-worker generation token for its L1 cache. Verified by
-`test_targeted_cache_invalidation_only_touches_affected_caches` and
-`test_repair_generation_increments_appropriately`.
+for every asset — broader than what this repair needs, and the script never
+calls it. Instead, on `--commit`, the script calls the single atomic
+`invalidate_pokemon_market_explorer_query_cache_scoped(p_set_ids)` RPC
+(reported real production RPC per migration
+`20260902221622_add_market_explorer_vintage_identity_repair_primitives`,
+external/pending independent verification), scoped to the affected pilot set
+IDs only. That RPC is expected to handle both the targeted cache-row
+invalidation AND the `Cards` `pokemon_market_explorer_cache_state.repair_generation`
+bump atomically on the DB side — the same `repair_generation` field the
+query planner reads as a cross-worker generation token for its L1 cache. The
+prior read-then-write generation-bump pattern has been removed from this
+script entirely; it never reads or writes
+`pokemon_market_explorer_cache_state` directly anymore. Verified by
+`test_targeted_cache_invalidation_calls_atomic_scoped_rpc` and
+`test_cache_invalidation_generation_bump_is_atomic_not_read_then_write`.
 
 ## Tests
 
@@ -176,13 +201,29 @@ backend/tests/unit/db/services/test_pokemon_sealed_market_explorer_query_service
 backend/tests/unit/db/test_market_explorer_query_cache_migration.py
 ```
 
-**Result: 141 passed, 0 failed.** New test file: 13/13 passed, covering every
-case listed in the task (clean generic→first, generic→unlimited,
-Base/Base Set 2 exclusion, Machamp #8 exclusion, ambiguous-successor
-rejection, newer-predecessor-wins collision, exact-price collision,
-differing-price collision, idempotent rerun, no forbidden-table calls,
-pilot-projection scoping, targeted cache invalidation, repair_generation
-increment).
+**Result (this alignment pass): 142 passed, 0 failed.** Updated test file:
+14/14 passed, covering every case from the original suite (clean
+generic→first, generic→unlimited, Base/Base Set 2 exclusion, Machamp #8
+exclusion, ambiguous-successor rejection, newer-predecessor-wins collision,
+exact-price collision, differing-price collision, idempotent rerun, no
+forbidden-table calls, pilot-projection scoping) plus new/replaced coverage
+for the RPC-contract alignment:
+- `test_retirement_is_ledger_based_not_physical_deletion` — asserts
+  `retire_pokemon_card_variant_predecessor` is called with
+  `p_predecessor_variant_id`/`p_successor_variant_id`/`p_merge_reason`, that
+  the predecessor `card_variants` row is preserved (never deleted), and that
+  the merge ledger is populated (simulating the RPC's own atomic ledger
+  write, not a separate script-side upsert).
+- `test_targeted_cache_invalidation_calls_atomic_scoped_rpc` (replaces
+  `test_targeted_cache_invalidation_only_touches_affected_caches`) — asserts
+  the scoped `invalidate_pokemon_market_explorer_query_cache_scoped` RPC is
+  called with exactly the affected set IDs, and that the blanket
+  `invalidate_pokemon_market_explorer_query_cache` RPC is never called.
+- `test_cache_invalidation_generation_bump_is_atomic_not_read_then_write`
+  (replaces `test_repair_generation_increments_appropriately`) — asserts the
+  script itself never reads/writes `pokemon_market_explorer_cache_state`
+  (`CACHE_STATE_TABLE not in client.calls`), i.e. the old read-then-write
+  generation bump path is gone.
 
 One genuine bug was found and fixed during test-writing: the exclusion
 counters (`excluded_generic_count`, `excluded_machamp_count`) computed inside
@@ -202,6 +243,21 @@ and not diff-checked.
 `--commit` invocations of any script, and zero live Supabase connections. All
 tests run against an in-memory fake client.
 
+## Migration source sync
+
+Per external instruction (not independently verified by this session), the
+production contract these RPCs align to was installed by migrations
+`20260902221622_add_market_explorer_vintage_identity_repair_primitives` and
+`20260902221819_add_scoped_variant_monthly_rollup_rebuild`. This session
+searched `backend/db/migrations`, `supabase/migrations`, and all worktree
+copies in this repo for those files; **neither migration's SQL is present in
+this worktree.** No migration file was written or guessed to fill the gap,
+per instruction.
+
+**`PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT`**
+
 ## Final decision
 
-**REPO_TOOLING_READY — production repair pending external execution.**
+**REPO_TOOLING_READY — production repair pending external execution, and
+migration SQL source-control sync pending
+(`PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT`).**

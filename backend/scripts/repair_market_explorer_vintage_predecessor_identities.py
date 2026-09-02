@@ -22,6 +22,7 @@ import logging
 import re
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import date
 from typing import Any, Iterable, Sequence
 
 from backend.db.clients.supabase_client import create_service_role_client
@@ -43,14 +44,36 @@ CACHE_TABLE = "pokemon_market_explorer_query_cache"
 CACHE_STATE_TABLE = "pokemon_market_explorer_cache_state"
 MERGE_LEDGER_TABLE = "pokemon_market_explorer_variant_merge_ledger"
 
-# RPCs the repair calls. Several of these do not exist yet in the deployed
-# schema -- see the module-level NOTE below and section M of the Prompt 3
-# report for what must be created before a real --commit run.
+# RPCs the repair calls. These match the real production contract installed
+# by migrations 20260902221622_add_market_explorer_vintage_identity_repair_primitives
+# and 20260902221819_add_scoped_variant_monthly_rollup_rebuild (per external
+# instruction -- the migration SQL files themselves are not present in this
+# worktree; see report section I / PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT).
 REFRESH_INTERVAL_RPC = "refresh_pokemon_card_variant_market_price_intervals"
-MERGE_OBSERVATIONS_RPC = "merge_pokemon_card_variant_price_observations"  # NEEDS CREATION
-RETIRE_VARIANT_RPC = "retire_pokemon_card_variant_predecessor"  # NEEDS CREATION
-REBUILD_TOP_HITS_RPC = "rebuild_pokemon_card_market_top_hits_by_edition"  # NEEDS CREATION
-REPROJECT_DAILY_STATES_RPC = "reproject_pokemon_market_explorer_card_daily_states"  # NEEDS CREATION
+# merge_pokemon_card_variant_price_observations(p_predecessor_variant_id uuid, p_successor_variant_id uuid)
+MERGE_OBSERVATIONS_RPC = "merge_pokemon_card_variant_price_observations"
+# retire_pokemon_card_variant_predecessor(p_predecessor_variant_id uuid, p_successor_variant_id uuid, p_merge_reason text)
+RETIRE_VARIANT_RPC = "retire_pokemon_card_variant_predecessor"
+# rebuild_pokemon_card_market_top_hits_by_edition()
+REBUILD_TOP_HITS_RPC = "rebuild_pokemon_card_market_top_hits_by_edition"
+# reproject_pokemon_market_explorer_card_daily_states(p_set_ids uuid[], p_start_date date, p_end_date date)
+REPROJECT_DAILY_STATES_RPC = "reproject_pokemon_market_explorer_card_daily_states"
+# invalidate_pokemon_market_explorer_query_cache_scoped(p_set_ids uuid[]) -- atomic:
+# handles both scoped cache-row invalidation AND the Cards repair_generation
+# bump on the DB side. Do not reintroduce a read-then-write generation bump.
+INVALIDATE_CACHE_SCOPED_RPC = "invalidate_pokemon_market_explorer_query_cache_scoped"
+
+# Retirement is ledger-based, not physical deletion: card_variants rows for
+# retired predecessors are preserved for history/FK safety. Authority queries
+# elsewhere are expected to exclude retired predecessors via
+# ``pokemon_market_explorer_variant_merge_ledger`` (see MERGE_LEDGER_TABLE),
+# not via row absence.
+MERGE_REASON = "vintage_predecessor_identity_repair"
+
+# Pilot re-projection re-derives daily states over this wide a window since
+# the RPC's (p_start_date, p_end_date) parameters are NOT NULL and this
+# script has no narrower authoritative window to hand it.
+PILOT_PROJECTION_START_DATE = date(1996, 1, 1)
 
 SUCCESSOR_EDITIONS = {"first", "1st-edition", "1st edition", "unlimited"}
 UNLIMITED_EDITIONS = {"unlimited"}
@@ -121,7 +144,6 @@ class Summary:
     top_hits_rebuilt: int = 0
     pilot_projection_rows_touched: dict[str, int] = field(default_factory=dict)
     cache_entries_invalidated: int = 0
-    repair_generation_after: int | None = None
     failures: int = 0
     elapsed_seconds: float = 0.0
 
@@ -355,11 +377,12 @@ def merge_observations(client: Any, *, commit: bool, mapping: Mapping,
 
     if not commit:
         return
+    # Winner-rank bookkeeping above is local reporting only -- the merge RPC
+    # applies the same source-winner rule server-side and takes no per-row
+    # observation id lists.
     client.rpc(MERGE_OBSERVATIONS_RPC, {
         "p_predecessor_variant_id": mapping.predecessor_variant_id,
         "p_successor_variant_id": mapping.successor_variant_id,
-        "p_winning_observation_ids": [str(row["id"]) for row in winners],
-        "p_discarded_observation_ids": [str(row["id"]) for row in losers],
     }).execute()
 
 
@@ -403,13 +426,15 @@ def rebuild_top_hits(client: Any, *, commit: bool, set_ids: Sequence[str],
 
 def retire_predecessor_variants(client: Any, *, commit: bool, mappings: Sequence[Mapping],
                                 summary: Summary) -> None:
-    """Soft-retire each merged predecessor variant. This calls a dedicated
-    RPC rather than issuing a raw UPDATE because there is no existing
-    soft-delete column convention on ``card_variants`` visible in this
-    repo -- see report section M. The RPC is expected to (a) mark the
-    predecessor row retired/pointing at its successor and (b) write a
-    ``pokemon_market_explorer_variant_merge_ledger`` row so reruns are
-    idempotent.
+    """Ledger-retire each merged predecessor variant via
+    ``retire_pokemon_card_variant_predecessor``. Retirement is LEDGER-BASED,
+    not physical deletion: the ``card_variants`` row for the predecessor is
+    preserved (history/FK safety). The RPC is responsible for marking the
+    predecessor retired (pointing at its successor) AND writing the
+    ``pokemon_market_explorer_variant_merge_ledger`` row atomically on the
+    DB side, so this script no longer performs its own ledger upsert --
+    Market Explorer authority queries are expected to exclude retired
+    predecessors via that ledger, never via row absence.
     """
     for mapping in mappings:
         summary.variants_retired += 1
@@ -418,10 +443,7 @@ def retire_predecessor_variants(client: Any, *, commit: bool, mappings: Sequence
         client.rpc(RETIRE_VARIANT_RPC, {
             "p_predecessor_variant_id": mapping.predecessor_variant_id,
             "p_successor_variant_id": mapping.successor_variant_id,
-        }).execute()
-        client.table(MERGE_LEDGER_TABLE).upsert({
-            "predecessor_variant_id": mapping.predecessor_variant_id,
-            "successor_variant_id": mapping.successor_variant_id,
+            "p_merge_reason": MERGE_REASON,
         }).execute()
 
 
@@ -445,49 +467,42 @@ def repair_pilot_projections(client: Any, *, commit: bool, mappings: Sequence[Ma
             summary.pilot_projection_rows_touched[set_name] = len(rows)
             continue
         response = client.rpc(REPROJECT_DAILY_STATES_RPC, {
-            "p_set_id": set_id,
-            "p_predecessor_variant_ids": [m.predecessor_variant_id for m in set_mappings],
-            "p_successor_variant_ids": [m.successor_variant_id for m in set_mappings],
+            "p_set_ids": [set_id],
+            "p_start_date": PILOT_PROJECTION_START_DATE,
+            "p_end_date": date.today(),
         }).execute()
         summary.pilot_projection_rows_touched[set_name] = int(response.data or 0)
 
 
 def invalidate_targeted_caches(client: Any, *, commit: bool, mappings: Sequence[Mapping],
                                summary: Summary) -> None:
-    """Invalidate only the L2 cache rows whose ``normalized_spec.setIds``
-    intersects the repaired sets (a Fossil-only custom cache and the mixed
-    Fossil+Neo Genesis cache), plus increment ``repair_generation`` on
-    ``pokemon_market_explorer_cache_state`` for the 'cards' asset only.
+    """Invalidate only the cache rows whose ``normalized_spec.setIds``
+    intersects the repaired sets, via the single atomic
+    ``invalidate_pokemon_market_explorer_query_cache_scoped(p_set_ids)`` RPC.
 
-    The existing ``invalidate_pokemon_market_explorer_query_cache`` RPC
-    (see backend/db/services/market_explorer_query_planner.py) is a
-    blanket, date-scoped invalidation across every cached query for every
-    asset -- broader than needed here. This performs targeted row-level
-    invalidation instead so unrelated cached queries are left untouched.
+    That RPC handles BOTH the targeted (set-scoped, never blanket/global)
+    cache-row invalidation AND the ``Cards`` asset's ``repair_generation``
+    bump atomically on the DB side, so this script no longer does a
+    read-then-write generation bump of its own -- it just calls the scoped
+    RPC and trusts it to be atomic.
     """
     affected_set_ids = {m.set_id for m in mappings if _fold(m.set_name) in PILOT_PROJECTION_SET_NAMES}
     if not affected_set_ids:
         return
 
-    rows = _paged(lambda: client.table(CACHE_TABLE).select("query_fingerprint,normalized_spec"))
-    targeted_fingerprints = [
-        str(row["query_fingerprint"]) for row in rows
-        if affected_set_ids & set(str(sid) for sid in (row.get("normalized_spec") or {}).get("setIds") or [])
-    ]
-    summary.cache_entries_invalidated += len(targeted_fingerprints)
-
     if not commit:
+        rows = _paged(lambda: client.table(CACHE_TABLE).select("query_fingerprint,normalized_spec"))
+        targeted_fingerprints = [
+            str(row["query_fingerprint"]) for row in rows
+            if affected_set_ids & set(str(sid) for sid in (row.get("normalized_spec") or {}).get("setIds") or [])
+        ]
+        summary.cache_entries_invalidated += len(targeted_fingerprints)
         return
-    for fingerprint in targeted_fingerprints:
-        client.table(CACHE_TABLE).update({"status": "stale"}).eq(
-            "query_fingerprint", fingerprint).execute()
 
-    current = list((client.table(CACHE_STATE_TABLE).select("repair_generation")
-                   .eq("asset", "cards").limit(1).execute()).data or [])
-    next_generation = int((current[0].get("repair_generation") or 0) if current else 0) + 1
-    client.table(CACHE_STATE_TABLE).update({"repair_generation": next_generation}).eq(
-        "asset", "cards").execute()
-    summary.repair_generation_after = next_generation
+    response = client.rpc(INVALIDATE_CACHE_SCOPED_RPC, {
+        "p_set_ids": sorted(affected_set_ids),
+    }).execute()
+    summary.cache_entries_invalidated += int(response.data or 0)
 
 
 # --- Orchestration -----------------------------------------------------------
