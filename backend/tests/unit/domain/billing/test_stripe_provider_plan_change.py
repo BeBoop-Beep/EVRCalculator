@@ -67,7 +67,34 @@ def test_update_subscription_item_passes_idempotency_key_and_normalizes_success(
     assert params["proration_behavior"] == "always_invoice"
     assert params["proration_date"] == 1735689600
     assert params["payment_behavior"] == "pending_if_incomplete"
+    # Without this, real Stripe returns `latest_invoice` as a bare invoice-ID
+    # string rather than the expanded object -- confirmed against a real
+    # Stripe sandbox upgrade during the full application E2E test, where this
+    # caused _normalize_payment_result to misreport "requires_action" on an
+    # invoice that had actually been paid synchronously and successfully.
+    assert params["expand"] == ["latest_invoice.payment_intent"]
     assert options == {"idempotency_key": "planchange:sub_1:price_a:price_target:1735689600"}
+
+
+def test_update_subscription_item_misreads_unexpanded_invoice_as_requires_action_without_expand():
+    """Regression test for the real bug: if Stripe were ever called without
+    requesting expansion, `latest_invoice` comes back as a bare id string.
+    `_normalize_payment_result` must not silently misread that as
+    "requires_action" -- this test pins the actual (bug) behavior against the
+    real shape Stripe returns, so the params["expand"] assertion above is the
+    thing that actually prevents it in production, not a change to
+    _normalize_payment_result itself (which correctly trusts its input)."""
+    from backend.domain.billing.providers.stripe_provider import _normalize_payment_result
+
+    # This is the literal shape stripe-python returns when latest_invoice is
+    # NOT expanded: a bare string, not a dict/object.
+    unexpanded_subscription = {"latest_invoice": "in_1UBHt07OgvEwKwH3W4pHDkvB"}
+    assert _normalize_payment_result(unexpanded_subscription) == "requires_action"
+
+    # The fix: with the real expanded shape (what params["expand"] above
+    # guarantees the real API call requests), the true "paid" status is seen.
+    expanded_subscription = {"latest_invoice": {"status": "paid", "payment_intent": None}}
+    assert _normalize_payment_result(expanded_subscription) == "succeeded"
 
 
 def test_update_subscription_item_normalizes_requires_action():
@@ -420,3 +447,93 @@ def test_create_downgrade_schedule_fails_closed_on_unrepresentable_discount_and_
         )
 
     assert schedules.release_calls == ["sub_sched_1"]
+
+
+def test_create_downgrade_schedule_omits_stripe_managed_liability_and_issuer():
+    """Real bug found against a live Stripe sandbox Managed Payments
+    subscription: `automatic_tax.liability.type` and
+    `invoice_settings.issuer.type` can both read back as "stripe" (Stripe's
+    own computed default for that account), but the writable schedule-phase
+    schema only accepts "self"/"account" for those fields and real Stripe
+    rejects "stripe" outright with `Invalid phases[0][automatic_tax]
+    [liability][type]` / `...[invoice_settings][issuer][type]`. Both fields
+    are optional overrides ("If set, ..." per Stripe's own docs), so the
+    correct behavior is to omit them (falling back to Stripe's own default)
+    rather than failing the whole downgrade closed -- `automatic_tax.enabled`
+    itself is still confidently representable and must survive."""
+
+    class Schedules:
+        def __init__(self):
+            self.update_calls = []
+
+        def create(self, params, options=None):
+            return {
+                "id": "sub_sched_1",
+                "phases": [
+                    {
+                        "items": [{"price": "price_a", "quantity": 1}],
+                        "start_date": 1735689600,
+                        "end_date": 1738368000,
+                        "automatic_tax": {"enabled": True, "liability": {"type": "stripe"}},
+                        "invoice_settings": {"issuer": {"type": "stripe"}},
+                    }
+                ],
+            }
+
+        def update(self, schedule_id, params, options=None):
+            self.update_calls.append((schedule_id, params, options))
+            return {"id": "sub_sched_1"}
+
+    schedules = Schedules()
+    provider = StripeProvider(secret_key="nonempty-test-key")
+    provider.client = _client_with(schedules=schedules)
+
+    provider.create_downgrade_schedule(
+        subscription_id="sub_1", target_price_id="price_plus_monthly",
+        current_period_end=1738368000, idempotency_key="key_1",
+    )
+
+    phase1 = schedules.update_calls[0][1]["phases"][0]
+    assert phase1["automatic_tax"] == {"enabled": True}
+    assert "liability" not in phase1["automatic_tax"]
+    assert "invoice_settings" not in phase1
+
+
+def test_create_downgrade_schedule_preserves_settable_liability_and_issuer():
+    """The self/account override values ARE genuinely writable and must
+    still be preserved, not blanket-dropped alongside the "stripe" case."""
+
+    class Schedules:
+        def __init__(self):
+            self.update_calls = []
+
+        def create(self, params, options=None):
+            return {
+                "id": "sub_sched_1",
+                "phases": [
+                    {
+                        "items": [{"price": "price_a", "quantity": 1}],
+                        "start_date": 1735689600,
+                        "end_date": 1738368000,
+                        "automatic_tax": {"enabled": True, "liability": {"type": "account", "account": "acct_123"}},
+                        "invoice_settings": {"issuer": {"type": "self"}},
+                    }
+                ],
+            }
+
+        def update(self, schedule_id, params, options=None):
+            self.update_calls.append((schedule_id, params, options))
+            return {"id": "sub_sched_1"}
+
+    schedules = Schedules()
+    provider = StripeProvider(secret_key="nonempty-test-key")
+    provider.client = _client_with(schedules=schedules)
+
+    provider.create_downgrade_schedule(
+        subscription_id="sub_1", target_price_id="price_plus_monthly",
+        current_period_end=1738368000, idempotency_key="key_1",
+    )
+
+    phase1 = schedules.update_calls[0][1]["phases"][0]
+    assert phase1["automatic_tax"] == {"enabled": True, "liability": {"type": "account", "account": "acct_123"}}
+    assert phase1["invoice_settings"] == {"issuer": {"type": "self"}}

@@ -105,6 +105,15 @@ class StripeProvider:
                     "proration_behavior": "always_invoice",
                     "proration_date": proration_date,
                     "payment_behavior": "pending_if_incomplete",
+                    # Without this, Stripe returns `latest_invoice` as a bare
+                    # invoice-ID string, not the expanded object. Confirmed
+                    # against a real Stripe sandbox upgrade during the full
+                    # application E2E test: `_normalize_payment_result` then
+                    # reads `.status`/`.payment_intent` off that string (both
+                    # silently None via `_field`'s getattr fallback) and
+                    # misreports "requires_action" even when the invoice was
+                    # paid synchronously and successfully.
+                    "expand": ["latest_invoice.payment_intent"],
                 },
                 options={"idempotency_key": idempotency_key},
             )
@@ -342,16 +351,25 @@ def _writable_phase_payload(phase, *, end_date) -> dict:
         projected_automatic_tax = {"enabled": bool(enabled)}
         liability = _field(automatic_tax, "liability")
         if liability:
-            liability_id = _resource_id(_field(liability, "account"))
             liability_type = _field(liability, "type")
-            if liability_type is None:
-                raise PlanChangeNotAllowed(
-                    "Unable to safely represent automatic tax liability settings for a scheduled downgrade"
-                )
-            projected_liability = {"type": liability_type}
-            if liability_id:
-                projected_liability["account"] = liability_id
-            projected_automatic_tax["liability"] = projected_liability
+            # `liability` is an optional override ("If set, ..." per the SDK's
+            # own docs) -- Stripe applies its own default liability when it's
+            # omitted. The read-side `type` can be "stripe" (confirmed against
+            # a real Managed Payments subscription during the application E2E
+            # test), which is Stripe's own computed default for that account,
+            # not a merchant-settable value -- the write-side schema only
+            # accepts "self"/"account" and real Stripe rejects "stripe" with
+            # `Invalid phases[0][automatic_tax][liability][type]`. Only
+            # resubmit `liability` when it's a genuine override value; a
+            # non-writable type (like "stripe") is safely omitted rather than
+            # failing the whole downgrade closed, since omitting it preserves
+            # exactly the same effective behavior (Stripe's own default).
+            if liability_type in ("self", "account"):
+                projected_liability = {"type": liability_type}
+                liability_id = _resource_id(_field(liability, "account"))
+                if liability_id:
+                    projected_liability["account"] = liability_id
+                projected_automatic_tax["liability"] = projected_liability
         payload["automatic_tax"] = projected_automatic_tax
 
     invoice_settings = _field(phase, "invoice_settings")
@@ -389,15 +407,18 @@ def _writable_phase_payload(phase, *, end_date) -> dict:
         issuer = _field(invoice_settings, "issuer")
         if issuer:
             issuer_type = _field(issuer, "type")
-            if issuer_type is None:
-                raise PlanChangeNotAllowed(
-                    "Unable to safely represent invoice issuer settings for a scheduled downgrade"
-                )
-            projected_issuer = {"type": issuer_type}
-            issuer_account_id = _resource_id(_field(issuer, "account"))
-            if issuer_account_id:
-                projected_issuer["account"] = issuer_account_id
-            projected_invoice_settings["issuer"] = projected_issuer
+            # Same "stripe" read-only default as automatic_tax.liability above
+            # (confirmed against the same real Managed Payments subscription:
+            # `Invalid phases[0][invoice_settings][issuer][type]: must be one
+            # of self or account`) -- `issuer` is itself an optional override
+            # (NotRequired) within invoice_settings, so a non-writable type is
+            # safely omitted rather than failing the downgrade closed.
+            if issuer_type in ("self", "account"):
+                projected_issuer = {"type": issuer_type}
+                issuer_account_id = _resource_id(_field(issuer, "account"))
+                if issuer_account_id:
+                    projected_issuer["account"] = issuer_account_id
+                projected_invoice_settings["issuer"] = projected_issuer
         if projected_invoice_settings:
             payload["invoice_settings"] = projected_invoice_settings
 
