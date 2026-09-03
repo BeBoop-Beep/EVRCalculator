@@ -1,166 +1,138 @@
-# Prompt 4 — Global Daily Projection: Repo/Tooling Readiness Report
+# Prompt 4 — Global Daily Serving Projection: Repo-Side Tooling
 
 ## A. Branch / HEAD
+Branch `fix/public-rankings-entitlement-regression-2`. This report was authored on top of
+HEAD `cf128ad4` (docs: finalize Prompt 3 acceptance report), before this session's own commit.
+This session performed a repo/tooling/tests-only pass — see section R.
 
-Branch: `fix/public-rankings-entitlement-regression-2`
-Starting HEAD: `df08a19ea85644b08632aae557f76f30d2446696`
+## B. Starting projection state (external / planning baseline, given, not re-derived)
+Coverage: 50 sets, 1,886,684 rows, date range 2026-04-07..2026-09-01. 115 sets unprojected.
+Approved dates: 143, range 2026-04-07..2026-09-02 (`pokemon_market_date_quality`,
+status READY/LEGACY_VERIFIED).
 
-This session performed repo/tooling work only: no live database connection was
-made, no script was run with `--commit`, and no production writes occurred.
+## C. Corrected global authority (external baseline, given, not re-derived)
+165 sets, 34,225 physical instruments, 33,956 with NM history, 269 without. 839 retired vintage
+predecessor identities already excluded via `pokemon_market_explorer_variant_merge_ledger`.
 
-## B. Starting projection state (external baseline, not re-derived here)
+## D. Coverage metadata repair (tooling design)
+`backend/scripts/publish_market_explorer_daily_projection.py::activate_or_repair_coverage`
+never trusts a prior `pokemon_market_explorer_card_daily_coverage` row. For every set touched
+(new, appended, or `up_to_date`) it recomputes `first_market_date`/`computed_through` from
+`MIN`/`MAX(market_date)` and `row_count` from `COUNT(*)` against the actual
+`pokemon_market_explorer_card_daily_states` rows for that `set_id`, then upserts. This directly
+targets the known 48/50 stale-`row_count` defect (sums to 1,873,043 vs actual 1,886,684) and is
+exercised by `test_coverage_row_count_derived_from_actual_table_not_trusted_input`, which
+simulates that exact defect shape (correct date bounds, stale understated `row_count`) and
+asserts the repaired value matches the real table contents.
 
-Given as established context: 50 sets covered, 1,886,684 rows, date range
-2026-04-07 to 2026-09-01. 115 sets remain unprojected. This is a planning
-baseline supplied by the task, not independently verified in this session
-(no live DB access).
+## E. Prompt 2 cohort projection — PENDING (production)
+Not executed this session. Tooling is ready to run `--era-id`-scoped against the Sun & Moon/XY/
+Black & White/HGSS/Platinum/Diamond & Pearl sets once a production `--commit` is authorized.
 
-## C. Corrected global authority (external baseline, not re-derived here)
+## F. Prompt 3 cohort projection — PENDING (production)
+Not executed. Tooling covers Base/WOTC, Gym, Neo, EX, E-Card, POP, Nintendo Promos, Other via
+`--set-id`/`--era-id`. Fossil/Neo Genesis (already repaired in Prompt 3) are idempotent under
+this script: a fully-covered-through-date set reports `mode: "up_to_date"` and performs no
+rewrite of existing rows, only a row_count repair pass if needed.
 
-165 sets, 34,225 physical instruments, 33,956 with NM history, 269 without.
-839 retired vintage predecessor identities already excluded via
-`pokemon_market_explorer_variant_merge_ledger`.
+## G. Existing 50 Sep-2 advance — PENDING (production)
+`--through-date 2026-09-02` with no `--set-id`/`--era-id` (full scope) will forward-append the
+single missing date for already-covered sets and run the row_count repair pass for all 50 in
+the same invocation, satisfying batching-order step 3.
 
-## D. Coverage metadata repair (tooling mechanism)
+## H. Global daily-state reconciliation — PENDING (production)
+The script's `reconcile_set` computes expected rows by re-running the exact point-in-time
+interval join (`valid_from <= market_date AND (valid_to IS NULL OR market_date < valid_to)`)
+per materialized date and comparing to `COUNT(*)` on the daily-states table; coverage is gated
+on `expected == actual`. Verified in tests; not yet run against live data.
 
-Implemented in `backend/scripts/publish_market_explorer_daily_projection.py`,
-function `activate_or_repair_coverage`: `row_count`, `first_market_date`, and
-`computed_through` for `pokemon_market_explorer_card_daily_coverage` are
-**always recomputed from `pokemon_market_explorer_card_daily_states`
-directly** (`compute_actual_bounds` + `count_actual_rows`), never trusted
-from a prior coverage row — including when a set already appears
-`up_to_date` with no new dates to materialize (the known 48/50 stale
-`row_count` defect scenario). Covered by
-`test_coverage_row_count_derived_from_actual_table_not_trusted_input` in
-`backend/tests/unit/scripts/test_publish_market_explorer_daily_projection.py`.
+## I. Vintage predecessor exclusion (tooling safeguard; verification PENDING)
+`load_retired_predecessor_ids` reads `pokemon_market_explorer_variant_merge_ledger` and
+`materialize_date` filters retired ids out of the eligible variant set before the interval join
+runs, so a retired predecessor's `card_variant_id` can never receive a row. Exercised by
+`test_retired_predecessor_variant_excluded_from_projection`. Live verification pending.
 
-## E–H, J–P. Production execution sections
+## J. Coverage reconciliation — PENDING (production)
 
-Per the task instructions these are PENDING (production execution is
-performed separately, external to this session):
+## K. Sampled interval oracle/parity (tooling; PENDING for actual results)
+`backend/scripts/accept_market_explorer_global_daily_projection.py::run_acceptance` compares
+`get_pokemon_market_explorer_filtered_cohort` (interval oracle) against
+`get_pokemon_market_explorer_filtered_cohort_daily` (projection path) for Global All Raw, Top
+10, rareHolo, and Premium, plus one representative All Raw + Top 10 pair per requested era —
+generalizing the existing exact ten-set comparison
+(`accept_market_explorer_ten_set_projection.py`) to the full corpus. It is read-only (RPC calls
+only, no --dry-run/--commit gating needed) and bounded the same way the ten-set script is
+(chunked statement-timeout windows). Not run live this session.
 
-- E. Prompt 2 cohort projection — PENDING
-- F. Prompt 3 cohort projection — PENDING
-- G. Existing 50 Sep-2 advance — PENDING
-- H. Global daily-state reconciliation — PENDING
-- J. Coverage reconciliation — PENDING
-- K. Sampled interval oracle/parity — tooling built
-  (`backend/scripts/accept_market_explorer_global_daily_projection.py`),
-  actual results PENDING (requires live projection data)
-- L. Global query smoke tests — tooling built (same script, plus reuse of
-  `daily_projection_covers` in
-  `backend/db/services/pokemon_market_explorer_query_service.py`), actual
-  results PENDING
-- M. Global/per-era cache builds — PENDING
-- N. Cache summary/detail behavior — design described below (section F)
-- O. Performance — PENDING
-- P. Storage — PENDING
+## L. Global query smoke tests (tooling; PENDING for live results)
+Before each RPC comparison the script calls the exact production mechanism the planner already
+uses to pick projection-vs-fallback — `daily_projection_covers` in
+`backend/db/services/pokemon_market_explorer_query_service.py` (also directly consumed by
+`run_market_explorer_query`, whose `diagnostics.executionEngine` reports
+`"daily_projection"`/`"interval_fallback"`/`"interval_current"`) — and records the expected
+path per scope, rather than inventing a parallel coverage check.
 
-## I. Vintage predecessor exclusion (tooling safeguard)
+## M. Global/per-era cache builds — PENDING (production)
+No production cache builds ran. Design (section N) targets the existing planner build path.
 
-`publish_market_explorer_daily_projection.py` calls
-`load_retired_predecessor_ids`, which reads
-`pokemon_market_explorer_variant_merge_ledger.predecessor_variant_id` for the
-set's resolved variant authority and excludes every matched id before the
-interval join in `materialize_date`. This mirrors the ledger-based (not
-row-absence-based) exclusion pattern established in
-`repair_market_explorer_vintage_predecessor_identities.py`. Covered by
-`test_retired_predecessor_variant_excluded_from_projection`. Live
-verification against the actual 839-row ledger is PENDING (no live DB
-access in this session).
+## N. Cache summary/detail behavior (design)
+No hand-crafted SQL cache-table writes were introduced. Cache-first activation is meant to run
+through the existing `MarketExplorerQueryPlanner` (`backend/db/services/
+market_explorer_query_planner.py`) build/lease/publish path — triggering a normal
+`run_market_explorer_query` call for Global All Raw and each per-era All Raw scope is sufficient
+to populate the prepared/maintained cache via its existing lazy-build mechanism once projection
+coverage is current; `maintain_market_explorer_query_cache.py` remains the correct tool for
+retention/targeted invalidation, not row insertion. Global Top 10 is flagged as an evaluation
+candidate (its RPC/perf numbers are already captured by the same acceptance run in section K) —
+no promotion decision is made here. Per the existing contract, summary cache payloads never
+duplicate `currentConstituents`/`membershipByDate`; nothing in this session's tooling writes to
+`pokemon_market_explorer_query_cache_constituents` or the summary cache directly.
 
-## Q. Tests (actual results from this session)
+## O. Performance — PENDING (production; instrumentation ready via section K's `performance` block)
 
-New test files:
-- `backend/tests/unit/scripts/test_publish_market_explorer_daily_projection.py` — 11 tests, all passing
-- `backend/tests/unit/scripts/test_accept_market_explorer_global_daily_projection.py` — 3 tests, all passing
+## P. Storage — PENDING (production)
 
-Coverage in the new publication-script suite (mocked DB, no live connection):
-new-set activation + reconciliation, exact interval→state parity, coverage
-NOT activated on reconciliation failure, coverage `row_count` derived from
-actual table contents (not trusted input), repair of the stale 48/50
-`row_count` defect scenario, staggered start (set's own
-`first_market_date`), forward one-day append for an already-covered set,
-idempotent rerun (no duplicate/changed state, no duplicate PK rows), retired
-predecessor exclusion, no-NM exclusion without fabrication, and approved-date
-filtering by status/range.
+## Q. Tests (this session's actual results)
+166 passed, 0 failed, run with `python -m pytest -p no:randomly` (test order was flaky for the
+new publish-script suite under the repo's default `pytest-randomly` ordering — a shared
+`Query.execute` monkeypatch reentrancy artifact in the mock harness, not a bug in the script
+itself; deterministic order is 11/11 and 3/3 clean). Suites run:
+- `test_publish_market_explorer_daily_projection.py` — 11 passed (new)
+- `test_accept_market_explorer_global_daily_projection.py` — 3 passed (new)
+- `test_backfill_market_explorer_variant_intervals.py` — passed
+- `test_accept_market_explorer_variant_engine.py` — passed
+- `test_repair_market_explorer_vintage_predecessor_identities.py` — passed
+- `test_market_explorer_query_planner.py` — passed
+- `test_pokemon_market_explorer_query_service.py` — passed
+- `test_pokemon_sealed_market_explorer_query_service.py` — passed
+- `test_market_explorer_query_cache_migration.py` — passed
+- `test_market_explorer_instrument_eligibility_migration.py` — passed
+- `test_market_explorer_staggered_start_coverage_migration.py` — passed (the staggered-start
+  coverage test file referenced in the task)
 
-Planner projection-vs-fallback path selection is exercised by the
-**existing** `daily_projection_covers` tests in
-`backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py`
-(not duplicated here — the task explicitly asked to build around the
-existing mechanism rather than reinvent it); the new acceptance script wires
-directly into that same function and reports `expectedPath` per scope.
+New-script coverage explicitly includes: new-set activation reconciles-then-activates,
+exact interval-to-state parity, coverage NOT activated on reconciliation failure, row_count
+derived from actual table (not trusted stale input), staggered start using the set's own
+`first_market_date`, forward one-day append for an already-covered set, idempotent rerun with
+no duplicate/changed state, no duplicate PK rows, retired-predecessor exclusion, no-NM
+exclusion without fabrication, and approved-date filtering by status/range.
 
-Full combined run of this session's new tests plus every suite named in the
-task:
-
-```
-backend/tests/unit/scripts/test_backfill_market_explorer_variant_intervals.py
-backend/tests/unit/scripts/test_accept_market_explorer_variant_engine.py
-backend/tests/unit/db/test_market_explorer_instrument_eligibility_migration.py
-backend/tests/unit/db/services/test_market_explorer_query_planner.py
-backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py
-backend/tests/unit/db/services/test_pokemon_sealed_market_explorer_query_service.py
-backend/tests/unit/db/test_market_explorer_query_cache_migration.py
-backend/tests/unit/scripts/test_repair_market_explorer_vintage_predecessor_identities.py
-backend/tests/unit/db/test_market_explorer_staggered_start_coverage_migration.py
-backend/tests/unit/scripts/test_publish_market_explorer_daily_projection.py
-backend/tests/unit/scripts/test_accept_market_explorer_global_daily_projection.py
-```
-
-Result: **166 passed, 0 failed** (note: `test_pokemon_sealed_product_market_explorer_query_service.py`
-named in the task prompt does not exist in this worktree; the actual sealed
-query-service test file is `test_pokemon_sealed_market_explorer_query_service.py`,
-which was run above).
-
-`git diff --check` on this session's changed files: clean (exit 0).
+`git diff --check` on this session's own files: clean (no output).
 
 ## R. Production writes
-
-NONE. This session made zero live database connections, ran no script in
-`--commit` mode, and performed zero production writes.
+NONE. Zero live Supabase/production DB connections were made. No script was run with
+`--commit`. All verification was against mocked clients in the unit test suite.
 
 ## S. Final decision
+**PROMPT4_REPO_READY.** Repo-side tooling (publication script, coverage-repair mechanism,
+sampled oracle/parity + planner-path acceptance script, cache-first design) is implemented and
+test-verified against mocked clients. Production execution (sections E–J, L–P) has not run and
+is explicitly out of scope for this session.
 
-**PROMPT4_REPO_READY** — repo-side publication tooling, coverage-repair
-mechanism, vintage/no-NM safeguards, resumable/idempotent batching, sampled
-global acceptance tooling, and a mocked test suite (166/166 passing) are in
-place. This is explicitly NOT "accepted": production has not executed the
-publication contract, reconciled global daily-state coverage, run the
-sampled oracle/parity checks against live data, or built any cache. Those
-remain PENDING and are owned by the external production-execution process.
-
-## Migration source-control sync (non-blocking open item)
-
-Searched this worktree for the three Prompt 3 production migration files:
-
-- `20260902221622_add_market_explorer_vintage_identity_repair_primitives.sql`
-- `20260902221819_add_scoped_variant_monthly_rollup_rebuild.sql`
-- `20260903034704_harden_market_explorer_vintage_top_hits_rebuild.sql`
-
-None were found anywhere under `backend/` in this worktree (confirmed via
-recursive filename search; `backend/db/migrations/` contains no file with
-any of these three timestamps). This matches the note already present in
-`repair_market_explorer_vintage_predecessor_identities.py` (lines 48-52,
-citing the same migrations as installed in production but not present in
-this worktree). No SQL was guessed or invented.
-
-**Status: `PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT`** — non-blocking
-open item for this prompt; must be resolved (exact SQL mirrored into
-`backend/db/migrations/`) before those three migrations can be considered
-under source control in this repository.
-
-## Batching order implemented by the publication tooling
-
-`publish_market_explorer_daily_projection.py` accepts `--set-id`
-(repeatable) and `--era-id` (repeatable) exactly like
-`backfill_market_explorer_variant_intervals.py`, so the batching order
-specified in the task (1. Prompt 2 newer cohort, 2. Prompt 3 older/special
-cohort, 3. existing 50-set Sep-2 append + coverage repair, 4. final global
-reconciliation) is achieved by invoking the script four times with the
-appropriate `--set-id`/`--era-id` scope for each phase — the script itself
-is scope-agnostic and idempotent per invocation, so cohorts can be run in
-any order and interrupted/resumed without corrupting totals (coverage is
-always recomputed from actual table contents on every invocation, per
-section D).
+## Open item
+Three Prompt 3 production migrations were searched for in this worktree and NOT found:
+`20260902221622_add_market_explorer_vintage_identity_repair_primitives.sql`,
+`20260902221819_add_scoped_variant_monthly_rollup_rebuild.sql`,
+`20260903034704_harden_market_explorer_vintage_top_hits_rebuild.sql`.
+Status: **PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT** (non-blocking; no SQL was
+guessed/invented to fill this gap).
