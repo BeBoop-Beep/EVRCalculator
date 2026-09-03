@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const LEGAL_CONTACT_EMAIL = "support@inthedex.io";
+export const LEGAL_CONTACT_EMAIL = "dengkee.business@gmail.com";
 
 export default function LegalDocumentPage({ title, updated, intro, children }) {
   return (
