@@ -1,4 +1,4 @@
-import { normalizeIndexPlan } from "@/lib/access/indexPlanAccess.mjs";
+import { normalizeIndexPlan } from "../../lib/access/indexPlanAccess.mjs";
 
 // Pure branching logic for which plan-change mode a PaidCard should render.
 // Deliberately extracted into its own dependency-free module (no JSX, no
