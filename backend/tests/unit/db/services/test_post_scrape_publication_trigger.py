@@ -28,7 +28,7 @@ def _reset_popen_calls():
 def test_invalid_market_date_never_launches():
     calls_before = len(_fake_popen.calls)
     result = trigger.trigger_post_scrape_publication_if_needed(
-        None, publication_current=lambda d: False, popen=_fake_popen,
+        None, publication_current=lambda d: trigger.PublicationCurrencyStatus.STALE, popen=_fake_popen,
     )
     assert result["status"] == trigger.STATUS_INVALID_MARKET_DATE
     assert len(_fake_popen.calls) == calls_before
@@ -36,7 +36,7 @@ def test_invalid_market_date_never_launches():
 
 def test_malformed_market_date_never_launches():
     result = trigger.trigger_post_scrape_publication_if_needed(
-        "09-01-2026", publication_current=lambda d: False, popen=_fake_popen,
+        "09-01-2026", publication_current=lambda d: trigger.PublicationCurrencyStatus.STALE, popen=_fake_popen,
     )
     assert result["status"] == trigger.STATUS_INVALID_MARKET_DATE
     assert _fake_popen.calls == []
@@ -48,7 +48,7 @@ def test_already_current_market_date_skips_launch():
 
     def current(market_date):
         seen.append(market_date)
-        return True
+        return trigger.PublicationCurrencyStatus.CURRENT
 
     result = trigger.trigger_post_scrape_publication_if_needed(
         "2026-09-01", publication_current=current, popen=_fake_popen,
@@ -60,7 +60,9 @@ def test_already_current_market_date_skips_launch():
 
 def test_stale_market_date_launches_detached_with_exact_date():
     result = trigger.trigger_post_scrape_publication_if_needed(
-        "2026-09-01", publication_current=lambda d: False, popen=_fake_popen,
+        "2026-09-01",
+        publication_current=lambda d: trigger.PublicationCurrencyStatus.STALE,
+        popen=_fake_popen,
     )
     assert result["status"] == trigger.STATUS_LAUNCH_REQUESTED
     assert len(_fake_popen.calls) == 1
@@ -74,13 +76,17 @@ def test_repeated_calls_after_success_do_not_relaunch():
     """Idle-minute dispatcher calling this repeatedly must not restart the publisher
     once the exact market date is durably current."""
     result_1 = trigger.trigger_post_scrape_publication_if_needed(
-        "2026-09-01", publication_current=lambda d: False, popen=_fake_popen,
+        "2026-09-01",
+        publication_current=lambda d: trigger.PublicationCurrencyStatus.STALE,
+        popen=_fake_popen,
     )
     assert result_1["status"] == trigger.STATUS_LAUNCH_REQUESTED
 
     # Publication has since completed; the durable authority now reports current.
     result_2 = trigger.trigger_post_scrape_publication_if_needed(
-        "2026-09-01", publication_current=lambda d: True, popen=_fake_popen,
+        "2026-09-01",
+        publication_current=lambda d: trigger.PublicationCurrencyStatus.CURRENT,
+        popen=_fake_popen,
     )
     assert result_2["status"] == trigger.STATUS_SKIPPED_ALREADY_CURRENT
     assert len(_fake_popen.calls) == 1  # only the first call actually launched
@@ -97,24 +103,53 @@ def test_launch_failure_is_swallowed_and_reported_not_raised(monkeypatch):
     )
 
     result = trigger.trigger_post_scrape_publication_if_needed(
-        "2026-09-01", publication_current=lambda d: False, popen=boom,
+        "2026-09-01",
+        publication_current=lambda d: trigger.PublicationCurrencyStatus.STALE,
+        popen=boom,
     )
     assert result["status"] == trigger.STATUS_LAUNCH_FAILED
     assert "error" in result
     assert alerts and alerts[0][0] == "2026-09-01"
 
 
-def test_currency_check_exception_treated_as_stale_not_raised():
+def test_currency_check_exception_returns_unknown_and_never_launches():
     def broken(market_date):
         raise RuntimeError("db unreachable")
 
     result = trigger.trigger_post_scrape_publication_if_needed(
         "2026-09-01", publication_current=broken, popen=_fake_popen,
     )
-    # Fail-open to "needs publishing" so a broken currency check does not
-    # silently block publication forever.
-    assert result["status"] == trigger.STATUS_LAUNCH_REQUESTED
-    assert len(_fake_popen.calls) == 1
+
+    assert result["status"] == trigger.STATUS_CURRENCY_CHECK_FAILED
+    assert len(_fake_popen.calls) == 0  # must NOT launch on an unknown currency state
+
+
+def test_default_publication_current_returns_unknown_on_audit_exception(monkeypatch):
+    def broken_audit(client, market_date, phase):
+        raise RuntimeError("db unreachable")
+
+    monkeypatch.setattr(
+        "backend.scripts.audit_pokemon_market_publication.run_market_publication_audit",
+        broken_audit,
+    )
+
+    status = trigger._default_publication_current("2026-09-01")
+
+    assert status == trigger.PublicationCurrencyStatus.UNKNOWN
+
+
+def test_currency_check_failure_queues_a_deduplicated_alert_for_exact_market_date():
+    def broken(market_date):
+        raise RuntimeError("db unreachable")
+
+    calls = []
+    trigger.trigger_post_scrape_publication_if_needed(
+        "2026-09-01", publication_current=broken, popen=_fake_popen,
+        queue_alert=lambda **kwargs: calls.append(kwargs),
+    )
+
+    assert len(calls) == 1
+    assert calls[0]["market_date"] == "2026-09-01"
 
 
 def test_default_popen_uses_detached_session_and_explicit_args(tmp_path, monkeypatch):
