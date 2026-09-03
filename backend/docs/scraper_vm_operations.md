@@ -237,17 +237,22 @@ never implicitly create the daily queue — batch creation is its own scheduled 
 keyed on the **America/Phoenix** market date (Arizona has no DST, so Phoenix is
 always UTC-7).
 
+The production crontab sets `CRON_TZ=America/Phoenix`, so every cron expression
+below is Phoenix-local. Do **not** mix UTC-converted expressions into the same
+crontab; doing so is how a schedule can look correct on paper while firing at the
+wrong local time.
+
 ### 8.1 The active daily schedule
 
-| Time (Phoenix) | Time (UTC) | Role | Command |
-|----------------|-----------|------|---------|
-| 1:00 AM | `0 8 * * *` | Reset/reconcile stale scrape jobs | `backend/scripts/reconcile_stale_scrape_jobs.py --commit` |
-| 1:05 AM | `5 8 * * *` | Create the daily scrape batch | `backend/scripts/create_daily_scrape_batch.py` |
+| Time (Phoenix) | Cron expression (`CRON_TZ=America/Phoenix`) | Role | Command |
+|----------------|---------------------------------------------|------|---------|
+| 1:00 AM | `0 1 * * *` | Reset/reconcile stale scrape jobs | `backend/scripts/reconcile_stale_scrape_jobs.py --commit` |
+| 1:05 AM | `5 1 * * *` | Create the daily scrape batch | `backend/scripts/create_daily_scrape_batch.py` |
 | every minute | `* * * * *` | Run the next scrape job **and, the instant the batch completes, hand off to publication** — **REQUIRED to run under a non-blocking `flock`; see the OOM incident note below** | `flock -n /tmp/pokemon-scrape-dispatcher.lock -c '... backend/scripts/run_next_scrape_job.py'` |
 | ~immediately after batch completion (NORMAL) | — | **Post-scrape canonical market publication**, launched detached for the exact batch market_date | `backend/scripts/rebuild_snapshots_after_scrape.sh <market_date>` |
 | 6:00 AM | `0 6 * * *` | **Fallback/watchdog only** — publish if the day's completed batch has not already published | `backend/scripts/publish_post_scrape_if_needed.py` |
 | later (Windows) | — | Simulations + full coordinated publication | Windows Task Scheduler → `infra/local/run_simulations.sh` |
-| ~~1:00 PM~~ | ~~`0 20 * * *`~~ | **REMOVED from the canonical schedule** — legacy market-dashboard rebuild; see §8.3 | — |
+| ~~1:00 PM~~ | ~~`0 13 * * *`~~ | **REMOVED from the canonical schedule** — legacy market-dashboard rebuild; see §8.3 | — |
 
 **Sep 2-3, 2026 OOM incident — dispatcher flock is now REQUIRED, not optional.**
 The every-minute cron previously ran `run_next_scrape_job.py` (a long-running
@@ -261,12 +266,14 @@ again (requirement P). This is now the canonical, tested deployment shape —
 not a one-off hotfix.
 
 ```cron
+CRON_TZ=America/Phoenix
+
 # 1:00 AM Phoenix — reclaim expired leases and clear stale prior-day jobs BEFORE
 #         the new batch is derived.
-0 8 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/reconcile_stale_scrape_jobs.py --commit >> scraper.log 2>&1
+0 1 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/reconcile_stale_scrape_jobs.py --commit >> scraper.log 2>&1
 
 # 1:05 AM Phoenix — derive the cohort dynamically and enqueue one job per ready set.
-5 8 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/create_daily_scrape_batch.py >> scraper.log 2>&1
+5 1 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/create_daily_scrape_batch.py >> scraper.log 2>&1
 
 # Every minute — claim + run ONE job under a lease. Creates no batch. When the
 #         queue drains it runs the batch completeness/cohort-repair check, and
@@ -290,9 +297,9 @@ not a one-off hotfix.
 #         NEW LINE:
 0 6 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/publish_post_scrape_if_needed.py >> publication.log 2>&1
 
-# REMOVED (requirement O): the legacy 1:00 PM (0 20 * * * UTC) unconditional
+# REMOVED (requirement O): the legacy 1:00 PM Phoenix-local unconditional
 #         market-dashboard rebuild —
-#           0 20 * * * .../python backend/scripts/build_pokemon_market_dashboard_snapshots.py --all --commit --days 365 --window 365d
+#           0 13 * * * .../python backend/scripts/build_pokemon_market_dashboard_snapshots.py --all --commit --days 365 --window 365d
 #         — is NOT part of the canonical schedule. The canonical post-scrape /
 #         6:00 AM publication orchestrator now owns this entire family end to
 #         end (see §8.3). Do not re-add it.
@@ -305,8 +312,8 @@ python -m backend.scripts.validate_dispatcher_cron_deployment
 ```
 
 It exits nonzero (and should gate deploy/CI) if the every-minute dispatcher
-line is missing `flock -n`, if no dispatcher line exists at all, or if the
-legacy 1:00 PM `--all` dashboard rebuild is still present.
+line is missing `flock -n`, if no every-minute dispatcher line exists at all,
+or if the legacy 1:00 PM `--all` dashboard rebuild is still present.
 
 ### 8.2 The two publication phases
 
@@ -431,7 +438,7 @@ sets — scrape completion and publication remain separate failure domains.
 
 ### 8.3 The 1:00 PM market-dashboard rebuild is REMOVED from the canonical schedule
 
-A legacy 1:00 PM Phoenix (20:00 UTC) unconditional
+A legacy 1:00 PM Phoenix unconditional
 `build_pokemon_market_dashboard_snapshots.py --all --commit --days 365 --window 365d`
 cron entry predated the canonical orchestrator. It has been **disabled on
 production** and is **not part of the canonical schedule** (requirement O):
@@ -717,7 +724,6 @@ The watchdog uses fixed America/Phoenix business time and independently checks:
 Each failure uses `alert_type:market_date:failure_class` as its deterministic
 dedupe key. Repeated five-minute runs reuse the existing row. The watchdog only
 queues alerts and never changes scrape, quality, publication, or simulation state.
-
 Deployment verification:
 
 ```bash
