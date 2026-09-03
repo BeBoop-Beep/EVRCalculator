@@ -33,6 +33,41 @@ def _number(value):
     return re.sub(r"^0+", "", str(value or "").split("/", 1)[0].lower())
 
 
+def _compute_canonical_price_identity_drift(
+    *, set_id, canonical_key, selected_rows, raw_observation_rows,
+):
+    """Flag sets where the canonical selected-price layer is stale even
+    though raw Near Mint USD observations are current. Read-only; does
+    not auto-link or mutate anything.
+
+    Modeled on the Nintendo Black Star Promos incident: raw TCGPlayer
+    observations were current, canonical selected-price rows existed, but
+    none of the currently-selected variant identities reached the fresh
+    date because a fresh replacement identity existed but wasn't linked
+    into the canonical selection.
+    """
+    if not selected_rows:
+        return []
+
+    def _latest_date(rows):
+        dates = [_fold(row.get("captured_at"))[:10] for row in rows if row.get("captured_at")]
+        return max(dates) if dates else None
+
+    selected_latest = _latest_date(selected_rows)
+    raw_latest = _latest_date(raw_observation_rows)
+    if not selected_latest or not raw_latest or selected_latest >= raw_latest:
+        return []
+
+    return [{
+        "setId": set_id,
+        "canonicalKey": canonical_key,
+        "selectedLatestDate": selected_latest,
+        "rawLatestDate": raw_latest,
+        "selectedRowCount": len(selected_rows),
+        "currentRawIdentityCount": len({row.get("card_variant_id") for row in raw_observation_rows}),
+    }]
+
+
 def audit(client):
     canonical = _paged(client, "pokemon_canonical_cards",
                        "id,set_id,name,number,printed_number,pokemon_tcg_api_card_id,rarity")
@@ -50,7 +85,10 @@ def audit(client):
     nm = next(row for row in conditions
               if _fold(row.get("name")) == "near mint" and str(row.get("abbreviation") or "").upper() == "NM")
     canonical_latest = _paged(client, "pokemon_canonical_card_market_prices_latest",
-                              "canonical_card_id,card_variant_id,condition_id,market_price")
+                              "canonical_card_id,set_id,card_variant_id,condition_id,market_price,captured_at")
+    raw_nm_observations = _paged(client, "card_variant_price_observations",
+                                 "card_variant_id,condition_id,captured_at,market_price",
+                                 filters=(("eq", "condition_id", nm["id"]),))
 
     cards_by_id = {str(row["id"]): row for row in cards}
     sets_by_id = {str(row["id"]): row.get("name") for row in sets}
@@ -162,6 +200,29 @@ def audit(client):
                 "namedImpact": next((key for key in ("dragonite", "charizard", "pikachu")
                                      if key in _fold(name)), None)}
 
+    canonical_latest_by_set = defaultdict(list)
+    for row in canonical_latest:
+        if str(row.get("condition_id")) == str(nm["id"]):
+            canonical_latest_by_set[str(row.get("set_id"))].append(row)
+    raw_nm_by_variant = defaultdict(list)
+    for row in raw_nm_observations:
+        raw_nm_by_variant[str(row.get("card_variant_id"))].append(row)
+    set_variant_ids = defaultdict(set)
+    for row in canonical:
+        legacy_card_id = resolved.get(str(row["id"]))
+        if not legacy_card_id:
+            continue
+        for variant in variants_by_card.get(legacy_card_id, []):
+            set_variant_ids[str(row["set_id"])].add(str(variant["id"]))
+    canonical_price_identity_drift = []
+    for set_id, variant_ids in set_variant_ids.items():
+        raw_rows = [obs for vid in variant_ids for obs in raw_nm_by_variant.get(vid, [])]
+        canonical_price_identity_drift.extend(_compute_canonical_price_identity_drift(
+            set_id=set_id, canonical_key=sets_by_id.get(set_id) or set_id,
+            selected_rows=canonical_latest_by_set.get(set_id, []),
+            raw_observation_rows=raw_rows,
+        ))
+
     unresolved_ids = sorted(set(canonical_by_id) - set(resolved))
     debt = [debt_row(cid, "unresolved") for cid in unresolved_ids]
     debt.extend(debt_row(cid, "ambiguous") for cid in sorted(ambiguous))
@@ -194,6 +255,7 @@ def audit(client):
             "top25": top_debt,
         },
         "examples": [example(cid) for cid in requested],
+        "canonicalPriceIdentityDrift": canonical_price_identity_drift,
     }
 
 
