@@ -37,6 +37,13 @@ class Query:
             requested = self.filters.get("set_id", [])
             rows = [dict(self.client.coverage[s]) for s in requested if s in self.client.coverage]
             return Response(rows)
+        if self.name == "sets":
+            # No set in this fixture is catalog-only -- resolve_tracked_set_ids
+            # must pass every tracked set through unchanged.
+            rows = [{"id": s, "catalog_only": False} for s in self.client.tracked_sets]
+            start = getattr(self, "start", 0) or 0
+            end = getattr(self, "end", len(rows) - 1)
+            return Response(rows[start:end + 1])
         raise AssertionError(f"unexpected table {self.name}")
 
 

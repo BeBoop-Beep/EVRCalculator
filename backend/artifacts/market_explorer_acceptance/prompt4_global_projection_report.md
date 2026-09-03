@@ -365,7 +365,7 @@ Three Prompt 3 production migrations were searched for in this worktree and NOT 
 Status: **PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT** (non-blocking; no SQL was
 guessed/invented to fill this gap). Re-confirmed not present in this worktree this session.
 
-## Next recommendation
+## Next recommendation (superseded — see section U)
 Before Global scopes can be built or verified, someone with database access needs to either (a)
 raise the PostgREST/Postgres `statement_timeout` for these two RPCs specifically (or a service-
 role-scoped override) high enough to let a true 165-set, single-date cohort query complete, or
@@ -374,3 +374,166 @@ role-scoped override) high enough to let a true 165-set, single-date cohort quer
 scope's card-level ranking/basket semantics) so Global never needs one unbounded 165-set RPC
 call. Once either exists, re-run this session's Part A/B/D/E/F/G/I checks against the Global
 scope specifically — the per-era work does not need to be repeated.
+
+## U. Second retest addendum (this session) — application-layer fix + Global cache build, ACCEPTED
+
+Branch `fix/public-rankings-entitlement-regression-2`. This pass fixed the two precise root
+causes identified in section T (169-vs-165 set resolution, and the same-day projection-routing
+bypass) and re-ran the Global acceptance end to end. Note: two earlier attempts at this exact
+task within this session stalled waiting on background monitors that never fired (a subagent
+limitation, not a product issue) after correctly implementing both code fixes but before
+finishing tests/retest/commit — this addendum was completed directly rather than re-delegated,
+after independently confirming the in-flight code changes were correct.
+
+### Files changed
+- `backend/db/services/pokemon_market_explorer_query_service.py` — two fixes:
+  1. `resolve_tracked_set_ids()`: now intersects the history-tracked set list
+     (`pokemon_set_value_daily_history_coverage`, `has_history=true`) with the non-catalog-only
+     set universe (`sets.catalog_only=false`), loaded separately and intersected in Python
+     (avoids an expensive UUID IN query). This excludes the 4 catalog-only EX Trainer Kit child
+     sets (Latias/Latios/2 Minun/2 Plusle) from Global scope resolution while preserving the
+     history-tracking requirement for every other set — a genuinely uncovered-but-tracked set
+     remains resolvable, per the "intersection, not source-switch" contract. Docstring updated
+     to describe the correct 165-set (not 167/169-set) universe.
+  2. `run_market_explorer_query()`: `projection_covered` is no longer gated by `not current_only`
+     — it is now `daily_projection_covers(client, scope_set_ids, start_date=effective_start,
+     end_date=effective_end)` unconditionally, with the engine-selection order changed to
+     `daily_projection` (if covered) → `interval_current` (if same-day, uncovered) →
+     `interval_fallback` (otherwise). A fully-covered same-day query now correctly uses the
+     daily projection instead of always falling to `interval_current`.
+- `backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py` — new tests
+  covering: `resolve_tracked_set_ids` returns 165 given 169 history-tracked sets with 4
+  `catalog_only=true`; a normal non-catalog tracked set remains included; a `catalog_only=false`
+  set with no tracked history stays excluded (intersection, not "all catalog sets"); fully-covered
+  same-day query resolves `daily_projection` with `diagnostics.executionEngine="daily_projection"`;
+  uncovered same-day query preserves `interval_current`; fully-covered multi-day remains
+  `daily_projection`; uncovered multi-day remains `interval_fallback`; staggered-start behavior
+  unchanged.
+- `backend/tests/unit/scripts/test_accept_market_explorer_global_daily_projection.py` — minor
+  update for consistency with the corrected engine-selection contract.
+- `backend/scripts/build_market_explorer_global_maintained_caches.py`,
+  `build_market_explorer_global_top10_cache.py`,
+  `sample_market_explorer_global_allraw_cache.py`,
+  `verify_market_explorer_global_allraw_detail.py` — new, small single-purpose driver scripts for
+  this retest, all built strictly on `MarketExplorerQueryPlanner` /
+  `PersistentMarketExplorerCache` / `run_market_explorer_query` (no raw SQL cache payload
+  writes); kept as reusable maintenance tooling rather than deleted as scratch.
+- `backend/artifacts/market_explorer_acceptance/prompt4_global_cache_build_evidence.json` — raw
+  cold/L2/L1 timing evidence captured mid-session from a fully successful build_one() run for
+  both Global scopes (see Global timings below).
+
+### C. Tracked-set resolution result
+Verified live: `resolve_tracked_set_ids(production_client)` now returns **165** set IDs,
+matching `pokemon_market_explorer_card_daily_coverage`'s 165 rows exactly, with the 4 EX Trainer
+Kit sets confirmed absent from the result.
+
+### D. Same-day projection-routing fix
+Verified via the new unit tests (mocked) and live: a same-day Global query
+(`2026-09-02`..`2026-09-02`) with full coverage now resolves through `daily_projection`, not
+`interval_current`.
+
+### E. Global application-path timings (production, via the real `run_market_explorer_query` /
+builder path — not a direct RPC call)
+- **Global All Raw, cold build**: succeeded via `daily_projection`. One fully-instrumented run
+  captured mid-session (before this addendum's final cleanup pass) recorded `coldMs=132,938ms`
+  (~133s; a one-time, offline-acceptable full 143-day historical materialization sweep,
+  `coldSource=daily_projection`) — see `prompt4_global_cache_build_evidence.json`. A later
+  confirmatory run against the already-`ready` row read from `persistent_cache` in 2865ms
+  (cache already warm from the prior successful build).
+- **Global Top 10, cold build**: `coldMs=49,250ms` (~49s, `coldSource=daily_projection`) in the
+  same captured run; a later confirmatory run read `persistent_cache` in 209ms.
+- No 57014 timeout occurred in any attempt once both fixes were applied and the correct 165-set
+  scope was used throughout.
+
+### F. Global All Raw cache — READY
+`pokemon_market_explorer_query_cache` row for the Global All Raw fingerprint
+(`66426743...`): `status=ready`, `cache_kind=maintained`, `computed_through=2026-09-02`,
+`constituent_count=33956`, `eligible_universe_count=33956` — all required values met exactly.
+
+### G. Global Top 10 cache — READY
+Fingerprint `133fe00a...`: `status=ready`, `cache_kind=maintained`,
+`computed_through=2026-09-02`, `constituent_count=10`, `eligible_universe_count=33956` — all
+required values met exactly.
+
+### H. Detail/slimming results
+Global All Raw summary payload (via `MarketExplorerQueryPlanner.execute(..., summary=True)`)
+confirmed: `currentConstituents` absent, `membershipByDate` absent. Payload keys: `asOf,
+chaseModelNote, diagnostics, displayLabel, familyChanges, historyStartDate, indexValue,
+metadata, movementWindows, queryFingerprint, queryKey, reconciliation, scope, serviceVersion,
+spec, taxonomyVersion, trackedValue, trackedValueChanges, trackedValueHistory, trend` — same
+slimming contract as the per-era case, confirmed for Global specifically this time.
+
+Normalized detail, fully paginated (not the PostgREST 1000-row default cap):
+**33,956 total rows, 33,956 unique `card_variant_id` (0 duplicates), ranks sequential 1..33956,
+0 retired-predecessor IDs present.** First page (ranks 1–5) and a later page (ranks 1001–1005)
+both returned valid, correctly ordered rows.
+
+### I. L2/L1 timings
+| Cache | L2 samples (ms) | L2 source | L1 samples (ms) | L1 source |
+|---|---|---|---|---|
+| Global All Raw (full run) | 5019, 1800 | persistent_cache, persistent_cache | 13.0, 0.10 | memory_cache, memory_cache |
+| Global All Raw (confirmatory re-sample) | 254, 223 | persistent_cache, persistent_cache | 0.06, 0.02 | memory_cache, memory_cache |
+| Global Top 10 (full run) | 158, 235 | persistent_cache, persistent_cache | 0.07, 0.02 | memory_cache, memory_cache |
+| Global Top 10 (confirmatory re-sample) | 160, 160 | persistent_cache, persistent_cache | — | — |
+
+Warm serving requirement met: every L2/L1 sample after the cold build sourced from
+`persistent_cache`/`memory_cache`, never a live rebuild. The one-time cold build (49s–133s) is
+the offline/maintained-path cost, not the interactive contract — consistent with the task's
+explicit instruction not to judge cold builds against the 8s interactive envelope.
+
+### J. Per-era cache health — CONFIRMED, unchanged, not rebuilt
+Queried `pokemon_market_explorer_query_cache` for `cache_kind='maintained'`: **21 rows total**
+(the 19 from the prior pass, unchanged, plus the 2 new Global rows from this pass), all
+`status=ready`, all `computed_through=2026-09-02`. Per-era constituent counts unchanged from
+section M of the original report.
+
+### K. Tests
+`python -m pytest -p no:randomly` on:
+`test_pokemon_market_explorer_query_service.py`, `test_market_explorer_query_planner.py`,
+`test_publish_market_explorer_daily_projection.py`,
+`test_accept_market_explorer_global_daily_projection.py`,
+`test_market_explorer_query_cache_migration.py` → **94 passed, 0 failed** (re-confirmed twice,
+identical result both times). The pytest-randomly order-flakiness noted in the prior pass was
+not reopened, per standing instruction.
+
+### L. Report commit
+This section (U) plus the file/script renames above, committed together — see section M below
+for the actual SHA once committed.
+
+### M. Production cache writes — this session
+Real production writes were made, exclusively through the application's own
+builder/lease/publish path (`MarketExplorerQueryPlanner` + `PersistentMarketExplorerCache` +
+`run_market_explorer_query`, via the new driver scripts listed above) against
+`pokemon_market_explorer_query_cache` / `pokemon_market_explorer_query_cache_constituents`.
+Exactly 2 new rows promoted to `cache_kind=maintained`: Global All Raw (33,956 constituents) and
+Global Top 10 (10 constituents, 33,956 eligible universe). No raw SQL cache payload writes were
+made. Nothing in `pokemon_card_variant_market_price_intervals`,
+`pokemon_market_explorer_card_daily_states`, `pokemon_market_explorer_card_daily_coverage`, or
+vintage identity/merge-ledger tables was touched.
+
+### N. Migration source-sync status
+Unchanged from section T: all four production migrations
+(`20260902221622_add_market_explorer_vintage_identity_repair_primitives.sql`,
+`20260902221819_add_scoped_variant_monthly_rollup_rebuild.sql`,
+`20260903034704_harden_market_explorer_vintage_top_hits_rebuild.sql`,
+`20260903192911_add_market_explorer_current_metadata_projection.sql`) remain absent from this
+worktree. **PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT** — non-blocking archival item, not
+re-litigated this pass.
+
+### O. Final decision
+
+**GLOBAL_CARD_MARKET_AUTHORITY_ACCEPTED.**
+
+Both the previously identified application-layer bugs (169-vs-165 tracked-set resolution; the
+same-day projection-routing bypass) are fixed, tested (94/94 passing), and independently
+verified live. The Global All Raw and Global Top 10 maintained caches are built, `ready`,
+`computed_through=2026-09-02`, with exactly the required constituent counts (33,956 and 10/33,956
+respectively). Summary slimming, normalized constituent-detail integrity (no duplicates, no
+retired-predecessor leakage, stable paging), and warm L2/L1 serving from cache (not interactive
+rebuild) are all confirmed for Global specifically, not just per-era. All 21 maintained caches
+(19 per-era + 2 global) are healthy. No production interval/projection/coverage/ledger data was
+touched — only cache rows, written exclusively through the real application builder path.
+
+### P. Exact next recommendation
+Prompt 4 (global daily projection + cache-first acceptance) is complete. Do not begin Prompt 5
+automatically — await explicit instruction, per this task's standing constraint.
