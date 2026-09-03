@@ -40,6 +40,19 @@ EXPECTED_OVERALL_RIP_VERSION = "overall_rip_v10_90_financial_v4_10_collector_app
 EXPECTED_COLLECTOR_APPEAL_VERSION = "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2"
 EXPECTED_COLLECTOR_APPEAL_VERSION_PREFIX = "collector_appeal_v5_"
 
+#: V12 BUDGET authority identity (Gate F, Phase 8). Explicit-opt-in only -
+#: never the default/canonical budget authority. Each string identifies exact
+#: model lineage; a caller requesting V12 authority must match ALL of these,
+#: never infer lineage from field position.
+EXPECTED_OVERALL_RIP_V12_VERSION = (
+    "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5"
+)
+EXPECTED_CHASE_ACCESSIBILITY_VERSION = "chase_accessibility_v1_hc_value_squared_modeled_probability"
+EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION = (
+    "chase_accessibility_overall_score_v1_saturating_k002"
+)
+MIN_MAPPED_HC_MASS_FOR_BUDGET_V12 = 0.99
+
 #: Families the V1 validation actually covered. A new family appearing is not
 #: an error, but it has never been checked for ranking coverage.
 VALIDATED_PRODUCT_FAMILIES = frozenset({

@@ -328,6 +328,16 @@ def score_budget_strategy(
     }
 
 
+#: Sort-authority selector for :func:`rank_budget_cohort` (Gate F, Phase 7).
+#: V10 stays the default/canonical authority everywhere this engine is
+#: called without an explicit override - nothing in this module changes that
+#: default. V12 is available ONLY on explicit request (a future, later,
+#: separate cutover would change the default; that cutover is out of scope
+#: here and must never happen implicitly).
+SORT_AUTHORITY_V10 = "overall_rip_v10"
+SORT_AUTHORITY_V12 = "overall_rip_v12"
+
+
 def _tier_sort_key(entry: Mapping[str, Any]) -> tuple:
     """Overall RIP V10 (desc) -> Financial RIP V4 (desc) -> chance-to-recover
     (desc, when present) -> committed-capital closeness to target (asc) ->
@@ -361,15 +371,58 @@ def _tier_sort_key(entry: Mapping[str, Any]) -> tuple:
     )
 
 
-def rank_budget_cohort(strategies: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
-    """Rank only the RANKABLE strategies (overallRipV10Score is not None).
+def _tier_sort_key_v12(entry: Mapping[str, Any]) -> tuple:
+    """V12-authority ordering: Overall RIP V12 (desc) in the position V10
+    occupies in :func:`_tier_sort_key`, everything else identical (same
+    Financial V4 / chance-to-recover / utilisation tie-breaks). A row whose
+    ``overallRipV12Rankable`` is not True must never reach this comparator -
+    :func:`rank_budget_cohort` filters those out before sorting, so there is
+    no path by which an unavailable V12 row can be silently ordered (let
+    alone ordered using its V10 score under the V12 label)."""
+    overall = entry.get("overallRipV12Score")
+    financial = entry.get("financialRipV4Score")
+    recover = entry.get("chanceToRecoverCapital")
+    if recover is None:
+        recover = entry.get("chanceToRecoverCost")
+    mismatch = abs(entry.get("actualCommittedCapital", 0.0) - entry.get("targetBudget", 0.0))
+    return (
+        -(overall if overall is not None else float("-inf")),
+        -(financial if financial is not None else float("-inf")),
+        -(recover if recover is not None else float("-inf")),
+        mismatch,
+        str(entry.get("sealedProductId") or ""),
+    )
 
-    Ineligible/unrankable strategies are never assigned a rank; callers must
-    keep them out of this list's cohort-size accounting and report them as
-    excluded with a reason, never as a fabricated rank.
+
+def rank_budget_cohort(
+    strategies: Sequence[Mapping[str, Any]],
+    *,
+    sort_authority: str = SORT_AUTHORITY_V10,
+) -> List[Dict[str, Any]]:
+    """Rank only the RANKABLE strategies under the requested sort authority.
+
+    ``sort_authority`` defaults to V10 (the canonical/default budget-ranking
+    authority) and MUST be passed explicitly to get V12 ordering - there is no
+    implicit or inferred cutover. Ineligible/unrankable strategies (for V10:
+    ``overallRipV10Score`` is None; for V12: ``overallRipV12Rankable`` is not
+    True) are never assigned a rank; callers must keep them out of this list's
+    cohort-size accounting and report them as excluded with a reason, never as
+    a fabricated rank. A V12-unavailable row can never "fall back" to being
+    ranked by its V10 score while the result is labelled V12 - it is simply
+    excluded from this list.
     """
-    rankable = [s for s in strategies if s.get("overallRipV10Score") is not None]
-    ordered = sorted(rankable, key=_tier_sort_key)
+    if sort_authority == SORT_AUTHORITY_V12:
+        rankable = [s for s in strategies if s.get("overallRipV12Rankable") is True and s.get("overallRipV12Score") is not None]
+        sort_key = _tier_sort_key_v12
+        score_field = "overallRipV12Score"
+    elif sort_authority == SORT_AUTHORITY_V10:
+        rankable = [s for s in strategies if s.get("overallRipV10Score") is not None]
+        sort_key = _tier_sort_key
+        score_field = "overallRipV10Score"
+    else:
+        raise ValueError("unknown sort_authority %r" % (sort_authority,))
+
+    ordered = sorted(rankable, key=sort_key)
     size = len(ordered)
 
     # INTERNAL AUDIT LENS (never surfaced publicly): the SAME cohort ordered by
@@ -402,7 +455,7 @@ def rank_budget_cohort(strategies: Sequence[Mapping[str, Any]]) -> List[Dict[str
                 # Overall RIP V10 score via the shared composite thresholds.
                 # Rank #1 does not imply tier S, and tier S does not imply
                 # rank #1 — see the decision record's tier semantics section.
-                "budgetTier": assign_composite_tier(entry["overallRipV10Score"]),
+                "budgetTier": assign_composite_tier(entry[score_field]),
                 "financialOnlyRank": financial_only_rank[str(entry.get("sealedProductId"))],
             }
         )

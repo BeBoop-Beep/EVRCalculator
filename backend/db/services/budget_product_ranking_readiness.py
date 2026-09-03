@@ -280,6 +280,81 @@ def resolve_budget_ranking_readiness(
     )
 
 
+def resolve_v12_budget_authority_readiness(
+    cohort: Sequence[Mapping[str, Any]],
+    accessibility_resolution: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """V12 BUDGET authority readiness addendum (Gate F, Phase 9).
+
+    EXPLICIT-OPT-IN ONLY. This is never consulted by
+    :func:`resolve_budget_ranking_readiness`'s default V10 path, and V10
+    readiness behaviour above is completely unchanged by this function's
+    existence. A caller that wants a V12 shadow/explicit ranking must call
+    this addendum itself, after already having (a) a V10-ready cohort and
+    (b) an accessibility resolution from
+    ``budget_chase_accessibility_authority.resolve_budget_cohort_accessibility``
+    for the SAME cohort's ``set_id -> calculation_run_id`` map.
+
+    Returns explicit per-set eligibility plus cohort-level pass/fail; never
+    raises and never silently substitutes V10 authority for a rejected V12
+    row.
+    """
+    from backend.db.services.budget_product_ranking_authority import (
+        EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
+        EXPECTED_CHASE_ACCESSIBILITY_VERSION,
+        EXPECTED_OVERALL_RIP_V12_VERSION,
+        MIN_MAPPED_HC_MASS_FOR_BUDGET_V12,
+    )
+
+    by_set = accessibility_resolution.get("bySet") or {}
+    per_set: Dict[str, Dict[str, Any]] = {}
+    eligible_set_ids = set()
+    for row in cohort:
+        set_id = str(row.get("set_id"))
+        if set_id in per_set:
+            continue
+        entry = by_set.get(set_id)
+        if not entry:
+            per_set[set_id] = {"eligible": False, "reason": "no_accessibility_resolution_for_set"}
+            continue
+        if not entry.get("ready"):
+            per_set[set_id] = {
+                "eligible": False,
+                "reason": "accessibility_unavailable_or_rejected",
+                "detail": entry.get("reasons"),
+            }
+            continue
+        version = entry.get("version")
+        mass = entry.get("mappedHcMass")
+        if version != EXPECTED_CHASE_ACCESSIBILITY_VERSION:
+            per_set[set_id] = {"eligible": False, "reason": "accessibility_version_mismatch", "detail": version}
+            continue
+        try:
+            mass_ok = mass is not None and float(mass) >= MIN_MAPPED_HC_MASS_FOR_BUDGET_V12
+        except (TypeError, ValueError):
+            mass_ok = False
+        if not mass_ok:
+            per_set[set_id] = {"eligible": False, "reason": "insufficient_mapped_hc_mass", "detail": mass}
+            continue
+        per_set[set_id] = {"eligible": True, "aRaw": entry.get("aRaw")}
+        eligible_set_ids.add(set_id)
+
+    unexpected_authority_mix = accessibility_resolution.get("chaseAccessibilityVersion") not in (
+        None, EXPECTED_CHASE_ACCESSIBILITY_VERSION,
+    )
+    all_eligible = all(v["eligible"] for v in per_set.values()) if per_set else False
+    return {
+        "overallRipV12Version": EXPECTED_OVERALL_RIP_V12_VERSION,
+        "chaseAccessibilityVersion": EXPECTED_CHASE_ACCESSIBILITY_VERSION,
+        "transformVersion": EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
+        "perSet": per_set,
+        "eligibleSetIds": sorted(eligible_set_ids),
+        "allSetsEligible": all_eligible,
+        "unexpectedAuthorityMix": unexpected_authority_mix,
+        "ready": all_eligible and not unexpected_authority_mix,
+    }
+
+
 def _positive_finite(value: Any) -> bool:
     try:
         return math.isfinite(float(value)) and float(value) > 0

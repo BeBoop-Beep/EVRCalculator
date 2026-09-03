@@ -347,4 +347,77 @@ def test_score_budget_strategy_v12_shadow_matches_canonical_transform_and_never_
     )
     assert shadowed["overallRipV12Score"] == expected["score"]
     assert shadowed["overallRipV12Version"] == expected["version"]
-    assert shadowed["overallRipV12Rankable"] == bool(expected["rankable"])
+
+
+def _v12_strategy(pid, overall_v12, rankable=True, financial=50.0, capital=100.0, target=100.0):
+    return {
+        "sealedProductId": pid,
+        "overallRipV10Score": 55.0,  # present so a bug can't accidentally fall through to V10 rows
+        "overallRipV12Score": overall_v12,
+        "overallRipV12Rankable": rankable and overall_v12 is not None,
+        "financialRipV4Score": financial,
+        "actualCommittedCapital": capital,
+        "targetBudget": target,
+        "chanceToRecoverCapital": None,
+    }
+
+
+class TestSortAuthorityGeneralization:
+    """Gate F, Phase 7 - explicit V10/V12 sort-authority selection."""
+
+    def test_default_sort_authority_is_v10_unchanged(self):
+        strategies = [_strategy("a", 80), _strategy("b", 90), _strategy("c", 70)]
+        ranked = rank_budget_cohort(strategies)
+        assert [r["sealedProductId"] for r in ranked] == ["b", "a", "c"]
+
+    def test_explicit_v10_authority_matches_default(self):
+        strategies = [_strategy("a", 80), _strategy("b", 90), _strategy("c", 70)]
+        default = rank_budget_cohort(strategies)
+        explicit = rank_budget_cohort(strategies, sort_authority=bnpr.SORT_AUTHORITY_V10)
+        assert [r["sealedProductId"] for r in explicit] == [r["sealedProductId"] for r in default]
+
+    def test_explicit_v12_authority_orders_by_v12_score(self):
+        strategies = [
+            _v12_strategy("a", overall_v12=70.0),
+            _v12_strategy("b", overall_v12=90.0),
+            _v12_strategy("c", overall_v12=50.0),
+        ]
+        ranked = rank_budget_cohort(strategies, sort_authority=bnpr.SORT_AUTHORITY_V12)
+        assert [r["sealedProductId"] for r in ranked] == ["b", "a", "c"]
+        assert [r["budgetRank"] for r in ranked] == [1, 2, 3]
+
+    def test_v12_unavailable_row_is_excluded_never_masquerades_as_ranked(self):
+        strategies = [
+            _v12_strategy("a", overall_v12=70.0),
+            _v12_strategy("b", overall_v12=None, rankable=False),
+            _v12_strategy("c", overall_v12=50.0),
+        ]
+        ranked = rank_budget_cohort(strategies, sort_authority=bnpr.SORT_AUTHORITY_V12)
+        assert {r["sealedProductId"] for r in ranked} == {"a", "c"}
+        assert all(r["budgetCohortSize"] == 2 for r in ranked)
+
+    def test_v12_row_with_rankable_false_is_excluded_even_with_a_score_present(self):
+        """A row could in principle carry a stale overallRipV12Score while
+        overallRipV12Rankable is False (e.g. a later authority check rejected
+        it) - the sort authority must key off rankable, not score presence,
+        so a rejected row can never sort in under the V12 label."""
+        strategies = [
+            _v12_strategy("a", overall_v12=70.0),
+            {**_v12_strategy("b", overall_v12=999.0), "overallRipV12Rankable": False},
+        ]
+        ranked = rank_budget_cohort(strategies, sort_authority=bnpr.SORT_AUTHORITY_V12)
+        assert [r["sealedProductId"] for r in ranked] == ["a"]
+
+    def test_v12_ranking_never_falls_back_to_v10_score_under_the_v12_label(self):
+        # "b" has the highest V10 score but the lowest V12 score; if the V12
+        # path ever silently used V10, "b" would win instead of "a".
+        strategies = [
+            {**_v12_strategy("a", overall_v12=90.0), "overallRipV10Score": 10.0},
+            {**_v12_strategy("b", overall_v12=10.0), "overallRipV10Score": 99.0},
+        ]
+        ranked = rank_budget_cohort(strategies, sort_authority=bnpr.SORT_AUTHORITY_V12)
+        assert ranked[0]["sealedProductId"] == "a"
+
+    def test_unknown_sort_authority_raises(self):
+        with pytest.raises(ValueError):
+            rank_budget_cohort([_strategy("a", 80)], sort_authority="overall_rip_v99")

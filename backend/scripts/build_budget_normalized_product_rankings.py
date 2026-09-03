@@ -278,6 +278,172 @@ def build_rankings_for_cohort(
     }
 
 
+def rank_one_budget_v12(
+    *,
+    engine_products: Sequence[Dict[str, Any]],
+    base_values_for,
+    target_budget: float,
+    budget_type: str,
+    accessibility_resolution: Dict[str, Any],
+    full_market: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """EXPLICIT V12 shadow ranking for one budget ceiling (Gate F, Phase 10).
+
+    ``accessibility_resolution`` MUST already be the result of ONE
+    cohort-wide call to
+    ``budget_chase_accessibility_authority.resolve_budget_cohort_accessibility``
+    made by the caller ONCE for the whole build, never per-budget or
+    per-product here. This function performs NO Accessibility I/O itself -
+    it only looks up the already-resolved value per product's set via
+    ``accessibility_raw_for_product``.
+    """
+    from backend.db.services.budget_chase_accessibility_authority import (
+        accessibility_raw_for_product,
+    )
+
+    strategies: List[Dict[str, Any]] = []
+    excluded: List[Dict[str, Any]] = []
+
+    for product in engine_products:
+        price = float(product["product_market_cost"])
+        allocation = whole_unit_allocation(target_budget, price)
+        if not allocation["eligible"]:
+            excluded.append({
+                "sealedProductId": str(product["sealed_product_id"]),
+                "productName": product.get("product_name"),
+                "productFamily": product.get("product_family"),
+                "unitPrice": price,
+                "reason": "price_exceeds_budget",
+            })
+            continue
+
+        a_raw = accessibility_raw_for_product(accessibility_resolution, product["set_id"])
+        values = build_budget_strategy_values(
+            base_random_pack_values=base_values_for(product),
+            quantity=allocation["quantity"],
+            guaranteed_component_market_value=product.get("guaranteed_component_market_value"),
+            canonical_set_key="budget:%s" % product["sealed_product_id"],
+            run_fingerprint=None,
+        )
+        scored = score_budget_strategy(
+            values, allocation["actualCommittedCapital"], product.get("collector_appeal_score"),
+            chase_accessibility_raw=a_raw,
+        )
+        strategies.append({
+            "sealedProductId": str(product["sealed_product_id"]),
+            "setId": str(product["set_id"]),
+            "productFamily": product["product_family"],
+            "productName": product.get("product_name"),
+            "productMarketPrice": price,
+            "priceAsOf": product.get("price_as_of"),
+            "collectorAppealScore": product.get("collector_appeal_score"),
+            "sourceCalculationRunId": str(product["calculation_run_id"]),
+            "budgetType": budget_type,
+            "chaseAccessibilityRaw": a_raw,
+            **allocation,
+            **scored,
+        })
+
+    from backend.calculations.evr.budget_normalized_product_ranking import SORT_AUTHORITY_V12
+    ranked = rank_budget_cohort(strategies, sort_authority=SORT_AUTHORITY_V12)
+    unrankable = [s for s in strategies if not (s.get("overallRipV12Rankable") is True and s.get("overallRipV12Score") is not None)]
+
+    if budget_type == BUDGET_TYPE_FULL_MARKET and full_market is not None:
+        for row in ranked:
+            row["fullMarketAnchor"] = full_market["budget"]
+            row["maxEligibleSkuPrice"] = full_market["maxEligibleSkuPrice"]
+            row["fullMarketRoundingIncrement"] = full_market["roundingIncrement"]
+            row["fullMarketRoundingRule"] = full_market["roundingRule"]
+            row["fullMarketRoundingRuleVersion"] = full_market["roundingRuleVersion"]
+
+    return {
+        "targetBudget": target_budget,
+        "budgetType": budget_type,
+        "eligibleCount": len(strategies),
+        "rankedCount": len(ranked),
+        "excludedCount": len(excluded),
+        "excluded": excluded,
+        "unrankableCount": len(unrankable),
+        "unrankable": [
+            {"sealedProductId": s["sealedProductId"], "reason": s.get("overallRipV12Payload", {}).get("statusReason")
+             or s.get("overallRipV12Payload", {}).get("status")}
+            for s in unrankable
+        ],
+        "familyCoverage": dict(sorted(Counter(r["productFamily"] for r in ranked).items())),
+        "rows": ranked,
+    }
+
+
+def build_v12_shadow_rankings_for_cohort(
+    client: Any,
+    products: Sequence[Dict[str, Any]],
+    authority: Dict[str, Any],
+) -> Dict[str, Any]:
+    """EXPLICIT V12 shadow build (Gate F, Phase 10). Never called by default.
+
+    Orchestration order (the architecture correction this task makes):
+      1. identify unique set_id -> calculation_run_id map for this cohort
+      2. ONE batch Accessibility read for the whole cohort
+      3. compute V12 rows per budget, reusing the same cached base
+         distributions the V10 build already caches per (run_id, pack_count)
+      4. rank under explicit V12 sort authority
+
+    No Accessibility read happens inside the per-product or per-budget loop:
+    step 2 happens exactly once here, before any budget is scored.
+    """
+    from backend.db.services.budget_chase_accessibility_authority import (
+        resolve_budget_cohort_accessibility,
+    )
+    from backend.db.services.budget_product_ranking_readiness import (
+        resolve_v12_budget_authority_readiness,
+    )
+
+    run_id_by_set_id = {str(p["set_id"]): str(p["calculation_run_id"]) for p in products}
+    accessibility_resolution = resolve_budget_cohort_accessibility(client, run_id_by_set_id)
+    v12_readiness = resolve_v12_budget_authority_readiness(products, accessibility_resolution)
+
+    prices = [float(p["product_market_cost"]) for p in products]
+    full_market = resolve_full_market_budget(prices)
+
+    run_ids = sorted({str(p["calculation_run_id"]) for p in products})
+    artifacts = {run_id: load_pack_outcome_artifact(client, run_id) for run_id in run_ids}
+    base_cache: Dict[tuple, Any] = {}
+
+    def base_values_for(product: Dict[str, Any]):
+        run_id = str(product["calculation_run_id"])
+        random_count = int(product.get("random_pack_count") or product["pack_count"])
+        key = (run_id, random_count)
+        if key not in base_cache:
+            base_cache[key] = build_stage1_distributions_cached(artifacts[run_id], random_count, run_id)
+        return base_cache[key]
+
+    budgets: List[tuple] = [(float(b), BUDGET_TYPE_STANDARD) for b in CANONICAL_BUDGET_BANDS]
+    budgets.append((float(full_market["budget"]), BUDGET_TYPE_FULL_MARKET))
+
+    results: Dict[str, Dict[str, Any]] = {}
+    for target_budget, budget_type in budgets:
+        key = "%s:%g" % (budget_type, target_budget)
+        results[key] = rank_one_budget_v12(
+            engine_products=products,
+            base_values_for=base_values_for,
+            target_budget=target_budget,
+            budget_type=budget_type,
+            accessibility_resolution=accessibility_resolution,
+            full_market=full_market if budget_type == BUDGET_TYPE_FULL_MARKET else None,
+        )
+
+    return {
+        "authority": authority,
+        "v12Readiness": v12_readiness,
+        "accessibilityResolution": {k: v for k, v in accessibility_resolution.items() if k != "bySet"},
+        "fullMarket": full_market,
+        "productCount": len(products),
+        "budgets": results,
+        "batchAccessibilityReadCount": accessibility_resolution["batchReadCount"],
+        "builtAt": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def build_all_rankings(client: Any, price_as_of: Optional[str] = None) -> Dict[str, Any]:
     """Operator-compatible resolver followed by the canonical cohort builder."""
     started = time.time()

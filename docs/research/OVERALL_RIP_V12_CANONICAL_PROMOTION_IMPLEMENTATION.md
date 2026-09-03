@@ -435,6 +435,198 @@ left exactly as found.
 
 `OVERALL_RIP_V12_CANONICAL_PROMOTION_BLOCKED_BUDGET_RANKING_V12_AUTHORITY_WIRING_INCOMPLETE`
 
+## Gate F completion (2026-09-02, budget ranking V12 authority wiring)
+
+**Scope**: wire V12 budget-ranking authority (Phases 1-16 of the Gate F
+prompt) WITHOUT touching `CANONICAL_OVERALL_RIP_VERSION` (confirmed still
+`overall_rip_v10_90_financial_v4_10_collector_appeal_v5` before and after
+this session, verified by direct import) and WITHOUT promoting
+`public_rip_contract_v11`. Both confirmed untouched.
+
+### Architecture correction implemented
+
+The prior pass's `score_budget_strategy` already accepted an optional
+`chase_accessibility_raw` keyword (audited and preserved unchanged - it
+performs no I/O and defaults to `None`, keeping V10 output byte-identical
+when omitted). This session added the missing piece: a cohort-level,
+BATCH-resolved Chase Accessibility authority that sits ABOVE the simulation
+engine, never inside it.
+
+```
+budget financial simulation/calculation (per product, per budget)
+  -> Financial RIP V4_budget  (unchanged, no DB read added here)
++ set-level Chase Accessibility A_raw
+    resolved ONCE per cohort by
+    backend/db/services/budget_chase_accessibility_authority.py
+    (new file - reuses chase_accessibility_service.read_chase_accessibility_snapshots_for_sets,
+     the same one-query batch reader the sealed-product V12 finalizer uses,
+     and chase_accessibility_service.publication_integrity_failures, the same
+     failure taxonomy that already gates coordinated publication)
++ Collector Appeal V5 (unchanged, already set-level)
+  -> score_budget_strategy(..., chase_accessibility_raw=A_raw or None)
+     -> compute_overall_rip_v12(...)  [reused, not reimplemented]
+  -> rank_budget_cohort(strategies, sort_authority=SORT_AUTHORITY_V10|V12)
+```
+
+`backend/calculations/evr/budget_normalized_product_ranking.py` -
+`build_budget_strategy_values` and `score_budget_strategy` - contain NO
+Supabase/DB client parameter and issue no query. Verified by direct read of
+both functions' bodies and by the batching test asserting exactly one
+`client.table(...)` call for a 25-set cohort
+(`test_batch_read_is_exactly_one_call_for_the_whole_cohort`).
+
+### Accessibility authority source (exact mechanism)
+
+New `resolve_budget_cohort_accessibility(client, run_id_by_set_id)` in
+`backend/db/services/budget_chase_accessibility_authority.py`:
+1. Collects every `set_id` in the cohort.
+2. ONE call to `read_chase_accessibility_snapshots_for_sets` (paged batch
+   reader, already existed).
+3. Runs `publication_integrity_failures` per set against the caller's
+   `run_id_by_set_id` map (the SAME map the V10 authority already resolved
+   for this cohort's Financial calculation), requiring: row exists, exact
+   `calculation_run_id` match, `version == CHASE_ACCESSIBILITY_VERSION`,
+   `status == "ready"`, `mapped_hc_mass >= MIN_MAPPED_HC_MASS`, non-null
+   `accessibility`.
+4. Any failure -> that set's `A_raw` is `None` with an explicit reason list;
+   NEVER a "latest" fallback, NEVER 0.0, NEVER a neutral midpoint.
+
+The critical exploit test (`test_stale_but_otherwise_ready_row_is_rejected_not_accepted_as_latest`)
+constructs a row that is `status=ready`, correct version, `mapped_hc_mass=1.0`
+but bound to `calculation_run_id="run-YESTERDAY"` while the cohort expects
+`"run-TODAY"`, and asserts it is rejected (`reason=stale_calculation_run`,
+`A_raw=None`) rather than accepted. Passes.
+
+### Schema / migration
+
+`backend/db/migrations/20260902010000_add_budget_product_ranking_v12_authority_columns.sql`
+(CREATED ONLY, NOT applied to any environment):
+- `budget_product_ranking_snapshots`: `overall_rip_v12_version`,
+  `chase_accessibility_version`, `chase_accessibility_transform_version`,
+  `ranked_under_v12_authority` (nullable boolean, default meaning
+  NULL/FALSE = V10 - never implicitly TRUE).
+- `budget_product_ranking_rows`: `overall_rip_v12_score`,
+  `overall_rip_v12_rankable`, `overall_rip_v12_status`,
+  `chase_accessibility_raw` (the exact A_raw consumed by that row, for
+  reproducibility - not a duplicate of the published Accessibility record of
+  truth), `budget_rank_v12`, `budget_cohort_size_v12`. All additive/nullable,
+  no `DEFAULT`, no destructive DDL, wrapped in `BEGIN;`/`COMMIT;`.
+  `backend/tests/unit/db/test_budget_product_ranking_v12_migration_contract.py`
+  (9 tests) verifies this statically without applying it.
+
+### Authority identity (Phase 8)
+
+Added to `budget_product_ranking_authority.py`:
+`EXPECTED_OVERALL_RIP_V12_VERSION = "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5"`,
+`EXPECTED_CHASE_ACCESSIBILITY_VERSION = "chase_accessibility_v1_hc_value_squared_modeled_probability"`
+(verified equal to `backend.desirability.chase_accessibility.CHASE_ACCESSIBILITY_VERSION`),
+`EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION = "chase_accessibility_overall_score_v1_saturating_k002"`,
+`MIN_MAPPED_HC_MASS_FOR_BUDGET_V12 = 0.99`. None of the existing V10
+constants were modified.
+
+### Readiness (Phase 9)
+
+Added `resolve_v12_budget_authority_readiness(cohort, accessibility_resolution)`
+to `budget_product_ranking_readiness.py` - an explicit-opt-in addendum,
+never consulted by the default `resolve_budget_ranking_readiness` V10 path
+(re-ran that function's full existing test suite: 24/24 still pass
+unchanged). Checks exact Accessibility version, `mapped_hc_mass >= 0.99`,
+per-set eligibility, and requires ALL sets in the cohort eligible before
+`ready=True` - a single ineligible set fails the whole cohort's V12
+readiness (verified by test).
+
+### Sort authority (Phase 7)
+
+`rank_budget_cohort(strategies, sort_authority=SORT_AUTHORITY_V10|SORT_AUTHORITY_V12)`
+in `budget_normalized_product_ranking.py`. Default parameter value is
+`SORT_AUTHORITY_V10`, so every existing call site (unchanged call signature)
+keeps its current behavior. `SORT_AUTHORITY_V12` filters to rows where
+`overallRipV12Rankable is True` before sorting (never falls through to a
+stale/rejected V12 score, never substitutes the V10 score under the V12
+label - covered by
+`test_v12_row_with_rankable_false_is_excluded_even_with_a_score_present` and
+`test_v12_ranking_never_falls_back_to_v10_score_under_the_v12_label`).
+
+### Build script (Phase 10)
+
+Added `build_v12_shadow_rankings_for_cohort` and `rank_one_budget_v12` to
+`build_budget_normalized_product_rankings.py` - additive functions, never
+called from `main()`/the default dry-run/commit CLI path, which is
+unchanged. The V12 path resolves `set_id -> calculation_run_id` once,
+performs ONE Accessibility batch read via
+`resolve_budget_cohort_accessibility`, then reuses the SAME cached
+`base_values_for` per-`(run_id, pack_count)` distribution cache the V10
+build already uses across every budget/product - no repeated Accessibility
+query per product or per budget.
+
+### Publish script (Phase 11) - NOT completed this session
+
+`publish_budget_product_rankings_if_ready.py`'s default `--commit`/`--dry-run`
+CLI path is untouched and remains V10-only (verified: no changes to that
+file this session). An explicit, isolated V12 publish-mode validator (the
+Phase 11 requirement) was NOT added in this pass - the scoring, authority,
+readiness, sort and build-orchestration primitives it would call are now in
+place and tested, but the publish-script wiring itself is deferred. This is
+the one Gate F phase left incomplete; see Blockers below.
+
+### Historical compatibility (Phase 12)
+
+No existing V10 code path, table read, or persisted-row shape was modified.
+`budget_product_ranking_rows`/`snapshots` gain only nullable additive
+columns (migration not applied, so live rows are unaffected either way). The
+full pre-existing V10 test suites for
+`budget_normalized_product_ranking.py` (57 tests, +18 new in this session),
+`budget_product_ranking_authority.py` (still passing), and
+`budget_product_ranking_readiness.py` (still passing, 24/24 unchanged) all
+pass unmodified in their pre-existing assertions.
+
+### Dry run (Phase 13) - FROZEN ARTIFACT, not live
+
+No live database credentials were exercised in this session for a
+budget-specific cohort. Per the task's explicit fallback instruction, this
+uses the existing frozen sealed-product V12 cohort artifact
+(`docs/research/overall_rip_v12_dry_run_cohort_report_2026-09-02b.json`,
+independently verified in a prior pass) as the closest available evidence of
+V10-vs-V12 ranking behavior on the live 138-row/22-set cohort this budget
+engine draws its inputs from: Spearman 0.9961, mean |rank movement| 2.64,
+max movement 9, top-5 overlap 4/5, top-10 overlap 8/10, 0/398 same-set
+reversals. This is NOT a budget-specific dry run (budget re-ranks whole-unit
+strategies under a spending ceiling, a different comparator from the
+sealed-product cohort ranking) and must not be reported as one; a genuine
+budget-cohort V10-vs-V12 dry run (calling
+`build_v12_shadow_rankings_for_cohort` against a live authority) is unrun
+and is listed as a blocker below.
+
+### Files changed this session (Gate F)
+
+- `backend/db/services/budget_chase_accessibility_authority.py` (new)
+- `backend/tests/unit/db/services/test_budget_chase_accessibility_authority.py` (new, 8 tests)
+- `backend/db/services/budget_product_ranking_authority.py` (+V12 identity constants)
+- `backend/db/services/budget_product_ranking_readiness.py` (+`resolve_v12_budget_authority_readiness`)
+- `backend/tests/unit/db/services/test_budget_product_ranking_v12_readiness.py` (new, 6 tests)
+- `backend/calculations/evr/budget_normalized_product_ranking.py` (+`SORT_AUTHORITY_V10`/`_V12`, `_tier_sort_key_v12`, `rank_budget_cohort(sort_authority=...)`)
+- `backend/tests/unit/calculations/test_budget_normalized_product_ranking.py` (+18 tests, sort-authority generalization)
+- `backend/scripts/build_budget_normalized_product_rankings.py` (+`rank_one_budget_v12`, `build_v12_shadow_rankings_for_cohort`)
+- `backend/db/migrations/20260902010000_add_budget_product_ranking_v12_authority_columns.sql` (new, NOT applied)
+- `backend/tests/unit/db/test_budget_product_ranking_v12_migration_contract.py` (new, 9 tests)
+- This document (this section)
+
+No migration applied, no publication triggered, no canonical selector
+changed, no branch operation performed. `CANONICAL_OVERALL_RIP_VERSION`
+confirmed still `overall_rip_v10_90_financial_v4_10_collector_appeal_v5`
+after this session's changes.
+
+### Final label for Gate F
+
+`OVERALL_RIP_V12_BUDGET_RANKING_AUTHORITY_BLOCKED_PUBLISH_SCRIPT_V12_MODE_AND_LIVE_BUDGET_DRY_RUN_NOT_COMPLETED`
+
+Phases 1-10, 12, 14 (A-F, H), 15, 16 are complete and tested (155 tests
+passing across the listed files, 0 failures, 0 regressions). Phase 11
+(publish-script explicit V12 mode) and the budget-specific portion of Phase
+13 (a genuine live or artifact-based budget-cohort V10-vs-V12 dry run,
+distinct from the sealed-product cohort artifact reused above) are the
+concrete remainder before this gate can claim full completion.
+
 ## Blockers before Prompt 6 (and before re-attempting this promotion)
 
 1. Apply Chase Accessibility migration 077 and the V12 sealed-product
