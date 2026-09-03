@@ -24,12 +24,13 @@ def test_checkout_uses_managed_payments_without_automatic_tax_promotions_or_tria
         cancel_url="https://example.test/c")
     assert captured["allow_promotion_codes"] is False
     assert captured["managed_payments"] == {"enabled": True}
+    assert captured["consent_collection"] == {"terms_of_service": "required"}
     assert "automatic_tax" not in captured
     assert "trial_period_days" not in captured["subscription_data"]
     assert "trial_end" not in captured["subscription_data"]
     assert captured["line_items"] == [{"price": "price_1", "quantity": 1}]
     assert set(captured) == {
         "mode", "customer", "line_items", "managed_payments",
-        "allow_promotion_codes", "success_url", "cancel_url",
+        "allow_promotion_codes", "consent_collection", "success_url", "cancel_url",
         "client_reference_id", "metadata", "subscription_data",
     }
