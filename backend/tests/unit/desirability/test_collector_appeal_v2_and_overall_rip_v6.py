@@ -71,8 +71,10 @@ from backend.desirability.scoring_config import (
     canonical_scoring_selection,
     legacy_collector_appeal_v2_version,
     canonical_overall_rip_is_v9,
+    canonical_overall_rip_is_v10,
     OVERALL_RIP_V9_VERSION,
     OVERALL_RIP_V10_VERSION,
+    OVERALL_RIP_V12_VERSION,
 )
 from backend.desirability.weighted_rip import (
     compute_overall_rip_v5,
@@ -538,20 +540,22 @@ def test_v6_and_collector_appeal_v2_are_preserved_but_no_longer_canonical():
     superseded model that stopped computing would orphan its rows, and one that
     stayed canonical would publish the model the validation rejected.
     """
-    # STALE EXPECTATION CORRECTED: production was promoted to Overall RIP V10
-    # (90/10 Financial RIP V4 over Collector Appeal V5). V8 and V9 are preserved
-    # and identifiable, and are no longer canonical - which is exactly what this
-    # test is about.
+    # STALE EXPECTATION CORRECTED (2026-09-03): production was promoted to
+    # Overall RIP V12 (86/4/10 Financial V4 + Chase Accessibility + Collector
+    # Appeal V5). V8, V9 and V10 are all preserved and identifiable, and are
+    # all no longer canonical - which is exactly what this test is about.
     assert canonical_overall_rip_is_v8() is False
     assert canonical_overall_rip_is_v9() is False
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
+    assert canonical_overall_rip_is_v10() is False
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V12_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V10_VERSION
     assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V9_VERSION
     assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V8_VERSION
     assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V6_VERSION
     assert canonical_collector_appeal_version() != COLLECTOR_APPEAL_V2_VERSION
 
     selection = canonical_scoring_selection()
-    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V10_VERSION
+    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V12_VERSION
     # Every superseded identifier is still readable from the canonical selection,
     # so an operator interpreting an old row never has to guess.
     assert selection["legacyOverallRipV5Version"] == OVERALL_RIP_V5_VERSION

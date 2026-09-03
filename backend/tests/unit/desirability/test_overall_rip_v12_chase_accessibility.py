@@ -189,9 +189,15 @@ def test_v11_weights_untouched():
     }
 
 
-def test_canonical_selector_is_still_v10_not_v12_or_v11():
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
-    assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V12_VERSION
+def test_canonical_selector_is_now_v12_not_v10_or_v11():
+    """2026-09-03 cutover: canonical Overall RIP promoted from V10 to V12.
+
+    V11 (the separate Chase Opportunity/Core-K lineage) is untouched and never
+    becomes canonical by this promotion. V10 remains fully computable/
+    registered as explicit historical/rollback lineage.
+    """
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V12_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V10_VERSION
     assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V11_VERSION
 
 

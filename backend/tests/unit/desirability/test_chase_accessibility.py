@@ -334,13 +334,16 @@ def test_no_dependency_on_the_superseded_v11_chase_work():
         assert superseded not in source
 
 
-def test_canonical_overall_rip_remains_v10_at_ninety_ten():
+def test_canonical_overall_rip_is_now_v12_at_eighty_six_four_ten():
+    """2026-09-03 cutover: canonical Overall RIP promoted from V10 (90/10) to
+    V12 (86% Financial + 4% Chase Accessibility + 10% Collector Appeal)."""
     from backend.desirability.scoring_config import (
         CANONICAL_OVERALL_RIP_VERSION, CANONICAL_OVERALL_RIP_WEIGHTS,
     )
     assert CANONICAL_OVERALL_RIP_VERSION == (
-        "overall_rip_v10_90_financial_v4_10_collector_appeal_v5")
-    assert CANONICAL_OVERALL_RIP_WEIGHTS["financial_rip"] == pytest.approx(0.90)
+        "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5")
+    assert CANONICAL_OVERALL_RIP_WEIGHTS["financial_rip"] == pytest.approx(0.86)
+    assert CANONICAL_OVERALL_RIP_WEIGHTS["chase_accessibility"] == pytest.approx(0.04)
     assert CANONICAL_OVERALL_RIP_WEIGHTS["collector_appeal"] == pytest.approx(0.10)
 
 

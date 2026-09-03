@@ -1,0 +1,89 @@
+{
+  "authoritySetCount": 165,
+  "trials": {
+    "allRaw": {
+      "timesMs": [
+        2425.7467,
+        1998.2094000000004,
+        1750.4213999999995
+      ],
+      "summaries": [
+        {
+          "constituent_count": 33956,
+          "basket_value": 637086.49
+        },
+        {
+          "constituent_count": 33956,
+          "basket_value": 637086.49
+        },
+        {
+          "constituent_count": 33956,
+          "basket_value": 637086.49
+        }
+      ]
+    },
+    "top10": {
+      "timesMs": [
+        282.47359999999946,
+        240.4932000000004,
+        239.74139999999977
+      ],
+      "summaries": [
+        {
+          "constituent_count": 10,
+          "basket_value": 35332.31
+        },
+        {
+          "constituent_count": 10,
+          "basket_value": 35332.31
+        },
+        {
+          "constituent_count": 10,
+          "basket_value": 35332.31
+        }
+      ]
+    },
+    "rareHolo": {
+      "timesMs": [
+        720.2301000000002,
+        718.4056999999999,
+        670.0213000000001
+      ],
+      "summaries": [
+        {
+          "constituent_count": 3055,
+          "basket_value": 148957.52
+        },
+        {
+          "constituent_count": 3055,
+          "basket_value": 148957.52
+        },
+        {
+          "constituent_count": 3055,
+          "basket_value": 148957.52
+        }
+      ]
+    },
+    "premium": {
+      "timesMs": [
+        240.4919999999997,
+        225.42499999999956,
+        231.2782999999996
+      ],
+      "summaries": [
+        {
+          "constituent_count": 1344,
+          "basket_value": 392879.76
+        },
+        {
+          "constituent_count": 1344,
+          "basket_value": 392879.76
+        },
+        {
+          "constituent_count": 1344,
+          "basket_value": 392879.76
+        }
+      ]
+    }
+  }
+}

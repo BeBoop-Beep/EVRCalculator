@@ -42,15 +42,18 @@ from backend.db.services.public_rip_publication_contract import (
     supported_cohort_fingerprint,
 )
 from backend.desirability.collector_appeal import (
+    COLLECTOR_APPEAL_V5_VERSION,
     COLLECTOR_APPEAL_CA7_VERSION,
     COLLECTOR_APPEAL_V2_VERSION,
     COLLECTOR_APPEAL_V4_VERSION,
 )
 from backend.desirability.scoring_config import (
     FINANCIAL_RIP_V2_VERSION,
+    FINANCIAL_RIP_V4_VERSION,
     OVERALL_RIP_V4_VERSION,
     OVERALL_RIP_V6_VERSION,
     OVERALL_RIP_V8_VERSION,
+    OVERALL_RIP_V12_VERSION,
 )
 
 CANONICAL = canonical_publication_identity()
@@ -102,11 +105,15 @@ def _codes(reasons):
 # ===========================================================================
 
 def test_the_canonical_identity_is_read_from_the_one_cutover_switch():
+    """UPDATED FOR THE 2026-09-03 V12 CUTOVER (and the earlier, already-landed
+    V4/V5 financial/collector-appeal promotions this test had fallen behind
+    on): the canonical identity now reads Financial RIP V4, Collector Appeal
+    V5, Overall RIP V12, and public RIP contract v11."""
     assert CANONICAL == {
-        "financialRipVersion": "financial_rip_v3_outcome_profile_25_20_15_25_10_5",
-        "collectorAppealVersion": COLLECTOR_APPEAL_V4_VERSION,
-        "overallRipVersion": OVERALL_RIP_V8_VERSION,
-        "publicRipContractVersion": "public_rip_contract_v8",
+        "financialRipVersion": FINANCIAL_RIP_V4_VERSION,
+        "collectorAppealVersion": COLLECTOR_APPEAL_V5_VERSION,
+        "overallRipVersion": OVERALL_RIP_V12_VERSION,
+        "publicRipContractVersion": "public_rip_contract_v11",
     }
 
 
@@ -307,12 +314,12 @@ def test_the_historical_ca7_column_is_read_as_the_collector_appeal_version():
     row = _snapshot()
     row["diagnostics_json"].pop(DIAGNOSTICS_COLLECTOR_APPEAL_VERSION_KEY)
     identity = read_published_identity(row)
-    assert identity["collectorAppealVersion"] == COLLECTOR_APPEAL_V4_VERSION
+    assert identity["collectorAppealVersion"] == COLLECTOR_APPEAL_V5_VERSION
 
 
 def test_the_diagnostics_copy_wins_over_the_historical_column():
     row = _snapshot(ca7_version="something-stale")
-    assert read_published_identity(row)["collectorAppealVersion"] == COLLECTOR_APPEAL_V4_VERSION
+    assert read_published_identity(row)["collectorAppealVersion"] == COLLECTOR_APPEAL_V5_VERSION
 
 
 def test_a_round_trip_through_the_diagnostics_block_reports_current():

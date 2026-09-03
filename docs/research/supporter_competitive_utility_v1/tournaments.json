@@ -16,7 +16,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 909,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a284de7e334c3c9befd25e9/standings",
-    "ingestedAt": "2026-09-03T03:35:02.704239+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.376529+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -35,7 +35,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 657,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a5a50bc52c24ac2da6446d2/standings",
-    "ingestedAt": "2026-09-03T03:35:02.740760+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.460364+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -54,7 +54,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 548,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a7cce822b308b6067b523e2/standings",
-    "ingestedAt": "2026-09-03T03:35:02.767441+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.475458+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -73,7 +73,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 514,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a5a508552c24ac2da6446cf/standings",
-    "ingestedAt": "2026-09-03T03:35:02.790307+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.509284+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -91,7 +91,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 497,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a75224bcdc0391d7fa5edef/standings",
-    "ingestedAt": "2026-09-03T03:35:02.815848+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.529955+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -109,7 +109,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 346,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a7b1904cdc0391d7fa63d42/standings",
-    "ingestedAt": "2026-09-03T03:35:02.837788+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.548728+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -127,7 +127,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 288,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a8ab6888302ae761e5fa34f/standings",
-    "ingestedAt": "2026-09-03T03:35:03.045104+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.609688+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -145,7 +145,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 282,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a83b0f35a3071409557386e/standings",
-    "ingestedAt": "2026-09-03T03:35:03.054347+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.622688+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -163,7 +163,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 274,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a7f474278baaa6d1c21f248/standings",
-    "ingestedAt": "2026-09-03T03:35:03.071555+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.635216+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -181,7 +181,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 265,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a76139d2b308b6067b4cb68/standings",
-    "ingestedAt": "2026-09-03T03:35:03.087302+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.646673+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -199,7 +199,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 261,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a6b5b9052c24ac2da64fd67/standings",
-    "ingestedAt": "2026-09-03T03:35:03.094859+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.649591+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -217,7 +217,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 259,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a82476c5a3071409557297b/standings",
-    "ingestedAt": "2026-09-03T03:35:03.104240+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.668640+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -235,7 +235,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 244,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a6ce63dcdc0391d7fa5784b/standings",
-    "ingestedAt": "2026-09-03T03:35:03.120893+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.679143+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -253,7 +253,7 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 237,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a791a40cdc0391d7fa6237a/standings",
-    "ingestedAt": "2026-09-03T03:35:03.135167+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.688143+00:00"
   },
   {
     "source": "LIMITLESS_PLATFORM_API",
@@ -271,6 +271,6 @@
     "decklistCoverage": 1.0,
     "decklistsObserved": 237,
     "rawSourceProvenance": "https://play.limitlesstcg.com/api/tournaments/6a835dea78baaa6d1c22251e/standings",
-    "ingestedAt": "2026-09-03T03:35:03.145167+00:00"
+    "ingestedAt": "2026-09-03T19:33:26.697690+00:00"
   }
 ]

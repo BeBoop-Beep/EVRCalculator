@@ -2,14 +2,19 @@
 //
 // WHY THIS EXISTS
 // ----------------
-// Two Overall RIP models now exist in this codebase: the CANONICAL Overall RIP
-// V10 (90% Financial RIP V4 + 10% Collector Appeal V5, read through
-// `canonicalRipV7.mjs`) and the SHADOW Overall RIP V12 (86% Financial RIP V4 +
-// 4% Chase Accessibility Score + 10% Collector Appeal V5, published only on the
-// SHADOW `publicRipContractV11` / `overallRipV12` shape). Neither the canonical
-// selector (`resolveCanonicalRipV7`) nor the ranking order changes here — V10
-// stays canonical. This module ONLY decides which EXPLANATION to render for
-// whichever contract shape a caller actually supplies.
+// Two Overall RIP models exist in this codebase: Overall RIP V10 (90%
+// Financial RIP V4 + 10% Collector Appeal V5, read through `canonicalRipV7.mjs`
+// — retained as explicit historical/rollback lineage) and Overall RIP V12
+// (86% Financial RIP V4 + 4% Chase Accessibility Score + 10% Collector Appeal
+// V5, published on the `publicRipContractV11` / `overallRipV12` shape).
+// AS OF THE 2026-09-03 CUTOVER, V12 IS CANONICAL
+// (`backend.desirability.scoring_config.CANONICAL_OVERALL_RIP_VERSION`). This
+// module does not read that backend constant directly and never changes which
+// contract shape a caller supplies — it ONLY decides which EXPLANATION to
+// render for whichever shape actually arrives, so it needed no code change at
+// cutover time: a generic/current payload now naturally carries V12 data (via
+// the additive `publicRipContractV11`/`overallRipV12` block), and this
+// selector renders 86/4/10 for it exactly as it always would have.
 //
 // A SURFACE MUST NEVER EXPLAIN ONE VERSION'S DATA WITH THE OTHER'S WEIGHTS
 // --------------------------------------------------------------------------

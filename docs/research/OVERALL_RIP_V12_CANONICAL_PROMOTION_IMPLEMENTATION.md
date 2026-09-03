@@ -643,3 +643,342 @@ concrete remainder before this gate can claim full completion.
    handler — unrelated to this session's scope but a real defect to close
    before that file's own change ships.
 6. Only then re-evaluate Phase 11.
+
+---
+
+## 2026-09-03 — CANONICAL PROMOTION EXECUTED
+
+### Decision
+
+`OVERALL_RIP_V12_CANONICAL_PROMOTION_IMPLEMENTED_CODE_ONLY`
+
+All blockers above are closed. `CANONICAL_OVERALL_RIP_VERSION` is now
+`overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5`
+and `canonical_public_rip_contract_version()` is now `public_rip_contract_v11`.
+No migration, publication, snapshot refresh, or deployment was performed by
+this session. V10 remains fully computable and explicitly requestable.
+
+### Preconditions independently re-verified this session (live, read-only)
+
+Unlike the two prior sessions recorded above, this session HAD live Supabase
+credentials available (`backend/.env`) and used them for direct read-only
+verification rather than relying solely on the prior session's report:
+
+- `simulation_sealed_product_results`: **138/138** rows with
+  `overall_rip_v12_score` populated all carry `overall_rip_v12_status ==
+  "ready"` and the single exact version string
+  `overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5`
+  (own query, zero version drift, zero non-ready rows).
+- `pokemon_set_chase_accessibility_snapshot_latest`: **22/22** rows, all
+  `status == "ready"`, all `mapped_hc_mass == 1.0` (own query).
+- `budget_product_ranking_rows` / `budget_product_ranking_snapshots`: the
+  Gate F V12 authority columns (`overall_rip_v12_score`,
+  `overall_rip_v12_rankable`, `chase_accessibility_raw`,
+  `overall_rip_v12_version`, `ranked_under_v12_authority`, ...) exist and are
+  queryable — confirming the third migration is genuinely applied. All
+  sampled values are `NULL`, which is the CORRECT and EXPECTED state: no V12
+  budget publication has ever been executed (none was executed this session
+  either), so no row has ever populated them.
+- `backend/scripts/audit_ev_representativeness_coverage.py` run live against
+  the most recently fully-promoted market date (`2026-09-02`; `2026-09-03`
+  itself had not yet completed its same-day simulation freshness pass at the
+  time of this session, an unrelated same-day lag, not a defect):
+  `supported_current_sets=22`, `healthy=22`, `legitimate_no_headline=0`,
+  `missing=0`, `wrong_run=0`, `version_mismatch=0` — identical to the
+  previously recorded known-good baseline. No regression.
+
+This independent re-verification did not surface any discrepancy from the
+prior session's shadow-readiness numbers (138/138, 22/22, mass=1.0,
+Spearman≈0.9961 sealed-product / 0.9866–0.9968 budget dry run per-budget,
+Top-5 overlap 5/5, Top-10 overlap 9–10/10, zero same-set reversals, zero
+structural invariant violations) — those are treated as re-confirmed, not
+re-derived from scratch, since this session's own live queries independently
+corroborate the underlying row-level facts they were computed from.
+
+### Phase 1 — Consumer map (abridged; full detail in the code changes below)
+
+| Symbol | Runtime consumers found | Classification |
+|---|---|---|
+| `CANONICAL_OVERALL_RIP_VERSION` | `product_family_rankings_service.py` (already version-generic lookup table), `set_rip_service.py` (already generic), `explore_rip_statistics_service.py`, `sealed_product_rip_finalization_service.py`, `rankings_publication_lifecycle.py`, `public_rip_publication_contract.py`, `sealed_product_results_repository.py`, `weighted_rip.py` (defines V9-V12 compute fns, does not read the switch itself) | CHANGE_TO_CANONICAL_V12 (all resolve generically off the one constant; flipping it in `scoring_config.py` was sufficient — no per-file hardcoding found) |
+| `canonical_overall_rip_is_v10()` | Tests only (5 files); zero runtime call sites | TEST_ONLY — retained as a truthfully-`False` predicate, same pattern as the pre-existing `canonical_overall_rip_is_v7`/`_v8`. Added `canonical_overall_rip_is_v12()` as its truthful counterpart (repo convention: one named predicate per version, not a single generic comparison helper — kept consistent rather than introducing a second style). |
+| `canonical_public_rip_contract_version()` | `pokemon_sealed_product_detail_service.py`, `explore_rip_statistics_service.py`, `public_rip_publication_contract.py`, `research/chase_pillar_stage6/control.py`, tests | CHANGE_TO_CANONICAL_V11 (promoted from `public_rip_contract_v10` to `public_rip_contract_v11`) |
+| `OVERALL_RIP_V10_VERSION` (literal) | `budget_product_ranking_authority.py`'s `EXPECTED_OVERALL_RIP_VERSION` (the BASE-cohort price/version coherence gate `load_pinned_cohort` checks — a precondition for even building a V12 candidate on top, per Gate F's architecture), plus many test fixtures and historical-lineage docstrings | KEEP_EXPLICIT_V10_HISTORY — intentionally NOT repointed; this is the anchor identity for the price-coherent base cohort the V12 shadow candidate is built ON TOP OF, not a canonical-Overall-RIP selector. Repointing it would conflate two different concerns. |
+| `EXPECTED_OVERALL_RIP_V12_VERSION`, `validate_v12_publication_payload`, `run_v12_dry_run` (`publish_budget_product_rankings_if_ready.py`) | Explicit V12 validator, built by a concurrent/prior session | CHANGE_TO_CANONICAL_V12 in the sense of "now also invoked by the default path" — reused via `default_budget_sort_authority_is_v12()`, never duplicated |
+| `public_rip_contract_v10.py`, `weighted_rip.compute_overall_rip_v10`, `OVERALL_RIP_V10_WEIGHTS`, V10 DB columns (`overall_rip_v10_*`) | Every explicit-V10 caller/fixture/column | KEEP_EXPLICIT_V10_HISTORY — untouched, still fully computable, still the rollback lineage |
+| `OVERALL_RIP_V11_VERSION` (Chase Opportunity/Core K lineage) | `weighted_rip.compute_overall_rip_v11`, V11 research files | LEGACY_ONLY / RESEARCH_ONLY — a separate historical lineage, never touched, never becomes canonical by this promotion |
+| Round15-24 Treatment Market Prestige tests, `test_pull_model_live_fallback.py`, `test_public_rip_cohort_integration.py`, `test_pokemon_public_snapshot_service.py`, `test_pokemon_scrape_runtime_preflight.py`, `test_public_rip_rpc_v8_migration_sql.py`, billing/`jwt`-import-broken files | No dependency on `CANONICAL_OVERALL_RIP_VERSION`/`canonical_public_rip_contract_version` at all (git-branch/ancestry gates, live-DB-only integration tests, a stale hardcoded RPC-migration list last updated before V9, a missing `public_read_client` symbol, a missing `jwt` package, Python-3.8-incompatible `X \| None` syntax) | PRE-EXISTING / ENVIRONMENT — confirmed unrelated by isolated re-run (each passes or fails identically whether or not this session's changes are present; several fail on symbols/behavior this session never touched) |
+
+### Phase 2 — Canonical Overall RIP selector (exact before/after)
+
+`backend/desirability/scoring_config.py`:
+```
+- CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V10_VERSION
+- CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V10_WEIGHTS)
++ CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V12_VERSION
++ CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V12_WEIGHTS)
+```
+`OVERALL_RIP_V11_VERSION`/`OVERALL_RIP_V12_VERSION` added to
+`KNOWN_OVERALL_RIP_VERSIONS`. `_audit_overall_rip_weights()` gained a V12
+weight-sum entry and a V12 canonical-consistency check (mirroring the
+existing V7/V10 pattern). `canonical_overall_rip_is_v10()` retained,
+now truthfully `False`; `canonical_overall_rip_is_v12()` added, now `True`.
+No parallel/duplicate generic helper was introduced — the repo's existing
+per-version-predicate convention was extended, not replaced.
+
+### Phase 3 — Canonical public contract (exact before/after)
+
+```
+- def canonical_public_rip_contract_version() -> str:
+-     from backend.desirability.public_rip_contract_v10 import PUBLIC_RIP_CONTRACT_V10_VERSION
+-     return PUBLIC_RIP_CONTRACT_V10_VERSION
++ def canonical_public_rip_contract_version() -> str:
++     from backend.desirability.public_rip_contract_v11 import PUBLIC_RIP_CONTRACT_V11_VERSION
++     return PUBLIC_RIP_CONTRACT_V11_VERSION
+```
+`public_rip_contract_v10.py` is untouched and remains fully computable/
+explicitly requestable. `public_rip_contract_v11.py` needed NO code change —
+it already carried Overall RIP V12 additively on top of a byte-identical V10
+block; only which contract is *canonical* moved.
+
+### Phase 4 — Generic read-model behavior
+
+- **V12 resolves**: confirmed by live-process check
+  (`product_family_rankings_service._canonical_overall_rip_fields()` returns
+  `('overall_rip_v12_score', 'overall_rip_v12_version',
+  'overall_rip_v12_rankable')` after the flip) and by the independent live-DB
+  spot check above.
+- **V10 still explicit**: `OVERALL_RIP_V10_VERSION`,
+  `compute_overall_rip_v10`, `public_rip_contract_v10.py`, and every
+  `overall_rip_v10_*` DB column are untouched and remain fully computable —
+  proven by the full V10-specific test suites still passing unmodified
+  (`test_sealed_product_rip_finalization_service_v10.py`, the V10 weights
+  audit in `scoring_config.py`, etc.).
+- **Fail-closed confirmed, never V10-under-a-V12-label**: `compute_overall_rip_v12`
+  (`weighted_rip.py`) has no code path that substitutes a V10 score when
+  Accessibility is missing — it reports `status: "unavailable"`/`rankable:
+  False` (pre-existing behavior, re-verified by the pre-existing
+  `test_overall_rip_v12_chase_accessibility.py` test suite, unmodified except
+  for the one canonical-selector assertion this session flipped). Same
+  discipline in `budget_normalized_product_ranking.py`'s
+  `SORT_AUTHORITY_V12`, covered by the pre-existing
+  `test_v12_ranking_never_falls_back_to_v10_score_under_the_v12_label` test,
+  unmodified and still passing.
+
+### Phase 5/6 — Family rankings / Set RIP / Explore rankings
+
+No production logic changes were needed in `product_family_rankings_service.py`
+or `set_rip_service.py` — both were already built (a prior session's Gate E
+work) to read `CANONICAL_OVERALL_RIP_VERSION` through a generic lookup table
+rather than a hardcoded V10 column name, and self-heal correctly once the
+switch flips. This was verified, not assumed: a direct Python check after the
+flip shows `_canonical_overall_rip_fields()` now returns the
+`overall_rip_v12_*` triple, and `test_product_family_rankings_service.py`'s
+own test fixtures needed updating (see Files Changed) because they had been
+hand-populating only `overall_rip_v10_*` columns and using
+`CANONICAL_OVERALL_RIP_VERSION` (evaluated at import time, now V12) as the
+V10 field's version stamp — a latent fixture bug the flip exposed, now fixed
+by populating BOTH the V10 fields (with V10's own literal string) and the
+V12 fields (with the canonical constant) so the fixture means what it says
+regardless of which model is canonical. `explore_rip_statistics_service.py`
+and `rankings_publication_lifecycle.py` and `public_rip_publication_contract.py`
+likewise read the constant generically; the latter's own test file had 3
+independently-stale assertions (pinned to Financial V3 / Collector Appeal V4
+/ Overall V8 / contract v8 — versions that predate even this program's
+V9/V10 promotions) that were fixed to assert the TRUE current identity
+(Financial V4 / Collector V5 / Overall V12 / contract v11).
+
+### Phase 7/11 — Budget rankings default authority
+
+Gate F's infrastructure (`budget_chase_accessibility_authority.py`,
+`resolve_v12_budget_authority_readiness`, `SORT_AUTHORITY_V12`,
+`build_v12_shadow_rankings_for_cohort`, and — per this session's git status,
+already landed by a concurrent/prior session before this session began —
+`validate_v12_publication_payload`/`run_v12_dry_run` in
+`publish_budget_product_rankings_if_ready.py`) was REUSED, not rebuilt.
+
+`budget_product_ranking_authority.py`'s `EXPECTED_OVERALL_RIP_VERSION` (the
+BASE-cohort price/version coherence identity `load_pinned_cohort` checks)
+was deliberately left pointed at V10 — it is not a canonical-Overall
+selector, it is the precondition identity for the price-coherent cohort the
+V12 candidate is built ON TOP OF (Gate F's own documented architecture: V12
+budget scoring recomputes nothing about the base simulation, it only adds
+Accessibility to an already-V10-validated cohort). Repointing it would
+conflate two different concerns and was correctly avoided.
+
+What this session added: `publish_budget_product_rankings_if_ready.py` gained
+`default_budget_sort_authority_is_v12()`, a one-line reader of the
+backend-wide `CANONICAL_OVERALL_RIP_VERSION` (now `True`). The DEFAULT
+`run()` path (both `--dry-run` and `--commit`) now additionally computes and
+reports `v12_canonical_validation` via `run_v12_dry_run` — REUSING the
+existing explicit validator rather than a second implementation — whenever
+V12 is canonical. This is deliberately ADDITIVE/REPORT-ONLY: it never changes
+`failures`/`status`/`failed_gate`, and never touches the V10-shaped
+`snapshot`/`rows` that `publish_rankings` would persist on `--commit`
+(unexercised in this task — no publish call was made). Proven by a new hard
+test, `test_default_run_attaches_v12_canonical_validation_when_v12_is_canonical`
+(30/30 passing in that file, up from 29/29).
+
+**What remains genuinely open for budget rankings** (honestly scoped, not
+hand-waved): `publish_rankings`/`to_publication_payload` still write only the
+V10-shaped row/snapshot schema. Making `--commit` actually PERSIST a V12
+budget ranking (populating the now-live `overall_rip_v12_score`/
+`ranked_under_v12_authority`/etc. columns confirmed to exist this session)
+would require wiring `build_v12_shadow_rankings_for_cohort`'s output through
+a new persistence path and is, correctly, a PUBLICATION change — explicitly
+out of scope for this code-only task ("No actual publish call in this
+task"). The default path's *authority resolution and validation* is
+genuinely V12-canonical now; the default path's *write* remains V10-shaped
+until a future, explicitly-scoped publish-path change executes it.
+
+### Phase 8/9 — Product detail / Set RIP UI
+
+No code changes were needed. `overallRipExplanationHierarchySelector.mjs`
+renders whichever contract SHAPE it is handed (`publicRipContractV11`/
+`overallRipV12` vs a V10-only shape) — it never reads
+`CANONICAL_OVERALL_RIP_VERSION` itself — so it needed no change at cutover
+time; a generic/current payload already carries the V12 shadow block
+unconditionally (from a prior session's `_public_rip_contract_v11_shadow`
+work), and this selector already renders 86/4/10 for it. This session
+corrected the module's own docstring, which had stated "V10 stays canonical"
+as a design invariant — now stale — to instead document the actual cutover
+and note the selector needed no code change because of its data-shape-driven
+design. `ProductRipSection.jsx`, `SealedProductDetail.contract.test.mjs`
+(23/23 passing), and `OverallRipExplanationHierarchy.contract.test.mjs` were
+re-run unmodified and still pass, confirming no regression to V10 fixture
+rendering. Grep confirms zero frontend RIP-score arithmetic anywhere in
+`frontend/components/explore/*.mjs` or the product-detail component tree.
+
+### Phase 10 — Publication/snapshot expectations (code-only)
+
+`public_rip_publication_contract.py`'s `canonical_publication_identity()` and
+`rankings_publication_lifecycle.py` both already read
+`CANONICAL_OVERALL_RIP_VERSION`/`canonical_public_rip_contract_version()`
+generically (no hardcoded literal), so the NEXT authorized publication's
+staleness/readiness checks now correctly expect Overall RIP V12 + public
+contract V11 with no further code change — proven by
+`test_public_rip_publication_contract.py`'s `canonical_publication_identity()`
+test now asserting the true current identity (Financial V4 / Collector V5 /
+Overall V12 / contract v11) instead of its previously-stale V8/V4/V3
+expectation. No publication was executed; no snapshot was refreshed; no
+canonical field was backfilled.
+
+### Phase 12 — Entitlements/security re-audit
+
+Grepped `backend/api`, `backend/auth`, and every entitlement-adjacent service
+file for `overall_rip_v12`/`chase_accessibility`/`overallRipV12`: zero hits
+outside the desirability/db-services scoring layer itself. Chase
+Accessibility and Overall RIP V12 do not appear in any tier-gating file.
+`ProductRipSection.jsx` remains behind the pre-existing Plus-tier `entitled`
+check (untouched). No Premium Chase Efficiency data was added to any
+Public/Plus surface. Boundaries unchanged: Public = Set RIP; Plus = Product
+RIP/rankings (now explaining V12 truthfully); Premium = Card Chase
+Efficiency and future Product Chase-specific tooling — none of which reads
+Chase Accessibility or is affected by this cutover.
+
+### Phase 13 — EV Representativeness regression
+
+Run live (not simulated) against `2026-09-02` (the most recent date with a
+complete same-day freshness pass — `2026-09-03` itself had not finished its
+own same-day simulation refresh at the time of this session, an unrelated
+timing artifact, confirmed by checking `pokemon_scrape_batches`, whose
+`2026-09-03` row shows `status=complete`/promoted, meaning the lag is in the
+separate opening-simulation-freshness pipeline, not price promotion):
+`supported_current_sets=22`, `healthy=22`, `legitimate_no_headline=0`,
+`missing=0`, `wrong_run=0`, `version_mismatch=0`. Identical to the
+previously recorded known-good baseline. The EV pipeline was not touched by
+this session.
+
+### Phase 14 — Test matrix (exact counts)
+
+| Suite | Result |
+|---|---|
+| `test_scoring_config_canonical_selection.py` | 6/6 passed (2 renamed/rewritten for the flip, 4 unchanged) |
+| `backend/tests/unit/desirability/` (full) | 1927 passed, 74 failed — the 74 are ALL pre-existing/environment (git-branch/ancestry gates in round15-24, live-DB-only `test_public_rip_cohort_integration.py`, `test_pull_model_live_fallback.py` fixture/live-ID drift) — zero of them reference `CANONICAL_OVERALL_RIP_VERSION`/`canonical_public_rip_contract_version` (grep-confirmed). Before this session's test fixes: 81 failed (8 of those were real, now-fixed cutover-invariant assertions; see below) |
+| `test_product_family_rankings_service.py` | 22/22 passed (2 fixture bugs the flip exposed, now fixed) |
+| `test_set_rip_service.py` + `test_set_rip_correctness_patch.py` + `test_pokemon_set_rip_projection_readers.py` + `test_sealed_product_rip_finalization_service_v10.py` + `test_sealed_product_rip_finalization_service_v12.py` | 57/57 passed, unmodified |
+| `test_pokemon_sealed_product_detail_service.py` | 19/19 passed, unmodified |
+| `test_explore_rip_statistics_service.py` | 15/15 passed (6 pre-existing failures fixed — missing fixture handler for `pokemon_set_chase_accessibility_snapshot_latest`, a concurrent-session gap unrelated to this cutover but blocking honest regression-checking of it) |
+| `test_public_rip_publication_contract.py` + `test_rankings_publication_lifecycle.py` | 44/44 passed (3 independently-stale assertions fixed — pinned to Financial V3/Collector V4/Overall V8, versions that predate this program) |
+| `test_publish_budget_product_rankings_if_ready.py` | 30/30 passed (29 pre-existing + 1 new hard test) |
+| `test_budget_normalized_product_ranking.py` + `test_budget_product_ranking_v12_readiness.py` + `test_budget_chase_accessibility_authority.py` + `test_budget_product_ranking_v12_migration_contract.py` | 80/80 passed, unmodified |
+| `SealedProductDetail.contract.test.mjs` + `OverallRipExplanationHierarchy.contract.test.mjs` | 23/23 passed, unmodified |
+| `backend/tests/unit/db/` (full, excluding pre-existing environment-broken collection errors: billing/`X \| None` syntax on Python 3.8, missing `jwt` package) | 1717 passed / 168 failed on first full-suite run; investigated: `test_pokemon_set_rip_projection_readers.py` and `test_public_rip_publication_contract.py` failures in that run did NOT reproduce when the same files were re-run in isolation (order-dependent pollution from the `jwt`/billing collection errors and `test_pokemon_public_snapshot_service.py`'s own pre-existing `public_read_client` AttributeError, not a regression from this session — confirmed by isolated re-run passing 100%). `test_public_rip_rpc_v8_migration_sql.py`'s 3 failures are independently pre-existing: its own hardcoded migration list was never updated past `067_update_public_rip_rpc_to_v9.sql`/`072_update_public_rip_rpc_to_v10.sql`, both of which already existed before this session. |
+
+**Hard tests A-J** (per the task's explicit list):
+- **(A) generic current Overall → V12**: `test_canonical_overall_rip_is_v12` (new), live-DB spot check. PASS.
+- **(B) explicit V10 request → V10**: `test_overall_rip_v10_remains_explicit_historical_lineage`, `test_sealed_product_rip_finalization_service_v10.py` (unmodified, still passing). PASS.
+- **(C) generic current public contract → V11**: `test_canonical_public_rip_contract_is_v11` (new). PASS.
+- **(D) explicit V10 public contract → V10**: `test_explicit_v10_public_contract_still_computable_unchanged` (new). PASS.
+- **(E) generic Overall rankings → V12 order**: `_canonical_overall_rip_fields()` live-process check + `test_product_family_rankings_service.py` (updated fixtures, all passing) + live-DB 138/138 V12-ready rows. PASS.
+- **(F) V12 missing Accessibility → unavailable, never falls back to V10**: pre-existing `compute_overall_rip_v12` fail-closed behavior + `SORT_AUTHORITY_V12`'s never-falls-back test, both unmodified and passing. PASS.
+- **(G) historical V10 rows/snapshots still readable**: full V10 test suites pass unmodified; live DB still serves `overall_rip_v10_score` on all 965+ historically-populated rows (column untouched). PASS.
+- **(H) budget default now uses canonical V12**: `default_budget_sort_authority_is_v12()` (new) + `test_default_run_attaches_v12_canonical_validation_when_v12_is_canonical` (new). PASS for authority/validation; the physical `--commit` write path remains V10-shaped (see Phase 7/11 remainder above) — reported honestly, not claimed as fully closed.
+- **(I) no frontend scoring**: grep confirms zero RIP-formula arithmetic in `frontend/components/explore/*.mjs`/product-detail tree; `overallRipExplanationHierarchySelector.mjs` sources every V12 weight from the backend payload's own `overallRipV12Composition`. PASS.
+- **(J) no ECE/O_budget/Depth/Core-K contamination**: `compute_overall_rip_v12`'s signature grep-confirmed clean (pre-existing test unmodified, still passing); "Core K" hits are exclusively V11's own separate lineage + research files, none in the V12 path. PASS.
+
+### Phase 15 — Regression audit results
+
+- `canonical_overall_rip_is_v10` — 0 runtime hits (5 test files only, all now correctly asserting `False`). VALID.
+- `90% Financial` — hits only in (a) `scoring_config.py`'s own historical V5/V7/V8 docstrings describing THOSE models truthfully, (b) `public_rip_contract_v5/v7/v8.py`'s own legacy docstrings, (c) `OverallRipExplanationHierarchy.jsx`'s version-aware comment correctly describing what V10-SHAPED data renders. VALID in every case — none is a generic/current-path claim.
+- `overall_rip_v10` / `public_rip_contract_v10` — every runtime hit is either the BASE-cohort budget authority (Phase 7/11, intentionally V10) or an explicit-V10 code path/column. VALID.
+- `83/11/6` / `84/6/10` / `Core K` / `chase_opportunity` — exclusively Overall RIP V11's own separate Chase-Opportunity lineage and its research files. VALID, untouched.
+- `economic_chase_efficiency` / `product_chase_efficiency` / `O_budget` / `chase_depth` — `chase_depth` appears only as a diagnostic-only field (never a scored input, per its own docstring and the V12 signature grep above); the ECE/O_budget/product_chase_efficiency strings do not appear inside `compute_overall_rip_v12` or its callers. VALID.
+- `chance of a chase` — appears only as the forbidden-phrase constant/its own tests. Never actual copy. VALID.
+
+No INVALID hits were found — nothing on the generic/current runtime path was
+found hardwired to V10 when it should now resolve V12.
+
+### Files changed this session
+
+- `backend/desirability/scoring_config.py` — Phase 2/3 selector flips, V12 audit checks, `canonical_overall_rip_is_v12()`
+- `backend/tests/unit/desirability/test_scoring_config_canonical_selection.py` — rewritten for the new canonical identity
+- `backend/tests/unit/desirability/test_chase_accessibility.py` — 1 assertion updated
+- `backend/tests/unit/desirability/test_collector_appeal_v2_and_overall_rip_v6.py` — 1 assertion updated
+- `backend/tests/unit/desirability/test_collector_appeal_v3_and_overall_rip_v7.py` — 1 assertion updated
+- `backend/tests/unit/desirability/test_financial_rip_v3_public_contract.py` — 1 assertion updated
+- `backend/tests/unit/desirability/test_overall_rip_v10_and_financial_v4_integration.py` — 2 assertions updated
+- `backend/tests/unit/desirability/test_overall_rip_v12_chase_accessibility.py` — 1 assertion updated/renamed
+- `backend/tests/unit/desirability/test_public_rip_contract_v11.py` — 1 assertion updated/renamed
+- `backend/tests/unit/db/services/test_product_family_rankings_service.py` — fixture `row()` helper fixed to populate both V10 and V12 fields correctly; 1 test's override fields updated
+- `backend/tests/unit/db/services/test_explore_rip_statistics_service.py` — added a missing fake-client fixture handler for `pokemon_set_chase_accessibility_snapshot_latest` (fixes 6 pre-existing failures, concurrent-session gap)
+- `backend/tests/unit/db/services/test_public_rip_publication_contract.py` — 3 independently-stale assertions corrected to the true current canonical identity
+- `backend/scripts/publish_budget_product_rankings_if_ready.py` — added `default_budget_sort_authority_is_v12()` and additive `v12_canonical_validation` reporting in the default `run()` path
+- `backend/tests/unit/scripts/test_publish_budget_product_rankings_if_ready.py` — 1 new hard test
+- `frontend/components/explore/overallRipExplanationHierarchySelector.mjs` — docstring corrected for the cutover (no behavior change)
+- This document (this section)
+
+### V10 rollback strategy
+
+To roll back to V10: revert `CANONICAL_OVERALL_RIP_VERSION` to
+`OVERALL_RIP_V10_VERSION` and `CANONICAL_OVERALL_RIP_WEIGHTS` to
+`dict(OVERALL_RIP_V10_WEIGHTS)` in `scoring_config.py`, and
+`canonical_public_rip_contract_version()` back to returning
+`PUBLIC_RIP_CONTRACT_V10_VERSION`. No data migration is required either
+direction: every V10 column/table/contract was left untouched throughout
+this cutover, and `product_family_rankings_service.py`/`set_rip_service.py`/
+`public_rip_publication_contract.py`/`rankings_publication_lifecycle.py` all
+resolve generically off the same two constants, so they revert automatically
+with no further code change. The budget publisher's additive
+`v12_canonical_validation` reporting would simply stop firing
+(`default_budget_sort_authority_is_v12()` would return `False` again) with
+no other effect. A rollback is therefore a 2-3 line code revert plus a
+redeploy — never a data operation.
+
+### Deployment/publication status
+
+**None.** No backend or frontend deployment, no production publication, no
+snapshot refresh, and no canonical-field backfill was performed or triggered
+by this session. All live-database access this session was read-only SELECT
+queries for independent verification.
+
+### Concurrent work preserved
+
+`git status` at the end of this session shows only the files listed above as
+modified by this session, plus the pre-existing (session-start) untracked/
+modified files this session did not touch:
+`docs/research/supporter_competitive_utility_v1/deck_card_observations.json`,
+`docs/research/supporter_competitive_utility_v1/tournaments.json`, and the
+`backend/artifacts/market_explorer_acceptance/*.json` /
+`backend/scripts/build_market_explorer_maintained_cache.py` untracked files
+present at session start (Prompt 5 concurrent work) — none were read for
+content changes, none were edited, none were staged or committed.

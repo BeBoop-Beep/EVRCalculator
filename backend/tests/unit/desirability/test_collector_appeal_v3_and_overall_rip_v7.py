@@ -72,7 +72,9 @@ from backend.desirability.scoring_config import (
     canonical_scoring_selection,
     canonical_overall_rip_is_v9,
     canonical_overall_rip_is_v10,
+    canonical_overall_rip_is_v12,
     OVERALL_RIP_V10_VERSION,
+    OVERALL_RIP_V12_VERSION,
 )
 from backend.desirability.weighted_rip import compute_overall_rip_v7
 
@@ -384,12 +386,15 @@ def test_there_is_exactly_one_authoritative_source_for_each_canonical_version():
     # V7 is SUPERSEDED: its string must not move, and it must no longer be canonical.
     assert OVERALL_RIP_V7_VERSION == "overall_rip_v7_90_financial_v3_10_collector_appeal_v3"
     assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V7_VERSION
-    # STALE EXPECTATION CORRECTED: the canonical Overall model is now V10
-    # (90/10 Financial RIP V4 over Collector Appeal V5). V9 is preserved and
-    # identifiable, and is no longer canonical.
+    # STALE EXPECTATION CORRECTED (2026-09-03): the canonical Overall model is
+    # now V12 (86/4/10 Financial V4 + Chase Accessibility + Collector Appeal
+    # V5). V8, V9 and V10 are all preserved and identifiable, and are all no
+    # longer canonical.
     assert canonical_overall_rip_is_v8() is False
     assert canonical_overall_rip_is_v9() is False
-    assert canonical_overall_rip_is_v10() is True
+    assert canonical_overall_rip_is_v10() is False
+    assert canonical_overall_rip_is_v12() is True
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V12_VERSION
     assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
 
     selection = canonical_scoring_selection()

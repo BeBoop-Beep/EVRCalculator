@@ -52,9 +52,15 @@ def _target():
     }
 
 
-def test_v11_is_not_canonical():
-    assert canonical_public_rip_contract_version() != PUBLIC_RIP_CONTRACT_V11_VERSION
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
+def test_v11_is_now_canonical():
+    """2026-09-03 cutover: public contract V11 (carrying Overall RIP V12) is
+    now the canonical/generic-current contract. Contract numbering ("v11")
+    and Overall RIP model numbering ("V12") remain separate lineages - see
+    the module docstring in public_rip_contract_v11.py."""
+    assert canonical_public_rip_contract_version() == PUBLIC_RIP_CONTRACT_V11_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V12_VERSION
+    # V10's own contract remains explicitly requestable/computable, unchanged.
+    assert OVERALL_RIP_V10_VERSION != OVERALL_RIP_V12_VERSION
 
 
 def test_v11_embeds_v10_unchanged():

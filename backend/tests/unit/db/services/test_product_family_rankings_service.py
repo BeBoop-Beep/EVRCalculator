@@ -2,6 +2,7 @@ from backend.db.services import product_family_rankings_service as service
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
+    OVERALL_RIP_V10_VERSION,
     canonical_collector_appeal_version,
 )
 
@@ -39,8 +40,14 @@ def row(product, family="booster_box", run="current", overall=80, financial=70, 
         "financial_rip_v4_score": financial,
         "financial_rip_v4_version": CANONICAL_FINANCIAL_RIP_VERSION,
         "collector_appeal_score": 60, "collector_appeal_version": canonical_collector_appeal_version(),
-        "overall_rip_v10_score": overall, "overall_rip_v10_version": CANONICAL_OVERALL_RIP_VERSION,
+        # V10's OWN literal version string - independent of whatever is canonical
+        # right now, since V10 stays computable/identifiable as explicit history.
+        "overall_rip_v10_score": overall, "overall_rip_v10_version": OVERALL_RIP_V10_VERSION,
         "overall_rip_v10_rankable": True,
+        # Canonical (as of the 2026-09-03 cutover, V12) fields - this is what
+        # `_rank_key`/`_canonical`/`_project` actually read by default now.
+        "overall_rip_v12_score": overall, "overall_rip_v12_version": CANONICAL_OVERALL_RIP_VERSION,
+        "overall_rip_v12_rankable": True, "overall_rip_v12_status": "ready",
     }
     value.update(changes)
     return value
@@ -135,7 +142,7 @@ def test_product_rows_omit_set_evRepresentativeness_when_absent():
 
 
 def test_versions_and_rankable_flag_gate_rankings(monkeypatch):
-    rows = [row("good"), row("old-ca", collector_appeal_version="v4"), row("old-overall", overall_rip_v10_version="v8"), row("not-rankable", overall_rip_v10_rankable=False)]
+    rows = [row("good"), row("old-ca", collector_appeal_version="v4"), row("old-overall", overall_rip_v12_version="v8"), row("not-rankable", overall_rip_v12_rankable=False)]
     family = build(monkeypatch, rows)["families"]["booster_box"]
     assert family["currentlyScoredCount"] == 4
     assert family["currentlyRankableCount"] == family["count"] == 1

@@ -365,6 +365,11 @@ def _build_handlers():
             ],
         ],
         "set_pack_score_rankings_latest": lambda _q: [],
+        # `_attach_public_rip_contract` batch-reads Chase Accessibility snapshots
+        # to build the (additive, non-canonical) public contract V11 shadow
+        # block. No stub rows here -> every set's Accessibility resolves to
+        # explicit "unavailable", never a fabricated fallback.
+        "pokemon_set_chase_accessibility_snapshot_latest": lambda _q: [],
     }
 
 
@@ -559,6 +564,11 @@ def test_all_scored_opening_desirability_rows_join_into_canonical_comparison(mon
             for card_index in range(1, 11)
         ],
         "set_pack_score_rankings_latest": lambda _q: [],
+        # `_attach_public_rip_contract` batch-reads Chase Accessibility snapshots
+        # to build the (additive, non-canonical) public contract V11 shadow
+        # block. No stub rows here -> every set's Accessibility resolves to
+        # explicit "unavailable", never a fabricated fallback.
+        "pokemon_set_chase_accessibility_snapshot_latest": lambda _q: [],
     }
     client = _Client(handlers)
     monkeypatch.setattr(service, "service_read_client", client)
