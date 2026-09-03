@@ -95,7 +95,7 @@ from backend.calculations.evr.sealed_product_distribution import (
     build_stage1_product_distributions,
 )
 from backend.desirability.composite import assign_composite_tier
-from backend.desirability.weighted_rip import compute_overall_rip_v10
+from backend.desirability.weighted_rip import compute_overall_rip_v10, compute_overall_rip_v12
 
 #: Bump on any change to allocation rule, scoring chain, or comparator.
 #: Never mutate the meaning of an already-published version string.
@@ -261,10 +261,22 @@ def score_budget_strategy(
     collector_appeal_score: Optional[float],
     *,
     min_simulation_count: int = 0,
+    chase_accessibility_raw: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Financial RIP V4 (projected from V3, exactly as production computes it),
     then Overall RIP V10 from that V4 score and the SAME Collector Appeal
-    score the set already carries (never recomputed per quantity)."""
+    score the set already carries (never recomputed per quantity).
+
+    ``chase_accessibility_raw`` (optional, additive) is the SAME set-level raw
+    Chase Accessibility value used elsewhere for this product's set - a
+    structural, quantity-independent reachability metric, never recomputed
+    per budget/quantity, exactly like ``collector_appeal_score`` above. When
+    provided, an ADDITIVE, non-canonical ``overallRipV12*`` triple is also
+    computed via the one canonical :func:`compute_overall_rip_v12` transform.
+    This NEVER changes `_tier_sort_key`'s V10-only sort order or any existing
+    output field - callers that omit the new keyword see byte-identical
+    behavior. Promotion of this shadow field to the sort key is a separate,
+    later, explicit cutover (matching how V10 itself was promoted)."""
     v3_kwargs = {} if not min_simulation_count else {"min_simulation_count": min_simulation_count}
     v3_payload = build_financial_rip_v3(values, actual_committed_capital, **v3_kwargs)
     v4_payload = project_financial_rip_v4_from_v3_payload(v3_payload)
@@ -285,6 +297,14 @@ def score_budget_strategy(
     overall_v10 = None
     if financial_v4_rankable and financial_v4_score is not None and collector_appeal_score is not None:
         overall_v10 = compute_overall_rip_v10(financial_v4_score, collector_appeal_score)
+    overall_v12 = None
+    if (
+        financial_v4_rankable and financial_v4_score is not None
+        and collector_appeal_score is not None and chase_accessibility_raw is not None
+    ):
+        overall_v12 = compute_overall_rip_v12(
+            financial_v4_score, chase_accessibility_raw, collector_appeal_score
+        )
     return {
         "financialRipV4Score": financial_v4_score,
         "financialRipV4Status": financial_v4_status,
@@ -293,6 +313,13 @@ def score_budget_strategy(
         "overallRipV10Score": overall_v10.get("score") if overall_v10 else None,
         "overallRipV10Rankable": bool(overall_v10.get("rankable")) if overall_v10 else False,
         "overallRipV10Version": overall_v10.get("version") if overall_v10 else None,
+        # SHADOW/ADDITIVE ONLY: never consumed by `_tier_sort_key`. See the
+        # docstring above - the same non-recomputation discipline applied to
+        # `collector_appeal_score` applies to `chase_accessibility_raw`.
+        "overallRipV12Score": overall_v12.get("score") if overall_v12 else None,
+        "overallRipV12Rankable": bool(overall_v12.get("rankable")) if overall_v12 else False,
+        "overallRipV12Version": overall_v12.get("version") if overall_v12 else None,
+        "overallRipV12Payload": overall_v12,
         "expectedValue": float(np.mean(values)),
         "medianValue": float(np.median(values)),
         "chanceToRecoverCapital": chance_to_recover_capital,

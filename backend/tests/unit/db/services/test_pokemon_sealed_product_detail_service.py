@@ -156,6 +156,76 @@ def test_set_ev_representativeness_missing_does_not_break_the_product_rip_contra
     assert payload["rip"]["setEvRepresentativeness"] is None
 
 
+def test_top_level_v10_shape_lets_the_shared_explanation_hierarchy_render_the_canonical_split():
+    """`rip.overallRipV10`/`rip.financialRipV4` are a pure relabeling of the
+    same leader/rank/tier fields already on the RIP contract - the exact
+    top-level shape `canonicalRipV7.mjs`'s `resolveCanonicalRipV7` already
+    knows how to read (its "topLevelV10" branch), so
+    `OverallRipExplanationHierarchy` can render the canonical 90/10
+    explanation without a second frontend implementation."""
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(fixture_data()))
+    rip = payload["rip"]
+    assert rip["overallRipV10"] == {
+        "leaderNormalizedScore": rip["overallRipLeaderScore"],
+        "rank": rip["familyRank"],
+        "tier": rip["publicTier"],
+        "cohortSize": rip["familySize"],
+        "status": "ready",
+    }
+    assert rip["financialRipV4"] == {"leaderNormalizedScore": rip["financialRipLeaderScore"]}
+    # No shadow V12 data on this fixture's ranking row - the contract must be
+    # honestly None, never fabricated.
+    assert rip["publicRipContractV11"] is None
+
+
+def test_shadow_v12_ranking_payload_flows_through_as_publicRipContractV11():
+    """When the product-family-rankings row (built from
+    `simulation_sealed_product_results.overall_rip_v12_payload`) carries a
+    SHADOW V12 result, the product detail contract exposes it under the same
+    `publicRipContractV11` shape the shared frontend selector already knows
+    how to read - a pure passthrough, no re-derivation of the score/weights."""
+    v12_payload = {
+        "score": 88.42, "version": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+        "status": "ready", "statusReason": None, "rankable": True,
+        "components": {"financialRipV4": {"score": 91.2}}, "missingInputs": [],
+        "weights": {"financial_rip": 0.86, "chase_accessibility": 0.04, "collector_appeal": 0.10},
+        "effectiveWeights": {"chase_accessibility": 20.0},
+    }
+    data = fixture_data()
+    families = data["pokemon_explore_rankings_snapshot_latest"][0]["ranking_payload_json"]["productFamilyRankings"]["families"]
+    for row in families["booster_box"]["products"]:
+        if row["sealedProductId"] == "p1":
+            row["overallRipV12"] = v12_payload
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(data))
+    contract = payload["rip"]["publicRipContractV11"]
+    assert contract["contractVersion"] == "public_rip_contract_v11"
+    assert contract["overallRipV12"]["score"] == 88.42
+    assert contract["overallRipV12"]["status"] == "ready"
+    assert contract["overallRipV12"]["canonical"] is False
+    assert contract["overallRipV12Composition"]["weights"] == v12_payload["weights"]
+    assert contract["overallRipV12Composition"]["effectiveWeights"] == v12_payload["effectiveWeights"]
+
+
+def test_shadow_v12_unavailable_status_never_fabricated_as_ready():
+    """An unavailable/authority-mismatch V12 payload (as the finalizer writes
+    it) must be reported honestly, never coerced to a ready score."""
+    v12_payload = {
+        "score": None, "version": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+        "status": "unavailable_authority_mismatch", "statusReason": "mismatch", "rankable": False,
+        "components": {}, "missingInputs": ["chase_accessibility_v1"], "weights": {}, "effectiveWeights": {},
+    }
+    data = fixture_data()
+    families = data["pokemon_explore_rankings_snapshot_latest"][0]["ranking_payload_json"]["productFamilyRankings"]["families"]
+    for row in families["booster_box"]["products"]:
+        if row["sealedProductId"] == "p1":
+            row["overallRipV12"] = v12_payload
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(data))
+    contract = payload["rip"]["publicRipContractV11"]
+    assert contract["overallRipV12"]["score"] is None
+    assert contract["overallRipV12"]["status"] == "unavailable_authority_mismatch"
+    assert contract["overallRipV12"]["rankable"] is False
+
+
 def test_missing_exact_published_run_fails_only_rip_closed():
     data = fixture_data()
     data["simulation_sealed_product_results"] = [data["simulation_sealed_product_results"][1]]

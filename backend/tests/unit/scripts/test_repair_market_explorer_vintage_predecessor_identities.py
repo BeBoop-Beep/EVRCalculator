@@ -1,7 +1,11 @@
+from datetime import date
+
 from backend.scripts.repair_market_explorer_vintage_predecessor_identities import (
     CACHE_STATE_TABLE,
     CACHE_TABLE,
+    COVERAGE_TABLE,
     MERGE_LEDGER_TABLE,
+    MONTHLY_ROLLUP_TABLE,
     run_repair,
 )
 
@@ -118,7 +122,10 @@ class RpcQuery:
         if self.name == "refresh_pokemon_card_variant_market_price_intervals":
             return Response(len(self.params["p_card_variant_ids"]))
         if self.name == "rebuild_pokemon_card_market_top_hits_by_edition":
-            return Response(len(self.params["p_set_ids"]))
+            # Real production signature takes ZERO arguments -- a full-table
+            # rebuild, not scoped by set.
+            assert self.params == {}
+            return Response(1)
         if self.name == "reproject_pokemon_market_explorer_card_daily_states":
             return Response(len(self.params["p_set_ids"]))
         if self.name == "retire_pokemon_card_variant_predecessor":
@@ -163,7 +170,8 @@ class FakeClient:
         return RpcQuery(self, name, params)
 
 
-def _base_store(*, sets, cards, variants, observations=None, cache_rows=None, cache_state=None):
+def _base_store(*, sets, cards, variants, observations=None, cache_rows=None, cache_state=None,
+                coverage_rows=None):
     return {
         "sets": [dict(row) for row in sets],
         "cards": [dict(row) for row in cards],
@@ -172,9 +180,10 @@ def _base_store(*, sets, cards, variants, observations=None, cache_rows=None, ca
         MERGE_LEDGER_TABLE: [],
         CACHE_TABLE: [dict(row) for row in (cache_rows or [])],
         CACHE_STATE_TABLE: [dict(row) for row in (cache_state or [{"asset": "cards", "repair_generation": 5}])],
-        "card_variant_price_monthly_rollups": [],
+        MONTHLY_ROLLUP_TABLE: [],
         "card_market_top_hits_by_edition_latest": [],
         "pokemon_market_explorer_card_daily_states": [],
+        COVERAGE_TABLE: [dict(row) for row in (coverage_rows or [])],
     }
 
 
@@ -188,9 +197,15 @@ def _fossil_fixture(edition="first"):
     return sets, cards, variants
 
 
+def _fossil_coverage_row(first_market_date="2026-04-11", computed_through="2026-09-01"):
+    return {"set_id": "fossil", "first_market_date": first_market_date,
+            "computed_through": computed_through}
+
+
 def test_clean_generic_to_first_edition_mapping_resolves():
     sets, cards, variants = _fossil_fixture(edition="first")
-    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    coverage_rows=[_fossil_coverage_row()]))
     report = run_repair(client, commit=False, set_ids=["fossil"])
     assert report["mappings_resolved"] == 1
     assert report["mappings_by_edition"] == {"first": 1}
@@ -199,7 +214,8 @@ def test_clean_generic_to_first_edition_mapping_resolves():
 
 def test_generic_to_unlimited_mapping_resolves():
     sets, cards, variants = _fossil_fixture(edition="unlimited")
-    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    coverage_rows=[_fossil_coverage_row()]))
     report = run_repair(client, commit=False, set_ids=["fossil"])
     assert report["mappings_resolved"] == 1
     assert report["mappings_by_edition"] == {"unlimited": 1}
@@ -264,7 +280,8 @@ def _collision_store(pred_created_at, succ_created_at, pred_price=10.0, succ_pri
          "source": "tcgplayer", "captured_date": "2024-04-20",
          "market_price": succ_price, "created_at": succ_created_at},
     ]
-    return _base_store(sets=sets, cards=cards, variants=variants, observations=observations)
+    return _base_store(sets=sets, cards=cards, variants=variants, observations=observations,
+                       coverage_rows=[_fossil_coverage_row()])
 
 
 def test_observation_collision_newer_predecessor_wins():
@@ -295,7 +312,8 @@ def test_differing_price_duplicate_collision_still_follows_created_at_rule():
 
 def test_idempotent_rerun_produces_no_duplicate_or_changed_state():
     sets, cards, variants = _fossil_fixture(edition="first")
-    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    coverage_rows=[_fossil_coverage_row()]))
     first = run_repair(client, commit=True, set_ids=["fossil"])
     assert first["mappings_resolved"] == 1
     assert first["variants_retired"] == 1
@@ -309,7 +327,8 @@ def test_idempotent_rerun_produces_no_duplicate_or_changed_state():
 
 def test_retirement_is_ledger_based_not_physical_deletion():
     sets, cards, variants = _fossil_fixture(edition="first")
-    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    coverage_rows=[_fossil_coverage_row()]))
     report = run_repair(client, commit=True, set_ids=["fossil"])
     assert report["variants_retired"] == 1
 
@@ -336,7 +355,8 @@ def test_retirement_is_ledger_based_not_physical_deletion():
 
 def test_does_not_touch_forbidden_reference_tables():
     sets, cards, variants = _fossil_fixture(edition="first")
-    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    coverage_rows=[_fossil_coverage_row()]))
     run_repair(client, commit=True, set_ids=["fossil"])
     assert not (set(client.calls) & FORBIDDEN_TABLES)
 
@@ -360,9 +380,16 @@ def test_pilot_projection_scope_limited_to_fossil_and_neo_genesis_only():
         {"id": "v-pred-3", "card_id": "c3", "edition": None},
         {"id": "v-succ-3", "card_id": "c3", "edition": "first"},
     ]
-    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
+    coverage_rows = [
+        _fossil_coverage_row(),
+        {"set_id": "neo-genesis", "first_market_date": "2026-04-11",
+         "computed_through": "2026-09-01"},
+    ]
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    coverage_rows=coverage_rows))
     report = run_repair(client, commit=False, set_ids=["fossil", "neo-genesis", "gym-heroes"])
     assert set(report["pilot_projection_rows_touched"]) == {"Fossil", "Neo Genesis"}
+    assert report["pilot_projection_window"] == {"start_date": "2026-04-11", "end_date": "2026-09-01"}
 
 
 def test_targeted_cache_invalidation_calls_atomic_scoped_rpc():
@@ -375,7 +402,8 @@ def test_targeted_cache_invalidation_calls_atomic_scoped_rpc():
         {"query_fingerprint": "fp-unrelated", "status": "ready",
          "normalized_spec": {"setIds": ["gym-heroes"]}},
     ]
-    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants, cache_rows=cache_rows))
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants, cache_rows=cache_rows,
+                                    coverage_rows=[_fossil_coverage_row()]))
     report = run_repair(client, commit=True, set_ids=["fossil"])
 
     scoped_calls = [call for call in client.rpc_calls
@@ -399,10 +427,152 @@ def test_cache_invalidation_generation_bump_is_atomic_not_read_then_write():
     """
     sets, cards, variants = _fossil_fixture(edition="first")
     client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
-                                    cache_state=[{"asset": "cards", "repair_generation": 5}]))
+                                    cache_state=[{"asset": "cards", "repair_generation": 5}],
+                                    coverage_rows=[_fossil_coverage_row()]))
     run_repair(client, commit=True, set_ids=["fossil"])
     assert CACHE_STATE_TABLE not in client.calls
     stored = next(row for row in client.store[CACHE_STATE_TABLE] if row["asset"] == "cards")
     # The fake RPC simulates the DB-side atomic bump; the script itself never
     # reads or writes this table directly.
     assert stored["repair_generation"] == 6
+
+
+def test_top_hits_rebuild_calls_zero_argument_rpc():
+    sets, cards, variants = _fossil_fixture(edition="first")
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    coverage_rows=[_fossil_coverage_row()]))
+    run_repair(client, commit=True, set_ids=["fossil"])
+    top_hits_calls = [call for call in client.rpc_calls
+                      if call[0] == "rebuild_pokemon_card_market_top_hits_by_edition"]
+    assert len(top_hits_calls) == 1
+    assert top_hits_calls[0][1] == {}
+
+
+def test_pilot_projection_window_derived_from_coverage_min_max():
+    sets, cards, variants = _fossil_fixture(edition="first")
+    coverage_rows = [_fossil_coverage_row(first_market_date="2026-04-11",
+                                          computed_through="2026-09-01")]
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    coverage_rows=coverage_rows))
+    report = run_repair(client, commit=True, set_ids=["fossil"])
+    assert report["pilot_projection_window"] == {"start_date": "2026-04-11", "end_date": "2026-09-01"}
+    reproject_calls = [call for call in client.rpc_calls
+                       if call[0] == "reproject_pokemon_market_explorer_card_daily_states"]
+    assert len(reproject_calls) == 1
+    assert reproject_calls[0][1]["p_start_date"] == date(2026, 4, 11)
+    assert reproject_calls[0][1]["p_end_date"] == date(2026, 9, 1)
+
+
+def test_pilot_projection_window_uses_min_first_market_date_and_max_computed_through():
+    """Multiple coverage rows for the pilot scope: the derived window must
+    use MIN(first_market_date)/MAX(computed_through) across ALL matched
+    rows, not just the first row found.
+    """
+    sets = [
+        {"id": "fossil", "name": "Fossil"},
+        {"id": "neo-genesis", "name": "Neo Genesis"},
+    ]
+    cards = [
+        {"id": "c1", "set_id": "fossil", "name": "Zapdos", "card_number": "15"},
+        {"id": "c2", "set_id": "neo-genesis", "name": "Lugia", "card_number": "9"},
+    ]
+    variants = [
+        {"id": "v-pred-1", "card_id": "c1", "edition": None},
+        {"id": "v-succ-1", "card_id": "c1", "edition": "first"},
+        {"id": "v-pred-2", "card_id": "c2", "edition": None},
+        {"id": "v-succ-2", "card_id": "c2", "edition": "unlimited"},
+    ]
+    coverage_rows = [
+        {"set_id": "fossil", "first_market_date": "2026-05-01", "computed_through": "2026-07-01"},
+        {"set_id": "neo-genesis", "first_market_date": "2026-04-11", "computed_through": "2026-09-01"},
+    ]
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    coverage_rows=coverage_rows))
+    report = run_repair(client, commit=False, set_ids=["fossil", "neo-genesis"])
+    # MIN(first_market_date) across both rows is neo-genesis's 2026-04-11
+    # (not fossil's, which is the first row iterated), and
+    # MAX(computed_through) is neo-genesis's 2026-09-01.
+    assert report["pilot_projection_window"] == {"start_date": "2026-04-11", "end_date": "2026-09-01"}
+
+
+def test_missing_pilot_set_coverage_row_fails_closed():
+    sets, cards, variants = _fossil_fixture(edition="first")
+    # No coverage_rows supplied at all -- the pilot set (fossil) has no
+    # coverage row, so the script must fail closed rather than silently
+    # falling back to a default window.
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
+    report = run_repair(client, commit=False, set_ids=["fossil"])
+    assert report["failures"] == 1
+    assert report["pilot_projection_window"] is None
+
+
+def test_explicit_projection_override_skips_coverage_lookup():
+    sets, cards, variants = _fossil_fixture(edition="first")
+    # No coverage_rows supplied -- if the script tried the coverage lookup
+    # it would fail closed; the explicit override must skip it entirely.
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants))
+    report = run_repair(client, commit=True, set_ids=["fossil"],
+                        projection_start=date(2026, 4, 11), projection_end=date(2026, 9, 1))
+    assert report["failures"] == 0
+    assert COVERAGE_TABLE not in client.calls
+    assert report["pilot_projection_window"] == {"start_date": "2026-04-11", "end_date": "2026-09-01"}
+    reproject_calls = [call for call in client.rpc_calls
+                       if call[0] == "reproject_pokemon_market_explorer_card_daily_states"]
+    assert reproject_calls[0][1]["p_start_date"] == date(2026, 4, 11)
+    assert reproject_calls[0][1]["p_end_date"] == date(2026, 9, 1)
+
+
+def test_monthly_rollup_repair_calls_rpc_with_successor_ids_and_derived_months():
+    sets, cards, variants = _fossil_fixture(edition="first")
+    observations = [
+        {"id": "o-pred", "card_variant_id": "v-pred-1", "condition_id": "nm",
+         "source": "tcgplayer", "captured_date": "2026-04-05",
+         "market_price": 10.0, "created_at": "2026-04-05T00:00:00Z"},
+        {"id": "o-pred-2", "card_variant_id": "v-pred-1", "condition_id": "lp",
+         "source": "tcgplayer", "captured_date": "2026-04-28",
+         "market_price": 11.0, "created_at": "2026-04-28T00:00:00Z"},
+    ]
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    observations=observations,
+                                    coverage_rows=[_fossil_coverage_row()]))
+    report = run_repair(client, commit=True, set_ids=["fossil"])
+    assert report["failures"] == 0
+
+    rollup_calls = [call for call in client.rpc_calls
+                    if call[0] == "rebuild_pokemon_card_variant_price_monthly_rollups"]
+    assert len(rollup_calls) == 1
+    assert rollup_calls[0][1] == {
+        "p_card_variant_ids": ["v-succ-1"],
+        "p_start_month": date(2026, 4, 1),
+        "p_end_month": date(2026, 4, 1),
+    }
+
+
+def test_monthly_rollup_repair_never_issues_a_direct_delete():
+    """The prior direct DELETE against card_variant_price_monthly_rollups is
+    gone; the script must use the rebuild RPC exclusively. Both a source
+    grep and a runtime assertion guard this.
+    """
+    import inspect
+
+    import backend.scripts.repair_market_explorer_vintage_predecessor_identities as module
+
+    source = inspect.getsource(module)
+    assert f'table(MONTHLY_ROLLUP_TABLE).delete()' not in source
+    assert f'table("{MONTHLY_ROLLUP_TABLE}").delete()' not in source
+
+    sets, cards, variants = _fossil_fixture(edition="first")
+    observations = [
+        {"id": "o-pred", "card_variant_id": "v-pred-1", "condition_id": "nm",
+         "source": "tcgplayer", "captured_date": "2026-04-05",
+         "market_price": 10.0, "created_at": "2026-04-05T00:00:00Z"},
+    ]
+    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants,
+                                    observations=observations,
+                                    coverage_rows=[_fossil_coverage_row()]))
+    run_repair(client, commit=True, set_ids=["fossil"])
+    # The fake client's TableQuery.delete() is never invoked on the rollup
+    # table -- the rollup rebuild goes through the RPC exclusively.
+    assert client.store[MONTHLY_ROLLUP_TABLE] == []
+    assert any(call[0] == "rebuild_pokemon_card_variant_price_monthly_rollups"
+              for call in client.rpc_calls)

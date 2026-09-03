@@ -43,6 +43,7 @@ DAILY_STATES_TABLE = "pokemon_market_explorer_card_daily_states"
 CACHE_TABLE = "pokemon_market_explorer_query_cache"
 CACHE_STATE_TABLE = "pokemon_market_explorer_cache_state"
 MERGE_LEDGER_TABLE = "pokemon_market_explorer_variant_merge_ledger"
+COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage"
 
 # RPCs the repair calls. These match the real production contract installed
 # by migrations 20260902221622_add_market_explorer_vintage_identity_repair_primitives
@@ -54,10 +55,13 @@ REFRESH_INTERVAL_RPC = "refresh_pokemon_card_variant_market_price_intervals"
 MERGE_OBSERVATIONS_RPC = "merge_pokemon_card_variant_price_observations"
 # retire_pokemon_card_variant_predecessor(p_predecessor_variant_id uuid, p_successor_variant_id uuid, p_merge_reason text)
 RETIRE_VARIANT_RPC = "retire_pokemon_card_variant_predecessor"
-# rebuild_pokemon_card_market_top_hits_by_edition()
+# rebuild_pokemon_card_market_top_hits_by_edition() -- ZERO arguments; this is
+# a full-table rebuild, not scoped by set.
 REBUILD_TOP_HITS_RPC = "rebuild_pokemon_card_market_top_hits_by_edition"
 # reproject_pokemon_market_explorer_card_daily_states(p_set_ids uuid[], p_start_date date, p_end_date date)
 REPROJECT_DAILY_STATES_RPC = "reproject_pokemon_market_explorer_card_daily_states"
+# rebuild_pokemon_card_variant_price_monthly_rollups(p_card_variant_ids uuid[], p_start_month date, p_end_month date)
+REBUILD_MONTHLY_ROLLUPS_RPC = "rebuild_pokemon_card_variant_price_monthly_rollups"
 # invalidate_pokemon_market_explorer_query_cache_scoped(p_set_ids uuid[]) -- atomic:
 # handles both scoped cache-row invalidation AND the Cards repair_generation
 # bump on the DB side. Do not reintroduce a read-then-write generation bump.
@@ -69,11 +73,6 @@ INVALIDATE_CACHE_SCOPED_RPC = "invalidate_pokemon_market_explorer_query_cache_sc
 # ``pokemon_market_explorer_variant_merge_ledger`` (see MERGE_LEDGER_TABLE),
 # not via row absence.
 MERGE_REASON = "vintage_predecessor_identity_repair"
-
-# Pilot re-projection re-derives daily states over this wide a window since
-# the RPC's (p_start_date, p_end_date) parameters are NOT NULL and this
-# script has no narrower authoritative window to hand it.
-PILOT_PROJECTION_START_DATE = date(1996, 1, 1)
 
 SUCCESSOR_EDITIONS = {"first", "1st-edition", "1st edition", "unlimited"}
 UNLIMITED_EDITIONS = {"unlimited"}
@@ -91,6 +90,16 @@ PILOT_PROJECTION_SET_NAMES = {"fossil", "neo genesis"}
 
 def _fold(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+
+def _to_date(value: Any) -> date:
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value)[:10])
+
+
+def _month_floor(value: date) -> date:
+    return date(value.year, value.month, 1)
 
 
 def _paged(query_factory, *, page_size: int = 1000) -> list[dict[str, Any]]:
@@ -142,6 +151,7 @@ class Summary:
     monthly_rollups_touched: int = 0
     intervals_regenerated: int = 0
     top_hits_rebuilt: int = 0
+    pilot_projection_window: dict[str, str] | None = None
     pilot_projection_rows_touched: dict[str, int] = field(default_factory=dict)
     cache_entries_invalidated: int = 0
     failures: int = 0
@@ -348,7 +358,7 @@ def resolve_observation_winners(
 # --- Derived-table repair phases --------------------------------------------
 
 def merge_observations(client: Any, *, commit: bool, mapping: Mapping,
-                       summary: Summary) -> None:
+                       summary: Summary) -> list[Any]:
     predecessor_obs = _paged(lambda: client.table(OBSERVATIONS_TABLE)
                              .select("id,card_variant_id,condition_id,source,captured_date,"
                                     "market_price,created_at")
@@ -375,8 +385,11 @@ def merge_observations(client: Any, *, commit: bool, mapping: Mapping,
         else:
             summary.observations_price_differing_collisions += 1
 
+    predecessor_dates = [row.get("captured_date") for row in predecessor_obs
+                         if row.get("captured_date")]
+
     if not commit:
-        return
+        return predecessor_dates
     # Winner-rank bookkeeping above is local reporting only -- the merge RPC
     # applies the same source-winner rule server-side and takes no per-row
     # observation id lists.
@@ -384,21 +397,27 @@ def merge_observations(client: Any, *, commit: bool, mapping: Mapping,
         "p_predecessor_variant_id": mapping.predecessor_variant_id,
         "p_successor_variant_id": mapping.successor_variant_id,
     }).execute()
+    return predecessor_dates
 
 
 def regenerate_monthly_rollups(client: Any, *, commit: bool, variant_ids: Sequence[str],
+                               start_month: date | None, end_month: date | None,
                                summary: Summary) -> None:
-    """Regenerate/invalidate monthly rollups for successor variants whose
-    merged history changed. Uses a delete-and-recompute-on-read style
-    invalidation consistent with rollup tables elsewhere in the repo
-    (rollups are derived, never hand-edited).
+    """Regenerate monthly rollups for the affected SUCCESSOR variants via the
+    real production ``rebuild_pokemon_card_variant_price_monthly_rollups``
+    RPC, scoped to the month range derived from the predecessor observations
+    being merged. Rollups are derived, never hand-edited or deleted directly.
     """
-    if not variant_ids:
+    if not variant_ids or start_month is None or end_month is None:
         return
     summary.monthly_rollups_touched += len(variant_ids)
     if not commit:
         return
-    client.table(MONTHLY_ROLLUP_TABLE).delete().in_("card_variant_id", list(variant_ids)).execute()
+    client.rpc(REBUILD_MONTHLY_ROLLUPS_RPC, {
+        "p_card_variant_ids": list(variant_ids),
+        "p_start_month": start_month,
+        "p_end_month": end_month,
+    }).execute()
 
 
 def regenerate_intervals(client: Any, *, commit: bool, variant_ids: Sequence[str],
@@ -420,7 +439,7 @@ def rebuild_top_hits(client: Any, *, commit: bool, set_ids: Sequence[str],
         rows = _paged(lambda: client.table(TOP_HITS_TABLE).select("id").in_("set_id", list(set_ids)))
         summary.top_hits_rebuilt += len(rows)
         return
-    response = client.rpc(REBUILD_TOP_HITS_RPC, {"p_set_ids": list(set_ids)}).execute()
+    response = client.rpc(REBUILD_TOP_HITS_RPC, {}).execute()
     summary.top_hits_rebuilt += int(response.data or 0)
 
 
@@ -447,17 +466,64 @@ def retire_predecessor_variants(client: Any, *, commit: bool, mappings: Sequence
         }).execute()
 
 
+def derive_pilot_projection_window(client: Any, set_ids: Sequence[str]) -> tuple[date, date]:
+    """Derive the (p_start_date, p_end_date) re-projection window from
+    ``pokemon_market_explorer_card_daily_coverage`` for the exact pilot set
+    scope: MIN(first_market_date) .. MAX(computed_through) across the
+    matched coverage rows. Never extends past ``computed_through``. Fails
+    closed (raises) if any pilot set in scope lacks a coverage row -- this
+    script has no authoritative fallback window to hand the RPC.
+    """
+    if not set_ids:
+        raise ValueError("cannot derive a pilot projection window: no pilot set ids in scope")
+
+    rows = _paged(lambda: client.table(COVERAGE_TABLE)
+                  .select("set_id,first_market_date,computed_through")
+                  .in_("set_id", list(set_ids)))
+    rows_by_set: dict[str, dict[str, Any]] = {str(row["set_id"]): row for row in rows}
+
+    missing = sorted(sid for sid in set_ids if sid not in rows_by_set)
+    if missing:
+        raise ValueError(
+            "missing pokemon_market_explorer_card_daily_coverage row(s) for pilot "
+            f"set(s) in scope; refusing to fall back to a default window: {missing}"
+        )
+
+    start_date = min(_to_date(row["first_market_date"]) for row in rows_by_set.values())
+    end_date = max(_to_date(row["computed_through"]) for row in rows_by_set.values())
+    return start_date, end_date
+
+
 def repair_pilot_projections(client: Any, *, commit: bool, mappings: Sequence[Mapping],
-                             summary: Summary) -> None:
+                             summary: Summary, projection_start: date | None = None,
+                             projection_end: date | None = None) -> None:
     """Re-project ``pokemon_market_explorer_card_daily_states`` rows, scoped
     STRICTLY to Fossil and Neo Genesis -- the only two sets with an already
     published pilot projection. Every other affected vintage set has no
     published daily-state rows yet, so there is nothing to re-project there.
+
+    The repair window is derived from
+    ``pokemon_market_explorer_card_daily_coverage`` coverage rows for the
+    pilot sets in scope (MIN(first_market_date) .. MAX(computed_through)),
+    unless an explicit ``--projection-start``/``--projection-end`` CLI
+    override is supplied, in which case the coverage lookup is skipped
+    entirely.
     """
     pilot_mappings = [m for m in mappings if _fold(m.set_name) in PILOT_PROJECTION_SET_NAMES]
+    if not pilot_mappings:
+        return
+
     by_set: dict[str, list[Mapping]] = {}
     for mapping in pilot_mappings:
         by_set.setdefault(mapping.set_name, []).append(mapping)
+    pilot_set_ids = sorted({m.set_id for m in pilot_mappings})
+
+    if projection_start is not None and projection_end is not None:
+        start_date, end_date = projection_start, projection_end
+    else:
+        start_date, end_date = derive_pilot_projection_window(client, pilot_set_ids)
+
+    summary.pilot_projection_window = {"start_date": str(start_date), "end_date": str(end_date)}
 
     for set_name, set_mappings in by_set.items():
         set_id = set_mappings[0].set_id
@@ -468,8 +534,8 @@ def repair_pilot_projections(client: Any, *, commit: bool, mappings: Sequence[Ma
             continue
         response = client.rpc(REPROJECT_DAILY_STATES_RPC, {
             "p_set_ids": [set_id],
-            "p_start_date": PILOT_PROJECTION_START_DATE,
-            "p_end_date": date.today(),
+            "p_start_date": start_date,
+            "p_end_date": end_date,
         }).execute()
         summary.pilot_projection_rows_touched[set_name] = int(response.data or 0)
 
@@ -513,6 +579,8 @@ def run_repair(
     commit: bool,
     set_ids: Sequence[str] = (),
     predecessor_allowlist: Sequence[str] = (),
+    projection_start: date | None = None,
+    projection_end: date | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     summary = Summary(dry_run=not commit)
@@ -539,16 +607,28 @@ def run_repair(
             summary.mappings_by_edition[mapping.successor_edition] = (
                 summary.mappings_by_edition.get(mapping.successor_edition, 0) + 1)
 
+        predecessor_dates: list[Any] = []
         for mapping in pending:
-            merge_observations(client, commit=commit, mapping=mapping, summary=summary)
+            predecessor_dates.extend(
+                merge_observations(client, commit=commit, mapping=mapping, summary=summary) or [])
+
+        if predecessor_dates:
+            parsed_dates = [_to_date(d) for d in predecessor_dates]
+            rollup_start_month = _month_floor(min(parsed_dates))
+            rollup_end_month = _month_floor(max(parsed_dates))
+        else:
+            rollup_start_month = rollup_end_month = None
 
         successor_ids = sorted({m.successor_variant_id for m in pending})
-        regenerate_monthly_rollups(client, commit=commit, variant_ids=successor_ids, summary=summary)
+        regenerate_monthly_rollups(client, commit=commit, variant_ids=successor_ids,
+                                   start_month=rollup_start_month, end_month=rollup_end_month,
+                                   summary=summary)
         regenerate_intervals(client, commit=commit, variant_ids=successor_ids, summary=summary)
         rebuild_top_hits(client, commit=commit,
                          set_ids=sorted({m.set_id for m in pending}), summary=summary)
         retire_predecessor_variants(client, commit=commit, mappings=pending, summary=summary)
-        repair_pilot_projections(client, commit=commit, mappings=pending, summary=summary)
+        repair_pilot_projections(client, commit=commit, mappings=pending, summary=summary,
+                                 projection_start=projection_start, projection_end=projection_end)
         invalidate_targeted_caches(client, commit=commit, mappings=pending, summary=summary)
     except Exception as exc:
         summary.failures += 1
@@ -569,15 +649,26 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Limit mapping derivation to a set UUID; repeatable.")
     parser.add_argument("--predecessor-id", action="append", default=[],
                         help="Restrict to explicit predecessor variant UUIDs; repeatable.")
+    parser.add_argument("--projection-start", type=date.fromisoformat, default=None,
+                        help="Explicit ISO date overriding the derived pilot re-projection "
+                             "start date; skips the coverage-table lookup. Requires "
+                             "--projection-end.")
+    parser.add_argument("--projection-end", type=date.fromisoformat, default=None,
+                        help="Explicit ISO date overriding the derived pilot re-projection "
+                             "end date; skips the coverage-table lookup. Requires "
+                             "--projection-start.")
     return parser
 
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = build_parser().parse_args()
+    if bool(args.projection_start) != bool(args.projection_end):
+        raise SystemExit("--projection-start and --projection-end must be supplied together")
     report = run_repair(
         create_service_role_client(), commit=bool(args.commit),
         set_ids=args.set_id, predecessor_allowlist=args.predecessor_id,
+        projection_start=args.projection_start, projection_end=args.projection_end,
     )
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
     return 1 if report["failures"] else 0

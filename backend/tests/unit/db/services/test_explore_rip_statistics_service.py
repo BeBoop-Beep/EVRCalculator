@@ -3,6 +3,63 @@ import pytest
 from backend.db.services import explore_rip_statistics_service as service
 
 
+def test_align_overall_rip_v12_authority_status_relabels_mismatch():
+    """Phase 2 status-label alignment: authority mismatch -> explicit status.
+
+    An Accessibility row that exists but belongs to a different
+    calculation_run_id than the target's own coherent cohort run is refused
+    by compute_overall_rip_v12 (score stays None) with the generic
+    'unavailable_missing_input' status. This helper relabels that specific
+    case to the finalizer's explicit 'unavailable_authority_mismatch', without
+    changing whether the row was accepted or rejected.
+    """
+    rejected = {
+        "score": None,
+        "status": "unavailable_missing_input",
+        "missingInputs": ["chase_accessibility_v1"],
+        "rankable": False,
+    }
+    aligned = service._align_overall_rip_v12_authority_status(
+        rejected,
+        accessibility_authority_mismatch=True,
+        accessibility_row={"calculation_run_id": "run-stale"},
+        target_run_id="run-current",
+    )
+    assert aligned["status"] == "unavailable_authority_mismatch"
+    assert aligned["score"] is None
+    assert aligned["rankable"] is False
+    assert "run-stale" in aligned["statusReason"]
+    assert "run-current" in aligned["statusReason"]
+    # Original dict is untouched (defensive copy).
+    assert rejected["status"] == "unavailable_missing_input"
+
+
+def test_align_overall_rip_v12_authority_status_noop_when_no_mismatch():
+    """No mismatch flagged -> status passes through unchanged."""
+    ready = {"score": 88.0, "status": "ready", "rankable": True}
+    aligned = service._align_overall_rip_v12_authority_status(
+        ready,
+        accessibility_authority_mismatch=False,
+        accessibility_row={"calculation_run_id": "run-current"},
+        target_run_id="run-current",
+    )
+    assert aligned == ready
+
+
+def test_align_overall_rip_v12_authority_status_noop_when_status_not_missing_input():
+    """Mismatch flag set, but the underlying status is something else (e.g. a
+    version-alignment refusal from a different gate) -> left alone, since the
+    relabel is scoped strictly to the generic missing-input collapse."""
+    other = {"score": None, "status": "unavailable_missing_input_other_reason"}
+    aligned = service._align_overall_rip_v12_authority_status(
+        other,
+        accessibility_authority_mismatch=True,
+        accessibility_row={"calculation_run_id": "run-stale"},
+        target_run_id="run-current",
+    )
+    assert aligned["status"] == "unavailable_missing_input_other_reason"
+
+
 class _AnySetCollectorPayloads(dict):
     """An available Collector Appeal payload for whatever set id is asked for.
 

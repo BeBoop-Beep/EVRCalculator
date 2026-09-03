@@ -94,6 +94,7 @@ import {
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
+import OverallRipExplanationHierarchy from "./OverallRipExplanationHierarchy";
 import OverviewRipSummary from "./OverviewRipSummary.jsx";
 import { selectPreferredSetRipContract } from "./SetRipFamilyBreakdown.jsx";
 import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
@@ -6424,6 +6425,13 @@ function RipScoreBreakdownModule({
   // breakdowns so all three surfaces read one source.
   canonical = null,
   requestTimeout = false,
+  // The same raw sources `resolveCanonicalRipV7` was already called with at
+  // the page level, forwarded (not re-fetched, not re-derived) so the shared
+  // version-aware Overall RIP explanation component can detect an explicit
+  // V12/`publicRipContractV11` shape when present. `canonical` itself is
+  // already the RESOLVED V10 bundle (`.overall`/`.financialRip` blocks), not
+  // a raw contract, so it is not a usable source for that detection.
+  rawSources = [],
 }) {
   return (
     <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
@@ -6465,6 +6473,18 @@ function RipScoreBreakdownModule({
           overallCohortSize={cohortSize}
           overallBadges={<HeroScoreBadges rank={rankValue} tier={rankTier} cohortSize={cohortSize} />}
         />
+
+        {/* Version-aware Overall RIP explanation (Phase 3/10 shared component).
+            Reads whichever contract shape `canonical` actually carries: the
+            current production reality is a V10-only payload, so this renders
+            the truthful "90% Financial RIP V4 + 10% Collector Appeal V5"
+            explanation with no Accessibility claim. If a future fetch attaches
+            an explicit `publicRipContractV11`/`overallRipV12` shape, the SAME
+            component renders the V12 explanation instead — no second
+            implementation, no frontend arithmetic. */}
+        <div className="mt-4 min-w-0">
+          <OverallRipExplanationHierarchy sources={rawSources} />
+        </div>
 
         {/* The two lenses that explain the score — Financial RIP first, then
             Collector Appeal. They are explanatory views of one model, and
@@ -13121,6 +13141,7 @@ export default function RipStatisticsPageClient({
                     titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
                     canonical={canonicalRip}
                     requestTimeout={isTimeoutFallbackPayload}
+                    rawSources={[ripBootstrap?.canonicalSource, explorePayload, effectiveShellPayload, selectedTarget, summary]}
                   />
                 </SectionErrorBoundary>
                 </div>

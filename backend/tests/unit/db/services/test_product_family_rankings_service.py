@@ -53,6 +53,32 @@ def build(monkeypatch, rows):
     )
 
 
+def test_overall_rip_v12_payload_passes_through_as_shadow_field_without_affecting_rank(monkeypatch):
+    """`overall_rip_v12_payload` (written by
+    `sealed_product_rip_finalization_service._overall_rip_v12_for`) is
+    surfaced as a pure, additive `overallRipV12` passthrough on each product
+    row - it must never influence `_rank_key`/`_canonical`, which stay keyed
+    on the V10/V4 columns exactly as before this change."""
+    v12_payload = {
+        "score": 55.0, "version": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+        "status": "ready", "rankable": True, "components": {}, "missingInputs": [],
+        "weights": {"financial_rip": 0.86, "chase_accessibility": 0.04, "collector_appeal": 0.10},
+    }
+    # "low" has the HIGHER V12 score but the LOWER V10 score - family order
+    # must still follow V10 (leader = "high"), proving V12 is shadow-only.
+    rows = [
+        row("high", overall=90, overall_rip_v12_payload={**v12_payload, "score": 10.0}),
+        row("low", overall=50, overall_rip_v12_payload=v12_payload),
+        row("no-shadow", overall=70),
+    ]
+    payload = build(None, rows)
+    products = payload["families"]["booster_box"]["products"]
+    assert [p["sealedProductId"] for p in products] == ["high", "no-shadow", "low"]
+    assert products[0]["overallRipV12"]["score"] == 10.0
+    assert products[1]["overallRipV12"] is None
+    assert products[2]["overallRipV12"]["score"] == 55.0
+
+
 def test_current_canonical_rows_only_and_deferred_products_are_not_fabricated(monkeypatch):
     payload = build(monkeypatch, [row("ranked"), row("historical", run="old")])
     products = payload["families"]["booster_box"]["products"]
@@ -282,3 +308,52 @@ def test_missing_target_run_authority_fails_closed():
         service.build_product_family_rankings(
             Client([]), set_targets=[{"set_id": "set-a", "canonical_key": "alpha"}]
         )
+
+
+def test_canonical_overall_rip_version_flip_to_v12_reranks_on_v12_fields(monkeypatch):
+    """If CANONICAL_OVERALL_RIP_VERSION is ever flipped to V12, `_rank_key`/
+    `_canonical`/`_project` must key off the v12 score/version/rankable
+    columns instead of v10 - proving the family-ranking service is genuinely
+    version-generic, not hardcoded to V10, ahead of any real cutover."""
+    from backend.desirability.scoring_config import OVERALL_RIP_V12_VERSION
+
+    monkeypatch.setattr(service, "CANONICAL_OVERALL_RIP_VERSION", OVERALL_RIP_V12_VERSION)
+    rows_in = [
+        row(
+            "low-v10-high-v12", overall=10,
+            overall_rip_v12_score=95, overall_rip_v12_version=OVERALL_RIP_V12_VERSION,
+            overall_rip_v12_rankable=True,
+        ),
+        row(
+            "high-v10-low-v12", overall=90,
+            overall_rip_v12_score=5, overall_rip_v12_version=OVERALL_RIP_V12_VERSION,
+            overall_rip_v12_rankable=True,
+        ),
+    ]
+    result = build(monkeypatch, rows_in)
+    products = result["families"]["booster_box"]["products"]
+    assert [p["sealedProductId"] for p in products] == ["low-v10-high-v12", "high-v10-low-v12"]
+    assert products[0]["overallRipScore"] == 95
+    assert products[0]["overallRipVersion"] == OVERALL_RIP_V12_VERSION
+    assert products[0]["familyRank"] == 1
+
+
+def test_canonical_overall_rip_version_flip_to_v12_excludes_wrong_version_rows(monkeypatch):
+    """A row whose v12 version/rankable is not aligned is excluded from the
+    V12-canonical cohort even if its v10 fields look fine - `_canonical` must
+    gate on the SAME field triple `_rank_key` sorts on, never a mismatched
+    pair."""
+    from backend.desirability.scoring_config import OVERALL_RIP_V12_VERSION
+
+    monkeypatch.setattr(service, "CANONICAL_OVERALL_RIP_VERSION", OVERALL_RIP_V12_VERSION)
+    rows_in = [
+        row("v12-ready", overall_rip_v12_score=50, overall_rip_v12_version=OVERALL_RIP_V12_VERSION,
+            overall_rip_v12_rankable=True),
+        row("v12-not-rankable", overall_rip_v12_score=99, overall_rip_v12_version=OVERALL_RIP_V12_VERSION,
+            overall_rip_v12_rankable=False),
+        row("v12-wrong-version", overall_rip_v12_score=99, overall_rip_v12_version="overall_rip_v12_stale",
+            overall_rip_v12_rankable=True),
+    ]
+    result = build(monkeypatch, rows_in)
+    products = result["families"]["booster_box"]["products"]
+    assert [p["sealedProductId"] for p in products] == ["v12-ready"]

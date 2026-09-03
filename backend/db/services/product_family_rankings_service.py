@@ -12,6 +12,7 @@ from backend.rankings.public_relative import (
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
+    OVERALL_RIP_V12_VERSION,
     canonical_collector_appeal_version,
 )
 from backend.domain.pokemon.sealed_product_classifier import FAMILY_LABELS
@@ -27,7 +28,9 @@ RESULT_FIELDS = (
     "total_value_to_cost_ratio,financial_rip_v3_score,financial_rip_v3_version,"
     "financial_rip_v4_score,financial_rip_v4_version,"
     "collector_appeal_score,collector_appeal_version,overall_rip_score,overall_rip_version,"
-    "overall_rip_rankable,overall_rip_v10_score,overall_rip_v10_version,overall_rip_v10_rankable"
+    "overall_rip_rankable,overall_rip_v10_score,overall_rip_v10_version,overall_rip_v10_rankable,"
+    "overall_rip_v12_score,overall_rip_v12_version,overall_rip_v12_rankable,overall_rip_v12_status,"
+    "overall_rip_v12_payload"
 )
 
 
@@ -38,10 +41,31 @@ def _number(value: Any, default: float) -> float:
         return default
 
 
+# The canonical Overall RIP score/version/rankable field triple this service
+# ranks and gates on, selected once from `CANONICAL_OVERALL_RIP_VERSION` -
+# never hand-branched per call site. Any Overall RIP version not explicitly
+# registered here falls back to the V10 fields (fail-safe: an unrecognized
+# canonical value must never silently rank on the wrong column).
+_OVERALL_RIP_FIELD_TRIPLES: Dict[str, tuple] = {
+    CANONICAL_OVERALL_RIP_VERSION if CANONICAL_OVERALL_RIP_VERSION else "": (
+        "overall_rip_v10_score", "overall_rip_v10_version", "overall_rip_v10_rankable",
+    ),
+    OVERALL_RIP_V12_VERSION: (
+        "overall_rip_v12_score", "overall_rip_v12_version", "overall_rip_v12_rankable",
+    ),
+}
+_DEFAULT_OVERALL_RIP_FIELD_TRIPLE = ("overall_rip_v10_score", "overall_rip_v10_version", "overall_rip_v10_rankable")
+
+
+def _canonical_overall_rip_fields() -> tuple:
+    return _OVERALL_RIP_FIELD_TRIPLES.get(CANONICAL_OVERALL_RIP_VERSION, _DEFAULT_OVERALL_RIP_FIELD_TRIPLE)
+
+
 def _rank_key(row: Mapping[str, Any]) -> tuple:
     """One-family canonical order. This comparator must never receive mixed families."""
+    score_field, _, _ = _canonical_overall_rip_fields()
     return (
-        -_number(row.get("overall_rip_v10_score"), float("-inf")),
+        -_number(row.get(score_field), float("-inf")),
         -_number(row.get("financial_rip_v4_score"), float("-inf")),
         -_number(row.get("chance_to_recover_cost"), float("-inf")),
         _number(row.get("product_market_cost"), float("inf")),
@@ -50,11 +74,12 @@ def _rank_key(row: Mapping[str, Any]) -> tuple:
 
 
 def _canonical(row: Mapping[str, Any]) -> bool:
-    return bool(row.get("overall_rip_v10_rankable")) and all(
+    score_field, version_field, rankable_field = _canonical_overall_rip_fields()
+    return bool(row.get(rankable_field)) and all(
         (
             row.get("financial_rip_v4_version") == CANONICAL_FINANCIAL_RIP_VERSION,
             row.get("collector_appeal_version") == canonical_collector_appeal_version(),
-            row.get("overall_rip_v10_version") == CANONICAL_OVERALL_RIP_VERSION,
+            row.get(version_field) == CANONICAL_OVERALL_RIP_VERSION,
         )
     )
 
@@ -151,6 +176,7 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
     expected = _number(row.get("expected_value"), 0.0)
     ratio = expected / market if market > 0 else None
     family = str(row.get("product_family"))
+    overall_score_field, overall_version_field, _ = _canonical_overall_rip_fields()
     return {
         "sealedProductId": row.get("sealed_product_id"),
         "productName": row.get("product_name"),
@@ -169,15 +195,15 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         # context. Derived server-side from the same overall_rip_v10_score
         # that produced this row's rank, so rank and tier always describe the
         # identical cohort/score.
-        "familyTier": assign_composite_tier(_number(row.get("overall_rip_v10_score"), 0.0)),
+        "familyTier": assign_composite_tier(_number(row.get(overall_score_field), 0.0)),
         "publicTier": public_leader_rip_tier(overall_leader),
-        "modelTier": assign_composite_tier(_number(row.get("overall_rip_v10_score"), 0.0)),
+        "modelTier": assign_composite_tier(_number(row.get(overall_score_field), 0.0)),
         "marketPrice": row.get("product_market_cost"),
-        "overallRipScore": row.get("overall_rip_v10_score"),
-        "overallRipAbsoluteScore": row.get("overall_rip_v10_score"),
+        "overallRipScore": row.get(overall_score_field),
+        "overallRipAbsoluteScore": row.get(overall_score_field),
         "overallRipRelativeScore": overall_relative,
         "overallRipLeaderScore": overall_leader,
-        "overallRipVersion": row.get("overall_rip_v10_version"),
+        "overallRipVersion": row.get(overall_version_field),
         "financialRipScore": row.get("financial_rip_v4_score"),
         "financialRipAbsoluteScore": row.get("financial_rip_v4_score"),
         "financialRipRelativeScore": financial_relative,
@@ -208,6 +234,13 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         "setEvRepresentativeness": _compact_set_ev_representativeness(
             identity, _text(row.get("calculation_run_id"))
         ),
+        # SHADOW, NOT canonical. Never read by `_rank_key`/`_canonical` and
+        # never used to reorder this family's cohort - the persisted
+        # `overall_rip_v12_payload` column already carries its own
+        # authority-checked status/score/components from
+        # `sealed_product_rip_finalization_service._overall_rip_v12_for`, so
+        # this is a pure passthrough, not a recomputation.
+        "overallRipV12": row.get("overall_rip_v12_payload") or None,
     }
 
 
@@ -268,9 +301,10 @@ def build_product_family_rankings(
     for family in sorted(rankable_by_family):
         ordered = sorted(rankable_by_family[family], key=_rank_key)
         size = len(ordered)
+        overall_score_field, _, _ = _canonical_overall_rip_fields()
         overall_relative = compute_public_relative_scores(
             ordered, id_getter=lambda row: row.get("sealed_product_id"),
-            score_getter=lambda row: row.get("overall_rip_v10_score"),
+            score_getter=lambda row, field=overall_score_field: row.get(field),
         )
         financial_relative = compute_public_relative_scores(
             ordered, id_getter=lambda row: row.get("sealed_product_id"),
@@ -278,7 +312,7 @@ def build_product_family_rankings(
         )
         overall_leader = compute_leader_normalized_scores(
             ordered, id_getter=lambda row: row.get("sealed_product_id"),
-            score_getter=lambda row: row.get("overall_rip_v10_score"),
+            score_getter=lambda row, field=overall_score_field: row.get(field),
         )
         financial_leader = compute_leader_normalized_scores(
             ordered, id_getter=lambda row: row.get("sealed_product_id"),

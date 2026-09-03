@@ -309,3 +309,42 @@ def test_budget_tier_is_a_score_tier_not_a_rank_percentile():
     top = next(r for r in ranked if r["budgetRank"] == 1)
     assert top["budgetTier"] == bnpr.assign_composite_tier(12.0)
     assert top["budgetTier"] != "S"
+
+
+def test_score_budget_strategy_omits_v12_by_default_with_zero_behavior_change():
+    """Existing callers that never pass `chase_accessibility_raw` must see
+    byte-identical V10/V4 output - the V12 shadow addition is purely additive."""
+    import numpy as np
+
+    values = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0])
+    result = bnpr.score_budget_strategy(values, 50.0, 60.0, min_simulation_count=1)
+    assert result["overallRipV12Score"] is None
+    assert result["overallRipV12Rankable"] is False
+    assert result["overallRipV12Version"] is None
+    assert result["overallRipV12Payload"] is None
+    assert result["overallRipV10Score"] is not None
+
+
+def test_score_budget_strategy_v12_shadow_matches_canonical_transform_and_never_moves_v10():
+    """When `chase_accessibility_raw` IS supplied (the same set-level, never
+    per-quantity-recomputed raw value collector_appeal_score already models),
+    the additive overallRipV12* triple must reconstruct EXACTLY via the one
+    canonical `compute_overall_rip_v12` transform, and V10's own output must
+    be untouched by its presence."""
+    import numpy as np
+
+    from backend.desirability.weighted_rip import compute_overall_rip_v12
+
+    values = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0])
+    baseline = bnpr.score_budget_strategy(values, 50.0, 60.0, min_simulation_count=1)
+    shadowed = bnpr.score_budget_strategy(
+        values, 50.0, 60.0, min_simulation_count=1, chase_accessibility_raw=0.002,
+    )
+    assert shadowed["overallRipV10Score"] == baseline["overallRipV10Score"]
+    assert shadowed["financialRipV4Score"] == baseline["financialRipV4Score"]
+    expected = compute_overall_rip_v12(
+        shadowed["financialRipV4Score"], 0.002, 60.0,
+    )
+    assert shadowed["overallRipV12Score"] == expected["score"]
+    assert shadowed["overallRipV12Version"] == expected["version"]
+    assert shadowed["overallRipV12Rankable"] == bool(expected["rankable"])

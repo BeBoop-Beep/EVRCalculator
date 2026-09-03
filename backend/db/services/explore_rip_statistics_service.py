@@ -997,6 +997,49 @@ def _resolve_legacy_ca7_version(collector: Mapping[str, Any]) -> Optional[str]:
     return version if version not in _POST_CA7_APPEAL_VERSIONS else None
 
 
+def _align_overall_rip_v12_authority_status(
+    overall_v12: Mapping[str, Any],
+    *,
+    accessibility_authority_mismatch: bool,
+    accessibility_row: Optional[Mapping[str, Any]],
+    target_run_id: Optional[str],
+) -> Dict[str, Any]:
+    """Relabel a rejected-authority V12 result with the finalizer's explicit status.
+
+    ``compute_overall_rip_v12`` only ever sees a bare ``A_raw`` value or
+    ``None`` - it cannot distinguish "no Accessibility row published yet" from
+    "a row exists but belongs to a different ``calculation_run_id``", so both
+    collapse to the generic ``unavailable_missing_input`` status. The batch
+    finalizer (``_overall_rip_v12_for`` in
+    ``sealed_product_rip_finalization_service.py``) DOES have that context and
+    reports the authority-mismatch case as the more specific
+    ``unavailable_authority_mismatch``. This function applies the identical
+    relabeling here, on the Explore/rankings path, so both surfaces describe
+    the same underlying condition with the same status string.
+
+    ACCEPT/REJECT BEHAVIOR IS UNCHANGED: this never flips a rejected row into
+    an accepted one, or vice versa. ``overall_v12["score"]`` stays whatever
+    ``compute_overall_rip_v12`` already returned (``None`` in the mismatch
+    case); only the ``status``/``statusReason`` strings are rewritten, and
+    only when the mismatch actually caused the generic missing-input status.
+    """
+    if not accessibility_authority_mismatch:
+        return dict(overall_v12)
+    if overall_v12.get("status") != "unavailable_missing_input":
+        return dict(overall_v12)
+    aligned = dict(overall_v12)
+    aligned["status"] = "unavailable_authority_mismatch"
+    aligned["statusReason"] = (
+        "Chase Accessibility row belongs to calculation_run_id=%r; this "
+        "target's coherent cohort run is %r. Refused rather than accepted "
+        "as the latest available Accessibility row."
+    ) % (
+        _to_optional_str((accessibility_row or {}).get("calculation_run_id")),
+        target_run_id,
+    )
+    return aligned
+
+
 def _attach_public_rip_contract(
     targets: List[Dict[str, Any]],
     *,
@@ -1136,19 +1179,28 @@ def _attach_public_rip_contract(
         # A mismatched or missing row never falls back to "latest available".
         target_run_id = _to_optional_str(target.get("calculation_run_id"))
         accessibility_row = accessibility_by_set_id_v12.get(str(target.get("target_id")))
+        accessibility_authority_mismatch = False
         if accessibility_row is None:
             accessibility_raw = None
         elif target_run_id is None or _to_optional_str(
             accessibility_row.get("calculation_run_id")
         ) != target_run_id:
             accessibility_raw = None
+            accessibility_authority_mismatch = True
         elif accessibility_row.get("status") != "ready":
             accessibility_raw = None
         else:
             accessibility_raw = accessibility_row.get("accessibility")
-        target["overallRipV12"] = compute_overall_rip_v12(
+        overall_v12 = compute_overall_rip_v12(
             financial_v4.get("score"), accessibility_raw, collector_appeal_score
         )
+        overall_v12 = _align_overall_rip_v12_authority_status(
+            overall_v12,
+            accessibility_authority_mismatch=accessibility_authority_mismatch,
+            accessibility_row=accessibility_row,
+            target_run_id=target_run_id,
+        )
+        target["overallRipV12"] = overall_v12
         # PUBLIC RAW block (additive) - the same projection shape the set page
         # already publishes, so `public_rip_contract_v11` has a real source
         # rather than re-deriving it. Distinct in scale from `overallRipV12`'s

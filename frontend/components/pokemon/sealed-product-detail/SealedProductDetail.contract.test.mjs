@@ -60,7 +60,14 @@ test("Product RIP uses Plus entitlement and only leader-normalized ranking field
   assert.match(rip, /formatPublicRipScore/);
   assert.doesNotMatch(rip, /of 138|Overall Rank|overallRipAbsoluteScore/);
   assert.match(rip, /data-product-rip-score/);
-  assert.match(rip, /Overall RIP = 90% Financial RIP \+ 10% Collector Appeal/);
+  // The formula/explanation is no longer a hardcoded string here - it is the
+  // SAME shared, version-aware component Set RIP/Set Analysis already use
+  // (V10 90/10 today; V12 86/4/10 once a product's own shadow data is
+  // present), sourced from `rip.overallRipV10`/`rip.financialRipV4`/
+  // `rip.publicRipContractV11` rather than re-authored per surface.
+  assert.doesNotMatch(rip, /Overall RIP = 90% Financial RIP \+ 10% Collector Appeal/);
+  assert.match(rip, /OverallRipExplanationHierarchy/);
+  assert.match(rip, /sources=\{\[rip\]\}/);
   assert.match(rip, /publicLeaderScoreTier\(rip\.financialRipLeaderScore\)/);
   assert.match(rip, /const collectorTier = rip\.collectorAppealTier/);
   assert.doesNotMatch(
