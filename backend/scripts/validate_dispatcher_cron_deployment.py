@@ -6,14 +6,14 @@ worker whose own module docstring says it must run under the CALLER's flock —
 WITHOUT any ``flock``. Overlapping dispatcher trees accumulated across minutes
 and exhausted RAM+swap. Production has since been hand-patched to:
 
-    * * * * * /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c \\
-    'cd /home/ubuntu/repos/EVRCalculator && .../python backend/scripts/run_next_scrape_job.py' \\
+    * * * * * /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c \
+    'cd /home/ubuntu/repos/EVRCalculator && .../python backend/scripts/run_next_scrape_job.py' \
     >> backend/logs/cron_dispatcher.log 2>&1
 
 This script makes that hand patch the REQUIRED, validated, canonical
-deployment shape: it FAILS (nonzero exit) if the installed crontab schedules
-``run_next_scrape_job.py`` every minute without a non-blocking ``flock`` guard
-around it, and FAILS if the legacy 1:00 PM
+deployment shape: it FAILS (nonzero exit) unless the installed crontab has an
+every-minute ``run_next_scrape_job.py`` entry protected by a non-blocking
+``flock`` guard. It also FAILS if the legacy 1:00 PM
 ``build_pokemon_market_dashboard_snapshots.py --all`` dashboard rebuild
 (requirement O — superseded by the immediate post-scrape publication trigger
 plus the 6:00 AM fallback) is still present in the schedule.
@@ -76,6 +76,7 @@ def validate_dispatcher_schedule_text(text: str) -> DispatcherScheduleReport:
     unlocked: List[str] = []
     legacy: List[str] = []
     dispatcher_lines_found = 0
+    every_minute_dispatcher_lines_found = 0
 
     for raw_line in text.splitlines():
         line = raw_line.strip()
@@ -84,6 +85,8 @@ def validate_dispatcher_schedule_text(text: str) -> DispatcherScheduleReport:
         if DISPATCHER_MODULE in line:
             dispatcher_lines_found += 1
             is_every_minute = bool(_EVERY_MINUTE_RE.match(line))
+            if is_every_minute:
+                every_minute_dispatcher_lines_found += 1
             has_flock = "flock -n" in line or "flock --nonblock" in line
             if is_every_minute and not has_flock:
                 unlocked.append(raw_line)
@@ -94,6 +97,11 @@ def validate_dispatcher_schedule_text(text: str) -> DispatcherScheduleReport:
         reasons.append(
             f"no crontab entry found scheduling {DISPATCHER_MODULE}; "
             "the every-minute dispatcher is required for daily scraping"
+        )
+    elif every_minute_dispatcher_lines_found == 0:
+        reasons.append(
+            f"no every-minute crontab entry found scheduling {DISPATCHER_MODULE}; "
+            "the canonical daily dispatcher cadence is '* * * * *'"
         )
     if unlocked:
         reasons.append(

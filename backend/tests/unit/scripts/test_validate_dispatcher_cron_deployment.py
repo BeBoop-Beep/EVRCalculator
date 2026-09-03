@@ -69,9 +69,12 @@ def test_commented_out_unlocked_line_is_ignored():
     assert report.unlocked_dispatcher_lines == []
 
 
-def test_non_every_minute_locked_dispatcher_is_not_flagged_as_unlocked():
-    """A non-every-minute schedule (e.g. a manual recovery entry) doesn't hit
-    the every-minute overlap-accumulation failure mode this check targets."""
-    line = UNLOCKED_LINE.replace("* * * * *", "*/5 * * * *")
+def test_non_every_minute_dispatcher_does_not_satisfy_canonical_cadence():
+    """A recovery/manual cadence must not make deployment validation healthy;
+    production requires one every-minute dispatcher protected by flock."""
+    line = CANONICAL_LOCKED_LINE.replace("* * * * *", "*/5 * * * *", 1)
     report = validate_dispatcher_schedule_text(line)
+    assert report.dispatcher_lines_found == 1
     assert report.unlocked_dispatcher_lines == []
+    assert report.healthy is False
+    assert any("no every-minute" in reason for reason in report.reasons)
