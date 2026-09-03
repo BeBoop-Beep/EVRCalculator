@@ -218,6 +218,145 @@ no filters. This is a genuine, reproduced blocker, not a cosmetic one, so the fi
 **GLOBAL_CARD_MARKET_AUTHORITY_BLOCKED_ON_GLOBAL_SCOPE_RPC_TIMEOUT**. Per-era authority (18
 scopes across all 17 tracked eras) is otherwise in good shape and does not need to be redone.
 
+## T. Retest addendum (this session) — HEAD `b52ec630`, after ChatGPT's reported DB-layer fix
+
+Branch `fix/public-rankings-entitlement-regression-2`, HEAD `b52ec6304f06e4d7698435f01aa7bc9eb1704c4d`
+at the start of this retest (prior report authored at `1283a739`). Task brief: independently
+verify a reported production fix — migration `20260903192911_add_market_explorer_current_metadata_projection`
+(new table `pokemon_market_explorer_card_current_metadata`, 34,225 rows / 165 sets / 0 retired
+predecessors / 0 catalog-only rows), externally reported to take the global daily-serving RPC
+from ~29.2s (timeout) to ~0.97s for one date, ~2.5s for a 3-day chunk.
+
+**B. Global RPC retest timings — split result: the DB-layer fix is real, but the application
+code path does not reach it for Global.**
+
+1. Calling `get_pokemon_market_explorer_filtered_cohort_daily` directly with the correct
+   165-set Market Explorer authority (read from `pokemon_market_explorer_card_daily_coverage`,
+   165 distinct `set_id` rows, confirmed live) succeeded every time, no 57014, 3 repeats each:
+   - All Raw, 1 day (2026-09-02): 1928ms / 1835ms / 1741ms — `constituent_count=33956`,
+     `basket_value=637086.49` (exact match to the task's stated Sep-2 global baseline).
+   - All Raw, 3-day chunk (2026-08-31..2026-09-02): 2640ms / 2632ms / 2229ms —
+     `constituent_count=33953`, `basket_value=634320.18`.
+   - Top 10, 1 day: 752ms / 277ms / 263ms — `constituent_count=10`, `basket_value=35332.31`.
+   - rareHolo, 1 day: 883ms / 761ms / 844ms — `constituent_count=3055`.
+   - Premium, 1 day: 206ms / 500ms / 210ms — `constituent_count=1344`.
+   These are **this session's own measurements**, not the externally reported ~29.2s→0.97s /
+   ~2.5s figures — they are directionally consistent (sub-3s, no timeout) but not identical
+   numbers; both point to the same real fix. Raw output:
+   `backend/artifacts/market_explorer_acceptance/prompt4b_global_daily_rpc_165authority.json`.
+2. Calling the same RPC (and the real application entry points `run_market_explorer_query` /
+   `build_market_explorer_maintained_cache.py`, i.e. the actual authorized builder path) with
+   the scope Global queries **actually resolve to in production** — `resolve_tracked_set_ids`,
+   which every live caller including `resolve_scope_set_ids`/`run_market_explorer_query` uses —
+   returns **169 sets, not 165**. The 4 extra sets (`EX Trainer Kit Latios`, `EX Trainer Kit
+   Latias`, `EX Trainer Kit 2 Plusle`, `EX Trainer Kit 2 Minun`) have real price history in
+   `pokemon_set_value_daily_history_coverage` but were never onboarded into the Market Explorer
+   projection/coverage tables (`pokemon_market_explorer_card_daily_coverage` has exactly 165
+   rows; confirmed 0 overlap with these 4 ids). Two consequences, both reproduced live:
+   - `get_pokemon_market_explorer_filtered_cohort_daily` called with the real 169-set scope
+     returns instantly (62ms) but with **0 rows** — the new candidate function does not return
+     partial results when any requested set lacks a current-metadata/coverage row, it returns
+     nothing.
+   - `daily_projection_covers(client, scope_set_ids=169 sets, ...)` therefore evaluates
+     **False** for the real Global scope (4 of 169 requested sets have no
+     `pokemon_market_explorer_card_daily_coverage` row at all), so
+     `run_market_explorer_query`'s engine selection falls to `interval_fallback` for any
+     multi-day range, and to `interval_current` (also `get_pokemon_market_explorer_filtered_cohort`,
+     the un-fixed interval oracle) for a same-day range regardless of coverage — the
+     `current_only` branch in `run_market_explorer_query` never even checks
+     `daily_projection_covers` before choosing the interval RPC.
+   - Both of those call `get_pokemon_market_explorer_filtered_cohort` (the interval oracle),
+     which was **not** touched by migration `20260903192911` and still performs a full scan of
+     `pokemon_card_variant_market_price_intervals` (4.5M+ rows) at 169-set scope. Reproduced
+     live, 3/3, through the actual application code:
+     - `run_market_explorer_query(mode="all", start=end=2026-09-02)` (Global All Raw, 1 day):
+       **FAIL, 8890ms, 57014 statement timeout.**
+     - `run_market_explorer_query(mode="all", start=2026-08-31, end=2026-09-02)` (Global All
+       Raw, 3-day): **FAIL, 8889ms, 57014 statement timeout.**
+     - `run_market_explorer_query(mode="chase", top_n=10, start=end=2026-09-02)` (Global Top
+       10, 1 day): **FAIL, 8689ms, 57014 statement timeout.**
+   - `backend/scripts/build_market_explorer_maintained_cache.py --mode all --label
+     global_allraw_retest` (the actual authorized cache builder, `START="1999-01-01"` through
+     today, i.e. the exact code path Part 2/3 of this task requires) reproduces the identical
+     57014 traceback from inside `run_market_explorer_query` → `load_filtered_daily_cohort_rows`
+     → `client.rpc(get_pokemon_market_explorer_filtered_cohort, ...)`.
+
+**Conclusion for B:** the DB-layer fix in migration `20260903192911` is genuine and independently
+verified — the daily RPC itself is fast and correct at the correct 165-set scope. But it is not
+reachable from the real Global query/cache-build code path today, because that path's tracked-set
+resolver (`resolve_tracked_set_ids`) includes 4 sets outside the Market Explorer authority that
+were never given coverage rows, which (a) makes the new daily candidate function return an empty
+result for the true 169-set scope, and (b) makes `daily_projection_covers` fail closed, routing
+every Global query — including same-day queries, which never even reach the coverage check —
+back onto the un-fixed, still-timing-out interval oracle RPC. This is a different, more precise
+failure mode than the prior report's blanket "both RPCs time out at global scope" — the daily RPC
+does not time out at the correct scope; the application never calls it with the correct scope.
+
+**C/D. Global All Raw / Global Top 10 cache builds: BLOCKED, same as before, for the reason
+above.** No Global cache was built or promoted this session — `build_market_explorer_maintained_cache.py`
+raised the 57014 error before any `pokemon_market_explorer_query_cache` row could be written, so
+there is nothing to report for cache-kind promotion, `computed_through`, or `constituent_count`
+beyond the direct-RPC number already confirmed in B (`33956`, matching the task's required value
+for when this becomes reachable).
+
+**E/F/G/H. Summary slimming, detail-row paging, warm L2/L1 timings: NOT RUN for Global** — all
+of these require a `ready` Global cache row from step C/D, which does not exist. Not fabricated.
+
+**I. Existing maintained cache health — CONFIRMED, still healthy, not rebuilt.** Queried
+`pokemon_market_explorer_query_cache` directly for `cache_kind='maintained'`: all 19 rows from
+the prior pass (18 distinct scopes, SWSH All Raw + Top 10) are still `status=ready`,
+`computed_through=2026-09-02`, with unchanged `constituent_count` values (5401/10/6047/1533/7580/
+4845/3252/3232/2575/1644/986/968/892/727/650/529/385/212/78). No rebuild performed, per scope.
+
+**J. Tests — PASSED.** `python -m pytest -p no:randomly
+backend/tests/unit/scripts/test_publish_market_explorer_daily_projection.py
+backend/tests/unit/scripts/test_accept_market_explorer_global_daily_projection.py
+backend/tests/unit/db/services/test_market_explorer_query_planner.py
+backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py
+backend/tests/unit/db/test_market_explorer_query_cache_migration.py` → **85 passed, 0 failed**
+(deterministic order). The pytest-randomly order-flakiness noted in the prior pass was not
+re-investigated, per the task's explicit instruction not to reopen that debt.
+
+**K. Report commit — this addendum only** (section T + this open-item update), same file.
+
+**L. Production cache writes — NONE this session.** No `pokemon_market_explorer_query_cache` /
+`..._constituents` rows were written or modified. The only production reads performed were the
+RPC calls and table reads above (all read-only) and the pre-existing maintained-cache health
+query (a plain `select`).
+
+**M. Migration source-sync status — worse than "pending," now confirmed genuinely missing from
+this worktree.** `list_migrations` against the live project confirms
+`20260903192911_add_market_explorer_current_metadata_projection` is applied (last entry in the
+migration list), and the SQL body of `get_pokemon_market_explorer_filtered_cohort_daily` was
+read live via `pg_get_functiondef` — it now delegates to
+`get_pokemon_market_explorer_filtered_cohort_daily_candidate` (unchanged wrapper from the prior
+Prompt-4 pass; the new metadata table is consumed inside that candidate function, not inspected
+line-by-line this session). No corresponding `.sql` file for `20260903192911`, nor the three
+previously-missing Prompt 3 migrations, exist anywhere in this worktree
+(`find . -iname "*20260903192911*"` and `*market_explorer_current_metadata*`: no matches). Status
+remains **PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT**, now with a fourth migration added
+to the missing list.
+
+**N. Final decision — NOT ACCEPTED. GLOBAL_CARD_MARKET_AUTHORITY_BLOCKED_ON_GLOBAL_SCOPE_RPC_TIMEOUT
+still applies, root cause narrowed.** The externally reported DB-layer fix is real and
+independently verified: the daily-projection RPC itself is fast (sub-3s, 3/3, no 57014) and
+returns the exact expected Sep-2 global numbers (33956/$637,086.49) when called with the correct
+165-set Market Explorer authority. But the actual application/cache-build code path
+(`run_market_explorer_query`, and therefore every authorized builder that calls it) resolves
+Global to 169 tracked sets, not 165, because `resolve_tracked_set_ids` reads from
+`pokemon_set_value_daily_history_coverage` (169 sets with general price history) rather than the
+165-set Market Explorer coverage authority; the 4 extra EX Trainer Kit sets have no
+`pokemon_market_explorer_card_daily_coverage` row, which makes `daily_projection_covers` fail
+closed for Global and routes every Global query — same-day queries included, since the
+`current_only` branch bypasses the coverage check entirely — onto the un-fixed interval oracle
+RPC, which still times out at 8s exactly as in the prior pass. Reproduced 3/3 through
+`run_market_explorer_query` directly and once through the actual authorized builder script
+(`build_market_explorer_maintained_cache.py`). This is an application-layer set-resolution gap,
+not a database performance problem, and is outside this session's authorized scope to fix (no
+code changes were made; Prompt 5 was not begun). Per-era authority (19 maintained/ready rows,
+section M of the original report) remains healthy and unaffected — confirmed again this session,
+not rebuilt.
+
 ## Open item
 Three Prompt 3 production migrations were searched for in this worktree and NOT found:
 `20260902221622_add_market_explorer_vintage_identity_repair_primitives.sql`,
