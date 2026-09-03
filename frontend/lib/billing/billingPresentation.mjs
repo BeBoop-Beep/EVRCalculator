@@ -52,6 +52,8 @@ export function upgradeConfirmationCopy({ amountDueNow, currency, nextRenewalAt 
     bodyLines: [
       "Your new membership begins immediately after successful payment.",
       `Next renewal: ${renewalDate}`,
+      "Index Premium then continues to renew automatically at your selected billing interval until canceled.",
+      "Cancel before a renewal to avoid future charges. Ordinary cancellation normally takes effect at the end of the current paid period and does not automatically create a prorated refund.",
     ],
   };
 }
@@ -63,6 +65,8 @@ export function downgradeConfirmationCopy({ currentPlanUntil }) {
       `You'll keep Index Premium until ${untilDate}.`,
       "Index Plus begins after that.",
       "No charge today.",
+      "After the change, Index Plus continues to renew automatically at your selected billing interval until canceled.",
+      "Cancel before a renewal to avoid future charges. Ordinary cancellation normally takes effect at the end of the current paid period and does not automatically create a prorated refund.",
     ],
   };
 }
