@@ -439,6 +439,8 @@ class _FakeQuery:
         self.db = db
         self.table_name = table
         self.filters = {}
+        self.in_column = None
+        self.in_values = None
 
     @property
     def not_(self):
@@ -455,6 +457,8 @@ class _FakeQuery:
         return self
 
     def in_(self, column, values):
+        self.in_column = column
+        self.in_values = list(values)  # Store the actual list for chunk tracking
         self.filters[column] = set(values)
         return self
 
@@ -469,6 +473,9 @@ class _FakeQuery:
 
     def execute(self):
         self.db.reads.append(self.table_name)
+        # Record the .in_() call for this table if it was made
+        if self.in_column is not None and self.in_values is not None:
+            self.db.record_in_call(self.table_name, self.in_values)
         rows = list(self.db.tables.get(self.table_name, []))
         for column, value in self.filters.items():
             if isinstance(value, set):
@@ -482,9 +489,63 @@ class _FakeClient:
     def __init__(self, tables):
         self.tables = tables
         self.reads = []
+        self.in_calls = {}  # table_name -> list of in_() call arguments
 
     def table(self, name):
         return _FakeQuery(self, name)
+
+    def record_in_call(self, table_name, values):
+        """Record a .in_() call for tracking chunk sizes."""
+        if table_name not in self.in_calls:
+            self.in_calls[table_name] = []
+        self.in_calls[table_name].append(values)
+
+    def calls_for(self, table_name, method_name):
+        """Retrieve recorded calls of a given method (currently only 'in_' supported)."""
+        if method_name == "in_":
+            return self.in_calls.get(table_name, [])
+        raise ValueError(f"unsupported method {method_name}")
+
+
+class _SimulatedChunkFailure(Exception):
+    """Raised by _FailingQuery to simulate a chunk-level read failure."""
+
+
+class _FailingSecondChunkClient(_FakeClient):
+    """A fake client that fails on the Nth .execute() call for a given table."""
+
+    def __init__(self, set_ids, fail_on_chunk_index=1):
+        """Initialize with set_ids and the 0-based chunk index to fail on."""
+        # Create a minimal dataset for pokemon_set_market_dashboard_snapshot_latest
+        tables = {
+            "pokemon_set_market_dashboard_snapshot_latest": [
+                {"set_id": sid, "top_chase_cards_json": []} for sid in set_ids
+            ],
+        }
+        super().__init__(tables)
+        self.fail_on_chunk_index = fail_on_chunk_index
+        self.chunk_counts = {}  # table_name -> current chunk index
+
+    def table(self, name):
+        query = _FailingQuery(self, name)
+        return query
+
+
+class _FailingQuery(_FakeQuery):
+    """A query that fails on a specific .execute() call."""
+
+    def execute(self):
+        table_name = self.table_name
+        if table_name not in self.db.chunk_counts:
+            self.db.chunk_counts[table_name] = 0
+
+        chunk_idx = self.db.chunk_counts[table_name]
+        self.db.chunk_counts[table_name] += 1
+
+        if chunk_idx == self.db.fail_on_chunk_index:
+            raise _SimulatedChunkFailure(f"Simulated failure on chunk {chunk_idx} for table {table_name}")
+
+        return super().execute()
 
 
 def _publication_db(**overrides):
@@ -1265,3 +1326,64 @@ def test_global_cohort_is_computed_before_the_set_filter_is_applied():
     assert "missing 1 eligible cohort set" in _section(
         report.rows[0], SECTION_GLOBAL_SET_VALUE
     ).detail
+
+
+# --- _load_rows chunking tests -----------------------------------------------
+def test_heavy_json_table_reads_use_bounded_chunks_below_full_cohort():
+    """Chunk-size cohorts must generate multiple .in_('set_id', ...)
+    requests, and no single request may exceed the configured bound."""
+    from backend.scripts import audit_pokemon_market_publication as audit
+
+    set_ids = [f"set-{i}" for i in range(25)]
+    client = _FakeClient({
+        "pokemon_set_market_dashboard_snapshot_latest": [
+            {"set_id": sid, "top_chase_cards_json": []} for sid in set_ids
+        ],
+    })
+
+    rows = audit._load_rows(
+        client, "pokemon_set_market_dashboard_snapshot_latest",
+        "set_id,top_chase_cards_json", set_ids, chunk_size=10,
+    )
+
+    in_calls = client.calls_for("pokemon_set_market_dashboard_snapshot_latest", "in_")
+    assert len(in_calls) == 3  # 25 sets / 10 per request -> 3 requests
+    assert all(len(call_args) <= 10 for call_args in in_calls)
+    assert set(rows.keys()) == set(set_ids)  # full coverage, merged deterministically
+
+
+def test_missing_sets_still_detected_across_chunked_reads():
+    """Missing sets must still be detected even when reading in chunks."""
+    from backend.scripts import audit_pokemon_market_publication as audit
+
+    set_ids = [f"set-{i}" for i in range(15)]
+    present_ids = set_ids[:12]  # 3 sets never come back
+    client = _FakeClient({
+        "pokemon_set_market_dashboard_snapshot_latest": [
+            {"set_id": sid, "top_chase_cards_json": []} for sid in present_ids
+        ],
+    })
+
+    rows = audit._load_rows(
+        client, "pokemon_set_market_dashboard_snapshot_latest",
+        "set_id,top_chase_cards_json", set_ids, chunk_size=10,
+    )
+
+    missing = set(set_ids) - set(rows.keys())
+    assert missing == set(set_ids[12:])
+
+
+def test_later_chunk_failure_raises_not_silently_partial():
+    """A later chunk raising must fail the whole audit read, never return
+    a partial success that could be mistaken for a clean cohort."""
+    from backend.scripts import audit_pokemon_market_publication as audit
+    import pytest
+
+    set_ids = [f"set-{i}" for i in range(15)]
+    client = _FailingSecondChunkClient(set_ids, fail_on_chunk_index=1)
+
+    with pytest.raises(_SimulatedChunkFailure):
+        audit._load_rows(
+            client, "pokemon_set_market_dashboard_snapshot_latest",
+            "set_id,top_chase_cards_json", set_ids, chunk_size=10,
+        )

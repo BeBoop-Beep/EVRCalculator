@@ -8,14 +8,36 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter, defaultdict
+from datetime import datetime, timedelta, timezone
 
 from backend.db.clients.supabase_client import create_service_role_client
+
+# The identity-drift diagnostic only needs recent history to compare
+# selected-vs-raw freshness; a full-table scan of price observations is
+# both unbounded and (at this table's size) non-reproducible under
+# offset pagination. Mirrors CARD_MOVEMENT_LOOKBACK_DAYS /
+# CARD_MOVERS_HISTORY_LOOKBACK_DAYS used elsewhere in this codebase.
+IDENTITY_DRIFT_LOOKBACK_DAYS = 45
+
+# card_variant_price_observations' indexes both lead with card_variant_id,
+# so any read of this (very large) table must constrain card_variant_id to
+# be index-supported -- an unconstrained condition_id/captured_at filter
+# still forces a sequential scan under growing OFFSET pagination. Mirrors
+# CARD_PRICE_OBSERVATION_CHUNK_SIZE / _chunks() in pokemon_snapshot_builders.py.
+IDENTITY_DRIFT_VARIANT_CHUNK_SIZE = 100
+
+
+def _chunks(values, size):
+    values = list(values)
+    for index in range(0, len(values), size):
+        yield values[index : index + size]
 
 
 def _paged(client, table: str, columns: str, *, filters=(), size: int = 1000):
     rows, start = [], 0
+    order_key = columns.split(",", 1)[0]
     while True:
-        query = client.table(table).select(columns).order(columns.split(",", 1)[0])
+        query = client.table(table).select(columns).order(order_key)
         for method, field, value in filters:
             query = getattr(query, method)(field, value)
         page = list(query.range(start, start + size - 1).execute().data or [])
@@ -31,6 +53,46 @@ def _fold(value):
 
 def _number(value):
     return re.sub(r"^0+", "", str(value or "").split("/", 1)[0].lower())
+
+
+def _compute_canonical_price_identity_drift(
+    *, set_id, canonical_key, selected_rows, raw_observation_rows,
+):
+    """Flag sets where the canonical selected-price layer is stale even
+    though raw Near Mint USD observations are current. Read-only; does
+    not auto-link or mutate anything.
+
+    Modeled on the Nintendo Black Star Promos incident: raw TCGPlayer
+    observations were current, canonical selected-price rows existed, but
+    none of the currently-selected variant identities reached the fresh
+    date because a fresh replacement identity existed but wasn't linked
+    into the canonical selection.
+
+    Limitation: both dates are set-wide maxima, so one fresh canonical
+    card in a set suppresses the flag for the whole set -- this catches
+    set-wide drift only, not per-card drift. An empty result does not
+    mean no card in the set is stale.
+    """
+    if not selected_rows:
+        return []
+
+    def _latest_date(rows):
+        dates = [_fold(row.get("captured_at"))[:10] for row in rows if row.get("captured_at")]
+        return max(dates) if dates else None
+
+    selected_latest = _latest_date(selected_rows)
+    raw_latest = _latest_date(raw_observation_rows)
+    if not selected_latest or not raw_latest or selected_latest >= raw_latest:
+        return []
+
+    return [{
+        "setId": set_id,
+        "canonicalKey": canonical_key,
+        "selectedLatestDate": selected_latest,
+        "rawLatestDate": raw_latest,
+        "selectedRowCount": len(selected_rows),
+        "rawIdentityCount": len({row.get("card_variant_id") for row in raw_observation_rows}),
+    }]
 
 
 def audit(client):
@@ -50,7 +112,10 @@ def audit(client):
     nm = next(row for row in conditions
               if _fold(row.get("name")) == "near mint" and str(row.get("abbreviation") or "").upper() == "NM")
     canonical_latest = _paged(client, "pokemon_canonical_card_market_prices_latest",
-                              "canonical_card_id,card_variant_id,condition_id,market_price")
+                              "canonical_card_id,set_id,card_variant_id,condition_id,market_price,captured_at")
+    drift_lookback_start = (
+        datetime.now(timezone.utc) - timedelta(days=IDENTITY_DRIFT_LOOKBACK_DAYS)
+    ).date().isoformat()
 
     cards_by_id = {str(row["id"]): row for row in cards}
     sets_by_id = {str(row["id"]): row.get("name") for row in sets}
@@ -162,6 +227,44 @@ def audit(client):
                 "namedImpact": next((key for key in ("dragonite", "charizard", "pikachu")
                                      if key in _fold(name)), None)}
 
+    canonical_latest_by_set = defaultdict(list)
+    for row in canonical_latest:
+        if str(row.get("condition_id")) == str(nm["id"]):
+            canonical_latest_by_set[str(row.get("set_id"))].append(row)
+    set_variant_ids = defaultdict(set)
+    for row in canonical:
+        legacy_card_id = resolved.get(str(row["id"]))
+        if not legacy_card_id:
+            continue
+        for variant in variants_by_card.get(legacy_card_id, []):
+            set_variant_ids[str(row["set_id"])].add(str(variant["id"]))
+
+    # Chunk the union of all resolved variant ids and query
+    # card_variant_price_observations with card_variant_id IN (chunk) --
+    # index-supported (leads with card_variant_id) and still date-bounded,
+    # instead of an unconstrained sequential scan under OFFSET pagination.
+    all_variant_ids = sorted({vid for ids in set_variant_ids.values() for vid in ids})
+    raw_nm_observations = []
+    for variant_chunk in _chunks(all_variant_ids, IDENTITY_DRIFT_VARIANT_CHUNK_SIZE):
+        raw_nm_observations.extend(_paged(
+            client, "card_variant_price_observations",
+            "id,card_variant_id,condition_id,captured_at,market_price",
+            filters=(("in_", "card_variant_id", variant_chunk),
+                     ("eq", "condition_id", nm["id"]),
+                     ("gte", "captured_at", drift_lookback_start)),
+        ))
+    raw_nm_by_variant = defaultdict(list)
+    for row in raw_nm_observations:
+        raw_nm_by_variant[str(row.get("card_variant_id"))].append(row)
+    canonical_price_identity_drift = []
+    for set_id, variant_ids in set_variant_ids.items():
+        raw_rows = [obs for vid in variant_ids for obs in raw_nm_by_variant.get(vid, [])]
+        canonical_price_identity_drift.extend(_compute_canonical_price_identity_drift(
+            set_id=set_id, canonical_key=sets_by_id.get(set_id) or set_id,
+            selected_rows=canonical_latest_by_set.get(set_id, []),
+            raw_observation_rows=raw_rows,
+        ))
+
     unresolved_ids = sorted(set(canonical_by_id) - set(resolved))
     debt = [debt_row(cid, "unresolved") for cid in unresolved_ids]
     debt.extend(debt_row(cid, "ambiguous") for cid in sorted(ambiguous))
@@ -194,6 +297,7 @@ def audit(client):
             "top25": top_debt,
         },
         "examples": [example(cid) for cid in requested],
+        "canonicalPriceIdentityDrift": canonical_price_identity_drift,
     }
 
 

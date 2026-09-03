@@ -7,7 +7,7 @@ import time
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from uuid import UUID, uuid4
 
 from dotenv import load_dotenv
@@ -3599,24 +3599,31 @@ def _load_selected_price_observations(
     prices_by_card: Dict[str, Dict[str, Any]],
     latest_market_date: str,
 ) -> Dict[str, List[Dict[str, Any]]]:
-    variant_to_card = {
-        str(price["variant_id"]): card_id
-        for card_id, price in prices_by_card.items()
-        if price.get("variant_id") and price.get("condition_id")
-    }
-    condition_by_variant = {
-        str(price["variant_id"]): str(price["condition_id"])
-        for price in prices_by_card.values()
-        if price.get("variant_id") and price.get("condition_id")
-    }
-    if not variant_to_card:
+    # variant_id -> [(canonical_card_id, condition_id), ...]  (lossless 1:N)
+    cards_by_variant: Dict[str, List[Tuple[str, str]]] = {}
+    for card_id, price in prices_by_card.items():
+        variant_id = price.get("variant_id")
+        condition_id = price.get("condition_id")
+        if not variant_id or not condition_id:
+            continue
+        cards_by_variant.setdefault(str(variant_id), []).append(
+            (card_id, str(condition_id))
+        )
+    if not cards_by_variant:
         return {}
 
     end_date = date.fromisoformat(latest_market_date)
     start_date = (end_date - timedelta(days=CARD_MOVEMENT_LOOKBACK_DAYS)).isoformat()
     observations_by_card: Dict[str, List[Dict[str, Any]]] = {}
-    for variant_ids in _chunks(sorted(variant_to_card), CARD_PRICE_OBSERVATION_CHUNK_SIZE):
-        condition_ids = sorted({condition_by_variant[variant_id] for variant_id in variant_ids})
+    variant_ids_sorted = sorted(cards_by_variant)
+    for variant_ids in _chunks(variant_ids_sorted, CARD_PRICE_OBSERVATION_CHUNK_SIZE):
+        condition_ids = sorted(
+            {
+                condition_id
+                for variant_id in variant_ids
+                for _, condition_id in cards_by_variant[variant_id]
+            }
+        )
         rows = _query_paginated_rows(
             client,
             "card_variant_price_observations",
@@ -3633,18 +3640,14 @@ def _load_selected_price_observations(
             condition_id = first_non_empty(row.get("condition_id"))
             price = to_optional_float(row.get("market_price"))
             source_date = parse_date_key(row.get("captured_at"))
-            if (
-                not variant_id
-                or not source_date
-                or price is None
-                or condition_id != condition_by_variant.get(variant_id)
-            ):
+            if not variant_id or not source_date or price is None:
                 continue
-            card_id = variant_to_card.get(variant_id)
-            if card_id:
-                observations_by_card.setdefault(card_id, []).append(
-                    {**row, "market_price": price, "source_date": source_date}
-                )
+            owners = cards_by_variant.get(variant_id, [])
+            enriched_row = {**row, "market_price": price, "source_date": source_date}
+            for card_id, owned_condition_id in owners:
+                if condition_id != owned_condition_id:
+                    continue
+                observations_by_card.setdefault(card_id, []).append(enriched_row)
     for rows in observations_by_card.values():
         rows.sort(key=lambda row: (row["source_date"], first_non_empty(row.get("captured_at")) or ""))
     return observations_by_card

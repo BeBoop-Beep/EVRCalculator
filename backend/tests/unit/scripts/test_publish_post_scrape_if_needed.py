@@ -6,6 +6,7 @@ Decision table under test:
     batch complete + publication stale      -> rebuild launched with the exact date
 """
 import backend.scripts.publish_post_scrape_if_needed as mod
+from backend.db.services.post_scrape_publication_trigger import PublicationCurrencyStatus
 
 
 class _FakeGateDecision:
@@ -25,7 +26,9 @@ def test_incomplete_batch_is_a_noop(monkeypatch):
 
 def test_complete_and_current_is_a_noop(monkeypatch):
     monkeypatch.setattr(mod, "_batch_complete", lambda client, market_date: True)
-    monkeypatch.setattr(mod, "_already_current", lambda client, market_date: True)
+    monkeypatch.setattr(
+        mod, "_already_current", lambda client, market_date: PublicationCurrencyStatus.CURRENT
+    )
     ran = []
     result = mod.publish_if_needed("2026-09-01", client=object(),
                                    run_rebuild=lambda md: ran.append(md) or 0)
@@ -35,7 +38,9 @@ def test_complete_and_current_is_a_noop(monkeypatch):
 
 def test_complete_and_stale_launches_rebuild_with_exact_date(monkeypatch):
     monkeypatch.setattr(mod, "_batch_complete", lambda client, market_date: True)
-    monkeypatch.setattr(mod, "_already_current", lambda client, market_date: False)
+    monkeypatch.setattr(
+        mod, "_already_current", lambda client, market_date: PublicationCurrencyStatus.STALE
+    )
     ran = []
     result = mod.publish_if_needed("2026-09-01", client=object(),
                                    run_rebuild=lambda md: ran.append(md) or 0)
@@ -45,7 +50,9 @@ def test_complete_and_stale_launches_rebuild_with_exact_date(monkeypatch):
 
 def test_rebuild_failure_is_reported_but_does_not_raise(monkeypatch):
     monkeypatch.setattr(mod, "_batch_complete", lambda client, market_date: True)
-    monkeypatch.setattr(mod, "_already_current", lambda client, market_date: False)
+    monkeypatch.setattr(
+        mod, "_already_current", lambda client, market_date: PublicationCurrencyStatus.STALE
+    )
     result = mod.publish_if_needed("2026-09-01", client=object(), run_rebuild=lambda md: 1)
     assert result["status"] == mod.STATUS_PUBLISH_FAILED
     assert result["exit_code"] == 1
@@ -92,3 +99,35 @@ def test_batch_complete_uses_the_publication_gate_authority(monkeypatch):
     )
     assert mod._batch_complete(object(), "2026-09-01") is False
     assert seen["market_date"] == "2026-09-01"
+
+
+def test_currency_check_exception_does_not_rebuild_and_reports_unknown(monkeypatch):
+    class _FakeGateDecisionAllowed:
+        allowed = True
+
+    monkeypatch.setattr(
+        mod, "_batch_complete",
+        lambda client, market_date: True,
+    )
+
+    def broken_audit(client, market_date, phase):
+        raise RuntimeError("db unreachable")
+
+    monkeypatch.setattr(
+        "backend.scripts.audit_pokemon_market_publication.run_market_publication_audit",
+        broken_audit,
+    )
+
+    rebuild_calls = []
+    result = mod.publish_if_needed(
+        "2026-09-02", client=object(),
+        run_rebuild=lambda market_date: rebuild_calls.append(market_date),
+    )
+
+    assert result["status"] == mod.STATUS_NOOP_CURRENCY_UNKNOWN
+    assert rebuild_calls == []  # must NOT rebuild on an unknown currency state
+
+
+def test_unknown_currency_status_yields_nonzero_cli_exit(monkeypatch):
+    exit_code = mod._status_to_exit_code(mod.STATUS_NOOP_CURRENCY_UNKNOWN)
+    assert exit_code != 0
