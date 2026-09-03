@@ -1,15 +1,7 @@
-"""Full cross-tier plan-change matrix: every upgrade/downgrade/same-tier
-transition across the four purchasable offers (plus/premium x month/year).
-
-Fixtures mirror `test_billing_service_plan_change.py` (Task 5's own test file,
-post-fix-round) rather than this task's originally-drafted brief, since the
-brief's illustrative fixtures predate Task 5's fix round (the `_plain()`
-wrapper, `_period_end(subscription, item)` fallback, and the ownership
-cross-check against `subscription.get("customer")`)."""
+"""Full plan-change matrix across Plus/Premium and month/year offers."""
 import pytest
 
 from backend.domain.billing.catalog import CommercialOffer
-from backend.domain.billing.errors import PlanChangeNotAllowed
 from backend.db.services.billing_service import BillingService
 
 PLUS_MONTHLY = CommercialOffer("plus_monthly", "plus", "month", True, "price_plus_monthly", 999, "usd")
@@ -139,8 +131,18 @@ def test_downgrade_transition(current_offer, target_offer):
 
 
 @pytest.mark.parametrize("current_offer,target_offer", SAME_TIER_CASES)
-def test_same_tier_interval_change_rejected(current_offer, target_offer):
+def test_same_tier_interval_change_schedules_at_period_end(current_offer, target_offer):
     service, provider = _service(current_offer)
-    with pytest.raises(PlanChangeNotAllowed):
-        service.preview_plan_change(user_id="user-1", offer_key=target_offer.offer_key)
+    preview = service.preview_plan_change(user_id="user-1", offer_key=target_offer.offer_key)
+    assert preview["action"] == "interval_change_at_period_end"
+    assert preview["fromPlan"] == preview["toPlan"] == current_offer.plan
+    assert preview["fromOfferKey"] == current_offer.offer_key
+    assert preview["toOfferKey"] == target_offer.offer_key
+    assert preview["amountDueNow"] == 0
     assert not provider.preview_calls
+
+    result = service.confirm_plan_change(user_id="user-1", offer_key=target_offer.offer_key, preview_token=None)
+    assert result["action"] == "interval_change_at_period_end"
+    assert result["pendingChangeEffectiveAt"] == 1738368000
+    assert provider.schedule_calls[0]["target_price_id"] == target_offer.provider_price_id
+    assert not provider.update_calls

@@ -39,9 +39,13 @@ export function pendingChangeCopy(status) {
   if (!status || status.pendingChangeState !== "scheduled") {
     return null;
   }
-  const planName = planLabel(status.pendingPlan);
   const date = formatBillingDate(status.pendingChangeEffectiveAt != null ? status.pendingChangeEffectiveAt * 1000 : status.pendingChangeEffectiveAt);
-  return `Changes to ${planName} on ${date}`;
+  const dateSuffix = date ? ` on ${date}` : " at the end of the current paid period";
+  if (status.pendingPlan && status.pendingPlan === normalizePlan(status.effectivePlan) && status.pendingOfferKey) {
+    const interval = offerInterval(status.pendingOfferKey).toLowerCase();
+    return interval ? `Changes to ${interval} billing${dateSuffix}` : `Billing interval changes${dateSuffix}`;
+  }
+  return `Changes to ${planLabel(status.pendingPlan)}${dateSuffix}`;
 }
 
 export function upgradeConfirmationCopy({ amountDueNow, currency, nextRenewalAt }) {
@@ -66,6 +70,30 @@ export function downgradeConfirmationCopy({ currentPlanUntil }) {
       "Index Plus begins after that.",
       "No charge today.",
       "After the change, Index Plus continues to renew automatically at your selected billing interval until canceled.",
+      "Cancel before a renewal to avoid future charges. Ordinary cancellation normally takes effect at the end of the current paid period and does not automatically create a prorated refund.",
+    ],
+  };
+}
+
+export function scheduledChangeConfirmationCopy({ currentPlanUntil, fromPlan, toPlan, fromOfferKey, toOfferKey }) {
+  if (normalizePlan(fromPlan) !== normalizePlan(toPlan)) {
+    return {
+      heading: `Change to ${planLabel(toPlan)}`,
+      ...downgradeConfirmationCopy({ currentPlanUntil }),
+    };
+  }
+  const untilDate = formatBillingDate(currentPlanUntil != null ? currentPlanUntil * 1000 : currentPlanUntil);
+  const fromInterval = offerInterval(fromOfferKey) || "current";
+  const toInterval = offerInterval(toOfferKey) || "new";
+  const cadence = toInterval === "Annual" ? "yearly" : toInterval === "Monthly" ? "monthly" : "at the selected interval";
+  return {
+    heading: `Change ${planLabel(toPlan)} billing`,
+    bodyLines: [
+      `You'll keep ${fromInterval.toLowerCase()} billing until ${untilDate}.`,
+      `${toInterval} billing begins after that.`,
+      "No charge today.",
+      "Your membership level and access do not change.",
+      `${planLabel(toPlan)} then continues to renew automatically ${cadence} until canceled.`,
       "Cancel before a renewal to avoid future charges. Ordinary cancellation normally takes effect at the end of the current paid period and does not automatically create a prorated refund.",
     ],
   };

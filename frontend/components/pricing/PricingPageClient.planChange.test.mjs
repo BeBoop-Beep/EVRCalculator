@@ -1,57 +1,97 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-// Imported from the pure, dependency-free module (re-exported by
-// PricingPageClient.jsx) rather than the .jsx file directly: this repo's
-// tsx/esbuild test runner cannot parse the JSX in AuthContext.js when it is
-// pulled in transitively via a .jsx component import (a pre-existing gap —
-// every other component test in the repo works around it with
-// fs.readFileSync source-string assertions instead of a real import). See
-// task-10-report.md for details.
 import { resolvePaidCardMode } from "./resolvePaidCardMode.mjs";
 import { resolveConfirmOutcome } from "./resolveConfirmOutcome.mjs";
 
 test("basic user sees checkout for both plus and premium", () => {
   const status = { effectivePlan: null, billingManaged: false, pendingChangeState: "none" };
-  assert.equal(resolvePaidCardMode("plus", status), "checkout");
-  assert.equal(resolvePaidCardMode("premium", status), "checkout");
+  assert.equal(resolvePaidCardMode("plus", status, "plus_annual"), "checkout");
+  assert.equal(resolvePaidCardMode("premium", status, "premium_annual"), "checkout");
 });
 
-test("plus user sees current-plan on plus card and upgrade on premium card", () => {
-  const status = { effectivePlan: "plus", billingManaged: true, pendingChangeState: "none" };
-  assert.equal(resolvePaidCardMode("plus", status), "current");
-  assert.equal(resolvePaidCardMode("premium", status), "upgrade");
+test("plus monthly user sees current monthly plus and interval change on annual plus", () => {
+  const status = {
+    effectivePlan: "plus",
+    billingManaged: true,
+    offerKey: "plus_monthly",
+    pendingChangeState: "none",
+  };
+  assert.equal(resolvePaidCardMode("plus", status, "plus_monthly"), "current");
+  assert.equal(resolvePaidCardMode("plus", status, "plus_annual"), "interval-change");
+  assert.equal(resolvePaidCardMode("premium", status, "premium_monthly"), "upgrade");
 });
 
-test("premium user sees current-plan on premium card and downgrade on plus card", () => {
-  const status = { effectivePlan: "premium", billingManaged: true, pendingChangeState: "none" };
-  assert.equal(resolvePaidCardMode("premium", status), "current");
-  assert.equal(resolvePaidCardMode("plus", status), "downgrade");
+test("plus annual user can change back to monthly at period end", () => {
+  const status = {
+    effectivePlan: "plus",
+    billingManaged: true,
+    offerKey: "plus_annual",
+    pendingChangeState: "none",
+  };
+  assert.equal(resolvePaidCardMode("plus", status, "plus_annual"), "current");
+  assert.equal(resolvePaidCardMode("plus", status, "plus_monthly"), "interval-change");
 });
 
-test("premium user with scheduled downgrade sees pending mode on plus card", () => {
-  const status = { effectivePlan: "premium", billingManaged: true, pendingChangeState: "scheduled", pendingPlan: "plus" };
-  assert.equal(resolvePaidCardMode("plus", status), "pending-downgrade");
+test("premium user sees current exact offer, interval change, and downgrade", () => {
+  const status = {
+    effectivePlan: "premium",
+    billingManaged: true,
+    offerKey: "premium_monthly",
+    pendingChangeState: "none",
+  };
+  assert.equal(resolvePaidCardMode("premium", status, "premium_monthly"), "current");
+  assert.equal(resolvePaidCardMode("premium", status, "premium_annual"), "interval-change");
+  assert.equal(resolvePaidCardMode("plus", status, "plus_monthly"), "downgrade");
+});
+
+test("scheduled interval target can cancel while other changes are blocked", () => {
+  const status = {
+    effectivePlan: "plus",
+    billingManaged: true,
+    offerKey: "plus_monthly",
+    pendingChangeState: "scheduled",
+    pendingPlan: "plus",
+    pendingOfferKey: "plus_annual",
+  };
+  assert.equal(resolvePaidCardMode("plus", status, "plus_monthly"), "current");
+  assert.equal(resolvePaidCardMode("plus", status, "plus_annual"), "pending-change");
+  assert.equal(resolvePaidCardMode("premium", status, "premium_annual"), "pending-blocked");
+});
+
+test("scheduled downgrade target can cancel while another downgrade interval is blocked", () => {
+  const status = {
+    effectivePlan: "premium",
+    billingManaged: true,
+    offerKey: "premium_monthly",
+    pendingChangeState: "scheduled",
+    pendingPlan: "plus",
+    pendingOfferKey: "plus_annual",
+  };
+  assert.equal(resolvePaidCardMode("plus", status, "plus_annual"), "pending-change");
+  assert.equal(resolvePaidCardMode("plus", status, "plus_monthly"), "pending-blocked");
 });
 
 test("unmanaged basic-tier user with no billing relationship falls back to checkout, never portal", () => {
   const status = { effectivePlan: null, billingManaged: false, pendingChangeState: "none" };
-  assert.equal(resolvePaidCardMode("plus", status), "checkout");
+  assert.equal(resolvePaidCardMode("plus", status, "plus_monthly"), "checkout");
 });
 
-test("plus user with unknown pending state sees pending-unknown on premium card, not upgrade", () => {
-  const status = { effectivePlan: "plus", billingManaged: true, pendingChangeState: "unknown" };
-  assert.equal(resolvePaidCardMode("premium", status), "pending-unknown");
+test("unknown pending state blocks non-current changes", () => {
+  const status = {
+    effectivePlan: "plus",
+    billingManaged: true,
+    offerKey: "plus_monthly",
+    pendingChangeState: "unknown",
+  };
+  assert.equal(resolvePaidCardMode("plus", status, "plus_monthly"), "current");
+  assert.equal(resolvePaidCardMode("plus", status, "plus_annual"), "pending-unknown");
+  assert.equal(resolvePaidCardMode("premium", status, "premium_monthly"), "pending-unknown");
 });
 
-test("premium user with unknown pending state sees pending-unknown on plus card, not downgrade or pending-downgrade", () => {
+test("legacy status without offerKey still preserves current-plan fallback", () => {
   const status = { effectivePlan: "premium", billingManaged: true, pendingChangeState: "unknown" };
-  assert.equal(resolvePaidCardMode("plus", status), "pending-unknown");
-});
-
-test("unknown pending state never demotes the current-plan card", () => {
-  const status = { effectivePlan: "premium", billingManaged: true, pendingChangeState: "unknown" };
-  assert.equal(resolvePaidCardMode("premium", status), "current");
+  assert.equal(resolvePaidCardMode("premium", status, "premium_annual"), "current");
 });
 
 test("confirm result with paymentResult succeeded is treated as success", () => {
@@ -60,8 +100,9 @@ test("confirm result with paymentResult succeeded is treated as success", () => 
   });
 });
 
-test("confirm result with no paymentResult field (downgrade) is treated as success", () => {
-  assert.deepEqual(resolveConfirmOutcome({ action: "schedule_downgrade" }), { status: "success" });
+test("confirm result with no paymentResult field is treated as success for scheduled changes", () => {
+  assert.deepEqual(resolveConfirmOutcome({ action: "interval_change_at_period_end" }), { status: "success" });
+  assert.deepEqual(resolveConfirmOutcome({ action: "downgrade_at_period_end" }), { status: "success" });
 });
 
 test("confirm result with paymentResult requires_action is NOT treated as success", () => {
