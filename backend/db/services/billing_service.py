@@ -393,11 +393,21 @@ class BillingService:
         if base.get("billingManaged"):
             try:
                 _, subscription, item, current_offer = self._resolve_current_subscription(user_id)
+                # This best-effort Stripe lookup already exists for pending plan
+                # changes. Reuse the same authoritative snapshot for billing
+                # presentation fields that do not grant or revoke entitlement,
+                # so a delayed/stale webhook projection cannot tell a customer
+                # their subscription will renew after Stripe has scheduled it
+                # to end at the paid-period boundary.
+                live_period_end = _period_end(subscription, item)
+                base["cancelAtPeriodEnd"] = _cancels_at_period_end(subscription, item)
+                if live_period_end:
+                    base["currentPeriodEnd"] = _iso(live_period_end)
                 schedule = subscription.get("schedule")
                 classification = classify_schedule(
                     schedule,
                     current_price_id=current_offer.provider_price_id,
-                    current_period_end=_period_end(subscription, item),
+                    current_period_end=live_period_end,
                     offers=self.offers,
                 )
                 pending = {
