@@ -17,7 +17,7 @@ import {
 import {
   pendingChangeCopy,
   upgradeConfirmationCopy,
-  downgradeConfirmationCopy,
+  scheduledChangeConfirmationCopy,
 } from "@/lib/billing/billingPresentation.mjs";
 import { normalizeIndexPlan } from "@/lib/access/indexPlanAccess.mjs";
 import { PlanBadge } from "@/components/membership/PlanLock";
@@ -152,13 +152,20 @@ function PlanChangeConfirmPanel({
       </div>
     );
   }
-  const copy = downgradeConfirmationCopy({ currentPlanUntil: preview.currentPlanUntil });
+  const copy = scheduledChangeConfirmationCopy({
+    currentPlanUntil: preview.currentPlanUntil,
+    fromPlan: preview.fromPlan,
+    toPlan: preview.toPlan,
+    fromOfferKey: preview.fromOfferKey,
+    toOfferKey: preview.toOfferKey,
+  });
+  const panelPlan = normalizeIndexPlan(preview.toPlan) || "plus";
   return (
     <div
-      className={`mt-4 rounded-xl border p-4 ${planPresentation("plus").panelClassName}`}
+      className={`mt-4 rounded-xl border p-4 ${planPresentation(panelPlan).panelClassName}`}
     >
       <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-        Change to Index Plus
+        {copy.heading}
       </h3>
       {copy.bodyLines.map((line) => (
         <p key={line} className="mt-1 text-sm text-[var(--text-secondary)]">
@@ -170,7 +177,7 @@ function PlanChangeConfirmPanel({
           type="button"
           onClick={onConfirm}
           disabled={pending}
-          className={`min-h-11 flex-1 rounded-lg px-4 font-semibold disabled:cursor-not-allowed disabled:opacity-55 ${planPresentation("plus").ctaClassName}`}
+          className={`min-h-11 flex-1 rounded-lg px-4 font-semibold disabled:cursor-not-allowed disabled:opacity-55 ${planPresentation(panelPlan).ctaClassName}`}
         >
           Confirm change
         </button>
@@ -206,23 +213,27 @@ function PaidCard({
   const annual = summary.annualSummary;
   const managed = Boolean(status?.billingManaged);
   const purchasable = Boolean(offer?.purchasable);
-  const mode = resolvePaidCardMode(plan, status);
+  const mode = resolvePaidCardMode(plan, status, offer?.offerKey);
   let label = "Coming Soon";
   let disabled = true;
   if (mode === "current") {
-    label = "Current Plan";
+    label = "Current Subscription";
   } else if (mode === "upgrade") {
     label = `Upgrade to Index ${plan === "premium" ? "Premium" : "Plus"}`;
     disabled = false;
   } else if (mode === "downgrade") {
     label = "Change to Index Plus";
     disabled = false;
-  } else if (mode === "pending-downgrade") {
-    label = "Keep Index Premium";
+  } else if (mode === "interval-change") {
+    label = `Change to ${interval === "year" ? "Annual" : "Monthly"}`;
     disabled = false;
+  } else if (mode === "pending-change") {
+    label = "Keep Current Subscription";
+    disabled = false;
+  } else if (mode === "pending-blocked") {
+    label = "Change Already Scheduled";
   } else if (mode === "pending-unknown") {
     label = "Unavailable Right Now";
-    disabled = true;
   } else if (mode === "checkout") {
     label = purchasable
       ? (status
@@ -231,6 +242,7 @@ function PaidCard({
       : "Coming Soon";
     disabled = !purchasable;
   }
+  const pendingCopy = status?.pendingChangeState === "scheduled" ? pendingChangeCopy(status) : null;
   return (
     <article
       data-pricing-plan={plan}
@@ -258,11 +270,16 @@ function PaidCard({
         </p>
       ) : null}
       <FeatureList items={plan === "plus" ? PLUS : PREMIUM} />
-      {mode === "pending-downgrade" && (
+      {pendingCopy && (mode === "current" || mode === "pending-change" || mode === "pending-blocked") ? (
         <p className="mt-4 text-sm font-semibold text-[var(--text-secondary)]">
-          {pendingChangeCopy(status)}
+          {pendingCopy}
         </p>
-      )}
+      ) : null}
+      {mode === "pending-blocked" ? (
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
+          Cancel the scheduled change before choosing a different membership option.
+        </p>
+      ) : null}
       {mode === "pending-unknown" && (
         <p className="mt-4 text-sm font-semibold text-[var(--text-secondary)]">
           We can&apos;t verify pending membership changes right now. Your current
@@ -282,7 +299,7 @@ function PaidCard({
           Subscriptions launching soon
         </p>
       ) : null}
-      {(mode === "upgrade" || mode === "downgrade") && (
+      {(mode === "upgrade" || mode === "downgrade" || mode === "interval-change") && (
         <PlanChangeConfirmPanel
           mode={mode}
           preview={preview}
@@ -336,7 +353,7 @@ export default function PricingPageClient() {
   async function act(plan, offer, mode) {
     if (pending) return;
     setError("");
-    if (mode === "pending-downgrade") {
+    if (mode === "pending-change") {
       setPending(plan);
       try {
         await cancelScheduledPlanChange();
@@ -348,7 +365,7 @@ export default function PricingPageClient() {
       }
       return;
     }
-    if (mode === "upgrade" || mode === "downgrade") {
+    if (mode === "upgrade" || mode === "downgrade" || mode === "interval-change") {
       setPending(plan);
       try {
         const preview = await previewPlanChange(offer.offerKey);
@@ -362,7 +379,7 @@ export default function PricingPageClient() {
     }
     setPending(plan);
     try {
-      if (mode === "current" || mode === "pending-unknown") {
+      if (mode === "current" || mode === "pending-unknown" || mode === "pending-blocked") {
         return;
       }
       if (!user) {
