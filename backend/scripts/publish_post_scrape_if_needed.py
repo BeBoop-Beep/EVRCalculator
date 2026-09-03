@@ -47,9 +47,17 @@ REBUILD_SCRIPT = _PROJECT_ROOT / "backend" / "scripts" / "rebuild_snapshots_afte
 
 STATUS_NOOP_NOT_COMPLETE = "noop_batch_not_complete"
 STATUS_NOOP_ALREADY_CURRENT = "noop_already_current"
+STATUS_NOOP_CURRENCY_UNKNOWN = "noop_currency_unknown"
 STATUS_PUBLISHED = "published"
 STATUS_PUBLISH_FAILED = "publish_failed"
 STATUS_INVALID_MARKET_DATE = "invalid_market_date"
+
+# Statuses that must cause the CLI to exit nonzero so ops/alerting notices.
+_NONZERO_EXIT_STATUSES = (
+    STATUS_INVALID_MARKET_DATE,
+    STATUS_PUBLISH_FAILED,
+    STATUS_NOOP_CURRENCY_UNKNOWN,
+)
 
 
 def _resolve_market_date(explicit: Optional[str]) -> str:
@@ -76,18 +84,30 @@ def _batch_complete(client, market_date: str) -> bool:
     return bool(decision.allowed)
 
 
-def _already_current(client, market_date: str) -> bool:
+def _already_current(client, market_date: str) -> "PublicationCurrencyStatus":
+    from backend.db.services.post_scrape_publication_trigger import PublicationCurrencyStatus
     from backend.scripts.audit_pokemon_market_publication import (
         PHASE_POST_SCRAPE,
         run_market_publication_audit,
     )
 
-    report = run_market_publication_audit(client, market_date=market_date, phase=PHASE_POST_SCRAPE)
-    return bool(report.market_date == market_date and report.passed)
+    try:
+        report = run_market_publication_audit(client, market_date=market_date, phase=PHASE_POST_SCRAPE)
+    except Exception:
+        logger.exception(
+            "%s currency audit failed for market_date=%s; treating as UNKNOWN", TAG, market_date
+        )
+        return PublicationCurrencyStatus.UNKNOWN
+    if report.market_date == market_date and report.passed:
+        return PublicationCurrencyStatus.CURRENT
+    return PublicationCurrencyStatus.STALE
 
 
 def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dict:
-    from backend.db.services.post_scrape_publication_trigger import is_valid_market_date
+    from backend.db.services.post_scrape_publication_trigger import (
+        PublicationCurrencyStatus,
+        is_valid_market_date,
+    )
 
     if not is_valid_market_date(market_date):
         logger.error("%s malformed market_date=%r", TAG, market_date)
@@ -100,9 +120,15 @@ def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dic
         logger.info("%s batch not complete for market_date=%s; no-op", TAG, market_date)
         return {"market_date": market_date, "status": STATUS_NOOP_NOT_COMPLETE}
 
-    if _already_current(client, market_date):
+    currency_status = _already_current(client, market_date)
+    if currency_status is PublicationCurrencyStatus.CURRENT:
         logger.info("%s already current for market_date=%s; no-op", TAG, market_date)
         return {"market_date": market_date, "status": STATUS_NOOP_ALREADY_CURRENT}
+    if currency_status is PublicationCurrencyStatus.UNKNOWN:
+        logger.error(
+            "%s currency UNKNOWN for market_date=%s; refusing to blindly rebuild", TAG, market_date
+        )
+        return {"market_date": market_date, "status": STATUS_NOOP_CURRENCY_UNKNOWN}
 
     runner = run_rebuild or _run_rebuild_script
     exit_code = runner(market_date)
@@ -133,14 +159,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _status_to_exit_code(status: str) -> int:
+    return 1 if status in _NONZERO_EXIT_STATUSES else 0
+
+
 def main(argv: Optional[list] = None) -> int:
     args = build_parser().parse_args(argv)
     market_date = _resolve_market_date(args.market_date)
     result = publish_if_needed(market_date)
-    status = result.get("status")
-    if status in (STATUS_INVALID_MARKET_DATE, STATUS_PUBLISH_FAILED):
-        return 1
-    return 0
+    return _status_to_exit_code(result.get("status"))
 
 
 if __name__ == "__main__":
