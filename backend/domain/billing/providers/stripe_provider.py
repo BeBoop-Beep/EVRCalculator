@@ -36,6 +36,7 @@ class StripeProvider:
                 "line_items": [{"price": price_id, "quantity": 1}],
                 "managed_payments": {"enabled": True},
                 "allow_promotion_codes": False,
+                "consent_collection": {"terms_of_service": "required"},
                 "success_url": success_url, "cancel_url": cancel_url,
                 "client_reference_id": user_id,
                 "metadata": {"index_user_id": user_id, "offer_key": offer_key, "intended_plan": plan},
