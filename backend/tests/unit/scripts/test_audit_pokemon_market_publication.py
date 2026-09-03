@@ -504,6 +504,11 @@ class _FakeClient:
         """Retrieve recorded calls of a given method (currently only 'in_' supported)."""
         if method_name == "in_":
             return self.in_calls.get(table_name, [])
+        raise ValueError(f"unsupported method {method_name}")
+
+
+class _SimulatedChunkFailure(Exception):
+    """Raised by _FailingQuery to simulate a chunk-level read failure."""
 
 
 class _FailingSecondChunkClient(_FakeClient):
@@ -538,7 +543,7 @@ class _FailingQuery(_FakeQuery):
         self.db.chunk_counts[table_name] += 1
 
         if chunk_idx == self.db.fail_on_chunk_index:
-            raise Exception(f"Simulated failure on chunk {chunk_idx} for table {table_name}")
+            raise _SimulatedChunkFailure(f"Simulated failure on chunk {chunk_idx} for table {table_name}")
 
         return super().execute()
 
@@ -1377,7 +1382,7 @@ def test_later_chunk_failure_raises_not_silently_partial():
     set_ids = [f"set-{i}" for i in range(15)]
     client = _FailingSecondChunkClient(set_ids, fail_on_chunk_index=1)
 
-    with pytest.raises(Exception):
+    with pytest.raises(_SimulatedChunkFailure):
         audit._load_rows(
             client, "pokemon_set_market_dashboard_snapshot_latest",
             "set_id,top_chase_cards_json", set_ids, chunk_size=10,

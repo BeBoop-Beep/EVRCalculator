@@ -8,14 +8,23 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter, defaultdict
+from datetime import datetime, timedelta, timezone
 
 from backend.db.clients.supabase_client import create_service_role_client
+
+# The identity-drift diagnostic only needs recent history to compare
+# selected-vs-raw freshness; a full-table scan of price observations is
+# both unbounded and (at this table's size) non-reproducible under
+# offset pagination. Mirrors CARD_MOVEMENT_LOOKBACK_DAYS /
+# CARD_MOVERS_HISTORY_LOOKBACK_DAYS used elsewhere in this codebase.
+IDENTITY_DRIFT_LOOKBACK_DAYS = 45
 
 
 def _paged(client, table: str, columns: str, *, filters=(), size: int = 1000):
     rows, start = [], 0
+    order_key = columns.split(",", 1)[0]
     while True:
-        query = client.table(table).select(columns).order(columns.split(",", 1)[0])
+        query = client.table(table).select(columns).order(order_key)
         for method, field, value in filters:
             query = getattr(query, method)(field, value)
         page = list(query.range(start, start + size - 1).execute().data or [])
@@ -45,6 +54,11 @@ def _compute_canonical_price_identity_drift(
     none of the currently-selected variant identities reached the fresh
     date because a fresh replacement identity existed but wasn't linked
     into the canonical selection.
+
+    Limitation: both dates are set-wide maxima, so one fresh canonical
+    card in a set suppresses the flag for the whole set -- this catches
+    set-wide drift only, not per-card drift. An empty result does not
+    mean no card in the set is stale.
     """
     if not selected_rows:
         return []
@@ -64,7 +78,7 @@ def _compute_canonical_price_identity_drift(
         "selectedLatestDate": selected_latest,
         "rawLatestDate": raw_latest,
         "selectedRowCount": len(selected_rows),
-        "currentRawIdentityCount": len({row.get("card_variant_id") for row in raw_observation_rows}),
+        "rawIdentityCount": len({row.get("card_variant_id") for row in raw_observation_rows}),
     }]
 
 
@@ -86,9 +100,13 @@ def audit(client):
               if _fold(row.get("name")) == "near mint" and str(row.get("abbreviation") or "").upper() == "NM")
     canonical_latest = _paged(client, "pokemon_canonical_card_market_prices_latest",
                               "canonical_card_id,set_id,card_variant_id,condition_id,market_price,captured_at")
+    drift_lookback_start = (
+        datetime.now(timezone.utc) - timedelta(days=IDENTITY_DRIFT_LOOKBACK_DAYS)
+    ).date().isoformat()
     raw_nm_observations = _paged(client, "card_variant_price_observations",
-                                 "card_variant_id,condition_id,captured_at,market_price",
-                                 filters=(("eq", "condition_id", nm["id"]),))
+                                 "id,card_variant_id,condition_id,captured_at,market_price",
+                                 filters=(("eq", "condition_id", nm["id"]),
+                                          ("gte", "captured_at", drift_lookback_start)))
 
     cards_by_id = {str(row["id"]): row for row in cards}
     sets_by_id = {str(row["id"]): row.get("name") for row in sets}

@@ -138,7 +138,11 @@ def test_default_publication_current_returns_unknown_on_audit_exception(monkeypa
     assert status == trigger.PublicationCurrencyStatus.UNKNOWN
 
 
-def test_currency_check_failure_queues_a_deduplicated_alert_for_exact_market_date():
+def test_currency_check_failure_queues_alert_with_exact_market_date():
+    """The dedup mechanism (dedupe_key) lives entirely in
+    ``_default_queue_currency_unknown_alert``; this test injects its own
+    ``queue_alert`` and bypasses that default, so it only verifies the
+    market_date passed through to the alert callable, not deduplication."""
     def broken(market_date):
         raise RuntimeError("db unreachable")
 

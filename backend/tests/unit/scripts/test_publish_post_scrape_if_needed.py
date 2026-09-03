@@ -6,7 +6,6 @@ Decision table under test:
     batch complete + publication stale      -> rebuild launched with the exact date
 """
 import backend.scripts.publish_post_scrape_if_needed as mod
-import backend.scripts.publish_post_scrape_if_needed as publish_module
 from backend.db.services.post_scrape_publication_trigger import PublicationCurrencyStatus
 
 
@@ -107,7 +106,7 @@ def test_currency_check_exception_does_not_rebuild_and_reports_unknown(monkeypat
         allowed = True
 
     monkeypatch.setattr(
-        publish_module, "_batch_complete",
+        mod, "_batch_complete",
         lambda client, market_date: True,
     )
 
@@ -120,15 +119,15 @@ def test_currency_check_exception_does_not_rebuild_and_reports_unknown(monkeypat
     )
 
     rebuild_calls = []
-    result = publish_module.publish_if_needed(
+    result = mod.publish_if_needed(
         "2026-09-02", client=object(),
         run_rebuild=lambda market_date: rebuild_calls.append(market_date),
     )
 
-    assert result["status"] == publish_module.STATUS_NOOP_CURRENCY_UNKNOWN
+    assert result["status"] == mod.STATUS_NOOP_CURRENCY_UNKNOWN
     assert rebuild_calls == []  # must NOT rebuild on an unknown currency state
 
 
 def test_unknown_currency_status_yields_nonzero_cli_exit(monkeypatch):
-    exit_code = publish_module._status_to_exit_code(publish_module.STATUS_NOOP_CURRENCY_UNKNOWN)
+    exit_code = mod._status_to_exit_code(mod.STATUS_NOOP_CURRENCY_UNKNOWN)
     assert exit_code != 0
