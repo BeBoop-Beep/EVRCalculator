@@ -153,7 +153,12 @@ class BillingService:
         if target_offer is None or not target_offer.is_priced:
             raise PlanChangeNotAllowed(f"Offer {offer_key} is not available")
 
-        action = classify_transition(current_offer.plan, target_offer.plan)
+        action = classify_transition(
+            current_offer.plan,
+            target_offer.plan,
+            current_interval=current_offer.billing_interval,
+            target_interval=target_offer.billing_interval,
+        )
         subscription_id = subscription["id"]
         current_period_end = _period_end(subscription, item)
 
@@ -203,6 +208,7 @@ class BillingService:
             from_offer_key=current_offer.offer_key,
             to_offer_key=target_offer.offer_key,
             current_period_end=current_period_end,
+            action=action,
         )
 
     def confirm_plan_change(self, *, user_id, offer_key, preview_token):
@@ -214,7 +220,12 @@ class BillingService:
         if target_offer is None or not target_offer.is_priced:
             raise PlanChangeNotAllowed(f"Offer {offer_key} is not available")
 
-        action = classify_transition(current_offer.plan, target_offer.plan)
+        action = classify_transition(
+            current_offer.plan,
+            target_offer.plan,
+            current_interval=current_offer.billing_interval,
+            target_interval=target_offer.billing_interval,
+        )
         subscription_id = subscription["id"]
         current_period_end = _period_end(subscription, item)
 
@@ -265,7 +276,7 @@ class BillingService:
             idempotency_key=idempotency_key,
         )
         return {
-            "action": PlanChangeAction.DOWNGRADE_AT_PERIOD_END.value,
+            "action": action.value,
             "pendingChangeEffectiveAt": current_period_end,
         }
 
@@ -279,7 +290,7 @@ class BillingService:
             offers=self.offers,
         )
         if classification["state"] != "scheduled":
-            raise PlanChangeNotAllowed("No recognized scheduled downgrade to cancel")
+            raise PlanChangeNotAllowed("No recognized scheduled plan change to cancel")
 
         self.provider.release_schedule(schedule_id=schedule["id"])
         return {"cancelled": True}
