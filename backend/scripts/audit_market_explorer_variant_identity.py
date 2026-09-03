@@ -19,6 +19,19 @@ from backend.db.clients.supabase_client import create_service_role_client
 # CARD_MOVERS_HISTORY_LOOKBACK_DAYS used elsewhere in this codebase.
 IDENTITY_DRIFT_LOOKBACK_DAYS = 45
 
+# card_variant_price_observations' indexes both lead with card_variant_id,
+# so any read of this (very large) table must constrain card_variant_id to
+# be index-supported -- an unconstrained condition_id/captured_at filter
+# still forces a sequential scan under growing OFFSET pagination. Mirrors
+# CARD_PRICE_OBSERVATION_CHUNK_SIZE / _chunks() in pokemon_snapshot_builders.py.
+IDENTITY_DRIFT_VARIANT_CHUNK_SIZE = 100
+
+
+def _chunks(values, size):
+    values = list(values)
+    for index in range(0, len(values), size):
+        yield values[index : index + size]
+
 
 def _paged(client, table: str, columns: str, *, filters=(), size: int = 1000):
     rows, start = [], 0
@@ -103,10 +116,6 @@ def audit(client):
     drift_lookback_start = (
         datetime.now(timezone.utc) - timedelta(days=IDENTITY_DRIFT_LOOKBACK_DAYS)
     ).date().isoformat()
-    raw_nm_observations = _paged(client, "card_variant_price_observations",
-                                 "id,card_variant_id,condition_id,captured_at,market_price",
-                                 filters=(("eq", "condition_id", nm["id"]),
-                                          ("gte", "captured_at", drift_lookback_start)))
 
     cards_by_id = {str(row["id"]): row for row in cards}
     sets_by_id = {str(row["id"]): row.get("name") for row in sets}
@@ -222,9 +231,6 @@ def audit(client):
     for row in canonical_latest:
         if str(row.get("condition_id")) == str(nm["id"]):
             canonical_latest_by_set[str(row.get("set_id"))].append(row)
-    raw_nm_by_variant = defaultdict(list)
-    for row in raw_nm_observations:
-        raw_nm_by_variant[str(row.get("card_variant_id"))].append(row)
     set_variant_ids = defaultdict(set)
     for row in canonical:
         legacy_card_id = resolved.get(str(row["id"]))
@@ -232,6 +238,24 @@ def audit(client):
             continue
         for variant in variants_by_card.get(legacy_card_id, []):
             set_variant_ids[str(row["set_id"])].add(str(variant["id"]))
+
+    # Chunk the union of all resolved variant ids and query
+    # card_variant_price_observations with card_variant_id IN (chunk) --
+    # index-supported (leads with card_variant_id) and still date-bounded,
+    # instead of an unconstrained sequential scan under OFFSET pagination.
+    all_variant_ids = sorted({vid for ids in set_variant_ids.values() for vid in ids})
+    raw_nm_observations = []
+    for variant_chunk in _chunks(all_variant_ids, IDENTITY_DRIFT_VARIANT_CHUNK_SIZE):
+        raw_nm_observations.extend(_paged(
+            client, "card_variant_price_observations",
+            "id,card_variant_id,condition_id,captured_at,market_price",
+            filters=(("in_", "card_variant_id", variant_chunk),
+                     ("eq", "condition_id", nm["id"]),
+                     ("gte", "captured_at", drift_lookback_start)),
+        ))
+    raw_nm_by_variant = defaultdict(list)
+    for row in raw_nm_observations:
+        raw_nm_by_variant[str(row.get("card_variant_id"))].append(row)
     canonical_price_identity_drift = []
     for set_id, variant_ids in set_variant_ids.items():
         raw_rows = [obs for vid in variant_ids for obs in raw_nm_by_variant.get(vid, [])]

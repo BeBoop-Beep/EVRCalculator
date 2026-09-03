@@ -1,4 +1,13 @@
+from datetime import datetime, timezone
+
 from backend.scripts import audit_market_explorer_variant_identity as audit_module
+
+# Fixture dates are computed relative to "now" (instead of a hardcoded
+# calendar date) so this test stays deterministic regardless of when it
+# runs -- a hardcoded date would eventually fall outside the diagnostic's
+# rolling IDENTITY_DRIFT_LOOKBACK_DAYS window and start failing with zero
+# code changes.
+_RAW_OBSERVATION_DATE = datetime.now(timezone.utc).date().isoformat()
 
 
 # --- audit() wiring: end-to-end against a small fake client ------------------
@@ -27,6 +36,10 @@ class _FakeQuery:
         self.filters.append(("gte", field, value))
         return self
 
+    def in_(self, field, values):
+        self.filters.append(("in_", field, list(values)))
+        return self
+
     def gt(self, field, value):
         self.filters.append(("gt", field, value))
         return self
@@ -50,6 +63,9 @@ class _FakeQuery:
                 rows = [r for r in rows if str(r.get(field) or "") >= str(value)]
             elif method == "gt":
                 rows = [r for r in rows if (r.get(field) or 0) > value]
+            elif method == "in_":
+                allowed = {str(v) for v in value}
+                rows = [r for r in rows if str(r.get(field)) in allowed]
         return _FakeResult(rows)
 
 
@@ -91,7 +107,7 @@ def _synthetic_audit_client():
         }],
         "card_variant_price_observations": [{
             "id": "obs-1", "card_variant_id": "variant-1", "condition_id": "cond-nm",
-            "captured_at": "2026-09-02T00:00:00Z", "market_price": 6.0,
+            "captured_at": f"{_RAW_OBSERVATION_DATE}T00:00:00Z", "market_price": 6.0,
         }],
     })
 
@@ -105,7 +121,7 @@ def test_audit_wiring_surfaces_canonical_price_identity_drift_end_to_end():
     assert len(drift) == 1
     assert drift[0]["setId"] == "set-1"
     assert drift[0]["selectedLatestDate"] == "2026-07-01"
-    assert drift[0]["rawLatestDate"] == "2026-09-02"
+    assert drift[0]["rawLatestDate"] == _RAW_OBSERVATION_DATE
     assert drift[0]["rawIdentityCount"] == 1
 
 
@@ -126,6 +142,23 @@ def test_audit_bounds_the_raw_observation_read_with_a_captured_at_lower_bound():
         if any(method == "gte" and field == "captured_at" for method, field, _ in call)
     ]
     assert bounded_calls, f"no captured_at gte bound found in calls: {calls}"
+
+
+def test_raw_observation_read_is_chunked_by_card_variant_id():
+    """Regression: card_variant_price_observations' indexes both lead with
+    card_variant_id, so any read of it must constrain card_variant_id (via
+    an `in_` filter) to stay index-supported -- a captured_at bound alone
+    still forces a sequential scan under OFFSET pagination."""
+    client = _synthetic_audit_client()
+
+    audit_module.audit(client)
+
+    calls = client.filter_calls.get("card_variant_price_observations", [])
+    variant_bounded_calls = [
+        call for call in calls
+        if any(method == "in_" and field == "card_variant_id" for method, field, _ in call)
+    ]
+    assert variant_bounded_calls, f"no card_variant_id in_ bound found in calls: {calls}"
 
 
 def test_stale_selected_price_flagged_when_raw_observations_are_current():
