@@ -1237,13 +1237,20 @@ def _load_publication_required_sets(client: Any) -> Tuple[List[Dict[str, Any]], 
         return [], f"publication-required set lookup failed ({exc})"
 
 
-def _load_rows(client: Any, table: str, columns: str, set_ids: Sequence[str], **filters: Any) -> Dict[str, Dict[str, Any]]:
+def _load_rows(
+    client: Any,
+    table: str,
+    columns: str,
+    set_ids: Sequence[str],
+    *,
+    chunk_size: int = 200,
+    **filters: Any,
+) -> Dict[str, Dict[str, Any]]:
     by_set: Dict[str, Dict[str, Any]] = {}
     if not set_ids:
         return by_set
-    chunk = 200
-    for start in range(0, len(set_ids), chunk):
-        query = client.table(table).select(columns).in_("set_id", list(set_ids[start:start + chunk]))
+    for start in range(0, len(set_ids), chunk_size):
+        query = client.table(table).select(columns).in_("set_id", list(set_ids[start:start + chunk_size]))
         for key, value in filters.items():
             query = query.eq(key, value)
         result = query.execute()
@@ -1452,10 +1459,12 @@ def run_market_publication_audit(
             "set_id,window_key,latest_market_date,top_chase_cards_json,"
             "top_chase_card_histories_json,performance_vs_cost_history_json",
             set_ids,
+            chunk_size=10,
             window_key=CANONICAL_DASHBOARD_WINDOW,
         )
         sealed = _load_rows(
-            client, "pokemon_set_sealed_market_snapshot_latest", "set_id,market_date,product_count", set_ids
+            client, "pokemon_set_sealed_market_snapshot_latest", "set_id,market_date,product_count", set_ids,
+            chunk_size=200,
         )
         # A: card prices get their OWN source, not the dashboard row as a proxy.
         cards = _load_rows(
@@ -1466,6 +1475,7 @@ def run_market_publication_audit(
             # that fallback silently did nothing while the column was unselected.
             "set_id,payload_json,cards_json,card_count,updated_at",
             set_ids,
+            chunk_size=20,
         )
         # B: the header/set-page summary gets its OWN source too.
         pages = _load_rows(
@@ -1473,6 +1483,7 @@ def run_market_publication_audit(
             "pokemon_set_page_snapshot_latest",
             "set_id,payload_json,title_card_json,market_summary_json,as_of,updated_at",
             set_ids,
+            chunk_size=200,
         )
         value_histories = _load_value_histories(client, set_ids, resolved_date)
         # D: sealed applicability comes from the builder's real mapping contract.
