@@ -1,0 +1,30 @@
+{
+  "request": {
+    "url": "https://play.limitlesstcg.com/api/tournaments/6a835dea78baaa6d1c22251e/details",
+    "retrievedAt": "2026-09-03T19:45:23.465511+00:00"
+  },
+  "payload": {
+    "id": "6a835dea78baaa6d1c22251e",
+    "game": "PTCG",
+    "format": "STANDARD",
+    "name": "Sunny's Weekly #270 Trolley Ride to Worlds!",
+    "date": "2026-08-24T22:05:00.000Z",
+    "players": 237,
+    "organizer": {
+      "id": 145,
+      "name": "Sunny's Weekly"
+    },
+    "platform": "PTCGL",
+    "decklists": true,
+    "isPublic": true,
+    "isOnline": true,
+    "phases": [
+      {
+        "phase": 1,
+        "type": "SWISS",
+        "rounds": 7,
+        "mode": "BO1"
+      }
+    ]
+  }
+}

@@ -117,6 +117,74 @@ def test_currency_check_exception_treated_as_stale_not_raised():
     assert len(_fake_popen.calls) == 1
 
 
+def test_already_running_publication_skips_launch_without_currency_check():
+    """L: an in-flight publication must not get a new detached launch request
+    every idle minute. When the lock pre-check reports the wrapper's flock is
+    already held, no subprocess is spawned and the (possibly Supabase-flapping)
+    currency check is not even consulted."""
+    currency_calls = []
+
+    def current(market_date):
+        currency_calls.append(market_date)
+        return False
+
+    result = trigger.trigger_post_scrape_publication_if_needed(
+        "2026-09-02",
+        publication_current=current,
+        popen=_fake_popen,
+        lock_check=lambda path: True,
+    )
+    assert result["status"] == trigger.STATUS_SKIPPED_ALREADY_RUNNING
+    assert _fake_popen.calls == []
+    assert currency_calls == []
+
+
+def test_lock_not_held_proceeds_to_normal_currency_check_and_launch():
+    result = trigger.trigger_post_scrape_publication_if_needed(
+        "2026-09-02",
+        publication_current=lambda d: False,
+        popen=_fake_popen,
+        lock_check=lambda path: False,
+    )
+    assert result["status"] == trigger.STATUS_LAUNCH_REQUESTED
+    assert len(_fake_popen.calls) == 1
+
+
+def test_lock_check_exception_fails_open_to_normal_flow():
+    """A broken lock pre-check must never itself block a legitimate launch —
+    only the shell wrapper's own authoritative flock may do that."""
+    def broken_lock_check(path):
+        raise RuntimeError("cannot stat lock file")
+
+    result = trigger.trigger_post_scrape_publication_if_needed(
+        "2026-09-02",
+        publication_current=lambda d: False,
+        popen=_fake_popen,
+        lock_check=broken_lock_check,
+    )
+    assert result["status"] == trigger.STATUS_LAUNCH_REQUESTED
+
+
+def test_repeated_idle_ticks_while_running_never_relaunch():
+    """M: many idle-minute ticks landing while a publisher is already running
+    (simulated by a lock that stays held) must not each spawn a new subprocess,
+    however the currency check itself would answer under a flapping backend."""
+    for _ in range(10):
+        result = trigger.trigger_post_scrape_publication_if_needed(
+            "2026-09-02",
+            publication_current=lambda d: False,  # e.g. Supabase 5xx -> "stale"
+            popen=_fake_popen,
+            lock_check=lambda path: True,
+        )
+        assert result["status"] == trigger.STATUS_SKIPPED_ALREADY_RUNNING
+    assert _fake_popen.calls == []
+
+
+def test_default_lock_check_on_free_path_reports_not_held(tmp_path):
+    lock_path = tmp_path / "pokemon-post-scrape-publication.lock"
+    assert trigger._default_lock_is_held(str(lock_path)) is False
+
+
 def test_default_popen_uses_detached_session_and_explicit_args(tmp_path, monkeypatch):
     captured = {}
 
