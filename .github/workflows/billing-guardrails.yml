@@ -26,6 +26,14 @@ jobs:
   backend-billing:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # These tests inject repository/provider fakes and never issue Supabase
+      # requests. The module-level client still requires syntactically valid
+      # configuration at import time, so use inert CI-only placeholders rather
+      # than any repository secret.
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
     steps:
       - name: Checkout
         uses: actions/checkout@v4
