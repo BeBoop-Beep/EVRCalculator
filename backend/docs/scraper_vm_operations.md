@@ -243,11 +243,22 @@ always UTC-7).
 |----------------|-----------|------|---------|
 | 1:00 AM | `0 8 * * *` | Reset/reconcile stale scrape jobs | `backend/scripts/reconcile_stale_scrape_jobs.py --commit` |
 | 1:05 AM | `5 8 * * *` | Create the daily scrape batch | `backend/scripts/create_daily_scrape_batch.py` |
-| every minute | `* * * * *` | Run the next scrape job **and, the instant the batch completes, hand off to publication** | `backend/scripts/run_next_scrape_job.py` |
+| every minute | `* * * * *` | Run the next scrape job **and, the instant the batch completes, hand off to publication** — **REQUIRED to run under a non-blocking `flock`; see the OOM incident note below** | `flock -n /tmp/pokemon-scrape-dispatcher.lock -c '... backend/scripts/run_next_scrape_job.py'` |
 | ~immediately after batch completion (NORMAL) | — | **Post-scrape canonical market publication**, launched detached for the exact batch market_date | `backend/scripts/rebuild_snapshots_after_scrape.sh <market_date>` |
 | 6:00 AM | `0 6 * * *` | **Fallback/watchdog only** — publish if the day's completed batch has not already published | `backend/scripts/publish_post_scrape_if_needed.py` |
 | later (Windows) | — | Simulations + full coordinated publication | Windows Task Scheduler → `infra/local/run_simulations.sh` |
-| 1:00 PM | `0 20 * * *` | Market-dashboard rebuild — **legacy/recovery** | see §8.3 |
+| ~~1:00 PM~~ | ~~`0 20 * * *`~~ | **REMOVED from the canonical schedule** — legacy market-dashboard rebuild; see §8.3 | — |
+
+**Sep 2-3, 2026 OOM incident — dispatcher flock is now REQUIRED, not optional.**
+The every-minute cron previously ran `run_next_scrape_job.py` (a long-running
+drain worker whose own module contract says it must run under the CALLER's
+flock) **without** any `flock`. Overlapping dispatcher process trees
+accumulated across minutes and exhausted the VM's ~956 MiB RAM + 2 GiB swap,
+causing global OOM kills. Production has been hand-patched to the locked form
+below; `backend/scripts/validate_dispatcher_cron_deployment.py` FAILS deploy
+if the installed crontab ever regresses to the unlocked, every-minute form
+again (requirement P). This is now the canonical, tested deployment shape —
+not a one-off hotfix.
 
 ```cron
 # 1:00 AM Phoenix — reclaim expired leases and clear stale prior-day jobs BEFORE
@@ -262,7 +273,14 @@ always UTC-7).
 #         the moment that check reports the batch COMPLETE it launches the
 #         post-scrape publisher DETACHED for the exact market_date, then exits.
 #         It never waits for publication to finish.
-* * * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/run_next_scrape_job.py >> scraper.log 2>&1
+#
+#         REQUIRED: this MUST run under a non-blocking flock. run_next_scrape_job.py
+#         is a long-running drain worker (its own module docstring says it must run
+#         under the CALLER's flock) — the Sep 2-3, 2026 OOM incident was this exact
+#         line running WITHOUT one: overlapping dispatcher trees accumulated across
+#         minutes and exhausted RAM+swap. A held lock is a safe no-op (the flocked
+#         invocation just exits immediately), never a failure.
+* * * * * /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/run_next_scrape_job.py' >> /home/ubuntu/repos/EVRCalculator/backend/logs/cron_dispatcher.log 2>&1
 
 # 6:00 AM Phoenix — FALLBACK ONLY. Publishes only if the day's batch is
 #         complete AND publication has not already happened (durable check via
@@ -271,7 +289,24 @@ always UTC-7).
 #           0 6 * * * /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh >> publication.log 2>&1
 #         NEW LINE:
 0 6 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/publish_post_scrape_if_needed.py >> publication.log 2>&1
+
+# REMOVED (requirement O): the legacy 1:00 PM (0 20 * * * UTC) unconditional
+#         market-dashboard rebuild —
+#           0 20 * * * .../python backend/scripts/build_pokemon_market_dashboard_snapshots.py --all --commit --days 365 --window 365d
+#         — is NOT part of the canonical schedule. The canonical post-scrape /
+#         6:00 AM publication orchestrator now owns this entire family end to
+#         end (see §8.3). Do not re-add it.
 ```
+
+Validate the installed crontab against this contract at any time:
+
+```bash
+python -m backend.scripts.validate_dispatcher_cron_deployment
+```
+
+It exits nonzero (and should gate deploy/CI) if the every-minute dispatcher
+line is missing `flock -n`, if no dispatcher line exists at all, or if the
+legacy 1:00 PM `--all` dashboard rebuild is still present.
 
 ### 8.2 The two publication phases
 
@@ -394,14 +429,20 @@ post-scrape audit failing a surface), the wrapper's existing exit-code semantics
 are unchanged and authoritative; it does not cause the scraper to retry all 165
 sets — scrape completion and publication remain separate failure domains.
 
-### 8.3 The 1:00 PM market-dashboard rebuild is legacy/recovery
+### 8.3 The 1:00 PM market-dashboard rebuild is REMOVED from the canonical schedule
 
-A 1:00 PM Phoenix (20:00 UTC) market-dashboard rebuild still exists on the VM. It
-predates the canonical orchestrator, which now rebuilds the coordinated Cards +
-Market Dashboard family itself in both phases. Treat it as **legacy/recovery
-only**: keep it for a manual mid-day repair, do not rely on it for daily
-correctness, and do not add surfaces to it. It should be removed once a code
-investigation confirms nothing depends on it.
+A legacy 1:00 PM Phoenix (20:00 UTC) unconditional
+`build_pokemon_market_dashboard_snapshots.py --all --commit --days 365 --window 365d`
+cron entry predated the canonical orchestrator. It has been **disabled on
+production** and is **not part of the canonical schedule** (requirement O):
+the post-scrape / 6:00 AM publication orchestrator
+(`backend/scripts/refresh_stale_public_snapshots.py`, invoked via
+`rebuild_snapshots_after_scrape.sh`) now rebuilds the coordinated Cards +
+Market Dashboard family itself, in order, on every publication run. Do not
+re-add this cron entry; `backend/scripts/validate_dispatcher_cron_deployment.py`
+fails deploy if it reappears in the installed crontab. For a genuine manual
+mid-day repair, invoke `refresh_stale_public_snapshots.py --commit --set-id
+<id>` directly rather than the standalone builder.
 
 Open crontab (never edited automatically from application code):
 

@@ -50,6 +50,25 @@ def _period_end(subscription, item):
     """Some Stripe API versions report the period on the subscription item, not
     the subscription itself. Mirrors `subscription_row`'s existing fallback."""
     return subscription.get("current_period_end") or (item or {}).get("current_period_end")
+def _cancels_at_period_end(subscription, item):
+    """Normalize Stripe's two equivalent end-of-paid-period cancellation shapes.
+
+    Standard Billing commonly reports ``cancel_at_period_end=true``. Managed
+    Payments can instead leave that boolean false while setting ``cancel_at``
+    to the exact current-period end. Treat only that exact timestamp match as
+    an end-of-period cancellation; an arbitrary future ``cancel_at`` date must
+    not be mislabeled as period-end cancellation.
+    """
+    if subscription.get("cancel_at_period_end"):
+        return True
+    cancel_at = subscription.get("cancel_at")
+    period_end = _period_end(subscription, item)
+    if cancel_at is None or period_end is None:
+        return False
+    try:
+        return int(cancel_at) == int(period_end)
+    except (TypeError, ValueError):
+        return cancel_at == period_end
 def _subscription_id_from_event_object(obj):
     """Normalize Checkout and Dahlia-era Invoice subscription references."""
     reference = obj.get("subscription")
@@ -318,15 +337,16 @@ class BillingService:
         elif len(recognized) != 1: mapping, offer = "unmapped_price", None
         else: mapping, offer = "mapped", recognized[0][1]
         price = (recurring[0].get("price") or {}) if len(recurring) == 1 else {}
+        item = recurring[0] if len(recurring) == 1 else None
         product_id = price.get("product")
         if isinstance(product_id, dict): product_id = product_id.get("id")
         return {"user_id": customer["user_id"], "billing_customer_id": customer["id"], "provider": "stripe",
             "provider_subscription_id": subscription["id"], "provider_product_id": product_id,
             "provider_price_id": price.get("id"), "offer_key": offer.offer_key if offer else None,
             "plan": offer.plan if offer else None, "status": subscription.get("status") or "unknown",
-            "current_period_start": _iso(subscription.get("current_period_start") or (recurring[0].get("current_period_start") if len(recurring) == 1 else None)),
-            "current_period_end": _iso(subscription.get("current_period_end") or (recurring[0].get("current_period_end") if len(recurring) == 1 else None)),
-            "cancel_at_period_end": bool(subscription.get("cancel_at_period_end")),
+            "current_period_start": _iso(subscription.get("current_period_start") or (item.get("current_period_start") if item else None)),
+            "current_period_end": _iso(_period_end(subscription, item)),
+            "cancel_at_period_end": _cancels_at_period_end(subscription, item),
             "canceled_at": _iso(subscription.get("canceled_at")), "ended_at": _iso(subscription.get("ended_at")),
             "commercial_mapping_status": mapping, "last_reconciled_at": datetime.now(timezone.utc).isoformat(),
             "reconciliation_error_code": None if mapping == "mapped" else mapping.upper()}
@@ -373,11 +393,21 @@ class BillingService:
         if base.get("billingManaged"):
             try:
                 _, subscription, item, current_offer = self._resolve_current_subscription(user_id)
+                # This best-effort Stripe lookup already exists for pending plan
+                # changes. Reuse the same authoritative snapshot for billing
+                # presentation fields that do not grant or revoke entitlement,
+                # so a delayed/stale webhook projection cannot tell a customer
+                # their subscription will renew after Stripe has scheduled it
+                # to end at the paid-period boundary.
+                live_period_end = _period_end(subscription, item)
+                base["cancelAtPeriodEnd"] = _cancels_at_period_end(subscription, item)
+                if live_period_end:
+                    base["currentPeriodEnd"] = _iso(live_period_end)
                 schedule = subscription.get("schedule")
                 classification = classify_schedule(
                     schedule,
                     current_price_id=current_offer.provider_price_id,
-                    current_period_end=_period_end(subscription, item),
+                    current_period_end=live_period_end,
                     offers=self.offers,
                 )
                 pending = {

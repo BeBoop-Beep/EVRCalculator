@@ -209,9 +209,87 @@ PLANNING_PROGRESS_INTERVAL = 3    # INFO heartbeat every N sets (~10-20s observe
 SLOW_PLANNING_SET_SECONDS = 10.0  # always log a set slower than this
 SLOW_QUERY_SECONDS = 5.0          # always log a single SELECT slower than this
 
+# --- publication memory observability (requirement I) -----------------------
+# The Sep 2-3 incident was only diagnosable after the fact from OCI/systemd OOM
+# records, not from this script's own log, because nothing here recorded process
+# RSS as the ~210-set planning loop progressed. `resource` is stdlib (no new
+# dependency — psutil is NOT currently a project dependency, see requirements.txt)
+# and ru_maxrss is exactly the "how much did this process actually grow to"
+# figure an operator needs; it is a high-water mark, not a live sample, but
+# that is what makes it decisive for a monotonically-growing-RSS incident like
+# this one. POSIX only: on any platform without `resource` (Windows dev boxes,
+# most notably) this degrades to logging nothing, never to raising.
+try:
+    import resource as _resource
+except ImportError:  # pragma: no cover - exercised on Windows dev boxes
+    _resource = None
+
+
+def _current_rss_mb() -> Optional[float]:
+    """Best-effort process RSS high-water mark in MiB, or None if unavailable."""
+    if _resource is None:
+        return None
+    try:
+        usage = _resource.getrusage(_resource.RUSAGE_SELF).ru_maxrss
+    except Exception:  # pragma: no cover - defensive; must never break planning
+        return None
+    if usage <= 0:
+        return None
+    # Linux reports ru_maxrss in KiB; macOS reports bytes. Linux is the only
+    # deployment target (the production VM), so treat it as KiB.
+    return usage / 1024.0
+
+
+def _available_memory_mb() -> Optional[float]:
+    """Best-effort system available RAM in MiB, or None if unavailable.
+
+    Read directly from /proc/meminfo (no new dependency) rather than shelling
+    out to `free`, so a missing binary on a minimal container can't silently
+    blind this diagnostic.
+    """
+    try:
+        with open("/proc/meminfo", "r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.startswith("MemAvailable:"):
+                    parts = line.split()
+                    return float(parts[1]) / 1024.0
+    except Exception:  # pragma: no cover - exercised off-Linux / sandboxed
+        return None
+    return None
+
+
+def _log_memory_observability(context: str) -> None:
+    rss_mb = _current_rss_mb()
+    available_mb = _available_memory_mb()
+    if rss_mb is None and available_mb is None:
+        return
+    logger.info(
+        "[refresh-memory] %s rss_mb=%s available_mb=%s",
+        context,
+        f"{rss_mb:.1f}" if rss_mb is not None else "unknown",
+        f"{available_mb:.1f}" if available_mb is not None else "unknown",
+    )
+
 # Server-side JSON path projection: PostgREST evaluates the path and returns ONE
 # scalar, so the cards snapshot's (large) payload_json never crosses the wire.
 CARDS_GENERATION_ID_PROJECTION = "generation_id:payload_json->meta->snapshot->>generationId"
+
+# Market-dashboard freshness-check projection (requirement E). CONFIRMED by
+# reading backend/scripts/pokemon_snapshot_builders.py's
+# build_market_dashboard_snapshot_rows: the row's `payload_json` column
+# DUPLICATES every heavy history array that also lives in its own dedicated
+# column — payload_json embeds setValueHistoriesByScope, topChaseCardHistories,
+# performanceVsCostHistory and topChaseCards INLINE, at the top level, verbatim
+# copies of set_value_histories_json / top_chase_card_histories_json /
+# performance_vs_cost_history_json / top_chase_cards_json. So selecting the
+# WHOLE payload_json column for a freshness check — as the row read used to do
+# — downloads the same multi-megabyte histories a second time even when only
+# `payload_json.meta` (small: marker booleans + already-computed latest-date
+# fields) is actually read. This projection extracts JUST `meta`, server-side,
+# via a PostgREST JSON path (the same technique CARDS_GENERATION_ID_PROJECTION
+# above already uses), so those embedded arrays never cross the wire during
+# planning at all.
+MARKET_DASHBOARD_META_PROJECTION = "meta:payload_json->meta"
 
 # HEAVY READS IN THE READ-ONLY PLANNING PHASE — why each large JSON column is
 # fetched, audited because the planner scans the whole published catalog and one
@@ -813,17 +891,71 @@ def _performance_history_latest_real_date(history: Any) -> Optional[str]:
     return latest
 
 
-def _dashboard_set_value_latest_date_by_scope(row: Dict[str, Any]) -> Dict[str, Optional[str]]:
+def _row_meta(row: Dict[str, Any]) -> Dict[str, Any]:
+    """The row's ``payload_json.meta``, however it arrived.
+
+    Two shapes are honoured on purpose: a narrow PostgREST read using
+    ``MARKET_DASHBOARD_META_PROJECTION`` surfaces it as a TOP-LEVEL ``meta``
+    key (the alias in that projection); a full-row read (legacy call sites,
+    and every existing test fixture) carries it nested under
+    ``payload_json.meta``. Preferring the top-level key first is what lets the
+    narrow projection take effect without requiring every existing row/test
+    fixture to be reshaped.
+    """
+    meta = row.get("meta")
+    if isinstance(meta, dict):
+        return meta
     payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    meta = payload.get("meta")
+    return meta if isinstance(meta, dict) else {}
+
+
+def _load_market_dashboard_column(
+    client: Any, set_id: str, window: str, column: str
+) -> Any:
+    """Lazily fetch exactly ONE heavy market-dashboard column, on demand.
+
+    Used only for the two history columns (top-chase, performance-vs-cost)
+    that have no server-side scalar-projection shortcut yet (requirement E's
+    documented limit — see the module-level "HEAVY READS" note). Fetching them
+    one at a time, only at the point the freshness check actually consumes
+    them, means a set whose staleness verdict is already decided by an EARLIER,
+    cheaper check (missing row, missing marker, stale value-history) never
+    downloads them at all.
+    """
+    row = _read_snapshot_row(
+        client,
+        "pokemon_set_market_dashboard_snapshot_latest",
+        f"set_id,{column}",
+        (("set_id", set_id), ("window_key", window)),
+    )
+    return row.get(column) if row else None
+
+
+def _dashboard_set_value_latest_date_by_scope(
+    row: Dict[str, Any],
+    *,
+    client: Any = None,
+    set_id: Optional[str] = None,
+    window: Optional[str] = None,
+) -> Dict[str, Optional[str]]:
+    meta = _row_meta(row)
     meta_dates = meta.get("setValueHistoryLatestDateByScope")
     if not isinstance(meta_dates, dict):
         meta_dates = meta.get("set_value_history_latest_date_by_scope")
     if isinstance(meta_dates, dict):
         return {scope: _to_text(meta_dates.get(scope)) for scope in SET_VALUE_HISTORY_SCOPES}
 
+    # No meta marker (a row built before that marker existed). Prefer whatever
+    # the caller already fetched onto `row`; only issue a NEW request for the
+    # raw column as a last resort, and only when a client is available to do
+    # it with (pure-function callers/tests pass no client and simply fall
+    # through to the empty-dict default below, unchanged from before).
     histories_by_scope = row.get("set_value_histories_json")
+    if not isinstance(histories_by_scope, dict) and client is not None and set_id and window:
+        histories_by_scope = _load_market_dashboard_column(client, set_id, window, "set_value_histories_json")
     if not isinstance(histories_by_scope, dict):
+        payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
         histories_by_scope = payload.get("setValueHistoriesByScope") or payload.get("set_value_histories_by_scope") or {}
     if not isinstance(histories_by_scope, dict):
         histories_by_scope = {}
@@ -1222,16 +1354,30 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
     dependency_updated_at = _max_datetime_text(dependency_updated_at, latest_value_history_updated_at)
     simulation_history_date, simulation_date_checks = _latest_simulation_history_date(client, set_id)
     checks.extend(simulation_date_checks)
+    # Requirement E — narrow read. The row's `payload_json` column DUPLICATES
+    # every heavy history array that also lives in its own dedicated column
+    # (confirmed by reading pokemon_snapshot_builders.build_market_dashboard_
+    # snapshot_rows: payload_json embeds setValueHistoriesByScope,
+    # topChaseCardHistories, performanceVsCostHistory and topChaseCards INLINE).
+    # The old single-row read here selected the full payload_json PLUS all
+    # three dedicated history columns — the same multi-megabyte histories
+    # downloaded TWICE, every set, unconditionally, during read-only planning.
+    # This narrow read gets only the small scalar columns plus payload_json's
+    # `meta` sub-object (server-side JSON path projection — see
+    # MARKET_DASHBOARD_META_PROJECTION); the two remaining heavy history
+    # columns are fetched lazily, one at a time, ONLY at the point below where
+    # their check is actually reached — so a set whose staleness verdict is
+    # already decided by an earlier, cheaper check never downloads them.
     row = _read_snapshot_row(
         client,
         "pokemon_set_market_dashboard_snapshot_latest",
-        "set_id,window_key,payload_json,set_value_histories_json,top_chase_card_histories_json,performance_vs_cost_history_json,latest_market_date,updated_at",
+        f"set_id,window_key,latest_market_date,updated_at,{MARKET_DASHBOARD_META_PROJECTION}",
         (("set_id", set_id), ("window_key", window)),
     )
     if not row:
         return FreshnessResult("market_dashboard", True, "snapshot row missing", None, dependency_updated_at, checks)
-    payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-    snapshot_meta = (payload.get("meta") or {}).get("snapshot")
+    meta = _row_meta(row)
+    snapshot_meta = meta.get("snapshot")
     marker_missing = not isinstance(snapshot_meta, dict)
     movement_marker_missing = not bool(
         isinstance(snapshot_meta, dict)
@@ -1242,8 +1388,11 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
         and snapshot_meta.get("builtAt")
     )
     snapshot_updated_at = _to_text(row.get("updated_at"))
-    latest_market_date = _to_text(row.get("latest_market_date") or payload.get("latestMarketDate") or payload.get("latest_market_date"))
-    top_chase_histories = row.get("top_chase_card_histories_json")
+    latest_market_date = _to_text(row.get("latest_market_date"))
+    # Lazy, single-column fetch: only issued because this check is reached —
+    # a set whose row is missing or whose marker is missing above never pays
+    # for this download at all.
+    top_chase_histories = _load_market_dashboard_column(client, set_id, window, "top_chase_card_histories_json")
     top_chase_history_end = max(
         (
             _history_latest_date(history)
@@ -1256,7 +1405,10 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
             "market_dashboard", True, "top chase history end differs from latest_market_date",
             snapshot_updated_at, dependency_updated_at, checks,
         )
-    dashboard_date_by_scope = _dashboard_set_value_latest_date_by_scope(row)
+    del top_chase_histories  # F: drop the reference now that this check is done.
+    dashboard_date_by_scope = _dashboard_set_value_latest_date_by_scope(
+        row, client=client, set_id=set_id, window=window
+    )
     if marker_missing:
         return FreshnessResult("market_dashboard", True, "required completeness marker missing", snapshot_updated_at, dependency_updated_at, checks)
     if _is_newer(latest_value_history_updated_at, snapshot_updated_at):
@@ -1273,10 +1425,14 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
                 dependency_updated_at,
                 checks,
             )
-    performance_history = row.get("performance_vs_cost_history_json")
-    if not isinstance(performance_history, list):
-        performance_history = payload.get("performanceVsCostHistory") or payload.get("performance_vs_cost_history")
+    # Lazy, single-column fetch (same rationale as top-chase above): only sets
+    # that reach this point ever download the OPvC history.
+    # No fallback to a payload_json-embedded copy here: `meta` (the only slice
+    # of payload_json this narrow read fetches) never carries the history
+    # itself — only the dedicated column does, and it was just fetched above.
+    performance_history = _load_market_dashboard_column(client, set_id, window, "performance_vs_cost_history_json")
     dashboard_performance_history_end = _performance_history_latest_real_date(performance_history)
+    del performance_history  # F: drop the reference now that this check is done.
     if _is_newer(simulation_history_date, dashboard_performance_history_end):
         return FreshnessResult(
             "market_dashboard",
@@ -1507,6 +1663,7 @@ def _build_plan(client: Any, *, set_rows: List[Dict[str, Any]], window: str) -> 
     total = len(set_rows)
     plan_started = time.monotonic()
     logger.info("[refresh-plan] starting sets=%s", total)
+    _log_memory_observability("plan start")
     _PLANNING_RUN_ID_CACHE = {}
     try:
         for index, set_row in enumerate(set_rows, start=1):
@@ -1525,6 +1682,10 @@ def _build_plan(client: Any, *, set_rows: List[Dict[str, Any]], window: str) -> 
             checked = "[refresh-plan] checked %s/%s key=%s elapsed=%.2fs"
             if elapsed >= SLOW_PLANNING_SET_SECONDS or index % PLANNING_PROGRESS_INTERVAL == 0 or index == total:
                 logger.info(checked, index, total, canonical_key, elapsed)
+                # Same cadence as the heartbeat above (requirement I): frequent
+                # enough to localize a growth trend to a narrow set range, rare
+                # enough not to spam the log every set.
+                _log_memory_observability(f"plan progress {index}/{total}")
             else:
                 logger.debug(checked, index, total, canonical_key, elapsed)
         logger.info("[refresh-plan] checking global families (explore_rankings, desirability_validation)")
@@ -1537,6 +1698,7 @@ def _build_plan(client: Any, *, set_rows: List[Dict[str, Any]], window: str) -> 
     logger.info(
         "[refresh-plan] complete sets=%s elapsed=%.2fs", total, time.monotonic() - plan_started
     )
+    _log_memory_observability("plan complete")
     return plans, rankings, validation, source_checks
 
 

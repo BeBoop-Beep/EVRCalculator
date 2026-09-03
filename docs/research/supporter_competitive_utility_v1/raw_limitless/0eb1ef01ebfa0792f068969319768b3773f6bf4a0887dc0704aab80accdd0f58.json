@@ -1,0 +1,36 @@
+{
+  "request": {
+    "url": "https://play.limitlesstcg.com/api/tournaments/6a7b1904cdc0391d7fa63d42/details",
+    "retrievedAt": "2026-09-03T19:45:16.883892+00:00"
+  },
+  "payload": {
+    "id": "6a7b1904cdc0391d7fa63d42",
+    "game": "PTCG",
+    "format": "STANDARD",
+    "name": "The Stache Series 1: Mic Check",
+    "date": "2026-08-15T22:00:00.000Z",
+    "players": 346,
+    "organizer": {
+      "id": 2722,
+      "name": "TimDanklin"
+    },
+    "platform": "PTCGL",
+    "decklists": true,
+    "isPublic": true,
+    "isOnline": true,
+    "phases": [
+      {
+        "phase": 1,
+        "type": "SWISS",
+        "rounds": 8,
+        "mode": "BO1"
+      },
+      {
+        "phase": 2,
+        "type": "SINGLE_ELIMINATION",
+        "rounds": 3,
+        "mode": "BO1"
+      }
+    ]
+  }
+}

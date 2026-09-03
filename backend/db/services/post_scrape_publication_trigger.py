@@ -72,6 +72,7 @@ STATUS_LAUNCH_FAILED = "launch_failed"
 STATUS_INVALID_MARKET_DATE = "invalid_market_date"
 STATUS_NOT_COMPLETE = "skipped_batch_not_complete"
 STATUS_CURRENCY_CHECK_FAILED = "currency_check_failed"
+STATUS_SKIPPED_ALREADY_RUNNING = "skipped_already_running"
 
 
 def is_valid_market_date(value: Any) -> bool:
@@ -107,6 +108,40 @@ def _default_publication_current(market_date: str) -> PublicationCurrencyStatus:
             TRIGGER_TAG, market_date,
         )
         return PublicationCurrencyStatus.UNKNOWN
+
+
+def _default_lock_is_held(lock_path: str) -> bool:
+    """Best-effort, non-blocking check: is the publication wrapper's own flock
+    (``rebuild_snapshots_after_scrape.sh``'s ``LOCK_PATH``) currently held?
+
+    This is a PRE-CHECK only — the shell wrapper's own ``flock -n`` remains the
+    authoritative, race-free lock (belt-and-suspenders per requirement K). Its
+    purpose is purely to avoid spawning a detached subprocess (and the log-file
+    I/O, PID, etc. that comes with it) on every idle-minute dispatcher tick
+    while a publication run is already in flight — not to replace the shell
+    lock as the correctness guarantee.
+
+    Fails OPEN (returns False, "not held") on any platform or I/O condition
+    where the check itself cannot be performed (e.g. Windows dev boxes, a
+    missing ``fcntl`` module, or a permissions error) so a broken pre-check can
+    never itself block a legitimate publication launch — only the shell
+    wrapper's own lock is allowed to do that.
+    """
+    try:
+        import fcntl  # POSIX only; the VM target is Linux.
+    except ImportError:  # pragma: no cover - exercised on Windows dev boxes
+        return False
+    try:
+        with open(lock_path, "a+") as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return True
+            else:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+                return False
+    except OSError:
+        return False
 
 
 def _default_popen(args: list, *, cwd: str, log_path: Path) -> subprocess.Popen:
@@ -182,6 +217,8 @@ def trigger_post_scrape_publication_if_needed(
     rebuild_script: Optional[Path] = None,
     log_path: Optional[Path] = None,
     queue_alert: Optional[Callable[..., None]] = None,
+    lock_check: Optional[Callable[[str], bool]] = None,
+    lock_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Launch the canonical post-scrape publication wrapper if it is needed.
 
@@ -206,6 +243,33 @@ def trigger_post_scrape_publication_if_needed(
 
     market_date = str(market_date)
     logger.info("%s batch complete market_date=%s", TRIGGER_TAG, market_date)
+
+    # L: an already-running publication must not receive a fresh detached launch
+    # request every idle minute. This is a pre-check ONLY — the shell wrapper's
+    # own flock (rebuild_snapshots_after_scrape.sh) remains the authoritative
+    # lock (requirement K); this simply avoids spawning the subprocess at all
+    # when we can already tell it would just no-op on that lock. It also bounds
+    # M (a transient Supabase 5xx making publication_current look stale on every
+    # call): however many idle-minute ticks land while a run is in flight, at
+    # most one publisher process is ever alive because every later tick sees
+    # the held lock and skips.
+    check_lock_held = lock_check or _default_lock_is_held
+    resolved_lock_path = lock_path or PUBLICATION_LOCK_PATH
+    try:
+        already_running = bool(check_lock_held(resolved_lock_path))
+    except Exception:  # pragma: no cover - defensive; check must never raise
+        logger.exception(
+            "%s publication lock check raised for market_date=%s; assuming not running",
+            TRIGGER_TAG, market_date,
+        )
+        already_running = False
+    if already_running:
+        logger.info(
+            "%s publication already running (lock_path=%s held); skipping launch for market_date=%s",
+            TRIGGER_TAG, resolved_lock_path, market_date,
+        )
+        result["status"] = STATUS_SKIPPED_ALREADY_RUNNING
+        return result
 
     check_current = publication_current or _default_publication_current
     alert_queuer = queue_alert or _default_queue_currency_unknown_alert

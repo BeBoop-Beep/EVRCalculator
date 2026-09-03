@@ -1,0 +1,36 @@
+{
+  "request": {
+    "url": "https://play.limitlesstcg.com/api/tournaments/6a83b0f35a3071409557386e/details",
+    "retrievedAt": "2026-09-03T19:45:18.359356+00:00"
+  },
+  "payload": {
+    "id": "6a83b0f35a3071409557386e",
+    "game": "PTCG",
+    "format": "STANDARD",
+    "name": "Rare Candy Club Showdown #39 (50 CODES)",
+    "date": "2026-08-24T00:00:00.000Z",
+    "players": 282,
+    "organizer": {
+      "id": 2518,
+      "name": "Rare Candy Club"
+    },
+    "platform": "PTCGL",
+    "decklists": true,
+    "isPublic": true,
+    "isOnline": true,
+    "phases": [
+      {
+        "phase": 1,
+        "type": "SWISS",
+        "rounds": 8,
+        "mode": "BO1"
+      },
+      {
+        "phase": 2,
+        "type": "SINGLE_ELIMINATION",
+        "rounds": 3,
+        "mode": "BO3"
+      }
+    ]
+  }
+}
