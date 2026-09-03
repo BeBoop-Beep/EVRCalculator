@@ -1,0 +1,68 @@
+{
+  "label": "platinum",
+  "eraIds": [
+    "0a40145e-ccee-46f7-af06-1fbf89ce1b39"
+  ],
+  "setIds": [],
+  "cases": {
+    "full": {
+      "name": "full",
+      "spec": {
+        "contractVersion": "pokemon-market-explorer-query-v3-variant",
+        "asset": "cards",
+        "eraIds": [
+          "0a40145e-ccee-46f7-af06-1fbf89ce1b39"
+        ],
+        "setIds": [],
+        "segmentIds": [],
+        "pokemonIds": [],
+        "priceSegmentIds": [],
+        "releaseAgeCohortIds": [],
+        "mode": "all",
+        "topN": null
+      },
+      "fingerprint": "8c1fb3343b0a59935f6b0311066d0fc85a015de8e6c1c8038ff3afcb88663e04",
+      "coldSource": "daily_projection",
+      "coldBuilderMs": 4709.891,
+      "payloadBytes": 601824,
+      "l2": {
+        "samplesMs": [
+          460.7462,
+          436.30380000000014
+        ],
+        "medianMs": 448.5250000000001,
+        "p95Ms": 460.7462,
+        "minMs": 436.30380000000014,
+        "maxMs": 460.7462,
+        "sources": [
+          "persistent_cache",
+          "persistent_cache"
+        ]
+      },
+      "l1": {
+        "samplesMs": [
+          0.36799999999992394,
+          0.03949999999974807
+        ],
+        "medianMs": 0.203749999999836,
+        "p95Ms": 0.36799999999992394,
+        "minMs": 0.03949999999974807,
+        "maxMs": 0.36799999999992394,
+        "sources": [
+          "memory_cache",
+          "memory_cache"
+        ],
+        "seedSource": "persistent_cache"
+      },
+      "persistentRows": [
+        {
+          "query_fingerprint": "8c1fb3343b0a59935f6b0311066d0fc85a015de8e6c1c8038ff3afcb88663e04",
+          "status": "ready",
+          "cache_kind": "maintained",
+          "computed_through": "2026-09-02",
+          "constituent_count": 968
+        }
+      ]
+    }
+  }
+}
