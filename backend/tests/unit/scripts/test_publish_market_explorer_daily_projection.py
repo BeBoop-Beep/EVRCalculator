@@ -5,8 +5,9 @@ from backend.scripts.publish_market_explorer_daily_projection import (
 
 
 class Response:
-    def __init__(self, data):
+    def __init__(self, data, count=None):
         self.data = data
+        self.count = count
 
 
 class Query:
@@ -27,11 +28,17 @@ class Query:
         self.start = None
         self.end = None
         self._upsert_rows = None
+        self.want_count = False
+        self.order_field = None
+        self.order_desc = False
 
-    def select(self, *_a, **_k):
+    def select(self, *_a, count=None, **_k):
+        self.want_count = count == "exact"
         return self
 
-    def order(self, *_a, **_k):
+    def order(self, field, desc=False, **_k):
+        self.order_field = field
+        self.order_desc = desc
         return self
 
     def limit(self, n):
@@ -119,7 +126,11 @@ class Query:
             market_date = self.eq_filters.get("market_date")
             rows = [dict(r) for r in self.client.daily_states
                     if r["set_id"] == set_id and (market_date is None or r["market_date"] == market_date)]
-            return Response(self._slice(rows))
+            if self.order_field:
+                rows.sort(key=lambda r: r[self.order_field], reverse=self.order_desc)
+            total = len(rows)
+            sliced = self._slice(rows)
+            return Response(sliced, count=total if self.want_count else None)
 
         raise AssertionError(f"unexpected table {self.name}")
 

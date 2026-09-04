@@ -80,6 +80,7 @@ from backend.scripts.publish_market_explorer_daily_projection import (
 LOG = logging.getLogger("market_explorer_daily_publication")
 
 CURRENT_METADATA_TABLE = "pokemon_market_explorer_card_current_metadata"
+CURRENT_METADATA_REFRESH_RPC = "refresh_pokemon_market_explorer_card_current_metadata"
 CACHE_TABLE = "pokemon_market_explorer_query_cache"
 COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage"
 CARDS_ASSET_TABLE = "pokemon_market_explorer_cache_state"
@@ -156,8 +157,19 @@ def load_current_authority_rows(client: Any, set_ids: Sequence[str]) -> list[dic
 def refresh_current_metadata(client: Any, *, commit: bool) -> MetadataRefreshReport:
     """Reconcile ``pokemon_market_explorer_card_current_metadata`` to the
     exact current canonical authority -- no retired-predecessor leakage, no
-    catalog-only leakage. Idempotent: an unchanged authority produces an
-    unchanged table (upsert of identical rows, zero removals).
+    catalog-only leakage.
+
+    Delegates the actual write to the real production RPC
+    ``refresh_pokemon_market_explorer_card_current_metadata(p_set_ids uuid[])``
+    (the same RPC that originally populated this table -- see migration
+    ``20260903192911_add_market_explorer_current_metadata_projection``)
+    rather than hand-rolling a raw table upsert. A hand-rolled upsert here
+    previously supplied only ``card_variant_id``/``set_id`` for each row,
+    which is correct for updating an existing row but violates the table's
+    NOT NULL constraints (e.g. ``canonical_card_id``) the first time a
+    genuinely new variant needs a row -- the RPC knows the full column
+    contract and derives it server-side; this function must not attempt to
+    reconstruct that contract in Python.
     """
     tracked_set_ids = resolve_tracked_set_ids(client)
     report = MetadataRefreshReport(sets_considered=len(tracked_set_ids))
@@ -168,18 +180,15 @@ def refresh_current_metadata(client: Any, *, commit: bool) -> MetadataRefreshRep
     if not commit:
         return report
 
-    if expected_rows:
-        client.table(CURRENT_METADATA_TABLE).upsert(
-            expected_rows, on_conflict="card_variant_id",
-        ).execute()
-    report.rows_upserted = len(expected_rows)
+    rows_before = _paged(lambda: client.table(CURRENT_METADATA_TABLE).select("card_variant_id"))
+    ids_before = {str(row["card_variant_id"]) for row in rows_before}
 
-    existing_rows = _paged(lambda: client.table(CURRENT_METADATA_TABLE).select("card_variant_id"))
-    expected_ids = {row["card_variant_id"] for row in expected_rows}
-    stale_ids = sorted({str(row["card_variant_id"]) for row in existing_rows} - expected_ids)
-    if stale_ids:
-        client.table(CURRENT_METADATA_TABLE).delete().in_("card_variant_id", stale_ids).execute()
-    report.rows_removed = len(stale_ids)
+    client.rpc(CURRENT_METADATA_REFRESH_RPC, {"p_set_ids": list(tracked_set_ids)}).execute()
+
+    rows_after = _paged(lambda: client.table(CURRENT_METADATA_TABLE).select("card_variant_id"))
+    ids_after = {str(row["card_variant_id"]) for row in rows_after}
+    report.rows_upserted = len(ids_after)
+    report.rows_removed = len(ids_before - ids_after)  # informational only; RPC owns removal
     return report
 
 
@@ -201,7 +210,7 @@ def discover_maintained_caches(client: Any) -> list[dict[str, Any]]:
     automatically the day it is promoted.
     """
     return _paged(lambda: client.table(CACHE_TABLE).select(
-        "query_fingerprint,normalized_spec,status,cache_kind,computed_through,label"
+        "query_fingerprint,normalized_spec,status,cache_kind,computed_through"
     ).eq("cache_kind", "maintained"))
 
 

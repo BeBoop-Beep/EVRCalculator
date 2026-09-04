@@ -188,18 +188,31 @@ def load_actual_state_rows(client: Any, set_id: str, market_date: str) -> list[d
 
 
 def count_actual_rows(client: Any, set_id: str) -> int:
-    rows = _paged(lambda: client.table(DAILY_STATES_TABLE).select("card_variant_id")
-                  .eq("set_id", set_id))
-    return len(rows)
+    """Exact row count for a set via PostgREST's ``count="exact"`` head-count,
+    not a full paged fetch of every row. Still a genuine recompute from actual
+    table state (never incremented arithmetically) -- just cheap: one request
+    returns the count metadata without transferring the underlying rows.
+    Correct for a table of any size, including a full historical set.
+    """
+    result = (client.table(DAILY_STATES_TABLE).select("card_variant_id", count="exact")
+              .eq("set_id", set_id).limit(1).execute())
+    return int(result.count or 0)
 
 
 def compute_actual_bounds(client: Any, set_id: str) -> tuple[str | None, str | None]:
-    rows = _paged(lambda: client.table(DAILY_STATES_TABLE).select("market_date")
-                  .eq("set_id", set_id))
-    if not rows:
+    """Exact MIN/MAX(market_date) for a set via two order+limit(1) queries,
+    not a full paged fetch of every row's date. Same correctness contract as
+    ``count_actual_rows`` -- a genuine recompute, just without transferring
+    every row to compute a value the database can return directly.
+    """
+    first_rows = (client.table(DAILY_STATES_TABLE).select("market_date")
+                  .eq("set_id", set_id).order("market_date").limit(1).execute()).data or []
+    if not first_rows:
         return None, None
-    dates = sorted(str(r["market_date"])[:10] for r in rows)
-    return dates[0], dates[-1]
+    last_rows = (client.table(DAILY_STATES_TABLE).select("market_date")
+                 .eq("set_id", set_id).order("market_date", desc=True).limit(1)
+                 .execute()).data or []
+    return str(first_rows[0]["market_date"])[:10], str(last_rows[0]["market_date"])[:10]
 
 
 # --- Materialization -------------------------------------------------------

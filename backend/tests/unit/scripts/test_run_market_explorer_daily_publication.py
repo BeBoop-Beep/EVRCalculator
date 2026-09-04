@@ -104,6 +104,16 @@ class Query:
             if self.name == orch.REPROJECT_DAILY_STATES_RPC:
                 self.client.reproject_calls.append(dict(self.params))
                 return Response(7)
+            if self.name == orch.CURRENT_METADATA_REFRESH_RPC:
+                set_ids = set(self.params["p_set_ids"])
+                expected = {
+                    row["card_variant_id"]: {**row, "canonical_card_id": f"cc-{row['card_variant_id']}"}
+                    for row in self.client.authority_rows
+                    if row["set_id"] in set_ids and row["card_variant_id"] not in self.client.retired_ids
+                }
+                self.client.current_metadata.clear()
+                self.client.current_metadata.update(expected)
+                return Response(len(expected))
             raise AssertionError(f"unexpected rpc {self.name}")
 
         if self.name == "pokemon_market_date_quality":
