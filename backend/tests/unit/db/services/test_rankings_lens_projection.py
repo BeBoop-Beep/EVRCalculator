@@ -102,6 +102,53 @@ def test_eras_lens_derives_canonical_fallback_from_published_targets(monkeypatch
     assert payload["meta"]["snapshot"]["persistedProjectionAvailable"] is False
 
 
+def test_homepage_lens_projects_only_the_public_whitelist(monkeypatch):
+    payload, client = _run(monkeypatch, "homepage", {
+        "targets": [{
+            "id": "set-1",
+            "isOpeningSet": True,
+            "target_type": "set",
+            "target_id": "set-1",
+            "name": "Test Set",
+            "era": "Scarlet & Violet",
+            "canonical_key": "test-set",
+            "hero_image_url": "https://example.com/hero.png",
+            "logo_image_url": "https://example.com/logo.png",
+            "checklist_set_value": 123.45,
+            "pack_cost": 4.5,
+            "mean_value": 5.1,
+            "median_value": 4.9,
+            "prob_profit": 0.4,
+            "collector_appeal_score": 71,
+            "setRipV1": {"score": 90, "tier": "A", "rank": 1, "cohortSize": 50, "rankable": True, "familyScores": ["should-not-leak"]},
+            "universalSetDesirability": {"score": 80, "rank": 3, "rankedSetCount": 999},
+            # Paid-only/large internals that must NOT survive the homepage projection.
+            "financialRipV4": {"relativeScore": 99},
+            "overallRipV10": {"relativeScore": 88},
+            "openingExperience": {"packs": ["huge blob"]},
+            "productFamilyRankings": {"booster_box": {}},
+        }],
+        "default_target_json": None, "meta": {}, "updated_at": "now",
+    })
+
+    assert len(payload["targets"]) == 1
+    target = payload["targets"][0]
+    assert target["name"] == "Test Set"
+    assert target["canonical_key"] == "test-set"
+    assert target["hero_image_url"] == "https://example.com/hero.png"
+    assert target["checklist_set_value"] == 123.45
+    assert target["pack_cost"] == 4.5
+    assert target["collector_appeal_score"] == 71
+    assert target["setRipV1"] == {"score": 90, "tier": "A", "rank": 1, "cohortSize": 50, "rankable": True}
+    assert target["universalSetDesirability"] == {"score": 80, "rank": 3}
+    assert "familyScores" not in target["setRipV1"]
+    assert "rankedSetCount" not in target["universalSetDesirability"]
+    assert "financialRipV4" not in target
+    assert "overallRipV10" not in target
+    assert "openingExperience" not in target
+    assert "productFamilyRankings" not in target
+
+
 def test_sets_lens_retains_ranked_cohort_through_backend_projection(monkeypatch):
     targets = [
         {"id": f"set-{index}", "isOpeningSet": True, "setRipV1": {"rank": index, "score": 90 - index, "tier": "A"}}

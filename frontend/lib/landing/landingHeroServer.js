@@ -1,4 +1,4 @@
-import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
+import { getHomepageRankingsSummary } from "@/lib/explore/ripStatisticsServer";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import { selectLandingHeroEntries } from "@/lib/landing/landingHeroSpotlight.mjs";
@@ -8,7 +8,6 @@ import { resolvePokemonBoosterPackAsset } from "@/lib/pokemon/pokemonBoosterPack
 import { getPublicBackendRequestHeaders } from "@/lib/authServer";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
-const LANDING_TARGETS_LIMIT = 60;
 const OPENING_RANKING_LIMIT = 5;
 const BACKEND_URL = getBackendApiBaseUrl();
 
@@ -94,13 +93,18 @@ function withRoutes(entry) {
 }
 
 /**
- * Public landing data is derived only from the backend's Base projection.
- * `public: true` forces the rankings fetch through getPublicBackendRequestHeaders()
- * (Accept only — no Cookie/Authorization), so this homepage read can never
- * become richer because the visitor happens to have a Plus session cookie.
+ * Public landing data is derived from the Homepage's own narrow public
+ * Rankings projection (`/explore/rankings/homepage-summary`, Prompt 2 / A2),
+ * NOT the general-purpose `/explore/rip-statistics/targets` cohort. That
+ * endpoint takes no Authorization/Cookie parameters at all -- every field it
+ * returns is intentionally public and identical regardless of the visitor's
+ * plan, so this homepage read can never become richer because the visitor
+ * happens to have a Plus session cookie. See
+ * frontend/lib/explore/ripStatisticsServer.js#getHomepageRankingsSummary for
+ * the cache/in-flight-join behavior this relies on.
  */
 export async function getLandingPageData() {
-  const payload = await getRipStatisticsTargets({ limit: LANDING_TARGETS_LIMIT, public: true }).catch(() => null);
+  const payload = await getHomepageRankingsSummary().catch(() => null);
   const targets = Array.isArray(payload?.targets) ? payload.targets : [];
   const entries = selectLandingHeroEntries(
     targets.filter(isPublicAnalyticsEligiblePokemonSet),

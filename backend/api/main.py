@@ -111,6 +111,7 @@ from backend.db.services.pokemon_set_market_service import (
 from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_explore_rankings_snapshot_payload,
     get_pokemon_explore_rankings_lens_payload,
+    get_pokemon_homepage_rankings_summary_payload,
     get_pokemon_set_card_validation_snapshot_payload,
     get_pokemon_set_cards_page_snapshot_payload,
     get_pokemon_set_cards_snapshot_payload,
@@ -991,6 +992,40 @@ def get_explore_rip_statistics_targets(
         logger.exception("/explore/rip-statistics/targets unexpected error")
         return JSONResponse(
             content={"message": "Unable to load RIP Statistics targets", "code": "RIP_STATISTICS_TARGETS_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/explore/rankings/homepage-summary")
+def get_explore_rankings_homepage_summary(limit: Optional[str] = Query(default=None)):
+    """The Homepage's narrow public Rankings projection (Prompt 2 / A2).
+
+    Deliberately takes NO Authorization/Cookie parameters: every field this
+    endpoint returns is intentionally public and must be byte-identical for
+    anonymous, Base, Plus, and Premium visitors, so there is no session state
+    for this handler to resolve in the first place -- unlike
+    `/explore/rip-statistics/targets` and `/explore/rankings/lens/{lens}`,
+    which both resolve plan entitlement before projecting. This does not
+    change either of those endpoints' contracts or behavior.
+    """
+    try:
+        payload = get_pokemon_homepage_rankings_summary_payload(limit=limit or 60)
+        return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+    except ExploreRipStatisticsTargetsError as exc:
+        headers = (
+            {"Retry-After": str(exc.retry_after_seconds)}
+            if getattr(exc, "retry_after_seconds", None)
+            else None
+        )
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+            headers=headers,
+        )
+    except Exception:
+        logger.exception("/explore/rankings/homepage-summary unexpected error")
+        return JSONResponse(
+            content={"message": "Unable to load Homepage Rankings summary", "code": "HOMEPAGE_RANKINGS_SUMMARY_FAILED"},
             status_code=500,
         )
 

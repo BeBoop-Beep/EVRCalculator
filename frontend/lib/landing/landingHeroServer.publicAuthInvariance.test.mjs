@@ -92,6 +92,8 @@ test("getRipStatisticsTargets without public:true still forwards the caller-scop
 });
 
 test("getLandingPageData(): outgoing fetch carries only Accept, and results are identical for an authenticated-looking context vs anonymous", async () => {
+  const { __resetHomepageRankingsSummaryCacheForTests } = await import("../explore/ripStatisticsServer.js");
+  const { __resetLandingDistributionCacheForTests } = await import("./landingHeroServer.js");
   const FIXED_PAYLOAD = { targets: [], default_target: null, meta: { snapshot: { builtAt: "2026-09-01T00:00:00Z" } } };
   const seenHeadersByCall = [];
 
@@ -106,14 +108,21 @@ test("getLandingPageData(): outgoing fetch carries only Accept, and results are 
     };
   }
 
-  // "Authenticated" pass: nothing in getLandingPageData()'s call chain is
-  // given a request object at all (it calls getRipStatisticsTargets with no
-  // `request`), which is exactly the historical bug surface — the ambient
-  // next/headers()/cookies() store would normally be consulted here. The
-  // public:true flag must short-circuit that regardless.
+  // Prompt 2 / A2: getLandingPageData() now sources its Rankings read from
+  // getHomepageRankingsSummary(), which calls
+  // GET /explore/rankings/homepage-summary — an endpoint that takes NO
+  // Authorization/Cookie parameters at all (see backend/api/main.py
+  // get_explore_rankings_homepage_summary). There is no ambient
+  // next/headers()/cookies() call anywhere in this path for a session to
+  // leak through, and the cache below must be reset between calls so the
+  // second pass performs its own fetch rather than serving a warm hit.
+  __resetHomepageRankingsSummaryCacheForTests();
+  __resetLandingDistributionCacheForTests();
   stubFetch();
   const resultA = await getLandingPageData();
 
+  __resetHomepageRankingsSummaryCacheForTests();
+  __resetLandingDistributionCacheForTests();
   stubFetch();
   const resultB = await getLandingPageData();
 
@@ -124,9 +133,10 @@ test("getLandingPageData(): outgoing fetch carries only Accept, and results are 
   assert.deepEqual(resultA, resultB);
 });
 
-test("structural guard: landingHeroServer.js opts into the public-only header path", () => {
+test("structural guard: landingHeroServer.js opts into the Homepage's narrow public Rankings projection, not the general /targets cohort", () => {
   const source = fs.readFileSync(path.join(__dirname, "landingHeroServer.js"), "utf8");
-  assert.match(source, /getRipStatisticsTargets\(\{\s*limit:\s*LANDING_TARGETS_LIMIT,\s*public:\s*true\s*\}\)/);
+  assert.match(source, /getHomepageRankingsSummary\(\)/);
+  assert.doesNotMatch(source, /getRipStatisticsTargets\(/);
 });
 
 test("structural guard: the publicOnly fetch branch never calls getBackendRequestAuthHeaders(request)", () => {

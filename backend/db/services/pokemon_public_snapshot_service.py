@@ -1980,6 +1980,10 @@ _RANKINGS_LENS_SELECTS = {
         "targets:ranking_payload_json->targets,meta:ranking_payload_json->meta,"
         "default_target_json,updated_at"
     ),
+    "homepage": (
+        "targets:ranking_payload_json->targets,meta:ranking_payload_json->meta,"
+        "default_target_json,updated_at"
+    ),
     "eras": (
         "eraSetStrengthV1:ranking_payload_json->eraSetStrengthV1,"
         "meta:ranking_payload_json->meta,updated_at"
@@ -2024,6 +2028,19 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
                 # Backward-safe during rolling deploys: application code may
                 # arrive before the compact RPC migration reaches PostgREST.
                 logger.warning("compact Sets Rankings lens unavailable; using JSON-path fallback: %s", exc)
+        if resolved_lens == "homepage":
+            try:
+                result = client.rpc("get_pokemon_rankings_homepage_lens", {"p_limit": clamped_limit}).execute()
+                if isinstance(result.data, dict):
+                    return {**result.data, "_compact_homepage_rpc": True}
+            except Exception as exc:
+                # Backward-safe during rolling deploys: application code may
+                # arrive before the compact RPC migration reaches PostgREST.
+                # The JSON-path fallback below still returns the FULL target
+                # shape (unfiltered) -- callers of the "homepage" lens must
+                # apply their own public field whitelist regardless of which
+                # path served the row, exactly like the "sets" lens fallback.
+                logger.warning("compact Homepage Rankings lens unavailable; using JSON-path fallback: %s", exc)
         return _first_row(
             client.table("pokemon_explore_rankings_snapshot_latest")
             .select(select_clause)
@@ -2062,6 +2079,7 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
     snapshot.update({
         "source": (
             "get_pokemon_rankings_sets_lens" if row.get("_compact_rpc")
+            else "get_pokemon_rankings_homepage_lens" if row.get("_compact_homepage_rpc")
             else "get_pokemon_rankings_eras_lens" if row.get("_compact_era_rpc")
             else "pokemon_explore_rankings_snapshot_latest"
         ),
@@ -2100,6 +2118,17 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
                 },
             },
         }
+    if resolved_lens == "homepage":
+        # Public-safe by construction regardless of which path served `row`:
+        # the compact RPC already projects only this whitelist, but the
+        # JSON-path fallback (used during a rolling deploy before the RPC
+        # migration lands) returns the FULL unfiltered target, so the
+        # whitelist is re-applied here unconditionally. This is the ONE
+        # narrow field set the Homepage's landing Rankings module reads
+        # (frontend/lib/landing/landingHeroSpotlight.mjs) -- never product
+        # rankings, openingExperience, Financial RIP internals, or
+        # simulation distributions.
+        targets = [_project_public_homepage_rankings_target(target) for target in targets]
     if not targets:
         raise ExploreRipStatisticsTargetsError(503, f"{resolved_lens.title()} Rankings publication is incomplete", "RANKINGS_LENS_INCOMPLETE")
     return {
@@ -2107,6 +2136,59 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
         "default_target": row.get("default_target") or row.get("default_target_json") or None,
         "meta": {**meta, "request": {**(meta.get("request") or {}), "limit": clamped_limit}},
     }
+
+
+_HOMEPAGE_RANKINGS_TARGET_FIELDS = frozenset({
+    "target_type", "target_id", "name", "era", "canonical_key", "canonicalKey", "slug",
+    "hero_image_url", "heroImageUrl", "logo_image_url", "symbol_image_url",
+    "checklist_set_value", "checklist_set_value_as_of", "checklistSetValue", "checklistSetValueAsOf",
+    "current_checklist_set_value", "current_checklist_set_value_date",
+    "currentChecklistSetValue", "currentChecklistSetValueDate",
+    "previousChecklistSetValue7d", "previous_checklist_set_value_7d",
+    "setValueComparisonStatus7d", "set_value_comparison_status_7d",
+    "pack_cost", "packCost", "mean_value", "meanValue", "median_value", "medianValue",
+    "prob_profit", "probProfit", "expected_loss_per_pack", "expectedLossPerPack",
+    "collector_appeal_score", "collectorAppealScore",
+    "desirability_is_fallback", "desirabilityIsFallback",
+    "is_opening_set", "isOpeningSet",
+})
+_HOMEPAGE_RANKINGS_SETRIP_FIELDS = frozenset({"score", "tier", "rank", "cohortSize", "rankable"})
+_HOMEPAGE_RANKINGS_DESIRABILITY_FIELDS = frozenset({"score", "rank"})
+
+
+def _project_public_homepage_rankings_target(target: Any) -> Dict[str, Any]:
+    """Public whitelist matching `project_pokemon_homepage_rankings_target`
+    (supabase/migrations/20260904020000_add_homepage_rankings_summary_rpc.sql).
+    Kept as a literal field-list mirror, not a shared import, because one
+    lives in SQL and one in Python -- see that migration's own field list
+    before changing either.
+    """
+    if not isinstance(target, dict):
+        return {}
+    projected = {key: target[key] for key in _HOMEPAGE_RANKINGS_TARGET_FIELDS if key in target}
+    set_rip = target.get("setRipV1")
+    if isinstance(set_rip, dict):
+        projected["setRipV1"] = {key: set_rip[key] for key in _HOMEPAGE_RANKINGS_SETRIP_FIELDS if key in set_rip}
+    desirability = target.get("universalSetDesirability")
+    if isinstance(desirability, dict):
+        projected["universalSetDesirability"] = {
+            key: desirability[key] for key in _HOMEPAGE_RANKINGS_DESIRABILITY_FIELDS if key in desirability
+        }
+    return projected
+
+
+def get_pokemon_homepage_rankings_summary_payload(limit: Any = 60) -> Dict[str, Any]:
+    """The Homepage's narrow public Rankings projection (Prompt 2 / A2).
+
+    Thin wrapper around the generic `get_pokemon_explore_rankings_lens_payload`
+    reader with lens="homepage" -- reuses its fail-closed publication-identity
+    check (Phase E) and its opening-set filtering, unconditionally, without a
+    second version authority. Every field returned here is intentionally
+    public and identical for anonymous/Base/Plus/Premium callers; nothing in
+    this payload is entitlement-gated, so this function takes no auth
+    parameters at all and must never be called with resolved session state.
+    """
+    return get_pokemon_explore_rankings_lens_payload(lens="homepage", limit=limit)
 
 
 def _read_rankings_publication_identity(payload: Dict[str, Any]) -> Dict[str, Optional[str]]:

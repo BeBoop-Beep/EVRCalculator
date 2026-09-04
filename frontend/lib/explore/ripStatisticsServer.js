@@ -204,6 +204,86 @@ async function _fetchRipStatisticsTargets(request = null, { publicOnly = false }
   return promise;
 }
 
+// Bounded process cache + in-flight join for the Homepage's narrow public
+// Rankings projection (`/explore/rankings/homepage-summary`, Prompt 2 / A2).
+// Separate cache from the general `/targets` cohort above: this is a
+// deliberately different, smaller backend contract, not another cache key
+// for the same payload. Always public (the endpoint takes no auth params at
+// all), so there is only ever one cache entry, matching the `/targets`
+// publicOnly path's single PUBLIC_COHORT_KEY pattern.
+const HOMEPAGE_SUMMARY_TTL_MS = 120_000;
+const HOMEPAGE_SUMMARY_LIMIT = 60;
+let homepageSummaryCache = null; // { data, expiresAt }
+let homepageSummaryInFlight = null; // Promise
+
+export function __resetHomepageRankingsSummaryCacheForTests() {
+  homepageSummaryCache = null;
+  homepageSummaryInFlight = null;
+}
+
+async function fetchHomepageRankingsSummaryUncached() {
+  const url = new URL(`${BACKEND_URL}/explore/rankings/homepage-summary`);
+  url.searchParams.set("limit", String(HOMEPAGE_SUMMARY_LIMIT));
+  let res;
+  try {
+    // Same fixed Accept-only header set as every other public-only reader in
+    // this file — this endpoint takes no Authorization/Cookie at all, so
+    // there is no ambient request/session state to accidentally resolve.
+    res = await fetch(url.toString(), { cache: "no-store", headers: await getPublicBackendRequestHeaders() });
+  } catch (error) {
+    console.warn("[rip-statistics-server] homepage_summary_request_failed", {
+      error: error?.message || String(error),
+    });
+    return getRecoverableTargetsPayload(toBackendFailureWarning({ detail: error?.message || String(error) }));
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.warn("[rip-statistics-server] homepage_summary_backend_error", {
+      status: res.status,
+      bodyPreview: body.slice(0, 500),
+    });
+    return getRecoverableTargetsPayload(toBackendFailureWarning({ status: res.status, detail: body.slice(0, 500) }));
+  }
+  const payload = normalisePayload(await res.json());
+  console.info("[rip-statistics-server] homepage_summary_fresh_response", {
+    builtAt: payload?.meta?.snapshot?.builtAt ?? null,
+  });
+  return payload;
+}
+
+/**
+ * The Homepage's narrow public Rankings projection. Cold miss -> one backend
+ * request; concurrent cold misses -> one request, every waiter joins the same
+ * in-flight promise; warm read inside TTL -> zero backend requests; TTL
+ * expiry -> exactly one refresh request.
+ */
+export async function getHomepageRankingsSummary() {
+  if (homepageSummaryCache && homepageSummaryCache.expiresAt > Date.now()) {
+    console.info("[rip-statistics-server] homepage_summary_cache_hit");
+    return homepageSummaryCache.data;
+  }
+  if (homepageSummaryInFlight) {
+    console.info("[rip-statistics-server] homepage_summary_in_flight_join");
+    return homepageSummaryInFlight;
+  }
+  const startedAt = Date.now();
+  homepageSummaryInFlight = (async () => {
+    try {
+      const data = await fetchHomepageRankingsSummaryUncached();
+      if (!data?.meta?.requestFailed) {
+        homepageSummaryCache = { data, expiresAt: Date.now() + HOMEPAGE_SUMMARY_TTL_MS };
+      }
+      console.info("[rip-statistics-server] homepage_summary_fetch_complete", {
+        elapsedMs: Date.now() - startedAt,
+      });
+      return data;
+    } finally {
+      homepageSummaryInFlight = null;
+    }
+  })();
+  return homepageSummaryInFlight;
+}
+
 export async function getRipStatisticsTargets(options = {}) {
   const limit = sanitiseLimit(options.limit, DEFAULT_TARGETS_LIMIT, MAX_TARGETS_LIMIT);
   const cohort = await _fetchRipStatisticsTargets(options.request || null, {
