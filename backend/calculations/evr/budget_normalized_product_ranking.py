@@ -95,7 +95,7 @@ from backend.calculations.evr.sealed_product_distribution import (
     build_stage1_product_distributions,
 )
 from backend.desirability.composite import assign_composite_tier
-from backend.desirability.weighted_rip import compute_overall_rip_v10
+from backend.desirability.weighted_rip import compute_overall_rip_v10, compute_overall_rip_v12
 
 #: Bump on any change to allocation rule, scoring chain, or comparator.
 #: Never mutate the meaning of an already-published version string.
@@ -261,10 +261,22 @@ def score_budget_strategy(
     collector_appeal_score: Optional[float],
     *,
     min_simulation_count: int = 0,
+    chase_accessibility_raw: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Financial RIP V4 (projected from V3, exactly as production computes it),
     then Overall RIP V10 from that V4 score and the SAME Collector Appeal
-    score the set already carries (never recomputed per quantity)."""
+    score the set already carries (never recomputed per quantity).
+
+    ``chase_accessibility_raw`` (optional, additive) is the SAME set-level raw
+    Chase Accessibility value used elsewhere for this product's set - a
+    structural, quantity-independent reachability metric, never recomputed
+    per budget/quantity, exactly like ``collector_appeal_score`` above. When
+    provided, an ADDITIVE, non-canonical ``overallRipV12*`` triple is also
+    computed via the one canonical :func:`compute_overall_rip_v12` transform.
+    This NEVER changes `_tier_sort_key`'s V10-only sort order or any existing
+    output field - callers that omit the new keyword see byte-identical
+    behavior. Promotion of this shadow field to the sort key is a separate,
+    later, explicit cutover (matching how V10 itself was promoted)."""
     v3_kwargs = {} if not min_simulation_count else {"min_simulation_count": min_simulation_count}
     v3_payload = build_financial_rip_v3(values, actual_committed_capital, **v3_kwargs)
     v4_payload = project_financial_rip_v4_from_v3_payload(v3_payload)
@@ -285,6 +297,14 @@ def score_budget_strategy(
     overall_v10 = None
     if financial_v4_rankable and financial_v4_score is not None and collector_appeal_score is not None:
         overall_v10 = compute_overall_rip_v10(financial_v4_score, collector_appeal_score)
+    overall_v12 = None
+    if (
+        financial_v4_rankable and financial_v4_score is not None
+        and collector_appeal_score is not None and chase_accessibility_raw is not None
+    ):
+        overall_v12 = compute_overall_rip_v12(
+            financial_v4_score, chase_accessibility_raw, collector_appeal_score
+        )
     return {
         "financialRipV4Score": financial_v4_score,
         "financialRipV4Status": financial_v4_status,
@@ -293,12 +313,29 @@ def score_budget_strategy(
         "overallRipV10Score": overall_v10.get("score") if overall_v10 else None,
         "overallRipV10Rankable": bool(overall_v10.get("rankable")) if overall_v10 else False,
         "overallRipV10Version": overall_v10.get("version") if overall_v10 else None,
+        # SHADOW/ADDITIVE ONLY: never consumed by `_tier_sort_key`. See the
+        # docstring above - the same non-recomputation discipline applied to
+        # `collector_appeal_score` applies to `chase_accessibility_raw`.
+        "overallRipV12Score": overall_v12.get("score") if overall_v12 else None,
+        "overallRipV12Rankable": bool(overall_v12.get("rankable")) if overall_v12 else False,
+        "overallRipV12Version": overall_v12.get("version") if overall_v12 else None,
+        "overallRipV12Payload": overall_v12,
         "expectedValue": float(np.mean(values)),
         "medianValue": float(np.median(values)),
         "chanceToRecoverCapital": chance_to_recover_capital,
         "typicalRetentionRatio": typical_retention_ratio,
         "lossResilience": (v4_payload.get("components") or {}).get("loss_resilience", {}).get("score"),
     }
+
+
+#: Sort-authority selector for :func:`rank_budget_cohort` (Gate F, Phase 7).
+#: V10 stays the default/canonical authority everywhere this engine is
+#: called without an explicit override - nothing in this module changes that
+#: default. V12 is available ONLY on explicit request (a future, later,
+#: separate cutover would change the default; that cutover is out of scope
+#: here and must never happen implicitly).
+SORT_AUTHORITY_V10 = "overall_rip_v10"
+SORT_AUTHORITY_V12 = "overall_rip_v12"
 
 
 def _tier_sort_key(entry: Mapping[str, Any]) -> tuple:
@@ -334,15 +371,58 @@ def _tier_sort_key(entry: Mapping[str, Any]) -> tuple:
     )
 
 
-def rank_budget_cohort(strategies: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
-    """Rank only the RANKABLE strategies (overallRipV10Score is not None).
+def _tier_sort_key_v12(entry: Mapping[str, Any]) -> tuple:
+    """V12-authority ordering: Overall RIP V12 (desc) in the position V10
+    occupies in :func:`_tier_sort_key`, everything else identical (same
+    Financial V4 / chance-to-recover / utilisation tie-breaks). A row whose
+    ``overallRipV12Rankable`` is not True must never reach this comparator -
+    :func:`rank_budget_cohort` filters those out before sorting, so there is
+    no path by which an unavailable V12 row can be silently ordered (let
+    alone ordered using its V10 score under the V12 label)."""
+    overall = entry.get("overallRipV12Score")
+    financial = entry.get("financialRipV4Score")
+    recover = entry.get("chanceToRecoverCapital")
+    if recover is None:
+        recover = entry.get("chanceToRecoverCost")
+    mismatch = abs(entry.get("actualCommittedCapital", 0.0) - entry.get("targetBudget", 0.0))
+    return (
+        -(overall if overall is not None else float("-inf")),
+        -(financial if financial is not None else float("-inf")),
+        -(recover if recover is not None else float("-inf")),
+        mismatch,
+        str(entry.get("sealedProductId") or ""),
+    )
 
-    Ineligible/unrankable strategies are never assigned a rank; callers must
-    keep them out of this list's cohort-size accounting and report them as
-    excluded with a reason, never as a fabricated rank.
+
+def rank_budget_cohort(
+    strategies: Sequence[Mapping[str, Any]],
+    *,
+    sort_authority: str = SORT_AUTHORITY_V10,
+) -> List[Dict[str, Any]]:
+    """Rank only the RANKABLE strategies under the requested sort authority.
+
+    ``sort_authority`` defaults to V10 (the canonical/default budget-ranking
+    authority) and MUST be passed explicitly to get V12 ordering - there is no
+    implicit or inferred cutover. Ineligible/unrankable strategies (for V10:
+    ``overallRipV10Score`` is None; for V12: ``overallRipV12Rankable`` is not
+    True) are never assigned a rank; callers must keep them out of this list's
+    cohort-size accounting and report them as excluded with a reason, never as
+    a fabricated rank. A V12-unavailable row can never "fall back" to being
+    ranked by its V10 score while the result is labelled V12 - it is simply
+    excluded from this list.
     """
-    rankable = [s for s in strategies if s.get("overallRipV10Score") is not None]
-    ordered = sorted(rankable, key=_tier_sort_key)
+    if sort_authority == SORT_AUTHORITY_V12:
+        rankable = [s for s in strategies if s.get("overallRipV12Rankable") is True and s.get("overallRipV12Score") is not None]
+        sort_key = _tier_sort_key_v12
+        score_field = "overallRipV12Score"
+    elif sort_authority == SORT_AUTHORITY_V10:
+        rankable = [s for s in strategies if s.get("overallRipV10Score") is not None]
+        sort_key = _tier_sort_key
+        score_field = "overallRipV10Score"
+    else:
+        raise ValueError("unknown sort_authority %r" % (sort_authority,))
+
+    ordered = sorted(rankable, key=sort_key)
     size = len(ordered)
 
     # INTERNAL AUDIT LENS (never surfaced publicly): the SAME cohort ordered by
@@ -375,7 +455,7 @@ def rank_budget_cohort(strategies: Sequence[Mapping[str, Any]]) -> List[Dict[str
                 # Overall RIP V10 score via the shared composite thresholds.
                 # Rank #1 does not imply tier S, and tier S does not imply
                 # rank #1 — see the decision record's tier semantics section.
-                "budgetTier": assign_composite_tier(entry["overallRipV10Score"]),
+                "budgetTier": assign_composite_tier(entry[score_field]),
                 "financialOnlyRank": financial_only_rank[str(entry.get("sealedProductId"))],
             }
         )

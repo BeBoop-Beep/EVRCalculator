@@ -23,6 +23,7 @@ from backend.domain.pokemon.sealed_product_comparison_scope import (
     COMPARABLE_FAMILIES,
     sealed_product_comparison_scope_contract,
 )
+from backend.desirability.scoring_config import OVERALL_RIP_V12_VERSION
 
 CONTRACT_VERSION = "pokemon-sealed-product-detail-v1"
 SAME_SET_LIMIT = 10
@@ -152,6 +153,56 @@ def _prepared_markets(snapshot: Optional[Mapping[str, Any]]) -> Dict[str, Dict[s
     return indexed
 
 
+def _public_rip_contract_v11_shadow(ranking: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+    """SHADOW-only V11 wrapper carrying Overall RIP V12 for this product.
+
+    NOT canonical: `canonical_public_rip_contract_version()` still resolves to
+    V10, and this block never feeds `overallRipLeaderScore`/`publicTier`/
+    `familyRank` above - those stay sourced from the persisted V10 ranking
+    exactly as before this change. Every number here is a pure passthrough of
+    `overall_rip_v12_payload`, already computed and authority-checked once by
+    `sealed_product_rip_finalization_service._overall_rip_v12_for` (Financial
+    RIP V4 + Chase Accessibility V1 + Collector Appeal V5) - this function
+    performs no Overall RIP arithmetic of its own, matching
+    `public_rip_contract_v11.build_public_rip_contract_v11`'s shape exactly so
+    the SAME shared frontend selector/component
+    (`overallRipExplanationHierarchySelector.mjs` /
+    `OverallRipExplanationHierarchy.jsx`) can render it without a second
+    implementation.
+    """
+    overall_v12 = dict((ranking or {}).get("overallRipV12") or {})
+    if not overall_v12:
+        return None
+    return {
+        "contractVersion": "public_rip_contract_v11",
+        "overallRipV12": {
+            "score": overall_v12.get("score"),
+            "status": overall_v12.get("status"),
+            "statusReason": overall_v12.get("statusReason"),
+            "rankable": bool(overall_v12.get("rankable")),
+            "version": overall_v12.get("version") or OVERALL_RIP_V12_VERSION,
+            "components": overall_v12.get("components") or {},
+            "missingInputs": overall_v12.get("missingInputs") or [],
+            # SHADOW, NOT canonical. Never read by ranking order, never
+            # substituted into the canonical overallRipLeaderScore slot above.
+            "canonical": False,
+        },
+        "overallRipV12Composition": {
+            "version": overall_v12.get("version") or OVERALL_RIP_V12_VERSION,
+            "inputs": {
+                "financialRip": "financial_rip_v4",
+                "chaseAccessibility": "chase_accessibility_v1",
+                "collectorAppeal": "collector_appeal_v5",
+            },
+            # Read verbatim from the persisted payload rather than
+            # re-imported constants, so this can never silently drift from
+            # the exact weights `compute_overall_rip_v12` actually used.
+            "weights": dict(overall_v12.get("weights") or {}),
+            "effectiveWeights": dict(overall_v12.get("effectiveWeights") or {}),
+        },
+    }
+
+
 def _rip_contract(
     ranking: Optional[Mapping[str, Any]], detail: Optional[Mapping[str, Any]], family: str
 ) -> Dict[str, Any]:
@@ -171,12 +222,24 @@ def _rip_contract(
         "entertainmentCost": None, "composition": None,
         "comparisonScope": scope["comparisonScope"],
         "comparisonScopeVersion": scope["comparisonScopeVersion"],
+        "setEvRepresentativeness": None,
+        # SHADOW, NOT canonical - see `_public_rip_contract_v11_shadow`.
+        "publicRipContractV11": None,
     }
     if not ranking:
         return base
     run_id = _text(ranking.get("calculationRunId"))
     if not detail:
         return {**base, "reason": "authoritative_result_unavailable", "calculationRunId": run_id}
+    # Inherited from the SET's own confirmed EV realization horizon, already
+    # published on this same product-family-rankings row (see
+    # product_family_rankings_service._compact_set_ev_representativeness).
+    # No new table read: only accepted when it carries the exact same run id
+    # this product's own RIP result was just validated against - never a
+    # different or stale run.
+    set_ev_representativeness = ranking.get("setEvRepresentativeness")
+    if not isinstance(set_ev_representativeness, Mapping) or _text(set_ev_representativeness.get("calculationRunId")) != run_id:
+        set_ev_representativeness = None
     composition = {
         "packCount": detail.get("pack_count"),
         "randomPackCount": detail.get("random_pack_count"),
@@ -219,6 +282,25 @@ def _rip_contract(
         "totalValueToCostRatio": detail.get("total_value_to_cost_ratio"),
         "entertainmentCost": entertainment,
         "composition": composition,
+        "setEvRepresentativeness": set_ev_representativeness,
+        "publicRipContractV11": _public_rip_contract_v11_shadow(ranking),
+        # Top-level V10 shape `canonicalRipV7.mjs`'s `resolveCanonicalRipV7`
+        # already knows how to read (its "topLevelV10" fallback branch) - a
+        # pure re-labeling of the SAME leader/rank/tier fields already
+        # returned above, so `OverallRipExplanationHierarchy` can render the
+        # canonical 90/10 explanation without a second implementation. No new
+        # data, no arithmetic: this is the identical shape the Set RIP /
+        # Explore surfaces already produce for this same reader.
+        "overallRipV10": {
+            "leaderNormalizedScore": ranking.get("overallRipLeaderScore"),
+            "rank": ranking.get("familyRank"),
+            "tier": ranking.get("publicTier"),
+            "cohortSize": ranking.get("familySize") or ranking.get("familyCohortSize"),
+            "status": "ready" if ranking.get("overallRipLeaderScore") is not None else "unavailable",
+        },
+        "financialRipV4": {
+            "leaderNormalizedScore": ranking.get("financialRipLeaderScore"),
+        },
     }
 
 

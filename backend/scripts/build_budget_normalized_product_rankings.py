@@ -278,6 +278,172 @@ def build_rankings_for_cohort(
     }
 
 
+def rank_one_budget_v12(
+    *,
+    engine_products: Sequence[Dict[str, Any]],
+    base_values_for,
+    target_budget: float,
+    budget_type: str,
+    accessibility_resolution: Dict[str, Any],
+    full_market: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """EXPLICIT V12 shadow ranking for one budget ceiling (Gate F, Phase 10).
+
+    ``accessibility_resolution`` MUST already be the result of ONE
+    cohort-wide call to
+    ``budget_chase_accessibility_authority.resolve_budget_cohort_accessibility``
+    made by the caller ONCE for the whole build, never per-budget or
+    per-product here. This function performs NO Accessibility I/O itself -
+    it only looks up the already-resolved value per product's set via
+    ``accessibility_raw_for_product``.
+    """
+    from backend.db.services.budget_chase_accessibility_authority import (
+        accessibility_raw_for_product,
+    )
+
+    strategies: List[Dict[str, Any]] = []
+    excluded: List[Dict[str, Any]] = []
+
+    for product in engine_products:
+        price = float(product["product_market_cost"])
+        allocation = whole_unit_allocation(target_budget, price)
+        if not allocation["eligible"]:
+            excluded.append({
+                "sealedProductId": str(product["sealed_product_id"]),
+                "productName": product.get("product_name"),
+                "productFamily": product.get("product_family"),
+                "unitPrice": price,
+                "reason": "price_exceeds_budget",
+            })
+            continue
+
+        a_raw = accessibility_raw_for_product(accessibility_resolution, product["set_id"])
+        values = build_budget_strategy_values(
+            base_random_pack_values=base_values_for(product),
+            quantity=allocation["quantity"],
+            guaranteed_component_market_value=product.get("guaranteed_component_market_value"),
+            canonical_set_key="budget:%s" % product["sealed_product_id"],
+            run_fingerprint=None,
+        )
+        scored = score_budget_strategy(
+            values, allocation["actualCommittedCapital"], product.get("collector_appeal_score"),
+            chase_accessibility_raw=a_raw,
+        )
+        strategies.append({
+            "sealedProductId": str(product["sealed_product_id"]),
+            "setId": str(product["set_id"]),
+            "productFamily": product["product_family"],
+            "productName": product.get("product_name"),
+            "productMarketPrice": price,
+            "priceAsOf": product.get("price_as_of"),
+            "collectorAppealScore": product.get("collector_appeal_score"),
+            "sourceCalculationRunId": str(product["calculation_run_id"]),
+            "budgetType": budget_type,
+            "chaseAccessibilityRaw": a_raw,
+            **allocation,
+            **scored,
+        })
+
+    from backend.calculations.evr.budget_normalized_product_ranking import SORT_AUTHORITY_V12
+    ranked = rank_budget_cohort(strategies, sort_authority=SORT_AUTHORITY_V12)
+    unrankable = [s for s in strategies if not (s.get("overallRipV12Rankable") is True and s.get("overallRipV12Score") is not None)]
+
+    if budget_type == BUDGET_TYPE_FULL_MARKET and full_market is not None:
+        for row in ranked:
+            row["fullMarketAnchor"] = full_market["budget"]
+            row["maxEligibleSkuPrice"] = full_market["maxEligibleSkuPrice"]
+            row["fullMarketRoundingIncrement"] = full_market["roundingIncrement"]
+            row["fullMarketRoundingRule"] = full_market["roundingRule"]
+            row["fullMarketRoundingRuleVersion"] = full_market["roundingRuleVersion"]
+
+    return {
+        "targetBudget": target_budget,
+        "budgetType": budget_type,
+        "eligibleCount": len(strategies),
+        "rankedCount": len(ranked),
+        "excludedCount": len(excluded),
+        "excluded": excluded,
+        "unrankableCount": len(unrankable),
+        "unrankable": [
+            {"sealedProductId": s["sealedProductId"], "reason": s.get("overallRipV12Payload", {}).get("statusReason")
+             or s.get("overallRipV12Payload", {}).get("status")}
+            for s in unrankable
+        ],
+        "familyCoverage": dict(sorted(Counter(r["productFamily"] for r in ranked).items())),
+        "rows": ranked,
+    }
+
+
+def build_v12_shadow_rankings_for_cohort(
+    client: Any,
+    products: Sequence[Dict[str, Any]],
+    authority: Dict[str, Any],
+) -> Dict[str, Any]:
+    """EXPLICIT V12 shadow build (Gate F, Phase 10). Never called by default.
+
+    Orchestration order (the architecture correction this task makes):
+      1. identify unique set_id -> calculation_run_id map for this cohort
+      2. ONE batch Accessibility read for the whole cohort
+      3. compute V12 rows per budget, reusing the same cached base
+         distributions the V10 build already caches per (run_id, pack_count)
+      4. rank under explicit V12 sort authority
+
+    No Accessibility read happens inside the per-product or per-budget loop:
+    step 2 happens exactly once here, before any budget is scored.
+    """
+    from backend.db.services.budget_chase_accessibility_authority import (
+        resolve_budget_cohort_accessibility,
+    )
+    from backend.db.services.budget_product_ranking_readiness import (
+        resolve_v12_budget_authority_readiness,
+    )
+
+    run_id_by_set_id = {str(p["set_id"]): str(p["calculation_run_id"]) for p in products}
+    accessibility_resolution = resolve_budget_cohort_accessibility(client, run_id_by_set_id)
+    v12_readiness = resolve_v12_budget_authority_readiness(products, accessibility_resolution)
+
+    prices = [float(p["product_market_cost"]) for p in products]
+    full_market = resolve_full_market_budget(prices)
+
+    run_ids = sorted({str(p["calculation_run_id"]) for p in products})
+    artifacts = {run_id: load_pack_outcome_artifact(client, run_id) for run_id in run_ids}
+    base_cache: Dict[tuple, Any] = {}
+
+    def base_values_for(product: Dict[str, Any]):
+        run_id = str(product["calculation_run_id"])
+        random_count = int(product.get("random_pack_count") or product["pack_count"])
+        key = (run_id, random_count)
+        if key not in base_cache:
+            base_cache[key] = build_stage1_distributions_cached(artifacts[run_id], random_count, run_id)
+        return base_cache[key]
+
+    budgets: List[tuple] = [(float(b), BUDGET_TYPE_STANDARD) for b in CANONICAL_BUDGET_BANDS]
+    budgets.append((float(full_market["budget"]), BUDGET_TYPE_FULL_MARKET))
+
+    results: Dict[str, Dict[str, Any]] = {}
+    for target_budget, budget_type in budgets:
+        key = "%s:%g" % (budget_type, target_budget)
+        results[key] = rank_one_budget_v12(
+            engine_products=products,
+            base_values_for=base_values_for,
+            target_budget=target_budget,
+            budget_type=budget_type,
+            accessibility_resolution=accessibility_resolution,
+            full_market=full_market if budget_type == BUDGET_TYPE_FULL_MARKET else None,
+        )
+
+    return {
+        "authority": authority,
+        "v12Readiness": v12_readiness,
+        "accessibilityResolution": {k: v for k, v in accessibility_resolution.items() if k != "bySet"},
+        "fullMarket": full_market,
+        "productCount": len(products),
+        "budgets": results,
+        "batchAccessibilityReadCount": accessibility_resolution["batchReadCount"],
+        "builtAt": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def build_all_rankings(client: Any, price_as_of: Optional[str] = None) -> Dict[str, Any]:
     """Operator-compatible resolver followed by the canonical cohort builder."""
     started = time.time()
@@ -399,9 +565,119 @@ def to_publication_payload(results: Dict[str, Any]) -> tuple:
     return snapshot, rows
 
 
-def publish_rankings(client: Any, results: Dict[str, Any]) -> str:
-    """Publish once through the canonical atomic RPC and return its UUID."""
+#: The ten fields the extended publication RPC persists under EXPLICIT V12
+#: authority (`20260903224637_extend_budget_product_ranking_publication_rpc_v12_atomic.sql`).
+V12_SNAPSHOT_PUBLICATION_FIELDS = (
+    "overall_rip_v12_version",
+    "chase_accessibility_version",
+    "chase_accessibility_transform_version",
+    "ranked_under_v12_authority",
+)
+V12_ROW_PUBLICATION_FIELDS = (
+    "overall_rip_v12_score",
+    "overall_rip_v12_rankable",
+    "overall_rip_v12_status",
+    "chase_accessibility_raw",
+    "budget_rank_v12",
+    "budget_cohort_size_v12",
+)
+
+
+def merge_v12_publication_fields(
+    snapshot: Dict[str, Any],
+    rows: List[Dict[str, Any]],
+    v12_results: Dict[str, Any],
+) -> tuple:
+    """Augment a V10-shaped (snapshot, rows) publication payload with the
+    Overall RIP V12 authority fields, for a canonical-V12 publish (Gate F
+    physical persistence closure).
+
+    Every V12 value is copied DIRECTLY from ``v12_results`` (the validated
+    output of :func:`build_v12_shadow_rankings_for_cohort`) - nothing here
+    recomputes a score, rank, or Accessibility value. Additive only: every
+    existing V10-compatible key on ``snapshot``/``rows`` (including
+    ``overall_rip_v10_score``, ``budget_rank``, ``budget_cohort_size``) is
+    copied through completely unchanged. The single exception is
+    ``overall_rip_version`` itself, which under canonical V12 authority is
+    the field the generic/current read model resolves - it is set to the
+    V12 identity here so the snapshot never reports "V12 score, V10 generic
+    authority" (Phase 10's no-mixed-authority invariant).
+
+    Raises ``ValueError`` (an application-side pre-check, never a partial
+    RPC call) if any V10 row has no exact V12-ranked counterpart, or if any
+    V12 field would be missing/incomplete for a row - this must be refused
+    BEFORE the RPC call boundary, not inside the SQL transaction.
+    """
+    from backend.db.services.budget_product_ranking_authority import (
+        EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
+        EXPECTED_CHASE_ACCESSIBILITY_VERSION,
+        EXPECTED_OVERALL_RIP_V12_VERSION,
+    )
+
+    v12_by_key: Dict[tuple, Dict[str, Any]] = {}
+    for block in v12_results.get("budgets", {}).values():
+        for row in block["rows"]:
+            key = (str(row["sealedProductId"]), float(row["targetBudget"]), row["budgetType"])
+            v12_by_key[key] = row
+
+    v12_snapshot = dict(snapshot)
+    v12_snapshot["overall_rip_version"] = EXPECTED_OVERALL_RIP_V12_VERSION
+    v12_snapshot["overall_rip_v12_version"] = EXPECTED_OVERALL_RIP_V12_VERSION
+    v12_snapshot["chase_accessibility_version"] = EXPECTED_CHASE_ACCESSIBILITY_VERSION
+    v12_snapshot["chase_accessibility_transform_version"] = EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION
+    v12_snapshot["ranked_under_v12_authority"] = True
+
+    v12_rows: List[Dict[str, Any]] = []
+    for row in rows:
+        key = (str(row["sealed_product_id"]), float(row["target_budget"]), row["budget_type"])
+        v12_row = v12_by_key.get(key)
+        if v12_row is None:
+            raise ValueError(
+                "canonical V12 publish is missing a V12-ranked counterpart for "
+                "sealed_product_id=%s target_budget=%s budget_type=%s" % key
+            )
+        merged = dict(row)
+        merged["overall_rip_v12_score"] = v12_row.get("overallRipV12Score")
+        merged["overall_rip_v12_rankable"] = v12_row.get("overallRipV12Rankable")
+        merged["overall_rip_v12_status"] = (v12_row.get("overallRipV12Payload") or {}).get("status")
+        merged["chase_accessibility_raw"] = v12_row.get("chaseAccessibilityRaw")
+        merged["budget_rank_v12"] = v12_row.get("budgetRank")
+        merged["budget_cohort_size_v12"] = v12_row.get("budgetCohortSize")
+        for field in V12_ROW_PUBLICATION_FIELDS:
+            if merged.get(field) is None:
+                raise ValueError(
+                    "canonical V12 publish row (sealed_product_id=%s target_budget=%s "
+                    "budget_type=%s) is missing required V12 field %s" % (key[0], key[1], key[2], field)
+                )
+        v12_rows.append(merged)
+
+    for field in V12_SNAPSHOT_PUBLICATION_FIELDS:
+        if v12_snapshot.get(field) in (None, ""):
+            raise ValueError("canonical V12 publish snapshot is missing required field %s" % field)
+
+    if len(v12_rows) != len(rows):
+        raise ValueError("canonical V12 publish row count does not match the V10 publication row count")
+
+    return v12_snapshot, v12_rows
+
+
+def publish_rankings(
+    client: Any,
+    results: Dict[str, Any],
+    v12_results: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Publish once through the canonical atomic RPC and return its UUID.
+
+    When ``v12_results`` is supplied (the validated output of
+    :func:`build_v12_shadow_rankings_for_cohort` for the SAME cohort), the
+    payload is augmented via :func:`merge_v12_publication_fields` BEFORE the
+    single RPC call - there is no second network round-trip and no
+    follow-up ``UPDATE`` issued from Python. When omitted, this is the
+    unchanged V10 publication path.
+    """
     snapshot, rows = to_publication_payload(results)
+    if v12_results is not None:
+        snapshot, rows = merge_v12_publication_fields(snapshot, rows, v12_results)
     response = client.rpc(
         "publish_budget_product_ranking_snapshot",
         {"p_snapshot": snapshot, "p_rows": rows},

@@ -65,6 +65,29 @@ def test_unratified_horizon_is_not_exposed_as_confirmed():
     assert payload["convergenceHorizon"] is None
 
 
+def test_resolved_at_minimum_grid_point_is_a_legitimate_confirmed_horizon():
+    """finite_sample.resolve_horizon reports two genuinely-resolved statuses:
+    'resolved' and 'resolved_at_minimum_grid_point' (a horizon found at the
+    very first grid point, typically a small/cheap set). Both are real
+    confirmed horizons and must publish a headline, not be treated as
+    missing/exceeds-cap coverage."""
+    payload = project_public_v1(
+        summary(horizon_r80_c80_status="resolved_at_minimum_grid_point"), [],
+        expected_calculation_run_id="run-A",
+    )
+    assert payload["realizationHorizon"] == {
+        "targetEvRatio": 0.80, "openerProbability": 0.80, "packCount": 2812, "status": "confirmed",
+    }
+
+
+def test_exceeds_search_cap_and_degenerate_ev_never_fabricate_a_pack_count():
+    for status in ("exceeds_search_cap", "degenerate_ev"):
+        payload = project_public_v1(
+            summary(horizon_r80_c80_status=status), [], expected_calculation_run_id="run-A",
+        )
+        assert payload["realizationHorizon"] is None
+
+
 def test_curve_projection_ignores_wrong_run_and_method_and_prefers_sharper_stage():
     payload = project_public_v1(
         summary(),

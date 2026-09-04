@@ -1,0 +1,198 @@
+{
+  "phase5_card_price_shocks": {
+    "0.02": {
+      "seeds_tested": 12,
+      "base_seed": 2000,
+      "worst_per_weight": {
+        "4": {
+          "worst_spearman": 0.9875776397515529,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.12195121951219512,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "6": {
+          "worst_spearman": 0.979672501411632,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.14634146341463414,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "8": {
+          "worst_spearman": 0.9683794466403164,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.17073170731707318,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        }
+      },
+      "raw_a_raw_abs_delta_median": 1.2925041370549784e-06,
+      "raw_a_raw_abs_delta_max": 3.0384635127517906e-05
+    },
+    "0.05": {
+      "seeds_tested": 12,
+      "base_seed": 5000,
+      "worst_per_weight": {
+        "4": {
+          "worst_spearman": 0.9875776397515529,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.12195121951219512,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "6": {
+          "worst_spearman": 0.979672501411632,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.14634146341463414,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "8": {
+          "worst_spearman": 0.9672501411631848,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.1951219512195122,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        }
+      },
+      "raw_a_raw_abs_delta_median": 3.913295277508961e-06,
+      "raw_a_raw_abs_delta_max": 7.429113685267653e-05
+    },
+    "0.1": {
+      "seeds_tested": 12,
+      "base_seed": 10000,
+      "worst_per_weight": {
+        "4": {
+          "worst_spearman": 0.9875776397515529,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.12195121951219512,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "6": {
+          "worst_spearman": 0.979672501411632,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.14634146341463414,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "8": {
+          "worst_spearman": 0.9649915302089217,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.1951219512195122,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        }
+      },
+      "raw_a_raw_abs_delta_median": 6.815612229091501e-06,
+      "raw_a_raw_abs_delta_max": 0.00018583945425853978
+    }
+  },
+  "phase6_pull_probability_shocks": {
+    "0.02": {
+      "seeds_tested": 12,
+      "base_seed": 2000,
+      "worst_per_weight": {
+        "4": {
+          "worst_spearman": 0.9875776397515529,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.12195121951219512,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "6": {
+          "worst_spearman": 0.979672501411632,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.14634146341463414,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "8": {
+          "worst_spearman": 0.9649915302089217,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.17073170731707318,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        }
+      },
+      "raw_a_raw_abs_delta_median": 7.96576683983639e-06,
+      "raw_a_raw_abs_delta_max": 7.747970625558102e-05
+    },
+    "0.05": {
+      "seeds_tested": 12,
+      "base_seed": 5000,
+      "worst_per_weight": {
+        "4": {
+          "worst_spearman": 0.9875776397515529,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.12195121951219512,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "6": {
+          "worst_spearman": 0.979672501411632,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.14634146341463414,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "8": {
+          "worst_spearman": 0.9638622247317901,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.1951219512195122,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        }
+      },
+      "raw_a_raw_abs_delta_median": 2.0168650434364884e-05,
+      "raw_a_raw_abs_delta_max": 0.0001870273813248443
+    },
+    "0.1": {
+      "seeds_tested": 12,
+      "base_seed": 10000,
+      "worst_per_weight": {
+        "4": {
+          "worst_spearman": 0.9875776397515529,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.12195121951219512,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "6": {
+          "worst_spearman": 0.9762845849802373,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.14634146341463414,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "8": {
+          "worst_spearman": 0.9570863918690007,
+          "worst_top5_overlap": 4,
+          "worst_top10_overlap": 9,
+          "worst_close_reversal_rate": 0.1951219512195122,
+          "max_clear_overrides": 0,
+          "max_financial_gap_overturned": 0.0
+        }
+      },
+      "raw_a_raw_abs_delta_median": 4.219830296439014e-05,
+      "raw_a_raw_abs_delta_max": 0.00034346543319308323
+    }
+  }
+}

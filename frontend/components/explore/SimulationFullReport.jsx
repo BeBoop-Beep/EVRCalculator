@@ -3,6 +3,7 @@ import { useId, useMemo, useState } from "react";
 import InfoPopover from "@/components/ui/InfoPopover";
 import OpeningOutcomeProfileSection from "./simulation-evidence/OpeningOutcomeProfileSection.jsx";
 import {
+  formatEvRepPacks,
   formatEvRepPercent,
   selectEvRepresentativenessPublicV1,
 } from "./evRepresentativenessSelector.mjs";
@@ -89,6 +90,15 @@ function EvGapExplanation({
         Rare high-value openings pull the average upward, so Expected Value can
         sit well above what a typical pack returns.
       </p>
+      {evRep?.realizationHorizon ? (
+        <p className={styles.evTailNote} data-ev-realization-headline>
+          About {formatEvRepPercent(evRep.realizationHorizon.openerProbability)} of
+          modeled openers reach at least{" "}
+          {formatEvRepPercent(evRep.realizationHorizon.targetEvRatio)} of this
+          set&apos;s long-run EV by{" "}
+          <strong>{formatEvRepPacks(evRep.realizationHorizon.packCount)}</strong>.
+        </p>
+      ) : null}
       {canViewAdvanced && evRep?.top1OutcomeEvShare != null ? (
         <p className={styles.evTailNote}>
           The best 1% of modeled openings account for{" "}

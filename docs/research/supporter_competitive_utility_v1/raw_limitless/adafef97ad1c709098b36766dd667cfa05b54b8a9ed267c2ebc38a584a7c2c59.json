@@ -1,0 +1,42 @@
+{
+  "request": {
+    "url": "https://play.limitlesstcg.com/api/tournaments/6a75224bcdc0391d7fa5edef/details",
+    "retrievedAt": "2026-09-04T04:30:36.470636+00:00"
+  },
+  "payload": {
+    "id": "6a75224bcdc0391d7fa5edef",
+    "game": "PTCG",
+    "format": "STANDARD",
+    "name": "RCC Showdown #36 | $150 USD PRIZE | NO ENTRY FEE",
+    "date": "2026-08-10T00:00:00.000Z",
+    "players": 497,
+    "organizer": {
+      "id": 2518,
+      "name": "Rare Candy Club"
+    },
+    "platform": "PTCGL",
+    "decklists": true,
+    "isPublic": true,
+    "isOnline": true,
+    "phases": [
+      {
+        "phase": 1,
+        "type": "SWISS",
+        "rounds": 9,
+        "mode": "BO1"
+      },
+      {
+        "phase": 2,
+        "type": "SINGLE_ELIMINATION",
+        "rounds": 1,
+        "mode": "BO1"
+      },
+      {
+        "phase": 3,
+        "type": "SINGLE_ELIMINATION",
+        "rounds": 3,
+        "mode": "BO3"
+      }
+    ]
+  }
+}

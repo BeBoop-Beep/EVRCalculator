@@ -49,10 +49,24 @@ from backend.db.services.sealed_product_rip_service import (
     COLLECTOR_APPEAL_STATUS_UNAVAILABLE,
     interpret_collector_appeal_payload,
 )
-from backend.desirability.weighted_rip import compute_overall_rip_v9, compute_overall_rip_v10
+from backend.desirability.chase_accessibility import CHASE_ACCESSIBILITY_VERSION
+from backend.desirability.scoring_config import OVERALL_RIP_V12_VERSION
+from backend.desirability.weighted_rip import (
+    compute_overall_rip_v9,
+    compute_overall_rip_v10,
+    compute_overall_rip_v12,
+)
 from backend.domain.pokemon.sealed_product_comparison_scope import (
     sealed_product_comparison_scope_contract,
 )
+
+#: Overall RIP V12 is a SHADOW lineage: while ``CANONICAL_OVERALL_RIP_VERSION``
+#: continues to resolve to V10, a missing/mismatched V12 input must never fail
+#: this finalizer, block V9/V10 enrichment, or fall back to a guessed
+#: Accessibility row. See ``_overall_rip_v12_for`` below for the authority rule.
+OVERALL_RIP_V12_STATUS_READY = "ready"
+OVERALL_RIP_V12_STATUS_MISSING_INPUT = "unavailable_missing_input"
+OVERALL_RIP_V12_STATUS_AUTHORITY_MISMATCH = "unavailable_authority_mismatch"
 
 logger = logging.getLogger(__name__)
 
@@ -108,19 +122,123 @@ def resolve_finalization_cohort(
     }
 
 
+def _overall_rip_v12_for(
+    row: Mapping[str, Any],
+    appeal_score: Any,
+    accessibility_row: Optional[Mapping[str, Any]],
+    *,
+    expected_run_id: Optional[str],
+) -> Dict[str, Any]:
+    """Overall RIP V12 for one product row - a SHADOW lineage, never V10's input.
+
+    AUTHORITY RULE (Phase 4): Chase Accessibility is set-level, published in
+    ``pokemon_set_chase_accessibility_snapshot_latest`` (migration 077) keyed by
+    ``set_id``, one row per set. The coherence check reuses the EXACT SAME
+    ``expected_run_id`` the caller already resolved via
+    ``resolve_finalization_cohort`` / the opening-simulation gate for this same
+    product row - the identical authority that already gates whether the
+    product row itself belongs to the current cohort (see the
+    ``row_outside_current_cohort`` skip in ``finalize_sealed_product_rip``).
+    An Accessibility row is only used if its OWN ``calculation_run_id`` equals
+    that same expected run id: a row built from ANY other run (a stale
+    yesterday's build, or a set-level batch job that ran ahead of today's
+    simulation) is rejected outright, never accepted as "the latest available".
+    A missing accessibility row, or one whose status is not ``ready``, or one
+    whose value is null, is reported as a missing input (not an authority
+    failure) since ``compute_overall_rip_v12`` already refuses a null/negative
+    ``A_raw``.
+    """
+    from backend.desirability.scoring_config import OVERALL_RIP_V12_REQUIRED_FINANCIAL_VERSION
+
+    if row.get("financial_rip_v4_score") is not None and (
+        row.get("financial_rip_v4_version") != OVERALL_RIP_V12_REQUIRED_FINANCIAL_VERSION
+    ):
+        # Version-alignment gate (Phase 13): a Financial score computed under
+        # any OTHER version (e.g. V3) must never feed V12 under the V12 name.
+        return {
+            "score": None,
+            "version": OVERALL_RIP_V12_VERSION,
+            "status": OVERALL_RIP_V12_STATUS_MISSING_INPUT,
+            "statusReason": (
+                "financial_rip_v4_version %r != required %r"
+                % (row.get("financial_rip_v4_version"), OVERALL_RIP_V12_REQUIRED_FINANCIAL_VERSION)
+            ),
+            "missingInputs": ["financial_rip_v4"],
+            "components": {},
+            "weights": {},
+            "rankable": False,
+        }
+
+    if accessibility_row is None:
+        return compute_overall_rip_v12(
+            row.get("financial_rip_v4_score"), None, appeal_score
+        )
+    actual_run_id = accessibility_row.get("calculation_run_id")
+    if expected_run_id is None or str(actual_run_id) != str(expected_run_id):
+        return {
+            "score": None,
+            "version": OVERALL_RIP_V12_VERSION,
+            "status": OVERALL_RIP_V12_STATUS_AUTHORITY_MISMATCH,
+            "statusReason": (
+                "Chase Accessibility row belongs to calculation_run_id=%r; this "
+                "product row's coherent cohort run is %r. Refused rather than "
+                "accepted as the latest available Accessibility row."
+                % (actual_run_id, expected_run_id)
+            ),
+            "missingInputs": ["chase_accessibility_v1"],
+            "components": {},
+            "weights": {},
+            "rankable": False,
+        }
+    if accessibility_row.get("status") != "ready":
+        return compute_overall_rip_v12(
+            row.get("financial_rip_v4_score"), None, appeal_score
+        )
+    if accessibility_row.get("version") != CHASE_ACCESSIBILITY_VERSION:
+        # Version-alignment gate (Phase 13): a ready row under any OTHER model
+        # version must never silently feed the V12 blend under the V12 name.
+        return {
+            "score": None,
+            "version": OVERALL_RIP_V12_VERSION,
+            "status": OVERALL_RIP_V12_STATUS_MISSING_INPUT,
+            "statusReason": (
+                "Chase Accessibility row declares version %r; V12 requires %r."
+                % (accessibility_row.get("version"), CHASE_ACCESSIBILITY_VERSION)
+            ),
+            "missingInputs": ["chase_accessibility_v1"],
+            "components": {},
+            "weights": {},
+            "rankable": False,
+        }
+    return compute_overall_rip_v12(
+        row.get("financial_rip_v4_score"),
+        accessibility_row.get("accessibility"),
+        appeal_score,
+    )
+
+
 def _enrichment_for(
     row: Mapping[str, Any],
     appeal: Mapping[str, Any],
+    *,
+    accessibility_row: Optional[Mapping[str, Any]] = None,
+    expected_run_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """The ten enrichment columns for one row. Pure; performs no I/O.
+    """The enrichment columns for one row. Pure; performs no I/O.
 
-    V9 (Financial RIP V3-backed) and V10 (Financial RIP V4-backed) are computed
-    from the SAME Collector Appeal score, read once into `appeal_score`, so the
-    appeal input cannot silently diverge between the two models.
+    V9 (Financial RIP V3-backed), V10 (Financial RIP V4-backed) and V12
+    (Financial V4 + Chase Accessibility + Collector V5, SHADOW lineage) are all
+    computed from the SAME Collector Appeal score, read once into
+    `appeal_score`, so the appeal input cannot silently diverge between models.
+    V12's absence, mismatch, or unavailability NEVER affects V9/V10, which are
+    computed and returned unconditionally exactly as before this change.
     """
     appeal_score = appeal.get("score")
     overall_v9 = compute_overall_rip_v9(row.get("financial_rip_v3_score"), appeal_score)
     overall_v10 = compute_overall_rip_v10(row.get("financial_rip_v4_score"), appeal_score)
+    overall_v12 = _overall_rip_v12_for(
+        row, appeal_score, accessibility_row, expected_run_id=expected_run_id
+    )
     return {
         "collector_appeal_score": appeal_score,
         "collector_appeal_version": appeal.get("version"),
@@ -132,6 +250,11 @@ def _enrichment_for(
         "overall_rip_v10_version": overall_v10.get("version"),
         "overall_rip_v10_rankable": bool(overall_v10.get("rankable")),
         "overall_rip_v10_payload": overall_v10,
+        "overall_rip_v12_score": overall_v12.get("score"),
+        "overall_rip_v12_version": overall_v12.get("version"),
+        "overall_rip_v12_rankable": bool(overall_v12.get("rankable")),
+        "overall_rip_v12_status": overall_v12.get("status"),
+        "overall_rip_v12_payload": overall_v12,
     }
 
 
@@ -145,6 +268,7 @@ def finalize_sealed_product_rip(
     bundle_fn=None,
     read_rows_fn=None,
     update_fn=None,
+    accessibility_reader_fn=None,
 ) -> Dict[str, Any]:
     """Attach canonical Collector Appeal + Overall RIP to one coordinated cohort.
 
@@ -168,6 +292,16 @@ def finalize_sealed_product_rip(
         from backend.db.repositories.sealed_product_results_repository import (
             update_sealed_product_enrichment as update_fn,  # type: ignore[misc]
         )
+    if accessibility_reader_fn is None:
+        from backend.clients.supabase_client import supabase as _supabase_client
+        from backend.db.services.chase_accessibility_service import (
+            read_chase_accessibility_snapshots_for_sets,
+        )
+
+        def accessibility_reader_fn(set_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
+            return read_chase_accessibility_snapshots_for_sets(
+                set_ids=set_ids, client=_supabase_client
+            )
 
     cohort = resolve_finalization_cohort(
         client,
@@ -225,6 +359,13 @@ def finalize_sealed_product_rip(
         for set_id in run_id_by_set_id
     }
 
+    # ---- exactly ONE batch Chase Accessibility read for the whole cohort ----
+    # Never one query per product row: a set with N sealed products (up to a
+    # few dozen) must not turn into N identical accessibility reads.
+    accessibility_by_set_id: Dict[str, Dict[str, Any]] = accessibility_reader_fn(
+        list(run_id_by_set_id)
+    ) or {}
+
     finalized = 0
     unavailable = 0
     skipped: List[Dict[str, Any]] = []
@@ -261,7 +402,15 @@ def finalize_sealed_product_rip(
 
         # A genuine DB contract error here is allowed to raise: a finalizer that
         # swallowed write failures would report a finalized cohort that is not.
-        update_fn(row_id, _enrichment_for(row, appeal))
+        update_fn(
+            row_id,
+            _enrichment_for(
+                row,
+                appeal,
+                accessibility_row=accessibility_by_set_id.get(set_id),
+                expected_run_id=expected_run_id,
+            ),
+        )
         finalized += 1
         sets_touched.add(set_id)
 

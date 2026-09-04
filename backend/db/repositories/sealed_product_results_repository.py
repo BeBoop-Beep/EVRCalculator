@@ -31,6 +31,8 @@ _SELECT_FIELDS = (
     "collector_appeal_score,collector_appeal_version,"
     "overall_rip_score,overall_rip_version,overall_rip_rankable,overall_rip_payload,"
     "overall_rip_v10_score,overall_rip_v10_version,overall_rip_v10_rankable,overall_rip_v10_payload,"
+    "overall_rip_v12_score,overall_rip_v12_version,overall_rip_v12_rankable,overall_rip_v12_status,"
+    "overall_rip_v12_payload,"
     "created_at,updated_at"
 )
 
@@ -72,6 +74,14 @@ ENRICHMENT_FIELDS = (
     "overall_rip_v10_version",
     "overall_rip_v10_rankable",
     "overall_rip_v10_payload",
+    # Overall RIP V12 - shadow lineage (Financial V4 / Chase Accessibility V1 /
+    # Collector Appeal V5). Additive only; never read by ranking order or the
+    # canonical public contract while V10 remains CANONICAL_OVERALL_RIP_VERSION.
+    "overall_rip_v12_score",
+    "overall_rip_v12_version",
+    "overall_rip_v12_rankable",
+    "overall_rip_v12_status",
+    "overall_rip_v12_payload",
 )
 
 

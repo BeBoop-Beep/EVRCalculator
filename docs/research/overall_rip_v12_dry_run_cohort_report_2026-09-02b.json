@@ -1,0 +1,90 @@
+{
+  "generatedAt": "2026-09-02",
+  "supersedesHistoricalZeroRowRecord": "docs/research/overall_rip_v12_dry_run_cohort_report.json (preserved unmodified - documents the honest zero-live-row state BEFORE migrations 077 and the V12 sealed-product migration were applied externally)",
+  "purpose": "Independent, read-only, code-only re-verification of an externally-reported migration/backfill unblock, computed from raw live rows rather than trusted from a report. No production writes were performed to produce this file.",
+  "method": "Direct read-only queries via backend.db.clients.supabase_client.service_read_client against the live project configured in this environment; ranking-comparison statistics computed locally (Spearman/Kendall via scipy.stats) from the raw 138-row cohort, not read from any precomputed summary field.",
+  "migrationStatus": {
+    "chaseAccessibilityMigration077": "CONFIRMED APPLIED - pokemon_set_chase_accessibility_snapshot_latest exists and returns real rows",
+    "v12SealedProductPersistenceMigration": "CONFIRMED APPLIED - simulation_sealed_product_results has overall_rip_v12_score/version/rankable/status/payload columns and they return non-error, populated data"
+  },
+  "accessibilitySnapshotFor2026_09_02": {
+    "claimedReadyCount": 22,
+    "claimedTotalSupportedSets": 22,
+    "claimedMappedHcMassAllOne": true,
+    "independentlyVerifiedReadyCount": 22,
+    "independentlyVerifiedTotalRows": 22,
+    "independentlyVerifiedDistinctMappedHcMassValues": [1],
+    "match": true
+  },
+  "v12SealedProductCohort": {
+    "claimedPopulatedRowCount": 138,
+    "independentlyVerifiedPopulatedRowCount": 138,
+    "independentlyVerifiedAllStatusReady": true,
+    "match": true
+  },
+  "authorityAndVersionChecks": {
+    "claimedAuthorityMismatches": 0,
+    "claimedVersionMismatches": 0,
+    "claimedFormulaReconstructionMismatches": 0,
+    "independentSampleSize": 138,
+    "independentSampleIsFullPopulation": true,
+    "independentlyVerifiedVersionMismatches": 0,
+    "independentlyVerifiedFormulaReconstructionMismatches": 0,
+    "formulaReconstructionMethod": "For each of the 138 rows, recomputed 0.86*financial_rip_v4_score + 0.04*(100*A_raw/(A_raw+0.002)) + 0.10*collector_appeal_score from the row's OWN persisted overall_rip_v12_payload.components (financialRipV4.score, chaseAccessibility.raw, collectorAppeal.score) and compared to the row's persisted overall_rip_v12_score to 0.01 absolute tolerance.",
+    "match": true
+  },
+  "rankingComparisonV10VsV12": {
+    "sampleSize": 138,
+    "sampleIsFullPopulation": true,
+    "claimed": {
+      "spearman": 0.9961323,
+      "meanAbsRankMovement": 2.6377,
+      "maxRankMovement": 9,
+      "top5Overlap": "4/5",
+      "top10Overlap": "8/10",
+      "sameSetReversals": "0 of 398 pairs",
+      "productFamilyLeadersChanged": ["enhanced_booster_box", "loose_booster_pack"],
+      "productFamilyLeadersUnchangedCount": "6/8"
+    },
+    "independentlyComputed": {
+      "spearman": 0.9961403096206505,
+      "kendallTau": 0.9523406519538501,
+      "meanAbsRankMovement": 2.63768115942029,
+      "maxRankMovement": 9,
+      "top5Overlap": "4/5",
+      "top10Overlap": "8/10",
+      "sameSetPairs": 398,
+      "sameSetReversals": 0,
+      "productFamilyLeadersChanged": ["enhanced_booster_box", "loose_booster_pack"],
+      "productFamilyLeadersUnchangedCount": "6/8",
+      "enhancedBoosterBoxLeaderChange": {
+        "v10Leader": "Mega Evolution Enhanced Booster Box (v10=42.2944)",
+        "v12Leader": "Journey Together Enhanced Booster Box (v12=42.6774)",
+        "explanation": "Financial+Collector components are near-tied between the two products (F~37.1 vs 37.1, C~86-89); Chase Accessibility A_raw differs meaningfully (0.00229 vs 0.00075, A_score 53.3 vs 27.3), which tips the order. Legitimate pillar effect, not an anomaly."
+      },
+      "loosePackLeaderChange": {
+        "v10Leader": "Paradox Rift Booster Pack (v10=43.8637)",
+        "v12Leader": "151 Booster Pack (v12=44.5182)",
+        "explanation": "Same pattern: near-tied Financial+Collector, Accessibility A_raw differs (0.00211 vs 0.00467, A_score 51.4 vs 70.0) and tips the order."
+      }
+    },
+    "discrepancyAssessment": "Spearman differs from the claimed value by 0.000008 (5th significant digit), consistent with tie-handling/rounding differences between implementations, not a substantive disagreement. Every other statistic matches exactly. No material discrepancy found."
+  },
+  "phase11GateResults": {
+    "A_shadowReadiness": "PASS - 138/138 eligible rows ready, 22/22 accessibility rows ready with full mapped HC mass",
+    "B_authority": "PASS - 0 mismatched-run rows",
+    "C_versions": "PASS - 0 version mismatches",
+    "D_ranking": "PASS - movement modest and fully explained; both leader changes traced to legitimate Accessibility contribution",
+    "E_setRipV12": "PASS after this session's implementation - product_family_rankings_service.py generalized to select overall_rip_v10_* vs overall_rip_v12_* fields based on CANONICAL_OVERALL_RIP_VERSION; set_rip_service.py was already version-generic and needed no change. 21/21 + 18/18 tests passing.",
+    "F_budgetRankingV12": "FAIL (partial) - the V12 budget-scaled formula itself is now implemented and tested as an additive shadow field in calculations/evr/budget_normalized_product_ranking.py (score_budget_strategy), but the live budget-ranking sort/persistence authority (_tier_sort_key, budget_product_ranking_authority.py, budget_product_ranking_readiness.py, the publish/build scripts, and a new migration for budget_product_ranking_rows/snapshots) was not re-wired to use it. 50/50 tests passing on the implemented portion.",
+    "G_uiVersionAware": "PASS - ProductRipSection.jsx verified to render correctly off a REAL persisted overall_rip_v12_payload shape (previously only tested against synthetic fixtures); no code change needed.",
+    "H_security": "PASS - no new server projections; overallRipV12/publicRipContractV11 remain additive, previously-reviewed fields.",
+    "I_performance": "PASS - no new per-request query paths added.",
+    "J_regressions": "PASS - backend/tests/unit/desirability/: 1926 passed, 73 failed (identical baseline, test_treatment_market_prestige_v3_round20-24.py, unrelated). backend/tests/unit/db/services/: baseline-identity proven via scoped git stash of this session's 4 changed files - identical 172 pre-existing failures with or without this session's changes."
+  },
+  "canonicalPromotionStatus": {
+    "step3Performed": false,
+    "reason": "Gate F does not fully pass (see above). CANONICAL_OVERALL_RIP_VERSION remains OVERALL_RIP_V10_VERSION; canonical_public_rip_contract_version() remains PUBLIC_RIP_CONTRACT_V10_VERSION. No migration applied, no publication triggered."
+  },
+  "finalLabel": "OVERALL_RIP_V12_CANONICAL_PROMOTION_BLOCKED_BUDGET_RANKING_V12_AUTHORITY_WIRING_INCOMPLETE"
+}

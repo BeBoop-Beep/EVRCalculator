@@ -10,6 +10,7 @@ import RankBadge from "@/components/ui/RankBadge";
 import RipScoreSurface from "@/components/explore/RipScoreSurface.jsx";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { publicLeaderScoreTier } from "@/components/explore/ripTierPresentation.mjs";
+import OverallRipExplanationHierarchy from "@/components/explore/OverallRipExplanationHierarchy";
 import {
   finite,
   formatStrength,
@@ -167,17 +168,14 @@ export function ProductRipSection({ detail }) {
           </div>
         </ScoreCard>
       </dl>
-      <div
-        data-product-rip-formula
-        className="relative my-3 flex items-center justify-center"
-      >
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 top-1/2 border-t border-[var(--border-subtle)]"
-        />
-        <p className="relative rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1 text-center text-[11px] font-semibold tracking-[.03em] text-[var(--text-secondary)]">
-          Overall RIP = 90% Financial RIP + 10% Collector Appeal
-        </p>
+      {/* ONE shared, version-aware Overall RIP explanation. Renders the V10
+          90/10 explanation from this product's own persisted V10 ranking
+          when no V12 shadow data is present, or the V12 86/4/10 explanation
+          when `rip.publicRipContractV11` carries it - the SAME component
+          Set RIP / Set Analysis already use, never a second implementation
+          or a hardcoded formula string here. */}
+      <div data-product-rip-formula className="my-3">
+        <OverallRipExplanationHierarchy sources={[rip]} />
       </div>
       <dl className="grid gap-3 sm:grid-cols-2">
         <ScoreCard

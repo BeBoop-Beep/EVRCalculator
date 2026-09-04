@@ -1,0 +1,37 @@
+{
+  "request": {
+    "url": "https://play.limitlesstcg.com/api/tournaments/6a5a508552c24ac2da6446cf/details",
+    "retrievedAt": "2026-09-04T04:30:35.716421+00:00"
+  },
+  "payload": {
+    "id": "6a5a508552c24ac2da6446cf",
+    "game": "PTCG",
+    "format": "STANDARD",
+    "name": "TOURNAMENT OF DOOM! DRAGAPULT IS....",
+    "date": "2026-08-01T02:35:00.000Z",
+    "players": 514,
+    "organizer": {
+      "id": 349,
+      "name": "Doom's Events and Catering",
+      "logo": "https://limitlesstcg.s3.us-east-2.amazonaws.com/lotp/uploads/profile-pictures/rthil5ms9vwrlwnt"
+    },
+    "platform": "PTCGL",
+    "decklists": true,
+    "isPublic": true,
+    "isOnline": true,
+    "phases": [
+      {
+        "phase": 1,
+        "type": "SWISS",
+        "rounds": 9,
+        "mode": "BO1"
+      },
+      {
+        "phase": 2,
+        "type": "SINGLE_ELIMINATION",
+        "rounds": 4,
+        "mode": "BO3"
+      }
+    ]
+  }
+}

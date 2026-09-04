@@ -22,15 +22,21 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
 )
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.db.services.budget_product_ranking_authority import (
+    EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION, EXPECTED_CHASE_ACCESSIBILITY_VERSION,
     EXPECTED_COLLECTOR_APPEAL_VERSION, EXPECTED_FINANCIAL_RIP_VERSION,
-    EXPECTED_OVERALL_RIP_VERSION,
+    EXPECTED_OVERALL_RIP_V12_VERSION, EXPECTED_OVERALL_RIP_VERSION,
+    MIN_MAPPED_HC_MASS_FOR_BUDGET_V12,
+)
+from backend.desirability.scoring_config import (
+    CANONICAL_OVERALL_RIP_VERSION, OVERALL_RIP_V12_VERSION,
 )
 from backend.db.services.budget_product_ranking_readiness import (
     BudgetRankingStatus, EXIT_CODES, ReadinessResult, resolve_budget_ranking_readiness,
 )
 from backend.scripts.build_budget_normalized_product_rankings import (
     FINANCIAL_DOMINANCE_WARN_RATE, UTILIZATION_CORRELATION_WARN,
-    build_rankings_for_cohort, publish_rankings, to_publication_payload,
+    build_rankings_for_cohort, build_v12_shadow_rankings_for_cohort, publish_rankings,
+    to_publication_payload,
 )
 
 logger = logging.getLogger("budget-ranking-publication")
@@ -190,6 +196,150 @@ def verify_persisted_snapshot(client: Any, snapshot_id: str, snapshot: Mapping[s
     return failures
 
 
+def validate_v12_publication_payload(v12_results: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    """Pure hard-gate validation for an EXPLICIT V12 budget candidate.
+
+    ``v12_results`` is the dict returned by
+    :func:`backend.scripts.build_budget_normalized_product_rankings.build_v12_shadow_rankings_for_cohort`.
+    This function performs NO I/O and NEVER mutates its input or calls any
+    publish/RPC path — it exists purely to decide whether a V12 candidate is
+    fit to publish, for a caller who chooses to persist it separately (not
+    performed by this repository session; see the Gate F migration, which is
+    created but not applied).
+
+    Refuses publication when: the resolved authority still declares V10
+    (``overall_rip_version`` on the V10 cohort authority is not the expected
+    V10 string, i.e. a caller accidentally passed a non-budget-V10-resolved
+    cohort into the V12 path); any ranked row is missing/wrong on Overall
+    V12 / Financial V4 / Collector V5 / Chase Accessibility / transform
+    version identity; the Accessibility run used for any set does not match
+    the cohort's own exact-run authority (``v12Readiness`` reports it
+    ineligible); ``mapped_hc_mass < MIN_MAPPED_HC_MASS_FOR_BUDGET_V12`` for
+    any set backing a ranked row; an eligible row (financial-rankable,
+    Accessibility-ready set) failed to become V12-rankable; a ranked row is
+    missing its V12 rank/cohort-size fields; or a mix of V10-labelled and
+    V12-labelled ranked rows appears in the same budget cohort (rows must
+    carry `overallRipV12Rankable is True` to have been ranked at all under
+    :data:`SORT_AUTHORITY_V12`, but this is re-verified here rather than
+    trusted).
+    """
+    failures: List[Dict[str, Any]] = []
+    authority = v12_results.get("authority") or {}
+    v12_readiness = v12_results.get("v12Readiness") or {}
+    accessibility = v12_results.get("accessibilityResolution") or {}
+
+    if authority.get("overallRipVersion") != EXPECTED_OVERALL_RIP_VERSION:
+        failures.append(_gate("v12_base_cohort_authority", False,
+                               "candidate cohort authority is not the expected V10-resolved base cohort"))
+    if authority.get("financialRipVersion") != EXPECTED_FINANCIAL_RIP_VERSION:
+        failures.append(_gate("v12_financial_version", False, "financial_rip_version mismatch"))
+    if authority.get("collectorAppealVersion") != EXPECTED_COLLECTOR_APPEAL_VERSION:
+        failures.append(_gate("v12_collector_version", False, "collector_appeal_version mismatch"))
+    if v12_readiness.get("overallRipV12Version") != EXPECTED_OVERALL_RIP_V12_VERSION:
+        failures.append(_gate("v12_overall_version", False, "overall_rip_v12_version mismatch"))
+    if v12_readiness.get("chaseAccessibilityVersion") != EXPECTED_CHASE_ACCESSIBILITY_VERSION:
+        failures.append(_gate("v12_accessibility_version", False, "chase_accessibility_version mismatch"))
+    if v12_readiness.get("transformVersion") != EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION:
+        failures.append(_gate("v12_transform_version", False, "chase_accessibility_transform_version mismatch"))
+    if accessibility.get("chaseAccessibilityVersion") not in (None, EXPECTED_CHASE_ACCESSIBILITY_VERSION):
+        failures.append(_gate("v12_accessibility_authority_mix", False, "accessibility batch read carries an unexpected version"))
+    if v12_readiness.get("unexpectedAuthorityMix"):
+        failures.append(_gate("v12_accessibility_authority_mix", False, "accessibility batch read carries an unexpected version"))
+    if not v12_readiness.get("allSetsEligible", False):
+        ineligible = sorted(sid for sid, entry in (v12_readiness.get("perSet") or {}).items() if not entry.get("eligible"))
+        failures.append(_gate("v12_set_eligibility", False, "sets ineligible for V12 authority: %s" % ineligible))
+    for set_id, entry in (v12_readiness.get("perSet") or {}).items():
+        if not entry.get("eligible"):
+            continue
+        mass = (accessibility.get("bySet") or {}).get(set_id, {}).get("mappedHcMass") if accessibility.get("bySet") else None
+        # bySet is stripped from accessibilityResolution before it reaches this
+        # function; mapped-HC-mass sufficiency was already enforced by
+        # `resolve_v12_budget_authority_readiness` (>= MIN_MAPPED_HC_MASS_FOR_BUDGET_V12)
+        # to produce `eligible: True` in the first place. Re-check defensively
+        # only when the raw value happens to still be present.
+        if mass is not None:
+            try:
+                if float(mass) < MIN_MAPPED_HC_MASS_FOR_BUDGET_V12:
+                    failures.append(_gate("v12_mapped_hc_mass", False, "set %s below minimum mapped_hc_mass" % set_id))
+            except (TypeError, ValueError):
+                failures.append(_gate("v12_mapped_hc_mass", False, "set %s has non-numeric mapped_hc_mass" % set_id))
+
+    seen_gates = {f["gate"] for f in failures}
+    for key, block in (v12_results.get("budgets") or {}).items():
+        rows = block.get("rows") or []
+        size = len(rows)
+        ranks = {int(r.get("budgetRank")) for r in rows if r.get("budgetRank") is not None}
+        if len(ranks) != size or (size and ranks != set(range(1, size + 1))):
+            if "v12_cohort_integrity" not in seen_gates:
+                failures.append(_gate("v12_cohort_integrity", False, "noncontiguous V12 ranks at %s" % key)); seen_gates.add("v12_cohort_integrity")
+        for row in rows:
+            if row.get("overallRipV12Rankable") is not True or row.get("overallRipV12Score") is None:
+                if "v12_mixed_authority_rows" not in seen_gates:
+                    failures.append(_gate("v12_mixed_authority_rows", False, "a non-V12-rankable row was ranked at %s" % key)); seen_gates.add("v12_mixed_authority_rows")
+            if row.get("overallRipV12Version") != EXPECTED_OVERALL_RIP_V12_VERSION:
+                if "v12_row_version" not in seen_gates:
+                    failures.append(_gate("v12_row_version", False, "ranked row missing/wrong overallRipV12Version at %s" % key)); seen_gates.add("v12_row_version")
+            if row.get("budgetRank") is None or row.get("budgetCohortSize") is None:
+                if "v12_missing_rank_fields" not in seen_gates:
+                    failures.append(_gate("v12_missing_rank_fields", False, "ranked row missing budgetRank/budgetCohortSize at %s" % key)); seen_gates.add("v12_missing_rank_fields")
+        for entry in block.get("unrankable") or []:
+            sid = entry.get("sealedProductId")
+            row = next((r for r in rows if r.get("sealedProductId") == sid), None)
+            if row is not None and "v12_unrankable_eligible_row" not in seen_gates:
+                failures.append(_gate("v12_unrankable_eligible_row", False, "row %s reported unrankable but also present in ranked rows" % sid)); seen_gates.add("v12_unrankable_eligible_row")
+
+    if int(v12_results.get("productCount") or -1) != len(authority.get("calculationRunIds") or []) and authority.get("productCount") is not None:
+        if int(v12_results.get("productCount") or -1) != int(authority.get("productCount")):
+            failures.append(_gate("v12_cohort_size_mismatch", False, "V12 build product count does not match the base cohort's authority product count"))
+
+    return failures
+
+
+def run_v12_dry_run(*, client: Any, products: Sequence[Mapping[str, Any]], authority: Mapping[str, Any]) -> Dict[str, Any]:
+    """EXPLICIT V12 candidate validation. NEVER writes anything.
+
+    Builds the V12 shadow ranking for the given (already V10-authority
+    resolved) cohort and validates it with :func:`validate_v12_publication_payload`.
+    There is no ``commit`` parameter and no code path here calls
+    ``publish_rankings`` or any RPC — this function is validate-only by
+    construction, matching the task's explicit instruction that V12 mode
+    must be testable/callable but must never actually publish anything.
+    """
+    started = time.perf_counter()
+    v12_results = build_v12_shadow_rankings_for_cohort(client, products, authority)
+    failures = validate_v12_publication_payload(v12_results)
+    report = {
+        "mode": "v12_explicit_validation_only",
+        "passed": not failures,
+        "gate_results": failures or [_gate("v12_ranking_payload", True)],
+        "overall_rip_v12_version": EXPECTED_OVERALL_RIP_V12_VERSION,
+        "chase_accessibility_version": EXPECTED_CHASE_ACCESSIBILITY_VERSION,
+        "chase_accessibility_transform_version": EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
+        "eligible_set_ids": (v12_results.get("v12Readiness") or {}).get("eligibleSetIds"),
+        "product_count": v12_results.get("productCount"),
+        "batch_accessibility_read_count": v12_results.get("batchAccessibilityReadCount"),
+        "duration_ms": round((time.perf_counter() - started) * 1000),
+    }
+    return {"report": report, "results": v12_results}
+
+
+def default_budget_sort_authority_is_v12() -> bool:
+    """True when the CANONICAL Overall RIP authority (backend-wide, not a
+    budget-specific constant) is V12.
+
+    This is the ONE place the default/normal budget publisher path asks "is
+    V12 canonical right now" - reusing `CANONICAL_OVERALL_RIP_VERSION`
+    (`backend.desirability.scoring_config`), never a second, budget-local
+    cutover switch. `EXPECTED_OVERALL_RIP_VERSION` /
+    `EXPECTED_OVERALL_RIP_V12_VERSION` in `budget_product_ranking_authority.py`
+    stay fixed identity strings (the V10-resolved BASE cohort's required
+    version, and the V12 candidate's required version, respectively) - neither
+    of those changes here or ever should; only which candidate the default
+    path additionally builds and reports on does.
+    """
+    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V12_VERSION
+
+
 def run(*, commit: bool, force_price_as_of: Optional[str] = None, client: Any = None, now: Optional[datetime] = None) -> tuple[int, Dict[str, Any]]:
     started = time.perf_counter(); report = _base_report()
     client = client or create_service_role_client()
@@ -218,15 +368,52 @@ def run(*, commit: bool, force_price_as_of: Optional[str] = None, client: Any = 
         "full_market_budget": snapshot["full_market_budget"], "full_market_count": sum(r["budget_type"] == BUDGET_TYPE_FULL_MARKET for r in rows),
         "max_eligible_sku_price": snapshot["max_eligible_sku_price"], "cohort_fingerprint": snapshot["cohort_fingerprint"],
     })
+    # Canonical-authority V12 shadow validation (Phase 11 cutover wiring).
+    # ADDITIVE and REPORT-ONLY: never affects `failures`/gate outcome above,
+    # never changes which rows `publish_rankings` below actually persists (the
+    # V10-shaped RPC/table write path is untouched by this task), and never
+    # substitutes a V12 number under a V10 label or vice versa. It reuses
+    # `run_v12_dry_run`'s validator rather than a second implementation. This
+    # is what "default budget sort/readiness authority" means to now report
+    # honestly: whether the SAME cohort this run already resolved is ALSO
+    # V12-rankable under the backend-wide canonical selector.
+    is_canonical_v12 = default_budget_sort_authority_is_v12()
+    report["default_sort_authority"] = (
+        EXPECTED_OVERALL_RIP_V12_VERSION if is_canonical_v12
+        else EXPECTED_OVERALL_RIP_VERSION
+    )
+    v12: Optional[Dict[str, Any]] = None
+    if is_canonical_v12:
+        try:
+            v12 = run_v12_dry_run(client=client, products=readiness.products, authority=readiness.authority)
+            report["v12_canonical_validation"] = v12["report"]
+        except Exception as exc:  # never let the additive V12 check fail the V10 publication path
+            report["v12_canonical_validation"] = {"passed": False, "error": str(exc)}
+            v12 = None
     if failures:
         report.update({"failure_reason": failures[0]["reason"], "failed_gate": failures[0]["gate"]})
+        return _finish(report, BudgetRankingStatus.HEALTH_GATE_BLOCKED, started)
+    # No-mixed-authority invariant (Phase 10): when the backend-wide canonical
+    # authority is V12, a publication may NEVER proceed as a plain V10
+    # snapshot - that would leave the generic/current read model resolving
+    # V10 while the rest of the system believes V12 is canonical. Refuse
+    # closed here, before any write is attempted, rather than publish a
+    # snapshot with mismatched authority.
+    if is_canonical_v12 and not (v12 and v12["report"]["passed"]):
+        report.update({
+            "failure_reason": "canonical Overall RIP authority is V12 but the V12 candidate failed validation",
+            "failed_gate": "v12_canonical_authority_required",
+        })
         return _finish(report, BudgetRankingStatus.HEALTH_GATE_BLOCKED, started)
     if not commit:
         # PUBLISHED means publish-eligible on dry-run; no write is attempted.
         return _finish(report, BudgetRankingStatus.PUBLISHED, started)
     publish_start = time.perf_counter()
     try:
-        snapshot_id = publish_rankings(client, results)
+        snapshot_id = publish_rankings(
+            client, results,
+            v12_results=(v12["results"] if is_canonical_v12 and v12 else None),
+        )
     except Exception as exc:
         report.update({"failure_reason": str(exc), "failed_gate": "publication_rpc", "publish_duration_ms": round((time.perf_counter() - publish_start) * 1000)})
         return _finish(report, BudgetRankingStatus.PUBLICATION_FAILED, started)

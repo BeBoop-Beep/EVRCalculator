@@ -46,6 +46,10 @@ from backend.desirability.scoring_config import (
     WEIGHTS_DISCLOSURE,
     canonical_public_rip_contract_version,
 )
+from backend.db.services.chase_accessibility_service import (
+    project_chase_accessibility,
+    read_chase_accessibility_snapshots_for_sets,
+)
 from backend.desirability.public_rip_contract_v4 import (
     PUBLIC_RIP_CONTRACT_V4_KEY,
     build_public_rip_contract_v4,
@@ -69,6 +73,10 @@ from backend.desirability.public_rip_contract_v9 import (
 from backend.desirability.public_rip_contract_v10 import (
     PUBLIC_RIP_CONTRACT_V10_KEY,
     build_public_rip_contract_v10,
+)
+from backend.desirability.public_rip_contract_v11 import (
+    PUBLIC_RIP_CONTRACT_V11_KEY,
+    build_public_rip_contract_v11,
 )
 from backend.desirability.public_rip_contract_v7 import (
     PUBLIC_RIP_CONTRACT_V7_KEY,
@@ -104,6 +112,7 @@ from backend.desirability.weighted_rip import (
     compute_overall_rip_v8,
     compute_overall_rip_v9,
     compute_overall_rip_v10,
+    compute_overall_rip_v12,
 )
 from backend.interpretation.rips import build_rip_interpretation
 
@@ -836,6 +845,14 @@ def _rank_overall_rip_v10(row: Mapping[str, Any]) -> Optional[float]:
     return _to_optional_float((row.get("overallRipV10") or {}).get("score"))
 
 
+def _rank_overall_rip_v12(row: Mapping[str, Any]) -> Optional[float]:
+    """Explicit V12 read-model accessor. SHADOW ONLY - not registered in any
+    active ranking list below; V10 remains canonical for ordering. Exists so a
+    future V10-vs-V12 comparison/audit can read the same absolute score every
+    other version's accessor reads, without inventing a second convention."""
+    return _to_optional_float((row.get("overallRipV12") or {}).get("score"))
+
+
 def _make_v3_component_extractor(component: str):
     def _extract(row: Mapping[str, Any]) -> Optional[float]:
         components = (row.get("financialRipV3") or {}).get("components") or {}
@@ -980,6 +997,49 @@ def _resolve_legacy_ca7_version(collector: Mapping[str, Any]) -> Optional[str]:
     return version if version not in _POST_CA7_APPEAL_VERSIONS else None
 
 
+def _align_overall_rip_v12_authority_status(
+    overall_v12: Mapping[str, Any],
+    *,
+    accessibility_authority_mismatch: bool,
+    accessibility_row: Optional[Mapping[str, Any]],
+    target_run_id: Optional[str],
+) -> Dict[str, Any]:
+    """Relabel a rejected-authority V12 result with the finalizer's explicit status.
+
+    ``compute_overall_rip_v12`` only ever sees a bare ``A_raw`` value or
+    ``None`` - it cannot distinguish "no Accessibility row published yet" from
+    "a row exists but belongs to a different ``calculation_run_id``", so both
+    collapse to the generic ``unavailable_missing_input`` status. The batch
+    finalizer (``_overall_rip_v12_for`` in
+    ``sealed_product_rip_finalization_service.py``) DOES have that context and
+    reports the authority-mismatch case as the more specific
+    ``unavailable_authority_mismatch``. This function applies the identical
+    relabeling here, on the Explore/rankings path, so both surfaces describe
+    the same underlying condition with the same status string.
+
+    ACCEPT/REJECT BEHAVIOR IS UNCHANGED: this never flips a rejected row into
+    an accepted one, or vice versa. ``overall_v12["score"]`` stays whatever
+    ``compute_overall_rip_v12`` already returned (``None`` in the mismatch
+    case); only the ``status``/``statusReason`` strings are rewritten, and
+    only when the mismatch actually caused the generic missing-input status.
+    """
+    if not accessibility_authority_mismatch:
+        return dict(overall_v12)
+    if overall_v12.get("status") != "unavailable_missing_input":
+        return dict(overall_v12)
+    aligned = dict(overall_v12)
+    aligned["status"] = "unavailable_authority_mismatch"
+    aligned["statusReason"] = (
+        "Chase Accessibility row belongs to calculation_run_id=%r; this "
+        "target's coherent cohort run is %r. Refused rather than accepted "
+        "as the latest available Accessibility row."
+    ) % (
+        _to_optional_str((accessibility_row or {}).get("calculation_run_id")),
+        target_run_id,
+    )
+    return aligned
+
+
 def _attach_public_rip_contract(
     targets: List[Dict[str, Any]],
     *,
@@ -1029,6 +1089,14 @@ def _attach_public_rip_contract(
         ]
     )
     cohort_ids = set(cohort["eligibleSetIds"])
+
+    # ---- exactly ONE batch Chase Accessibility read for the whole cohort ----
+    # SHADOW Overall RIP V12 input. Never one query per set inside the loop
+    # below - this cohort can be up to MAX_TARGETS_LIMIT (200) sets.
+    accessibility_by_set_id_v12 = read_chase_accessibility_snapshots_for_sets(
+        set_ids=[target.get("target_id") for target in targets if target.get("target_id")],
+        client=service_read_client,
+    )
 
     # 2. Every row's scores. The CANONICAL Overall RIP is
     #    0.90 * Financial RIP V3 + 0.10 * Collector Appeal V3. Collector Appeal
@@ -1102,6 +1170,42 @@ def _attach_public_rip_contract(
         target["overallRipV10"] = compute_overall_rip_v10(
             financial_v4.get("score"), collector_appeal_score
         )
+        # SHADOW, NOT CANONICAL: Overall RIP V12 = 0.86*FinancialV4 +
+        # 0.04*ChaseAccessibilityScore(k=0.002) + 0.10*CollectorV5. Chase
+        # Accessibility is set-level (migration 077) and is only accepted when
+        # its OWN `calculation_run_id` matches this target's own authoritative
+        # run - the same coherence rule the sealed-product finalizer enforces
+        # (see `_overall_rip_v12_for` in sealed_product_rip_finalization_service.py).
+        # A mismatched or missing row never falls back to "latest available".
+        target_run_id = _to_optional_str(target.get("calculation_run_id"))
+        accessibility_row = accessibility_by_set_id_v12.get(str(target.get("target_id")))
+        accessibility_authority_mismatch = False
+        if accessibility_row is None:
+            accessibility_raw = None
+        elif target_run_id is None or _to_optional_str(
+            accessibility_row.get("calculation_run_id")
+        ) != target_run_id:
+            accessibility_raw = None
+            accessibility_authority_mismatch = True
+        elif accessibility_row.get("status") != "ready":
+            accessibility_raw = None
+        else:
+            accessibility_raw = accessibility_row.get("accessibility")
+        overall_v12 = compute_overall_rip_v12(
+            financial_v4.get("score"), accessibility_raw, collector_appeal_score
+        )
+        overall_v12 = _align_overall_rip_v12_authority_status(
+            overall_v12,
+            accessibility_authority_mismatch=accessibility_authority_mismatch,
+            accessibility_row=accessibility_row,
+            target_run_id=target_run_id,
+        )
+        target["overallRipV12"] = overall_v12
+        # PUBLIC RAW block (additive) - the same projection shape the set page
+        # already publishes, so `public_rip_contract_v11` has a real source
+        # rather than re-deriving it. Distinct in scale from `overallRipV12`'s
+        # internal A_score - see that contract's module docstring.
+        target["chaseAccessibility"] = project_chase_accessibility(accessibility_row)
         target["publicAnalyticsStatus"] = public_analytics_status(
             {"name": target.get("name"), "era_id": target.get("era_id"), "era": target.get("era")}
         )
@@ -2283,6 +2387,10 @@ def get_rip_statistics_targets_payload(
         # so the backend payload is self-describing rather than requiring the
         # frontend to synthesize a contract it was not given.
         target[PUBLIC_RIP_CONTRACT_V10_KEY] = build_public_rip_contract_v10(target)
+        # SHADOW contract carrying Overall RIP V12 + Chase Accessibility.
+        # Additive: every key set above (through V10) is unchanged. Not read by
+        # any canonical publication surface while V10 remains canonical.
+        target[PUBLIC_RIP_CONTRACT_V11_KEY] = build_public_rip_contract_v11(target)
 
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),

@@ -1,0 +1,152 @@
+{
+  "state_A": {
+    "label": "State_A_earliest_live_pull_rate_run_(2026-08-27_financial_paired_with_earliest_surviving_08-27/08-28_accessibility_per_set)",
+    "n_sets": 22,
+    "market_dates_accessibility": [
+      "2026-08-27T23:13:05.099122+00:00",
+      "2026-08-28T17:06:32.372374+00:00",
+      "2026-08-28T17:09:41.260786+00:00",
+      "2026-08-28T17:12:41.467052+00:00",
+      "2026-08-28T17:16:24.785278+00:00",
+      "2026-08-28T17:19:30.631457+00:00",
+      "2026-08-28T17:23:10.369873+00:00",
+      "2026-08-28T17:26:53.983198+00:00",
+      "2026-08-28T17:30:20.215712+00:00",
+      "2026-08-28T17:34:10.53593+00:00",
+      "2026-08-28T17:38:22.275363+00:00",
+      "2026-08-28T17:41:45.080309+00:00",
+      "2026-08-28T17:44:28.220704+00:00",
+      "2026-08-28T17:48:11.184128+00:00",
+      "2026-08-28T17:51:47.087713+00:00",
+      "2026-08-28T17:55:01.275371+00:00",
+      "2026-08-28T17:58:09.300947+00:00",
+      "2026-08-28T18:01:34.135762+00:00",
+      "2026-08-28T18:05:12.165094+00:00",
+      "2026-08-28T18:08:59.63692+00:00",
+      "2026-08-28T18:12:23.01035+00:00",
+      "2026-08-28T18:16:10.597614+00:00"
+    ],
+    "financial_run_date": "2026-08-27 17:44:18.518613+00:00",
+    "offset_days_min_median_max": [
+      0.25636591789351854,
+      0.9952261600868055,
+      0.9997279779976851
+    ],
+    "A_raw_min_median_max": [
+      0.0007498463697051532,
+      0.0019459493094807622,
+      0.005640055894560097
+    ],
+    "weight_0.04": {
+      "n": 22,
+      "spearman": 0.9875776397515529,
+      "kendall_tau": 0.9393939393939393,
+      "top5_overlap": 4,
+      "top10_overlap": 9,
+      "close_financial_pair_count": 41,
+      "close_reversal_rate": 0.12195121951219512,
+      "clear_financial_overrides": 0,
+      "max_financial_gap_overturned": 0.0
+    },
+    "weight_0.06": {
+      "n": 22,
+      "spearman": 0.979672501411632,
+      "kendall_tau": 0.8961038961038961,
+      "top5_overlap": 4,
+      "top10_overlap": 9,
+      "close_financial_pair_count": 41,
+      "close_reversal_rate": 0.14634146341463414,
+      "clear_financial_overrides": 0,
+      "max_financial_gap_overturned": 0.0
+    },
+    "weight_0.08": {
+      "n": 22,
+      "spearman": 0.9649915302089217,
+      "kendall_tau": 0.8614718614718614,
+      "top5_overlap": 4,
+      "top10_overlap": 9,
+      "close_financial_pair_count": 41,
+      "close_reversal_rate": 0.17073170731707318,
+      "clear_financial_overrides": 0,
+      "max_financial_gap_overturned": 0.0
+    }
+  },
+  "state_B": {
+    "label": "State_B_primary_cohort_(2026-08-27_financial_paired_with_08-28_to_09-02_accessibility_per_set)",
+    "n_sets": 22,
+    "market_dates_accessibility": [
+      "2026-08-28 17:17:01.623563+00:00",
+      "2026-08-29 17:47:12.424340+00:00",
+      "2026-08-31 17:04:07.334365+00:00",
+      "2026-08-31 17:08:01.843429+00:00",
+      "2026-09-02 02:53:11.245310+00:00",
+      "2026-09-02 03:00:11.869436+00:00",
+      "2026-09-02 03:04:50.706946+00:00",
+      "2026-09-02 03:08:30.733070+00:00",
+      "2026-09-02 03:11:54.969283+00:00",
+      "2026-09-02 03:15:33.637070+00:00",
+      "2026-09-02 03:19:09.044398+00:00",
+      "2026-09-02 03:22:18.100496+00:00",
+      "2026-09-02 03:25:17.192542+00:00",
+      "2026-09-02 03:29:26.392911+00:00",
+      "2026-09-02 03:32:58.901553+00:00",
+      "2026-09-02 03:36:58.142620+00:00",
+      "2026-09-02 03:39:51.989157+00:00",
+      "2026-09-02 03:43:02.862009+00:00",
+      "2026-09-02 03:46:22.029795+00:00",
+      "2026-09-02 03:49:30.722836+00:00",
+      "2026-09-02 03:52:42.088034+00:00",
+      "2026-09-02 03:56:11.179488+00:00"
+    ],
+    "financial_run_date": "2026-08-27 17:48:51.371439+00:00",
+    "offset_days_min_median_max": [
+      0.9949800327,
+      5.3983897137,
+      5.403314375
+    ],
+    "A_raw_min_median_max": [
+      0.0007418032,
+      0.0019270503000000001,
+      0.0055211673
+    ],
+    "weight_0.04": {
+      "n": 22,
+      "spearman": 0.9875776397515529,
+      "kendall_tau": 0.9393939393939393,
+      "top5_overlap": 4,
+      "top10_overlap": 9,
+      "close_financial_pair_count": 41,
+      "close_reversal_rate": 0.12195121951219512,
+      "clear_financial_overrides": 0,
+      "max_financial_gap_overturned": 0.0
+    },
+    "weight_0.06": {
+      "n": 22,
+      "spearman": 0.979672501411632,
+      "kendall_tau": 0.8961038961038961,
+      "top5_overlap": 4,
+      "top10_overlap": 9,
+      "close_financial_pair_count": 41,
+      "close_reversal_rate": 0.14634146341463414,
+      "clear_financial_overrides": 0,
+      "max_financial_gap_overturned": 0.0
+    },
+    "weight_0.08": {
+      "n": 22,
+      "spearman": 0.9683794466403164,
+      "kendall_tau": 0.8701298701298701,
+      "top5_overlap": 4,
+      "top10_overlap": 9,
+      "close_financial_pair_count": 41,
+      "close_reversal_rate": 0.17073170731707318,
+      "clear_financial_overrides": 0,
+      "max_financial_gap_overturned": 0.0
+    }
+  },
+  "A_raw_cross_state_spearman": {
+    "rho": 0.9977413890457371,
+    "p": 6.175870633635505e-25,
+    "n": 22
+  },
+  "note": "Both states share the identical 22-set, single 2026-08-27 daily Financial+Collector+Overall enrichment batch (verified: all 22 primary financial calculation_run_ids fall in that batch); they differ ONLY in which live Accessibility (pull-rate) snapshot is paired to it. State A uses the earliest pull-rate run still live in the DB for each set (predominantly 2026-08-27T23:xx-2026-08-28T18:xx); State B is Pass 1A's already-frozen primary cohort pairing (predominantly 2026-08-28 through 2026-09-02, offset_days median 5.40 as documented in Pass 1A). This is a genuine second Accessibility-capable state per Phase 7 requirement #1 (an older live calculation_run_id in simulation_card_variant_pull_rates than the primary cohort's), not a manufactured Financial-date pairing -- Financial is held to the SAME batch in both states so the comparison isolates Accessibility's own temporal effect."
+}

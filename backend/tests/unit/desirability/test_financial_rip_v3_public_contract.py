@@ -38,6 +38,7 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_V6_VERSION,
     OVERALL_RIP_V8_VERSION,
     OVERALL_RIP_V10_VERSION,
+    OVERALL_RIP_V12_VERSION,
     canonical_financial_rip_is_v3,
     canonical_financial_rip_is_v4,
     canonical_overall_rip_is_v8,
@@ -114,17 +115,18 @@ def test_canonical_versions_point_at_v4_and_v10():
     moved - and the tests below (and elsewhere in this module) still pin that
     arithmetic, and still exercise it directly as history.
 
-    UPDATED FOR THE V4/V10 CUTOVER: this test previously asserted that V3/V9
-    were canonical. The ownership move in `scoring_config.py` flips
-    `CANONICAL_FINANCIAL_RIP_VERSION` to Financial RIP V4 and
-    `CANONICAL_OVERALL_RIP_VERSION` to Overall RIP V10; V3/V9 remain registered
-    and computable as history but are no longer the canonical selection.
+    UPDATED FOR THE 2026-09-03 V12 CUTOVER: this test previously asserted that
+    V10 was canonical. `CANONICAL_FINANCIAL_RIP_VERSION` stays Financial RIP
+    V4 (unchanged by the V12 cutover, which only added Chase Accessibility as
+    a third pillar), but `CANONICAL_OVERALL_RIP_VERSION` now resolves to
+    Overall RIP V12; V3/V9/V10 remain registered and computable as history but
+    are no longer the canonical selection.
     """
     assert CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V4_VERSION
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V12_VERSION
     assert canonical_financial_rip_is_v4() is True
     assert canonical_financial_rip_is_v3() is False
-    assert canonical_overall_rip_is_v10() is True
+    assert canonical_overall_rip_is_v10() is False
     assert canonical_overall_rip_is_v9() is False
     # V8 and V9 are retained and identifiable, but are no longer canonical.
     assert canonical_overall_rip_is_v8() is False

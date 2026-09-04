@@ -17,7 +17,10 @@ from backend.db.services.chase_accessibility_service import (
 )
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.public_read_retry import run_public_read_with_retry
-from backend.db.services.ev_representativeness_public_service import project_opening_outcome_profile_v1
+from backend.db.services.ev_representativeness_public_service import (
+    project_opening_outcome_profile_v1,
+    project_public_v1,
+)
 from backend.research.ev_representativeness.version import EV_REPRESENTATIVENESS_VERSION
 from backend.db.services.public_rip_publication_contract import (
     canonical_publication_identity,
@@ -7076,7 +7079,9 @@ def get_pokemon_set_rip_simulation_evidence_snapshot_payload(set_id: str) -> Dic
             lambda client: client.table("ev_representativeness_run_summary")
                 .select(
                     "calculation_run_id,research_method_version,market_date,source_artifact_sha256,"
-                    "ev,p50,return_ratio_buckets_json"
+                    "ev,p50,return_ratio_buckets_json,typical_capture,top1_outcome_ev_share,"
+                    "horizon_r80_c80_stable,horizon_r80_c80_status,"
+                    "horizon_tau20_c80_stable,horizon_tau20_c80_status"
                 )
                 .eq("calculation_run_id", run_id)
                 .eq("research_method_version", EV_REPRESENTATIVENESS_VERSION)
@@ -7090,18 +7095,33 @@ def get_pokemon_set_rip_simulation_evidence_snapshot_payload(set_id: str) -> Dic
         profile = project_opening_outcome_profile_v1(
             research_row or {}, expected_calculation_run_id=run_id,
         )
-        if profile:
-            return {**payload, "openingOutcomeProfile": profile}
-        return {
+        # Same query, same row: the confirmed EV realization horizon is a
+        # cheap-to-project scalar off columns already selected above, so it
+        # rides along on this existing read rather than opening a second one.
+        # Curve rows are deliberately NOT fetched here - the headline horizon
+        # never needs them, and the Set RIP page only ever shows the headline.
+        ev_representativeness = project_public_v1(
+            research_row or {}, [], expected_calculation_run_id=run_id,
+        )
+        merged = {
             **payload,
-            "openingOutcomeProfile": None,
-            "meta": {**(payload.get("meta") or {}), "warnings": [*((payload.get("meta") or {}).get("warnings") or []), "Exact-run opening outcome research is unavailable."]},
+            "openingOutcomeProfile": profile,
+            "evRepresentativeness": ev_representativeness,
         }
+        if profile and ev_representativeness:
+            return merged
+        warnings = list((payload.get("meta") or {}).get("warnings") or [])
+        if not profile:
+            warnings.append("Exact-run opening outcome research is unavailable.")
+        if not ev_representativeness:
+            warnings.append("Exact-run EV realization research is unavailable.")
+        return {**merged, "meta": {**(payload.get("meta") or {}), "warnings": warnings}}
     except Exception:
         logger.exception("Optional same-run outcome profile unavailable run_id=%s", run_id)
         return {
             **payload,
             "openingOutcomeProfile": None,
+            "evRepresentativeness": None,
             "meta": {**(payload.get("meta") or {}), "warnings": [*((payload.get("meta") or {}).get("warnings") or []), "Exact-run opening outcome research is temporarily unavailable."]},
         }
 

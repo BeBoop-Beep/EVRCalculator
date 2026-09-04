@@ -129,23 +129,48 @@ def _page_all(query_factory: Any, *, page_size: int = 1000) -> list[dict[str, An
 
 
 def resolve_tracked_set_ids(client: Any) -> list[str]:
-    """Sets that actually have canonical market history.
+    """Sets that actually have canonical market history AND are Market Explorer
+    product authority (i.e. not catalog-only).
 
     The catalogue contains sets the market does not track. Starting from the
     tracked set list rather than the catalogue keeps the engine from issuing
     constituent reads that can only return nothing.
 
-    READ FROM THE COVERAGE ROLLUP, NOT THE HISTORY TABLE. Both answer this
-    question with the identical 167-set universe (verified: zero divergence in
-    either direction), but the history table holds ~21.8k 'standard' rows and
-    PostgREST has no DISTINCT, so deriving the set list from it costs ~22 paged
-    round trips on EVERY query before a single price is read. The coverage
-    rollup is one row per set. This is the same fact, read from the authority
-    that already stores it per set.
+    READ FROM THE COVERAGE ROLLUP, NOT THE HISTORY TABLE. Both answer the
+    "does this set have history" question with the identical underlying
+    universe, but the history table holds ~21.8k 'standard' rows and PostgREST
+    has no DISTINCT, so deriving the set list from it costs ~22 paged round
+    trips on EVERY query before a single price is read. The coverage rollup is
+    one row per set. This is the same fact, read from the authority that
+    already stores it per set.
+
+    THE RESULT IS AN INTERSECTION, NOT A SWITCH OF SOURCE. History-tracked
+    sets include a handful of catalog-only child sets (e.g. the EX Trainer Kit
+    Latias/Latios/2 Minun/2 Plusle sub-decks) that are intentionally outside
+    Market Explorer product authority -- no projection coverage exists or
+    should exist for them. Filtering those out here, against the small
+    non-catalog-only set universe, keeps every other history-tracked set
+    (including one with no projection coverage yet) resolvable through this
+    same path; it is not a wholesale switch to a different, smaller source
+    table. As of 2026-09, the intersection is 165 sets (169 history-tracked
+    minus the 4 catalog-only Trainer Kit sets).
     """
     rows = _page_all(lambda: client.table("pokemon_set_value_daily_history_coverage")
                      .select("set_id,has_history").eq("has_history", True))
-    return sorted({str(row.get("set_id") or "").strip() for row in rows} - {""})
+    tracked = {str(row.get("set_id") or "").strip() for row in rows} - {""}
+    if not tracked:
+        return []
+
+    # Fetched unfiltered (not `.eq("catalog_only", False)`) and excluded in
+    # Python: `catalog_only` defaults FALSE in the schema, and a row missing
+    # the column entirely (or reporting it as NULL) must read as "not
+    # catalog-only", not silently drop out of the tracked universe.
+    all_set_rows = _page_all(lambda: client.table("sets").select("id,catalog_only"))
+    catalog_only_ids = {
+        str(row.get("id") or "").strip() for row in all_set_rows if row.get("catalog_only") is True
+    }
+
+    return sorted(tracked - catalog_only_ids)
 
 
 def resolve_scope_history_bounds(
@@ -1045,12 +1070,12 @@ def run_market_explorer_query(
         )
 
     current_only = effective_start == effective_end
-    projection_covered = (not current_only and daily_projection_covers(
+    projection_covered = daily_projection_covers(
         client, scope_set_ids, start_date=effective_start, end_date=effective_end,
-    ))
+    )
     execution_engine = (
-        "interval_current" if current_only else
-        "daily_projection" if projection_covered else "interval_fallback"
+        "daily_projection" if projection_covered else
+        "interval_current" if current_only else "interval_fallback"
     )
     cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
         client, scope_set_ids, start_date=effective_start, end_date=effective_end,

@@ -73,6 +73,104 @@ class _FakeClient:
         return type("R", (), {"data": list(self._rows)})()
 
 
+class _PaginatingFakeClient:
+    """Fake modeling PostgREST's real pagination contract: an unbounded
+    ``select().eq().execute()`` silently returns at most ``page_size`` rows,
+    ordered by ``sealed_product_id``, and a caller must page with
+    ``.order().range(offset, offset + page_size - 1)`` to see the rest.
+
+    This reproduces the exact production incident: a real table exceeded the
+    1000-row implicit page cap, so the pre-fix ``load_pinned_cohort`` (whose
+    base query had neither ``.order()`` nor ``.range()``) silently saw only
+    the first page and could never resolve to a ``price_as_of`` cohort that
+    happened to sort past the cap - it would report a stale cohort as "the
+    whole table" with no error, then fail every downstream Chase
+    Accessibility coherence check with a false "stale_calculation_run"
+    verdict, even though the actual DB was perfectly coherent.
+    """
+
+    def __init__(self, rows, page_size):
+        self._all_rows = list(rows)
+        self._page_size = page_size
+        self._filtered = list(rows)
+        self._ordered = False
+        self._range = None
+
+    def table(self, _name):
+        return self
+
+    def select(self, *_a, **_k):
+        return self
+
+    def eq(self, column, value):
+        self._filtered = [r for r in self._filtered if r.get(column) == value]
+        return self
+
+    def order(self, column, desc=False):
+        self._ordered = True
+        self._filtered = sorted(self._filtered, key=lambda r: r.get(column), reverse=desc)
+        return self
+
+    def range(self, start, end):
+        self._range = (start, end)
+        return self
+
+    def execute(self):
+        if not self._ordered or self._range is None:
+            # The exact pre-fix bug shape: no order()/range() called before
+            # execute() -> PostgREST-style implicit page-size truncation.
+            return type("R", (), {"data": list(self._filtered[: self._page_size])})()
+        start, end = self._range
+        return type("R", (), {"data": list(self._filtered[start:end + 1])})()
+
+
+def test_cohort_beyond_the_implicit_page_cap_is_not_silently_truncated():
+    """Permanent regression test for the Phase-19 authority-contradiction bug.
+
+    Root cause: ``load_pinned_cohort``'s base read had no ``.order()``/
+    ``.range()``, so once the ``simulation_sealed_product_results`` table grew
+    past PostgREST's implicit ~1000-row page size, the CURRENT (newest)
+    ``price_as_of`` cohort silently fell outside the single page the resolver
+    ever saw. The resolver then picked the best-covered cohort from an
+    incomplete view and reported it as authoritative - with no error - while
+    that stale cohort's ``calculation_run_id`` no longer matched the (already
+    advanced) Chase Accessibility snapshot, producing a false
+    "0/22 stale_calculation_run" verdict that looked exactly like real
+    upstream data staleness but was actually this pagination bug.
+
+    This test uses a page size of 2 (instead of PostgREST's real ~1000) so a
+    small fixture can still cross the page boundary: the OLD, smaller cohort
+    (2 SKUs) fits entirely inside the first page and looks "complete" to a
+    resolver that never pages further; the NEW, larger, genuinely-best cohort
+    (3 SKUs, a later ``price_as_of``) spans multiple pages. A resolver that
+    stops at page one sees only the old cohort's rows, never learns the new
+    cohort even exists, and confidently (wrongly) pins to the old date with
+    no error raised. The fix must page through everything and pin to the
+    genuinely best-covered (newest) cohort instead.
+    """
+    client = _PaginatingFakeClient(
+        [
+            _row("a", "run-old", "2026-08-17"),
+            _row("b", "run-old", "2026-08-17"),
+            _row("w", "run-new", "2026-09-02"),
+            _row("y", "run-new", "2026-09-02"),
+            _row("z", "run-new", "2026-09-02"),
+        ],
+        page_size=2,
+    )
+    products, authority = load_pinned_cohort(client)
+    assert authority["pinnedPriceAsOf"] == "2026-09-02", (
+        "the newest, larger cohort must win on coverage once it is fully "
+        "visible - if this fails with '2026-08-17', pagination truncation "
+        "silently hid the current cohort again, reproducing the exact "
+        "Phase-19 false 'stale_calculation_run' contradiction"
+    )
+    assert {p["sealed_product_id"] for p in products} == {"w", "y", "z"}
+    assert authority["candidateCohorts"] == {"2026-08-17": 2, "2026-09-02": 3}, (
+        "candidateCohorts must reflect the FULL table, not just the first page"
+    )
+
+
 def test_one_coherent_cohort_resolves_without_a_pin():
     client = _FakeClient([_row("a", "run1", "2026-08-21"), _row("b", "run1", "2026-08-21")])
     products, authority = load_pinned_cohort(client)

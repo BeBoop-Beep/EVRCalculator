@@ -60,7 +60,14 @@ test("Product RIP uses Plus entitlement and only leader-normalized ranking field
   assert.match(rip, /formatPublicRipScore/);
   assert.doesNotMatch(rip, /of 138|Overall Rank|overallRipAbsoluteScore/);
   assert.match(rip, /data-product-rip-score/);
-  assert.match(rip, /Overall RIP = 90% Financial RIP \+ 10% Collector Appeal/);
+  // The formula/explanation is no longer a hardcoded string here - it is the
+  // SAME shared, version-aware component Set RIP/Set Analysis already use
+  // (V10 90/10 today; V12 86/4/10 once a product's own shadow data is
+  // present), sourced from `rip.overallRipV10`/`rip.financialRipV4`/
+  // `rip.publicRipContractV11` rather than re-authored per surface.
+  assert.doesNotMatch(rip, /Overall RIP = 90% Financial RIP \+ 10% Collector Appeal/);
+  assert.match(rip, /OverallRipExplanationHierarchy/);
+  assert.match(rip, /sources=\{\[rip\]\}/);
   assert.match(rip, /publicLeaderScoreTier\(rip\.financialRipLeaderScore\)/);
   assert.match(rip, /const collectorTier = rip\.collectorAppealTier/);
   assert.doesNotMatch(
@@ -142,6 +149,32 @@ test("Basic entitlement keeps Product RIP and opening outcomes behind the lock",
     client.indexOf("<ProductRipLock />") <
       client.indexOf(": <ProductRipSection detail={detail} />"),
   );
+});
+
+test("Set EV Realization is public like Set RIP's own headline, not locked behind Product RIP entitlement", () => {
+  // Renders in the unconditional product-identity header, before the
+  // entitled/locked/unavailable RIP branch - same access model as Set RIP's
+  // ungated SimulationFullReport headline, never inside ProductRipLock or
+  // the Plus-only ProductRipSection/ProductOpeningProfile.
+  const headerIndex = client.indexOf("data-product-identity");
+  const headlineIndex = client.indexOf("data-set-ev-realization-headline");
+  const ripBranchIndex = client.indexOf("detail.rip.available ? entitled ?");
+  assert.ok(headlineIndex > headerIndex);
+  assert.ok(headlineIndex < ripBranchIndex);
+  assert.match(client, /selectSetEvRealizationHeadline/);
+  assert.doesNotMatch(rip, /selectSetEvRealizationHeadline|setEvRepresentativeness/);
+  assert.match(client, /Set EV Realization/);
+  // Never claims a per-opener guarantee or reads as product-specific.
+  const headlineParagraph = client.slice(headlineIndex, client.indexOf("</p>", headlineIndex));
+  assert.doesNotMatch(headlineParagraph, /guarantee/i);
+  assert.doesNotMatch(headlineParagraph, /Product EV Realization/);
+});
+
+test("Set EV Realization reuses the Set RIP selector/formatters - no forked module, no new request", () => {
+  const model = read("./productDetailModel.mjs");
+  assert.match(model, /selectEvRepresentativenessPublicV1/);
+  assert.doesNotMatch(model, /fetch\(|useEffect\(/);
+  assert.doesNotMatch(client, /getSetEvRealization|\/ev-realization/);
 });
 
 test("comparisons and final CTA stay canonical without duplicate Set RIP metrics", () => {

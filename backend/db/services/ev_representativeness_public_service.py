@@ -18,7 +18,14 @@ from backend.research.opening_outcome_profile import (
 
 PUBLIC_CONTRACT_VERSION = "ev_representativeness_public_v1"
 PUBLIC_PACK_COUNTS = (1, 6, 9, 11, 18, 36, 50, 100)
-CONFIRMED_HORIZON_STATUS = "resolved"
+# Both of these are genuinely resolved horizons per
+# backend.research.ev_representativeness.finite_sample.resolve_horizon:
+# "resolved" is the normal case, "resolved_at_minimum_grid_point" is a
+# resolved horizon that happens to land on the very first grid point (a
+# small/cheap set where even 1 pack already clears the threshold). Neither
+# "exceeds_search_cap" nor "degenerate_ev" belongs here - those never
+# fabricate a pack count.
+CONFIRMED_HORIZON_STATUSES = ("resolved", "resolved_at_minimum_grid_point")
 logger = logging.getLogger(__name__)
 
 
@@ -44,7 +51,7 @@ def _confirmed_horizon(row: Mapping[str, Any], *, kind: str) -> Optional[Dict[st
         status = row.get("horizon_tau20_c80_status")
         count = row.get("horizon_tau20_c80_stable")
         parameters = {"tolerance": 0.20, "openerProbability": 0.80}
-    if status != CONFIRMED_HORIZON_STATUS or count is None:
+    if status not in CONFIRMED_HORIZON_STATUSES or count is None:
         return None
     return {**parameters, "packCount": int(count), "status": "confirmed"}
 

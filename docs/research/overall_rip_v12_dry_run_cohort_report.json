@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-09-02",
+  "purpose": "Read-only, code-only dry-run cohort report for the Overall RIP V12 canonical promotion decision. No production writes were performed to produce this file.",
+  "liveDatabaseFindings": {
+    "method": "Direct read-only queries via backend.db.clients.supabase_client.service_read_client against the live project configured in this environment.",
+    "setsTotal": 210,
+    "sealedProductsTotal": 1722,
+    "simulationSealedProductResultsRowsWithFinancialRipV4": 1356,
+    "simulationSealedProductResultsRowsWithOverallRipV10Score": 965,
+    "overallRipV12Columns": {
+      "expectedColumns": [
+        "overall_rip_v12_score",
+        "overall_rip_v12_version",
+        "overall_rip_v12_rankable",
+        "overall_rip_v12_status",
+        "overall_rip_v12_payload"
+      ],
+      "existsInLiveSchema": false,
+      "evidence": "SELECT overall_rip_v12_score FROM simulation_sealed_product_results LIMIT 5 fails with Postgres error 42703 'column simulation_sealed_product_results.overall_rip_v12_score does not exist'."
+    },
+    "chaseAccessibilitySnapshotTable": {
+      "expectedTable": "pokemon_set_chase_accessibility_snapshot_latest",
+      "existsInLiveSchema": false,
+      "evidence": "PostgREST error PGRST205: table not found in schema cache; PostgREST suggests the unrelated 'pokemon_set_chase_economics_snapshot_latest' table instead."
+    },
+    "financialRipV4LiveSample": "Present and populated (e.g. financial_rip_v4_score=29.1638, version=financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5).",
+    "collectorAppealV5LiveSample": "Present and populated (e.g. collector_appeal_score=71.0701, version=collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2)."
+  },
+  "v12ShadowCohortCoverage": {
+    "readyCount": 0,
+    "unavailableCount": "all rows with a calculation_run_id (965 V10-rankable rows observed) - none can carry a V12 score because the persistence column does not exist yet",
+    "authorityMismatchCount": "not computable - Chase Accessibility has never been persisted in this live database",
+    "wrongVersionCount": 0,
+    "unsupportedCount": "not distinguished from unavailable at this time - see reason below",
+    "reason": "OVERALL_RIP_V12_MIGRATIONS_NOT_APPLIED: neither the V12 sealed-product persistence migration nor Chase Accessibility migration 077 has been applied to this live database. The code path that WOULD compute and persist overall_rip_v12_* (backend/db/services/sealed_product_rip_finalization_service.py:_overall_rip_v12_for) is implemented and unit-tested, but has never run against real data because its target columns/tables do not exist yet."
+  },
+  "rankingComparisonV10VsV12": {
+    "status": "NOT COMPUTABLE against live data",
+    "reason": "Zero live V12 scores exist. Spearman/Kendall/Top-5/Top-10/rank-movement analysis was not fabricated. Unit-level correctness of compute_overall_rip_v12 itself was verified via the existing backend test suite (backend/tests/unit/desirability/test_weighted_rip.py or equivalent) and via this session's own selector-shape verification script (frontend, ad hoc, not persisted) - both confirm the FORMULA is correct; neither substitutes for a real ranked cohort."
+  },
+  "productDetailV12Gap": {
+    "status": "CLOSED this session (code + tests only, unverified against live V12 data since none exists)",
+    "filesChanged": [
+      "backend/db/services/product_family_rankings_service.py",
+      "backend/db/services/pokemon_sealed_product_detail_service.py",
+      "frontend/components/pokemon/sealed-product-detail/ProductRipSection.jsx",
+      "frontend/components/pokemon/sealed-product-detail/SealedProductDetail.contract.test.mjs",
+      "backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py",
+      "backend/tests/unit/db/services/test_product_family_rankings_service.py"
+    ],
+    "verification": "Verified with synthetic fixture data (unit tests, 34 backend assertions across 2 files + 11 frontend contract assertions + a standalone selector-shape script), NOT with live V12 data, because none exists in the current database."
+  },
+  "conclusion": "The Overall RIP V12 shadow cohort cannot be honestly built from live data in this environment. This is not a defect introduced by this task; it reflects migrations that were always documented (see docs/research/OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_CLOSURE.md and the Phase 15 runbook in this prompt) as not-yet-applied. Canonical promotion (Phases 11-14) is BLOCKED on this basis."
+}

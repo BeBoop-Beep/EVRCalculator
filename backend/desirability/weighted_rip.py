@@ -26,6 +26,10 @@ import math
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from backend.calculations.evr.financial_rip_v3 import validate_financial_rip_v3_payload
+from backend.desirability.chase_accessibility_overall_score import (
+    CHASE_ACCESSIBILITY_OVERALL_SCORE_K,
+    chase_accessibility_overall_score,
+)
 from backend.calculations.evr.financial_rip_v3_config import (
     FINANCIAL_RIP_V3_COMPONENT_ORDER,
     FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
@@ -63,6 +67,9 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_V11_WEIGHTS,
     OVERALL_RIP_V10_VERSION,
     OVERALL_RIP_V10_WEIGHTS,
+    OVERALL_RIP_V12_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V12_VERSION,
+    OVERALL_RIP_V12_WEIGHTS,
     OVERALL_RIP_WEIGHTS,
     RIP_V3_VERSION,
     SET_VALUE_ASSOCIATION_DISCLOSURE,
@@ -390,6 +397,128 @@ def compute_overall_rip_v11(
         "formula": (
             "0.83 * financial_rip_v4 + 0.11 * collector_appeal_v5 "
             "+ 0.06 * chase_opportunity_v1"
+        ),
+        "rankable": True,
+    }
+
+
+def compute_overall_rip_v12(
+    financial_rip_v4_score: Any,
+    chase_accessibility_raw: Any,
+    collector_appeal_v5_score: Any,
+    *,
+    accessibility_k: float = CHASE_ACCESSIBILITY_OVERALL_SCORE_K,
+) -> Dict[str, Any]:
+    """Overall RIP V12 = 0.86*FinancialV4 + 0.04*AccessibilityScore(k) + 0.10*CollectorV5.
+
+    A NEW third pillar, separate from V11's ``chase_opportunity`` (Core K).
+    V12 uses Chase ACCESSIBILITY instead - the HC-value-squared,
+    modeled-probability set-level reachability metric published by
+    :mod:`backend.desirability.chase_accessibility`. Neither V10 nor V11 is
+    touched by this function; each keeps its own arithmetic, version string
+    and meaning exactly as already shipped.
+
+    LOCKED BY RESEARCH (``docs/research/OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_
+    CLOSURE.md``, FINAL CLOSURE). NOT CANONICAL:
+    ``CANONICAL_OVERALL_RIP_VERSION`` still resolves to V10. This function is
+    computable and directly testable now; promotion is a separate, later
+    change (out of scope here), exactly the pattern V10 and V11 already used
+    before their own eventual promotion decisions.
+
+    ``chase_accessibility_raw`` is the RAW decimal-fraction Chase Accessibility
+    value (``A_raw`` / the ``accessibility`` field of
+    :func:`backend.desirability.chase_accessibility.compute_chase_accessibility`),
+    NOT a pre-transformed score. It is converted to the Overall-scoring
+    ``A_score`` internally, through the ONE canonical transform in
+    :mod:`backend.desirability.chase_accessibility_overall_score` - no other
+    call site may reimplement that arithmetic.
+
+    NO SUBSTITUTIONS, IN EITHER DIRECTION. Requires ALL THREE inputs. A
+    missing or invalid Chase Accessibility is NEVER converted to zero or to a
+    neutral midpoint: the Accessibility transform itself already refuses a
+    missing/negative/non-finite ``A_raw`` by returning ``None`` (see
+    ``chase_accessibility_overall_score``), and a ``None`` A_score here makes
+    the whole V12 result unavailable, exactly like a missing Financial or
+    Collector input. There is no renormalization of the remaining two pillars
+    and no fallback to V10 or V11.
+
+    Each input must carry its declared canonical version; callers resolve the
+    pillars by DECLARED VERSION, never by field position - the same rule V10
+    and V11 already enforce.
+    """
+    financial_score = _as_float(financial_rip_v4_score)
+    accessibility_score = chase_accessibility_overall_score(
+        chase_accessibility_raw, k=accessibility_k
+    )
+    appeal_score = _as_float(collector_appeal_v5_score)
+
+    w_financial = OVERALL_RIP_V12_WEIGHTS["financial_rip"]
+    w_accessibility = OVERALL_RIP_V12_WEIGHTS["chase_accessibility"]
+    w_appeal = OVERALL_RIP_V12_WEIGHTS["collector_appeal"]
+
+    if financial_score is None or accessibility_score is None or appeal_score is None:
+        missing: List[str] = []
+        if financial_score is None:
+            missing.append("financial_rip_v4")
+        if accessibility_score is None:
+            missing.append("chase_accessibility_v1")
+        if appeal_score is None:
+            missing.append("collector_appeal_v5")
+        return {
+            "score": None,
+            "version": OVERALL_RIP_V12_VERSION,
+            "status": "unavailable_missing_input",
+            "statusReason": (
+                "Overall RIP V12 needs a valid Financial RIP V4, a valid Chase "
+                "Accessibility V1 raw value, and a valid Collector Appeal V5. "
+                "Missing: " + ", ".join(missing) + ". No pillar is renormalized, "
+                "a missing/negative/non-finite Chase Accessibility is never "
+                "treated as zero, and there is no fallback to Overall RIP V10 "
+                "or V11."
+            ),
+            "missingInputs": missing,
+            "components": {},
+            "weights": dict(OVERALL_RIP_V12_WEIGHTS),
+            "rankable": False,
+        }
+
+    financial_contribution = w_financial * financial_score
+    accessibility_contribution = w_accessibility * accessibility_score
+    appeal_contribution = w_appeal * appeal_score
+    total = financial_contribution + accessibility_contribution + appeal_contribution
+    # Defensive only, matching the established Overall RIP domain behaviour.
+    # With valid pillars all three inputs are already in [0, 100] and the
+    # weights partition 1.0, so this bound is unreachable rather than an
+    # influence cap - asserted by the test suite.
+    score = max(0.0, min(100.0, total))
+    return {
+        "score": round(score, 4),
+        "version": OVERALL_RIP_V12_VERSION,
+        "status": "ready",
+        "components": {
+            "financialRipV4": {
+                "score": round(financial_score, 4),
+                "weight": round(w_financial, 6),
+                "contribution": round(financial_contribution, 4),
+            },
+            "chaseAccessibility": {
+                "raw": _as_float(chase_accessibility_raw),
+                "score": round(accessibility_score, 4),
+                "weight": round(w_accessibility, 6),
+                "contribution": round(accessibility_contribution, 4),
+                "transformK": accessibility_k,
+            },
+            "collectorAppeal": {
+                "score": round(appeal_score, 4),
+                "weight": round(w_appeal, 6),
+                "contribution": round(appeal_contribution, 4),
+            },
+        },
+        "weights": dict(OVERALL_RIP_V12_WEIGHTS),
+        "effectiveWeights": dict(OVERALL_RIP_V12_EFFECTIVE_WEIGHTS),
+        "formula": (
+            "0.86 * financial_rip_v4 + 0.04 * chase_accessibility_overall_score(k=0.002) "
+            "+ 0.10 * collector_appeal_v5"
         ),
         "rankable": True,
     }

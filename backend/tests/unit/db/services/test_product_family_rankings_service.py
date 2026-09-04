@@ -2,6 +2,7 @@ from backend.db.services import product_family_rankings_service as service
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
+    OVERALL_RIP_V10_VERSION,
     canonical_collector_appeal_version,
 )
 
@@ -39,8 +40,14 @@ def row(product, family="booster_box", run="current", overall=80, financial=70, 
         "financial_rip_v4_score": financial,
         "financial_rip_v4_version": CANONICAL_FINANCIAL_RIP_VERSION,
         "collector_appeal_score": 60, "collector_appeal_version": canonical_collector_appeal_version(),
-        "overall_rip_v10_score": overall, "overall_rip_v10_version": CANONICAL_OVERALL_RIP_VERSION,
+        # V10's OWN literal version string - independent of whatever is canonical
+        # right now, since V10 stays computable/identifiable as explicit history.
+        "overall_rip_v10_score": overall, "overall_rip_v10_version": OVERALL_RIP_V10_VERSION,
         "overall_rip_v10_rankable": True,
+        # Canonical (as of the 2026-09-03 cutover, V12) fields - this is what
+        # `_rank_key`/`_canonical`/`_project` actually read by default now.
+        "overall_rip_v12_score": overall, "overall_rip_v12_version": CANONICAL_OVERALL_RIP_VERSION,
+        "overall_rip_v12_rankable": True, "overall_rip_v12_status": "ready",
     }
     value.update(changes)
     return value
@@ -53,6 +60,32 @@ def build(monkeypatch, rows):
     )
 
 
+def test_overall_rip_v12_payload_passes_through_as_shadow_field_without_affecting_rank(monkeypatch):
+    """`overall_rip_v12_payload` (written by
+    `sealed_product_rip_finalization_service._overall_rip_v12_for`) is
+    surfaced as a pure, additive `overallRipV12` passthrough on each product
+    row - it must never influence `_rank_key`/`_canonical`, which stay keyed
+    on the V10/V4 columns exactly as before this change."""
+    v12_payload = {
+        "score": 55.0, "version": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+        "status": "ready", "rankable": True, "components": {}, "missingInputs": [],
+        "weights": {"financial_rip": 0.86, "chase_accessibility": 0.04, "collector_appeal": 0.10},
+    }
+    # "low" has the HIGHER V12 score but the LOWER V10 score - family order
+    # must still follow V10 (leader = "high"), proving V12 is shadow-only.
+    rows = [
+        row("high", overall=90, overall_rip_v12_payload={**v12_payload, "score": 10.0}),
+        row("low", overall=50, overall_rip_v12_payload=v12_payload),
+        row("no-shadow", overall=70),
+    ]
+    payload = build(None, rows)
+    products = payload["families"]["booster_box"]["products"]
+    assert [p["sealedProductId"] for p in products] == ["high", "no-shadow", "low"]
+    assert products[0]["overallRipV12"]["score"] == 10.0
+    assert products[1]["overallRipV12"] is None
+    assert products[2]["overallRipV12"]["score"] == 55.0
+
+
 def test_current_canonical_rows_only_and_deferred_products_are_not_fabricated(monkeypatch):
     payload = build(monkeypatch, [row("ranked"), row("historical", run="old")])
     products = payload["families"]["booster_box"]["products"]
@@ -60,8 +93,56 @@ def test_current_canonical_rows_only_and_deferred_products_are_not_fabricated(mo
     assert payload["partialToCurrentlyScoredProducts"] is True
 
 
+def _ev_representativeness(run_id="current", pack_count=420):
+    return {
+        "contractVersion": "ev_representativeness_public_v1",
+        "methodVersion": "ev_representativeness_v1",
+        "calculationRunId": run_id,
+        "realizationHorizon": {"targetEvRatio": .80, "openerProbability": .80, "packCount": pack_count, "status": "confirmed"},
+    }
+
+
+def test_product_rows_inherit_the_set_evRepresentativeness_only_from_the_same_run():
+    """Every product in a set carries that SAME set's confirmed EV
+    realization headline - not a new per-product calculation - and only
+    when the set target's evRepresentativeness matches the exact run this
+    product family ranking was built from."""
+    payload = service.build_product_family_rankings(
+        Client([row("ranked")]),
+        set_targets=[{
+            "set_id": "set-1", "canonical_key": "alpha", "calculation_run_id": "current",
+            "name": "Alpha", "logo_image_url": "logo",
+            "evRepresentativeness": _ev_representativeness(),
+        }],
+    )
+    product = payload["families"]["booster_box"]["products"][0]
+    assert product["setEvRepresentativeness"]["calculationRunId"] == "current"
+    assert product["setEvRepresentativeness"]["realizationHorizon"]["packCount"] == 420
+    # Compact: no curve/history array copied onto every product row.
+    assert set(product["setEvRepresentativeness"]) == {"contractVersion", "methodVersion", "calculationRunId", "realizationHorizon"}
+
+
+def test_product_rows_omit_set_evRepresentativeness_from_a_different_run():
+    payload = service.build_product_family_rankings(
+        Client([row("ranked")]),
+        set_targets=[{
+            "set_id": "set-1", "canonical_key": "alpha", "calculation_run_id": "current",
+            "name": "Alpha", "logo_image_url": "logo",
+            "evRepresentativeness": _ev_representativeness(run_id="stale-run"),
+        }],
+    )
+    product = payload["families"]["booster_box"]["products"][0]
+    assert product["setEvRepresentativeness"] is None
+
+
+def test_product_rows_omit_set_evRepresentativeness_when_absent():
+    payload = build(None, [row("ranked")])
+    product = payload["families"]["booster_box"]["products"][0]
+    assert product["setEvRepresentativeness"] is None
+
+
 def test_versions_and_rankable_flag_gate_rankings(monkeypatch):
-    rows = [row("good"), row("old-ca", collector_appeal_version="v4"), row("old-overall", overall_rip_v10_version="v8"), row("not-rankable", overall_rip_v10_rankable=False)]
+    rows = [row("good"), row("old-ca", collector_appeal_version="v4"), row("old-overall", overall_rip_v12_version="v8"), row("not-rankable", overall_rip_v12_rankable=False)]
     family = build(monkeypatch, rows)["families"]["booster_box"]
     assert family["currentlyScoredCount"] == 4
     assert family["currentlyRankableCount"] == family["count"] == 1
@@ -234,3 +315,52 @@ def test_missing_target_run_authority_fails_closed():
         service.build_product_family_rankings(
             Client([]), set_targets=[{"set_id": "set-a", "canonical_key": "alpha"}]
         )
+
+
+def test_canonical_overall_rip_version_flip_to_v12_reranks_on_v12_fields(monkeypatch):
+    """If CANONICAL_OVERALL_RIP_VERSION is ever flipped to V12, `_rank_key`/
+    `_canonical`/`_project` must key off the v12 score/version/rankable
+    columns instead of v10 - proving the family-ranking service is genuinely
+    version-generic, not hardcoded to V10, ahead of any real cutover."""
+    from backend.desirability.scoring_config import OVERALL_RIP_V12_VERSION
+
+    monkeypatch.setattr(service, "CANONICAL_OVERALL_RIP_VERSION", OVERALL_RIP_V12_VERSION)
+    rows_in = [
+        row(
+            "low-v10-high-v12", overall=10,
+            overall_rip_v12_score=95, overall_rip_v12_version=OVERALL_RIP_V12_VERSION,
+            overall_rip_v12_rankable=True,
+        ),
+        row(
+            "high-v10-low-v12", overall=90,
+            overall_rip_v12_score=5, overall_rip_v12_version=OVERALL_RIP_V12_VERSION,
+            overall_rip_v12_rankable=True,
+        ),
+    ]
+    result = build(monkeypatch, rows_in)
+    products = result["families"]["booster_box"]["products"]
+    assert [p["sealedProductId"] for p in products] == ["low-v10-high-v12", "high-v10-low-v12"]
+    assert products[0]["overallRipScore"] == 95
+    assert products[0]["overallRipVersion"] == OVERALL_RIP_V12_VERSION
+    assert products[0]["familyRank"] == 1
+
+
+def test_canonical_overall_rip_version_flip_to_v12_excludes_wrong_version_rows(monkeypatch):
+    """A row whose v12 version/rankable is not aligned is excluded from the
+    V12-canonical cohort even if its v10 fields look fine - `_canonical` must
+    gate on the SAME field triple `_rank_key` sorts on, never a mismatched
+    pair."""
+    from backend.desirability.scoring_config import OVERALL_RIP_V12_VERSION
+
+    monkeypatch.setattr(service, "CANONICAL_OVERALL_RIP_VERSION", OVERALL_RIP_V12_VERSION)
+    rows_in = [
+        row("v12-ready", overall_rip_v12_score=50, overall_rip_v12_version=OVERALL_RIP_V12_VERSION,
+            overall_rip_v12_rankable=True),
+        row("v12-not-rankable", overall_rip_v12_score=99, overall_rip_v12_version=OVERALL_RIP_V12_VERSION,
+            overall_rip_v12_rankable=False),
+        row("v12-wrong-version", overall_rip_v12_score=99, overall_rip_v12_version="overall_rip_v12_stale",
+            overall_rip_v12_rankable=True),
+    ]
+    result = build(monkeypatch, rows_in)
+    products = result["families"]["booster_box"]["products"]
+    assert [p["sealedProductId"] for p in products] == ["v12-ready"]

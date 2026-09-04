@@ -1,0 +1,3450 @@
+{
+  "pass": "OVERALL_RIP_ACCESSIBILITY_PASS_1B_ROBUSTNESS",
+  "phase0_freeze": {
+    "start_head": "6001825c8519fcdb5860d9de66826ca6a0356a6c",
+    "branch": "fix/public-rankings-entitlement-regression-2",
+    "primary_cohort_source": "docs/research/overall_rip_accessibility_primary_cohort.json (Pass 1A frozen, n=22 sets, loose_booster_pack)"
+  },
+  "phase1_2_transform_weight_grid": {
+    "n_sets": 22,
+    "worst_a_raw_parity_delta_vs_frozen": 4.8662627963672045e-11,
+    "grid": {
+      "k=0.0005_w=0": {
+        "k": 0.0005,
+        "weight_pct": 0,
+        "spearman": 1.0,
+        "spearman_p": 0.0,
+        "kendall": 1.0,
+        "kendall_p": 1.779358278490115e-21,
+        "mean_abs_rank_movement": 0.0,
+        "max_rank_movement": 0,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 0,
+        "close_reversal_rate": 0.0,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.0005_w=2": {
+        "k": 0.0005,
+        "weight_pct": 2,
+        "spearman": 0.9977413890457371,
+        "spearman_p": 6.175870633635511e-25,
+        "kendall": 0.9826839826839827,
+        "kendall_p": 4.483982861795089e-19,
+        "mean_abs_rank_movement": 0.18181818181818182,
+        "max_rank_movement": 1,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 2,
+        "close_reversal_rate": 0.04878048780487805,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.0005_w=4": {
+        "k": 0.0005,
+        "weight_pct": 4,
+        "spearman": 0.9954827780914738,
+        "spearman_p": 6.26584416722018e-22,
+        "kendall": 0.974025974025974,
+        "kendall_p": 3.56049591525872e-18,
+        "mean_abs_rank_movement": 0.2727272727272727,
+        "max_rank_movement": 2,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 3,
+        "close_reversal_rate": 0.07317073170731707,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.0005_w=6": {
+        "k": 0.0005,
+        "weight_pct": 6,
+        "spearman": 0.9875776397515529,
+        "spearman_p": 1.500414155629743e-17,
+        "kendall": 0.9393939393939393,
+        "kendall_p": 1.96367666448407e-15,
+        "mean_abs_rank_movement": 0.5454545454545454,
+        "max_rank_movement": 3,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 4,
+        "close_reversal_rate": 0.0975609756097561,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.0005_w=8": {
+        "k": 0.0005,
+        "weight_pct": 8,
+        "spearman": 0.9830604178430267,
+        "spearman_p": 3.2743195754713323e-16,
+        "kendall": 0.9134199134199134,
+        "kendall_p": 6.865168152744079e-14,
+        "mean_abs_rank_movement": 0.8181818181818182,
+        "max_rank_movement": 3,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 5,
+        "close_reversal_rate": 0.12195121951219512,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.0005_w=10": {
+        "k": 0.0005,
+        "weight_pct": 10,
+        "spearman": 0.979672501411632,
+        "spearman_p": 1.9992469191538343e-15,
+        "kendall": 0.8961038961038961,
+        "kendall_p": 5.19477580014101e-13,
+        "mean_abs_rank_movement": 0.9090909090909091,
+        "max_rank_movement": 3,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 6,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.001_w=0": {
+        "k": 0.001,
+        "weight_pct": 0,
+        "spearman": 1.0,
+        "spearman_p": 0.0,
+        "kendall": 1.0,
+        "kendall_p": 1.779358278490115e-21,
+        "mean_abs_rank_movement": 0.0,
+        "max_rank_movement": 0,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 0,
+        "close_reversal_rate": 0.0,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.001_w=2": {
+        "k": 0.001,
+        "weight_pct": 2,
+        "spearman": 0.9977413890457371,
+        "spearman_p": 6.175870633635511e-25,
+        "kendall": 0.9826839826839827,
+        "kendall_p": 4.483982861795089e-19,
+        "mean_abs_rank_movement": 0.18181818181818182,
+        "max_rank_movement": 1,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 2,
+        "close_reversal_rate": 0.04878048780487805,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.001_w=4": {
+        "k": 0.001,
+        "weight_pct": 4,
+        "spearman": 0.9920948616600791,
+        "spearman_p": 1.6646579334974478e-19,
+        "kendall": 0.9567099567099567,
+        "kendall_p": 1.1295544287683096e-16,
+        "mean_abs_rank_movement": 0.45454545454545453,
+        "max_rank_movement": 2,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 4,
+        "close_reversal_rate": 0.0975609756097561,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.001_w=6": {
+        "k": 0.001,
+        "weight_pct": 6,
+        "spearman": 0.9819311123658953,
+        "spearman_p": 6.21422411507972e-16,
+        "kendall": 0.9047619047619047,
+        "kendall_p": 1.9440573711375244e-13,
+        "mean_abs_rank_movement": 0.8181818181818182,
+        "max_rank_movement": 3,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 6,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.001_w=8": {
+        "k": 0.001,
+        "weight_pct": 8,
+        "spearman": 0.9762845849802373,
+        "spearman_p": 9.209975146021341e-15,
+        "kendall": 0.8874458874458874,
+        "kendall_p": 1.31792918580129e-12,
+        "mean_abs_rank_movement": 1.0,
+        "max_rank_movement": 3,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 6,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.001_w=10": {
+        "k": 0.001,
+        "weight_pct": 10,
+        "spearman": 0.9514398644833428,
+        "spearman_p": 1.0762746991194702e-11,
+        "kendall": 0.8268398268398268,
+        "kendall_p": 2.9641133712496993e-10,
+        "mean_abs_rank_movement": 1.5454545454545454,
+        "max_rank_movement": 5,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 9,
+        "close_reversal_rate": 0.21951219512195122,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.002_w=0": {
+        "k": 0.002,
+        "weight_pct": 0,
+        "spearman": 1.0,
+        "spearman_p": 0.0,
+        "kendall": 1.0,
+        "kendall_p": 1.779358278490115e-21,
+        "mean_abs_rank_movement": 0.0,
+        "max_rank_movement": 0,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 0,
+        "close_reversal_rate": 0.0,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.002_w=2": {
+        "k": 0.002,
+        "weight_pct": 2,
+        "spearman": 0.9954827780914738,
+        "spearman_p": 6.26584416722018e-22,
+        "kendall": 0.974025974025974,
+        "kendall_p": 3.56049591525872e-18,
+        "mean_abs_rank_movement": 0.2727272727272727,
+        "max_rank_movement": 2,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 3,
+        "close_reversal_rate": 0.07317073170731707,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.002_w=4": {
+        "k": 0.002,
+        "weight_pct": 4,
+        "spearman": 0.9875776397515529,
+        "spearman_p": 1.500414155629743e-17,
+        "kendall": 0.9393939393939393,
+        "kendall_p": 1.96367666448407e-15,
+        "mean_abs_rank_movement": 0.6363636363636364,
+        "max_rank_movement": 2,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 5,
+        "close_reversal_rate": 0.12195121951219512,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.002_w=6": {
+        "k": 0.002,
+        "weight_pct": 6,
+        "spearman": 0.979672501411632,
+        "spearman_p": 1.9992469191538343e-15,
+        "kendall": 0.8961038961038961,
+        "kendall_p": 5.19477580014101e-13,
+        "mean_abs_rank_movement": 0.9090909090909091,
+        "max_rank_movement": 3,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 6,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.002_w=8": {
+        "k": 0.002,
+        "weight_pct": 8,
+        "spearman": 0.9683794466403164,
+        "spearman_p": 1.58283082986268e-13,
+        "kendall": 0.8701298701298701,
+        "kendall_p": 7.405560372241093e-12,
+        "mean_abs_rank_movement": 1.1818181818181819,
+        "max_rank_movement": 4,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 7,
+        "close_reversal_rate": 0.17073170731707318,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.002_w=10": {
+        "k": 0.002,
+        "weight_pct": 10,
+        "spearman": 0.9457933370976851,
+        "spearman_p": 3.157883046967692e-11,
+        "kendall": 0.8181818181818182,
+        "kendall_p": 5.687023703035138e-10,
+        "mean_abs_rank_movement": 1.5454545454545454,
+        "max_rank_movement": 6,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 9,
+        "close_reversal_rate": 0.21951219512195122,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.004_w=0": {
+        "k": 0.004,
+        "weight_pct": 0,
+        "spearman": 1.0,
+        "spearman_p": 0.0,
+        "kendall": 1.0,
+        "kendall_p": 1.779358278490115e-21,
+        "mean_abs_rank_movement": 0.0,
+        "max_rank_movement": 0,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 0,
+        "close_reversal_rate": 0.0,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.004_w=2": {
+        "k": 0.004,
+        "weight_pct": 2,
+        "spearman": 0.9977413890457371,
+        "spearman_p": 6.175870633635511e-25,
+        "kendall": 0.9826839826839827,
+        "kendall_p": 4.483982861795089e-19,
+        "mean_abs_rank_movement": 0.18181818181818182,
+        "max_rank_movement": 1,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 2,
+        "close_reversal_rate": 0.04878048780487805,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.004_w=4": {
+        "k": 0.004,
+        "weight_pct": 4,
+        "spearman": 0.9875776397515529,
+        "spearman_p": 1.500414155629743e-17,
+        "kendall": 0.9393939393939393,
+        "kendall_p": 1.96367666448407e-15,
+        "mean_abs_rank_movement": 0.6363636363636364,
+        "max_rank_movement": 2,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 5,
+        "close_reversal_rate": 0.12195121951219512,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.004_w=6": {
+        "k": 0.004,
+        "weight_pct": 6,
+        "spearman": 0.9819311123658953,
+        "spearman_p": 6.21422411507972e-16,
+        "kendall": 0.9134199134199134,
+        "kendall_p": 6.865168152744079e-14,
+        "mean_abs_rank_movement": 0.9090909090909091,
+        "max_rank_movement": 2,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 6,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.004_w=8": {
+        "k": 0.004,
+        "weight_pct": 8,
+        "spearman": 0.9762845849802373,
+        "spearman_p": 9.209975146021341e-15,
+        "kendall": 0.8874458874458874,
+        "kendall_p": 1.31792918580129e-12,
+        "mean_abs_rank_movement": 1.0,
+        "max_rank_movement": 3,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 6,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.004_w=10": {
+        "k": 0.004,
+        "weight_pct": 10,
+        "spearman": 0.953698475437606,
+        "spearman_p": 6.747954124153527e-12,
+        "kendall": 0.8268398268398268,
+        "kendall_p": 2.9641133712496993e-10,
+        "mean_abs_rank_movement": 1.4545454545454546,
+        "max_rank_movement": 5,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 10,
+        "close_reversal_rate": 0.24390243902439024,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.008_w=0": {
+        "k": 0.008,
+        "weight_pct": 0,
+        "spearman": 1.0,
+        "spearman_p": 0.0,
+        "kendall": 1.0,
+        "kendall_p": 1.779358278490115e-21,
+        "mean_abs_rank_movement": 0.0,
+        "max_rank_movement": 0,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 0,
+        "close_reversal_rate": 0.0,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.008_w=2": {
+        "k": 0.008,
+        "weight_pct": 2,
+        "spearman": 0.9988706945228685,
+        "spearman_p": 6.05907136088493e-28,
+        "kendall": 0.9913419913419913,
+        "kendall_p": 3.9145882126782525e-20,
+        "mean_abs_rank_movement": 0.09090909090909091,
+        "max_rank_movement": 1,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 1,
+        "close_reversal_rate": 0.024390243902439025,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.008_w=4": {
+        "k": 0.008,
+        "weight_pct": 4,
+        "spearman": 0.9954827780914738,
+        "spearman_p": 6.26584416722018e-22,
+        "kendall": 0.974025974025974,
+        "kendall_p": 3.56049591525872e-18,
+        "mean_abs_rank_movement": 0.2727272727272727,
+        "max_rank_movement": 2,
+        "top5_overlap": 5,
+        "top10_overlap": 10,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 3,
+        "close_reversal_rate": 0.07317073170731707,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.008_w=6": {
+        "k": 0.008,
+        "weight_pct": 6,
+        "spearman": 0.9841897233201583,
+        "spearman_p": 1.6500961302732843e-16,
+        "kendall": 0.922077922077922,
+        "kendall_p": 2.2707451489346332e-14,
+        "mean_abs_rank_movement": 0.8181818181818182,
+        "max_rank_movement": 2,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 6,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.008_w=8": {
+        "k": 0.008,
+        "weight_pct": 8,
+        "spearman": 0.9785431959345003,
+        "spearman_p": 3.4170637391633204e-15,
+        "kendall": 0.9047619047619047,
+        "kendall_p": 1.9440573711375244e-13,
+        "mean_abs_rank_movement": 1.0,
+        "max_rank_movement": 3,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 6,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      },
+      "k=0.008_w=10": {
+        "k": 0.008,
+        "weight_pct": 10,
+        "spearman": 0.9774138904573689,
+        "spearman_p": 5.68056764784103e-15,
+        "kendall": 0.8961038961038961,
+        "kendall_p": 5.19477580014101e-13,
+        "mean_abs_rank_movement": 1.0,
+        "max_rank_movement": 3,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_financial_pair_count": 41,
+        "close_reversal_count": 6,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_override_pair_count": 60,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0,
+        "same_set_reversals": 0,
+        "same_set_winner_changes": 0
+      }
+    },
+    "hard_gates": {
+      "k=0.0005_w=0": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.0005_w=2": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.0005_w=4": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.0005_w=6": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.0005_w=8": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.0005_w=10": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      },
+      "k=0.001_w=0": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.001_w=2": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.001_w=4": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.001_w=6": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.001_w=8": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      },
+      "k=0.001_w=10": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      },
+      "k=0.002_w=0": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.002_w=2": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.002_w=4": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.002_w=6": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      },
+      "k=0.002_w=8": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      },
+      "k=0.002_w=10": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      },
+      "k=0.004_w=0": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.004_w=2": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.004_w=4": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.004_w=6": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.004_w=8": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      },
+      "k=0.004_w=10": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      },
+      "k=0.008_w=0": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.008_w=2": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.008_w=4": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.008_w=6": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 1.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": true
+      },
+      "k=0.008_w=8": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      },
+      "k=0.008_w=10": {
+        "gate_clear_overrides_zero": true,
+        "gate_spearman_ge_098": 0.0,
+        "gate_top5_turnover_le_1": true,
+        "passes_all": 0.0
+      }
+    },
+    "phase2_transform_robustness_w4_6_8_10": {
+      "4": {
+        "min_spearman": 0.9875776397515529,
+        "max_clear_overrides": 0,
+        "max_financial_gap_overturned": 0.0,
+        "min_top5_overlap": 4,
+        "close_reversal_rate_min": 0.07317073170731707,
+        "close_reversal_rate_max": 0.12195121951219512
+      },
+      "6": {
+        "min_spearman": 0.979672501411632,
+        "max_clear_overrides": 0,
+        "max_financial_gap_overturned": 0.0,
+        "min_top5_overlap": 4,
+        "close_reversal_rate_min": 0.0975609756097561,
+        "close_reversal_rate_max": 0.14634146341463414
+      },
+      "8": {
+        "min_spearman": 0.9683794466403164,
+        "max_clear_overrides": 0,
+        "max_financial_gap_overturned": 0.0,
+        "min_top5_overlap": 4,
+        "close_reversal_rate_min": 0.12195121951219512,
+        "close_reversal_rate_max": 0.17073170731707318
+      },
+      "10": {
+        "min_spearman": 0.9457933370976851,
+        "max_clear_overrides": 0,
+        "max_financial_gap_overturned": 0.0,
+        "min_top5_overlap": 4,
+        "close_reversal_rate_min": 0.14634146341463414,
+        "close_reversal_rate_max": 0.24390243902439024
+      }
+    }
+  },
+  "phase3_core_k": {
+    "version_identity": "chase_core_k_v1_stage5c_3x_pack_equivalent_cost",
+    "baseline": {
+      "n_products": 55,
+      "core_k_vs_accessibility_a_raw": {
+        "spearman": -0.7032817389154636,
+        "p": 2.1335499390896626e-09
+      },
+      "core_k_vs_financial_rip_v4": {
+        "spearman": 0.5890309558808231,
+        "p": 2.2374992768321375e-06
+      },
+      "core_k_vs_effective_pack_cost": {
+        "spearman": -0.4035133908224814,
+        "p": 0.0022518284797087076
+      },
+      "core_k_distribution": {
+        "min": 0,
+        "max": 21,
+        "mean": 5.527272727272727,
+        "n_zero": 3
+      }
+    },
+    "card_price_shocks": {
+      "-20": {
+        "products_evaluated": 55,
+        "products_changed": 34,
+        "share_changed": 0.6181818181818182,
+        "mean_abs_delta_k": 1.2727272727272727,
+        "max_abs_delta_k": 7
+      },
+      "-10": {
+        "products_evaluated": 55,
+        "products_changed": 26,
+        "share_changed": 0.4727272727272727,
+        "mean_abs_delta_k": 0.7272727272727273,
+        "max_abs_delta_k": 6
+      },
+      "-5": {
+        "products_evaluated": 55,
+        "products_changed": 17,
+        "share_changed": 0.3090909090909091,
+        "mean_abs_delta_k": 0.36363636363636365,
+        "max_abs_delta_k": 3
+      },
+      "-2": {
+        "products_evaluated": 55,
+        "products_changed": 10,
+        "share_changed": 0.18181818181818182,
+        "mean_abs_delta_k": 0.18181818181818182,
+        "max_abs_delta_k": 1
+      },
+      "2": {
+        "products_evaluated": 55,
+        "products_changed": 0,
+        "share_changed": 0.0,
+        "mean_abs_delta_k": 0.0,
+        "max_abs_delta_k": 0
+      },
+      "5": {
+        "products_evaluated": 55,
+        "products_changed": 9,
+        "share_changed": 0.16363636363636364,
+        "mean_abs_delta_k": 0.2,
+        "max_abs_delta_k": 2
+      },
+      "10": {
+        "products_evaluated": 55,
+        "products_changed": 23,
+        "share_changed": 0.41818181818181815,
+        "mean_abs_delta_k": 0.5818181818181818,
+        "max_abs_delta_k": 3
+      },
+      "20": {
+        "products_evaluated": 55,
+        "products_changed": 36,
+        "share_changed": 0.6545454545454545,
+        "mean_abs_delta_k": 1.1818181818181819,
+        "max_abs_delta_k": 3
+      }
+    },
+    "product_price_shocks": {
+      "-20": {
+        "products_evaluated": 55,
+        "products_changed": 38,
+        "share_changed": 0.6909090909090909,
+        "mean_abs_delta_k": 1.6,
+        "max_abs_delta_k": 5
+      },
+      "-10": {
+        "products_evaluated": 55,
+        "products_changed": 28,
+        "share_changed": 0.509090909090909,
+        "mean_abs_delta_k": 0.6909090909090909,
+        "max_abs_delta_k": 3
+      },
+      "-5": {
+        "products_evaluated": 55,
+        "products_changed": 9,
+        "share_changed": 0.16363636363636364,
+        "mean_abs_delta_k": 0.2,
+        "max_abs_delta_k": 2
+      },
+      "-2": {
+        "products_evaluated": 55,
+        "products_changed": 0,
+        "share_changed": 0.0,
+        "mean_abs_delta_k": 0.0,
+        "max_abs_delta_k": 0
+      },
+      "2": {
+        "products_evaluated": 55,
+        "products_changed": 10,
+        "share_changed": 0.18181818181818182,
+        "mean_abs_delta_k": 0.18181818181818182,
+        "max_abs_delta_k": 1
+      },
+      "5": {
+        "products_evaluated": 55,
+        "products_changed": 17,
+        "share_changed": 0.3090909090909091,
+        "mean_abs_delta_k": 0.36363636363636365,
+        "max_abs_delta_k": 3
+      },
+      "10": {
+        "products_evaluated": 55,
+        "products_changed": 25,
+        "share_changed": 0.45454545454545453,
+        "mean_abs_delta_k": 0.6545454545454545,
+        "max_abs_delta_k": 4
+      },
+      "20": {
+        "products_evaluated": 55,
+        "products_changed": 32,
+        "share_changed": 0.5818181818181818,
+        "mean_abs_delta_k": 1.0909090909090908,
+        "max_abs_delta_k": 6
+      }
+    },
+    "note": "Core K counts drawable cards crossing a hard 3x pack-equivalent-cost threshold -- an integer step function, unlike Accessibility's continuous A_raw. Non-zero share_changed at even small (+-2%) shocks with zero A_raw sensitivity (Phase 5/6) at the same magnitudes quantifies exactly this discontinuity gap."
+  },
+  "phase4_uniform_invariance": {
+    "card_price_scaling": {
+      "0.5": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22
+      },
+      "2.0": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22
+      },
+      "10.0": {
+        "worst_abs_delta": 8.673617379884035e-19,
+        "n_sets_checked": 22
+      }
+    },
+    "product_price_change": {
+      "-20": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22,
+        "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+      },
+      "-10": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22,
+        "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+      },
+      "-5": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22,
+        "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+      },
+      "-2": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22,
+        "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+      },
+      "2": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22,
+        "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+      },
+      "5": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22,
+        "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+      },
+      "10": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22,
+        "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+      },
+      "20": {
+        "worst_abs_delta": 0.0,
+        "n_sets_checked": 22,
+        "note": "product_market_cost is not a parameter of compute_chase_accessibility; delta is exactly 0.0 by construction (the function signature is keyword-only over variants and physically cannot accept a product cost)."
+      }
+    },
+    "worst_delta_card_price_scaling_overall": 8.673617379884035e-19,
+    "worst_delta_product_price_change_overall": 0.0
+  },
+  "phase5_6_independent_shocks": {
+    "phase5_card_price_shocks": {
+      "0.02": {
+        "seeds_tested": 12,
+        "base_seed": 2000,
+        "worst_per_weight": {
+          "4": {
+            "worst_spearman": 0.9875776397515529,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.12195121951219512,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "6": {
+            "worst_spearman": 0.979672501411632,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.14634146341463414,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "8": {
+            "worst_spearman": 0.9683794466403164,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.17073170731707318,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          }
+        },
+        "raw_a_raw_abs_delta_median": 1.2925041370549784e-06,
+        "raw_a_raw_abs_delta_max": 3.0384635127517906e-05
+      },
+      "0.05": {
+        "seeds_tested": 12,
+        "base_seed": 5000,
+        "worst_per_weight": {
+          "4": {
+            "worst_spearman": 0.9875776397515529,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.12195121951219512,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "6": {
+            "worst_spearman": 0.979672501411632,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.14634146341463414,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "8": {
+            "worst_spearman": 0.9672501411631848,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.1951219512195122,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          }
+        },
+        "raw_a_raw_abs_delta_median": 3.913295277508961e-06,
+        "raw_a_raw_abs_delta_max": 7.429113685267653e-05
+      },
+      "0.1": {
+        "seeds_tested": 12,
+        "base_seed": 10000,
+        "worst_per_weight": {
+          "4": {
+            "worst_spearman": 0.9875776397515529,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.12195121951219512,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "6": {
+            "worst_spearman": 0.979672501411632,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.14634146341463414,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "8": {
+            "worst_spearman": 0.9649915302089217,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.1951219512195122,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          }
+        },
+        "raw_a_raw_abs_delta_median": 6.815612229091501e-06,
+        "raw_a_raw_abs_delta_max": 0.00018583945425853978
+      }
+    },
+    "phase6_pull_probability_shocks": {
+      "0.02": {
+        "seeds_tested": 12,
+        "base_seed": 2000,
+        "worst_per_weight": {
+          "4": {
+            "worst_spearman": 0.9875776397515529,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.12195121951219512,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "6": {
+            "worst_spearman": 0.979672501411632,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.14634146341463414,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "8": {
+            "worst_spearman": 0.9649915302089217,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.17073170731707318,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          }
+        },
+        "raw_a_raw_abs_delta_median": 7.96576683983639e-06,
+        "raw_a_raw_abs_delta_max": 7.747970625558102e-05
+      },
+      "0.05": {
+        "seeds_tested": 12,
+        "base_seed": 5000,
+        "worst_per_weight": {
+          "4": {
+            "worst_spearman": 0.9875776397515529,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.12195121951219512,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "6": {
+            "worst_spearman": 0.979672501411632,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.14634146341463414,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "8": {
+            "worst_spearman": 0.9638622247317901,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.1951219512195122,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          }
+        },
+        "raw_a_raw_abs_delta_median": 2.0168650434364884e-05,
+        "raw_a_raw_abs_delta_max": 0.0001870273813248443
+      },
+      "0.1": {
+        "seeds_tested": 12,
+        "base_seed": 10000,
+        "worst_per_weight": {
+          "4": {
+            "worst_spearman": 0.9875776397515529,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.12195121951219512,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "6": {
+            "worst_spearman": 0.9762845849802373,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.14634146341463414,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          },
+          "8": {
+            "worst_spearman": 0.9570863918690007,
+            "worst_top5_overlap": 4,
+            "worst_top10_overlap": 9,
+            "worst_close_reversal_rate": 0.1951219512195122,
+            "max_clear_overrides": 0,
+            "max_financial_gap_overturned": 0.0
+          }
+        },
+        "raw_a_raw_abs_delta_median": 4.219830296439014e-05,
+        "raw_a_raw_abs_delta_max": 0.00034346543319308323
+      }
+    }
+  },
+  "phase7_temporal_authority_search": {
+    "pull_rates_run_inventory": {
+      "step1_pull_rates_run_inventory": {
+        "rows_scanned": 24366,
+        "sets_checked": 22,
+        "distinct_run_count_per_set": {
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30": 3,
+          "472f851c-2e41-4c80-b6fc-8478d1d92730": 3,
+          "de291399-ead5-41dc-bc12-e7c587684f85": 4,
+          "d001d563-988b-4f8e-904f-acb926748e22": 3,
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 3,
+          "f59f25a2-d3da-4100-a918-901271a99925": 3,
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600": 3,
+          "5e99f658-39f0-4845-9228-db8db3965f32": 3,
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 3,
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 3,
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 5,
+          "142d3869-9d39-48b6-a810-751af2aac748": 2,
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6": 3,
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616": 3,
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 4,
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 3,
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6": 3,
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 3,
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 3,
+          "3c459327-59d0-41d5-b21e-aae36361cc77": 3,
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 4,
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069": 3
+        },
+        "sets_with_2_or_more_distinct_runs": {
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30": [
+            "5447bf45-8a67-456a-9a20-cb7d28a0fc89",
+            "bf4498c2-8743-4b7d-aad1-59118f5ec74b",
+            "ce171d97-fb34-4c23-a8dd-72a0402de077"
+          ],
+          "472f851c-2e41-4c80-b6fc-8478d1d92730": [
+            "b20e3796-86c1-4024-9a5f-ee5b815469ea",
+            "476ac710-979b-4adc-9365-2442a59197d9",
+            "e6b3dae7-2274-4973-a184-3e54dcc7450d"
+          ],
+          "de291399-ead5-41dc-bc12-e7c587684f85": [
+            "5a76cb68-7ae0-41a6-bd51-60b8b7befbd6",
+            "7607569c-8ad2-4c5a-b363-4ecf26e01874",
+            "34bfaf28-8f01-4504-b339-75b481a13785",
+            "2925570c-5580-4903-b8dc-c08ea52cd79f"
+          ],
+          "d001d563-988b-4f8e-904f-acb926748e22": [
+            "45074ef5-d3ef-4cd6-9c3f-bf874976040c",
+            "3c599426-e0b8-4929-8bec-a38fb3c8bf01",
+            "a0be1d95-d185-4a42-9312-a21d20de8d9c"
+          ],
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b": [
+            "67220043-7994-48ff-a845-f3347196559c",
+            "41431a08-5b21-4088-90fe-5a4fd108dd85",
+            "de0aee28-b39a-4286-9b97-e03ffd3097b0"
+          ],
+          "f59f25a2-d3da-4100-a918-901271a99925": [
+            "429bfdff-0b26-4a94-acfb-7d17d7aa85bf",
+            "db55e9c3-a7e5-4a35-aea2-1c9231df4251",
+            "be92bf99-abec-40dc-9c6a-8e9452ecb4c4"
+          ],
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600": [
+            "f7e96b21-c304-4685-910c-ebeedd59371e",
+            "1170ae07-8f1c-440d-904d-891aa6c92999",
+            "c1fb0c2a-1990-4a6b-ae5f-2b3221b1fd86"
+          ],
+          "5e99f658-39f0-4845-9228-db8db3965f32": [
+            "a69cee7d-cad2-4ac7-812b-77c92cbc3d31",
+            "212613c9-4311-435f-88aa-34539085ab5e",
+            "3e1940e7-6dd6-4dcf-a59c-739dc754be34"
+          ],
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": [
+            "9d63b06a-37b6-4803-8d7a-31fddf2139ef",
+            "6671119a-e042-4f4c-bc87-60f207d852a6",
+            "456a6d2e-63d5-4401-9282-c1bc653e18e8"
+          ],
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": [
+            "bcbbe948-c6d5-47b2-a604-9700f6b33238",
+            "c9c91cce-1c66-4b79-bb18-2319f5d41a98",
+            "ccc995f3-31db-4a95-a121-648a200530b7"
+          ],
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": [
+            "d2f0c294-a1e5-41dd-94a5-1c9cee043e91",
+            "a20e7d2d-7a16-4892-a5bb-36bc72e5d893",
+            "bda4d343-9eda-4358-9451-87bd29b8e95d",
+            "72fc315b-7ae9-46a6-a291-1c0061d8cfd3",
+            "f2ed9183-1159-4782-b168-585a63397870"
+          ],
+          "142d3869-9d39-48b6-a810-751af2aac748": [
+            "a1166983-305a-48ef-97c5-cb703289bf62",
+            "fef3dc93-9bf1-4536-a0bc-d36ce4883bec"
+          ],
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6": [
+            "7893e94d-197e-4eb3-8b8a-94dfab7afd8b",
+            "b9ad7a8a-c706-4878-bfdc-6bd5b895abf4",
+            "e82d9f96-c3e9-40ff-b8c9-8d558f397d38"
+          ],
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616": [
+            "e9ccb779-bd84-4729-9746-850291092523",
+            "87e0a44d-201d-4c9d-989b-74572ac16323",
+            "873ef1d4-a798-484b-a8d8-ba7068ecf413"
+          ],
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": [
+            "f1506299-38a2-4874-a2ce-291ee14fc09f",
+            "d8ac40fc-c777-4b86-9165-06dc12e7ad50",
+            "59227b49-d0e5-4b6a-a85a-91557983d2be",
+            "dcbbf778-66f9-406e-a8d5-116abd43944b"
+          ],
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": [
+            "3943f13d-0cac-4e95-9b9a-c4ce3bf71505",
+            "5b8ff5dd-efbf-4e9f-b221-33aa1fcf58d4",
+            "643cd447-d484-494a-bc7b-6584d747ac9e"
+          ],
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6": [
+            "fa64ac79-78be-478e-bb73-ecbf107952b5",
+            "94d73c2e-a455-461f-bc39-b4c1145969ba",
+            "8ee01536-561f-4acb-bef7-a97c51e449c4"
+          ],
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27": [
+            "6459a554-e4c5-4a40-bf22-0e76a461ec39",
+            "f1054e54-4306-448a-bfe9-0852737cee94",
+            "c2b02b6a-8aae-467f-88ea-4e935dea2e19"
+          ],
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": [
+            "716ef97d-1d85-4e8d-89d6-923c97507ac8",
+            "d4f13af4-3738-4271-aa20-14a757066d6c",
+            "7da37e1a-3089-431d-aebf-28cde0267651"
+          ],
+          "3c459327-59d0-41d5-b21e-aae36361cc77": [
+            "8326c2c7-d3cb-4b72-bd29-768fa9383c2c",
+            "a804197e-2fa9-44a7-91c8-f65ed4e0301f",
+            "11f1821e-4d65-42cb-b5e4-4c6e9e2e7703"
+          ],
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": [
+            "79887a3b-c5d6-49ec-ac35-e6975eaa41c3",
+            "28ffeb1c-09e5-4ffa-b960-3e093c713140",
+            "d6c9dd54-2772-4dc2-a516-c459ddfb489f",
+            "1a39ad4b-17de-40ba-b66e-993055961155"
+          ],
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069": [
+            "7603944e-bbe6-4d1b-a97a-175b3ac277b9",
+            "c5191376-896c-472f-b67d-fa6512021a5b",
+            "bf6f554a-8f46-452c-a93c-5069ebb80403"
+          ]
+        },
+        "n_sets_with_2plus_runs": 22
+      }
+    },
+    "run_dates_per_set": {
+      "5d3d5c23-7098-4393-ad63-6ad9372aee30": {
+        "primary_cohort_accessibility_run": "5447bf45-8a67-456a-9a20-cb7d28a0fc89",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "5447bf45-8a67-456a-9a20-cb7d28a0fc89",
+            "min_created_at": "2026-09-02T03:14:48.89931+00:00",
+            "max_created_at": "2026-09-02T03:15:29.241901+00:00",
+            "row_count": 428
+          },
+          {
+            "run_id": "ce171d97-fb34-4c23-a8dd-72a0402de077",
+            "min_created_at": "2026-08-31T17:27:15.320872+00:00",
+            "max_created_at": "2026-08-31T17:27:58.819747+00:00",
+            "row_count": 428
+          },
+          {
+            "run_id": "bf4498c2-8743-4b7d-aad1-59118f5ec74b",
+            "min_created_at": "2026-08-28T17:34:10.53593+00:00",
+            "max_created_at": "2026-08-28T17:34:52.461545+00:00",
+            "row_count": 428
+          }
+        ]
+      },
+      "472f851c-2e41-4c80-b6fc-8478d1d92730": {
+        "primary_cohort_accessibility_run": "476ac710-979b-4adc-9365-2442a59197d9",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "476ac710-979b-4adc-9365-2442a59197d9",
+            "min_created_at": "2026-09-02T03:24:55.883604+00:00",
+            "max_created_at": "2026-09-02T03:25:14.343964+00:00",
+            "row_count": 194
+          },
+          {
+            "run_id": "e6b3dae7-2274-4973-a184-3e54dcc7450d",
+            "min_created_at": "2026-08-31T17:37:00.443749+00:00",
+            "max_created_at": "2026-08-31T17:37:31.438486+00:00",
+            "row_count": 194
+          },
+          {
+            "run_id": "b20e3796-86c1-4024-9a5f-ee5b815469ea",
+            "min_created_at": "2026-08-28T17:44:28.220704+00:00",
+            "max_created_at": "2026-08-28T17:44:47.05115+00:00",
+            "row_count": 194
+          }
+        ]
+      },
+      "de291399-ead5-41dc-bc12-e7c587684f85": {
+        "primary_cohort_accessibility_run": "7607569c-8ad2-4c5a-b363-4ecf26e01874",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "34bfaf28-8f01-4504-b339-75b481a13785",
+            "min_created_at": "2026-09-02T17:13:37.126407+00:00",
+            "max_created_at": "2026-09-02T17:14:27.140508+00:00",
+            "row_count": 409
+          },
+          {
+            "run_id": "7607569c-8ad2-4c5a-b363-4ecf26e01874",
+            "min_created_at": "2026-08-29T17:46:29.982186+00:00",
+            "max_created_at": "2026-08-29T17:47:09.822033+00:00",
+            "row_count": 409
+          },
+          {
+            "run_id": "5a76cb68-7ae0-41a6-bd51-60b8b7befbd6",
+            "min_created_at": "2026-08-29T17:02:41.011751+00:00",
+            "max_created_at": "2026-08-29T17:03:18.237677+00:00",
+            "row_count": 409
+          },
+          {
+            "run_id": "2925570c-5580-4903-b8dc-c08ea52cd79f",
+            "min_created_at": "2026-08-28T17:12:41.467052+00:00",
+            "max_created_at": "2026-08-28T17:13:33.03017+00:00",
+            "row_count": 409
+          }
+        ]
+      },
+      "d001d563-988b-4f8e-904f-acb926748e22": {
+        "primary_cohort_accessibility_run": "45074ef5-d3ef-4cd6-9c3f-bf874976040c",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "45074ef5-d3ef-4cd6-9c3f-bf874976040c",
+            "min_created_at": "2026-09-02T03:32:22.349075+00:00",
+            "max_created_at": "2026-09-02T03:32:56.721513+00:00",
+            "row_count": 361
+          },
+          {
+            "run_id": "3c599426-e0b8-4929-8bec-a38fb3c8bf01",
+            "min_created_at": "2026-08-31T17:45:11.354723+00:00",
+            "max_created_at": "2026-08-31T17:45:47.061808+00:00",
+            "row_count": 361
+          },
+          {
+            "run_id": "a0be1d95-d185-4a42-9312-a21d20de8d9c",
+            "min_created_at": "2026-08-28T17:51:47.087713+00:00",
+            "max_created_at": "2026-08-28T17:52:23.946877+00:00",
+            "row_count": 361
+          }
+        ]
+      },
+      "41a0ac1c-27ca-444b-8665-8ba35e583a3b": {
+        "primary_cohort_accessibility_run": "41431a08-5b21-4088-90fe-5a4fd108dd85",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "67220043-7994-48ff-a845-f3347196559c",
+            "min_created_at": "2026-09-02T17:07:20.980195+00:00",
+            "max_created_at": "2026-09-02T17:08:00.354267+00:00",
+            "row_count": 407
+          },
+          {
+            "run_id": "41431a08-5b21-4088-90fe-5a4fd108dd85",
+            "min_created_at": "2026-08-31T17:07:19.855596+00:00",
+            "max_created_at": "2026-08-31T17:07:59.762722+00:00",
+            "row_count": 407
+          },
+          {
+            "run_id": "de0aee28-b39a-4286-9b97-e03ffd3097b0",
+            "min_created_at": "2026-08-28T17:06:32.372374+00:00",
+            "max_created_at": "2026-08-28T17:07:14.276582+00:00",
+            "row_count": 407
+          }
+        ]
+      },
+      "f59f25a2-d3da-4100-a918-901271a99925": {
+        "primary_cohort_accessibility_run": "be92bf99-abec-40dc-9c6a-8e9452ecb4c4",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "be92bf99-abec-40dc-9c6a-8e9452ecb4c4",
+            "min_created_at": "2026-09-02T03:45:38.546731+00:00",
+            "max_created_at": "2026-09-02T03:46:18.853367+00:00",
+            "row_count": 417
+          },
+          {
+            "run_id": "429bfdff-0b26-4a94-acfb-7d17d7aa85bf",
+            "min_created_at": "2026-08-31T17:58:38.755575+00:00",
+            "max_created_at": "2026-08-31T17:59:20.27061+00:00",
+            "row_count": 417
+          },
+          {
+            "run_id": "db55e9c3-a7e5-4a35-aea2-1c9231df4251",
+            "min_created_at": "2026-08-28T18:05:12.165094+00:00",
+            "max_created_at": "2026-08-28T18:05:52.436203+00:00",
+            "row_count": 417
+          }
+        ]
+      },
+      "b4b34b61-ce48-4fc4-bd91-201a350b2600": {
+        "primary_cohort_accessibility_run": "f7e96b21-c304-4685-910c-ebeedd59371e",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "f7e96b21-c304-4685-910c-ebeedd59371e",
+            "min_created_at": "2026-09-02T03:04:09.769519+00:00",
+            "max_created_at": "2026-09-02T03:04:47.697276+00:00",
+            "row_count": 406
+          },
+          {
+            "run_id": "1170ae07-8f1c-440d-904d-891aa6c92999",
+            "min_created_at": "2026-08-31T17:17:15.645698+00:00",
+            "max_created_at": "2026-08-31T17:17:55.013456+00:00",
+            "row_count": 406
+          },
+          {
+            "run_id": "c1fb0c2a-1990-4a6b-ae5f-2b3221b1fd86",
+            "min_created_at": "2026-08-28T17:23:10.369873+00:00",
+            "max_created_at": "2026-08-28T17:23:51.658515+00:00",
+            "row_count": 406
+          }
+        ]
+      },
+      "5e99f658-39f0-4845-9228-db8db3965f32": {
+        "primary_cohort_accessibility_run": "a69cee7d-cad2-4ac7-812b-77c92cbc3d31",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "a69cee7d-cad2-4ac7-812b-77c92cbc3d31",
+            "min_created_at": "2026-09-02T03:18:47.526102+00:00",
+            "max_created_at": "2026-09-02T03:19:05.947008+00:00",
+            "row_count": 202
+          },
+          {
+            "run_id": "212613c9-4311-435f-88aa-34539085ab5e",
+            "min_created_at": "2026-08-31T17:30:28.276705+00:00",
+            "max_created_at": "2026-08-31T17:30:48.147543+00:00",
+            "row_count": 202
+          },
+          {
+            "run_id": "3e1940e7-6dd6-4dcf-a59c-739dc754be34",
+            "min_created_at": "2026-08-28T17:38:22.275363+00:00",
+            "max_created_at": "2026-08-28T17:38:41.708442+00:00",
+            "row_count": 202
+          }
+        ]
+      },
+      "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": {
+        "primary_cohort_accessibility_run": "6671119a-e042-4f4c-bc87-60f207d852a6",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "6671119a-e042-4f4c-bc87-60f207d852a6",
+            "min_created_at": "2026-09-02T03:42:30.451229+00:00",
+            "max_created_at": "2026-09-02T03:42:59.823401+00:00",
+            "row_count": 300
+          },
+          {
+            "run_id": "456a6d2e-63d5-4401-9282-c1bc653e18e8",
+            "min_created_at": "2026-08-31T17:55:17.013474+00:00",
+            "max_created_at": "2026-08-31T17:55:46.309134+00:00",
+            "row_count": 300
+          },
+          {
+            "run_id": "9d63b06a-37b6-4803-8d7a-31fddf2139ef",
+            "min_created_at": "2026-08-28T18:01:34.135762+00:00",
+            "max_created_at": "2026-08-28T18:02:03.876609+00:00",
+            "row_count": 300
+          }
+        ]
+      },
+      "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": {
+        "primary_cohort_accessibility_run": "ccc995f3-31db-4a95-a121-648a200530b7",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "ccc995f3-31db-4a95-a121-648a200530b7",
+            "min_created_at": "2026-09-02T03:39:34.370024+00:00",
+            "max_created_at": "2026-09-02T03:39:49.903981+00:00",
+            "row_count": 162
+          },
+          {
+            "run_id": "c9c91cce-1c66-4b79-bb18-2319f5d41a98",
+            "min_created_at": "2026-08-31T17:52:30.144209+00:00",
+            "max_created_at": "2026-08-31T17:52:45.957814+00:00",
+            "row_count": 162
+          },
+          {
+            "run_id": "bcbbe948-c6d5-47b2-a604-9700f6b33238",
+            "min_created_at": "2026-08-28T17:58:09.300947+00:00",
+            "max_created_at": "2026-08-28T17:58:24.698337+00:00",
+            "row_count": 162
+          }
+        ]
+      },
+      "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": {
+        "primary_cohort_accessibility_run": "bda4d343-9eda-4358-9451-87bd29b8e95d",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "a20e7d2d-7a16-4892-a5bb-36bc72e5d893",
+            "min_created_at": "2026-09-02T17:03:40.587412+00:00",
+            "max_created_at": "2026-09-02T17:04:25.031751+00:00",
+            "row_count": 464
+          },
+          {
+            "run_id": "bda4d343-9eda-4358-9451-87bd29b8e95d",
+            "min_created_at": "2026-08-31T17:03:20.126676+00:00",
+            "max_created_at": "2026-08-31T17:04:04.659436+00:00",
+            "row_count": 464
+          },
+          {
+            "run_id": "f2ed9183-1159-4782-b168-585a63397870",
+            "min_created_at": "2026-08-28T17:02:56.299169+00:00",
+            "max_created_at": "2026-08-28T17:03:40.843707+00:00",
+            "row_count": 468
+          },
+          {
+            "run_id": "d2f0c294-a1e5-41dd-94a5-1c9cee043e91",
+            "min_created_at": "2026-08-27T23:18:31.425298+00:00",
+            "max_created_at": "2026-08-27T23:19:36.25243+00:00",
+            "row_count": 467
+          },
+          {
+            "run_id": "72fc315b-7ae9-46a6-a291-1c0061d8cfd3",
+            "min_created_at": "2026-08-27T23:13:05.099122+00:00",
+            "max_created_at": "2026-08-27T23:14:10.920443+00:00",
+            "row_count": 466
+          }
+        ]
+      },
+      "142d3869-9d39-48b6-a810-751af2aac748": {
+        "primary_cohort_accessibility_run": "fef3dc93-9bf1-4536-a0bc-d36ce4883bec",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "a1166983-305a-48ef-97c5-cb703289bf62",
+            "min_created_at": "2026-09-02T17:17:11.943683+00:00",
+            "max_created_at": "2026-09-02T17:17:49.84842+00:00",
+            "row_count": 333
+          },
+          {
+            "run_id": "fef3dc93-9bf1-4536-a0bc-d36ce4883bec",
+            "min_created_at": "2026-08-28T17:16:24.785278+00:00",
+            "max_created_at": "2026-08-28T17:16:58.320449+00:00",
+            "row_count": 333
+          }
+        ]
+      },
+      "7a3dd188-4375-41af-94de-c5247fe0b1a6": {
+        "primary_cohort_accessibility_run": "b9ad7a8a-c706-4878-bfdc-6bd5b895abf4",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "b9ad7a8a-c706-4878-bfdc-6bd5b895abf4",
+            "min_created_at": "2026-09-02T03:28:42.268404+00:00",
+            "max_created_at": "2026-09-02T03:29:23.964675+00:00",
+            "row_count": 448
+          },
+          {
+            "run_id": "e82d9f96-c3e9-40ff-b8c9-8d558f397d38",
+            "min_created_at": "2026-08-31T17:41:29.193077+00:00",
+            "max_created_at": "2026-08-31T17:42:12.065322+00:00",
+            "row_count": 448
+          },
+          {
+            "run_id": "7893e94d-197e-4eb3-8b8a-94dfab7afd8b",
+            "min_created_at": "2026-08-28T17:48:11.184128+00:00",
+            "max_created_at": "2026-08-28T17:48:54.531512+00:00",
+            "row_count": 448
+          }
+        ]
+      },
+      "202518a0-5e86-4949-b1cd-c1c8ad95b616": {
+        "primary_cohort_accessibility_run": "87e0a44d-201d-4c9d-989b-74572ac16323",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "87e0a44d-201d-4c9d-989b-74572ac16323",
+            "min_created_at": "2026-09-02T03:07:42.853887+00:00",
+            "max_created_at": "2026-09-02T03:08:27.391608+00:00",
+            "row_count": 455
+          },
+          {
+            "run_id": "873ef1d4-a798-484b-a8d8-ba7068ecf413",
+            "min_created_at": "2026-08-31T17:20:37.167141+00:00",
+            "max_created_at": "2026-08-31T17:21:21.766099+00:00",
+            "row_count": 455
+          },
+          {
+            "run_id": "e9ccb779-bd84-4729-9746-850291092523",
+            "min_created_at": "2026-08-28T17:26:53.983198+00:00",
+            "max_created_at": "2026-08-28T17:27:37.47268+00:00",
+            "row_count": 455
+          }
+        ]
+      },
+      "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": {
+        "primary_cohort_accessibility_run": "dcbbf778-66f9-406e-a8d5-116abd43944b",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "59227b49-d0e5-4b6a-a85a-91557983d2be",
+            "min_created_at": "2026-09-02T17:21:43.071365+00:00",
+            "max_created_at": "2026-09-02T17:22:21.372641+00:00",
+            "row_count": 310
+          },
+          {
+            "run_id": "dcbbf778-66f9-406e-a8d5-116abd43944b",
+            "min_created_at": "2026-09-02T02:59:20.483514+00:00",
+            "max_created_at": "2026-09-02T03:00:06.825944+00:00",
+            "row_count": 310
+          },
+          {
+            "run_id": "d8ac40fc-c777-4b86-9165-06dc12e7ad50",
+            "min_created_at": "2026-08-31T17:14:08.222185+00:00",
+            "max_created_at": "2026-08-31T17:14:38.973232+00:00",
+            "row_count": 310
+          },
+          {
+            "run_id": "f1506299-38a2-4874-a2ce-291ee14fc09f",
+            "min_created_at": "2026-08-28T17:19:30.631457+00:00",
+            "max_created_at": "2026-08-28T17:20:01.374165+00:00",
+            "row_count": 310
+          }
+        ]
+      },
+      "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": {
+        "primary_cohort_accessibility_run": "3943f13d-0cac-4e95-9b9a-c4ce3bf71505",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "3943f13d-0cac-4e95-9b9a-c4ce3bf71505",
+            "min_created_at": "2026-09-02T03:55:30.005754+00:00",
+            "max_created_at": "2026-09-02T03:56:09.116286+00:00",
+            "row_count": 405
+          },
+          {
+            "run_id": "643cd447-d484-494a-bc7b-6584d747ac9e",
+            "min_created_at": "2026-08-31T18:09:08.882509+00:00",
+            "max_created_at": "2026-08-31T18:09:49.574347+00:00",
+            "row_count": 405
+          },
+          {
+            "run_id": "5b8ff5dd-efbf-4e9f-b221-33aa1fcf58d4",
+            "min_created_at": "2026-08-28T18:16:10.597614+00:00",
+            "max_created_at": "2026-08-28T18:16:50.321394+00:00",
+            "row_count": 405
+          }
+        ]
+      },
+      "91442900-3949-4ba4-8398-9e3dc2db1fa6": {
+        "primary_cohort_accessibility_run": "94d73c2e-a455-461f-bc39-b4c1145969ba",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "94d73c2e-a455-461f-bc39-b4c1145969ba",
+            "min_created_at": "2026-09-02T03:48:52.805263+00:00",
+            "max_created_at": "2026-09-02T03:49:26.877599+00:00",
+            "row_count": 358
+          },
+          {
+            "run_id": "8ee01536-561f-4acb-bef7-a97c51e449c4",
+            "min_created_at": "2026-08-31T18:02:10.07282+00:00",
+            "max_created_at": "2026-08-31T18:02:45.481201+00:00",
+            "row_count": 358
+          },
+          {
+            "run_id": "fa64ac79-78be-478e-bb73-ecbf107952b5",
+            "min_created_at": "2026-08-28T18:08:59.63692+00:00",
+            "max_created_at": "2026-08-28T18:09:33.807781+00:00",
+            "row_count": 358
+          }
+        ]
+      },
+      "fd1538dd-36b9-4d02-98dc-fd65a5230d27": {
+        "primary_cohort_accessibility_run": "6459a554-e4c5-4a40-bf22-0e76a461ec39",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "6459a554-e4c5-4a40-bf22-0e76a461ec39",
+            "min_created_at": "2026-09-02T03:11:21.058199+00:00",
+            "max_created_at": "2026-09-02T03:11:52.862461+00:00",
+            "row_count": 326
+          },
+          {
+            "run_id": "f1054e54-4306-448a-bfe9-0852737cee94",
+            "min_created_at": "2026-08-31T17:23:56.023531+00:00",
+            "max_created_at": "2026-08-31T17:24:27.678559+00:00",
+            "row_count": 326
+          },
+          {
+            "run_id": "c2b02b6a-8aae-467f-88ea-4e935dea2e19",
+            "min_created_at": "2026-08-28T17:30:20.215712+00:00",
+            "max_created_at": "2026-08-28T17:30:52.391909+00:00",
+            "row_count": 326
+          }
+        ]
+      },
+      "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": {
+        "primary_cohort_accessibility_run": "d4f13af4-3738-4271-aa20-14a757066d6c",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "d4f13af4-3738-4271-aa20-14a757066d6c",
+            "min_created_at": "2026-09-02T03:52:03.508865+00:00",
+            "max_created_at": "2026-09-02T03:52:39.072007+00:00",
+            "row_count": 373
+          },
+          {
+            "run_id": "7da37e1a-3089-431d-aebf-28cde0267651",
+            "min_created_at": "2026-08-31T18:05:36.964378+00:00",
+            "max_created_at": "2026-08-31T18:06:13.631768+00:00",
+            "row_count": 373
+          },
+          {
+            "run_id": "716ef97d-1d85-4e8d-89d6-923c97507ac8",
+            "min_created_at": "2026-08-28T18:12:23.01035+00:00",
+            "max_created_at": "2026-08-28T18:12:59.614047+00:00",
+            "row_count": 373
+          }
+        ]
+      },
+      "3c459327-59d0-41d5-b21e-aae36361cc77": {
+        "primary_cohort_accessibility_run": "11f1821e-4d65-42cb-b5e4-4c6e9e2e7703",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "11f1821e-4d65-42cb-b5e4-4c6e9e2e7703",
+            "min_created_at": "2026-09-02T03:36:13.313809+00:00",
+            "max_created_at": "2026-09-02T03:36:54.366878+00:00",
+            "row_count": 445
+          },
+          {
+            "run_id": "8326c2c7-d3cb-4b72-bd29-768fa9383c2c",
+            "min_created_at": "2026-08-31T17:49:12.34006+00:00",
+            "max_created_at": "2026-08-31T17:49:56.196194+00:00",
+            "row_count": 445
+          },
+          {
+            "run_id": "a804197e-2fa9-44a7-91c8-f65ed4e0301f",
+            "min_created_at": "2026-08-28T17:55:01.275371+00:00",
+            "max_created_at": "2026-08-28T17:55:43.984342+00:00",
+            "row_count": 445
+          }
+        ]
+      },
+      "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": {
+        "primary_cohort_accessibility_run": "1a39ad4b-17de-40ba-b66e-993055961155",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "d6c9dd54-2772-4dc2-a516-c459ddfb489f",
+            "min_created_at": "2026-09-02T17:10:30.001676+00:00",
+            "max_created_at": "2026-09-02T17:10:49.186141+00:00",
+            "row_count": 198
+          },
+          {
+            "run_id": "1a39ad4b-17de-40ba-b66e-993055961155",
+            "min_created_at": "2026-09-02T02:52:33.345252+00:00",
+            "max_created_at": "2026-09-02T02:53:06.670591+00:00",
+            "row_count": 198
+          },
+          {
+            "run_id": "79887a3b-c5d6-49ec-ac35-e6975eaa41c3",
+            "min_created_at": "2026-08-31T17:10:21.975333+00:00",
+            "max_created_at": "2026-08-31T17:10:41.814538+00:00",
+            "row_count": 198
+          },
+          {
+            "run_id": "28ffeb1c-09e5-4ffa-b960-3e093c713140",
+            "min_created_at": "2026-08-28T17:09:41.260786+00:00",
+            "max_created_at": "2026-08-28T17:10:00.697733+00:00",
+            "row_count": 198
+          }
+        ]
+      },
+      "0f7e51e2-5a78-4500-9c9c-f690e934a069": {
+        "primary_cohort_accessibility_run": "bf6f554a-8f46-452c-a93c-5069ebb80403",
+        "runs_sorted_newest_first": [
+          {
+            "run_id": "bf6f554a-8f46-452c-a93c-5069ebb80403",
+            "min_created_at": "2026-09-02T03:21:54.455201+00:00",
+            "max_created_at": "2026-09-02T03:22:15.150158+00:00",
+            "row_count": 214
+          },
+          {
+            "run_id": "c5191376-896c-472f-b67d-fa6512021a5b",
+            "min_created_at": "2026-08-31T17:33:29.512616+00:00",
+            "max_created_at": "2026-08-31T17:33:50.721771+00:00",
+            "row_count": 214
+          },
+          {
+            "run_id": "7603944e-bbe6-4d1b-a97a-175b3ac277b9",
+            "min_created_at": "2026-08-28T17:41:45.080309+00:00",
+            "max_created_at": "2026-08-28T17:42:05.14516+00:00",
+            "row_count": 214
+          }
+        ]
+      }
+    },
+    "financial_collector_runs_per_set": {
+      "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": [
+        {
+          "calculation_run_id": "47d51e4c-7c43-4ac0-9ff0-2ba351bdc4f8",
+          "created_at": "2026-08-20T19:59:15.84766+00:00",
+          "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+          "product_market_cost": 8.44
+        },
+        {
+          "calculation_run_id": "bc40be6a-0eef-4545-b200-91a1ce4e027e",
+          "created_at": "2026-08-22T22:27:02.849161+00:00",
+          "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+          "product_market_cost": 8.3
+        },
+        {
+          "calculation_run_id": "0e6d9c07-738e-4699-88b3-5ed46b4c1261",
+          "created_at": "2026-08-24T21:46:15.900312+00:00",
+          "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+          "product_market_cost": 8.19
+        },
+        {
+          "calculation_run_id": "ea0f35a5-5add-4127-8187-6d0184116eca",
+          "created_at": "2026-08-25T17:18:08.575653+00:00",
+          "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+          "product_market_cost": 8.16
+        },
+        {
+          "calculation_run_id": "c55c56b4-c6fe-4766-bcd8-f4c0473efca8",
+          "created_at": "2026-08-26T17:14:20.340635+00:00",
+          "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+          "product_market_cost": 8.06
+        },
+        {
+          "calculation_run_id": "a7045029-2d8c-4daa-930f-6e4d4f911087",
+          "created_at": "2026-08-27T17:27:10.792008+00:00",
+          "sealed_product_id": "5ede1531-0945-4973-b872-0bc93def2fd2",
+          "product_market_cost": 7.89
+        }
+      ],
+      "7a3dd188-4375-41af-94de-c5247fe0b1a6": [
+        {
+          "calculation_run_id": "59c016cb-699a-4c86-b6a6-c3a59e97d921",
+          "created_at": "2026-08-20T19:48:03.837912+00:00",
+          "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+          "product_market_cost": 14.77
+        },
+        {
+          "calculation_run_id": "25bf50bf-bd10-40b0-bf34-df74cba05dc3",
+          "created_at": "2026-08-22T22:36:45.334578+00:00",
+          "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+          "product_market_cost": 15.1
+        },
+        {
+          "calculation_run_id": "dcde5cf1-857c-4138-978a-0f885ab6b34d",
+          "created_at": "2026-08-24T22:06:10.172393+00:00",
+          "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+          "product_market_cost": 15.09
+        },
+        {
+          "calculation_run_id": "aba9e098-36b2-4617-98e9-40904dae83ca",
+          "created_at": "2026-08-25T17:38:07.88032+00:00",
+          "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+          "product_market_cost": 15.05
+        },
+        {
+          "calculation_run_id": "07f48095-92e0-4524-ae5b-c0131e01a4fd",
+          "created_at": "2026-08-26T17:32:29.273015+00:00",
+          "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+          "product_market_cost": 14.9
+        },
+        {
+          "calculation_run_id": "7a5b5a0d-1c80-4ee5-b1e3-8c9640c6b686",
+          "created_at": "2026-08-27T17:54:22.808203+00:00",
+          "sealed_product_id": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+          "product_market_cost": 14.93
+        }
+      ],
+      "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": [
+        {
+          "calculation_run_id": "30f66902-a189-4a2b-b693-c6b6c43e28d8",
+          "created_at": "2026-08-20T19:55:33.404651+00:00",
+          "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+          "product_market_cost": 8.79
+        },
+        {
+          "calculation_run_id": "cb69a4d0-34c6-49b4-9269-b0745cdcbf89",
+          "created_at": "2026-08-22T22:44:35.501963+00:00",
+          "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+          "product_market_cost": 8.86
+        },
+        {
+          "calculation_run_id": "30610cdd-599c-41c8-8da2-50bea7b66a8c",
+          "created_at": "2026-08-24T22:49:35.84233+00:00",
+          "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+          "product_market_cost": 8.8
+        },
+        {
+          "calculation_run_id": "f600a32a-7cff-4059-a20f-b92efffc8f36",
+          "created_at": "2026-08-25T17:56:11.639909+00:00",
+          "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+          "product_market_cost": 8.8
+        },
+        {
+          "calculation_run_id": "7c2ecdd5-ee6e-4482-83fd-80a930606b7c",
+          "created_at": "2026-08-26T17:49:03.950339+00:00",
+          "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+          "product_market_cost": 8.79
+        },
+        {
+          "calculation_run_id": "48907836-a7b6-45f7-ae32-962f3289877f",
+          "created_at": "2026-08-27T18:21:00.887998+00:00",
+          "sealed_product_id": "2f988d44-1c5c-47aa-80d1-f4e2bbc5fa52",
+          "product_market_cost": 8.75
+        }
+      ],
+      "142d3869-9d39-48b6-a810-751af2aac748": [
+        {
+          "calculation_run_id": "f9194acd-d61b-4511-b429-419768c93715",
+          "created_at": "2026-08-20T19:41:57.071791+00:00",
+          "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+          "product_market_cost": 6.27
+        },
+        {
+          "calculation_run_id": "75220055-ecfe-4bcc-81dd-a85bc6b268f4",
+          "created_at": "2026-08-22T22:25:48.752105+00:00",
+          "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+          "product_market_cost": 6.4
+        },
+        {
+          "calculation_run_id": "2d9c64d7-7ec4-43c3-9fb7-23cc3505890b",
+          "created_at": "2026-08-24T21:44:12.766545+00:00",
+          "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+          "product_market_cost": 6.52
+        },
+        {
+          "calculation_run_id": "450c8106-db2c-43f8-8f8d-4c6bfb1b29af",
+          "created_at": "2026-08-25T17:13:01.756595+00:00",
+          "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+          "product_market_cost": 6.58
+        },
+        {
+          "calculation_run_id": "8efdd730-93be-4dc7-9309-90c1d9ecf802",
+          "created_at": "2026-08-26T17:12:14.100216+00:00",
+          "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+          "product_market_cost": 6.56
+        },
+        {
+          "calculation_run_id": "597e7856-6844-4d3a-a481-461248c3ed53",
+          "created_at": "2026-08-27T17:24:15.348737+00:00",
+          "sealed_product_id": "14eddeda-becd-452d-a27d-f00e70136cb2",
+          "product_market_cost": 6.52
+        }
+      ],
+      "b4b34b61-ce48-4fc4-bd91-201a350b2600": [
+        {
+          "calculation_run_id": "1ffdc6cc-4263-48aa-814a-4e44c2c4b4b3",
+          "created_at": "2026-08-20T19:43:03.322174+00:00",
+          "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+          "product_market_cost": 12.92
+        },
+        {
+          "calculation_run_id": "528199b8-05af-4ba9-9bc5-8d5ed376685c",
+          "created_at": "2026-08-22T22:28:13.08+00:00",
+          "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+          "product_market_cost": 13.09
+        },
+        {
+          "calculation_run_id": "0bd50490-760b-47bf-b91d-094649012181",
+          "created_at": "2026-08-24T21:48:23.921157+00:00",
+          "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+          "product_market_cost": 13.09
+        },
+        {
+          "calculation_run_id": "90c33269-f274-43e2-85ec-839dc1bb2b42",
+          "created_at": "2026-08-25T17:21:16.041433+00:00",
+          "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+          "product_market_cost": 13.1
+        },
+        {
+          "calculation_run_id": "fe6f1a2d-7dd1-4465-b93c-f5c5a78ea9f7",
+          "created_at": "2026-08-26T17:17:04.079754+00:00",
+          "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+          "product_market_cost": 13.02
+        },
+        {
+          "calculation_run_id": "f3f779a2-e9e2-46a7-bda6-59b3b259c395",
+          "created_at": "2026-08-27T17:30:26.809351+00:00",
+          "sealed_product_id": "e260fba4-1082-4b35-b7b9-4a4f11bc811f",
+          "product_market_cost": 12.98
+        }
+      ],
+      "f59f25a2-d3da-4100-a918-901271a99925": [
+        {
+          "calculation_run_id": "5c10198f-78af-4101-8993-22c34c3dadd2",
+          "created_at": "2026-08-20T19:53:16.466396+00:00",
+          "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+          "product_market_cost": 8.07
+        },
+        {
+          "calculation_run_id": "c5c81ccc-460f-43e7-b0bb-cc19d880e4ae",
+          "created_at": "2026-08-22T22:42:16.832881+00:00",
+          "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+          "product_market_cost": 7.78
+        },
+        {
+          "calculation_run_id": "10097365-f887-4835-99e4-865ef519a98f",
+          "created_at": "2026-08-24T22:17:48.104064+00:00",
+          "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+          "product_market_cost": 7.79
+        },
+        {
+          "calculation_run_id": "27893114-54e9-4621-93c6-fadd0303c368",
+          "created_at": "2026-08-25T17:51:45.072983+00:00",
+          "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+          "product_market_cost": 7.83
+        },
+        {
+          "calculation_run_id": "d26ba258-e696-41cd-b0cd-cc7b10bbc74b",
+          "created_at": "2026-08-26T17:44:01.536088+00:00",
+          "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+          "product_market_cost": 7.8
+        },
+        {
+          "calculation_run_id": "e159f4b4-e16d-49ce-887d-71fab757b470",
+          "created_at": "2026-08-27T18:05:35.667795+00:00",
+          "sealed_product_id": "e533c90e-f734-4035-96a8-9e7f74c4c52a",
+          "product_market_cost": 7.75
+        }
+      ],
+      "5e99f658-39f0-4845-9228-db8db3965f32": [
+        {
+          "calculation_run_id": "f7ddfed2-0aa3-4215-a0db-7bef3a7b82a2",
+          "created_at": "2026-08-20T20:00:09.772634+00:00",
+          "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+          "product_market_cost": 5.65
+        },
+        {
+          "calculation_run_id": "774a1fcb-ed7d-4b99-94d2-49f5dbc06f9c",
+          "created_at": "2026-08-22T22:33:09.331158+00:00",
+          "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+          "product_market_cost": 5.45
+        },
+        {
+          "calculation_run_id": "d3a9e61e-c76e-4886-949d-ce8d9449478c",
+          "created_at": "2026-08-24T21:59:22.246046+00:00",
+          "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+          "product_market_cost": 5.47
+        },
+        {
+          "calculation_run_id": "6d527db7-b18f-4d0c-97eb-70ea695c8ff5",
+          "created_at": "2026-08-25T17:29:57.604909+00:00",
+          "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+          "product_market_cost": 5.45
+        },
+        {
+          "calculation_run_id": "4fbdf4c2-c897-4ec6-8e91-872aa5298f06",
+          "created_at": "2026-08-26T17:25:51.397545+00:00",
+          "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+          "product_market_cost": 5.58
+        },
+        {
+          "calculation_run_id": "9fd50ae1-df15-4a6a-9f16-b759e23daad4",
+          "created_at": "2026-08-27T17:46:30.487463+00:00",
+          "sealed_product_id": "e112c5c7-08ef-4f11-a4be-9f52e7de92a1",
+          "product_market_cost": 5.5
+        }
+      ],
+      "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": [
+        {
+          "calculation_run_id": "018ba637-d4cb-42ca-9f6e-b7922a1cc484",
+          "created_at": "2026-08-20T19:52:09.905008+00:00",
+          "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+          "product_market_cost": 10.59
+        },
+        {
+          "calculation_run_id": "ad120bac-9242-43cf-a0eb-c379c6b684bd",
+          "created_at": "2026-08-22T22:41:05.900018+00:00",
+          "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+          "product_market_cost": 10.58
+        },
+        {
+          "calculation_run_id": "e8e6c158-ec5d-4edd-86fe-eaa56ec9ef6f",
+          "created_at": "2026-08-24T22:15:37.041993+00:00",
+          "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+          "product_market_cost": 10.57
+        },
+        {
+          "calculation_run_id": "61ceb6ad-3353-4bef-bc3b-2db92da6a838",
+          "created_at": "2026-08-25T17:49:01.321626+00:00",
+          "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+          "product_market_cost": 10.65
+        },
+        {
+          "calculation_run_id": "40da6a73-b628-4647-879a-eb40c2ecbb04",
+          "created_at": "2026-08-26T17:41:54.405096+00:00",
+          "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+          "product_market_cost": 10.65
+        },
+        {
+          "calculation_run_id": "587f51ce-5389-4643-b931-a73f8c141858",
+          "created_at": "2026-08-27T18:03:11.394561+00:00",
+          "sealed_product_id": "3435800f-9036-4476-8e6c-c5fd7331316e",
+          "product_market_cost": 10.59
+        }
+      ],
+      "472f851c-2e41-4c80-b6fc-8478d1d92730": [
+        {
+          "calculation_run_id": "755a31f9-0084-4396-89af-6e1befa2ce6b",
+          "created_at": "2026-08-20T20:02:55.19744+00:00",
+          "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+          "product_market_cost": 6.03
+        },
+        {
+          "calculation_run_id": "c6cd123b-c1cb-4d05-91a7-3aabf68501c6",
+          "created_at": "2026-08-22T22:35:11.585034+00:00",
+          "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+          "product_market_cost": 5.97
+        },
+        {
+          "calculation_run_id": "f7d5f49a-6466-4945-801a-9e792f8d4ea6",
+          "created_at": "2026-08-24T22:03:13.43705+00:00",
+          "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+          "product_market_cost": 5.5
+        },
+        {
+          "calculation_run_id": "58a7140e-9003-4682-9b3d-e6d8f22ae63a",
+          "created_at": "2026-08-25T17:34:21.440167+00:00",
+          "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+          "product_market_cost": 5.75
+        },
+        {
+          "calculation_run_id": "1958b51a-7759-46d9-ba9f-f3a7c5f36ce9",
+          "created_at": "2026-08-26T17:29:39.986632+00:00",
+          "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+          "product_market_cost": 5.63
+        },
+        {
+          "calculation_run_id": "53ba1d75-f8c3-45b2-9e91-6ae69092fba5",
+          "created_at": "2026-08-27T17:51:06.849111+00:00",
+          "sealed_product_id": "dfc56bae-f52d-40f8-ae3a-802afbc4d240",
+          "product_market_cost": 5.64
+        }
+      ],
+      "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": [
+        {
+          "calculation_run_id": "892e6bcc-2059-448e-bf4f-0ffd896a546c",
+          "created_at": "2026-08-20T19:58:12.153764+00:00",
+          "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "product_market_cost": 13.31
+        },
+        {
+          "calculation_run_id": "687b238f-44ef-427f-aa01-c47d24497a04",
+          "created_at": "2026-08-22T22:20:27.334574+00:00",
+          "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "product_market_cost": 13.87
+        },
+        {
+          "calculation_run_id": "da78866f-4414-4a50-bb3e-31be51eabaa4",
+          "created_at": "2026-08-24T21:32:23.589193+00:00",
+          "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "product_market_cost": 13.9
+        },
+        {
+          "calculation_run_id": "9ede0f8e-91d9-491e-8dc6-3f2d7aaa567a",
+          "created_at": "2026-08-25T17:03:36.315058+00:00",
+          "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "product_market_cost": 13.98
+        },
+        {
+          "calculation_run_id": "7ab12594-1847-4780-94d0-74892f708250",
+          "created_at": "2026-08-26T17:03:21.618318+00:00",
+          "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "product_market_cost": 13.92
+        },
+        {
+          "calculation_run_id": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+          "created_at": "2026-08-27T17:03:55.083816+00:00",
+          "sealed_product_id": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "product_market_cost": 13.85
+        }
+      ],
+      "202518a0-5e86-4949-b1cd-c1c8ad95b616": [
+        {
+          "calculation_run_id": "b088cf28-10e6-4f6d-9878-011e5e307728",
+          "created_at": "2026-08-20T19:44:15.650307+00:00",
+          "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+          "product_market_cost": 16.07
+        },
+        {
+          "calculation_run_id": "14323aa8-03e8-408d-a34d-351aa4a60da0",
+          "created_at": "2026-08-22T22:29:31.260956+00:00",
+          "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+          "product_market_cost": 16.05
+        },
+        {
+          "calculation_run_id": "4546c337-2389-44eb-87bf-2e8063acec39",
+          "created_at": "2026-08-24T21:50:39.32572+00:00",
+          "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+          "product_market_cost": 16.21
+        },
+        {
+          "calculation_run_id": "633338e0-1825-4525-a8b6-60143a7b49b4",
+          "created_at": "2026-08-25T17:23:30.002443+00:00",
+          "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+          "product_market_cost": 16.25
+        },
+        {
+          "calculation_run_id": "0b315ac4-bea9-4000-8058-5ed8dc6409b7",
+          "created_at": "2026-08-26T17:19:36.803646+00:00",
+          "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+          "product_market_cost": 16.28
+        },
+        {
+          "calculation_run_id": "d5bf5544-fcc4-4435-8b46-8844b9d2daa9",
+          "created_at": "2026-08-27T17:34:35.719601+00:00",
+          "sealed_product_id": "465f3813-c9b9-4e47-bbd5-4eea706d4e8f",
+          "product_market_cost": 16.25
+        }
+      ],
+      "fd1538dd-36b9-4d02-98dc-fd65a5230d27": [
+        {
+          "calculation_run_id": "752b8938-be68-41c1-a163-08144f561a19",
+          "created_at": "2026-08-20T19:45:22.826885+00:00",
+          "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+          "product_market_cost": 23.43
+        },
+        {
+          "calculation_run_id": "993f324e-2189-472f-9149-02dfd800b200",
+          "created_at": "2026-08-22T22:30:45.395843+00:00",
+          "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+          "product_market_cost": 23.1
+        },
+        {
+          "calculation_run_id": "ff85ec44-5b70-415f-aaa7-f41710ec889e",
+          "created_at": "2026-08-24T21:53:44.047243+00:00",
+          "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+          "product_market_cost": 23.17
+        },
+        {
+          "calculation_run_id": "3fad4678-e951-44cb-aefe-d66a0ab042f4",
+          "created_at": "2026-08-25T17:25:37.720593+00:00",
+          "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+          "product_market_cost": 23.17
+        },
+        {
+          "calculation_run_id": "689c2a0e-aa0f-4784-b2f1-1fa97abcc758",
+          "created_at": "2026-08-26T17:21:42.603017+00:00",
+          "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+          "product_market_cost": 23.17
+        },
+        {
+          "calculation_run_id": "355f1d39-e252-48ef-bd49-67b564f101e2",
+          "created_at": "2026-08-27T17:41:37.632518+00:00",
+          "sealed_product_id": "fe71155a-895f-4957-8b4d-ed0242e11274",
+          "product_market_cost": 23.18
+        }
+      ],
+      "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": [
+        {
+          "calculation_run_id": "ea8a9d22-0ab0-4492-ae4a-9d019777de4f",
+          "created_at": "2026-08-20T19:51:11.128421+00:00",
+          "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+          "product_market_cost": 14.73
+        },
+        {
+          "calculation_run_id": "e6940d26-49f9-4b46-9625-2c97d5395035",
+          "created_at": "2026-08-22T22:40:04.775332+00:00",
+          "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+          "product_market_cost": 14.79
+        },
+        {
+          "calculation_run_id": "12ed2b4d-1c5f-4d51-a9bf-24ef5b4ad43b",
+          "created_at": "2026-08-24T22:13:21.748575+00:00",
+          "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+          "product_market_cost": 14.83
+        },
+        {
+          "calculation_run_id": "0be6c56b-dfc3-436b-b677-3c41dce02d76",
+          "created_at": "2026-08-25T17:46:24.39947+00:00",
+          "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+          "product_market_cost": 14.83
+        },
+        {
+          "calculation_run_id": "224a0e90-4af2-425a-bef9-a3a29fb99589",
+          "created_at": "2026-08-26T17:39:25.678423+00:00",
+          "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+          "product_market_cost": 14.83
+        },
+        {
+          "calculation_run_id": "871692b4-a521-441e-b334-e8efc77d8760",
+          "created_at": "2026-08-27T18:01:04.29344+00:00",
+          "sealed_product_id": "c3ceb10e-2ad7-45ca-9737-56394883bdd7",
+          "product_market_cost": 14.81
+        }
+      ],
+      "3c459327-59d0-41d5-b21e-aae36361cc77": [
+        {
+          "calculation_run_id": "fe35ccb6-7a58-4dd2-aec8-db80316203d8",
+          "created_at": "2026-08-20T19:50:20.541182+00:00",
+          "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+          "product_market_cost": 8.97
+        },
+        {
+          "calculation_run_id": "b0caac26-e38e-4201-96b7-44ddc8126bd9",
+          "created_at": "2026-08-22T22:39:11.573502+00:00",
+          "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+          "product_market_cost": 9.18
+        },
+        {
+          "calculation_run_id": "de04c83c-a849-4b00-9b31-35306520181e",
+          "created_at": "2026-08-24T22:10:51.145832+00:00",
+          "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+          "product_market_cost": 9.19
+        },
+        {
+          "calculation_run_id": "1374cbce-61ce-41a2-8b8c-4daa2ce6a7cb",
+          "created_at": "2026-08-25T17:43:55.579599+00:00",
+          "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+          "product_market_cost": 9.19
+        },
+        {
+          "calculation_run_id": "4fd1166f-fb92-4494-9434-604b30e05d9e",
+          "created_at": "2026-08-26T17:37:00.66695+00:00",
+          "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+          "product_market_cost": 9.22
+        },
+        {
+          "calculation_run_id": "9cc40f31-9b7a-40de-a5d1-6f31328347c8",
+          "created_at": "2026-08-27T17:59:08.883828+00:00",
+          "sealed_product_id": "f9aa3162-380e-487b-b341-a3fc890a5aae",
+          "product_market_cost": 9.21
+        }
+      ],
+      "5d3d5c23-7098-4393-ad63-6ad9372aee30": [
+        {
+          "calculation_run_id": "a4f0fece-12f5-4254-8af9-bf25e2588974",
+          "created_at": "2026-08-20T19:46:34.28173+00:00",
+          "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+          "product_market_cost": 8.41
+        },
+        {
+          "calculation_run_id": "73be42a8-991a-46b5-9ae3-c810f48e7664",
+          "created_at": "2026-08-22T22:32:07.162184+00:00",
+          "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+          "product_market_cost": 8.4
+        },
+        {
+          "calculation_run_id": "c478ab04-d33b-4377-8a55-330c52066a0c",
+          "created_at": "2026-08-24T21:57:25.002465+00:00",
+          "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+          "product_market_cost": 8.34
+        },
+        {
+          "calculation_run_id": "f631328a-c9b5-4923-baec-47e43c882189",
+          "created_at": "2026-08-25T17:27:52.384526+00:00",
+          "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+          "product_market_cost": 8.25
+        },
+        {
+          "calculation_run_id": "691f97c8-9a27-496a-ac94-9a875f633f15",
+          "created_at": "2026-08-26T17:23:54.932347+00:00",
+          "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+          "product_market_cost": 8.31
+        },
+        {
+          "calculation_run_id": "f45a2692-999e-4c70-9aff-be4adcb992c9",
+          "created_at": "2026-08-27T17:44:18.518613+00:00",
+          "sealed_product_id": "d60dab89-6ec1-42d8-82ae-1c9ac67e4a49",
+          "product_market_cost": 8.24
+        }
+      ],
+      "41a0ac1c-27ca-444b-8665-8ba35e583a3b": [
+        {
+          "calculation_run_id": "8a887d42-33b2-4f35-a440-2611c3c824c8",
+          "created_at": "2026-08-20T19:39:45.809316+00:00",
+          "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+          "product_market_cost": 14.99
+        },
+        {
+          "calculation_run_id": "48c725d9-21dd-4264-8f69-13043e89ff51",
+          "created_at": "2026-08-22T22:21:48.600686+00:00",
+          "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+          "product_market_cost": 14.59
+        },
+        {
+          "calculation_run_id": "f6dd06c1-f25b-4c2e-97ef-0922b11ea3d2",
+          "created_at": "2026-08-24T21:34:56.569482+00:00",
+          "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+          "product_market_cost": 14.49
+        },
+        {
+          "calculation_run_id": "8d9944e7-0157-491b-9988-b52e71c379d7",
+          "created_at": "2026-08-25T17:06:30.423023+00:00",
+          "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+          "product_market_cost": 14.53
+        },
+        {
+          "calculation_run_id": "7f1cecce-4a26-4164-b058-a4c73d2f1dd9",
+          "created_at": "2026-08-26T17:06:10.91222+00:00",
+          "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+          "product_market_cost": 14.53
+        },
+        {
+          "calculation_run_id": "e88c8392-ebc8-4db1-83f7-e299202d26f6",
+          "created_at": "2026-08-27T17:09:02.479288+00:00",
+          "sealed_product_id": "befd47ff-cc5c-4ec7-961a-988696198d75",
+          "product_market_cost": 14.68
+        }
+      ],
+      "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": [
+        {
+          "calculation_run_id": "3178c30b-45ee-4a1e-9c3b-1db578ef93d8",
+          "created_at": "2026-08-20T19:56:52.533055+00:00",
+          "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+          "product_market_cost": 14.37
+        },
+        {
+          "calculation_run_id": "b572193b-a72a-48d9-9c06-797f70ca2971",
+          "created_at": "2026-08-22T22:45:55.536049+00:00",
+          "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+          "product_market_cost": 13.45
+        },
+        {
+          "calculation_run_id": "259b137f-5e8c-46a4-8f6a-f75d64086b2f",
+          "created_at": "2026-08-24T22:50:57.368792+00:00",
+          "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+          "product_market_cost": 13.37
+        },
+        {
+          "calculation_run_id": "15b731eb-b039-4895-b0cb-526fb469d111",
+          "created_at": "2026-08-25T17:58:39.08879+00:00",
+          "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+          "product_market_cost": 13.43
+        },
+        {
+          "calculation_run_id": "01add7cd-3cd3-4424-936b-8100066ecff5",
+          "created_at": "2026-08-26T17:52:02.045347+00:00",
+          "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+          "product_market_cost": 13.46
+        },
+        {
+          "calculation_run_id": "a26aac2e-7187-47b9-8a29-87a5e9618e53",
+          "created_at": "2026-08-27T18:25:10.150987+00:00",
+          "sealed_product_id": "02fffe97-2e29-4679-8b0c-549e77aecb61",
+          "product_market_cost": 13.52
+        }
+      ],
+      "de291399-ead5-41dc-bc12-e7c587684f85": [
+        {
+          "calculation_run_id": "1f72718d-390e-4fce-bda2-15ed058b0b29",
+          "created_at": "2026-08-20T19:40:55.425346+00:00",
+          "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+          "product_market_cost": 8.48
+        },
+        {
+          "calculation_run_id": "5a4f1a2c-216b-44f0-bd80-7a683a6b9d68",
+          "created_at": "2026-08-22T22:23:58.984147+00:00",
+          "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+          "product_market_cost": 9.44
+        },
+        {
+          "calculation_run_id": "76eb772e-daac-499c-bcf7-2d5467474dc4",
+          "created_at": "2026-08-24T21:40:27.212966+00:00",
+          "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+          "product_market_cost": 9.24
+        },
+        {
+          "calculation_run_id": "5cf70c37-673d-4808-a3e9-62cde5942003",
+          "created_at": "2026-08-25T17:10:45.449832+00:00",
+          "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+          "product_market_cost": 9.19
+        },
+        {
+          "calculation_run_id": "5e1bb2e8-c62d-411b-af4d-458e33957f98",
+          "created_at": "2026-08-26T17:10:10.839984+00:00",
+          "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+          "product_market_cost": 9.04
+        },
+        {
+          "calculation_run_id": "de161271-7398-44a1-a24d-0c17d6f5ba85",
+          "created_at": "2026-08-27T17:18:21.673931+00:00",
+          "sealed_product_id": "46e99f83-9f11-4c20-8b6e-8405c6ee42e0",
+          "product_market_cost": 8.98
+        }
+      ],
+      "d001d563-988b-4f8e-904f-acb926748e22": [
+        {
+          "calculation_run_id": "f1b38102-cbda-4d90-a522-a345cc2f7e5a",
+          "created_at": "2026-08-20T19:49:12.006773+00:00",
+          "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+          "product_market_cost": 28.86
+        },
+        {
+          "calculation_run_id": "6d902b21-a0da-4d63-8a2f-064880697869",
+          "created_at": "2026-08-22T22:37:56.135541+00:00",
+          "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+          "product_market_cost": 28.92
+        },
+        {
+          "calculation_run_id": "1c000400-06c7-4c1b-a86b-c58ab6dcac05",
+          "created_at": "2026-08-24T22:08:39.570943+00:00",
+          "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+          "product_market_cost": 29.53
+        },
+        {
+          "calculation_run_id": "7be09a3f-856a-4ac9-b02d-f3bcc859ac58",
+          "created_at": "2026-08-25T17:41:07.175513+00:00",
+          "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+          "product_market_cost": 29.49
+        },
+        {
+          "calculation_run_id": "d4d751e8-7cfa-44ac-8bae-1e1a19f21613",
+          "created_at": "2026-08-26T17:34:44.479156+00:00",
+          "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+          "product_market_cost": 29.48
+        },
+        {
+          "calculation_run_id": "bc4c2393-942b-4e5b-8a8c-ab48ac61b64e",
+          "created_at": "2026-08-27T17:56:50.056893+00:00",
+          "sealed_product_id": "16bf6fd0-2993-443d-a661-db2c5a64b1a4",
+          "product_market_cost": 29.69
+        }
+      ],
+      "91442900-3949-4ba4-8398-9e3dc2db1fa6": [
+        {
+          "calculation_run_id": "c3b46892-be05-44bd-bdde-f6890d5b404a",
+          "created_at": "2026-08-20T19:54:24.512578+00:00",
+          "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+          "product_market_cost": 11.49
+        },
+        {
+          "calculation_run_id": "2116e5f9-e556-4c1f-88cc-ad226f751e85",
+          "created_at": "2026-08-22T22:43:25.448386+00:00",
+          "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+          "product_market_cost": 11.37
+        },
+        {
+          "calculation_run_id": "8adf3492-342f-4e76-9a92-d43f190be458",
+          "created_at": "2026-08-24T22:21:01.16504+00:00",
+          "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+          "product_market_cost": 11.29
+        },
+        {
+          "calculation_run_id": "5c9257f1-f727-48ee-b251-a8cb6a23f8f4",
+          "created_at": "2026-08-25T17:53:57.025241+00:00",
+          "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+          "product_market_cost": 11.29
+        },
+        {
+          "calculation_run_id": "4ad379cf-a5f8-4275-8fd3-dd75f6042118",
+          "created_at": "2026-08-26T17:46:12.531371+00:00",
+          "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+          "product_market_cost": 11.33
+        },
+        {
+          "calculation_run_id": "f31dad41-6fd6-47af-9ee4-dc3c3e82e7ac",
+          "created_at": "2026-08-27T18:11:27.390868+00:00",
+          "sealed_product_id": "1a4f7269-f482-4baa-8df4-6e976f1793a3",
+          "product_market_cost": 11.25
+        }
+      ],
+      "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": [
+        {
+          "calculation_run_id": "84080871-1155-4e75-b8ab-60605ad64038",
+          "created_at": "2026-08-20T20:02:01.216304+00:00",
+          "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+          "product_market_cost": 5.67
+        },
+        {
+          "calculation_run_id": "d2572d76-ef4d-4478-b2c1-38dcd65e0c25",
+          "created_at": "2026-08-22T22:22:46.060515+00:00",
+          "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+          "product_market_cost": 5.54
+        },
+        {
+          "calculation_run_id": "0445dfd0-7ba1-46ff-96ba-930bc7bb0f29",
+          "created_at": "2026-08-24T21:38:15.609556+00:00",
+          "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+          "product_market_cost": 5.56
+        },
+        {
+          "calculation_run_id": "4ab189dc-0a8c-4777-a31e-e4b96b485ec9",
+          "created_at": "2026-08-25T17:08:30.805939+00:00",
+          "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+          "product_market_cost": 5.54
+        },
+        {
+          "calculation_run_id": "5809b80c-0aa8-4113-86fc-cf733a3e3757",
+          "created_at": "2026-08-26T17:08:04.152535+00:00",
+          "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+          "product_market_cost": 5.55
+        },
+        {
+          "calculation_run_id": "97327aad-d167-4f2e-935d-59e7dc678cf5",
+          "created_at": "2026-08-27T17:14:41.419524+00:00",
+          "sealed_product_id": "8511f6fb-a62d-4910-afb5-7e23d2347d86",
+          "product_market_cost": 5.32
+        }
+      ],
+      "0f7e51e2-5a78-4500-9c9c-f690e934a069": [
+        {
+          "calculation_run_id": "ad91c981-d7ab-4b2a-acea-da404bc96eaa",
+          "created_at": "2026-08-20T20:01:05.54093+00:00",
+          "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+          "product_market_cost": 10.94
+        },
+        {
+          "calculation_run_id": "a1c0ed85-ff61-4dfb-9969-3cc315f561fd",
+          "created_at": "2026-08-22T22:34:11.46739+00:00",
+          "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+          "product_market_cost": 11.69
+        },
+        {
+          "calculation_run_id": "a01b0b07-74a2-4724-8f8a-3c0d187848f7",
+          "created_at": "2026-08-24T22:01:18.768188+00:00",
+          "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+          "product_market_cost": 11.58
+        },
+        {
+          "calculation_run_id": "ced5e296-88f2-4e9c-ad2d-e148d3de0380",
+          "created_at": "2026-08-25T17:32:00.10187+00:00",
+          "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+          "product_market_cost": 11.61
+        },
+        {
+          "calculation_run_id": "220fb68c-050d-4956-97b7-0028bed40787",
+          "created_at": "2026-08-26T17:27:45.135177+00:00",
+          "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+          "product_market_cost": 11.61
+        },
+        {
+          "calculation_run_id": "e26bfac0-e608-4c85-9857-1f912f3ab383",
+          "created_at": "2026-08-27T17:48:51.371439+00:00",
+          "sealed_product_id": "749ff28d-38a5-4a78-b3f7-5257417c4bc8",
+          "product_market_cost": 11.6
+        }
+      ]
+    }
+  },
+  "phase8_temporal_replay": {
+    "state2_genuine_second_state_result": {
+      "state2_set_count": 22,
+      "state2_accessibility_market_dates_range": [
+        "2026-08-27T23:14:10.920443+00:00",
+        "2026-08-28T18:16:50.321394+00:00"
+      ],
+      "state2_financial_market_dates_range": [
+        "2026-08-27T17:03:55.083816+00:00",
+        "2026-08-27T18:25:10.150987+00:00"
+      ],
+      "state2_offset_days_max": 1.0001940787962964,
+      "state2_offset_days_median": 0.9956041902662036,
+      "a_raw_min": 0.0007498463697051532,
+      "a_raw_median": 0.0021119827668204046,
+      "a_raw_max": 0.005640055894560097,
+      "candidate_diagnostics_k0.002": {
+        "4": {
+          "spearman": 0.9875776397515529,
+          "kendall": 0.9393939393939393,
+          "top5_overlap": 4,
+          "top10_overlap": 9,
+          "close_reversal_rate": 0.12195121951219512,
+          "clear_overrides_flipped": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "6": {
+          "spearman": 0.979672501411632,
+          "kendall": 0.8961038961038961,
+          "top5_overlap": 4,
+          "top10_overlap": 9,
+          "close_reversal_rate": 0.14634146341463414,
+          "clear_overrides_flipped": 0,
+          "max_financial_gap_overturned": 0.0
+        },
+        "8": {
+          "spearman": 0.9649915302089217,
+          "kendall": 0.8614718614718614,
+          "top5_overlap": 4,
+          "top10_overlap": 9,
+          "close_reversal_rate": 0.17073170731707318,
+          "clear_overrides_flipped": 0,
+          "max_financial_gap_overturned": 0.0
+        }
+      }
+    },
+    "state2_raw": {
+      "usable_sets": [
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "de291399-ead5-41dc-bc12-e7c587684f85",
+        "d001d563-988b-4f8e-904f-acb926748e22",
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "f59f25a2-d3da-4100-a918-901271a99925",
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "5e99f658-39f0-4845-9228-db8db3965f32",
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "142d3869-9d39-48b6-a810-751af2aac748",
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069"
+      ],
+      "accessibility_run_by_set": {
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": "bf4498c2-8743-4b7d-aad1-59118f5ec74b",
+        "472f851c-2e41-4c80-b6fc-8478d1d92730": "b20e3796-86c1-4024-9a5f-ee5b815469ea",
+        "de291399-ead5-41dc-bc12-e7c587684f85": "2925570c-5580-4903-b8dc-c08ea52cd79f",
+        "d001d563-988b-4f8e-904f-acb926748e22": "a0be1d95-d185-4a42-9312-a21d20de8d9c",
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": "de0aee28-b39a-4286-9b97-e03ffd3097b0",
+        "f59f25a2-d3da-4100-a918-901271a99925": "db55e9c3-a7e5-4a35-aea2-1c9231df4251",
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": "c1fb0c2a-1990-4a6b-ae5f-2b3221b1fd86",
+        "5e99f658-39f0-4845-9228-db8db3965f32": "3e1940e7-6dd6-4dcf-a59c-739dc754be34",
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": "9d63b06a-37b6-4803-8d7a-31fddf2139ef",
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": "bcbbe948-c6d5-47b2-a604-9700f6b33238",
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": "72fc315b-7ae9-46a6-a291-1c0061d8cfd3",
+        "142d3869-9d39-48b6-a810-751af2aac748": "fef3dc93-9bf1-4536-a0bc-d36ce4883bec",
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6": "7893e94d-197e-4eb3-8b8a-94dfab7afd8b",
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": "e9ccb779-bd84-4729-9746-850291092523",
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": "f1506299-38a2-4874-a2ce-291ee14fc09f",
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": "5b8ff5dd-efbf-4e9f-b221-33aa1fcf58d4",
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6": "fa64ac79-78be-478e-bb73-ecbf107952b5",
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27": "c2b02b6a-8aae-467f-88ea-4e935dea2e19",
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": "716ef97d-1d85-4e8d-89d6-923c97507ac8",
+        "3c459327-59d0-41d5-b21e-aae36361cc77": "a804197e-2fa9-44a7-91c8-f65ed4e0301f",
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": "28ffeb1c-09e5-4ffa-b960-3e093c713140",
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": "7603944e-bbe6-4d1b-a97a-175b3ac277b9"
+      },
+      "accessibility_run_date_by_set": {
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": "2026-08-28T17:34:52.461545+00:00",
+        "472f851c-2e41-4c80-b6fc-8478d1d92730": "2026-08-28T17:44:47.05115+00:00",
+        "de291399-ead5-41dc-bc12-e7c587684f85": "2026-08-28T17:13:33.03017+00:00",
+        "d001d563-988b-4f8e-904f-acb926748e22": "2026-08-28T17:52:23.946877+00:00",
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": "2026-08-28T17:07:14.276582+00:00",
+        "f59f25a2-d3da-4100-a918-901271a99925": "2026-08-28T18:05:52.436203+00:00",
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": "2026-08-28T17:23:51.658515+00:00",
+        "5e99f658-39f0-4845-9228-db8db3965f32": "2026-08-28T17:38:41.708442+00:00",
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": "2026-08-28T18:02:03.876609+00:00",
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": "2026-08-28T17:58:24.698337+00:00",
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": "2026-08-27T23:14:10.920443+00:00",
+        "142d3869-9d39-48b6-a810-751af2aac748": "2026-08-28T17:16:58.320449+00:00",
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6": "2026-08-28T17:48:54.531512+00:00",
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": "2026-08-28T17:27:37.47268+00:00",
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": "2026-08-28T17:20:01.374165+00:00",
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": "2026-08-28T18:16:50.321394+00:00",
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6": "2026-08-28T18:09:33.807781+00:00",
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27": "2026-08-28T17:30:52.391909+00:00",
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": "2026-08-28T18:12:59.614047+00:00",
+        "3c459327-59d0-41d5-b21e-aae36361cc77": "2026-08-28T17:55:43.984342+00:00",
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": "2026-08-28T17:10:00.697733+00:00",
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": "2026-08-28T17:42:05.14516+00:00"
+      },
+      "financial_run_by_set": {
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": "a7045029-2d8c-4daa-930f-6e4d4f911087",
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6": "7a5b5a0d-1c80-4ee5-b1e3-8c9640c6b686",
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": "48907836-a7b6-45f7-ae32-962f3289877f",
+        "142d3869-9d39-48b6-a810-751af2aac748": "597e7856-6844-4d3a-a481-461248c3ed53",
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": "f3f779a2-e9e2-46a7-bda6-59b3b259c395",
+        "f59f25a2-d3da-4100-a918-901271a99925": "e159f4b4-e16d-49ce-887d-71fab757b470",
+        "5e99f658-39f0-4845-9228-db8db3965f32": "9fd50ae1-df15-4a6a-9f16-b759e23daad4",
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": "587f51ce-5389-4643-b931-a73f8c141858",
+        "472f851c-2e41-4c80-b6fc-8478d1d92730": "53ba1d75-f8c3-45b2-9e91-6ae69092fba5",
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": "d5bf5544-fcc4-4435-8b46-8844b9d2daa9",
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27": "355f1d39-e252-48ef-bd49-67b564f101e2",
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": "871692b4-a521-441e-b334-e8efc77d8760",
+        "3c459327-59d0-41d5-b21e-aae36361cc77": "9cc40f31-9b7a-40de-a5d1-6f31328347c8",
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": "f45a2692-999e-4c70-9aff-be4adcb992c9",
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": "e88c8392-ebc8-4db1-83f7-e299202d26f6",
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": "a26aac2e-7187-47b9-8a29-87a5e9618e53",
+        "de291399-ead5-41dc-bc12-e7c587684f85": "de161271-7398-44a1-a24d-0c17d6f5ba85",
+        "d001d563-988b-4f8e-904f-acb926748e22": "bc4c2393-942b-4e5b-8a8c-ab48ac61b64e",
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6": "f31dad41-6fd6-47af-9ee4-dc3c3e82e7ac",
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": "97327aad-d167-4f2e-935d-59e7dc678cf5",
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": "e26bfac0-e608-4c85-9857-1f912f3ab383"
+      },
+      "financial_run_date_by_set": {
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": "2026-08-27T17:27:10.792008+00:00",
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6": "2026-08-27T17:54:22.808203+00:00",
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": "2026-08-27T18:21:00.887998+00:00",
+        "142d3869-9d39-48b6-a810-751af2aac748": "2026-08-27T17:24:15.348737+00:00",
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": "2026-08-27T17:30:26.809351+00:00",
+        "f59f25a2-d3da-4100-a918-901271a99925": "2026-08-27T18:05:35.667795+00:00",
+        "5e99f658-39f0-4845-9228-db8db3965f32": "2026-08-27T17:46:30.487463+00:00",
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": "2026-08-27T18:03:11.394561+00:00",
+        "472f851c-2e41-4c80-b6fc-8478d1d92730": "2026-08-27T17:51:06.849111+00:00",
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": "2026-08-27T17:03:55.083816+00:00",
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": "2026-08-27T17:34:35.719601+00:00",
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27": "2026-08-27T17:41:37.632518+00:00",
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": "2026-08-27T18:01:04.29344+00:00",
+        "3c459327-59d0-41d5-b21e-aae36361cc77": "2026-08-27T17:59:08.883828+00:00",
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": "2026-08-27T17:44:18.518613+00:00",
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": "2026-08-27T17:09:02.479288+00:00",
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": "2026-08-27T18:25:10.150987+00:00",
+        "de291399-ead5-41dc-bc12-e7c587684f85": "2026-08-27T17:18:21.673931+00:00",
+        "d001d563-988b-4f8e-904f-acb926748e22": "2026-08-27T17:56:50.056893+00:00",
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6": "2026-08-27T18:11:27.390868+00:00",
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": "2026-08-27T17:14:41.419524+00:00",
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": "2026-08-27T17:48:51.371439+00:00"
+      },
+      "offset_days_by_set": {
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": 0.9934484135648148,
+        "472f851c-2e41-4c80-b6fc-8478d1d92730": 0.9956041902662036,
+        "de291399-ead5-41dc-bc12-e7c587684f85": 0.9966592157291667,
+        "d001d563-988b-4f8e-904f-acb926748e22": 0.9969200229629629,
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 0.9987476538657408,
+        "f59f25a2-d3da-4100-a918-901271a99925": 1.0001940787962964,
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": 0.9954264949537037,
+        "5e99f658-39f0-4845-9228-db8db3965f32": 0.9945743168865742,
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 0.9992185422222223,
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 0.9981528344560185,
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 0.2571277387384259,
+        "142d3869-9d39-48b6-a810-751af2aac748": 0.9949418022222222,
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6": 0.996200501261574,
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": 0.9951591791550927,
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 0.9950298860763889,
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 0.9942149352662036,
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6": 0.9986853809374999,
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 0.9925319373958333,
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 0.9944296996412038,
+        "3c459327-59d0-41d5-b21e-aae36361cc77": 0.9976284781712964,
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 0.9967509051967592,
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": 0.9952983069560186
+      },
+      "a_raw_state2": {
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": 0.0021177180705087132,
+        "472f851c-2e41-4c80-b6fc-8478d1d92730": 0.0017799158521411198,
+        "de291399-ead5-41dc-bc12-e7c587684f85": 0.001034909159568781,
+        "d001d563-988b-4f8e-904f-acb926748e22": 0.004632242176547383,
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 0.0008183554460438675,
+        "f59f25a2-d3da-4100-a918-901271a99925": 0.0011116404959705152,
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": 0.005640055894560097,
+        "5e99f658-39f0-4845-9228-db8db3965f32": 0.0016120841480203076,
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 0.004959702230530524,
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 0.004472505088508908,
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 0.0008141328553216914,
+        "142d3869-9d39-48b6-a810-751af2aac748": 0.0022809907835775176,
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6": 0.0008344114879465963,
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": 0.0021119827668204046,
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 0.0007498463697051532,
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 0.0007835381810809865,
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6": 0.0026635210553955756,
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 0.0021556423489275797,
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 0.0012823234634169306,
+        "3c459327-59d0-41d5-b21e-aae36361cc77": 0.0031661291606222206,
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 0.0016737040987230133,
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": 0.002339026461664811
+      },
+      "financial_state2": {
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": 38.69,
+        "472f851c-2e41-4c80-b6fc-8478d1d92730": 41.0401,
+        "de291399-ead5-41dc-bc12-e7c587684f85": 33.3963,
+        "d001d563-988b-4f8e-904f-acb926748e22": 36.7418,
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 31.4958,
+        "f59f25a2-d3da-4100-a918-901271a99925": 32.3035,
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": 27.7355,
+        "5e99f658-39f0-4845-9228-db8db3965f32": 36.0986,
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 28.802,
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 36.4572,
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 29.4996,
+        "142d3869-9d39-48b6-a810-751af2aac748": 36.4155,
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6": 21.403,
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": 28.4088,
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 31.0056,
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 32.2911,
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6": 40.4775,
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 18.3094,
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 38.5142,
+        "3c459327-59d0-41d5-b21e-aae36361cc77": 35.0149,
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 35.475,
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": 19.9834
+      },
+      "collector_state2": {
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": 86.5337,
+        "472f851c-2e41-4c80-b6fc-8478d1d92730": 75.3355,
+        "de291399-ead5-41dc-bc12-e7c587684f85": 88.6234,
+        "d001d563-988b-4f8e-904f-acb926748e22": 96.5294,
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 72.9464,
+        "f59f25a2-d3da-4100-a918-901271a99925": 79.9043,
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": 68.0891,
+        "5e99f658-39f0-4845-9228-db8db3965f32": 79.8036,
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 73.7483,
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 49.0746,
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 99.0942,
+        "142d3869-9d39-48b6-a810-751af2aac748": 86.1732,
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6": 95.9753,
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": 86.147,
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 89.0881,
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 80.8167,
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6": 71.0701,
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 94.5988,
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 72.7857,
+        "3c459327-59d0-41d5-b21e-aae36361cc77": 68.909,
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 65.2956,
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": 82.8344
+      },
+      "v10_state2": {
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": 43.4744,
+        "472f851c-2e41-4c80-b6fc-8478d1d92730": 44.4696,
+        "de291399-ead5-41dc-bc12-e7c587684f85": 38.919,
+        "d001d563-988b-4f8e-904f-acb926748e22": 42.7206,
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 35.6409,
+        "f59f25a2-d3da-4100-a918-901271a99925": 37.0636,
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": 31.7709,
+        "5e99f658-39f0-4845-9228-db8db3965f32": 40.4691,
+        "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 33.2966,
+        "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 37.7189,
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 36.4591,
+        "142d3869-9d39-48b6-a810-751af2aac748": 41.3913,
+        "7a3dd188-4375-41af-94de-c5247fe0b1a6": 28.8602,
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": 34.1826,
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 36.8139,
+        "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 37.1437,
+        "91442900-3949-4ba4-8398-9e3dc2db1fa6": 43.5368,
+        "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 25.9383,
+        "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 41.9414,
+        "3c459327-59d0-41d5-b21e-aae36361cc77": 38.4043,
+        "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 38.4571,
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": 26.2685
+      }
+    },
+    "state1_pass1a_frozen_primary_cohort_k0.002": {
+      "4": {
+        "spearman": 0.9875776397515529,
+        "kendall": 0.9393939393939393,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_reversal_rate": 0.12195121951219512,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0
+      },
+      "6": {
+        "spearman": 0.979672501411632,
+        "kendall": 0.8961038961038961,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_reversal_rate": 0.14634146341463414,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0
+      },
+      "8": {
+        "spearman": 0.9683794466403164,
+        "kendall": 0.8701298701298701,
+        "top5_overlap": 4,
+        "top10_overlap": 9,
+        "close_reversal_rate": 0.17073170731707318,
+        "clear_overrides_flipped": 0,
+        "max_financial_gap_overturned": 0.0
+      }
+    }
+  },
+  "phase9_loso": {
+    "headline_k_0.002": {
+      "4": {
+        "min_spearman": 0.9857142857142858,
+        "max_spearman": 0.9922077922077923,
+        "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "min_top5_overlap": 4,
+        "max_clear_overrides": 0,
+        "max_financial_gap_overturned": 0.0,
+        "close_reversal_rate_min": 0.08333333333333333,
+        "close_reversal_rate_max": 0.1388888888888889,
+        "meets_min_spearman_ge_098": 1.0,
+        "per_omitted_set_spearman": {
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069": 0.9857142857142858,
+          "142d3869-9d39-48b6-a810-751af2aac748": 0.9870129870129869,
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616": 0.9857142857142858,
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 0.9922077922077923,
+          "3c459327-59d0-41d5-b21e-aae36361cc77": 0.9922077922077923,
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 0.9857142857142858,
+          "472f851c-2e41-4c80-b6fc-8478d1d92730": 0.9857142857142858,
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 0.9857142857142858,
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 0.9922077922077923,
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30": 0.9870129870129869,
+          "5e99f658-39f0-4845-9228-db8db3965f32": 0.9857142857142858,
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 0.9857142857142858,
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6": 0.9857142857142858,
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6": 0.9857142857142858,
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 0.9857142857142858,
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600": 0.9857142857142858,
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 0.9870129870129869,
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 0.9870129870129869,
+          "d001d563-988b-4f8e-904f-acb926748e22": 0.9870129870129869,
+          "de291399-ead5-41dc-bc12-e7c587684f85": 0.9922077922077923,
+          "f59f25a2-d3da-4100-a918-901271a99925": 0.9870129870129869,
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 0.9857142857142858
+        }
+      },
+      "6": {
+        "min_spearman": 0.9766233766233766,
+        "max_spearman": 0.9844155844155844,
+        "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "min_top5_overlap": 4,
+        "max_clear_overrides": 0,
+        "max_financial_gap_overturned": 0.0,
+        "close_reversal_rate_min": 0.1111111111111111,
+        "close_reversal_rate_max": 0.16666666666666666,
+        "meets_min_spearman_ge_098": 0.0,
+        "per_omitted_set_spearman": {
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069": 0.9766233766233766,
+          "142d3869-9d39-48b6-a810-751af2aac748": 0.9779220779220777,
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616": 0.9805194805194805,
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 0.9831168831168832,
+          "3c459327-59d0-41d5-b21e-aae36361cc77": 0.9831168831168832,
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 0.9805194805194805,
+          "472f851c-2e41-4c80-b6fc-8478d1d92730": 0.9766233766233766,
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 0.9805194805194805,
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 0.9844155844155844,
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30": 0.9792207792207792,
+          "5e99f658-39f0-4845-9228-db8db3965f32": 0.9766233766233766,
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 0.9766233766233766,
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6": 0.9766233766233766,
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6": 0.9792207792207792,
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 0.9766233766233766,
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600": 0.9766233766233766,
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 0.9779220779220777,
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 0.9779220779220777,
+          "d001d563-988b-4f8e-904f-acb926748e22": 0.9805194805194805,
+          "de291399-ead5-41dc-bc12-e7c587684f85": 0.9844155844155844,
+          "f59f25a2-d3da-4100-a918-901271a99925": 0.9779220779220777,
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 0.9766233766233766
+        }
+      },
+      "8": {
+        "min_spearman": 0.9636363636363635,
+        "max_spearman": 0.9766233766233766,
+        "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "min_top5_overlap": 4,
+        "max_clear_overrides": 0,
+        "max_financial_gap_overturned": 0.0,
+        "close_reversal_rate_min": 0.13157894736842105,
+        "close_reversal_rate_max": 0.19444444444444445,
+        "meets_min_spearman_ge_098": 0.0,
+        "per_omitted_set_spearman": {
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069": 0.9636363636363635,
+          "142d3869-9d39-48b6-a810-751af2aac748": 0.9649350649350649,
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616": 0.9701298701298702,
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 0.9701298701298702,
+          "3c459327-59d0-41d5-b21e-aae36361cc77": 0.9701298701298702,
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 0.9701298701298702,
+          "472f851c-2e41-4c80-b6fc-8478d1d92730": 0.9675324675324675,
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 0.9766233766233766,
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 0.9714285714285713,
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30": 0.9675324675324675,
+          "5e99f658-39f0-4845-9228-db8db3965f32": 0.9636363636363635,
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 0.9688311688311689,
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6": 0.9636363636363635,
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6": 0.9675324675324675,
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 0.9688311688311689,
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600": 0.9636363636363635,
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 0.9649350649350649,
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 0.9649350649350649,
+          "d001d563-988b-4f8e-904f-acb926748e22": 0.9714285714285713,
+          "de291399-ead5-41dc-bc12-e7c587684f85": 0.9714285714285713,
+          "f59f25a2-d3da-4100-a918-901271a99925": 0.9649350649350649,
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 0.9636363636363635
+        }
+      },
+      "10": {
+        "min_spearman": 0.9376623376623376,
+        "max_spearman": 0.9662337662337662,
+        "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "min_top5_overlap": 4,
+        "max_clear_overrides": 0,
+        "max_financial_gap_overturned": 0.0,
+        "close_reversal_rate_min": 0.18421052631578946,
+        "close_reversal_rate_max": 0.25,
+        "meets_min_spearman_ge_098": 0.0,
+        "per_omitted_set_spearman": {
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069": 0.9376623376623376,
+          "142d3869-9d39-48b6-a810-751af2aac748": 0.9389610389610389,
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616": 0.9545454545454546,
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": 0.9441558441558441,
+          "3c459327-59d0-41d5-b21e-aae36361cc77": 0.9441558441558441,
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b": 0.9532467532467532,
+          "472f851c-2e41-4c80-b6fc-8478d1d92730": 0.9428571428571428,
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": 0.9662337662337662,
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": 0.9454545454545454,
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30": 0.9415584415584415,
+          "5e99f658-39f0-4845-9228-db8db3965f32": 0.9376623376623376,
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": 0.9493506493506494,
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6": 0.9376623376623376,
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6": 0.9428571428571428,
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": 0.9493506493506494,
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600": 0.9415584415584415,
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": 0.9467532467532468,
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": 0.9389610389610389,
+          "d001d563-988b-4f8e-904f-acb926748e22": 0.9454545454545454,
+          "de291399-ead5-41dc-bc12-e7c587684f85": 0.9454545454545454,
+          "f59f25a2-d3da-4100-a918-901271a99925": 0.9467532467532468,
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27": 0.9376623376623376
+        }
+      }
+    },
+    "loso_by_k_sweep": {
+      "0.0005": {
+        "4": {
+          "min_spearman": 0.9948051948051948,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 1.0
+        },
+        "6": {
+          "min_spearman": 0.9857142857142858,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 1.0
+        },
+        "8": {
+          "min_spearman": 0.9805194805194805,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 1.0
+        },
+        "10": {
+          "min_spearman": 0.9766233766233766,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        }
+      },
+      "0.001": {
+        "4": {
+          "min_spearman": 0.9909090909090909,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 1.0
+        },
+        "6": {
+          "min_spearman": 0.9792207792207792,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        },
+        "8": {
+          "min_spearman": 0.9727272727272727,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        },
+        "10": {
+          "min_spearman": 0.9441558441558441,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        }
+      },
+      "0.002": {
+        "4": {
+          "min_spearman": 0.9857142857142858,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 1.0
+        },
+        "6": {
+          "min_spearman": 0.9766233766233766,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        },
+        "8": {
+          "min_spearman": 0.9636363636363635,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        },
+        "10": {
+          "min_spearman": 0.9376623376623376,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        }
+      },
+      "0.004": {
+        "4": {
+          "min_spearman": 0.9857142857142858,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 1.0
+        },
+        "6": {
+          "min_spearman": 0.9792207792207792,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        },
+        "8": {
+          "min_spearman": 0.9727272727272727,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        },
+        "10": {
+          "min_spearman": 0.9467532467532468,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        }
+      },
+      "0.008": {
+        "4": {
+          "min_spearman": 0.9948051948051948,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 1.0
+        },
+        "6": {
+          "min_spearman": 0.9818181818181818,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 1.0
+        },
+        "8": {
+          "min_spearman": 0.9753246753246754,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        },
+        "10": {
+          "min_spearman": 0.974025974025974,
+          "worst_omitted_set": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "meets_min_spearman_ge_098": 0.0
+        }
+      }
+    }
+  },
+  "phase10_family_movement": {
+    "weight_tested_pct": 6,
+    "k_used": 0.002,
+    "n_products_total_cohort": 138,
+    "n_products_matched_to_accessibility_supported_sets": 138,
+    "n_products_excluded_set_not_in_primary_cohort": 0,
+    "family_summary": {
+      "pokemon_center_elite_trainer_box": {
+        "n": 26,
+        "avg_rank_movement_abs": 4.5,
+        "median_rank_movement_abs": 4,
+        "avg_signed_movement": -1.1923076923076923,
+        "risers": 16,
+        "fallers": 9,
+        "unchanged": 1
+      },
+      "booster_bundle": {
+        "n": 23,
+        "avg_rank_movement_abs": 3.1739130434782608,
+        "median_rank_movement_abs": 2,
+        "avg_signed_movement": 1.0,
+        "risers": 7,
+        "fallers": 13,
+        "unchanged": 3
+      },
+      "loose_booster_pack": {
+        "n": 22,
+        "avg_rank_movement_abs": 4.5,
+        "median_rank_movement_abs": 4,
+        "avg_signed_movement": -0.3181818181818182,
+        "risers": 12,
+        "fallers": 10,
+        "unchanged": 0
+      },
+      "elite_trainer_box": {
+        "n": 27,
+        "avg_rank_movement_abs": 4.592592592592593,
+        "median_rank_movement_abs": 4,
+        "avg_signed_movement": 0.6666666666666666,
+        "risers": 9,
+        "fallers": 15,
+        "unchanged": 3
+      },
+      "sleeved_booster_pack": {
+        "n": 15,
+        "avg_rank_movement_abs": 5.6,
+        "median_rank_movement_abs": 3,
+        "avg_signed_movement": -1.7333333333333334,
+        "risers": 6,
+        "fallers": 6,
+        "unchanged": 3
+      },
+      "booster_box": {
+        "n": 15,
+        "avg_rank_movement_abs": 4.2,
+        "median_rank_movement_abs": 3,
+        "avg_signed_movement": 0.6,
+        "risers": 6,
+        "fallers": 5,
+        "unchanged": 4
+      },
+      "half_booster_box": {
+        "n": 8,
+        "avg_rank_movement_abs": 5.0,
+        "median_rank_movement_abs": 4,
+        "avg_signed_movement": 1.25,
+        "risers": 3,
+        "fallers": 4,
+        "unchanged": 1
+      },
+      "enhanced_booster_box": {
+        "n": 2,
+        "avg_rank_movement_abs": 4.0,
+        "median_rank_movement_abs": 6,
+        "avg_signed_movement": 2.0,
+        "risers": 1,
+        "fallers": 1,
+        "unchanged": 0
+      }
+    },
+    "same_set_accessibility_reversals": 0,
+    "same_set_reversals_note": "Must be 0 by construction: A_raw/A_score is set-constant, so within a set every product's candidate score shifts by the exact same additive/multiplicative amount relative to V10 and relative product ordering (by Financial+Collector) cannot flip."
+  },
+  "phase11_weight_robustness_decision_table": {
+    "2": {
+      "transform_robust": true,
+      "shock_robust": null,
+      "temporal_robust": null,
+      "loso_robust": null,
+      "classification": "SURVIVES_PASS_1B (transform grid only; not included in shock/LOSO sweep scope)"
+    },
+    "4": {
+      "transform_robust": true,
+      "min_spearman_across_k": 0.9875776397515529,
+      "shock_robust": true,
+      "worst_shock_spearman": 0.9875776397515529,
+      "loso_robust": true,
+      "temporal_robust": true,
+      "classification": "SURVIVES_PASS_1B"
+    },
+    "6": {
+      "transform_robust": false,
+      "min_spearman_across_k": 0.979672501411632,
+      "shock_robust": false,
+      "worst_shock_spearman": 0.9762845849802373,
+      "loso_robust": false,
+      "temporal_robust": true,
+      "classification": "FAILS_TRANSFORM_ROBUSTNESS_MIN_SPEARMAN_GE_0.98_ACROSS_ALL_K"
+    },
+    "8": {
+      "transform_robust": false,
+      "min_spearman_across_k": 0.9683794466403164,
+      "shock_robust": false,
+      "worst_shock_spearman": 0.9570863918690007,
+      "loso_robust": false,
+      "temporal_robust": true,
+      "classification": "FAILS_TRANSFORM_ROBUSTNESS_MIN_SPEARMAN_GE_0.98_ACROSS_ALL_K"
+    },
+    "10": {
+      "transform_robust": false,
+      "min_spearman_across_k": 0.9457933370976851,
+      "shock_robust": null,
+      "loso_robust": false,
+      "temporal_robust": true,
+      "classification": "FAILS_TRANSFORM_ROBUSTNESS_MIN_SPEARMAN_GE_0.98_ACROSS_ALL_K"
+    }
+  },
+  "phase11_answer_does_6pct_remain_highest_surviving_weight": false
+}

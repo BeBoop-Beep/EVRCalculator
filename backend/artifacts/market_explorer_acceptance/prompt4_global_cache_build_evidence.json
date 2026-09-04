@@ -1,0 +1,90 @@
+{
+  "global_allraw": {
+    "name": "global_allraw",
+    "fingerprint": "66426743b657a45f4381f3a5b9a5f216158158d4dd3c6ba8b8da6ec56c53a8e6",
+    "coldMs": 132937.88950000002,
+    "coldSource": "daily_projection",
+    "l2": {
+      "samplesMs": [
+        5018.55599999999,
+        1799.6559000000047
+      ],
+      "medianMs": 3409.1059499999974,
+      "p95Ms": 5018.55599999999,
+      "minMs": 1799.6559000000047,
+      "maxMs": 5018.55599999999,
+      "sources": [
+        "persistent_cache",
+        "persistent_cache"
+      ]
+    },
+    "l1": {
+      "samplesMs": [
+        13.042400000017551,
+        0.09729999999308347
+      ],
+      "medianMs": 6.569850000005317,
+      "p95Ms": 13.042400000017551,
+      "minMs": 0.09729999999308347,
+      "maxMs": 13.042400000017551,
+      "sources": [
+        "memory_cache",
+        "memory_cache"
+      ]
+    },
+    "persistentRows": [
+      {
+        "query_fingerprint": "66426743b657a45f4381f3a5b9a5f216158158d4dd3c6ba8b8da6ec56c53a8e6",
+        "status": "ready",
+        "cache_kind": "maintained",
+        "computed_through": "2026-09-02",
+        "constituent_count": 33956,
+        "eligible_universe_count": 33956
+      }
+    ]
+  },
+  "global_top10": {
+    "name": "global_top10",
+    "fingerprint": "133fe00a0ad949916202f49d45e9cce6ba6daf6697c636f95ea714d1755bfe77",
+    "coldMs": 49250.0368,
+    "coldSource": "daily_projection",
+    "l2": {
+      "samplesMs": [
+        157.6737000000037,
+        234.6332999999845
+      ],
+      "medianMs": 196.1534999999941,
+      "p95Ms": 234.6332999999845,
+      "minMs": 157.6737000000037,
+      "maxMs": 234.6332999999845,
+      "sources": [
+        "persistent_cache",
+        "persistent_cache"
+      ]
+    },
+    "l1": {
+      "samplesMs": [
+        0.07049999999253487,
+        0.019699999995737016
+      ],
+      "medianMs": 0.04509999999413594,
+      "p95Ms": 0.07049999999253487,
+      "minMs": 0.019699999995737016,
+      "maxMs": 0.07049999999253487,
+      "sources": [
+        "memory_cache",
+        "memory_cache"
+      ]
+    },
+    "persistentRows": [
+      {
+        "query_fingerprint": "133fe00a0ad949916202f49d45e9cce6ba6daf6697c636f95ea714d1755bfe77",
+        "status": "ready",
+        "cache_kind": "maintained",
+        "computed_through": "2026-09-02",
+        "constituent_count": 10,
+        "eligible_universe_count": 33956
+      }
+    ]
+  }
+}

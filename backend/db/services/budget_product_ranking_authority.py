@@ -40,6 +40,19 @@ EXPECTED_OVERALL_RIP_VERSION = "overall_rip_v10_90_financial_v4_10_collector_app
 EXPECTED_COLLECTOR_APPEAL_VERSION = "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2"
 EXPECTED_COLLECTOR_APPEAL_VERSION_PREFIX = "collector_appeal_v5_"
 
+#: V12 BUDGET authority identity (Gate F, Phase 8). Explicit-opt-in only -
+#: never the default/canonical budget authority. Each string identifies exact
+#: model lineage; a caller requesting V12 authority must match ALL of these,
+#: never infer lineage from field position.
+EXPECTED_OVERALL_RIP_V12_VERSION = (
+    "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5"
+)
+EXPECTED_CHASE_ACCESSIBILITY_VERSION = "chase_accessibility_v1_hc_value_squared_modeled_probability"
+EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION = (
+    "chase_accessibility_overall_score_v1_saturating_k002"
+)
+MIN_MAPPED_HC_MASS_FOR_BUDGET_V12 = 0.99
+
 #: Families the V1 validation actually covered. A new family appearing is not
 #: an error, but it has never been checked for ranking coverage.
 VALIDATED_PRODUCT_FAMILIES = frozenset({
@@ -59,6 +72,61 @@ def _rows(response: Any) -> List[Dict[str, Any]]:
     return list((response.data if response else []) or [])
 
 
+#: PostgREST's default page size. A single unpaginated ``.execute()`` call
+#: silently truncates to this many rows with no error - on a table that has
+#: grown past it, the truncated view can omit the newest ``price_as_of``
+#: cohort entirely, causing this resolver to pin to a older, now-stale
+#: cohort while believing it saw the whole table. See the incident where this
+#: caused a false "0/22 stale_calculation_run" result even though the CURRENT
+#: cohort was fully coherent with the CURRENT Chase Accessibility snapshot -
+#: the base read here silently never reached the current rows.
+_PAGE_SIZE = 1000
+
+
+def _fetch_all_ready_rows(client: Any) -> List[Dict[str, Any]]:
+    """Read every V4-ready sealed-product row, paginating past the PostgREST cap.
+
+    Ordered by ``sealed_product_id`` so pages are disjoint and stable across
+    calls; without an explicit order, pagination over a concurrently-written
+    table is not guaranteed to be complete or non-overlapping.
+    """
+    columns = (
+        "sealed_product_id,set_id,product_family,product_name,pack_count,random_pack_count,"
+        "guaranteed_component_count,guaranteed_component_market_value,product_market_cost,price_as_of,"
+        "collector_appeal_score,collector_appeal_version,calculation_run_id,"
+        "financial_rip_v4_status,financial_rip_v4_score,financial_rip_v4_version,"
+        "overall_rip_v10_score,overall_rip_v10_version,accessory_value_included,"
+        "overall_rip_v12_score,overall_rip_v12_status,overall_rip_v12_version"
+    )
+    base = (
+        client.table("simulation_sealed_product_results")
+        .select(columns)
+        .eq("financial_rip_v4_status", "ready")
+    )
+    order_query = getattr(base, "order", None)
+    range_query = getattr(base, "range", None)
+    if order_query is None or range_query is None:
+        # Client stub without order()/range() support (unit fakes): one read,
+        # matching this module's pre-pagination behaviour exactly.
+        return _rows(base.execute())
+
+    rows: List[Dict[str, Any]] = []
+    offset = 0
+    while True:
+        query = (
+            client.table("simulation_sealed_product_results")
+            .select(columns)
+            .eq("financial_rip_v4_status", "ready")
+            .order("sealed_product_id")
+            .range(offset, offset + _PAGE_SIZE - 1)
+        )
+        page = _rows(query.execute())
+        rows.extend(page)
+        if len(page) < _PAGE_SIZE:
+            return rows
+        offset += _PAGE_SIZE
+
+
 def load_pinned_cohort(
     client: Any,
     price_as_of: Optional[str] = None,
@@ -68,15 +136,7 @@ def load_pinned_cohort(
     Returns ``(products, authority)``. Raises `AuthorityResolutionError`
     rather than returning a blended cohort.
     """
-    raw = _rows(
-        client.table("simulation_sealed_product_results").select(
-            "sealed_product_id,set_id,product_family,product_name,pack_count,random_pack_count,"
-            "guaranteed_component_count,guaranteed_component_market_value,product_market_cost,price_as_of,"
-            "collector_appeal_score,collector_appeal_version,calculation_run_id,"
-            "financial_rip_v4_status,financial_rip_v4_score,financial_rip_v4_version,"
-            "overall_rip_v10_score,overall_rip_v10_version,accessory_value_included"
-        ).eq("financial_rip_v4_status", "ready").execute()
-    )
+    raw = _fetch_all_ready_rows(client)
     priced = [r for r in raw if float(r.get("product_market_cost") or 0) > 0]
     if not priced:
         raise AuthorityResolutionError("no V4-ready, positively-priced sealed-product rows exist")

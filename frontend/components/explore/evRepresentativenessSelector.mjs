@@ -23,13 +23,23 @@ export function selectEvRepresentativenessPublicV1(value, expectedCalculationRun
     }))
     .filter((row) => Number.isFinite(row.packCount) && row.packCount > 0 && row.probabilityAtLeast80PercentEv !== null)
     .sort((a, b) => a.packCount - b.packCount);
-  if (typicalCapture === null && top1OutcomeEvShare === null && !realizationByPackCount.length) return null;
+  const realizationHorizon = confirmedHorizon(value.realizationHorizon);
+  const convergenceHorizon = confirmedHorizon(value.convergenceHorizon);
+  if (
+    typicalCapture === null &&
+    top1OutcomeEvShare === null &&
+    !realizationByPackCount.length &&
+    !realizationHorizon &&
+    !convergenceHorizon
+  ) {
+    return null;
+  }
   return {
     ...value,
     typicalCapture,
     top1OutcomeEvShare,
-    realizationHorizon: confirmedHorizon(value.realizationHorizon),
-    convergenceHorizon: confirmedHorizon(value.convergenceHorizon),
+    realizationHorizon,
+    convergenceHorizon,
     realizationByPackCount,
   };
 }

@@ -1,0 +1,141 @@
+{
+  "version_identity": "chase_core_k_v1_stage5c_3x_pack_equivalent_cost",
+  "baseline": {
+    "n_products": 55,
+    "core_k_vs_accessibility_a_raw": {
+      "spearman": -0.7032817389154636,
+      "p": 2.1335499390896626e-09
+    },
+    "core_k_vs_financial_rip_v4": {
+      "spearman": 0.5890309558808231,
+      "p": 2.2374992768321375e-06
+    },
+    "core_k_vs_effective_pack_cost": {
+      "spearman": -0.4035133908224814,
+      "p": 0.0022518284797087076
+    },
+    "core_k_distribution": {
+      "min": 0,
+      "max": 21,
+      "mean": 5.527272727272727,
+      "n_zero": 3
+    }
+  },
+  "card_price_shocks": {
+    "-20": {
+      "products_evaluated": 55,
+      "products_changed": 34,
+      "share_changed": 0.6181818181818182,
+      "mean_abs_delta_k": 1.2727272727272727,
+      "max_abs_delta_k": 7
+    },
+    "-10": {
+      "products_evaluated": 55,
+      "products_changed": 26,
+      "share_changed": 0.4727272727272727,
+      "mean_abs_delta_k": 0.7272727272727273,
+      "max_abs_delta_k": 6
+    },
+    "-5": {
+      "products_evaluated": 55,
+      "products_changed": 17,
+      "share_changed": 0.3090909090909091,
+      "mean_abs_delta_k": 0.36363636363636365,
+      "max_abs_delta_k": 3
+    },
+    "-2": {
+      "products_evaluated": 55,
+      "products_changed": 10,
+      "share_changed": 0.18181818181818182,
+      "mean_abs_delta_k": 0.18181818181818182,
+      "max_abs_delta_k": 1
+    },
+    "2": {
+      "products_evaluated": 55,
+      "products_changed": 0,
+      "share_changed": 0.0,
+      "mean_abs_delta_k": 0.0,
+      "max_abs_delta_k": 0
+    },
+    "5": {
+      "products_evaluated": 55,
+      "products_changed": 9,
+      "share_changed": 0.16363636363636364,
+      "mean_abs_delta_k": 0.2,
+      "max_abs_delta_k": 2
+    },
+    "10": {
+      "products_evaluated": 55,
+      "products_changed": 23,
+      "share_changed": 0.41818181818181815,
+      "mean_abs_delta_k": 0.5818181818181818,
+      "max_abs_delta_k": 3
+    },
+    "20": {
+      "products_evaluated": 55,
+      "products_changed": 36,
+      "share_changed": 0.6545454545454545,
+      "mean_abs_delta_k": 1.1818181818181819,
+      "max_abs_delta_k": 3
+    }
+  },
+  "product_price_shocks": {
+    "-20": {
+      "products_evaluated": 55,
+      "products_changed": 38,
+      "share_changed": 0.6909090909090909,
+      "mean_abs_delta_k": 1.6,
+      "max_abs_delta_k": 5
+    },
+    "-10": {
+      "products_evaluated": 55,
+      "products_changed": 28,
+      "share_changed": 0.509090909090909,
+      "mean_abs_delta_k": 0.6909090909090909,
+      "max_abs_delta_k": 3
+    },
+    "-5": {
+      "products_evaluated": 55,
+      "products_changed": 9,
+      "share_changed": 0.16363636363636364,
+      "mean_abs_delta_k": 0.2,
+      "max_abs_delta_k": 2
+    },
+    "-2": {
+      "products_evaluated": 55,
+      "products_changed": 0,
+      "share_changed": 0.0,
+      "mean_abs_delta_k": 0.0,
+      "max_abs_delta_k": 0
+    },
+    "2": {
+      "products_evaluated": 55,
+      "products_changed": 10,
+      "share_changed": 0.18181818181818182,
+      "mean_abs_delta_k": 0.18181818181818182,
+      "max_abs_delta_k": 1
+    },
+    "5": {
+      "products_evaluated": 55,
+      "products_changed": 17,
+      "share_changed": 0.3090909090909091,
+      "mean_abs_delta_k": 0.36363636363636365,
+      "max_abs_delta_k": 3
+    },
+    "10": {
+      "products_evaluated": 55,
+      "products_changed": 25,
+      "share_changed": 0.45454545454545453,
+      "mean_abs_delta_k": 0.6545454545454545,
+      "max_abs_delta_k": 4
+    },
+    "20": {
+      "products_evaluated": 55,
+      "products_changed": 32,
+      "share_changed": 0.5818181818181818,
+      "mean_abs_delta_k": 1.0909090909090908,
+      "max_abs_delta_k": 6
+    }
+  },
+  "note": "Core K counts drawable cards crossing a hard 3x pack-equivalent-cost threshold -- an integer step function, unlike Accessibility's continuous A_raw. Non-zero share_changed at even small (+-2%) shocks with zero A_raw sensitivity (Phase 5/6) at the same magnitudes quantifies exactly this discontinuity gap."
+}

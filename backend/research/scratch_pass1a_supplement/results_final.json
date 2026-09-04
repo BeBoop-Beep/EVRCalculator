@@ -1,0 +1,342 @@
+{
+  "set_invariance": {
+    "sets_checked": 22,
+    "products_checked": 138,
+    "mismatches": 0
+  },
+  "ece_correlation_matrix": {
+    "financial_rip_v4_score": {
+      "rho": 0.358271554765074,
+      "p": 1.599145476826769e-05,
+      "n": 138
+    },
+    "overall_rip_v10_score": {
+      "rho": 0.284278828920361,
+      "p": 0.000727128804772572,
+      "n": 138
+    },
+    "A_raw": {
+      "rho": 0.6812338075598974,
+      "p": 3.769978499237403e-20,
+      "n": 138
+    },
+    "price_efficiency": {
+      "rho": 0.5982547506900857,
+      "p": 9.302283454675357e-15,
+      "n": 138
+    },
+    "effective_pack_cost": {
+      "rho": -0.5982547506900857,
+      "p": 9.302283454675357e-15,
+      "n": 138
+    },
+    "ev_over_cost": {
+      "rho": -0.04956060540333204,
+      "p": 0.5637607910396085,
+      "n": 138
+    },
+    "p95_over_cost": {
+      "rho": 0.017294954896127524,
+      "p": 0.8404352664087097,
+      "n": 138
+    },
+    "p99_over_cost": {
+      "rho": -0.16807043099255914,
+      "p": 0.0487854654636675,
+      "n": 138
+    },
+    "collector_appeal_v5_score": {
+      "rho": -0.5952880420546863,
+      "p": 1.3585529796150052e-14,
+      "n": 138
+    },
+    "pack_equivalent_used": {
+      "rho": -0.1087041941003922,
+      "p": 0.20439319798773697,
+      "n": 138
+    },
+    "product_market_cost": {
+      "rho": -0.3265310316012502,
+      "p": 9.280439908630396e-05,
+      "n": 138
+    },
+    "true_win_frequency": {
+      "rho": 0.2817627839968583,
+      "p": 0.0008141052303388003,
+      "n": 138
+    },
+    "typical_retention": {
+      "rho": 0.11670384416046976,
+      "p": 0.1728344839048539,
+      "n": 138
+    },
+    "loss_resilience": {
+      "rho": 0.1788241257200523,
+      "p": 0.035856916621271724,
+      "n": 138
+    },
+    "realistic_upside": {
+      "rho": 0.3656050722735045,
+      "p": 1.0362841839582771e-05,
+      "n": 138
+    },
+    "jackpot_upside": {
+      "rho": -0.06654733338051869,
+      "p": 0.4380421657806183,
+      "n": 138
+    },
+    "base_economic_efficiency": {
+      "rho": 0.2843199258428864,
+      "p": 0.0007257818152183692,
+      "n": 138
+    }
+  },
+  "partials_vs_cost": {
+    "financial_given_cost": [
+      0.05758820426997024,
+      0.5022766930137721,
+      138
+    ],
+    "ev_over_cost_given_cost": [
+      -0.02298002917881499,
+      0.7890579910529703,
+      138
+    ]
+  },
+  "residual_regression": {
+    "n": 138,
+    "R2": 0.6411059992466894,
+    "spearman_pred_actual": 0.8085157389797459,
+    "residual_std": 23.86492973721288,
+    "residual_vs_price_rank_rho": 0.7396738274248895,
+    "p": 3.713551333241878e-25
+  },
+  "key_residual_test_ece_vs_price_given_financial_accessibility": {
+    "rho": 0.9152490131030686,
+    "p": 1.5044787510726539e-55,
+    "n": 138
+  },
+  "same_set_placebo": {
+    "same_set_pairs": 398,
+    "ece_within_set_ranking_identical_to_price_ranking_every_set": true,
+    "ece_vs_v10_reversals": 102,
+    "price_vs_v10_reversals": 102,
+    "shared_reversals": 102,
+    "ece_only_reversals": 0,
+    "price_only_reversals": 0,
+    "agreement_rate_ece_vs_v10": 0.7437185929648241,
+    "ece_reversals_where_cheaper_effective_cost_product_won": 102,
+    "ece_reversals_total": 102
+  },
+  "section5_financial_gap_protection": {
+    "count_large_gap_overrides_ge10": 16,
+    "max_financial_gap_overturned": 19.810999999999996,
+    "max_same_set_financial_gap_overturned": 19.810999999999996,
+    "close_pair_gap_lt5_count": 157,
+    "close_pair_reversal_rate": 0.39490445859872614
+  },
+  "section6_family_bias": [
+    {
+      "family": "booster_box",
+      "n": 15,
+      "avg_product_price": 306.994,
+      "avg_effective_pack_cost": 8.527611111111112,
+      "avg_ece": 0.0002800091094584529,
+      "avg_rank_movement": 3.0,
+      "risers": 9,
+      "fallers": 4,
+      "same_set_reversal_wins": 11,
+      "same_set_reversal_losses": 0
+    },
+    {
+      "family": "booster_bundle",
+      "n": 23,
+      "avg_product_price": 84.4395652173913,
+      "avg_effective_pack_cost": 14.073260869565216,
+      "avg_ece": 0.0001724263517588913,
+      "avg_rank_movement": -1.0,
+      "risers": 12,
+      "fallers": 9,
+      "same_set_reversal_wins": 22,
+      "same_set_reversal_losses": 8
+    },
+    {
+      "family": "elite_trainer_box",
+      "n": 27,
+      "avg_product_price": 168.4077777777778,
+      "avg_effective_pack_cost": 18.71197530864197,
+      "avg_ece": 0.00013260633528986254,
+      "avg_rank_movement": 0.25925925925925924,
+      "risers": 14,
+      "fallers": 12,
+      "same_set_reversal_wins": 28,
+      "same_set_reversal_losses": 13
+    },
+    {
+      "family": "enhanced_booster_box",
+      "n": 2,
+      "avg_product_price": 275.07,
+      "avg_effective_pack_cost": 7.640833333333333,
+      "avg_ece": 0.00021063884079269035,
+      "avg_rank_movement": 0.5,
+      "risers": 1,
+      "fallers": 1,
+      "same_set_reversal_wins": 1,
+      "same_set_reversal_losses": 2
+    },
+    {
+      "family": "half_booster_box",
+      "n": 8,
+      "avg_product_price": 244.55,
+      "avg_effective_pack_cost": 13.586111111111112,
+      "avg_ece": 0.0001533920201495577,
+      "avg_rank_movement": 0.875,
+      "risers": 4,
+      "fallers": 3,
+      "same_set_reversal_wins": 8,
+      "same_set_reversal_losses": 1
+    },
+    {
+      "family": "loose_booster_pack",
+      "n": 22,
+      "avg_product_price": 11.869545454545454,
+      "avg_effective_pack_cost": 11.869545454545454,
+      "avg_ece": 0.00020862722572743936,
+      "avg_rank_movement": 1.5454545454545454,
+      "risers": 13,
+      "fallers": 8,
+      "same_set_reversal_wins": 17,
+      "same_set_reversal_losses": 5
+    },
+    {
+      "family": "pokemon_center_elite_trainer_box",
+      "n": 26,
+      "avg_product_price": 331.5688461538461,
+      "avg_effective_pack_cost": 30.14262237762238,
+      "avg_ece": 9.739274337707109e-05,
+      "avg_rank_movement": -6.153846153846154,
+      "risers": 5,
+      "fallers": 20,
+      "same_set_reversal_wins": 1,
+      "same_set_reversal_losses": 70
+    },
+    {
+      "family": "sleeved_booster_pack",
+      "n": 15,
+      "avg_product_price": 10.687999999999999,
+      "avg_effective_pack_cost": 10.687999999999999,
+      "avg_ece": 0.00021701888469505065,
+      "avg_rank_movement": 5.933333333333334,
+      "risers": 9,
+      "fallers": 5,
+      "same_set_reversal_wins": 14,
+      "same_set_reversal_losses": 3
+    }
+  ],
+  "section7_budget_validation": {
+    "25": {
+      "comparable_pairs": 15,
+      "agree": 10,
+      "disagree": 5,
+      "agreement_rate": 0.6666666666666666,
+      "by_pairtype": {
+        "cross_family": [
+          10,
+          5
+        ]
+      }
+    },
+    "50": {
+      "comparable_pairs": 23,
+      "agree": 19,
+      "disagree": 4,
+      "agreement_rate": 0.8260869565217391,
+      "by_pairtype": {
+        "cross_family": [
+          19,
+          4
+        ]
+      }
+    },
+    "100": {
+      "comparable_pairs": 56,
+      "agree": 48,
+      "disagree": 8,
+      "agreement_rate": 0.8571428571428571,
+      "by_pairtype": {
+        "cross_family": [
+          47,
+          8
+        ],
+        "same_family": [
+          1,
+          0
+        ]
+      }
+    },
+    "200": {
+      "comparable_pairs": 185,
+      "agree": 171,
+      "disagree": 14,
+      "agreement_rate": 0.9243243243243243,
+      "by_pairtype": {
+        "cross_family": [
+          167,
+          13
+        ],
+        "same_family": [
+          4,
+          1
+        ]
+      }
+    },
+    "500": {
+      "comparable_pairs": 379,
+      "agree": 323,
+      "disagree": 56,
+      "agreement_rate": 0.8522427440633246,
+      "by_pairtype": {
+        "cross_family": [
+          317,
+          52
+        ],
+        "same_family": [
+          6,
+          4
+        ]
+      }
+    }
+  },
+  "section7_within_set_cross_format": {
+    "25": {
+      "cross_format_same_set_pairs": 15,
+      "agree": 10,
+      "disagree": 5,
+      "agreement_rate": 0.6666666666666666
+    },
+    "50": {
+      "cross_format_same_set_pairs": 23,
+      "agree": 19,
+      "disagree": 4,
+      "agreement_rate": 0.8260869565217391
+    },
+    "100": {
+      "cross_format_same_set_pairs": 55,
+      "agree": 47,
+      "disagree": 8,
+      "agreement_rate": 0.8545454545454545
+    },
+    "200": {
+      "cross_format_same_set_pairs": 180,
+      "agree": 167,
+      "disagree": 13,
+      "agreement_rate": 0.9277777777777778
+    },
+    "500": {
+      "cross_format_same_set_pairs": 369,
+      "agree": 317,
+      "disagree": 52,
+      "agreement_rate": 0.8590785907859079
+    }
+  }
+}

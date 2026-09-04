@@ -1,0 +1,504 @@
+{
+  "pass_label": "OVERALL_RIP_ACCESSIBILITY_PASS_1A_COMPLETE",
+  "branch": "fix/public-rankings-entitlement-regression-2",
+  "start_head": "26bec1c5183164f5d8bde0be9571836183b1f455",
+  "end_head_at_write_time": "8affebfb587a6b8e207dca42b627a168528dc619",
+  "primary_cohort_n_sets": 22,
+  "primary_cohort_family": "loose_booster_pack",
+  "decision_ece_overall_weight": 0,
+  "decision_reasoning": "ECE (A_raw/effective_pack_cost) is dominated by an inverse-price signal not explained by Financial RIP V4 or Accessibility jointly (partial rho(ECE,PriceEfficiency | Financial,Accessibility) = 0.8814, R2 of ECE rank on [Financial,Accessibility] = 0.6487). Product Chase Efficiency is a defensible standalone product-level metric but should carry ZERO weight in Overall RIP.",
+  "n": 22,
+  "section3_redundancy_vs_A_raw": {
+    "financial_rip_v4_score": {
+      "spearman": [
+        0.1146,
+        0.6115
+      ],
+      "pearson": [
+        0.0494,
+        0.8271
+      ]
+    },
+    "true_win_frequency": {
+      "spearman": [
+        0.1925,
+        0.3906
+      ],
+      "pearson": [
+        0.2084,
+        0.3521
+      ]
+    },
+    "typical_retention": {
+      "spearman": [
+        -0.2151,
+        0.3363
+      ],
+      "pearson": [
+        -0.2828,
+        0.2021
+      ]
+    },
+    "loss_resilience": {
+      "spearman": [
+        -0.1293,
+        0.5663
+      ],
+      "pearson": [
+        -0.2295,
+        0.3043
+      ]
+    },
+    "realistic_upside": {
+      "spearman": [
+        0.2468,
+        0.2683
+      ],
+      "pearson": [
+        0.3074,
+        0.1641
+      ]
+    },
+    "jackpot_upside": {
+      "spearman": [
+        -0.5867,
+        0.0041
+      ],
+      "pearson": [
+        -0.5543,
+        0.0074
+      ]
+    },
+    "base_economic_efficiency": {
+      "spearman": [
+        0.0277,
+        0.9027
+      ],
+      "pearson": [
+        -0.0239,
+        0.9158
+      ]
+    },
+    "ev_over_cost": {
+      "spearman": [
+        -0.4545,
+        0.0336
+      ],
+      "pearson": [
+        -0.4943,
+        0.0194
+      ]
+    },
+    "p95_over_cost": {
+      "spearman": [
+        0.2468,
+        0.2683
+      ],
+      "pearson": [
+        0.3313,
+        0.132
+      ]
+    },
+    "p99_over_cost": {
+      "spearman": [
+        -0.1033,
+        0.6472
+      ],
+      "pearson": [
+        0.0185,
+        0.9348
+      ]
+    },
+    "collector_appeal_score": {
+      "spearman": [
+        -0.3755,
+        0.0851
+      ],
+      "pearson": [
+        -0.3981,
+        0.0665
+      ]
+    },
+    "chase_depth": {
+      "spearman": [
+        0.1508,
+        0.503
+      ],
+      "pearson": [
+        0.2959,
+        0.1812
+      ]
+    },
+    "pack_count": {
+      "spearman": [
+        NaN,
+        NaN
+      ],
+      "pearson": [
+        NaN,
+        NaN
+      ]
+    },
+    "product_market_cost_B": {
+      "spearman": [
+        0.1733,
+        0.4404
+      ],
+      "pearson": [
+        0.3391,
+        0.1226
+      ]
+    },
+    "effective_pack_cost": {
+      "spearman": [
+        0.1733,
+        0.4404
+      ],
+      "pearson": [
+        0.3391,
+        0.1226
+      ]
+    }
+  },
+  "section4_ece_correlations": {
+    "financial_rip_v4_score": {
+      "spearman": [
+        0.3473,
+        0.1133
+      ]
+    },
+    "overall_rip_v10_score": {
+      "spearman": [
+        0.3055,
+        0.1668
+      ]
+    },
+    "ev_over_cost": {
+      "spearman": [
+        -0.0198,
+        0.9304
+      ]
+    },
+    "p95_over_cost": {
+      "spearman": [
+        0.2005,
+        0.3711
+      ]
+    },
+    "p99_over_cost": {
+      "spearman": [
+        0.1745,
+        0.4374
+      ]
+    },
+    "product_market_cost_B": {
+      "spearman": [
+        -0.4545,
+        0.0336
+      ]
+    },
+    "effective_pack_cost": {
+      "spearman": [
+        -0.4545,
+        0.0336
+      ]
+    },
+    "pack_count": {
+      "spearman": [
+        NaN,
+        NaN
+      ]
+    },
+    "A_raw": {
+      "spearman": [
+        0.7617,
+        0.0
+      ]
+    },
+    "collector_appeal_score": {
+      "spearman": [
+        -0.5494,
+        0.0081
+      ]
+    },
+    "true_win_frequency": {
+      "spearman": [
+        0.1801,
+        0.4225
+      ]
+    },
+    "typical_retention": {
+      "spearman": [
+        0.3665,
+        0.0935
+      ]
+    },
+    "loss_resilience": {
+      "spearman": [
+        0.4037,
+        0.0624
+      ]
+    },
+    "realistic_upside": {
+      "spearman": [
+        0.2005,
+        0.3711
+      ]
+    },
+    "jackpot_upside": {
+      "spearman": [
+        -0.3235,
+        0.1419
+      ]
+    },
+    "base_economic_efficiency": {
+      "spearman": [
+        0.4399,
+        0.0405
+      ]
+    }
+  },
+  "section4_partials": {
+    "rho_Financial_ECE_given_effpackcost": 0.1746,
+    "rho_EVcost_ECE_given_effpackcost": -0.3511
+  },
+  "section5_placebo_correlations": {
+    "rho_ECE_PriceEfficiency": [
+      0.4545,
+      0.0336
+    ],
+    "rho_ECE_Accessibility": [
+      0.7617,
+      0.0
+    ],
+    "rho_PriceEfficiency_Financial": [
+      0.4602,
+      0.0312
+    ],
+    "rho_PriceEfficiency_Accessibility": [
+      -0.1733,
+      0.4404
+    ]
+  },
+  "section5_candidate_vs_v10": {
+    "total_pairs": 231,
+    "reversals_Overall_ECE_vs_V10": 21,
+    "reversals_Overall_Price_vs_V10": 16,
+    "shared_reversals_both_candidates": 9,
+    "transform_used": "percentile_rank_0_100_for_ECE_and_PriceEfficiency_only_financial_and_collector_used_as_is_native_0_100_scale"
+  },
+  "section5_controlled_pairs": {
+    "tolerance": 0.05,
+    "testA_near_equal_cost_pairs_n": 13,
+    "testA_ECE_follows_Accessibility_ordering_count": 13,
+    "testB_near_equal_accessibility_pairs_n": 10,
+    "testB_ECE_follows_cheaper_cost_count": 10
+  },
+  "section6_residual_test": {
+    "OLS_ECE_rank_on_Financial_Accessibility_R2": 0.6487,
+    "spearman_predicted_vs_actual_ECE_rank": 0.7877,
+    "residual_dispersion_std": 3.7604,
+    "residual_correlation_with_PriceEfficiency_rank": 0.7911,
+    "partial_corr_ECE_PriceEfficiency_given_Financial_and_Accessibility": 0.8814,
+    "note": "prior_lost_run_reported_0.9264_for_this_partial_correlation"
+  },
+  "section7_negative_control": {
+    "rho_negcontrol_p99_over_cost": [
+      0.0796,
+      0.7247
+    ],
+    "rho_negcontrol_jackpot_upside": [
+      0.6488,
+      0.0011
+    ],
+    "rho_negcontrol_financial_rip_v4": [
+      -0.467,
+      0.0284
+    ]
+  },
+  "section8_budget_validation": {
+    "25": {
+      "n_comparable_products": 21,
+      "pairs_total": 210,
+      "pairs_agree": 191,
+      "pairs_disagree": 19,
+      "disagreement_examples": [
+        {
+          "set_A": "142d3869-9d39-48b6-a810-751af2aac748",
+          "set_B": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+          "ECE_A": 0.0003498452,
+          "ECE_B": 0.0003126312,
+          "O_budget_A": 0.0068196879816487515,
+          "O_budget_B": 0.00703001573459178,
+          "q_A": 3,
+          "q_B": 4,
+          "price_A": 6.52,
+          "price_B": 5.64
+        },
+        {
+          "set_A": "142d3869-9d39-48b6-a810-751af2aac748",
+          "set_B": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+          "ECE_A": 0.0003498452,
+          "ECE_B": 0.0004253596,
+          "O_budget_A": 0.0068196879816487515,
+          "O_budget_B": 0.00552116731182815,
+          "q_A": 3,
+          "q_B": 1,
+          "price_A": 6.52,
+          "price_B": 12.98
+        },
+        {
+          "set_A": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "set_B": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+          "ECE_A": 0.000129651,
+          "ECE_B": 9.40182e-05,
+          "O_budget_A": 0.002106828055633631,
+          "O_budget_B": 0.0022227180240335567,
+          "q_A": 1,
+          "q_B": 3,
+          "price_A": 16.25,
+          "price_B": 7.89
+        }
+      ]
+    },
+    "50": {
+      "n_comparable_products": 22,
+      "pairs_total": 231,
+      "pairs_agree": 220,
+      "pairs_disagree": 11,
+      "disagreement_examples": [
+        {
+          "set_A": "142d3869-9d39-48b6-a810-751af2aac748",
+          "set_B": "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "ECE_A": 0.0003498452,
+          "ECE_B": 0.0003469572,
+          "O_budget_A": 0.015806023274917414,
+          "O_budget_B": 0.01587192196456909,
+          "q_A": 7,
+          "q_B": 5,
+          "price_A": 6.52,
+          "price_B": 9.21
+        },
+        {
+          "set_A": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "set_B": "d001d563-988b-4f8e-904f-acb926748e22",
+          "ECE_A": 0.000129651,
+          "ECE_B": 0.0001588076,
+          "O_budget_A": 0.006307029599005667,
+          "O_budget_B": 0.004714997687738731,
+          "q_A": 3,
+          "q_B": 1,
+          "price_A": 16.25,
+          "price_B": 29.69
+        },
+        {
+          "set_A": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "set_B": "5e99f658-39f0-4845-9228-db8db3965f32",
+          "ECE_A": 0.0003037233,
+          "ECE_B": 0.0002903522,
+          "O_budget_A": 0.013418159130935699,
+          "O_budget_B": 0.01421702460496635,
+          "q_A": 3,
+          "q_B": 9,
+          "price_A": 14.81,
+          "price_B": 5.5
+        }
+      ]
+    },
+    "100": {
+      "n_comparable_products": 22,
+      "pairs_total": 231,
+      "pairs_agree": 228,
+      "pairs_disagree": 3,
+      "disagreement_examples": [
+        {
+          "set_A": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "set_B": "5e99f658-39f0-4845-9228-db8db3965f32",
+          "ECE_A": 0.0003037233,
+          "ECE_B": 0.0002903522,
+          "O_budget_A": 0.026612186146305884,
+          "O_budget_B": 0.028102123038434346,
+          "q_A": 6,
+          "q_B": 18,
+          "price_A": 14.81,
+          "price_B": 5.5
+        },
+        {
+          "set_A": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "set_B": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "ECE_A": 5.79229e-05,
+          "ECE_B": 5.80237e-05,
+          "O_budget_A": 0.00560085422517604,
+          "O_budget_B": 0.005186411857004589,
+          "q_A": 7,
+          "q_B": 6,
+          "price_A": 13.85,
+          "price_B": 14.93
+        },
+        {
+          "set_A": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "set_B": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "ECE_A": 5.80237e-05,
+          "ECE_B": 5.63374e-05,
+          "O_budget_A": 0.005186411857004589,
+          "O_budget_B": 0.00531815647602963,
+          "q_A": 6,
+          "q_B": 7,
+          "price_A": 14.93,
+          "price_B": 13.52
+        }
+      ]
+    },
+    "200": {
+      "n_comparable_products": 22,
+      "pairs_total": 231,
+      "pairs_agree": 231,
+      "pairs_disagree": 0,
+      "disagreement_examples": []
+    },
+    "500": {
+      "n_comparable_products": 22,
+      "pairs_total": 231,
+      "pairs_agree": 228,
+      "pairs_disagree": 3,
+      "disagreement_examples": [
+        {
+          "set_A": "142d3869-9d39-48b6-a810-751af2aac748",
+          "set_B": "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "ECE_A": 0.0003498452,
+          "ECE_B": 0.0003469572,
+          "O_budget_A": 0.15473878351989506,
+          "O_budget_B": 0.15843192332103118,
+          "q_A": 76,
+          "q_B": 54,
+          "price_A": 6.52,
+          "price_B": 9.21
+        },
+        {
+          "set_A": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+          "set_B": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "ECE_A": 5.57358e-05,
+          "ECE_B": 5.63374e-05,
+          "O_budget_A": 0.027428440948668503,
+          "O_budget_B": 0.02702612487968006,
+          "q_A": 34,
+          "q_B": 36,
+          "price_A": 14.68,
+          "price_B": 13.52
+        },
+        {
+          "set_A": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "set_B": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "ECE_A": 5.79229e-05,
+          "ECE_B": 5.80237e-05,
+          "O_budget_A": 0.028443369466301216,
+          "O_budget_B": 0.028192203272772266,
+          "q_A": 36,
+          "q_B": 33,
+          "price_A": 13.85,
+          "price_B": 14.93
+        }
+      ]
+    }
+  }
+}

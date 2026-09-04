@@ -154,7 +154,7 @@ class FakeClient:
         if name == "get_pokemon_cards_daily_constituents":
             return _RpcResult(rows)
 
-        if name == svc.FILTERED_COHORT_RPC:
+        if name in (svc.FILTERED_COHORT_RPC, svc.DAILY_PROJECTION_RPC):
             segment_ids = set(payload.get("p_segment_ids") or [])
             price_segments = set(payload.get("p_price_segment_ids") or [])
             release_cohorts = set(payload.get("p_release_age_cohort_ids") or [])
@@ -716,6 +716,164 @@ def test_a_statement_timeout_remains_plan_evidence_not_a_size_rejection():
             Client(), ["set-a"], start_date="2026-01-01", end_date="2026-01-05",
             card_ids=["card-1"], top_n=None,
         )
+
+
+# ---------------------------------------------------------------------------
+# Root cause 1 -- tracked-set resolution excludes catalog-only sets
+# ---------------------------------------------------------------------------
+
+def test_resolve_tracked_set_ids_excludes_catalog_only_sets():
+    """169 history-tracked sets, 4 catalog-only, must resolve to 165."""
+    history_ids = [f"set-{index}" for index in range(169)]
+    catalog_only_ids = set(history_ids[:4])
+
+    class Client:
+        def table(self, name):
+            if name == "pokemon_set_value_daily_history_coverage":
+                return _Query([{"set_id": sid, "has_history": True} for sid in history_ids])
+            if name == "sets":
+                return _Query([
+                    {"id": sid, "catalog_only": sid in catalog_only_ids}
+                    for sid in history_ids
+                ])
+            raise AssertionError(f"unexpected table read: {name}")
+
+    result = svc.resolve_tracked_set_ids(Client())
+    assert len(result) == 165
+    assert catalog_only_ids.isdisjoint(result)
+    assert set(result) == set(history_ids) - catalog_only_ids
+
+
+def test_resolve_tracked_set_ids_keeps_a_normal_tracked_set():
+    class Client:
+        def table(self, name):
+            if name == "pokemon_set_value_daily_history_coverage":
+                return _Query([{"set_id": "set-normal", "has_history": True}])
+            if name == "sets":
+                return _Query([{"id": "set-normal", "catalog_only": False}])
+            raise AssertionError(f"unexpected table read: {name}")
+
+    assert svc.resolve_tracked_set_ids(Client()) == ["set-normal"]
+
+
+def test_resolve_tracked_set_ids_is_an_intersection_not_a_union():
+    """A catalog_only=false set with no tracked history stays untracked --
+    the contract is history INTERSECT non-catalog-only, not "every
+    non-catalog-only set"."""
+
+    class Client:
+        def table(self, name):
+            if name == "pokemon_set_value_daily_history_coverage":
+                return _Query([{"set_id": "set-tracked", "has_history": True}])
+            if name == "sets":
+                return _Query([
+                    {"id": "set-tracked", "catalog_only": False},
+                    {"id": "set-untracked-no-history", "catalog_only": False},
+                ])
+            raise AssertionError(f"unexpected table read: {name}")
+
+    assert svc.resolve_tracked_set_ids(Client()) == ["set-tracked"]
+
+
+def test_resolve_tracked_set_ids_treats_missing_catalog_only_as_false():
+    """A `sets` row missing the column entirely must not be excluded --
+    `catalog_only` defaults FALSE in the schema."""
+
+    class Client:
+        def table(self, name):
+            if name == "pokemon_set_value_daily_history_coverage":
+                return _Query([{"set_id": "set-legacy-row", "has_history": True}])
+            if name == "sets":
+                return _Query([{"id": "set-legacy-row"}])  # no catalog_only key
+            raise AssertionError(f"unexpected table read: {name}")
+
+    assert svc.resolve_tracked_set_ids(Client()) == ["set-legacy-row"]
+
+
+def test_filter_options_publication_excludes_catalog_only_sets(monkeypatch):
+    """The filter panel's set list must inherit the same exclusion --
+    it is built from `resolve_tracked_set_ids`, not a separate query."""
+
+    monkeypatch.setattr(svc, "resolve_tracked_set_ids", lambda _client: ["set-ah", "set-pe"])
+
+    class Client(FakeClient):
+        def table(self, name):
+            if name == "pokemon_card_desirability_links":
+                return _Query([])
+            if name == "pokemon_set_sealed_market_snapshot_latest":
+                return _Query([])
+            return super().table(name)
+
+    options = svc.build_market_explorer_filter_options(Client())
+    set_ids = {row["id"] for row in options["sets"]}
+    assert set_ids == {"set-ah", "set-pe"}
+    assert "set-ev" not in set_ids  # would appear if the raw SETS fixture leaked through
+
+
+# ---------------------------------------------------------------------------
+# Root cause 2 -- same-day queries must use daily projection when covered
+# ---------------------------------------------------------------------------
+
+def test_covered_same_day_query_uses_daily_projection(monkeypatch):
+    seen = []
+    original = svc.load_filtered_daily_cohort_rows
+
+    def recording_loader(*args, **kwargs):
+        seen.append(kwargs.get("rpc_name"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(svc, "daily_projection_covers", lambda *_a, **_k: True)
+    monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", recording_loader)
+
+    result = _run(mode=MODE_ALL, set_ids=["set-ah"],
+                  start_date=DATES[0], end_date=DATES[0])
+
+    assert result["diagnostics"]["executionEngine"] == "daily_projection"
+    assert seen == [svc.DAILY_PROJECTION_RPC]
+
+
+def test_uncovered_same_day_query_preserves_interval_current(monkeypatch):
+    seen = []
+    original = svc.load_filtered_daily_cohort_rows
+
+    def recording_loader(*args, **kwargs):
+        seen.append(kwargs.get("rpc_name"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(svc, "daily_projection_covers", lambda *_a, **_k: False)
+    monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", recording_loader)
+
+    result = _run(mode=MODE_ALL, set_ids=["set-ah"],
+                  start_date=DATES[0], end_date=DATES[0])
+
+    assert result["diagnostics"]["executionEngine"] == "interval_current"
+    assert seen == [svc.FILTERED_COHORT_RPC]
+
+
+def test_covered_multi_day_query_remains_daily_projection(monkeypatch):
+    seen = []
+    original = svc.load_filtered_daily_cohort_rows
+
+    def recording_loader(*args, **kwargs):
+        seen.append(kwargs.get("rpc_name"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(svc, "daily_projection_covers", lambda *_a, **_k: True)
+    monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", recording_loader)
+
+    result = _run(mode=MODE_ALL, set_ids=["set-ah"],
+                  start_date=DATES[0], end_date=DATES[-1])
+
+    assert result["diagnostics"]["executionEngine"] == "daily_projection"
+    assert seen == [svc.DAILY_PROJECTION_RPC]
+
+
+def test_uncovered_multi_day_query_remains_interval_fallback():
+    """Same assertion as test_uncovered_range_uses_bounded_interval_fallback,
+    named explicitly for the corrected same-day/multi-day contract matrix."""
+    result = _run(mode=MODE_ALL, set_ids=["set-ah"],
+                  start_date=DATES[0], end_date=DATES[-1])
+    assert result["diagnostics"]["executionEngine"] == "interval_fallback"
 
 
 def test_an_unrelated_database_error_still_propagates():

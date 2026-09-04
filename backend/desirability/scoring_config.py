@@ -451,6 +451,111 @@ def overall_rip_v11_required_chase_opportunity_version() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Overall RIP V12 - 86% Financial V4 + 4% Chase Accessibility (transformed)
+#                    + 10% Collector Appeal V5
+# ---------------------------------------------------------------------------
+# V12 ADDS A THIRD PILLAR, DIFFERENT FROM V11's. V11 already claimed the "add a
+# Chase pillar" slot with `chase_opportunity_v1` (Core K, product-level, 3x
+# pack-equivalent cost). V12 is a SEPARATE historical lineage: the Overall RIP
+# Accessibility research program (`docs/research/OVERALL_RIP_ACCESSIBILITY_*`),
+# which uses Chase ACCESSIBILITY (`chase_accessibility_v1_hc_value_squared_
+# modeled_probability`, set-level, HC-weighted modeled-probability reachability)
+# instead of Core K. V11 is untouched by this addition: it remains computable,
+# its version string keeps its original meaning, and neither V10 nor V11 are
+# ever produced by this function.
+#
+# LOCKED BY RESEARCH (docs/research/OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_
+# CLOSURE.md, FINAL CLOSURE / Pass 1C, decision label
+# OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_VALIDATED):
+#
+#     Overall RIP = 0.86 * FinancialRIPv4
+#                 + 0.04 * ChaseAccessibilityScore(k=0.002)
+#                 + 0.10 * CollectorAppealV5
+#
+# The public/raw Chase Accessibility metric (`A_raw`, a decimal fraction such
+# as 0.002 = 0.20%) is NOT what enters this blend directly. It first passes
+# through the fixed-anchor saturating transform in
+# :mod:`backend.desirability.chase_accessibility_overall_score`:
+#
+#     A_score(k) = 100 * A_raw / (A_raw + k), k = 0.002 (fixed, never re-anchored)
+#
+# ONE canonical place converts raw Accessibility into A_score - that module -
+# so no second call site can reimplement (and silently drift from) the
+# transform.
+#
+# NOT CANONICAL. ``CANONICAL_OVERALL_RIP_VERSION`` continues to resolve to V10
+# (see the cutover switches below); this prompt implements the scoring
+# function only, does not flip any selector, and performs no publication,
+# migration or deployment.
+
+OVERALL_RIP_V12_VERSION = (
+    "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5"
+)
+
+OVERALL_RIP_V12_FINANCIAL_WEIGHT = 0.86
+OVERALL_RIP_V12_CHASE_ACCESSIBILITY_WEIGHT = 0.04
+OVERALL_RIP_V12_COLLECTOR_APPEAL_WEIGHT = 0.10
+
+OVERALL_RIP_V12_WEIGHTS: Dict[str, float] = {
+    "financial_rip": OVERALL_RIP_V12_FINANCIAL_WEIGHT,
+    "chase_accessibility": OVERALL_RIP_V12_CHASE_ACCESSIBILITY_WEIGHT,
+    "collector_appeal": OVERALL_RIP_V12_COLLECTOR_APPEAL_WEIGHT,
+}
+
+#: Weights must be a partition of 1.0. No pillar renormalizes on its own when
+#: another is missing - V12 fails closed instead (see ``compute_overall_rip_v12``).
+OVERALL_RIP_V12_WEIGHT_SUM_TOLERANCE = 1e-9
+assert abs(sum(OVERALL_RIP_V12_WEIGHTS.values()) - 1.0) <= OVERALL_RIP_V12_WEIGHT_SUM_TOLERANCE, (
+    "Overall RIP V12 weights must sum to exactly 1.0"
+)
+
+# The "Market-Based Opening Quality" grouping (Financial + Accessibility) is an
+# EXPLANATORY DECOMPOSITION ONLY (research closure F10): it is never persisted
+# or published as its own metric. These shares are DERIVED, not hand-typed, so
+# they can never silently drift from the two weights they are computed from.
+OVERALL_RIP_V12_MARKET_BASED_WEIGHT = (
+    OVERALL_RIP_V12_FINANCIAL_WEIGHT + OVERALL_RIP_V12_CHASE_ACCESSIBILITY_WEIGHT
+)
+OVERALL_RIP_V12_FINANCIAL_SHARE_OF_MARKET_BASED = (
+    OVERALL_RIP_V12_FINANCIAL_WEIGHT / OVERALL_RIP_V12_MARKET_BASED_WEIGHT
+)
+OVERALL_RIP_V12_CHASE_ACCESSIBILITY_SHARE_OF_MARKET_BASED = (
+    OVERALL_RIP_V12_CHASE_ACCESSIBILITY_WEIGHT / OVERALL_RIP_V12_MARKET_BASED_WEIGHT
+)
+
+# The effective per-input weights after expanding the six Financial RIP V4
+# components across the 0.86 share.
+OVERALL_RIP_V12_EFFECTIVE_WEIGHTS: Dict[str, float] = {
+    **{
+        component: OVERALL_RIP_V12_WEIGHTS["financial_rip"] * weight
+        for component, weight in _FINANCIAL_RIP_V4_WEIGHTS.items()
+    },
+    "chase_accessibility": OVERALL_RIP_V12_WEIGHTS["chase_accessibility"],
+    "collector_appeal": OVERALL_RIP_V12_WEIGHTS["collector_appeal"],
+}
+
+# The EXACT input identities V12 requires. A canonical V12 score may only be
+# formed from pillars carrying these versions; a mismatch is a hard refusal,
+# never a coerced read. Chase Accessibility and Collector Appeal are resolved
+# lazily to avoid a circular import, the same pattern V11 already uses.
+OVERALL_RIP_V12_REQUIRED_FINANCIAL_VERSION = FINANCIAL_RIP_V4_VERSION
+
+
+def overall_rip_v12_required_collector_appeal_version() -> str:
+    """The Collector Appeal identity Overall RIP V12 requires."""
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
+
+    return COLLECTOR_APPEAL_V5_VERSION
+
+
+def overall_rip_v12_required_chase_accessibility_version() -> str:
+    """The Chase Accessibility identity Overall RIP V12 requires."""
+    from backend.desirability.chase_accessibility import CHASE_ACCESSIBILITY_VERSION
+
+    return CHASE_ACCESSIBILITY_VERSION
+
+
+# ---------------------------------------------------------------------------
 # Overall RIP sensitivity weights (RESEARCH ONLY - never production)
 # ---------------------------------------------------------------------------
 # The Collector Appeal shares the read-only validation tool reports against the
@@ -502,8 +607,13 @@ OVERALL_RIP_PRODUCTION_GUARDRAILS: Dict[str, float] = {
 # `CANONICAL_OVERALL_RIP_VERSION` below - a second definition of a cutover
 # switch is a second cutover. There is one.
 CANONICAL_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V4_VERSION
-CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V10_VERSION
-CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V10_WEIGHTS)
+# 2026-09-03 cutover: canonical Overall RIP is now V12 (86% Financial RIP V4 +
+# 4% Chase Accessibility A_score(k=0.002) + 10% Collector Appeal V5). V10
+# remains fully computable, registered, and readable as explicit historical/
+# rollback lineage - see OVERALL_RIP_V10_VERSION and canonical_overall_rip_is_v10()
+# (now truthfully False, same pattern as canonical_overall_rip_is_v7/_v8 below).
+CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V12_VERSION
+CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V12_WEIGHTS)
 
 # The registry of every model version this build can compute, canonical or not.
 # Publication contracts, audit scripts and the historical readers resolve a
@@ -525,6 +635,8 @@ KNOWN_OVERALL_RIP_VERSIONS: Tuple[str, ...] = (
     OVERALL_RIP_V8_VERSION,
     OVERALL_RIP_V9_VERSION,
     OVERALL_RIP_V10_VERSION,
+    OVERALL_RIP_V11_VERSION,
+    OVERALL_RIP_V12_VERSION,
 )
 LEGACY_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V2_VERSION
 LEGACY_OVERALL_RIP_VERSION = OVERALL_RIP_V4_VERSION
@@ -583,12 +695,20 @@ def canonical_public_rip_contract_version() -> str:
     Lazily imported: `public_rip_contract_v8` imports this module, so a
     module-scope import would be a cycle. The string is defined once, in the
     contract module that implements it.
+
+    2026-09-03 cutover: promoted from `public_rip_contract_v10` (which carries
+    Overall RIP V10) to `public_rip_contract_v11` (which carries Overall RIP
+    V12 - see that module's docstring for why the CONTRACT identifier stays
+    "v11" while the OVERALL RIP model inside it is "v12": contract numbering
+    and Overall RIP model numbering are separate lineages). V10's contract
+    remains fully computable and explicitly requestable; it is simply no
+    longer what this generic/current resolver returns.
     """
-    from backend.desirability.public_rip_contract_v10 import (
-        PUBLIC_RIP_CONTRACT_V10_VERSION,
+    from backend.desirability.public_rip_contract_v11 import (
+        PUBLIC_RIP_CONTRACT_V11_VERSION,
     )
 
-    return PUBLIC_RIP_CONTRACT_V10_VERSION
+    return PUBLIC_RIP_CONTRACT_V11_VERSION
 
 
 def canonical_overall_rip_is_v9() -> bool:
@@ -596,8 +716,20 @@ def canonical_overall_rip_is_v9() -> bool:
 
 
 def canonical_overall_rip_is_v10() -> bool:
-    """True when Overall RIP V10 (90% Financial V4 + 10% Collector Appeal V5) is canonical."""
+    """True when Overall RIP V10 (90% Financial V4 + 10% Collector Appeal V5) is canonical.
+
+    RETAINED AND NOW FALSE as of the 2026-09-03 V12 cutover, same pattern as
+    ``canonical_overall_rip_is_v7``/``_v8`` above: the predicate is kept so any
+    caller still asking the V10 question gets a truthful ``False`` rather than
+    an ImportError a `try/except` might swallow into a stale default.
+    """
     return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
+
+
+def canonical_overall_rip_is_v12() -> bool:
+    """True when Overall RIP V12 (86% Financial V4 + 4% Chase Accessibility A_score
+    + 10% Collector Appeal V5) is canonical. True as of the 2026-09-03 cutover."""
+    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V12_VERSION
 
 
 def canonical_financial_rip_is_v4() -> bool:
@@ -654,21 +786,23 @@ def canonical_scoring_selection() -> Dict[str, object]:
         "legacyCollectorAppealV2Version": legacy_collector_appeal_v2_version(),
         "legacyCollectorAppealVersion": legacy_collector_appeal_version(),
         "overallRipWeights": dict(CANONICAL_OVERALL_RIP_WEIGHTS),
-        "overallRipEffectiveWeights": dict(OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
+        "overallRipEffectiveWeights": dict(OVERALL_RIP_V12_EFFECTIVE_WEIGHTS),
         # Implemented and computable, but NOT canonical. Disclosed so a reader of
         # this payload can see that older models still exist and compute,
         # rather than inferring from their absence that they no longer exist.
         "availableFinancialRipVersions": list(KNOWN_FINANCIAL_RIP_VERSIONS),
         "availableOverallRipVersions": list(KNOWN_OVERALL_RIP_VERSIONS),
         "implementedNotCanonicalFinancialRipVersion": FINANCIAL_RIP_V3_VERSION,
-        "implementedNotCanonicalOverallRipVersion": OVERALL_RIP_V9_VERSION,
+        "implementedNotCanonicalOverallRipVersion": OVERALL_RIP_V10_VERSION,
         "note": (
-            "Overall RIP V10 is 90% Financial RIP V4 + 10% Collector Appeal V5, "
-            "and Financial RIP V4 is canonical. Financial RIP V2/V3, Overall RIP "
-            "v4/V5/V6/V7/V8/V9, Collector Appeal V4/V3, Collector Appeal V2 and "
-            "legacy CA7 remain identifiable under explicitly legacy labels, stay "
-            "computable, and are never selected by fallback. Promotion to a "
-            "future version is a separate change to "
+            "Overall RIP V12 is 86% Financial RIP V4 + 4% Chase Accessibility "
+            "A_score(k=0.002) + 10% Collector Appeal V5, and Financial RIP V4 is "
+            "canonical. Financial RIP V2/V3, Overall RIP v4/V5/V6/V7/V8/V9/V10/V11, "
+            "Collector Appeal V4/V3, Collector Appeal V2 and legacy CA7 remain "
+            "identifiable under explicitly legacy labels, stay computable, and are "
+            "never selected by fallback. Overall RIP V10 in particular is the "
+            "explicit historical/rollback lineage for this 2026-09-03 V12 cutover. "
+            "Promotion to a future version is a separate change to "
             "CANONICAL_FINANCIAL_RIP_VERSION and CANONICAL_OVERALL_RIP_VERSION "
             "together with a snapshot rebuild."
         ),
@@ -691,6 +825,8 @@ def _audit_overall_rip_weights() -> None:
         ("OVERALL_RIP_V9_EFFECTIVE_WEIGHTS", OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
         ("OVERALL_RIP_V10_WEIGHTS", OVERALL_RIP_V10_WEIGHTS),
         ("OVERALL_RIP_V10_EFFECTIVE_WEIGHTS", OVERALL_RIP_V10_EFFECTIVE_WEIGHTS),
+        ("OVERALL_RIP_V12_WEIGHTS", OVERALL_RIP_V12_WEIGHTS),
+        ("OVERALL_RIP_V12_EFFECTIVE_WEIGHTS", OVERALL_RIP_V12_EFFECTIVE_WEIGHTS),
     ):
         total = sum(table.values())
         if abs(total - 1.0) > 1e-12:
@@ -709,6 +845,12 @@ def _audit_overall_rip_weights() -> None:
             raise ValueError(
                 "CANONICAL_OVERALL_RIP_WEIGHTS must match OVERALL_RIP_V10_WEIGHTS "
                 "while V10 is the canonical Overall RIP."
+            )
+    if CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V12_VERSION:
+        if CANONICAL_OVERALL_RIP_WEIGHTS != OVERALL_RIP_V12_WEIGHTS:
+            raise ValueError(
+                "CANONICAL_OVERALL_RIP_WEIGHTS must match OVERALL_RIP_V12_WEIGHTS "
+                "while V12 is the canonical Overall RIP."
             )
     # The V4 decision record fixes V10 at 90/10 over Financial V4 and Collector
     # Appeal V5. A drift in either share is an import-time failure.

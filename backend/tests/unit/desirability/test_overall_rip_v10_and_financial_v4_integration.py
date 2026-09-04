@@ -52,6 +52,7 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_V10_EFFECTIVE_WEIGHTS,
     OVERALL_RIP_V10_VERSION,
     OVERALL_RIP_V10_WEIGHTS,
+    OVERALL_RIP_V12_VERSION,
     canonical_collector_appeal_version,
     canonical_financial_rip_is_v3,
     canonical_financial_rip_is_v4,
@@ -199,23 +200,25 @@ def test_both_overall_versions_are_registered_and_identifiable():
 
 
 def test_v3_and_v9_remain_computable_as_history():
-    """Financial RIP V4 / Overall RIP V10 are now canonical (the promotion cutover
-    has happened). V3/V9 must remain registered and computable so historical rows
-    stay readable and identifiable — they are simply no longer selected."""
+    """Financial RIP V4 is canonical (unchanged by the V12 cutover). Overall
+    RIP V12 is now canonical (2026-09-03 promotion). V3/V9/V10 must remain
+    registered and computable so historical rows stay readable and
+    identifiable — they are simply no longer selected."""
     assert CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V4_VERSION
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V12_VERSION
     assert canonical_financial_rip_is_v4() is True
     assert canonical_financial_rip_is_v3() is False
-    assert canonical_overall_rip_is_v10() is True
+    assert canonical_overall_rip_is_v10() is False
     assert canonical_overall_rip_is_v9() is False
     assert is_known_financial_rip_version(FINANCIAL_RIP_V3_VERSION)
     assert is_known_overall_rip_version(OVERALL_RIP_V9_VERSION)
+    assert is_known_overall_rip_version(OVERALL_RIP_V10_VERSION)
 
 
 def test_the_selection_payload_discloses_the_promoted_versions():
     selection = canonical_scoring_selection()
     assert selection["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V4_VERSION
-    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V10_VERSION
+    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V12_VERSION
     assert FINANCIAL_RIP_V4_VERSION in selection["availableFinancialRipVersions"]
     assert OVERALL_RIP_V10_VERSION in selection["availableOverallRipVersions"]
     assert FINANCIAL_RIP_V3_VERSION in selection["availableFinancialRipVersions"]
