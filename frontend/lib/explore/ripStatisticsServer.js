@@ -37,6 +37,24 @@ function sanitiseLimit(value, defaultValue, maxValue) {
 // once; each caller's `limit` is applied by slicing that shared result.
 const CANONICAL_COHORT_LIMIT = MAX_TARGETS_LIMIT;
 
+// Bounded process cache + in-flight join for the canonical cohort fetch.
+// publicOnly and authenticated reads are cached separately (public headers
+// vs ambient session headers must never cross-pollinate), each with its own
+// 120s TTL consistent with the snapshot's prior publication cadence. Fresh
+// miss -> one backend read; concurrent misses -> one backend request with
+// every waiter joining the same in-flight promise; warm reads inside TTL
+// short-circuit entirely; TTL expiry triggers exactly one refresh; a failed
+// refresh falls back to the existing recoverable/stale payload shape rather
+// than serving stale-forever.
+const COHORT_TTL_MS = 120_000;
+const cohortCache = new Map(); // key -> { data, expiresAt }
+const cohortInFlight = new Map(); // key -> Promise
+
+export function __resetRipStatisticsTargetsCacheForTests() {
+  cohortCache.clear();
+  cohortInFlight.clear();
+}
+
 export function normalisePayload(payload) {
   return normaliseRipStatisticsPayload(payload);
 }
@@ -80,7 +98,7 @@ function getRecoverableTargetsPayload(warning) {
   });
 }
 
-async function _fetchRipStatisticsTargets(request = null, { publicOnly = false } = {}) {
+async function _fetchRipStatisticsTargetsUncached(request = null, { publicOnly = false } = {}) {
   const limit = CANONICAL_COHORT_LIMIT;
     const url = new URL(`${BACKEND_URL}/explore/rip-statistics/targets`);
     url.searchParams.set("limit", String(CANONICAL_COHORT_LIMIT));
@@ -134,6 +152,56 @@ async function _fetchRipStatisticsTargets(request = null, { publicOnly = false }
       marketDate: payload?.meta?.comparisonSnapshots?.currentMarketDate ?? null,
     });
     return payload;
+}
+
+// Only the publicOnly cohort (fixed Accept-only headers, identical for every
+// visitor) is ever process-cached or in-flight-joined here. Authenticated
+// reads resolve ambient session/plan headers and MUST stay uncached — a
+// Plus/Premium response cached under a bare "authenticated" key would leak
+// across a Base viewer's request within the TTL window. This deliberately
+// preserves the pre-existing "no cross-request cache for entitlement-
+// sensitive cohorts" contract for the authenticated path while giving the
+// Homepage's publicOnly reader the bounded cache/in-flight-join required by
+// this effort.
+const PUBLIC_COHORT_KEY = "public";
+
+async function _fetchRipStatisticsTargets(request = null, { publicOnly = false } = {}) {
+  if (!publicOnly) {
+    return _fetchRipStatisticsTargetsUncached(request, { publicOnly: false });
+  }
+  const key = PUBLIC_COHORT_KEY;
+  const cached = cohortCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    console.info("[rip-statistics-server] cache_hit", { key });
+    return cached.data;
+  }
+  const existingInFlight = cohortInFlight.get(key);
+  if (existingInFlight) {
+    console.info("[rip-statistics-server] in_flight_join", { key });
+    return existingInFlight;
+  }
+  const startedAt = Date.now();
+  const promise = (async () => {
+    try {
+      const data = await _fetchRipStatisticsTargetsUncached(request, { publicOnly: true });
+      // Never cache a recoverable/fallback payload as if it were a fresh
+      // cohort — that would hide a real outage behind a fake TTL hit and
+      // could also hide a genuinely new publication indefinitely.
+      if (!data?.meta?.requestFailed) {
+        cohortCache.set(key, { data, expiresAt: Date.now() + COHORT_TTL_MS });
+      }
+      console.info("[rip-statistics-server] cohort_fetch_complete", {
+        key,
+        elapsedMs: Date.now() - startedAt,
+        requestFailed: Boolean(data?.meta?.requestFailed),
+      });
+      return data;
+    } finally {
+      cohortInFlight.delete(key);
+    }
+  })();
+  cohortInFlight.set(key, promise);
+  return promise;
 }
 
 export async function getRipStatisticsTargets(options = {}) {

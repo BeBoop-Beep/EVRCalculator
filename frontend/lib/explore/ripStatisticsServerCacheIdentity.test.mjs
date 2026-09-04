@@ -16,6 +16,17 @@ test("entitlement-sensitive cohorts have no cross-request process cache", () => 
   assert.match(source, /getBackendRequestAuthHeaders\(request\)/);
 });
 
+// Production stability effort (2026-09-04): the publicOnly cohort (fixed
+// Accept-only headers, identical response for every anonymous/Base/Plus/
+// Premium visitor) is the ONE deliberate exception — it now gets a bounded
+// process cache + in-flight join so the Homepage doesn't re-hit the backend
+// on every request. The authenticated path above must remain untouched.
+test("only the publicOnly cohort gets a bounded cache; the authenticated path is untouched", () => {
+  assert.match(source, /if \(!publicOnly\) \{\s*\n\s*return _fetchRipStatisticsTargetsUncached\(request, \{ publicOnly: false \}\);/);
+  assert.match(source, /const PUBLIC_COHORT_KEY = "public";/);
+  assert.match(source, /COHORT_TTL_MS/);
+});
+
 test("the single upstream fetch always requests the canonical full cohort", () => {
   assert.ok(
     source.includes("const CANONICAL_COHORT_LIMIT = MAX_TARGETS_LIMIT;"),

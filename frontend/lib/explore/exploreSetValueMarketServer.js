@@ -1,9 +1,16 @@
 import { cache } from "react";
-import { cookies } from "next/headers";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
+const CACHE_KEY = "public-market";
 const processCache = new Map();
+let inFlight = null;
 const TTL = 120_000;
+
+// Test-only: force a deterministic cold cache for cache-behavior tests.
+export function __resetExploreSetValueMarketCacheForTests() {
+  processCache.clear();
+  inFlight = null;
+}
 // The snapshot publishes THREE top-level keys: marketOverview (the global Raw /
 // Top 10 Chase / Sealed index families), sets (the Set Value ladder) and meta. The
 // reconstruction below must carry all three — an earlier version rebuilt only
@@ -25,30 +32,46 @@ export function normalizeExploreSetValueMarket(payload) {
   };
 }
 
-export const getExploreSetValueMarket = cache(async function getExploreSetValueMarket() {
-  // Keep the public fallback in scope for both non-OK responses and transport
-  // exceptions. The previous declaration lived inside `try`, so the catch path
-  // itself threw a ReferenceError and discarded an otherwise valid stale seed.
-  const cached = processCache.get("public-market");
-  try {
-    const cookieHeader = (await cookies()).toString();
-    const preparedResponse = await fetch(`${getBackendApiBaseUrl()}/market/explorer/snapshot`, {
-      cache: "no-store",
-      headers: cookieHeader ? { Cookie: cookieHeader } : {},
-    });
-    // The backend has independently authenticated and authorized this exact
-    // request. Never process-cache this paid payload across users.
-    const response = preparedResponse.ok
-      ? preparedResponse
-      : await fetch(`${getBackendApiBaseUrl()}/explore/set-value-market`, { cache: "no-store" });
-    if (!response.ok) return unavailableExploreSetValueMarket(cached?.data);
-    const payload = await response.json();
-    const data = normalizeExploreSetValueMarket(payload);
-    if (!preparedResponse.ok) {
-      processCache.set("public-market", { data, expiresAt: Date.now() + TTL });
-    }
-    return data;
-  } catch {
-    return unavailableExploreSetValueMarket(cached?.data);
+// Public Set Value Market data is a single intentional public contract:
+// `/explore/set-value-market` is the compact, prepared, unauthenticated
+// snapshot that already carries marketOverview + sets + initialSelectedSetMovers.
+// It must NEVER probe the paid `/market/explorer/snapshot` endpoint first —
+// that endpoint requires auth/entitlement and anonymous/Base viewers would
+// otherwise pay for a failed auth round-trip (and Plus/Premium viewers would
+// otherwise be handed the full multi-MB paid publication) just to render the
+// public Market page. Paid Explorer data, when actually needed by the paid
+// Explorer UI, is loaded through its own intentional path elsewhere.
+async function fetchExploreSetValueMarket() {
+  const cached = processCache.get(CACHE_KEY);
+  if (cached?.expiresAt > Date.now()) {
+    console.info("[explore-set-value-market] cache_hit", { key: CACHE_KEY });
+    return cached.data;
   }
-});
+  if (inFlight) {
+    console.info("[explore-set-value-market] in_flight_join", { key: CACHE_KEY });
+    return inFlight;
+  }
+  const startedAt = Date.now();
+  inFlight = (async () => {
+    try {
+      const response = await fetch(`${getBackendApiBaseUrl()}/explore/set-value-market`, { cache: "no-store" });
+      if (!response.ok) {
+        console.warn("[explore-set-value-market] backend_error", { status: response.status });
+        return unavailableExploreSetValueMarket(cached?.data);
+      }
+      const payload = await response.json();
+      const data = normalizeExploreSetValueMarket(payload);
+      processCache.set(CACHE_KEY, { data, expiresAt: Date.now() + TTL });
+      console.info("[explore-set-value-market] fresh_response", { elapsedMs: Date.now() - startedAt });
+      return data;
+    } catch (error) {
+      console.warn("[explore-set-value-market] request_failed", { error: error?.message || String(error) });
+      return unavailableExploreSetValueMarket(cached?.data);
+    } finally {
+      inFlight = null;
+    }
+  })();
+  return inFlight;
+}
+
+export const getExploreSetValueMarket = cache(fetchExploreSetValueMarket);

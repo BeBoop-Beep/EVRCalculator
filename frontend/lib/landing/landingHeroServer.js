@@ -12,6 +12,23 @@ const LANDING_TARGETS_LIMIT = 60;
 const OPENING_RANKING_LIMIT = 5;
 const BACKEND_URL = getBackendApiBaseUrl();
 
+// Bounded process cache + in-flight join for the spotlight distribution
+// read, keyed on the spotlight setId. This is Option (A) from A4: the read
+// stays sequential (it needs the spotlight identity first), but repeated
+// Homepage requests for the SAME spotlight set within the TTL window never
+// re-hit /rip/simulation-evidence. Keying on setId (rather than a single
+// fixed key) means a new spotlight set is never hidden behind a stale cache
+// entry for the old one, and a genuinely new simulation publication for the
+// same set is still picked up within COHORT_TTL_MS.
+const DISTRIBUTION_TTL_MS = 120_000;
+const distributionCache = new Map(); // setId -> { data, expiresAt }
+const distributionInFlight = new Map(); // setId -> Promise
+
+export function __resetLandingDistributionCacheForTests() {
+  distributionCache.clear();
+  distributionInFlight.clear();
+}
+
 /**
  * The #1 set's PUBLIC opening distribution, fetched server-side with the
  * SAME public-only headers as the rankings read (no Cookie/Authorization) —
@@ -20,8 +37,7 @@ const BACKEND_URL = getBackendApiBaseUrl();
  * homepage renders its existing "distribution unavailable" state rather than
  * a fake or interpolated one; the ranking and hero still render regardless.
  */
-async function getPublicOpeningDistribution(setId) {
-  if (!setId) return null;
+async function fetchPublicOpeningDistributionUncached(setId) {
   try {
     const res = await fetch(`${BACKEND_URL}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/rip/simulation-evidence`, {
       cache: "no-store",
@@ -33,6 +49,42 @@ async function getPublicOpeningDistribution(setId) {
   } catch {
     return null;
   }
+}
+
+async function getPublicOpeningDistribution(setId) {
+  if (!setId) return null;
+  const cached = distributionCache.get(setId);
+  if (cached && cached.expiresAt > Date.now()) {
+    console.info("[landing-hero-server] distribution_cache_hit", { setId });
+    return cached.data;
+  }
+  const existingInFlight = distributionInFlight.get(setId);
+  if (existingInFlight) {
+    console.info("[landing-hero-server] distribution_in_flight_join", { setId });
+    return existingInFlight;
+  }
+  const startedAt = Date.now();
+  const promise = (async () => {
+    try {
+      const data = await fetchPublicOpeningDistributionUncached(setId);
+      // Only cache a truthfully-successful result; a null (failure/unavailable)
+      // read is never cached, so the next request gets a real retry rather than
+      // a stale-forever null.
+      if (data !== null) {
+        distributionCache.set(setId, { data, expiresAt: Date.now() + DISTRIBUTION_TTL_MS });
+      }
+      console.info("[landing-hero-server] distribution_fetch_complete", {
+        setId,
+        elapsedMs: Date.now() - startedAt,
+        hit: data !== null,
+      });
+      return data;
+    } finally {
+      distributionInFlight.delete(setId);
+    }
+  })();
+  distributionInFlight.set(setId, promise);
+  return promise;
 }
 
 function withRoutes(entry) {
