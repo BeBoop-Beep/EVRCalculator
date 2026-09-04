@@ -1,0 +1,30 @@
+{
+  "request": {
+    "url": "https://play.limitlesstcg.com/api/tournaments/6a82476c5a3071409557297b/details",
+    "retrievedAt": "2026-09-04T04:30:41.522562+00:00"
+  },
+  "payload": {
+    "id": "6a82476c5a3071409557297b",
+    "game": "PTCG",
+    "format": "STANDARD",
+    "name": "Pumpkaweekly",
+    "date": "2026-08-17T18:00:00.000Z",
+    "players": 259,
+    "organizer": {
+      "id": 36,
+      "name": "The Dice Town League"
+    },
+    "platform": "PTCGL",
+    "decklists": true,
+    "isPublic": true,
+    "isOnline": true,
+    "phases": [
+      {
+        "phase": 1,
+        "type": "SWISS",
+        "rounds": 8,
+        "mode": "BO1"
+      }
+    ]
+  }
+}

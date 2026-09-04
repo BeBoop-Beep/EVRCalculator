@@ -1121,6 +1121,7 @@ def get_product_chase_intelligence(
     request: Request,
     budget: Optional[float] = Query(default=None, ge=0),
     price_as_of: Optional[str] = Query(default=None),
+    sealed_product_id: Optional[str] = Query(default=None),
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
@@ -1132,13 +1133,40 @@ def get_product_chase_intelligence(
     ``/explore/card-chase-efficiency`` (Card Chase Efficiency, a distinct
     Premium construct). It is never routed through either. A Plus or Free
     request is rejected before any cohort/authority data is touched.
+
+    ``sealed_product_id`` (Phase 12 perf fix): a single product-detail-page
+    request scopes the cohort down to that one product's row before the
+    orchestration call below runs - which batches its Accessibility and
+    variant-universe reads once per DISTINCT SET in the cohort it is handed.
+    Without this scoping, every single product-page load resolved the FULL
+    18-set/117-product global cohort (1 Accessibility batch read + 18
+    variant-universe reads) just to render one product's row. Scoped to one
+    product, the same call issues 1 Accessibility read + 1 variant-universe
+    read. Cross-product ranking context (``oBudgetRank``) is meaningless
+    against a 1-product cohort (it would trivially always read "#1"), so it
+    is stripped in scoped mode; a caller that wants the real cross-format
+    Product Chase ranking must omit ``sealed_product_id`` and pay for the
+    full (deliberately more expensive) cohort resolution instead.
     """
     user_id = _require_product_chase_intelligence(authorization=authorization, token_cookie=token_cookie)
     _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
                         route="/explore/product-chase-intelligence")
     try:
         cohort, _authority = load_pinned_cohort(service_read_client, price_as_of=price_as_of)
+        scoped = False
+        if sealed_product_id:
+            cohort = [row for row in cohort if str(row.get("sealed_product_id")) == str(sealed_product_id)]
+            scoped = True
+            if not cohort:
+                return JSONResponse(
+                    content={"message": "Product not found in the current Chase Access cohort",
+                             "code": "PRODUCT_CHASE_INTELLIGENCE_PRODUCT_NOT_FOUND", "products": []},
+                    status_code=404,
+                )
         resolved = resolve_product_chase_access(service_read_client, cohort, budget=budget)
+        if scoped:
+            for row in resolved.get("products", []):
+                row["oBudgetRank"] = None
         return _tiered_response(project_product_chase_access_response(
             resolved, _resolve_index_plan(authorization, token_cookie),
         ))

@@ -342,7 +342,10 @@ No failure in the full sweep, after the one confirmed-and-fixed exception, trace
 
 ## 17. Final decision
 
-**PREMIUM_PRODUCT_CHASE_INTELLIGENCE_IMPLEMENTED_CODE_ONLY.**
+**PREMIUM_PRODUCT_CHASE_INTELLIGENCE_IMPLEMENTED_CODE_ONLY** (as of the original §1–§17 pass above).
+**SEE §18 AND §19 BELOW — this decision label, and the §14/§15 "zero ranked products" / "V12
+correlation could not be computed" conclusions, are SUPERSEDED by two later corrections. The
+sections above are preserved verbatim as history, not deleted, per this doc's own standing rule.**
 
 The math, authority-coherence, batching, API, entitlement enforcement, and frontend are built and
 tested (246/247 targeted backend tests + 7/7 frontend contract tests passing, the one failure
@@ -356,3 +359,204 @@ quantity-dominated once the staleness gap is fixed, so `CODE_ONLY` (full ranking
 demoted to diagnostic-only UI role) is the honest label — contingent on that data-pipeline
 staleness being resolved (outside this task's scope) before this feature is exercised against real
 production traffic.
+
+## 18. CORRECTION #1 (immediately-prior pass) — pagination truncation in the pinned-cohort authority
+
+**SUPERSEDES §14a/§17's "zero ranked products in production" conclusion.** The root cause was a
+latent bug in `backend/db/services/budget_product_ranking_authority.py::_fetch_all_ready_rows`: a
+single unpaginated `.execute()` call silently truncates to PostgREST's default page size (1,000
+rows). On a `simulation_sealed_product_results` table that has grown past that, the truncated read
+could omit the newest `price_as_of` cohort entirely, causing the resolver to pin to an older,
+now-stale cohort while believing it had seen the whole table — this is what actually produced the
+"0/22 stale_calculation_run" / zero-ranked-product result in §14a, not a genuine data-pipeline
+staleness condition. `_fetch_all_ready_rows` was fixed to page explicitly via `.order(...).range(...)`
+until a page returns fewer than the page size. After the fix, the CURRENT cohort (117 products / 18
+sets / 18 runs, `price_as_of=2026-08-26` at the time of that pass) resolved cleanly, and the
+authoritative Product Chase results reported in the task prompt for this pass (ranked-by-budget
+counts $25→30 … $500→112, Spearman(O_budget, ECE)≈0.92–0.99, etc.) came from that repaired path —
+**not** from the diagnostic-relaxed, explicitly-non-authoritative pass in §14b/§15. The `CODE_ONLY`
+decision stands, now on genuinely authority-coherent production data instead of the diagnostic
+substitute.
+
+## 19. CORRECTION #2 (this pass) — V12 projection omission, not missing production data
+
+**SUPERSEDES §14b's "`overall_rip_v12_score` correlation could not be computed (no non-null values
+available in the join for this cohort)" claim.** That claim was independently disproven: a direct
+query against `simulation_sealed_product_results WHERE financial_rip_v4_status='ready' AND
+price_as_of='2026-09-02'` returns 117 rows / 18 sets / 18 runs, and **117/117 have
+`overall_rip_v12_score IS NOT NULL` and `overall_rip_v12_status='ready'`**. The missing correlation
+was a projection bug, not missing data.
+
+**Root cause and fix**: `backend/db/services/budget_product_ranking_authority.py::_fetch_all_ready_rows`
+selected an explicit column list for the pinned-cohort read that never included
+`overall_rip_v12_score`/`overall_rip_v12_status`/`overall_rip_v12_version`, even though those
+columns exist on the same row. `backend/scripts/validate_product_chase_access_phase19.py` worked
+around the gap by issuing a SECOND, entirely UNFILTERED (`price_as_of`-blind) full-table read of
+just those two v12 columns and joining it back onto the cohort by `sealed_product_id` — which is
+itself a latent authority-coherence bug: it could silently pair a v12 score from a *different*
+`price_as_of` cohort onto a product row from the pinned cohort, exactly the class of blended-market-state
+bug this module's whole design (see its module docstring) exists to prevent.
+
+**Fix applied**:
+- `budget_product_ranking_authority.py`, `_fetch_all_ready_rows`'s `columns` string (around line
+  94–99): added `overall_rip_v12_score,overall_rip_v12_status,overall_rip_v12_version` to the
+  existing SELECT. No new query was added — this extends the one query the module already issues.
+- `validate_product_chase_access_phase19.py`: removed the second unfiltered re-fetch entirely; the
+  script now reads `overall_rip_v12_score`/`overall_rip_v12_status` directly off the SAME pinned
+  cohort rows `load_pinned_cohort` returns, and pins the default `price_as_of` to `2026-09-02` (the
+  current live authority cohort) instead of the older `2026-08-26` value hardcoded in the original
+  §14a run.
+- No N+1 was introduced — column additions to an existing single paginated SELECT do not add
+  queries; `resolve_product_chase_access`'s per-set batching (§8) is untouched.
+
+**Corrected authoritative results** (live cohort: 117 products, 18 sets, `price_as_of=2026-09-02`,
+re-run via the repaired `validate_product_chase_access_phase19.py`):
+
+| Budget | Ranked | Leader | Spearman(O_budget, effective_packs) | Spearman(O_budget, **overall_rip_v12_score**) | Spearman(O_budget, ECE) | Spearman(O_budget, price) | Spearman(O_budget, effective_pack_cost) | Spearman(O_budget, set A_raw) |
+|---|---|---|---|---|---|---|---|---|
+| $25 | 30 | Stellar Crown Booster Pack | 0.497 | **0.431** | 0.919 | -0.516 | -0.516 | 0.641 |
+| $50 | 34 | Stellar Crown Booster Pack | 0.345 | **0.284** | 0.986 | -0.295 | -0.395 | 0.684 |
+| $100 | 47 | Stellar Crown Booster Pack | 0.470 | **0.428** | 0.980 | -0.425 | -0.395 | 0.777 |
+| $150 | 64 | Stellar Crown Booster Pack | 0.521 | **0.398** | 0.973 | -0.406 | -0.397 | 0.740 |
+| $250 | 92 | Stellar Crown Booster Pack | 0.612 | **0.361** | 0.957 | -0.413 | -0.551 | 0.693 |
+| $500 | 112 | Shrouded Fable Booster Bundle | 0.576 | **0.315** | 0.971 | -0.387 | -0.535 | 0.700 |
+
+`overall_rip_v12_score` is now a finite, real correlation at every budget — it is no longer `None`.
+No genuine pairing limitation remains for this cohort: all 117 products in the pinned cohort carry
+a non-null V12 score, so every product that has an O_budget value also has a V12 pairing; the
+Spearman inputs are the full ranked set at each budget, not a reduced subset.
+
+**Interpretation**: O_budget correlates moderately-positively with Overall RIP V12 (0.28–0.43,
+weaker than its correlation with ECE, effective packs, or set A_raw). This is expected and
+reinforces the product decision's semantic-limit statement (§5/product decision text): O_budget and
+Overall RIP V12 measure genuinely different things — Overall RIP V12 blends financial return and
+collector appeal at the SKU level, while O_budget measures budget-constrained reachability of a
+set's important collectible value. A moderate, non-trivial, non-zero correlation is the honest
+result; a near-1.0 correlation would have suggested O_budget is redundant with the already-canonical
+V12 score, which it clearly is not, and a near-0 correlation would have suggested no
+relationship at all, which is also not what the data shows.
+
+**Final decision (superseding §17)**: `O_BUDGET_PRODUCT_RANKING_USEFUL` for the backend research
+question (unchanged from the task's locked prior decision), and, for this integration pass,
+**`PREMIUM_PRODUCT_CHASE_INTELLIGENCE_PAGE_INTEGRATED_CODE_ONLY`** — see §20 for the full
+frontend-integration, performance, and entitlement record for this pass.
+
+## 20. Frontend integration, single-product performance fix, and entitlement verification (this pass)
+
+**Page integration (Phase 3/4)**: `ProductChaseIntelligenceSection`/`ProductChaseIntelligenceLock`
+(`frontend/components/pokemon/sealed-product-detail/ProductChaseIntelligenceSection.jsx`) are now
+mounted in `SealedProductDetailClient.jsx`, directly after the Product RIP block and before
+`ProductComparisonSection`, gated on `hasIndexPremiumAccess(user?.index_plan)` — a distinct,
+higher tier than the existing `hasIndexPlusAccess` gate used for Product RIP, so a Plus (non-Premium)
+user sees the static `ProductChaseIntelligenceLock` shell, never the fetching component. A
+pre-existing bug in the standalone component (`<PlanUpgradeLink plan=... feature=...>`, which does
+not match `PlanUpgradeLink`'s actual `requiredPlan`/`source` prop contract used everywhere else on
+this page) was fixed to `requiredPlan={INDEX_PLAN_PREMIUM} source="sealed-product-chase-intelligence"`
+while wiring it in.
+
+**Single-product performance fix (Phase 12)**: before this pass, `GET
+/explore/product-chase-intelligence` always resolved the orchestration call
+(`resolve_product_chase_access`) against the FULL pinned cohort regardless of how the frontend used
+it — meaning a single product-detail-page load paid for 1 Accessibility batch read + 18
+variant-universe reads (one per distinct set in the whole 18-set cohort) just to render one
+product's row. A new `sealed_product_id` query param on the backend route
+(`backend/api/main.py::get_product_chase_intelligence`) filters the pinned cohort down to that one
+product's row BEFORE calling `resolve_product_chase_access`; because that function batches its reads
+once per distinct set IN THE COHORT IT IS HANDED (unchanged), a 1-row cohort now costs exactly 1
+Accessibility read + 1 variant-universe read. Verified with a new fake-client test,
+`backend/tests/unit/api/test_product_chase_intelligence_single_product_scope.py`, asserting exact
+call counts:
+- single product / one budget: 1 Accessibility read, 1 variant-universe read (was 1 + N-sets).
+- one set's products / one budget (unscoped call over a 3-set fixture): 1 Accessibility read, 3
+  variant-universe reads (one per distinct set present) — unchanged, this is the existing,
+  deliberately-more-expensive cross-format ranking path, still used when `sealed_product_id` is
+  omitted.
+- an unknown `sealed_product_id` returns 404 with **zero** Accessibility/variant reads issued (the
+  cohort miss is caught before any per-set batching runs).
+
+Because ranking a single product against itself would trivially and misleadingly report `"#1"`, the
+route nulls `oBudgetRank` on every product in a scoped response; a caller that wants the real
+cross-format Chase Access ranking must omit `sealed_product_id` and pay for the full cohort
+resolution — kept as a separate, explicit, more expensive operation (Phase 8), not built into the
+product page by default.
+
+**Budget selector (Phase 5)**: the section owns its own budget state, defaulting to **$100** (no
+personalized/default budget exists to derive from, and an "unlimited"/`full_market` default is
+explicitly never invented), with an explicit selector over the canonical bands **$25/$50/$100/$150/
+$250/$500** — the same numeric values already used as canonical bands in
+`frontend/lib/explore/overallProductRankingsServer.js`'s `ALLOWED_BUDGETS` (that list also carries
+`full_market`, `750`, `1000`, `1250` for the unrelated Plus product-ranking surface; this section
+does not import that module directly to avoid coupling a Premium single-product surface to an
+unrelated Plus ranking module, but intentionally mirrors its band values). No custom/arbitrary
+budget input was added: while the backend `budget` query param does accept any `float >= 0`, adding
+free-form input was judged unnecessary scope for a first integration and was deferred in favor of
+the fixed canonical bands the task explicitly asked for.
+
+**Section content (Phase 6)**: primary metric "Chase Access at $&lt;budget&gt;" (O_budget as a
+percentage); supporting fields — quantity purchasable at that budget, effective random packs,
+actual committed capital, unused capital (shown only when positive), Set Chase Accessibility
+(A_raw), and Effective Pack Cost. A "Chase Depth" diagnostic was NOT added: the current
+`/explore/product-chase-intelligence` product-row contract does not surface a per-product chase-depth
+value (only the cohort-level Accessibility snapshot carries `chase_depth`, and it is not currently
+projected onto the per-product entry in `product_chase_access_authority.py`) — rather than fabricate
+a frontend-side approximation, this is called out honestly as a scope gap for a future pass, not
+silently invented.
+
+**ECE presentation (Phase 6/7)**: labeled "Effective Pack Efficiency" with an info-popover reading
+"Reflects Set Chase Accessibility relative to this product's effective pack cost. It is a
+per-product diagnostic, not an overall product score, and carries no cross-format rank." — never
+given a numeric rank, never called a score.
+
+**Copy discipline (Phase 7)**: the section's primary framing is "At this budget, how much access
+does this product give you to the set's most important collectible value?" — the exact framing the
+task specified. The forbidden phrases ("chance of pulling a chase", "chance to hit the chase") are
+grepped out of all user-facing (non-comment) text by a dedicated contract test.
+
+**Entitlement verification (Phase 9)**: verified two ways, not just by reading the component's
+conditional-rendering logic:
+1. `SealedProductDetailClient.jsx`'s server-rendered `initialDetail` (from
+   `getSealedProductDetailServer`/`normalizeSealedProductDetail`) was grepped for any Chase Access
+   field (`oBudget`, `chaseAccess`, `ProductChase`) — none exist. The Premium payload is fetched
+   ENTIRELY client-side, behind the `premiumEntitled` gate, and never touches SSR page props for any
+   plan tier, so there is no serialized-props or hidden-DOM leak path to audit away.
+2. The backend gate (`_require_product_chase_intelligence`) and its existing negative tests
+   (`test_product_chase_access_premium_gate.py` — Free/Plus/anonymous all rejected with 403/401
+   before any cohort/authority read; re-run and still 6/6 passing) remain the actual enforcement
+   boundary; the frontend gate is a UX convenience only, per the project's stated architecture.
+
+**Loading/error/unavailable states (Phase 10)**: five distinct states are implemented and each has
+its own `data-chase-state` marker plus a dedicated contract-test assertion: `loading`, `error`
+(generic API failure), `unavailable` (product not present in the current cohort — HTTP 404),
+`budget-below-minimum` (exact copy: "Budget is below the current price of one unit."), and two
+further authority-truthful states — `authority-unavailable` (Chase Accessibility not ready for this
+product's set, echoing the server's own rejection reasons) and `unsupported-composition` (any other
+`oBudgetStatus` prefixed `unavailable_`, e.g. an unsupported random-pack composition).
+
+**Responsive UI (Phase 11)**: verified structurally via the contract test suite (no dev-server
+visual pass was performed) — the budget-band buttons sit in a `flex flex-wrap` row so they wrap
+rather than overflow on narrow viewports, and the section renders exactly one primary metric block
+plus a small supporting grid, deliberately kept out of RIP-breakdown-level density.
+
+**Tests (Phase 13)** — exact counts:
+- Backend, this pass's new/updated suites:
+  `test_product_chase_intelligence_single_product_scope.py` (3/3),
+  `test_product_chase_access_premium_gate.py` (6/6, re-run unchanged),
+  `test_product_chase_access_authority.py` (12/12, re-run unchanged),
+  `test_budget_product_ranking_authority.py` (unchanged, still passing),
+  `test_product_chase_access.py` (desirability math, re-run unchanged).
+  Combined targeted filter (`-k "product_chase or card_chase_efficiency or overall_rip_v12 or
+  budget_product_ranking"`): **261/261 passing**.
+- Frontend: `ProductChaseIntelligenceSection.contract.test.mjs` grew from 7 to **16/16 passing**
+  (9 new assertions: mounting + Premium gating, no-full-cohort-fetch scoping, canonical budget
+  bands/default, copy discipline, all 5 distinct states, ECE-never-ranked, no leaked
+  `oBudgetRank`, mobile-safe wrapping). `SealedProductDetail.contract.test.mjs` (11/11) and
+  `productDetailModel.test.mjs` (7/7) re-run unchanged — combined **34/34 passing**, confirming the
+  new mount does not disturb Product RIP, market panel, comparisons, or EV-realization behavior.
+- Regression spot-check: `components/pokemon/card-detail/*.test.mjs` was run alongside the above;
+  one pre-existing, unrelated failure surfaced
+  (`ChaseEfficiencySection.contract.test.mjs::"Card Treatment explains the dynamic V1 mapping and
+  exclusions"`, a CRLF/mixed-line-ending string-anchor issue in a file this pass never touched — see
+  the standing `feedback_crlf_line_endings_in_source_string_tests` note). Confirmed via `git status`
+  that neither `ChaseEfficiencySection.jsx` nor its test were modified this session.
+
+**No deploy, publish, backfill, or Overall RIP V12 scoring change occurred.**

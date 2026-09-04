@@ -61,10 +61,18 @@ def spearman(xs: Sequence[Optional[float]], ys: Sequence[Optional[float]]) -> Op
     return cov / (var_x * var_y) ** 0.5
 
 
+#: Default pinned price_as_of for this validation run. FIXED as of the
+#: Sept-2026 corrected-facts pass (see PREMIUM_PRODUCT_CHASE_INTELLIGENCE
+#: implementation doc, "SUPERSEDED" note #2): the live authority cohort for
+#: financial_rip_v4_status='ready' now pins to 2026-09-02 (117 rows / 18 sets
+#: / 18 runs), not the older 2026-08-26 cohort this script previously pinned.
+DEFAULT_PRICE_AS_OF = "2026-09-02"
+
+
 def main() -> int:
     client = create_service_role_client()
     t0 = time.time()
-    cohort, authority = load_pinned_cohort(client, price_as_of="2026-08-26")
+    cohort, authority = load_pinned_cohort(client, price_as_of=DEFAULT_PRICE_AS_OF)
     load_elapsed = time.time() - t0
     print("== Phase 19: Chase Access at Budget - read-only production validation ==")
     print(json.dumps({
@@ -74,19 +82,17 @@ def main() -> int:
         "cohortLoadSeconds": round(load_elapsed, 3),
     }, indent=2))
 
+    # `overall_rip_v12_score`/`_status` are now carried directly on the SAME
+    # pinned-cohort rows `load_pinned_cohort` returns (see the projection fix
+    # in budget_product_ranking_authority.py's `_fetch_all_ready_rows`
+    # column list). No second, unfiltered, un-pinned re-fetch is issued here
+    # any more - that re-fetch was itself a latent authority-coherence bug:
+    # it read the WHOLE table with no price_as_of filter, so it could
+    # silently pair a v12 score from a different price_as_of cohort onto a
+    # product row from this pinned cohort.
     v12_by_product: Dict[str, Any] = {}
     for row in cohort:
         v12_by_product[str(row.get("sealed_product_id"))] = {
-            "overallRipV12Score": row.get("overall_rip_v12_score"),
-            "overallRipV12Status": row.get("overall_rip_v12_status"),
-        }
-    # load_pinned_cohort's own select list doesn't carry v12 columns; re-fetch them.
-    v12_raw = client.table("simulation_sealed_product_results").select(
-        "sealed_product_id,overall_rip_v12_score,overall_rip_v12_status"
-    ).execute().data or []
-    for row in v12_raw:
-        pid = str(row.get("sealed_product_id"))
-        v12_by_product[pid] = {
             "overallRipV12Score": row.get("overall_rip_v12_score"),
             "overallRipV12Status": row.get("overall_rip_v12_status"),
         }

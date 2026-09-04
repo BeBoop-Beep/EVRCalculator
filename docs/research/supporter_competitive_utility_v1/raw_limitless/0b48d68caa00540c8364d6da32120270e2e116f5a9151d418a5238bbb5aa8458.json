@@ -1,0 +1,31 @@
+{
+  "request": {
+    "url": "https://play.limitlesstcg.com/api/tournaments/6a284de7e334c3c9befd25e9/details",
+    "retrievedAt": "2026-09-04T04:30:33.162509+00:00"
+  },
+  "payload": {
+    "id": "6a284de7e334c3c9befd25e9",
+    "game": "PTCG",
+    "format": "STANDARD",
+    "name": "WORLDS OF DOOM! 2026! DAY ONE!",
+    "date": "2026-08-15T15:00:00.000Z",
+    "players": 909,
+    "organizer": {
+      "id": 349,
+      "name": "Doom's Events and Catering",
+      "logo": "https://limitlesstcg.s3.us-east-2.amazonaws.com/lotp/uploads/profile-pictures/rthil5ms9vwrlwnt"
+    },
+    "platform": "PTCGL",
+    "decklists": true,
+    "isPublic": true,
+    "isOnline": true,
+    "phases": [
+      {
+        "phase": 1,
+        "type": "SWISS",
+        "rounds": 8,
+        "mode": "BO3"
+      }
+    ]
+  }
+}
