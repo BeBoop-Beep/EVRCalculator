@@ -1206,7 +1206,7 @@ def test_rankings_snapshot_retries_with_fresh_client_and_returns_normal_data(mon
 
 
 def test_rankings_snapshot_transient_failure_returns_503_not_generic_500(monkeypatch):
-    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+    pokemon_public_snapshot_service._reset_rankings_fallback_cache_for_tests()
 
     def fail(_query):
         raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
@@ -1231,7 +1231,7 @@ def test_rankings_snapshot_transient_failure_returns_503_not_generic_500(monkeyp
 
 
 def test_rankings_snapshot_transient_failure_can_serve_explicit_stale_fallback(monkeypatch):
-    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+    pokemon_public_snapshot_service._reset_rankings_fallback_cache_for_tests()
     state = {"fail": False, "calls": 0}
 
     def rows(_query):
@@ -1271,9 +1271,9 @@ def test_rankings_snapshot_transient_failure_can_serve_explicit_stale_fallback(m
     assert fallback["meta"]["snapshot"]["isStaleFallback"] is True
     assert fallback["meta"]["snapshot"]["fallbackReason"] == "transient_data_service_failure"
     assert state["calls"] == 3
-    authoritative = pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS[10]
-    assert authoritative["meta"]["snapshot"]["isStaleFallback"] is False
-    assert "fallbackReason" not in authoritative["meta"]["snapshot"]
+    cache = pokemon_public_snapshot_service._RANKINGS_FALLBACK_CACHE
+    assert cache["meta"]["snapshot"]["isStaleFallback"] is False
+    assert "fallbackReason" not in cache["meta"]["snapshot"]
 
 
 def test_rankings_snapshot_non_transient_failure_remains_500(monkeypatch):
@@ -1349,7 +1349,7 @@ def _rankings_row(meta, *, updated_at="2026-08-12T00:00:00+00:00"):
 
 
 def _patch_rankings_reader(monkeypatch, rows):
-    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+    pokemon_public_snapshot_service._reset_rankings_fallback_cache_for_tests()
     client = _Client({"pokemon_explore_rankings_snapshot_latest": lambda _query: rows})
     monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
@@ -5969,7 +5969,7 @@ def _rankings_reader_with_compatibility_probe(monkeypatch, snapshot_meta):
                 queried.append(name)
             return super().table(name)
 
-    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+    pokemon_public_snapshot_service._reset_rankings_fallback_cache_for_tests()
     client = _ProbeClient({
         "pokemon_explore_rankings_snapshot_latest": lambda _query: rows,
         "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],

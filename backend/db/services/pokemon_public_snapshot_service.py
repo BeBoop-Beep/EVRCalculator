@@ -68,7 +68,93 @@ MAX_RANKINGS_LIMIT = 200
 MIN_LIMIT = 1
 RANKINGS_STALE_THRESHOLD_SECONDS = 300
 RANKINGS_STALE_WARNING = "rankings snapshot is stale relative to set page snapshot"
-_LAST_SUCCESSFUL_RANKINGS_PAYLOADS: Dict[int, Dict[str, Any]] = {}
+
+# A SINGLE canonical last-known-good rankings entry, replaced (never
+# accumulated) whenever the underlying publication actually changes. This
+# intentionally replaces a former `Dict[int, Dict[str, Any]]` keyed by every
+# distinct `limit` a caller happened to pass, each entry a `deepcopy()` of the
+# entire mega-contract payload (targets + productFamilyRankings + meta). That
+# design had two unbounded-memory properties: (1) the key space grew with
+# every distinct `limit` ever requested, with no eviction, and (2) EVERY
+# healthy request paid a full deep copy of the whole object graph just to
+# populate it, whether or not a fallback was ever served. Both were measured
+# contributors to the 2026-09-04 backend OOM restart; see
+# docs/PRODUCTION_BACKEND_MEMORY_P0_2026-09-04.md.
+#
+# The replacement holds ONE slot. `raw_targets`/`base_payload` are stored by
+# REFERENCE (no copy) and are never mutated in place after being cached — all
+# downstream construction (slicing to a caller's `limit`, rewrapping `meta`)
+# builds new top-level dicts/lists rather than mutating the cached ones, so
+# sharing the reference is safe. The slot is only overwritten when
+# `identity_key` (the publication's `updated_at`, or a fixed marker for the
+# rare live-fallback path) differs from what's already cached, so a run of
+# identical healthy requests does no cache work at all.
+_RANKINGS_FALLBACK_CACHE: Dict[str, Any] = {
+    "identity_key": None,
+    "raw_targets": None,
+    "base_payload": None,
+    "meta": None,
+    "default_target": None,
+}
+
+
+def _reset_rankings_fallback_cache_for_tests() -> None:
+    """Test-only helper: clear the single-slot rankings fallback cache."""
+    _RANKINGS_FALLBACK_CACHE.update(
+        identity_key=None,
+        raw_targets=None,
+        base_payload=None,
+        meta=None,
+        default_target=None,
+    )
+
+
+def _update_rankings_fallback_cache(
+    *,
+    identity_key: Any,
+    base_payload: Dict[str, Any],
+    raw_targets: list,
+    meta: Dict[str, Any],
+    default_target: Any,
+) -> None:
+    """Replace the single cached fallback entry, but only when content changed.
+
+    No deep copy: `base_payload`/`raw_targets`/`meta` are cached by reference.
+    Callers must never mutate these objects in place after this call.
+    """
+    if identity_key is not None and _RANKINGS_FALLBACK_CACHE["identity_key"] == identity_key:
+        return
+    _RANKINGS_FALLBACK_CACHE["identity_key"] = identity_key
+    _RANKINGS_FALLBACK_CACHE["base_payload"] = base_payload
+    _RANKINGS_FALLBACK_CACHE["raw_targets"] = raw_targets
+    _RANKINGS_FALLBACK_CACHE["meta"] = meta
+    _RANKINGS_FALLBACK_CACHE["default_target"] = default_target
+
+
+def _rankings_fallback_from_cache(clamped_limit: int, reason: str) -> Optional[Dict[str, Any]]:
+    """Build a stale-fallback response from the single cached entry, if any.
+
+    Construction is shallow only: slicing `raw_targets` makes a new list of
+    the SAME element references, and `meta`/the returned payload are new
+    top-level dicts — the cached objects themselves are never mutated.
+    """
+    cache = _RANKINGS_FALLBACK_CACHE
+    if cache["base_payload"] is None:
+        return None
+    targets = list(cache["raw_targets"] or [])[:clamped_limit]
+    meta = dict(cache["meta"] or {})
+    request = dict(meta.get("request") or {})
+    request["limit"] = clamped_limit
+    meta["request"] = request
+    snapshot = dict(meta.get("snapshot") or {})
+    snapshot.update({"isStaleFallback": True, "fallbackReason": reason})
+    meta["snapshot"] = snapshot
+    return {
+        **cache["base_payload"],
+        "targets": targets,
+        "default_target": cache["default_target"],
+        "meta": meta,
+    }
 
 
 def _to_optional_str(value: Any) -> Optional[str]:
@@ -2036,17 +2122,6 @@ def _rankings_publication_identity_mismatches(payload: Dict[str, Any]) -> List[D
     ]
 
 
-def _stale_rankings_fallback(cached: Dict[str, Any], reason: str) -> Dict[str, Any]:
-    """A previously served compatible payload, explicitly labelled as stale."""
-    fallback = deepcopy(cached)
-    meta = dict(fallback.get("meta") or {})
-    snapshot = dict(meta.get("snapshot") or {})
-    snapshot.update({"isStaleFallback": True, "fallbackReason": reason})
-    meta["snapshot"] = snapshot
-    fallback["meta"] = meta
-    return fallback
-
-
 def _has_enriched_set_rip_contract(payload: Dict[str, Any]) -> bool:
     targets = payload.get("targets")
     if not isinstance(targets, list) or not targets:
@@ -2106,9 +2181,9 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
     except Exception as exc:
         logger.exception("[pokemon-snapshot] explore rankings snapshot read failed")
         if is_transient_data_service_error(exc):
-            cached = _LAST_SUCCESSFUL_RANKINGS_PAYLOADS.get(clamped_limit)
-            if cached:
-                return _stale_rankings_fallback(cached, "transient_data_service_failure")
+            fallback = _rankings_fallback_from_cache(clamped_limit, "transient_data_service_failure")
+            if fallback:
+                return fallback
             raise ExploreRipStatisticsTargetsError(
                 status_code=503,
                 message="RIP Statistics targets are temporarily unavailable",
@@ -2138,9 +2213,9 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
                     for item in mismatches
                 ),
             )
-            cached = _LAST_SUCCESSFUL_RANKINGS_PAYLOADS.get(clamped_limit)
-            if cached:
-                return _stale_rankings_fallback(cached, "incompatible_publication_identity")
+            fallback = _rankings_fallback_from_cache(clamped_limit, "incompatible_publication_identity")
+            if fallback:
+                return fallback
             # Deliberately NOT the live builder: it was measured at ~3.8s warm
             # and up to ~150s cold, so falling back to it would hand every
             # visitor a publication-grade rebuild for as long as the superseded
@@ -2187,7 +2262,8 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
                 )
 
         raw_targets = list(payload.get("targets") or [])
-        targets = [target for target in raw_targets if is_opening_set_row(target)][:clamped_limit]
+        opening_targets = [target for target in raw_targets if is_opening_set_row(target)]
+        targets = opening_targets[:clamped_limit]
         meta = dict(payload.get("meta") or {})
         if set_value_enrichment:
             sources = dict(meta.get("sources") or {})
@@ -2220,13 +2296,25 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         meta["snapshot"] = snapshot
         meta["openingSetAudit"] = opening_set_audit
         meta["opening_set_audit"] = opening_set_audit
+        default_target = payload.get("default_target") or row.get("default_target_json") or None
         resolved_payload = {
             **payload,
             "targets": targets,
-            "default_target": payload.get("default_target") or row.get("default_target_json") or None,
+            "default_target": default_target,
             "meta": meta,
         }
-        _LAST_SUCCESSFUL_RANKINGS_PAYLOADS[clamped_limit] = deepcopy(resolved_payload)
+        # Cache the full (unclamped) opening-set cohort by reference so a
+        # later fallback can slice to whatever `limit` IT was asked for,
+        # mirroring this request's own slicing above — one canonical slot,
+        # not one full copy per distinct `limit`. Only actually replaces the
+        # slot when the publication's `updated_at` changed.
+        _update_rankings_fallback_cache(
+            identity_key=("snapshot", _to_optional_str(row.get("updated_at"))),
+            base_payload=payload,
+            raw_targets=opening_targets,
+            meta=meta,
+            default_target=default_target,
+        )
         return resolved_payload
 
     logger.warning("[pokemon-snapshot] missing explore rankings snapshot; falling back to live target assembly")
@@ -2241,7 +2329,13 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         "isStaleFallback": False,
     }
     resolved_payload = {**payload, "meta": meta}
-    _LAST_SUCCESSFUL_RANKINGS_PAYLOADS[clamped_limit] = deepcopy(resolved_payload)
+    _update_rankings_fallback_cache(
+        identity_key="live_fallback",
+        base_payload=payload,
+        raw_targets=list(payload.get("targets") or []),
+        meta=meta,
+        default_target=payload.get("default_target"),
+    )
     return resolved_payload
 
 
