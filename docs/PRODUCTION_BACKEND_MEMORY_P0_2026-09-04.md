@@ -303,3 +303,159 @@ contributor that this pass narrows but does not eliminate. A repeat of the
 Render RSS-over-time observation after this deploy, compared against the
 pattern in "Incident timeline" above, is the way to attribute the remaining
 delta before claiming the normal path is also fixed.
+
+## Pass 3 (this update): investigated the normal-path compact refactor; NOT shipped
+
+Branch HEAD at the start of this pass: `76795836`. This pass did the required
+tracing and root-cause work for the outstanding item above, confirmed the
+refactor is directionally correct, found one concrete blocker, and — per the
+task's explicit escape hatch — stopped short of changing the read path rather
+than ship something unverified against a live publication. **No functional
+code was changed in this pass.** No migration was added. Branch HEAD is
+unchanged from `76795836`.
+
+### Step 1 — consumer trace (verified, not just re-trusted)
+
+Grepped all of `frontend/` for `getRipStatisticsTargets` (19 files) and for
+`productFamilyRankings`/`eraSetStrengthV1`/`setRip`-family usage (17 files),
+then checked each hit's actual data source:
+
+- Real page consumers of `getRipStatisticsTargets()` — landing hero
+  (`frontend/lib/landing/landingHeroServer.js`), the set analysis page
+  (`frontend/app/TCGs/Pokemon/Sets/[setSlug]/analysis/page.js`), the Articles
+  EV-representativeness page, `frontend/app/Explore/rip-statistics/page.js`,
+  and `frontend/app/sitemap.js` — read only `targets`, `default_target`, and
+  `meta` (via `frontend/lib/explore/ripStatisticsNormalizer.mjs`).
+- The Rankings UI's Products and Eras tabs (`frontend/components/explore/RankingsLazyClient.jsx`
+  lines ~92-122) get `productFamilyRankings`/`eraSetStrengthV1` from
+  **separate** `fetch("/api/explore/rankings/lens?lens=products")` /
+  `?lens=eras` calls — not from the targets payload at all, confirming they
+  are wired to the already-compact lens endpoint, independent of this
+  refactor.
+- Confirms the previous pass's claim: no real consumer of the targets
+  endpoint needs the top-level `productFamilyRankings`/`setRip`/
+  `eraSetStrengthV1` blocks.
+
+### Step 2 — why the refactor is directionally sound but not completed
+
+Read `_load_pokemon_explore_rankings_snapshot_row`,
+`get_pokemon_explore_rankings_lens_payload`/`get_pokemon_rankings_sets_lens`
+(`supabase/migrations/20260830010000_tighten_compact_rankings_sets_lens_rpc.sql`),
+`upgrade_rankings_set_rip_contract_if_needed`, `attach_era_set_strength`
+(`backend/db/services/era_set_strength_service.py`),
+`payload_guarantees_canonical_set_value`
+(`backend/db/services/public_rip_publication_contract.py`), and
+`_enrich_rankings_payload_with_checklist_set_values` in full.
+
+**Good news**: three of the four enrichment steps the normal path runs
+against the full mega-contract only ever touch `targets` and `meta`, both of
+which the existing compact "sets" lens select clause already projects
+(`targets:ranking_payload_json->targets,meta:ranking_payload_json->meta,default_target_json,updated_at`):
+- `attach_era_set_strength` reads only `payload["targets"]`
+  (`era_set_strength_service.py:89-92`) — each target's own `setRipV1.score`/
+  `.rank`, which the compact RPC's `project_pokemon_rankings_set_target`
+  already projects per-target.
+- `payload_guarantees_canonical_set_value` reads only
+  `meta.snapshot.setValueContract` — present in the compact `meta` projection.
+- `_enrich_rankings_payload_with_checklist_set_values` reads only `targets`
+  (for `set_id`) and hits a *different* table
+  (`pokemon_set_market_dashboard_snapshot_latest`), independent of
+  `ranking_payload_json` entirely.
+- `upgrade_rankings_set_rip_contract_if_needed` is the one exception: its
+  fallback branch (when `_has_enriched_set_rip_contract(payload)` is false)
+  needs the top-level `productFamilyRankings` block to rebuild `setRipV1` via
+  `build_set_rip()`. Traced the publisher
+  (`backend/scripts/pokemon_snapshot_builders.py:4218`,
+  `attach_set_rip_to_targets(payload["targets"], set_rip)`) and confirmed it
+  already writes the enriched `setRipV1` shape onto every target **at publish
+  time**, which strongly suggests `upgrade_rankings_set_rip_contract_if_needed`
+  is a no-op safety net for legacy rows on every *current* publication, not
+  something the normal path actually exercises today. This was **not**
+  confirmed against a live production row — this sandbox has no production DB
+  credentials — so it is an inference from the publisher code, not a proven
+  fact about the currently-published row.
+
+### Step 2 — the concrete blocker found
+
+`build_opening_set_audit(raw_targets)`
+(`backend/desirability/set_validation.py:225`), attached to
+`meta.openingSetAudit`/`meta.opening_set_audit` on every normal-path
+response, genuinely needs the **full, unfiltered** `targets` array — including
+non-opening-set and subset rows — to report `total_raw_pokemon_set_rows`,
+`subset_rows_missing_parent_mapping`, etc. The compact
+`get_pokemon_rankings_sets_lens` RPC's `CROSS JOIN LATERAL ... WHERE
+COALESCE((target->>'is_opening_set')::boolean, ..., true)` clause
+(migration `20260830010000`, lines 76-82) discards non-opening rows in SQL
+before they ever reach Python, so the compact projection cannot reproduce
+this audit as-is.
+
+Traced whether this field is actually load-bearing: grepped both
+`frontend/` and `backend/` for `openingSetAudit`/`opening_set_audit`.
+**Zero frontend consumers** — it is a backend-only diagnostic field, not
+read by any page, component, or contract test that exercises the targets
+endpoint. It is written by
+`backend/scripts/refresh_stale_public_snapshots.py`,
+`backend/scripts/pokemon_snapshot_builders.py`, and
+`backend/scripts/build_pokemon_desirability_validation_snapshots.py` too,
+but those are separate batch/build-time producers, not consumers of the
+targets HTTP response.
+
+This means the audit *could* be dropped from the compact response without
+breaking any known consumer (falls under the task's "genuinely unrelated,
+can be skipped" allowance) — or, more conservatively, reproduced by
+extending the RPC to compute the count fields in SQL (a `jsonb_build_object`
+aggregate over the *unfiltered* `payload->'targets'` array, before the
+opening-set `WHERE` filter) rather than shipping the excluded rows back to
+Python, which would preserve compactness. Either path is a legitimate
+"small surgical extension" under the task's constraints, not a third
+competing projection.
+
+### Why this was not shipped in this pass
+
+Two things are still unverified and both need production DB access this
+sandbox does not have:
+1. Whether `_has_enriched_set_rip_contract` is actually true for the
+   *current* live-published row (making `upgrade_rankings_set_rip_contract_if_needed`
+   dead code on the compact path) — inferred from publisher code, not
+   observed. If it turns out false for some live edge case, the compact
+   path would need a documented, non-silent fallback to the full
+   mega-contract reader for that request (implementable, but its trigger
+   condition needs a real row to test against).
+2. Whether `openingSetAudit`'s exact SQL-aggregate reproduction (if kept)
+   matches `build_opening_set_audit`'s Python output field-for-field against
+   the real persisted `targets` array shape (subset-row parent-mapping
+   fields in particular) — needs a representative row, not a synthetic
+   fixture, to avoid shipping a silently-wrong audit count.
+
+Given no production DB / representative fixture was available in this
+sandbox (same limitation Pass 1/2 already noted for benchmark/latency
+numbers), and the task's explicit instruction to stop and document rather
+than guess when correctness can't be verified, this pass stopped after
+confirming the refactor's shape and isolating its one real blocker, instead
+of writing the migration extension and endpoint rewire un-verified. Steps
+3-6 (production-shaped benchmark of the *new* path, `test_paid_response_boundary.py`
+run, and new regression tests for the compact targets path) were not done
+because there is no "final" implementation yet to benchmark or test.
+
+### Recommended fast-follow (concrete, scoped)
+
+1. Confirm against a real current publication row (staging DB, or a
+   representative fixture pulled from prod) that
+   `_has_enriched_set_rip_contract` is true for 100% of targets.
+2. Extend `get_pokemon_rankings_sets_lens` (or add a sibling RPC) to also
+   return the `openingSetAudit` counts as a SQL-computed aggregate over the
+   unfiltered `payload->'targets'` array — or confirm with a product/eng
+   decision that dropping the field from the targets response (it has no
+   frontend consumer) is acceptable, which is the simpler fix.
+3. Add `get_pokemon_rip_statistics_targets_compact_payload()`: RPC read
+   (mirroring the existing sets-lens call pattern) → identity check → the
+   three lens-compatible enrichment steps → non-silent fallback to
+   `_load_pokemon_explore_rankings_snapshot_row`/full path only if
+   `_has_enriched_set_rip_contract` is false or the RPC is unavailable → same
+   response shape as today.
+4. Regression tests: compact path never selects `ranking_payload_json`
+   directly when the RPC is healthy; response byte-identical to the current
+   full-path response for a real/representative row; `/explore/rankings/lens?lens=sets`
+   itself unchanged; paid-response-boundary unaffected.
+5. Re-run the Pass 1 memory benchmark methodology against the new path for
+   the old/intermediate/final comparison table this pass could not produce.
