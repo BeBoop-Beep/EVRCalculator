@@ -565,9 +565,119 @@ def to_publication_payload(results: Dict[str, Any]) -> tuple:
     return snapshot, rows
 
 
-def publish_rankings(client: Any, results: Dict[str, Any]) -> str:
-    """Publish once through the canonical atomic RPC and return its UUID."""
+#: The ten fields the extended publication RPC persists under EXPLICIT V12
+#: authority (`20260903224637_extend_budget_product_ranking_publication_rpc_v12_atomic.sql`).
+V12_SNAPSHOT_PUBLICATION_FIELDS = (
+    "overall_rip_v12_version",
+    "chase_accessibility_version",
+    "chase_accessibility_transform_version",
+    "ranked_under_v12_authority",
+)
+V12_ROW_PUBLICATION_FIELDS = (
+    "overall_rip_v12_score",
+    "overall_rip_v12_rankable",
+    "overall_rip_v12_status",
+    "chase_accessibility_raw",
+    "budget_rank_v12",
+    "budget_cohort_size_v12",
+)
+
+
+def merge_v12_publication_fields(
+    snapshot: Dict[str, Any],
+    rows: List[Dict[str, Any]],
+    v12_results: Dict[str, Any],
+) -> tuple:
+    """Augment a V10-shaped (snapshot, rows) publication payload with the
+    Overall RIP V12 authority fields, for a canonical-V12 publish (Gate F
+    physical persistence closure).
+
+    Every V12 value is copied DIRECTLY from ``v12_results`` (the validated
+    output of :func:`build_v12_shadow_rankings_for_cohort`) - nothing here
+    recomputes a score, rank, or Accessibility value. Additive only: every
+    existing V10-compatible key on ``snapshot``/``rows`` (including
+    ``overall_rip_v10_score``, ``budget_rank``, ``budget_cohort_size``) is
+    copied through completely unchanged. The single exception is
+    ``overall_rip_version`` itself, which under canonical V12 authority is
+    the field the generic/current read model resolves - it is set to the
+    V12 identity here so the snapshot never reports "V12 score, V10 generic
+    authority" (Phase 10's no-mixed-authority invariant).
+
+    Raises ``ValueError`` (an application-side pre-check, never a partial
+    RPC call) if any V10 row has no exact V12-ranked counterpart, or if any
+    V12 field would be missing/incomplete for a row - this must be refused
+    BEFORE the RPC call boundary, not inside the SQL transaction.
+    """
+    from backend.db.services.budget_product_ranking_authority import (
+        EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
+        EXPECTED_CHASE_ACCESSIBILITY_VERSION,
+        EXPECTED_OVERALL_RIP_V12_VERSION,
+    )
+
+    v12_by_key: Dict[tuple, Dict[str, Any]] = {}
+    for block in v12_results.get("budgets", {}).values():
+        for row in block["rows"]:
+            key = (str(row["sealedProductId"]), float(row["targetBudget"]), row["budgetType"])
+            v12_by_key[key] = row
+
+    v12_snapshot = dict(snapshot)
+    v12_snapshot["overall_rip_version"] = EXPECTED_OVERALL_RIP_V12_VERSION
+    v12_snapshot["overall_rip_v12_version"] = EXPECTED_OVERALL_RIP_V12_VERSION
+    v12_snapshot["chase_accessibility_version"] = EXPECTED_CHASE_ACCESSIBILITY_VERSION
+    v12_snapshot["chase_accessibility_transform_version"] = EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION
+    v12_snapshot["ranked_under_v12_authority"] = True
+
+    v12_rows: List[Dict[str, Any]] = []
+    for row in rows:
+        key = (str(row["sealed_product_id"]), float(row["target_budget"]), row["budget_type"])
+        v12_row = v12_by_key.get(key)
+        if v12_row is None:
+            raise ValueError(
+                "canonical V12 publish is missing a V12-ranked counterpart for "
+                "sealed_product_id=%s target_budget=%s budget_type=%s" % key
+            )
+        merged = dict(row)
+        merged["overall_rip_v12_score"] = v12_row.get("overallRipV12Score")
+        merged["overall_rip_v12_rankable"] = v12_row.get("overallRipV12Rankable")
+        merged["overall_rip_v12_status"] = (v12_row.get("overallRipV12Payload") or {}).get("status")
+        merged["chase_accessibility_raw"] = v12_row.get("chaseAccessibilityRaw")
+        merged["budget_rank_v12"] = v12_row.get("budgetRank")
+        merged["budget_cohort_size_v12"] = v12_row.get("budgetCohortSize")
+        for field in V12_ROW_PUBLICATION_FIELDS:
+            if merged.get(field) is None:
+                raise ValueError(
+                    "canonical V12 publish row (sealed_product_id=%s target_budget=%s "
+                    "budget_type=%s) is missing required V12 field %s" % (key[0], key[1], key[2], field)
+                )
+        v12_rows.append(merged)
+
+    for field in V12_SNAPSHOT_PUBLICATION_FIELDS:
+        if v12_snapshot.get(field) in (None, ""):
+            raise ValueError("canonical V12 publish snapshot is missing required field %s" % field)
+
+    if len(v12_rows) != len(rows):
+        raise ValueError("canonical V12 publish row count does not match the V10 publication row count")
+
+    return v12_snapshot, v12_rows
+
+
+def publish_rankings(
+    client: Any,
+    results: Dict[str, Any],
+    v12_results: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Publish once through the canonical atomic RPC and return its UUID.
+
+    When ``v12_results`` is supplied (the validated output of
+    :func:`build_v12_shadow_rankings_for_cohort` for the SAME cohort), the
+    payload is augmented via :func:`merge_v12_publication_fields` BEFORE the
+    single RPC call - there is no second network round-trip and no
+    follow-up ``UPDATE`` issued from Python. When omitted, this is the
+    unchanged V10 publication path.
+    """
     snapshot, rows = to_publication_payload(results)
+    if v12_results is not None:
+        snapshot, rows = merge_v12_publication_fields(snapshot, rows, v12_results)
     response = client.rpc(
         "publish_budget_product_ranking_snapshot",
         {"p_snapshot": snapshot, "p_rows": rows},

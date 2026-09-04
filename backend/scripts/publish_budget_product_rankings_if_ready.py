@@ -377,25 +377,43 @@ def run(*, commit: bool, force_price_as_of: Optional[str] = None, client: Any = 
     # is what "default budget sort/readiness authority" means to now report
     # honestly: whether the SAME cohort this run already resolved is ALSO
     # V12-rankable under the backend-wide canonical selector.
+    is_canonical_v12 = default_budget_sort_authority_is_v12()
     report["default_sort_authority"] = (
-        EXPECTED_OVERALL_RIP_V12_VERSION if default_budget_sort_authority_is_v12()
+        EXPECTED_OVERALL_RIP_V12_VERSION if is_canonical_v12
         else EXPECTED_OVERALL_RIP_VERSION
     )
-    if default_budget_sort_authority_is_v12():
+    v12: Optional[Dict[str, Any]] = None
+    if is_canonical_v12:
         try:
             v12 = run_v12_dry_run(client=client, products=readiness.products, authority=readiness.authority)
             report["v12_canonical_validation"] = v12["report"]
         except Exception as exc:  # never let the additive V12 check fail the V10 publication path
             report["v12_canonical_validation"] = {"passed": False, "error": str(exc)}
+            v12 = None
     if failures:
         report.update({"failure_reason": failures[0]["reason"], "failed_gate": failures[0]["gate"]})
+        return _finish(report, BudgetRankingStatus.HEALTH_GATE_BLOCKED, started)
+    # No-mixed-authority invariant (Phase 10): when the backend-wide canonical
+    # authority is V12, a publication may NEVER proceed as a plain V10
+    # snapshot - that would leave the generic/current read model resolving
+    # V10 while the rest of the system believes V12 is canonical. Refuse
+    # closed here, before any write is attempted, rather than publish a
+    # snapshot with mismatched authority.
+    if is_canonical_v12 and not (v12 and v12["report"]["passed"]):
+        report.update({
+            "failure_reason": "canonical Overall RIP authority is V12 but the V12 candidate failed validation",
+            "failed_gate": "v12_canonical_authority_required",
+        })
         return _finish(report, BudgetRankingStatus.HEALTH_GATE_BLOCKED, started)
     if not commit:
         # PUBLISHED means publish-eligible on dry-run; no write is attempted.
         return _finish(report, BudgetRankingStatus.PUBLISHED, started)
     publish_start = time.perf_counter()
     try:
-        snapshot_id = publish_rankings(client, results)
+        snapshot_id = publish_rankings(
+            client, results,
+            v12_results=(v12["results"] if is_canonical_v12 and v12 else None),
+        )
     except Exception as exc:
         report.update({"failure_reason": str(exc), "failed_gate": "publication_rpc", "publish_duration_ms": round((time.perf_counter() - publish_start) * 1000)})
         return _finish(report, BudgetRankingStatus.PUBLICATION_FAILED, started)

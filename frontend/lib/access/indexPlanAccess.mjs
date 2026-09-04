@@ -60,6 +60,11 @@ export const FEATURE_PREPARED_MARKET_INTELLIGENCE = "prepared_market_intelligenc
 export const FEATURE_CHASE_OPENING_ROUTE = "chase_opening_route";
 export const FEATURE_CHASE_VS_BUY = "chase_vs_buy";
 export const FEATURE_CHASE_RANKINGS = "chase_rankings";
+// Product Chase Intelligence (Chase Access at Budget, O_budget) - a DISTINCT
+// Premium construct from Card Chase Efficiency/Opening Route/vs Buy/Rankings
+// above. "Which sealed product gives the most reach into a set's important
+// value at my budget?", not "what's the best way to pursue this card?".
+export const FEATURE_PRODUCT_CHASE_INTELLIGENCE = "product_chase_intelligence";
 
 export const PLUS_FEATURES = Object.freeze(new Set([
   FEATURE_PRODUCT_RIP, FEATURE_DETAILED_OPENING_ECONOMICS,
@@ -72,7 +77,7 @@ export const PREMIUM_FEATURES = Object.freeze(new Set([
   FEATURE_CARD_CHASE_EFFICIENCY, FEATURE_CHASE_OPENING_ROUTE,
   FEATURE_CHASE_VS_BUY, FEATURE_CHASE_RANKINGS,
   FEATURE_MARKET_EXPLORER_COMPOUND, FEATURE_MARKET_EXPLORER_CUSTOM_RANKED,
-  FEATURE_MARKET_EXPLORER_POKEMON,
+  FEATURE_MARKET_EXPLORER_POKEMON, FEATURE_PRODUCT_CHASE_INTELLIGENCE,
 ]));
 
 export function hasIndexFeatureAccess(plan, feature) {

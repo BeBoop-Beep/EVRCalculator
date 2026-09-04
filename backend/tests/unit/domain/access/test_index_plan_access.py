@@ -93,7 +93,7 @@ def test_set_rip_simulation_evidence_projector_passes_plus_through_unchanged(pla
 
 def test_locked_commercial_capability_sets_fail_closed_and_inherit():
     assert len(_PLUS_FEATURES) == 12  # includes server response-boundary aliases
-    assert len(_PREMIUM_FEATURES) == 7
+    assert len(_PREMIUM_FEATURES) == 8  # +FEATURE_PRODUCT_CHASE_INTELLIGENCE (Chase Access at Budget, O_budget)
     for feature in _PLUS_FEATURES:
         assert not has_index_feature_access(None, feature)
         assert has_index_feature_access("plus", feature)

@@ -37,8 +37,43 @@ PUBLIC_ROW_FIELDS = (
     "actual_committed_capital,unused_capital,capital_utilization,budget_rank,"
     "budget_cohort_size,budget_tier,financial_rip_v4_score,overall_rip_v10_score,"
     "collector_appeal_score,chance_to_recover_capital,product_market_price,"
-    "expected_value,source_calculation_run_id"
+    "expected_value,source_calculation_run_id,"
+    "overall_rip_v12_score,budget_rank_v12,budget_cohort_size_v12"
 )
+
+
+def snapshot_ranked_under_v12_authority(snapshot: Dict[str, Any]) -> bool:
+    """No-mixed-authority invariant (Gate F closure, Phase 10): the ONE place
+    that decides whether a published snapshot's GENERIC current read (as
+    opposed to the always-available, always-V10 diagnostic fields) resolves
+    to Overall RIP V12 or V10. Never inferred from anything but the
+    snapshot's own explicit ``ranked_under_v12_authority`` flag, exactly the
+    field the publication RPC persists under explicit V12 opt-in.
+    """
+    return bool(snapshot.get("ranked_under_v12_authority"))
+
+
+def resolve_generic_overall_score(row: Dict[str, Any], snapshot: Dict[str, Any]) -> Optional[float]:
+    """The generic/current Overall RIP score for one row: V12 when the
+    snapshot was ranked under V12 authority, V10 otherwise. Never a mix -
+    when the snapshot is V12-authority, the V10 score is never substituted
+    even if the V12 score happens to be missing (that indicates a data
+    defect, not a fallback opportunity)."""
+    if snapshot_ranked_under_v12_authority(snapshot):
+        return row.get("overall_rip_v12_score")
+    return row.get("overall_rip_v10_score")
+
+
+def resolve_generic_budget_rank(row: Dict[str, Any], snapshot: Dict[str, Any]) -> Optional[int]:
+    if snapshot_ranked_under_v12_authority(snapshot):
+        return row.get("budget_rank_v12")
+    return row.get("budget_rank")
+
+
+def resolve_generic_budget_cohort_size(row: Dict[str, Any], snapshot: Dict[str, Any]) -> Optional[int]:
+    if snapshot_ranked_under_v12_authority(snapshot):
+        return row.get("budget_cohort_size_v12")
+    return row.get("budget_cohort_size")
 
 
 def _rows(response: Any) -> List[Dict[str, Any]]:
@@ -199,6 +234,7 @@ def _authority_block(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "maxEligibleSkuPrice": snapshot["max_eligible_sku_price"],
         "fullMarketRoundingIncrement": snapshot["full_market_rounding_increment"],
         "fullMarketRoundingRuleVersion": snapshot["full_market_rounding_rule_version"],
+        "rankedUnderV12Authority": snapshot_ranked_under_v12_authority(snapshot),
     }
 
 
@@ -240,14 +276,20 @@ def build_public_overall_projection(
             "setImage": identity.get("setImage"),
             "productFamily": family,
             "productFamilyLabel": identity.get("productFamilyLabel") or FAMILY_LABELS.get(family, family.replace("_", " ").title()),
-            "budgetRank": row.get("budget_rank"),
-            "budgetCohortSize": row.get("budget_cohort_size"),
+            # Generic/current authority: resolves to V12 rank/score when this
+            # snapshot was ranked under explicit V12 authority, V10
+            # otherwise - never a mix (see `resolve_generic_*` above).
+            "budgetRank": resolve_generic_budget_rank(row, snapshot),
+            "budgetCohortSize": resolve_generic_budget_cohort_size(row, snapshot),
             "budgetTier": row.get("budget_tier"),
             "quantity": row.get("quantity"),
             "actualCommittedCapital": row.get("actual_committed_capital"),
             "unusedCapital": row.get("unused_capital"),
             "capitalUtilization": row.get("capital_utilization"),
-            "overallRipScore": row.get("overall_rip_v10_score"),
+            "overallRipScore": resolve_generic_overall_score(row, snapshot),
+            # Historical V10 diagnostic field - always the V10 value,
+            # unaffected by which authority is generically current.
+            "overallRipV10Score": row.get("overall_rip_v10_score"),
             "financialRipScore": row.get("financial_rip_v4_score"),
             "collectorAppealScore": row.get("collector_appeal_score"),
             "unitPrice": row.get("product_market_price"),

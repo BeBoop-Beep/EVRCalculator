@@ -63,6 +63,7 @@ from backend.domain.access.index_plan_access import (
     FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
     FEATURE_PACK_ECONOMICS,
     FEATURE_PRODUCT_RIP,
+    FEATURE_PRODUCT_CHASE_INTELLIGENCE,
     FEATURE_SET_RIP_ANALYTICS,
     evaluate_market_query_access,
     filter_set_market_signal_access,
@@ -70,6 +71,7 @@ from backend.domain.access.index_plan_access import (
     has_index_feature_access,
     project_card_detail_response,
     project_insights_critical_response,
+    project_product_chase_access_response,
     project_product_rankings_response,
     project_product_family_rankings_response,
     project_public_era_rankings_response,
@@ -80,6 +82,8 @@ from backend.domain.access.index_plan_access import (
     project_set_page_response,
     project_set_rip_simulation_evidence_response,
 )
+from backend.db.services.budget_product_ranking_authority import load_pinned_cohort
+from backend.db.services.product_chase_access_authority import resolve_product_chase_access
 from backend.db.services.chase_efficiency_query_service import (
     get_card_chase_efficiency as read_card_chase_efficiency,
     query_chase_efficiency,
@@ -394,6 +398,36 @@ def _require_card_chase_efficiency(
                 "message": "Chase Efficiency requires Index Premium.",
                 "code": "CARD_CHASE_EFFICIENCY_PREMIUM_REQUIRED",
                 "requiredFeature": FEATURE_CARD_CHASE_EFFICIENCY,
+            },
+        )
+    return user_id
+
+
+def _require_product_chase_intelligence(
+    *, authorization: Optional[str], token_cookie: Optional[str]
+) -> str:
+    """Authenticate and resolve Premium from the canonical profile server-side.
+
+    Product Chase Intelligence (O_budget) is Premium-only and DISTINCT from
+    Card Chase Efficiency - a Plus or Free request must never receive this
+    payload, including via direct API access, not merely a hidden frontend
+    control. See ``test_product_chase_access_api.py`` for the negative test.
+    """
+    user_id = _require_authenticated_user_id(
+        authorization=authorization, token_cookie=token_cookie
+    )
+    if not has_index_feature_access(
+        _resolve_index_plan(authorization, token_cookie), FEATURE_PRODUCT_CHASE_INTELLIGENCE
+    ):
+        emit_security_event("entitlement_denied", route="product_chase_intelligence",
+                            policy_class=POLICY_RANKED_INTELLIGENCE, user_id=user_id,
+                            required_capability=FEATURE_PRODUCT_CHASE_INTELLIGENCE, authenticated=True)
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Product Chase Intelligence requires Index Premium.",
+                "code": "PRODUCT_CHASE_INTELLIGENCE_PREMIUM_REQUIRED",
+                "requiredFeature": FEATURE_PRODUCT_CHASE_INTELLIGENCE,
             },
         )
     return user_id
@@ -1080,6 +1114,43 @@ def get_card_chase_efficiency_rankings(
     except Exception:
         logger.exception("/explore/card-chase-efficiency unexpected error")
         return JSONResponse(content={"message": "Unable to load Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
+
+
+@app.get("/explore/product-chase-intelligence")
+def get_product_chase_intelligence(
+    request: Request,
+    budget: Optional[float] = Query(default=None, ge=0),
+    price_as_of: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """PREMIUM-ONLY. Chase Access at Budget (O_budget) for the same pinned
+    budget-ranking cohort the normal Plus budget ranking already resolves.
+
+    This is a SEPARATE contract from the normal Plus product/budget rankings
+    endpoint (``/explore/product-rankings/overall``) and from
+    ``/explore/card-chase-efficiency`` (Card Chase Efficiency, a distinct
+    Premium construct). It is never routed through either. A Plus or Free
+    request is rejected before any cohort/authority data is touched.
+    """
+    user_id = _require_product_chase_intelligence(authorization=authorization, token_cookie=token_cookie)
+    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
+                        route="/explore/product-chase-intelligence")
+    try:
+        cohort, _authority = load_pinned_cohort(service_read_client, price_as_of=price_as_of)
+        resolved = resolve_product_chase_access(service_read_client, cohort, budget=budget)
+        return _tiered_response(project_product_chase_access_response(
+            resolved, _resolve_index_plan(authorization, token_cookie),
+        ))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("/explore/product-chase-intelligence unexpected error budget=%s", budget)
+        return JSONResponse(
+            content={"message": "Unable to load Product Chase Intelligence",
+                     "code": "PRODUCT_CHASE_INTELLIGENCE_FAILED", "products": []},
+            status_code=503,
+        )
 
 
 @app.get("/tcgs/pokemon/set-route-directory")

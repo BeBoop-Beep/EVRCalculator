@@ -982,3 +982,160 @@ modified files this session did not touch:
 `backend/scripts/build_market_explorer_maintained_cache.py` untracked files
 present at session start (Prompt 5 concurrent work) — none were read for
 content changes, none were edited, none were staged or committed.
+
+## 2026-09-03 (later session) — V12 budget physical persistence closure attempt
+
+### Decision
+
+`OVERALL_RIP_V12_BUDGET_PUBLICATION_PERSISTENCE_BLOCKED_PHYSICAL_WRITE_IS_AN_ATOMIC_SQL_RPC_THAT_REQUIRES_A_MIGRATION`
+
+### What this session traced (Phase 1)
+
+Full write path, end to end:
+
+`publish_budget_product_rankings_if_ready.py::run(commit=True)` →
+`resolve_budget_ranking_readiness` (V10 gate) → `build_rankings_for_cohort`
+(V10 scoring only) → `to_publication_payload` (V10-shaped snapshot/rows
+dicts, `build_budget_normalized_product_rankings.py`) →
+`validate_publication_payload` (pure Python V10 gate) →
+**`publish_rankings(client, results)`** (same file) → **the actual physical
+write**: one call to the Postgres RPC
+`public.publish_budget_product_ranking_snapshot(p_snapshot JSONB, p_rows
+JSONB)` (defined in
+`backend/db/migrations/20260824025349_strengthen_budget_product_ranking_publication.sql`)
+→ back in Python, `verify_persisted_snapshot` (post-hoc read-back check) →
+final status.
+
+The RPC is the actual repository-write function — it is one `plpgsql`
+function, `SECURITY DEFINER`, that runs as a single Postgres transaction:
+`INSERT ... ON CONFLICT ... DO UPDATE` into `budget_product_ranking_snapshots`
+(explicit column list, 18 named columns), then `DELETE` + `INSERT ... SELECT
+... FROM jsonb_array_elements(p_rows)` into `budget_product_ranking_rows`
+(explicit column list, 27 named columns), then several `RAISE EXCEPTION`
+integrity re-checks against the just-inserted rows, then an `INSERT ...
+ON CONFLICT DO UPDATE` into `budget_product_ranking_latest` that moves the
+"current" pointer. Any exception anywhere in the function rolls back the
+entire transaction, so today's V10 write is already atomic and
+partial-write-safe by construction (Phase 6's requirement is already met —
+for V10).
+
+**The blocking fact**: both explicit column lists in that SQL function body
+(the `INSERT INTO budget_product_ranking_snapshots (...)` and `INSERT INTO
+budget_product_ranking_rows (...)` statements) name only the pre-existing
+V10 columns. Neither list includes `overall_rip_v12_version`,
+`chase_accessibility_version`, `chase_accessibility_transform_version`,
+`ranked_under_v12_authority`, `overall_rip_v12_score`,
+`overall_rip_v12_rankable`, `overall_rip_v12_status`,
+`chase_accessibility_raw`, `budget_rank_v12`, or `budget_cohort_size_v12` —
+even though those columns exist and are live-queryable in production (per
+the prior session's direct read verification, "confirming the third
+migration is genuinely applied," `2026-09-03 — CANONICAL PROMOTION EXECUTED`
+section above). Because the `INSERT` statements name columns explicitly
+(never `INSERT ... SELECT *`), any extra keys a Python caller adds to
+`p_snapshot`/`p_rows` are silently ignored by Postgres — `jsonb_array_elements`
+happily accepts a JSON object with more keys than the query reads, and
+nothing errors. Confirmed by reading the full RPC body (Phase 1 done before
+any edit, as instructed).
+
+### Why this is a genuine gate failure, not a workaround-able gap
+
+To make `--commit` actually persist V12 authority/row data **atomically**
+(Phase 6's explicit requirement: "A partial V12 row write must never become
+a published snapshot," which for this RPC's design means "the same
+transaction that marks the snapshot published/moves the `latest` pointer
+must be the transaction that writes the V12 columns") requires changing the
+RPC's two `INSERT` column lists and `VALUES`/`SELECT` projections to also
+carry the ten V12 fields. That is a `CREATE OR REPLACE FUNCTION` change to a
+live Postgres object — exactly the shape of change this repository's own
+convention (`20260824025349_strengthen_budget_product_ranking_publication.sql`,
+which itself replaced an earlier version of the same function) always makes
+as a migration file that must be applied to production. There is no
+Python-only way to add columns to a `plpgsql` function's hardcoded `INSERT`
+statement.
+
+Two alternatives were considered and rejected as unsafe rather than
+attempted:
+
+1. **Bypass the RPC and `UPDATE` the V12 columns directly from Python after
+   the RPC call returns**, using the returned `snapshot_id` and the
+   already-computed `build_v12_shadow_rankings_for_cohort` output. This
+   needs no migration (the columns already exist) and is pure application
+   code. It was rejected because it is a **second, non-atomic network
+   round-trip**: the RPC's transaction has already committed
+   `publication_status='published'` and moved the `budget_product_ranking_latest`
+   pointer *before* the Python-side `UPDATE` even starts. If that `UPDATE`
+   fails, is partially applied (e.g. across a paginated batch), or the
+   process crashes between the two calls, the snapshot is *already*
+   published with some or all V12 columns missing — precisely the outcome
+   Phase 6 says must never happen. Reporting a downgraded status after the
+   fact (mirroring the existing `verify_persisted_snapshot` →
+   `POST_PUBLISH_VERIFICATION_FAILED` pattern) does not undo the fact that a
+   partially-V12 snapshot was, for some interval, the live `latest`
+   snapshot every reader resolves — the existing V10 pattern tolerates this
+   only because V10 has no analogous "the row must have gained authority X"
+   concept post-commit; V12 explicitly does (Phase 2's requirement that a
+   canonical V12 snapshot always sets `ranked_under_v12_authority=TRUE` with
+   every version field populated). Implementing this would produce code that
+   satisfies Phases 2/3/5/8-9 in isolated unit tests (a fake harness can
+   fake perfect two-call sequencing) while remaining genuinely unsafe against
+   the exact failure mode (`F`: "Insert failure midway through → snapshot
+   never becomes published") the task's own Phase 9F requires proving false.
+2. **Have Python perform the entire publication as direct multi-table
+   writes** (`INSERT`/`UPSERT` on `budget_product_ranking_snapshots`,
+   `budget_product_ranking_rows`, `budget_product_ranking_latest` from the
+   Supabase client, replacing the RPC call), wrapping it in one PostgREST
+   transaction. Rejected: PostgREST/`supabase-py` does not expose
+   cross-statement transactions to the client in this codebase's stack (the
+   existing design deliberately pushes all invariants — cohort/rank
+   contiguity, price-authority uniqueness, Full Market coverage, the
+   `latest` pointer move — into one `plpgsql` function specifically so they
+   run inside one Postgres transaction with `SECURITY DEFINER`, not so a
+   client can partially replicate them per statement). Reimplementing that
+   RPC's ~15 `RAISE EXCEPTION` invariant checks a second time in Python,
+   racing the real RPC's own definition, would create exactly the
+   "recompute the formula/gate outside its authority" anti-pattern this
+   program's own prior phases (Gate F, `validate_v12_publication_payload`'s
+   own docstring) were written to avoid, and would still not be atomic
+   without native transaction support.
+
+Both alternatives were rejected on correctness grounds before writing any
+code, not attempted and then reverted — consistent with the task's Phase 1
+instruction to fully map the write path "before you edit."
+
+### Conclusion
+
+The task's own framing ("this task is pure application-code work," "the
+schema... is already applied in production") is correct about the schema but
+does not hold for the write path once traced: the specific function that
+performs the physical write is a versioned SQL object whose column lists are
+the actual gate, and extending them is a schema-level change (a new
+`CREATE OR REPLACE FUNCTION` migration) under this repository's own
+established convention for this exact function. The task explicitly
+prohibits creating or applying any migration. No safe, atomic, code-only way
+to make `--commit` physically persist V12 authority was found. Phases 2-13
+were not implemented against production code, because doing so would either
+(a) require the prohibited migration, or (b) require unsafe non-atomic
+Python-side writes that violate the task's own Phase 6 correctness
+requirement and would misrepresent the "no partial V12 publish" guarantee
+Phase 9's failure tests are supposed to prove.
+
+**No files were modified except this document.** No migration file was
+created or edited. No test was written against production write behavior,
+because no production write code was changed. `git status` at the end of
+this session is unchanged from session start
+(`b52ec6304f06e4d7698435f01aa7bc9eb1704c4d`) other than this documentation
+edit.
+
+### What would unblock this
+
+A separate, explicitly-scoped task that is authorized to create AND apply a
+migration extending `publish_budget_product_ranking_snapshot`'s two `INSERT`
+column lists (and, per Phase 2, its `ON CONFLICT DO UPDATE` clauses) to
+accept the ten already-live V12 columns, sourced from
+`build_v12_shadow_rankings_for_cohort`'s output via `to_publication_payload`
+(extended to conditionally emit the V12 fields when
+`default_budget_sort_authority_is_v12()` is true). Once that migration
+exists and is applied, the Python-side Phases 2-3, 5-13 in this task's
+instructions become straightforwardly implementable exactly as specified,
+inside the RPC's existing atomic-transaction guarantee — no architecture
+change beyond the column-list extension is needed.

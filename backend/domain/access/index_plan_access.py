@@ -40,6 +40,13 @@ FEATURE_PREPARED_MARKET_INTELLIGENCE = "prepared_market_intelligence"
 FEATURE_CHASE_OPENING_ROUTE = "chase_opening_route"
 FEATURE_CHASE_VS_BUY = "chase_vs_buy"
 FEATURE_CHASE_RANKINGS = "chase_rankings"
+#: Product Chase Intelligence (Chase Access at Budget, O_budget) - a
+#: DISTINCT Premium construct from the Card Chase Efficiency/Opening
+#: Route/vs Buy/Rankings features above. It answers "which sealed product
+#: gives the most reach into a set's important value at my budget?", not
+#: "what's the best way to pursue this specific card?". Kept as its own
+#: feature identity so entitlement/product decisions can move independently.
+FEATURE_PRODUCT_CHASE_INTELLIGENCE = "product_chase_intelligence"
 
 _PLUS_FEATURES = frozenset({
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
@@ -63,6 +70,7 @@ _PREMIUM_FEATURES = frozenset({
     FEATURE_CHASE_OPENING_ROUTE,
     FEATURE_CHASE_VS_BUY,
     FEATURE_CHASE_RANKINGS,
+    FEATURE_PRODUCT_CHASE_INTELLIGENCE,
 })
 
 
@@ -508,6 +516,40 @@ def project_insights_critical_response(payload: Mapping[str, Any], plan: Any) ->
 def filter_set_market_signal_access(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
     """Compatibility name for the allowlist-based market projector."""
     return project_set_market_response(payload, plan)
+
+
+_PRODUCT_CHASE_ACCESS_PRODUCT_FIELDS = frozenset({
+    "sealedProductId", "setId", "productName", "productFamily", "productMarketCost",
+    "randomPackCount", "effectivePackCost", "aRaw", "chaseAccessibilityReady",
+    "chaseAccessibilityReasons", "calculationRunId", "ece", "eceVersion", "version",
+    "quantity", "actualCommittedCapital", "unusedCapital", "capitalUtilization",
+    "effectivePacks", "oBudget", "oBudgetPct", "oBudgetStatus", "oBudgetStatusReason",
+    "oBudgetRank",
+})
+
+
+def project_product_chase_access_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
+    """Tier-safe Chase Access at Budget (O_budget) response.
+
+    PREMIUM ONLY - this function is only ever called after the route has
+    already required ``FEATURE_PRODUCT_CHASE_INTELLIGENCE``; a caller without
+    that feature never reaches this projector (unlike the RIP endpoints
+    above, which serve a degraded public/Plus shape). It exists mainly so the
+    payload is built from an explicit allowlist rather than an ad-hoc dict,
+    matching every other projector in this module.
+    """
+    return {
+        "budget": payload.get("budget"),
+        "products": [
+            _pick(row, _PRODUCT_CHASE_ACCESS_PRODUCT_FIELDS)
+            for row in payload.get("products", []) if isinstance(row, Mapping)
+        ],
+        "queryCount": payload.get("queryCount"),
+        "distinctSetCount": payload.get("distinctSetCount"),
+        "productCount": payload.get("productCount"),
+        "chaseAccessibilityVersion": payload.get("chaseAccessibilityVersion"),
+        "version": payload.get("version"),
+    }
 
 
 def resolve_market_explorer_plan_access(user: Mapping[str, Any] | None) -> dict[str, Any]:
