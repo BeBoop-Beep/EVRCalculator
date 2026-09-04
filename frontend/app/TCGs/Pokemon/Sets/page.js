@@ -3,7 +3,6 @@ import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { toSetSlug } from "@/utils/slugify";
 import { getPokemonSets } from "@/lib/pokemon/pokemonSetsServer";
-import { isHiddenFromPublicPokemonSetsCatalog } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import { SET_LOGO_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 
@@ -11,7 +10,7 @@ export const metadata = buildRouteMetadata({
   path: "/TCGs/Pokemon/Sets",
   title: "Pokémon TCG Set Catalog — inDex",
   description:
-    "Browse every Pokémon TCG set by era, newest to oldest, and open a set for its Overall RIP and opening analysis.",
+    "Browse every Pokémon TCG set by era, newest to oldest, and open a set for its cards, market data, and available opening analysis.",
   ogTitle: "Pokémon TCG Set Catalog",
 });
 
@@ -161,16 +160,11 @@ export default async function SetsPage() {
   try {
     const payload = await getPokemonSets();
     const summaries = Array.isArray(payload?.sets) ? payload.sets : [];
-    // Sword & Shield's simulator-era data is not yet validated for public
-    // analytics (see pokemonSetPublicCoverage.js) — hidden from the catalog
-    // entirely for now rather than shown with no way to explain why its
-    // analytics are unavailable (no status-badge UI exists yet). This is
-    // narrower than the Explore rankings filter: it must not also hide
-    // unrelated non-SWSH products (POP Series, promo-only collections) that
-    // were already catalog-visible before this change.
-    sets = summaries
-      .filter((setSummary) => setSummary?.id && setSummary?.name)
-      .filter((setSummary) => !isHiddenFromPublicPokemonSetsCatalog(setSummary));
+    // Catalog membership and analytics eligibility are intentionally separate.
+    // A set with cards/market data still belongs in the TCG catalog even when
+    // its RIP/opening model has not yet passed public validation. Individual
+    // analytics surfaces remain responsible for applying that stricter gate.
+    sets = summaries.filter((setSummary) => setSummary?.id && setSummary?.name);
   } catch (error) {
     loadError = error?.message || "Failed to load sets";
   }
