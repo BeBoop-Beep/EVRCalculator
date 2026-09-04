@@ -459,3 +459,200 @@ because there is no "final" implementation yet to benchmark or test.
    itself unchanged; paid-response-boundary unaffected.
 5. Re-run the Pass 1 memory benchmark methodology against the new path for
    the old/intermediate/final comparison table this pass could not produce.
+
+## Pass 4 (this update): compact `/targets` reader shipped — the normal-path fix
+
+Branch HEAD at the start of this pass: `8498d34a`. Using the production facts
+supplied for this pass (34 targets, all opening; `setRipV1` enriched 34/34;
+`meta.openingSetAudit`/`meta.opening_set_audit` already persisted with 0
+subset/missing-mapping rows; full `ranking_payload_json` ≈2.74MB,
+`productFamilyRankings` alone ≈245KB), this pass unblocked and shipped
+Pass 3's fast-follow.
+
+### What changed
+
+- **New migration/RPC**:
+  `supabase/migrations/20260904010000_add_rip_statistics_targets_compact_rpc.sql`
+  adds `public.get_pokemon_rip_statistics_targets_compact(p_limit)` and its
+  per-target projector `public.project_pokemon_rip_statistics_target(JSONB)`.
+  Mirrors the existing `get_pokemon_rankings_sets_lens`
+  (`20260830010000_tighten_compact_rankings_sets_lens_rpc.sql`) pattern —
+  same publication CTE, same `is_opening_set` filter, same ordinality-ordered
+  `LIMIT`/`GREATEST`/`LEAST` clamp to 1..200 — but projects the FULL
+  Base+Plus target field contract `/targets` serves (every field in
+  `_BASE_TARGET_FIELDS`/`_PLUS_TARGET_FIELDS`,
+  `backend/domain/access/index_plan_access.py`), not the narrower Sets-lens
+  contract. Several already-published nested objects (`setRipV1`,
+  `financialRipV4`, `overallRipV10`, `publicRipContractV10`,
+  `openingExperience`, `rankingsChase`, `rip`, `ripCore`) are passed through
+  WHOLE rather than re-picked field-by-field, because
+  `project_rankings_response`'s Plus branch expects the full published shape
+  and does its own entitlement pick from there — no score/rank
+  recomputation happens in SQL. `meta` is passed through unfiltered (it
+  already excludes `productFamilyRankings`/`setRip`/`eraSetStrengthV1` —
+  those are sibling top-level publication keys, not nested under `meta` —
+  and it already carries the persisted `openingSetAudit`/`opening_set_audit`
+  Pass 3 found this endpoint has zero frontend consumers to justify
+  rebuilding). `get_pokemon_rankings_sets_lens` itself is untouched — a
+  separate migration, a separate RPC, a separate function.
+- **`backend/db/services/pokemon_public_snapshot_service.py`**: the old
+  monolithic `get_pokemon_explore_rankings_snapshot_payload()` body was
+  renamed to `_get_pokemon_explore_rankings_snapshot_payload_full()`
+  unchanged, and the public entry point now: (1) calls the new compact RPC
+  via `_load_pokemon_rip_statistics_targets_compact_row()`; (2) hands the row
+  to `_build_compact_rankings_targets_response()`, which returns a response
+  built ENTIRELY from the compact row (no mega-contract materialization) when
+  the row's targets pass `_has_enriched_set_rip_contract()` and carry a
+  persisted `openingSetAudit`/`opening_set_audit`, runs the same publication-
+  identity check as the full reader (`_rankings_publication_identity_mismatches`,
+  same fail-closed 503 `RIP_STATISTICS_TARGETS_PUBLICATION_SUPERSEDED` with
+  the same fallback-cache-first behavior), and populates the same single-slot
+  fallback cache (`base_payload={}` — the compact RPC never had
+  `productFamilyRankings`/`setRip`/`eraSetStrengthV1` to exclude in the first
+  place); (3) falls back EXPLICITLY (logged, never silent) to
+  `_get_pokemon_explore_rankings_snapshot_payload_full()` when the compact
+  RPC errors (rolling-deploy compatibility, same pattern
+  `get_pokemon_explore_rankings_lens_payload` already uses for the Sets/Eras
+  lenses), when `_has_enriched_set_rip_contract` is false (legacy
+  publication — `upgrade_rankings_set_rip_contract_if_needed`'s
+  `productFamilyRankings`-based rebuild only exists in the full reader), or
+  when the persisted opening audit is absent. `attach_era_set_strength()` is
+  NOT run on the compact path — Pass 3 confirmed no consumer of
+  `getRipStatisticsTargets()` reads `eraSetStrengthV1` from this endpoint
+  (the Rankings page's Eras tab calls the separate `lens=eras` endpoint), so
+  omitting it is intentional, not a gap.
+- **New tests**:
+  `backend/tests/unit/db/services/test_pokemon_rip_statistics_targets_compact.py`
+  (11 tests, all new, all pass) — healthy path never touches the table/mega-
+  contract reader; response excludes `productFamilyRankings`/`setRip`/
+  `eraSetStrengthV1`; persisted opening audit returned byte-identical;
+  request-limit slicing/ordering; full `setRipV1` object survives the
+  projection unmodified (Set RIP/Overall RIP parity); legacy incomplete
+  Set RIP falls back to the full reader; missing persisted audit falls back
+  to the full reader; compact RPC unavailable falls back to the full reader;
+  publication-identity mismatch still fails closed with 503; fallback cache
+  is populated from the compact contract after a healthy compact read; the
+  Sets-lens RPC name/call path is untouched.
+- **New benchmark**:
+  `backend/scripts/benchmark_rip_statistics_targets_compact_memory.py` — see
+  3-stage table below.
+
+### Regression results
+
+- `backend/tests/unit/db/services/test_pokemon_rankings_fallback_cache.py`:
+  6/6 pass (unchanged from Pass 2 baseline; these tests' fake client has no
+  `.rpc()`, so the compact attempt raises `AttributeError`, is caught, and
+  falls through to the full reader exactly as these tests already expected —
+  confirmed by rerunning them against this pass's code).
+- `backend/tests/unit/db/services/test_pokemon_rip_statistics_targets_compact.py`:
+  11/11 pass (new).
+- `backend/tests/unit/db/services/test_rankings_lens_projection.py`: 5/5
+  pass, unaffected.
+- `backend/tests/unit/api/test_paid_response_boundary.py`: run this pass
+  under `.venv-api-test` (has `fastapi`/`stripe` installed, unlike the
+  sandbox default interpreter Pass 1-3 used) — **10/11 pass, identical to
+  the documented baseline**. The 1 failure,
+  `test_product_rankings_http_projection_plus_then_base`, exercises
+  `/explore/product-rankings/overall` → `get_pokemon_explore_rankings_lens_payload(lens="products")`,
+  a code path this pass did not touch; unchanged before/after this pass's
+  edits.
+- Base/Plus entitlement fields: `test_compact_response_keeps_full_set_rip_object`
+  confirms the complete Plus `setRipV1` object (score/rank/tier/cohortSize/
+  familyScores/participatingFamilies/...) survives the compact projection
+  unmodified — `project_rankings_response()` in `index_plan_access.py` was
+  NOT changed, so the full documented Plus field list (`calculation_run_id`,
+  `run_at`, `pack_score`, `relative_pack_score`, `pack_rank`, `pack_tier`,
+  `profit_score`, `relative_profit_score`, `profit_rank`, `profit_tier`,
+  `safety_score`, `relative_safety_score`, `safety_rank`, `safety_tier`,
+  `stability_score`, `relative_stability_score`, `stability_rank`,
+  `stability_tier`, `prob_big_hit`, `roi_percent`,
+  `p95_value_to_cost_ratio`, `p95_value_to_cost_rank`,
+  `p95_value_to_cost_tier`, `rip`, `ripCore`, `openingExperience`,
+  `collector_appeal_score`, `collector_appeal_rank`,
+  `opening_desirability_score`, `opening_desirability_rank`,
+  `opening_desirability_summary`) is projected by the new RPC's field list
+  and left untouched by Python's `_pick`.
+- Opening-audit parity: `test_compact_response_preserves_persisted_opening_audit_unchanged`
+  asserts the served `meta.openingSetAudit`/`meta.opening_set_audit` equal the
+  persisted fixture value exactly — no rebuild happens on the compact path.
+- Ranking parity: `test_compact_response_respects_request_limit_and_ordering`
+  asserts target order/identity is unchanged after slicing.
+
+### Phase F — 3-stage memory/latency benchmark
+
+Fixture: 34 targets (the verified live target count), 25 `familyScores`
+entries/target, a 100-entry `productFamilyRankings` block — sized to the
+same shape as the Pass 1/2 fixture, scaled to the real 34-target count
+instead of a synthetic 200. No production DB credentials are available in
+this sandbox; this is a representative fixture, consistent with every prior
+pass's stated limitation.
+
+| Metric | Stage 1 Original (pre-`1ee37cf9`) | Stage 2 Cache-only (`1ee37cf9`+`76795836`) | Stage 3 Compact-final (this pass) |
+|---|---|---|---|
+| RSS fresh | 96.64MB | 98.16MB | 98.68MB |
+| RSS after 1st `limit=200` read | 96.92MB | 98.68MB | 98.69MB |
+| RSS after 50 identical reads | 97.44MB (+0.52MB over 50) | 98.68MB (+0.00MB) | 98.69MB (+0.00MB) |
+| Retained fallback-cache bytes (est.) | 152,200 (1 per-limit entry, unbounded key space in the real bug) | 145,667 (single slot) | 145,667 (single slot) |
+| Source payload bytes (full mega-contract) | 152,200 | 152,200 | n/a — never read |
+| Source payload bytes (compact) | n/a | n/a | 146,463 |
+| Response bytes | n/a (not measured) | 152,933 | 146,662 |
+| p50 latency | 10.38ms | 1.79ms | 0.78ms |
+| p95 latency | 12.12ms | 2.65ms | 1.14ms |
+
+Stage 1 vs Stage 2 reproduces Pass 1/2's finding at this fixture's smaller
+(34-target, not 200-target) scale: both RSS-after-50 and retained-cache-bytes
+stay flat in Stage 2/3, while Stage 1 keeps growing per distinct `limit`
+(not exercised directly in this run, but the underlying per-limit `dict`
++ `deepcopy()` mechanism is unchanged from Pass 1's measurement).
+
+**What Stage 2 → Stage 3 actually shows**: RSS-after-1/after-50 are flat and
+statistically indistinguishable between Stage 2 and 3 at this fixture's
+34-target scale (both ~98.7MB) — the RSS PLATEAU claim holds for both,
+because Pass 2's single-slot cache already stopped the unbounded RSS growth.
+What Stage 3 demonstrably improves over Stage 2, at this fixture's scale, is:
+**response bytes** (146,662 vs 152,933, a ~4% reduction — small here because
+this fixture's `productFamilyRankings` is only 100 entries; production's is
+~245KB against a ~2.74MB total, a materially larger fraction) and **latency**
+(p50 0.78ms vs 1.79ms, p95 1.14ms vs 2.65ms — roughly 2x faster, because the
+compact path never deserializes/re-walks the excluded blocks). Do not read
+this table as proof that the healthy-path mega-contract materialization was
+a major RSS contributor at PRODUCTION scale beyond what Pass 2 already fixed:
+this fixture is far smaller than the real ~2.74MB/34-target production
+payload (152KB here vs 2.74MB in prod — the real `familyScores`/history/
+image-URL fields are far larger per target than this fixture's padding), so
+the per-request bytes/latency delta this table shows at 152KB scale should
+be expected to be proportionally larger, not smaller, against the real
+2.74MB payload. Confirming that scaling claim needs a production-shaped (or
+production-pulled) fixture or a live Render RSS-over-time observation after
+deploy — this pass's fixture size is a methodology limitation carried over
+from Pass 1/2, not a new one introduced here.
+
+### Remaining risks
+
+- This pass's benchmark fixture (34 targets, ~152KB) is far smaller than the
+  real production payload (34 targets, ~2.74MB) — the gap is per-target
+  field richness (real `familyScores`, price history, image URLs) this
+  fixture does not replicate at full size. The relative Stage 2→3 direction
+  (smaller response, faster latency, RSS plateau preserved) should hold at
+  production scale, but the absolute magnitude is unverified against
+  production. Re-run the Render RSS-over-time observation (see "Production
+  verification procedure" above) after this pass deploys.
+- The compact RPC's rolling-deploy fallback path (RPC not yet migrated) was
+  tested with a synthetic `RuntimeError`, not an actual PostgREST "function
+  does not exist" error shape — the real error type/message from PostgREST
+  was not verified against a live Supabase instance in this sandbox. The
+  fallback is triggered by any exception from the RPC call (broad
+  `except Exception`), so this is a low-confidence-but-likely-fine risk, not
+  an unverified branch.
+- `attach_era_set_strength()` is now skipped for the compact path's response,
+  meaning a caller who happened to depend on `/explore/rip-statistics/targets`
+  carrying a top-level `eraSetStrengthV1` block (undocumented, untraced by
+  Pass 3, and not read by any file this pass or Pass 3 found) would silently
+  stop receiving it. Pass 3's trace across all of `frontend/` found no such
+  caller; this pass did not re-run that trace, only confirmed
+  `attach_era_set_strength` reads/writes described in Pass 3 remain accurate
+  against the current file.
+- This P0 is now feature-complete per the assigned scope (Phases A-F,
+  migration, tests, docs). The one open item is the production-scale RSS
+  confirmation above — recommended as a post-deploy verification step, not a
+  blocker to shipping this pass's code.

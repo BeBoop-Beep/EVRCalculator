@@ -2211,8 +2211,172 @@ def upgrade_rankings_set_rip_contract_if_needed(payload: Dict[str, Any]) -> Dict
     }
 
 
+def _load_pokemon_rip_statistics_targets_compact_row(client: Any) -> Optional[Dict[str, Any]]:
+    """RPC read backing the compact `/explore/rip-statistics/targets` path.
+
+    Always requests the full (unclamped, up to MAX_RANKINGS_LIMIT) opening-set
+    cohort -- request-limit slicing happens in Python below, mirroring the
+    full mega-contract reader's own pattern, so the fallback cache can still
+    reslice the same cached cohort to whatever limit a later fallback call
+    needs.
+    """
+    result = client.rpc(
+        "get_pokemon_rip_statistics_targets_compact", {"p_limit": MAX_RANKINGS_LIMIT}
+    ).execute()
+    data = getattr(result, "data", None)
+    return data if isinstance(data, dict) else None
+
+
+def _build_compact_rankings_targets_response(
+    row: Optional[Dict[str, Any]], clamped_limit: int
+) -> Optional[Dict[str, Any]]:
+    """Build the healthy `/targets` response from the compact RPC row.
+
+    Returns None when the compact path cannot honestly serve this
+    publication -- an enriched-Set-RIP-contract check that fails, or a
+    missing persisted opening audit -- so the caller can fall back to the
+    full mega-contract reader EXPLICITLY rather than silently degrading the
+    response. Never rebuilds `openingSetAudit` from the compact (opening-set
+    filtered) target array: that would corrupt subset/non-opening row counts,
+    so a missing persisted audit is treated the same as an incompatible
+    publication.
+
+    Raises `ExploreRipStatisticsTargetsError` (503) for a publication-identity
+    mismatch with no usable fallback-cache entry, matching the full reader's
+    fail-closed behavior exactly.
+    """
+    if not isinstance(row, dict):
+        return None
+    raw_targets = row.get("targets")
+    if not isinstance(raw_targets, list) or not raw_targets:
+        return None
+    if not _has_enriched_set_rip_contract({"targets": raw_targets}):
+        # Legacy/incomplete publication: setRipV1 isn't fully enriched, and
+        # the compact RPC has no productFamilyRankings to run
+        # upgrade_rankings_set_rip_contract_if_needed's rebuild against.
+        # Explicit fallback to the full reader, which still carries that
+        # legacy-compatibility branch.
+        return None
+
+    meta_source = row.get("meta")
+    meta_source = dict(meta_source) if isinstance(meta_source, dict) else {}
+    opening_set_audit = meta_source.get("openingSetAudit")
+    if opening_set_audit is None:
+        opening_set_audit = meta_source.get("opening_set_audit")
+    if opening_set_audit is None:
+        return None
+
+    updated_at = _to_optional_str(row.get("updated_at"))
+    mismatches = _rankings_publication_identity_mismatches({"meta": meta_source})
+    if mismatches:
+        logger.error(
+            "[pokemon-snapshot] persisted rankings snapshot (compact path) is not the canonical "
+            "publication; refusing to serve it as current mismatches=%s",
+            "; ".join(
+                f"{item['identifier']} observed={item['observed']!r} expected={item['expected']!r}"
+                for item in mismatches
+            ),
+        )
+        fallback = _rankings_fallback_from_cache(clamped_limit, "incompatible_publication_identity")
+        if fallback:
+            return fallback
+        raise ExploreRipStatisticsTargetsError(
+            status_code=503,
+            message="RIP Statistics rankings are being republished",
+            code="RIP_STATISTICS_TARGETS_PUBLICATION_SUPERSEDED",
+            retry_after_seconds=60,
+        )
+
+    targets = list(raw_targets)[:clamped_limit]
+    meta_source["openingSetAudit"] = opening_set_audit
+    meta_source["opening_set_audit"] = opening_set_audit
+    request = dict(meta_source.get("request") or {})
+    request["limit"] = clamped_limit
+    snapshot = dict(meta_source.get("snapshot") or {})
+    snapshot.update(
+        {
+            "source": "get_pokemon_rip_statistics_targets_compact",
+            "updatedAt": updated_at,
+            "isStaleFallback": False,
+            "publicationIdentity": "current",
+        }
+    )
+    snapshot.pop("fallbackReason", None)
+    meta_source["request"] = request
+    meta_source["snapshot"] = snapshot
+
+    default_target = row.get("default_target")
+    resolved_payload = {
+        "targets": targets,
+        "default_target": default_target,
+        "meta": meta_source,
+    }
+    # base_payload is {} (not `payload`, there is no mega-contract here):
+    # the compact RPC never selected productFamilyRankings/setRip/
+    # eraSetStrengthV1 in the first place, so there is nothing unrelated to
+    # exclude -- unlike the full reader's _compact_rankings_fallback_base_payload.
+    _update_rankings_fallback_cache(
+        identity_key=("snapshot", updated_at),
+        base_payload={},
+        raw_targets=list(raw_targets),
+        meta=meta_source,
+        default_target=default_target,
+    )
+    return resolved_payload
+
+
 def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
+    """`/explore/rip-statistics/targets` reader.
+
+    Healthy path: the compact `get_pokemon_rip_statistics_targets_compact`
+    RPC, which never selects/materializes `productFamilyRankings`/`setRip`/
+    `eraSetStrengthV1` -- the source of the 2026-09-04 memory P0. Falls back
+    EXPLICITLY (never silently) to the full mega-contract reader for: the
+    compact RPC being unavailable (rolling deploy before the migration
+    lands), a legacy publication whose Set RIP contract isn't fully
+    enriched, or a publication missing its persisted opening-set audit.
+    """
     clamped_limit = _sanitize_limit(limit, default=DEFAULT_RANKINGS_LIMIT, max_value=MAX_RANKINGS_LIMIT)
+
+    compact_row: Optional[Dict[str, Any]] = None
+    try:
+        compact_row = run_public_read_with_retry(
+            _load_pokemon_rip_statistics_targets_compact_row,
+            operation_name="pokemon_rip_statistics_targets_compact",
+            initial_client=service_read_client,
+            client_factory=create_short_timeout_service_client,
+        )
+    except Exception as exc:
+        logger.warning(
+            "[pokemon-snapshot] compact RIP Statistics targets RPC unavailable; "
+            "falling back to full mega-contract reader: %s",
+            exc,
+        )
+
+    compact_result = _build_compact_rankings_targets_response(compact_row, clamped_limit)
+    if compact_result is not None:
+        return compact_result
+
+    logger.info(
+        "[pokemon-snapshot] compact RIP Statistics targets path unavailable or incompatible "
+        "with this publication; using full mega-contract reader (legacy compatibility path)"
+    )
+    return _get_pokemon_explore_rankings_snapshot_payload_full(clamped_limit)
+
+
+def _get_pokemon_explore_rankings_snapshot_payload_full(clamped_limit: int) -> Dict[str, Any]:
+    """Legacy/incomplete-publication fallback: the full mega-contract reader.
+
+    Kept for publications the compact path (`_build_compact_rankings_targets_response`)
+    explicitly declines to serve: a Set RIP contract that isn't fully
+    enriched (needs `productFamilyRankings` to rebuild via
+    `upgrade_rankings_set_rip_contract_if_needed`), or a publication missing
+    its persisted opening-set audit. Selects/materializes the complete
+    `ranking_payload_json`, including the unrelated `productFamilyRankings`/
+    `eraSetStrengthV1` blocks -- this is the code path the memory P0 exists
+    to avoid on the HEALTHY publication, so it should only run for the
+    legacy/incomplete case described above.
+    """
     try:
         row = run_public_read_with_retry(
             _load_pokemon_explore_rankings_snapshot_row,
