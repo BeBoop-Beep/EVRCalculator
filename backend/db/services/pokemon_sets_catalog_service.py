@@ -111,41 +111,53 @@ def _resolve_card_count(set_row: Dict[str, Any]) -> Optional[int]:
     return None
 
 
+_SETS_PROJECTION = (
+    "id,name,canonical_key,pokemon_api_set_id,era_id,series,release_date,"
+    "official_card_count,printed_total,total_cards,set_code,abbreviation,"
+    "logo_image_url,symbol_image_url,hero_image_url"
+)
+
+
 def _load_canonical_card_counts(set_ids: List[str]) -> Dict[str, int]:
+    """Aggregate per-set canonical card counts via a single SQL GROUP BY RPC.
+
+    This intentionally avoids paging through pokemon_canonical_cards in
+    Python: DB work here scales with the number of requested sets (one
+    result row per set with a canonical card), not with the size of the
+    canonical card corpus. See migration
+    20260904120000_add_pokemon_canonical_card_counts_by_set_rpc.sql.
+    """
     if not set_ids:
         return {}
 
-    counts: Counter[str] = Counter()
-    page_size = 1000
+    counts: Dict[str, int] = {}
 
-    for index in range(0, len(set_ids), 100):
-        chunk = set_ids[index:index + 100]
-        offset = 0
-        while True:
-            query = (
-                service_read_client.table("pokemon_canonical_cards")
-                .select("set_id")
-                .in_("set_id", chunk)
-            )
-            if hasattr(query, "range"):
-                query = query.range(offset, offset + page_size - 1)
-            result = query.execute()
-            rows = list(result.data or [])
-            for row in rows:
-                row_set_id = _to_optional_str(row.get("set_id"))
-                if row_set_id:
-                    counts[row_set_id] += 1
-            if len(rows) < page_size:
-                break
-            offset += page_size
+    # Batch defensively so a single RPC call payload/response stays small even
+    # if the catalog grows to many thousands of sets; each batch is still one
+    # DB round trip returning at most one row per set (never per card).
+    batch_size = 500
+    for index in range(0, len(set_ids), batch_size):
+        chunk = set_ids[index:index + batch_size]
+        result = (
+            service_read_client.rpc(
+                "get_pokemon_canonical_card_counts_by_set",
+                {"p_set_ids": chunk},
+            ).execute()
+        )
+        rows = list(result.data or [])
+        for row in rows:
+            row_set_id = _to_optional_str(row.get("set_id"))
+            row_count = _to_optional_int(row.get("card_count"))
+            if row_set_id and row_count is not None:
+                counts[row_set_id] = row_count
 
-    return dict(counts)
+    return counts
 
 
 def _load_primary_sets(client: Any, tcg_id: str) -> List[Dict[str, Any]]:
     result = (
         client.table("sets")
-        .select("*")
+        .select(_SETS_PROJECTION)
         .eq("tcg_id", tcg_id)
         .order("release_date", desc=True)
         .order("name")
