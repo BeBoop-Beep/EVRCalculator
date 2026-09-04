@@ -238,9 +238,12 @@ def materialize_date(client: Any, *, commit: bool, set_id: str, market_date: str
         "market_price": row.get("market_price"),
     } for row in joined]
     if rows:
-        # Idempotent insert: PK is (market_date, card_variant_id, set_id).
+        # Idempotent insert: real PK is (market_date, card_variant_id) --
+        # verified live via pg_constraint against production; set_id is not
+        # part of the unique key (a card_variant_id belongs to exactly one
+        # set, so it is redundant, not part of conflict resolution).
         client.table(DAILY_STATES_TABLE).upsert(
-            rows, on_conflict="market_date,card_variant_id,set_id",
+            rows, on_conflict="market_date,card_variant_id",
         ).execute()
     report.dates_materialized += 1
     report.rows_inserted += len(rows)

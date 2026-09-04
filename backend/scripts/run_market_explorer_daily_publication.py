@@ -215,16 +215,21 @@ def discover_maintained_caches(client: Any) -> list[dict[str, Any]]:
 
 
 def _spec_from_normalized(normalized_spec: dict[str, Any]) -> dict[str, Any]:
+    """Rehydrate the spec dict exactly as ``normalize_query_spec`` produced it
+    (this IS that dict, persisted verbatim as ``normalized_spec`` at build
+    time -- see ``domain/pokemon/market_explorer_query.py``), converting list
+    fields back to tuples. Must pass every field through, including
+    ``contractVersion``/``asset``/etc -- selectively reconstructing a subset
+    of keys silently drops fields ``query_fingerprint``/planner code expects.
+    """
     return {
-        "mode": normalized_spec.get("mode"),
-        "asset": normalized_spec.get("asset", "cards"),
+        **normalized_spec,
         "eraIds": tuple(normalized_spec.get("eraIds") or ()),
         "setIds": tuple(normalized_spec.get("setIds") or ()),
         "segmentIds": tuple(normalized_spec.get("segmentIds") or ()),
         "pokemonIds": tuple(normalized_spec.get("pokemonIds") or ()),
         "priceSegmentIds": tuple(normalized_spec.get("priceSegmentIds") or ()),
         "releaseAgeCohortIds": tuple(normalized_spec.get("releaseAgeCohortIds") or ()),
-        "topN": normalized_spec.get("topN"),
     }
 
 
