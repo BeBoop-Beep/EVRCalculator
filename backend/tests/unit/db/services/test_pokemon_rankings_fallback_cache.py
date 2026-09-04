@@ -71,7 +71,7 @@ def _identity_meta():
     }
 
 
-def _rows(n, *, updated_at="2026-09-04T00:00:00+00:00"):
+def _rows(n, *, updated_at="2026-09-04T00:00:00+00:00", with_mega_contract=False):
     targets = [
         {
             "id": f"set-{i}",
@@ -82,10 +82,23 @@ def _rows(n, *, updated_at="2026-09-04T00:00:00+00:00"):
         }
         for i in range(n)
     ]
+    ranking_payload_json = {"targets": targets, "meta": _identity_meta()}
+    if with_mega_contract:
+        # A representative slice of the unrelated mega-contract blocks that
+        # ship in a real `ranking_payload_json` row alongside Set targets.
+        # None of the current /explore/rip-statistics/targets consumers read
+        # these (frontend/lib/explore/ripStatisticsServer.js and every file
+        # that calls it were traced and none reference these keys), so they
+        # must never be retained by the fallback cache.
+        ranking_payload_json["productFamilyRankings"] = {
+            "families": {f"family-{i}": {"score": i} for i in range(200)}
+        }
+        ranking_payload_json["setRip"] = {"weights": {"a": 1}}
+        ranking_payload_json["eraSetStrengthV1"] = {"eras": [{"era": "e1"}]}
     return [
         {
             "updated_at": updated_at,
-            "ranking_payload_json": {"targets": targets, "meta": _identity_meta()},
+            "ranking_payload_json": ranking_payload_json,
             "default_target_json": {"target_id": "set-0", "target_type": "set"},
         }
     ]
@@ -179,6 +192,41 @@ def test_stale_fallback_slices_cached_cohort_per_requested_limit(monkeypatch):
     assert len(fallback["targets"]) == 3
     assert fallback["meta"]["snapshot"]["isStaleFallback"] is True
     assert fallback["meta"]["snapshot"]["fallbackReason"] == "transient_data_service_failure"
+
+
+def test_fallback_cache_does_not_retain_unrelated_mega_contract_blocks(monkeypatch):
+    """The fallback cache slot must hold only what a Set-targets fallback
+    response needs (targets/default_target/meta). It must never retain
+    unrelated mega-contract blocks like `productFamilyRankings`, `setRip`,
+    or `eraSetStrengthV1` -- no traced consumer of
+    `getRipStatisticsTargets()` reads those, and retaining them defeats the
+    point of shrinking the single slot."""
+    rows = _rows(10, with_mega_contract=True)
+    _patch_healthy_reader(monkeypatch, rows)
+
+    pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+    cache = pokemon_public_snapshot_service._RANKINGS_FALLBACK_CACHE
+
+    cached_base_payload = cache["base_payload"] or {}
+    assert "productFamilyRankings" not in cached_base_payload
+    assert "setRip" not in cached_base_payload
+    assert "eraSetStrengthV1" not in cached_base_payload
+
+    from postgrest.exceptions import APIError
+
+    def fail(_q):
+        raise APIError({"message": "unavailable", "code": "PGRST002", "hint": None, "details": None})
+
+    failing_client = _Client({"pokemon_explore_rankings_snapshot_latest": fail})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", failing_client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service, "create_short_timeout_service_client", lambda: failing_client
+    )
+
+    fallback = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+    assert "productFamilyRankings" not in fallback
+    assert "setRip" not in fallback
+    assert "eraSetStrengthV1" not in fallback
 
 
 def test_no_cached_entry_still_raises_503_on_transient_failure(monkeypatch):

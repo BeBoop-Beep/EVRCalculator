@@ -89,6 +89,17 @@ RANKINGS_STALE_WARNING = "rankings snapshot is stale relative to set page snapsh
 # `identity_key` (the publication's `updated_at`, or a fixed marker for the
 # rare live-fallback path) differs from what's already cached, so a run of
 # identical healthy requests does no cache work at all.
+#
+# `base_payload` is deliberately COMPACT, not the full persisted
+# `ranking_payload_json` mega-contract. The initial single-slot fix
+# (1ee37cf9) still passed the entire resolved publication payload by
+# reference into this slot, which meant the cache kept unrelated blocks
+# (`productFamilyRankings`, `setRip`, `eraSetStrengthV1`, ...) alive in
+# memory indefinitely even though every traced consumer of
+# `getRipStatisticsTargets()` (frontend/lib/explore/ripStatisticsServer.js
+# and its callers) reads only `targets`, `default_target`, and `meta`. This
+# pass excludes those unrelated blocks from what gets cached; see
+# docs/PRODUCTION_BACKEND_MEMORY_P0_2026-09-04.md.
 _RANKINGS_FALLBACK_CACHE: Dict[str, Any] = {
     "identity_key": None,
     "raw_targets": None,
@@ -107,6 +118,34 @@ def _reset_rankings_fallback_cache_for_tests() -> None:
         meta=None,
         default_target=None,
     )
+
+
+# Top-level blocks on a persisted Rankings publication that no traced
+# consumer of getRipStatisticsTargets() reads (frontend/lib/explore/
+# ripStatisticsServer.js and every caller of it: landingHeroServer.js,
+# the Pokemon set analysis page, the Articles EV-representativeness page,
+# sitemap.js, and the Explore rip-statistics page -- none reference
+# `productFamilyRankings`, `setRip`, or `eraSetStrengthV1`). These must
+# never be retained by the single-slot fallback cache.
+_RANKINGS_FALLBACK_CACHE_EXCLUDED_KEYS = frozenset(
+    {"productFamilyRankings", "setRip", "eraSetStrengthV1", "targets", "default_target", "meta"}
+)
+
+
+def _compact_rankings_fallback_base_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """The subset of a resolved Rankings payload worth retaining for fallback.
+
+    `targets`/`default_target`/`meta` are cached separately (and re-sliced/
+    rewrapped per fallback request), so they're excluded here too. This is a
+    shallow filter (no copy of the surviving values) -- it exists only to
+    stop unrelated large blocks like `productFamilyRankings` from being kept
+    alive in memory by the fallback cache indefinitely.
+    """
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in _RANKINGS_FALLBACK_CACHE_EXCLUDED_KEYS
+    }
 
 
 def _update_rankings_fallback_cache(
@@ -2310,7 +2349,7 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         # slot when the publication's `updated_at` changed.
         _update_rankings_fallback_cache(
             identity_key=("snapshot", _to_optional_str(row.get("updated_at"))),
-            base_payload=payload,
+            base_payload=_compact_rankings_fallback_base_payload(payload),
             raw_targets=opening_targets,
             meta=meta,
             default_target=default_target,
@@ -2331,7 +2370,7 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
     resolved_payload = {**payload, "meta": meta}
     _update_rankings_fallback_cache(
         identity_key="live_fallback",
-        base_payload=payload,
+        base_payload=_compact_rankings_fallback_base_payload(payload),
         raw_targets=list(payload.get("targets") or []),
         meta=meta,
         default_target=payload.get("default_target"),

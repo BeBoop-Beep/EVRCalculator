@@ -30,10 +30,18 @@ _LAST_SUCCESSFUL_RANKINGS_PAYLOADS[clamped_limit] = deepcopy(resolved_payload)
 
 `_LAST_SUCCESSFUL_RANKINGS_PAYLOADS` was `Dict[int, Dict[str, Any]]`, module
 global, with **no TTL and no eviction**, keyed by the request's `limit`. Two
-unbounded axes:
+catastrophic-but-not-both-unbounded axes (correction from an earlier draft of
+this doc, which described key growth as literally unbounded — it is not;
+`_sanitize_limit()` clamps every `limit` to the closed range 1..200 before it
+is used as a dict key, so key cardinality was bounded at 200):
 
-1. **Key growth**: every distinct `limit` ever requested got its own full
-   `deepcopy()`'d entry, forever.
+1. **Key growth, bounded but still catastrophic**: every distinct clamped
+   `limit` in 1..200 ever requested got its own full `deepcopy()`'d entry,
+   forever — up to 200 entries, each a deep copy of the entire mega-contract
+   (hundreds of nested dicts/lists, including the unrelated
+   `productFamilyRankings` block). 200 full mega-contract copies retained
+   simultaneously is enough on its own to exhaust a ~2GB instance; "bounded"
+   here means "finite," not "safe."
 2. **Per-request cost**: even with a single `limit` value, every healthy
    request paid a full `deepcopy()` of the entire mega-contract object graph
    (hundreds of nested dicts/lists) just to refresh a cache entry that would
@@ -240,3 +248,58 @@ confirming against a running instance; see verification procedure below.
   memory benchmark used for the before/after table above.
 
 No database migrations. No frontend changes.
+
+## Pass 2 (this update): compacting what the fallback cache retains
+
+`1ee37cf9` fixed the cache's key cardinality and per-request deep-copy cost,
+but its single slot still cached `base_payload=payload` — the entire
+resolved Rankings mega-contract, including `productFamilyRankings`,
+`setRip`, and `eraSetStrengthV1` — by reference. That keeps those unrelated
+blocks alive in memory for the life of the process (or until the next
+publication), even though every traced runtime consumer of
+`getRipStatisticsTargets()` (`frontend/lib/landing/landingHeroServer.js`,
+`frontend/app/TCGs/Pokemon/Sets/[setSlug]/analysis/page.js`,
+`frontend/app/Articles/how-representative-is-pokemon-pack-expected-value/page.js`,
+`frontend/app/sitemap.js`, `frontend/app/Explore/rip-statistics/page.js`,
+and the contract tests that exercise them) reads only `targets`,
+`default_target`, and `meta`.
+
+This pass adds `_compact_rankings_fallback_base_payload()` and uses it at
+both `_update_rankings_fallback_cache()` call sites in
+`get_pokemon_explore_rankings_snapshot_payload()`, excluding
+`productFamilyRankings`/`setRip`/`eraSetStrengthV1` (and the
+separately-cached `targets`/`default_target`/`meta`) from what the slot
+retains. TDD: `test_fallback_cache_does_not_retain_unrelated_mega_contract_blocks`
+in `backend/tests/unit/db/services/test_pokemon_rankings_fallback_cache.py`
+fails against the pre-this-pass code (asserts `productFamilyRankings` is
+absent from the cached slot and from a served fallback response) and passes
+after. All 6 tests in that file pass; no regression in
+`backend/tests/unit/api/test_paid_response_boundary.py` (10/11 pass,
+identical to the pre-existing baseline both with and without this change —
+the 1 failing test, `test_product_rankings_http_projection_plus_then_base`,
+exercises `/explore/product-rankings/overall`, not
+`/explore/rip-statistics/targets`, and its failure is unrelated to the
+fallback cache; confirmed via `git stash`).
+
+**Still outstanding, not done in this pass**: the NORMAL (non-fallback)
+read path — `_load_pokemon_explore_rankings_snapshot_row()` — still selects
+and materializes the complete `ranking_payload_json` mega-contract on every
+healthy request, exactly as described in "Alternatives considered and
+rejected" above (routing the normal `/explore/rip-statistics/targets` path
+through the compact `get_pokemon_rankings_sets_lens` RPC/lens instead of the
+full mega-contract reader). That refactor is architecturally preferable and
+was traced as safe from a consumer-field standpoint in this pass (no
+consumer needs `productFamilyRankings`/`setRip`/`eraSetStrengthV1`), but the
+normal path also runs `upgrade_rankings_set_rip_contract_if_needed()`,
+`attach_era_set_strength()`, and the checklist set-value compatibility
+enrichment against the full persisted payload before slicing — verifying
+those against the compact lens's projection without changing Set RIP/Era/
+publication-identity semantics is a larger, higher-risk change than fit
+safely in this pass. It remains the correct fast-follow: **do not conclude
+from this doc that the fallback-cache fix alone explains the full ~560MB
+production RSS increase** — the normal-path mega-contract materialization
+on every request (not just the fallback cache) is a plausible material
+contributor that this pass narrows but does not eliminate. A repeat of the
+Render RSS-over-time observation after this deploy, compared against the
+pattern in "Incident timeline" above, is the way to attribute the remaining
+delta before claiming the normal path is also fixed.
