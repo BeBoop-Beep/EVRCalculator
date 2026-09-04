@@ -26,14 +26,19 @@ class Provider:
     def __init__(self): self.subscriptions={}; self.customer_calls=0; self.checkout=None; self.portal=None
     def create_customer(self, **kwargs): self.customer_calls+=1; return {"id":"cus_1"}
     def create_checkout_session(self, **kwargs): self.checkout=kwargs; return {"url":"https://checkout.stripe.test/session"}
-    def retrieve_subscription(self, sid): return self.subscriptions[sid]
+    def retrieve_subscription(self, sid, expand=None): return self.subscriptions[sid]
     def create_customer_portal_session(self, **kwargs): self.portal=kwargs; return {"url":"https://billing.stripe.test/session"}
 
 OFFERS={"plus_monthly":CommercialOffer("plus_monthly","plus","month",True,"price_plus",999,"usd"),
         "premium_monthly":CommercialOffer("premium_monthly","premium","month",True,"price_premium",2499,"usd")}
-def sub(price="price_plus", status="active", sid="sub_1", items=1):
-    return {"id":sid,"customer":"cus_1","status":status,"cancel_at_period_end":False,
-      "items":{"data":[{"price":{"id":price,"product":"prod_1"}} for _ in range(items)]}}
+def sub(price="price_plus", status="active", sid="sub_1", items=1, *, cancel_at_period_end=False, cancel_at=None, current_period_end=None):
+    item_rows=[]
+    for _ in range(items):
+        item={"price":{"id":price,"product":"prod_1"}}
+        if current_period_end is not None: item["current_period_end"]=current_period_end
+        item_rows.append(item)
+    return {"id":sid,"customer":"cus_1","status":status,"cancel_at_period_end":cancel_at_period_end,
+      "cancel_at":cancel_at,"items":{"data":item_rows}}
 
 def service():
     repo, provider=Repo(),Provider(); repo.customer={"id":"bc_1","user_id":"u1","provider_customer_id":"cus_1"}
@@ -102,6 +107,31 @@ def test_public_catalog_exposes_display_data_without_provider_ids_when_checkout_
 def test_reconciliation_persists_current_authoritative_status(status):
     svc,repo,provider=service(); provider.subscriptions["sub_1"]=sub(status=status)
     row=svc.reconcile_subscription("sub_1"); assert row["status"]==status and repo.recomputed==["u1"]
+
+def test_managed_payments_cancel_at_period_end_shape_normalizes_to_scheduled_end():
+    svc,repo,provider=service(); period_end=2_000_000_000
+    provider.subscriptions["sub_1"]=sub(cancel_at_period_end=False,cancel_at=period_end,current_period_end=period_end)
+    row=svc.reconcile_subscription("sub_1")
+    assert row["status"]=="active"
+    assert row["cancel_at_period_end"] is True
+    assert svc.billing_status("u1")["cancelAtPeriodEnd"] is True
+
+def test_billing_status_enriches_stale_local_cancellation_from_live_stripe_without_changing_entitlement():
+    svc,repo,provider=service(); period_end=2_000_000_000
+    repo.rows=[{"provider_subscription_id":"sub_1","plan":"plus","status":"active","offer_key":"plus_monthly",
+        "commercial_mapping_status":"mapped","cancel_at_period_end":False,"current_period_end":"2099-01-01T00:00:00+00:00"}]
+    provider.subscriptions["sub_1"]=sub(cancel_at_period_end=False,cancel_at=period_end,current_period_end=period_end)
+    dto=svc.billing_status("u1")
+    assert dto["effectivePlan"]=="plus"
+    assert dto["subscriptionStatus"]=="active"
+    assert dto["cancelAtPeriodEnd"] is True
+    assert dto["currentPeriodEnd"]!="2099-01-01T00:00:00+00:00"
+
+def test_arbitrary_cancel_at_does_not_masquerade_as_period_end_cancellation():
+    svc,repo,provider=service(); period_end=2_000_000_000
+    provider.subscriptions["sub_1"]=sub(cancel_at_period_end=False,cancel_at=period_end-3600,current_period_end=period_end)
+    row=svc.reconcile_subscription("sub_1")
+    assert row["cancel_at_period_end"] is False
 
 def test_unknown_price_and_multi_item_fail_closed_but_are_audited():
     svc,repo,provider=service(); provider.subscriptions["sub_1"]=sub(price="price_unknown")

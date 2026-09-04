@@ -2067,3 +2067,305 @@ def test_the_generation_comparison_never_downloads_the_cards_payload():
     # The bare column would be the whole document.
     assert "payload_json," not in columns
     assert columns != "payload_json"
+
+
+# ---------------------------------------------------------------------------
+# Requirement J regression: the heavy per-set cards_json/payload_json read in
+# _cards_snapshot_staleness (the "REQUIRED" heavy read documented at module
+# top) is a local read used only to compute small integer counts and marker
+# booleans. Its FreshnessResult MUST NOT carry a reference to the big payload
+# forward into SetRefreshPlan/RefreshSummary state that lives across the whole
+# ~210-set planning loop — otherwise memory grows with catalog size instead of
+# staying bounded (requirement D).
+# ---------------------------------------------------------------------------
+
+
+def _huge_cards_payload(sentinel: str, n_cards: int = 500):
+    """A cards_json/payload_json pair shaped like the real snapshot row, large
+    enough (and tagged with a unique sentinel) that any accidental retention is
+    trivially detectable by substring search over the returned object's repr."""
+    cards_json = [
+        {
+            "id": f"card-{i}",
+            "marketPrice": 1.23,
+            "movement7d": {"pct": 0.1},
+            "bigBlob": sentinel * 50,
+        }
+        for i in range(n_cards)
+    ]
+    payload_json = {
+        "meta": {
+            "snapshot": {
+                "movementContractVersion": "v1",
+                "generationId": "gen-1",
+                "windowConvention": "trailing",
+                "movementAsOfDate": "2026-06-20",
+                "builtAt": "2026-06-21T00:00:00+00:00",
+            }
+        },
+        "cardAppealMarketPriceCorrelation": {"value": 0.5},
+        "hugeUnrelatedBlob": sentinel * 200,
+    }
+    return cards_json, payload_json
+
+
+def test_cards_snapshot_staleness_does_not_retain_the_cards_payload(monkeypatch):
+    sentinel = "SENTINEL-PAYLOAD-MARKER-J-REQUIREMENT"
+    cards_json, payload_json = _huge_cards_payload(sentinel)
+    row = {
+        "set_id": "set-1",
+        "cards_json": cards_json,
+        "card_count": len(cards_json),
+        "payload_json": payload_json,
+        "updated_at": "2026-06-21T00:00:00+00:00",
+    }
+    monkeypatch.setattr(refresh, "_latest_for_set_cards", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_args, **_kwargs: row)
+    client = _RecordingClient({"pokemon_canonical_card_market_prices_latest": []})
+
+    result = refresh._cards_snapshot_staleness(client, "set-1")
+
+    # The freshness verdict is computed correctly from the (locally-read) payload...
+    assert result.stale is False
+    # ...but nothing in the returned, long-lived object graph references the
+    # sentinel-tagged payload. This is the exact shape SetRefreshPlan retains
+    # across the whole planning loop, so proving it here proves the plan can
+    # never accumulate per-set payload bytes.
+    assert sentinel not in repr(result)
+    for field_value in vars(result).values():
+        assert field_value is not cards_json
+        assert field_value is not payload_json
+        assert field_value is not row
+
+
+def test_set_refresh_plan_across_many_sets_never_references_the_payloads(monkeypatch):
+    """End-to-end shape of requirement D: run _build_plan over a catalog-sized
+    number of sets, each with a distinct large sentinel-tagged payload, and
+    assert none of the returned SetRefreshPlan objects reference ANY of them —
+    proving retained state does not grow with catalog size."""
+    sentinels = [f"SENTINEL-{i}-J-REQUIREMENT" for i in range(50)]
+    rows_by_set_id = {}
+    for i, sentinel in enumerate(sentinels):
+        cards_json, payload_json = _huge_cards_payload(sentinel, n_cards=20)
+        rows_by_set_id[f"set-{i}"] = {
+            "set_id": f"set-{i}",
+            "cards_json": cards_json,
+            "card_count": len(cards_json),
+            "payload_json": payload_json,
+            "updated_at": "2026-06-21T00:00:00+00:00",
+        }
+
+    def _read_snapshot_row(_client, table, _select_fields, filters):
+        if table != "pokemon_set_cards_snapshot_latest":
+            return None
+        set_id = dict(filters).get("set_id")
+        return rows_by_set_id.get(set_id)
+
+    monkeypatch.setattr(refresh, "_latest_for_set_cards", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_read_snapshot_row", _read_snapshot_row)
+    monkeypatch.setattr(refresh, "_market_snapshot_staleness", lambda _client, set_id, window: refresh.FreshnessResult("market_dashboard", False, "fresh"))
+    monkeypatch.setattr(refresh, "_set_page_snapshot_staleness", lambda _client, set_id: refresh.FreshnessResult("set_page", False, "fresh"))
+    monkeypatch.setattr(refresh, "_global_snapshot_staleness", lambda _client, *, family: refresh.FreshnessResult(family, False, "fresh"))
+
+    client = _RecordingClient({"pokemon_canonical_card_market_prices_latest": []})
+    set_rows = [{"id": f"set-{i}"} for i in range(len(sentinels))]
+    plans, _rankings, _validation, _source_checks = refresh._build_plan(client, set_rows=set_rows, window="365d")
+
+    assert len(plans) == len(sentinels)
+    combined_repr = "\n".join(repr(plan) for plan in plans)
+    for sentinel in sentinels:
+        assert sentinel not in combined_repr
+
+
+# ---------------------------------------------------------------------------
+# Requirement E regression: _market_snapshot_staleness's row read used to
+# select the FULL payload_json column PLUS all three dedicated heavy history
+# columns (set_value_histories_json, top_chase_card_histories_json,
+# performance_vs_cost_history_json) in ONE request — even though payload_json
+# itself duplicates those same histories inline (confirmed by reading
+# pokemon_snapshot_builders.build_market_dashboard_snapshot_rows). The fix:
+# a narrow MARKET_DASHBOARD_META_PROJECTION read for payload_json.meta, plus
+# LAZY single-column fetches for the two history columns with no scalar
+# shortcut, issued only when the check that needs them is actually reached.
+# ---------------------------------------------------------------------------
+
+
+class _MarketDashboardRecordingQuery:
+    def __init__(self, client, table):
+        self._client = client
+        self._table = table
+        self._columns = ""
+
+    def select(self, columns):
+        self._columns = columns
+        self._client.selects.append((self._table, columns))
+        return self
+
+    def eq(self, *_args, **_kwargs):
+        return self
+
+    def order(self, *_args, **_kwargs):
+        return self
+
+    def limit(self, *_args, **_kwargs):
+        return self
+
+    def execute(self):
+        columns = self._columns or ""
+        row = {}
+        if self._table != "pokemon_set_market_dashboard_snapshot_latest":
+            return type("Result", (), {"data": []})()
+        if refresh.MARKET_DASHBOARD_META_PROJECTION in columns:
+            row["meta"] = self._client.meta
+        if "top_chase_card_histories_json" in columns:
+            row["top_chase_card_histories_json"] = self._client.top_chase
+        if "performance_vs_cost_history_json" in columns:
+            row["performance_vs_cost_history_json"] = self._client.performance
+        if "latest_market_date" in columns:
+            row["latest_market_date"] = self._client.latest_market_date
+        if "updated_at" in columns:
+            row["updated_at"] = self._client.updated_at
+        return type("Result", (), {"data": [row]})()
+
+
+class _MarketDashboardRecordingClient:
+    """Records every `.select(...)` column string issued against the market
+    dashboard table, so a test can assert exactly which columns (narrow vs
+    heavy) were actually requested — the direct, evidence-based proof that
+    requirement E's narrow projection is what production issues, not just
+    what the source code appears to say."""
+
+    def __init__(self, *, meta, top_chase=None, performance=None,
+                 latest_market_date="2026-06-20", updated_at="2026-06-21T00:00:00+00:00"):
+        self.meta = meta
+        self.top_chase = top_chase
+        self.performance = performance
+        self.latest_market_date = latest_market_date
+        self.updated_at = updated_at
+        self.selects: list = []
+
+    def table(self, name):
+        return _MarketDashboardRecordingQuery(self, name)
+
+
+def _patch_market_dependencies_for_recording_client(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", _no_set_value_history)
+
+
+_FRESH_META = {
+    "snapshot": {
+        "type": "pokemon_set_market_dashboard",
+        "movementContractVersion": "v1",
+        "generationId": "gen-1",
+        "windowConvention": "trailing",
+        "movementAsOfDate": "2026-06-20",
+        "builtAt": "2026-06-21T00:00:00+00:00",
+    },
+    "setValueHistoryLatestDateByScope": {"standard": "2026-06-20", "hits": "2026-06-20", "top10": "2026-06-20"},
+}
+
+
+def test_market_dashboard_row_read_never_selects_the_full_payload_json_column(monkeypatch):
+    """THE requirement-E regression: the row read must use the small `meta`
+    JSON-path projection, never the full (duplicate-laden) payload_json column."""
+    _patch_market_dependencies_for_recording_client(monkeypatch)
+    client = _MarketDashboardRecordingClient(meta=_FRESH_META, top_chase={}, performance=[])
+    monkeypatch.setattr(refresh, "_read_cards_snapshot_generation_id", lambda _client, _set_id: refresh.CardsGenerationRead("gen-1", True, None, []))
+
+    refresh._market_snapshot_staleness(client, "set-1", "365d")
+
+    dashboard_selects = [columns for table, columns in client.selects if table == "pokemon_set_market_dashboard_snapshot_latest"]
+    assert dashboard_selects, "expected at least one market-dashboard row read"
+    initial_row_select = dashboard_selects[0]
+    assert refresh.MARKET_DASHBOARD_META_PROJECTION in initial_row_select
+    # The bare (giant, duplicate-laden) column must never appear as its own
+    # selected field in the initial row read.
+    assert "payload_json," not in initial_row_select
+    assert not initial_row_select.startswith("payload_json")
+    assert ",payload_json" not in initial_row_select.replace(refresh.MARKET_DASHBOARD_META_PROJECTION, "")
+
+
+def test_market_dashboard_staleness_skips_performance_history_fetch_when_marker_missing(monkeypatch):
+    """A set whose completeness marker is missing is ALREADY decided stale by
+    the time the check that needs performance_vs_cost_history_json is reached
+    — so that heavy column must never be requested for it."""
+    _patch_market_dependencies_for_recording_client(monkeypatch)
+    incomplete_meta = {}  # no "snapshot" key -> marker_missing True
+    client = _MarketDashboardRecordingClient(meta=incomplete_meta, top_chase={}, performance=["SHOULD_NEVER_BE_FETCHED"])
+
+    result = refresh._market_snapshot_staleness(client, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "required completeness marker missing"
+    performance_selects = [
+        columns for table, columns in client.selects
+        if table == "pokemon_set_market_dashboard_snapshot_latest" and "performance_vs_cost_history_json" in columns
+    ]
+    assert performance_selects == []
+
+
+def test_market_dashboard_staleness_skips_all_heavy_columns_when_row_missing(monkeypatch):
+    """No row at all -> immediate stale, before ANY heavy column is touched."""
+    _patch_market_dependencies_for_recording_client(monkeypatch)
+
+    class _EmptyQuery(_MarketDashboardRecordingQuery):
+        def execute(self):
+            # Row genuinely absent, regardless of which columns were asked for.
+            return type("Result", (), {"data": []})()
+
+    class _EmptyClient:
+        def __init__(self):
+            self.selects = []
+
+        def table(self, name):
+            return _EmptyQuery(self, name)
+
+    client = _EmptyClient()
+    result = refresh._market_snapshot_staleness(client, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "snapshot row missing"
+    heavy_selects = [
+        columns for table, columns in client.selects
+        if "top_chase_card_histories_json" in columns or "performance_vs_cost_history_json" in columns
+    ]
+    assert heavy_selects == []
+
+
+@pytest.mark.parametrize("n_sets", [10, 200])
+def test_market_snapshot_staleness_heavy_fetch_count_stays_bounded_per_set_as_catalog_grows(monkeypatch, n_sets):
+    """Requirement D/E at scale: run the REAL freshness check over N synthetic
+    sets, each with its own large sentinel-tagged history payload, and prove
+    two things regardless of whether N is 10 or 200 (i.e. NOT proportional to
+    catalog size in a way that compounds): (1) each set issues AT MOST ONE
+    request for each heavy column (no duplicate/rereads), and (2) no returned
+    FreshnessResult ever references another set's — or its own dropped —
+    sentinel payload, matching requirement J's non-retention proof at scale."""
+    _patch_market_dependencies_for_recording_client(monkeypatch)
+    monkeypatch.setattr(refresh, "_read_cards_snapshot_generation_id", lambda _client, _set_id: refresh.CardsGenerationRead("gen-1", True, None, []))
+
+    results = []
+    sentinels = []
+    for i in range(n_sets):
+        sentinel = f"SENTINEL-MARKET-{i}-E-REQUIREMENT"
+        sentinels.append(sentinel)
+        client = _MarketDashboardRecordingClient(
+            meta=_FRESH_META,
+            top_chase={"card-1": [{"date": "2026-06-20", "value": sentinel * 20}]},
+            performance=[{"date": "2026-06-20", "meanValueToCostRatio": 0.8, "blob": sentinel * 20}],
+        )
+        result = refresh._market_snapshot_staleness(client, f"set-{i}", "365d")
+        results.append(result)
+
+        # (1) bounded per-set request count for each heavy column: at most one.
+        top_chase_selects = [c for t, c in client.selects if "top_chase_card_histories_json" in c]
+        performance_selects = [c for t, c in client.selects if "performance_vs_cost_history_json" in c]
+        assert len(top_chase_selects) <= 1
+        assert len(performance_selects) <= 1
+
+    # (2) no cross-set or self retention of the heavy sentinel-tagged payloads.
+    combined_repr = "\n".join(repr(result) for result in results)
+    for sentinel in sentinels:
+        assert sentinel not in combined_repr

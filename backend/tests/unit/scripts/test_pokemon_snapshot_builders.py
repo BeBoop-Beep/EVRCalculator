@@ -239,6 +239,110 @@ def _raw_observation_rows(count, *, start_date="2025-06-03", variant_id="variant
     ]
 
 
+def _fake_client_returning(rows):
+    """Create a fake client that returns the given rows for any query."""
+    return _Client({"card_variant_price_observations": lambda _query: rows})
+
+
+def _fake_client_returning_with_call_count(rows):
+    """Create a fake client that returns rows and tracks query execution count."""
+    call_counter = {"count": 0}
+
+    def handler(_query):
+        call_counter["count"] += 1
+        return rows
+
+    return _Client({"card_variant_price_observations": handler}), call_counter
+
+
+def test_shared_variant_fans_out_to_every_canonical_card_selecting_it():
+    """Two canonical cards selecting the same variant+condition both get
+    the full observation history; neither overwrites the other."""
+    shared_variant = "variant-shared-1"
+    condition_nm = "condition-nm"
+    prices_by_card = {
+        "card-a": {"variant_id": shared_variant, "condition_id": condition_nm},
+        "card-b": {"variant_id": shared_variant, "condition_id": condition_nm},
+    }
+    rows = _raw_observation_rows(5, variant_id=shared_variant, start_price=10.0)
+    for row in rows:
+        row["condition_id"] = condition_nm
+    client = _fake_client_returning(rows)
+
+    result = pokemon_snapshot_builders._load_selected_price_observations(
+        client, prices_by_card=prices_by_card, latest_market_date="2025-06-10",
+    )
+
+    assert set(result.keys()) == {"card-a", "card-b"}
+    assert result["card-a"] == result["card-b"]
+    assert len(result["card-a"]) == len(rows)
+
+
+def test_shared_variant_condition_isolation_only_fans_out_matching_condition():
+    """Two canonical cards share a variant_id but select DIFFERENT
+    condition_ids; each must only receive observations for its own
+    condition, never the other's."""
+    shared_variant = "variant-shared-2"
+    prices_by_card = {
+        "card-nm": {"variant_id": shared_variant, "condition_id": "condition-nm"},
+        "card-lp": {"variant_id": shared_variant, "condition_id": "condition-lp"},
+    }
+    nm_rows = _raw_observation_rows(3, variant_id=shared_variant, start_price=10.0)
+    for row in nm_rows:
+        row["condition_id"] = "condition-nm"
+    lp_rows = _raw_observation_rows(2, variant_id=shared_variant, start_price=8.0)
+    for row in lp_rows:
+        row["condition_id"] = "condition-lp"
+    client = _fake_client_returning(nm_rows + lp_rows)
+
+    result = pokemon_snapshot_builders._load_selected_price_observations(
+        client, prices_by_card=prices_by_card, latest_market_date="2025-06-10",
+    )
+
+    assert len(result["card-nm"]) == len(nm_rows)
+    assert len(result["card-lp"]) == len(lp_rows)
+    assert all(row["condition_id"] == "condition-nm" for row in result["card-nm"])
+    assert all(row["condition_id"] == "condition-lp" for row in result["card-lp"])
+
+
+def test_one_card_per_variant_behavior_unchanged():
+    """Existing single-owner case: unchanged output shape/content."""
+    prices_by_card = {
+        "card-x": {"variant_id": "variant-x", "condition_id": "condition-nm"},
+    }
+    rows = _raw_observation_rows(4, variant_id="variant-x", start_price=12.0)
+    for row in rows:
+        row["condition_id"] = "condition-nm"
+    client = _fake_client_returning(rows)
+
+    result = pokemon_snapshot_builders._load_selected_price_observations(
+        client, prices_by_card=prices_by_card, latest_market_date="2025-06-10",
+    )
+
+    assert list(result.keys()) == ["card-x"]
+    assert len(result["card-x"]) == len(rows)
+
+
+def test_shared_variant_query_is_issued_once_not_per_canonical_card():
+    """Regression guard: N canonical cards sharing 1 variant must not
+    multiply the number of .in_() query batches issued."""
+    shared_variant = "variant-shared-3"
+    prices_by_card = {
+        f"card-{i}": {"variant_id": shared_variant, "condition_id": "condition-nm"}
+        for i in range(5)
+    }
+    rows = _raw_observation_rows(2, variant_id=shared_variant, start_price=5.0)
+    for row in rows:
+        row["condition_id"] = "condition-nm"
+    client, call_counter = _fake_client_returning_with_call_count(rows)
+
+    pokemon_snapshot_builders._load_selected_price_observations(
+        client, prices_by_card=prices_by_card, latest_market_date="2025-06-10",
+    )
+
+    assert call_counter["count"] == 1  # one unique variant -> one query batch
+
+
 def test_build_cards_snapshot_row_includes_precomputed_card_validation(monkeypatch):
     monkeypatch.setattr(
         pokemon_snapshot_builders,

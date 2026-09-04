@@ -133,7 +133,7 @@ def test_preview_plan_change_upgrade_returns_dto_and_token():
     assert dto["toPlan"] == "premium"
     assert dto["amountDueNow"] == 1500
     assert "previewToken" in dto
-    assert provider.preview_calls  # non-mutating provider call only
+    assert provider.preview_calls
 
 
 def test_preview_plan_change_downgrade_returns_zero_due_now():
@@ -144,10 +144,21 @@ def test_preview_plan_change_downgrade_returns_zero_due_now():
     assert dto["effectiveAt"] == 1738368000
 
 
-def test_preview_same_tier_rejected():
-    service, _ = _service(_plus_subscription())
-    with pytest.raises(PlanChangeNotAllowed):
-        service.preview_plan_change(user_id="user-1", offer_key="plus_annual")
+def test_preview_same_tier_interval_change_returns_zero_due_and_schedules():
+    service, provider = _service(_plus_subscription())
+    dto = service.preview_plan_change(user_id="user-1", offer_key="plus_annual")
+    assert dto["action"] == "interval_change_at_period_end"
+    assert dto["fromPlan"] == dto["toPlan"] == "plus"
+    assert dto["fromOfferKey"] == "plus_monthly"
+    assert dto["toOfferKey"] == "plus_annual"
+    assert dto["amountDueNow"] == 0
+    assert not provider.preview_calls
+
+    result = service.confirm_plan_change(user_id="user-1", offer_key="plus_annual", preview_token=None)
+    assert result["action"] == "interval_change_at_period_end"
+    assert result["pendingChangeEffectiveAt"] == 1738368000
+    assert provider.schedule_calls[0]["target_price_id"] == "price_plus_annual"
+    assert not provider.update_calls
 
 
 def test_preview_unmapped_current_price_rejected():
@@ -189,7 +200,7 @@ def test_confirm_upgrade_reuses_proration_date_and_succeeds():
 def test_confirm_upgrade_stale_amount_blocks_mutation():
     service, provider = _service(_plus_subscription())
     preview = service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")
-    provider.preview_response = {"amount_due": 999999, "currency": "usd"}  # price changed server-side
+    provider.preview_response = {"amount_due": 999999, "currency": "usd"}
     with pytest.raises(PlanChangePreviewStale):
         service.confirm_plan_change(
             user_id="user-1", offer_key="premium_monthly", preview_token=preview["previewToken"]
@@ -208,9 +219,6 @@ def test_confirm_upgrade_tampered_token_rejected():
 
 def test_confirm_upgrade_expired_token_rejected():
     service, provider = _service(_plus_subscription())
-    # Build a token identical in shape to what preview_plan_change would sign,
-    # but with expiresAt already in the past, to exercise real TTL expiry
-    # (as opposed to signature tampering, which is a different failure mode).
     hidden = {
         "userId": "user-1",
         "subscriptionId": "sub_1",
@@ -226,7 +234,7 @@ def test_confirm_upgrade_expired_token_rejected():
         "prorationDate": 1000,
         "amountDueNow": 1500,
         "currency": "usd",
-        "expiresAt": 1000,  # already expired relative to real wall-clock time
+        "expiresAt": 1000,
     }
     expired_token = sign_preview_token(secret="test-secret", visible=visible, hidden=hidden)
     with pytest.raises(PlanChangeNotAllowed):
@@ -277,6 +285,20 @@ def test_billing_status_pending_scheduled_when_recognized_schedule():
     assert status["pendingChangeEffectiveAt"] == 1738368000
 
 
+def test_billing_status_pending_scheduled_for_interval_change():
+    schedule = {
+        "phases": [
+            {"items": [{"price": "price_plus_monthly"}], "end_date": 1738368000},
+            {"items": [{"price": "price_plus_annual"}], "start_date": 1738368000},
+        ]
+    }
+    service, _ = _service(_plus_subscription(schedule=schedule))
+    status = service.billing_status("user-1")
+    assert status["pendingChangeState"] == "scheduled"
+    assert status["pendingPlan"] == "plus"
+    assert status["pendingOfferKey"] == "plus_annual"
+
+
 def test_billing_status_pending_unknown_when_provider_raises():
     class _RaisingProvider(_FakeProvider):
         def retrieve_subscription(self, subscription_id, expand=None):
@@ -289,7 +311,7 @@ def test_billing_status_pending_unknown_when_provider_raises():
     service = BillingService(repository=repository, provider=_RaisingProvider(_premium_subscription()), offers=OFFERS)
     status = service.billing_status("user-1")
     assert status["pendingChangeState"] == "unknown"
-    assert status["effectivePlan"] == "premium"  # unaffected by Stripe outage
+    assert status["effectivePlan"] == "premium"
 
 
 def test_cancel_scheduled_releases_recognized_schedule():
@@ -304,6 +326,20 @@ def test_cancel_scheduled_releases_recognized_schedule():
     result = service.cancel_scheduled_plan_change(user_id="user-1")
     assert result == {"cancelled": True}
     assert provider.release_calls[0]["schedule_id"] == "sub_sched_1"
+
+
+def test_cancel_scheduled_releases_recognized_interval_change():
+    schedule = {
+        "phases": [
+            {"items": [{"price": "price_plus_monthly"}], "end_date": 1738368000},
+            {"items": [{"price": "price_plus_annual"}], "start_date": 1738368000},
+        ],
+        "id": "sub_sched_interval",
+    }
+    service, provider = _service(_plus_subscription(schedule=schedule))
+    result = service.cancel_scheduled_plan_change(user_id="user-1")
+    assert result == {"cancelled": True}
+    assert provider.release_calls[0]["schedule_id"] == "sub_sched_interval"
 
 
 def test_cancel_scheduled_rejects_unknown_schedule():
@@ -331,10 +367,6 @@ def test_repeated_confirm_upgrade_reuses_same_idempotency_key():
 
 
 def test_resolve_current_subscription_handles_stripeobject_response():
-    """The real Stripe SDK returns StripeObject instances (attribute access,
-    no `.get`/subscript). If `_resolve_current_subscription` ever touched the
-    fresh provider response without `_plain(...)`-wrapping it first, this
-    would raise AttributeError instead of returning a preview DTO."""
     subscription_data = _plus_subscription()
 
     class _ProviderReturningStripeObject(_FakeProvider):
@@ -355,7 +387,7 @@ def test_resolve_current_subscription_handles_stripeobject_response():
 
 def test_preview_stripe_customer_mismatch_rejected():
     subscription = _plus_subscription()
-    subscription["customer"] = "cus_evil"  # doesn't match the trusted local mapping (cus_1)
+    subscription["customer"] = "cus_evil"
     service, provider = _service(subscription)
     with pytest.raises(BillingOwnershipError):
         service.preview_plan_change(user_id="user-1", offer_key="premium_monthly")
@@ -376,16 +408,10 @@ def test_preview_duplicate_active_local_subscriptions_rejected():
 
 
 def test_preview_and_confirm_succeed_when_target_offer_checkout_disabled():
-    """Regression test: BILLING_CHECKOUT_ENABLED=false makes every offer's
-    `enabled` (and therefore `purchasable`) False, but plan-change for an
-    existing subscriber must not be gated on that flag -- only on the offer
-    being real and priced. Before this fix, both preview and confirm raised
-    PlanChangeNotAllowed for every plan-change while checkout was disabled,
-    even though the offer had a fully valid Stripe price mapping."""
     disabled_premium_monthly = CommercialOffer(
         "premium_monthly", "premium", "month", False, "price_premium_monthly", 2499, "usd"
     )
-    assert disabled_premium_monthly.purchasable is False  # sanity: this is the regressed flag
+    assert disabled_premium_monthly.purchasable is False
     offers = dict(OFFERS)
     offers["premium_monthly"] = disabled_premium_monthly
 
@@ -406,9 +432,6 @@ def test_preview_and_confirm_succeed_when_target_offer_checkout_disabled():
 
 
 def test_preview_and_confirm_reject_offer_missing_price_mapping():
-    """Negative counterpart: an offer without a real Stripe price mapping
-    must still be rejected, proving the weakened check isn't a no-op that
-    lets any offer through regardless of pricing."""
     unmapped_premium_monthly = CommercialOffer(
         "premium_monthly", "premium", "month", True, None, None, None
     )

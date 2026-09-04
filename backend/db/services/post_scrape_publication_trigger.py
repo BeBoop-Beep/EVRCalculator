@@ -35,10 +35,24 @@ import os
 import re
 import subprocess
 import sys
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+
+class PublicationCurrencyStatus(Enum):
+    """Three-state result of a publication-currency check.
+
+    UNKNOWN is distinct from STALE: it means the currency check itself could
+    not run (e.g. audit-infrastructure/DB outage), not that the audit ran and
+    found stale data. Callers must never launch publication on UNKNOWN.
+    """
+
+    CURRENT = "current"
+    STALE = "stale"
+    UNKNOWN = "unknown"
 
 TRIGGER_TAG = "[post-scrape-trigger]"
 
@@ -57,18 +71,23 @@ STATUS_LAUNCH_REQUESTED = "launch_requested"
 STATUS_LAUNCH_FAILED = "launch_failed"
 STATUS_INVALID_MARKET_DATE = "invalid_market_date"
 STATUS_NOT_COMPLETE = "skipped_batch_not_complete"
+STATUS_CURRENCY_CHECK_FAILED = "currency_check_failed"
+STATUS_SKIPPED_ALREADY_RUNNING = "skipped_already_running"
 
 
 def is_valid_market_date(value: Any) -> bool:
     return isinstance(value, str) and bool(_MARKET_DATE_RE.match(value))
 
 
-def _default_publication_current(market_date: str) -> bool:
+def _default_publication_current(market_date: str) -> PublicationCurrencyStatus:
     """Durable idempotence check: is post-scrape publication already current?
 
     Reuses the existing post-scrape audit authority for the EXACT market date
     (bypassing its own "latest promoted batch" resolution by passing the date
     explicitly) rather than inventing new schema.
+
+    Returns UNKNOWN (never STALE) when the audit itself could not run — an
+    audit-infrastructure/DB outage is not evidence that publication is stale.
     """
     try:
         from backend.db.clients.supabase_client import supabase
@@ -80,12 +99,48 @@ def _default_publication_current(market_date: str) -> bool:
         report = run_market_publication_audit(
             supabase, market_date=market_date, phase=PHASE_POST_SCRAPE
         )
-        return bool(report.market_date == market_date and report.passed)
-    except Exception:  # pragma: no cover - fail-open to "not current" so we retry
+        if report.market_date == market_date and report.passed:
+            return PublicationCurrencyStatus.CURRENT
+        return PublicationCurrencyStatus.STALE
+    except Exception:
         logger.exception(
-            "%s publication-currency check failed for market_date=%s; treating as stale",
+            "%s publication-currency check failed for market_date=%s; currency is UNKNOWN, not stale",
             TRIGGER_TAG, market_date,
         )
+        return PublicationCurrencyStatus.UNKNOWN
+
+
+def _default_lock_is_held(lock_path: str) -> bool:
+    """Best-effort, non-blocking check: is the publication wrapper's own flock
+    (``rebuild_snapshots_after_scrape.sh``'s ``LOCK_PATH``) currently held?
+
+    This is a PRE-CHECK only — the shell wrapper's own ``flock -n`` remains the
+    authoritative, race-free lock (belt-and-suspenders per requirement K). Its
+    purpose is purely to avoid spawning a detached subprocess (and the log-file
+    I/O, PID, etc. that comes with it) on every idle-minute dispatcher tick
+    while a publication run is already in flight — not to replace the shell
+    lock as the correctness guarantee.
+
+    Fails OPEN (returns False, "not held") on any platform or I/O condition
+    where the check itself cannot be performed (e.g. Windows dev boxes, a
+    missing ``fcntl`` module, or a permissions error) so a broken pre-check can
+    never itself block a legitimate publication launch — only the shell
+    wrapper's own lock is allowed to do that.
+    """
+    try:
+        import fcntl  # POSIX only; the VM target is Linux.
+    except ImportError:  # pragma: no cover - exercised on Windows dev boxes
+        return False
+    try:
+        with open(lock_path, "a+") as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return True
+            else:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+                return False
+    except OSError:
         return False
 
 
@@ -126,13 +181,44 @@ def _queue_launch_failure_alert(market_date: str, error: str) -> None:
         logger.exception("%s failed to queue launch-failure alert", TRIGGER_TAG)
 
 
+def _default_queue_currency_unknown_alert(*, market_date: str, **_ignored: Any) -> None:
+    """Deduplicated alert for an UNKNOWN publication-currency result.
+
+    Reuses the existing alert-queue mechanism (``backend.alerts.scrape_alerts.
+    queue_alert``), the same one already used by ``_queue_launch_failure_alert``
+    above, keyed by exact market_date via ``dedupe_key`` so repeated every-minute
+    dispatcher calls during an outage do not spam duplicate alerts.
+    """
+    try:
+        from backend.alerts.scrape_alerts import queue_alert
+
+        queue_alert(
+            "publication_currency_check_failed",
+            title=f"POST-SCRAPE PUBLICATION CURRENCY CHECK FAILED — {market_date}",
+            message=(
+                f"Publication-currency check failed for market_date={market_date}; "
+                f"audit infrastructure may be unavailable. Publication is NOT being "
+                f"launched automatically because currency is UNKNOWN, not confirmed "
+                f"stale. Investigate the audit path; the 6:00 AM fallback will retry."
+            ),
+            severity="error",
+            dedupe_key=f"publication_currency_check_failed:{market_date}",
+            payload={"market_date": market_date},
+        )
+    except Exception:  # pragma: no cover - alerting must never break the caller
+        logger.exception("%s failed to queue currency-check-failed alert", TRIGGER_TAG)
+
+
 def trigger_post_scrape_publication_if_needed(
     market_date: Optional[str],
     *,
-    publication_current: Optional[Callable[[str], bool]] = None,
+    publication_current: Optional[Callable[[str], PublicationCurrencyStatus]] = None,
     popen: Optional[Callable[..., subprocess.Popen]] = None,
     rebuild_script: Optional[Path] = None,
     log_path: Optional[Path] = None,
+    queue_alert: Optional[Callable[..., None]] = None,
+    lock_check: Optional[Callable[[str], bool]] = None,
+    lock_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Launch the canonical post-scrape publication wrapper if it is needed.
 
@@ -158,17 +244,45 @@ def trigger_post_scrape_publication_if_needed(
     market_date = str(market_date)
     logger.info("%s batch complete market_date=%s", TRIGGER_TAG, market_date)
 
-    check_current = publication_current or _default_publication_current
+    # L: an already-running publication must not receive a fresh detached launch
+    # request every idle minute. This is a pre-check ONLY — the shell wrapper's
+    # own flock (rebuild_snapshots_after_scrape.sh) remains the authoritative
+    # lock (requirement K); this simply avoids spawning the subprocess at all
+    # when we can already tell it would just no-op on that lock. It also bounds
+    # M (a transient Supabase 5xx making publication_current look stale on every
+    # call): however many idle-minute ticks land while a run is in flight, at
+    # most one publisher process is ever alive because every later tick sees
+    # the held lock and skips.
+    check_lock_held = lock_check or _default_lock_is_held
+    resolved_lock_path = lock_path or PUBLICATION_LOCK_PATH
     try:
-        already_current = bool(check_current(market_date))
-    except Exception:  # pragma: no cover - defensive; check_current should not raise
+        already_running = bool(check_lock_held(resolved_lock_path))
+    except Exception:  # pragma: no cover - defensive; check must never raise
         logger.exception(
-            "%s publication-currency check raised for market_date=%s; treating as stale",
+            "%s publication lock check raised for market_date=%s; assuming not running",
             TRIGGER_TAG, market_date,
         )
-        already_current = False
+        already_running = False
+    if already_running:
+        logger.info(
+            "%s publication already running (lock_path=%s held); skipping launch for market_date=%s",
+            TRIGGER_TAG, resolved_lock_path, market_date,
+        )
+        result["status"] = STATUS_SKIPPED_ALREADY_RUNNING
+        return result
 
-    if already_current:
+    check_current = publication_current or _default_publication_current
+    alert_queuer = queue_alert or _default_queue_currency_unknown_alert
+    try:
+        currency_status = check_current(market_date)
+    except Exception:  # defensive; check_current should not raise, but if it does
+        logger.exception(
+            "%s publication_current callable raised for market_date=%s; currency is UNKNOWN",
+            TRIGGER_TAG, market_date,
+        )
+        currency_status = PublicationCurrencyStatus.UNKNOWN
+
+    if currency_status is PublicationCurrencyStatus.CURRENT:
         logger.info(
             "%s already complete for market_date=%s; skipping launch",
             TRIGGER_TAG, market_date,
@@ -176,6 +290,19 @@ def trigger_post_scrape_publication_if_needed(
         result["status"] = STATUS_SKIPPED_ALREADY_CURRENT
         return result
 
+    if currency_status is PublicationCurrencyStatus.UNKNOWN:
+        logger.error(
+            "%s publication currency UNKNOWN for market_date=%s; NOT launching, alerting instead",
+            TRIGGER_TAG, market_date,
+        )
+        try:
+            alert_queuer(alert_type="publication_currency_check_failed", market_date=market_date)
+        except Exception:  # pragma: no cover - alerting must never break the caller
+            logger.exception("%s queue_alert callable raised", TRIGGER_TAG)
+        result["status"] = STATUS_CURRENCY_CHECK_FAILED
+        return result
+
+    # currency_status is STALE -> proceed to launch (existing launch code below, unchanged)
     script_path = Path(rebuild_script) if rebuild_script is not None else REBUILD_SCRIPT
     launch_log_path = Path(log_path) if log_path is not None else CANONICAL_PUBLICATION_LOG
     launcher = popen or _default_popen

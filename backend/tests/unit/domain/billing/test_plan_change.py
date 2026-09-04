@@ -21,6 +21,15 @@ PREMIUM_MONTHLY_OFFER = CommercialOffer(
     unit_amount_minor=2499,
     currency="usd",
 )
+PREMIUM_ANNUAL_OFFER = CommercialOffer(
+    offer_key="premium_annual",
+    plan="premium",
+    billing_interval="year",
+    enabled=True,
+    provider_price_id="price_premium_annual",
+    unit_amount_minor=21900,
+    currency="usd",
+)
 PLUS_MONTHLY_OFFER = CommercialOffer(
     offer_key="plus_monthly",
     plan="plus",
@@ -30,7 +39,24 @@ PLUS_MONTHLY_OFFER = CommercialOffer(
     unit_amount_minor=999,
     currency="usd",
 )
-OFFERS = {"premium_monthly": PREMIUM_MONTHLY_OFFER, "plus_monthly": PLUS_MONTHLY_OFFER}
+PLUS_ANNUAL_OFFER = CommercialOffer(
+    offer_key="plus_annual",
+    plan="plus",
+    billing_interval="year",
+    enabled=True,
+    provider_price_id="price_plus_annual",
+    unit_amount_minor=7900,
+    currency="usd",
+)
+OFFERS = {
+    offer.offer_key: offer
+    for offer in (
+        PREMIUM_MONTHLY_OFFER,
+        PREMIUM_ANNUAL_OFFER,
+        PLUS_MONTHLY_OFFER,
+        PLUS_ANNUAL_OFFER,
+    )
+}
 
 
 @pytest.mark.parametrize(
@@ -44,20 +70,42 @@ def test_classify_transition_valid_cross_tier(current_plan, target_plan, expecte
     assert classify_transition(current_plan, target_plan) == expected
 
 
+@pytest.mark.parametrize("plan", ["plus", "premium"])
+def test_classify_transition_same_tier_interval_change_is_scheduled(plan):
+    assert classify_transition(
+        plan,
+        plan,
+        current_interval="month",
+        target_interval="year",
+    ) == PlanChangeAction.INTERVAL_CHANGE_AT_PERIOD_END
+    assert classify_transition(
+        plan,
+        plan,
+        current_interval="year",
+        target_interval="month",
+    ) == PlanChangeAction.INTERVAL_CHANGE_AT_PERIOD_END
+
+
 @pytest.mark.parametrize(
-    "current_plan,target_plan",
+    "current_plan,target_plan,current_interval,target_interval",
     [
-        ("plus", "plus"),
-        ("premium", "premium"),
-        (None, "plus"),
-        ("plus", None),
-        ("plus", "basic"),
-        (None, None),
+        ("plus", "plus", None, None),
+        ("plus", "plus", "month", "month"),
+        ("premium", "premium", "year", "year"),
+        (None, "plus", None, None),
+        ("plus", None, None, None),
+        ("plus", "basic", None, None),
+        (None, None, None, None),
     ],
 )
-def test_classify_transition_rejects_invalid(current_plan, target_plan):
+def test_classify_transition_rejects_invalid(current_plan, target_plan, current_interval, target_interval):
     with pytest.raises(PlanChangeNotAllowed):
-        classify_transition(current_plan, target_plan)
+        classify_transition(
+            current_plan,
+            target_plan,
+            current_interval=current_interval,
+            target_interval=target_interval,
+        )
 
 
 def test_build_upgrade_preview_dto_shape():
@@ -104,6 +152,20 @@ def test_build_downgrade_preview_dto_shape():
     }
 
 
+def test_build_interval_change_preview_dto_shape():
+    dto = build_downgrade_preview_dto(
+        from_plan="plus",
+        to_plan="plus",
+        from_offer_key="plus_monthly",
+        to_offer_key="plus_annual",
+        current_period_end=1738368000,
+        action=PlanChangeAction.INTERVAL_CHANGE_AT_PERIOD_END,
+    )
+    assert dto["action"] == "interval_change_at_period_end"
+    assert dto["amountDueNow"] == 0
+    assert dto["currentPlanUntil"] == 1738368000
+
+
 def test_classify_schedule_none():
     result = classify_schedule(
         None, current_price_id="price_premium_monthly", current_period_end=1738368000, offers=OFFERS
@@ -140,28 +202,65 @@ def test_classify_schedule_recognized_downgrade():
     }
 
 
+def test_classify_schedule_recognized_interval_change():
+    schedule = {
+        "phases": [
+            {
+                "items": [{"price": "price_plus_monthly"}],
+                "end_date": 1738368000,
+            },
+            {
+                "items": [{"price": "price_plus_annual"}],
+                "start_date": 1738368000,
+            },
+        ]
+    }
+    result = classify_schedule(
+        schedule, current_price_id="price_plus_monthly", current_period_end=1738368000, offers=OFFERS
+    )
+    assert result == {
+        "state": "scheduled",
+        "pendingPlan": "plus",
+        "pendingOfferKey": "plus_annual",
+        "pendingChangeEffectiveAt": 1738368000,
+    }
+
+
+def test_classify_schedule_rejects_scheduled_upgrade_shape():
+    schedule = {
+        "phases": [
+            {"items": [{"price": "price_plus_monthly"}], "end_date": 1738368000},
+            {"items": [{"price": "price_premium_monthly"}], "start_date": 1738368000},
+        ]
+    }
+    result = classify_schedule(
+        schedule, current_price_id="price_plus_monthly", current_period_end=1738368000, offers=OFFERS
+    )
+    assert result["state"] == "unknown"
+
+
 @pytest.mark.parametrize(
     "schedule",
     [
-        {"phases": [{"items": [{"price": "price_premium_monthly"}], "end_date": 1738368000}]},  # 1 phase
+        {"phases": [{"items": [{"price": "price_premium_monthly"}], "end_date": 1738368000}]},
         {
             "phases": [
                 {"items": [{"price": "price_premium_monthly"}], "end_date": 1738368000},
                 {"items": [{"price": "price_unknown"}], "start_date": 1738368000},
             ]
-        },  # unmapped phase-2 price
+        },
         {
             "phases": [
                 {"items": [{"price": "price_different"}], "end_date": 1738368000},
                 {"items": [{"price": "price_plus_monthly"}], "start_date": 1738368000},
             ]
-        },  # phase-1 price mismatch
+        },
         {
             "phases": [
                 {"items": [{"price": "price_premium_monthly"}], "end_date": 999},
                 {"items": [{"price": "price_plus_monthly"}], "start_date": 1738368000},
             ]
-        },  # date mismatch between phase boundaries
+        },
     ],
 )
 def test_classify_schedule_unknown_shapes(schedule):
