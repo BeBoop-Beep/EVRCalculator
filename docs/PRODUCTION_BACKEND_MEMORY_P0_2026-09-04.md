@@ -656,3 +656,218 @@ from Pass 1/2, not a new one introduced here.
   migration, tests, docs). The one open item is the production-scale RSS
   confirmation above — recommended as a post-deploy verification step, not a
   blocker to shipping this pass's code.
+
+## Live-scale verification pass (2026-09-04, closing the fixture-scale gap)
+
+Ran the ACTUAL `dd1d01c4` compact-reader code path against real production
+data, read-only, via
+`backend/scripts/verify_rip_statistics_targets_compact_live_scale.py`.
+
+**Access method**: `backend/.env` carries real production
+`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` (the same credentials every other
+backend script uses). The compact RPC migration
+(`supabase/migrations/20260904010000_add_rip_statistics_targets_compact_rpc.sql`)
+was confirmed NOT deployed to production yet (`PGRST202: Could not find the
+function public.get_pokemon_rip_statistics_targets_compact`), and this pass
+did not deploy it. So: option (a) from the verification brief — the real
+`pokemon_explore_rankings_snapshot_latest` row for `tcg='pokemon'`,
+`scope='rip-statistics'` was pulled ONCE, read-only, and the RPC's exact
+projection logic (Plus scalar field allowlist + whole nested-object
+passthrough, `is_opening_set` filter, `ORDER BY ordinality`, `LIMIT 200`) was
+reproduced in Python and run in-process against the real payload through the
+actual `_build_compact_rankings_targets_response` / `get_pokemon_explore_rankings_snapshot_payload`
+code path. This is a live-DB-sourced payload run through the real code, not a
+synthetic fixture.
+
+### Test A — source scale + parity
+
+- Real production full `ranking_payload_json`: **8,146,015 bytes** (34
+  targets). This is materially larger than the ~2.74MB figure carried in
+  earlier session notes for this same row/scope — the earlier figure was an
+  approximation from a different check, not a re-measurement in this pass;
+  this pass's number is a direct `len(json.dumps(...).encode())` on the row
+  actually pulled.
+- Real compact-equivalent payload (Plus-field projection, same 34 targets):
+  **3,252,697 bytes** — about 40% of the full mega-contract's bytes. This is
+  NOT comparable to the previously-cited ~246,575-byte `get_pokemon_rankings_sets_lens`
+  figure: that RPC serves the narrower Rankings-page "Sets lens" contract,
+  while this one serves the full Base+Plus `/rip-statistics/targets` field
+  contract (per the migration's own design comment, several nested objects —
+  `setRipV1`, `financialRipV4`, `overallRipV10`, `publicRipContractV10`,
+  `openingExperience`, `rankingsChase` — are passed through WHOLE rather than
+  re-picked, which is why it stays large relative to the Sets lens). Still a
+  ~60% reduction vs. the mega-contract, from dropping
+  `productFamilyRankings`/`setRip`/`eraSetStrengthV1` and unused Base/Plus
+  scalar fields per target.
+- Compact target count: 34/34. Target ordering parity: **true**. Base
+  source-field parity: **true**. Plus source-field parity: **true**.
+  Persisted `openingSetAudit`/`opening_set_audit` parity: **true**. Set RIP
+  rank parity, Overall RIP rank parity, Financial RIP rank parity (by
+  `target_id`): all **true**. No semantic difference found between the
+  compact projection and the full mega-contract's canonical values.
+- **One real (pre-existing, orthogonal) finding**: the live production row's
+  persisted `meta.ripWeightsConfig` reports
+  `overallRipVersion=overall_rip_v10_90_financial_v4_10_collector_appeal_v5`
+  and `publicRipContractVersion=public_rip_contract_v10`, while this branch's
+  `canonical_publication_identity()` now expects
+  `overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5`
+  / `public_rip_contract_v11`. `_rankings_publication_identity_mismatches()`
+  therefore flags this publication as superseded and both the healthy compact
+  path AND the full mega-contract path would 503 "RIP Statistics rankings are
+  being republished" against production RIGHT NOW — confirmed symmetric by
+  running both paths against the same real payload. This is NOT a defect
+  introduced by `dd1d01c4`: it is production not yet having been republished
+  under the newer Overall RIP v12/CA7 identity, which is separately-tracked,
+  already-known-pending work (see project memory: Overall RIP v4 CA7 blend —
+  "backend done+tested, frontend/snapshots/live-validation pending"). The
+  compact-reader P0 itself has zero interaction with this gate; it calls the
+  exact same `_rankings_publication_identity_mismatches()` function the full
+  reader always called. RSS/latency measurement below bypassed this
+  orthogonal gate via monkeypatch (documented in the script) so the real
+  payload could still be pushed through the compact code path end-to-end.
+
+### Test B — fresh-process memory
+
+Fresh interpreter, no `--reload`, real payload:
+
+- RSS after imports + fetch settle: 160.09MB
+- RSS immediately before first compact `limit=200` read: 160.09MB
+- RSS immediately after the first read completes: 162.03MB (+1.94MB,
+  consistent with materializing one ~3.25MB response payload, not the
+  ~8.1MB mega-contract)
+- RSS after a forced `gc.collect()`: 162.03MB (flat vs. post-read — nothing
+  left to collect; the fallback cache intentionally retains the one compact
+  slot, ~3.24MB, which is expected retained state, not a leak)
+
+### Test C — production workload plateau (real payload, `limit=200`)
+
+| checkpoint | RSS (MB) |
+|---|---|
+| before request 1 | 162.03 |
+| after request 1 | 162.03 |
+| after 5 | 162.03 |
+| after 20 | 162.03 |
+| after 50 | 162.04 |
+| after 100 (extra confirmation round) | 162.04 |
+
+RSS plateaus immediately and stays flat within measurement noise (±0.01MB)
+across 100 consecutive real-payload requests — a genuine plateau, not a
+zero-change artifact: the response object materializes once per request (not
+retained beyond the fallback cache's single compact slot) and is released
+each time.
+
+Latency (100 requests, in-process, no network — measures the Python-side
+build/slice/response-assembly cost only, not RPC round-trip time):
+min=0.062ms, p50=0.065ms, p95=0.077ms, max=0.164ms.
+
+Response bytes: 3,252,773. Source full bytes: 8,146,015. Source compact
+bytes: 3,252,697. Cache slot count: 1. Estimated retained fallback-cache
+bytes: 3,244,317 (the one compact slot — `base_payload={}` for the compact
+path per `_build_compact_rankings_targets_response`'s design, so only
+`raw_targets` + `meta` are retained).
+
+### Test D — three-stage comparison table
+
+| metric | Original (historical, above) | Cache-only (historical, above) | Compact-final (this pass, real payload) |
+|---|---|---|---|
+| Source scale | fixture, ~152KB | fixture, ~152KB | **real production, 8,146,015 bytes** |
+| RSS fresh | n/a (reproduced standalone) | ~98.7MB (fixture) | 160.09MB (real payload + imports) |
+| RSS after 1 | grows immediately (unbounded per-limit dict) | ~98.7MB | 162.03MB |
+| RSS after 5/20/50 | keeps growing per distinct `limit` | ~98.7MB (flat) | 162.03-162.04MB (flat) |
+| Peak RSS | unbounded across limit space | ~98.7MB | 162.03MB |
+| Response bytes | full mega-contract, ~152,933 (fixture) | ~152,933 (fixture) | **3,252,773 (real)** |
+| p50 latency | 10.38ms (fixture) | 1.79ms (fixture) | 0.065ms (real, in-process only) |
+| p95 latency | 12.12ms (fixture) | 2.65ms (fixture) | 0.077ms (real, in-process only) |
+
+Original/Cache-only columns are the historical fixture-scale numbers already
+in this doc, not reproduced via git operations, per the verification brief.
+The Compact-final column is the only one measured against real production
+data in this pass; its absolute RSS/latency values are not directly
+comparable to the fixture-scale Original/Cache-only columns (different
+process, different payload scale, different measurement methodology —
+in-process Python cost only vs. fixture-driven end-to-end), but the relative
+shape (flat RSS plateau, smaller response, no growth across repeated
+requests) is confirmed at real production scale, closing the gap the prior
+two passes left open.
+
+### Test E — fallback path sanity
+
+Constructed the closest realistic PostgREST exception shape
+(`PGRST202: Could not find the function public.get_pokemon_rip_statistics_targets_compact`
+— this is, in fact, the literal exception string production currently raises
+today, captured live during this pass's own RPC probe, not invented) and
+exercised the compact-RPC-unavailable branch end-to-end against the real
+payload:
+
+- Healthy path used the compact reader (`snapshot.source =
+  get_pokemon_rip_statistics_targets_compact`) when the RPC was reachable.
+- RPC-unavailable condition followed the intentional legacy-compatibility
+  fallback: `snapshot.source = pokemon_explore_rankings_snapshot_latest`,
+  logged via the explicit `except Exception` branch and info-level fallback
+  log line in `get_pokemon_explore_rankings_snapshot_payload`, not a silent
+  degrade.
+- No entitlement leakage observed (fallback response carries the same
+  34-target opening cohort, same field contract as the full reader always
+  served).
+- No infinite retry/fallback loop: a second call after the RPC failure
+  returned the same fallback source deterministically, not an escalating
+  retry chain.
+- Fallback cache stayed at exactly one compact slot (`identity_key` present,
+  single slot, no per-limit growth) both before and after the fallback was
+  exercised.
+
+### Test F — entitlement smoke test
+
+Ran `backend/tests/unit/api/test_paid_response_boundary.py` under
+`.venv-api-test`: 10 passed, 1 failed. The failure
+(`test_product_rankings_http_projection_plus_then_base`) is the known
+pre-existing `/explore/product-rankings/overall` baseline failure (a
+different endpoint's real-production-identity-gate 503, not this P0's
+concern per the verification brief). The `/explore/rip-statistics/targets`
+matrix test — `test_rip_statistics_http_matrix_cache_isolation_and_spoof_resistance`
+(anonymous/Base/Plus/Premium-inheritance cache isolation and spoof
+resistance for this exact endpoint) — **passed**.
+
+### Verdict
+
+No semantic defect found in the compact reader at real production scale.
+Parity is exact. RSS plateaus immediately and stays flat across 100
+consecutive real-payload requests. Fallback path behaves as designed. The one
+real finding (production not yet republished under the newer Overall RIP
+v12/CA7 canonical identity) is confirmed pre-existing, symmetric across both
+the compact and full-mega-contract readers, and outside this P0's scope.
+
+**P0 CLOSED.** The fixture-scale gap flagged at the end of the prior pass is
+resolved: this pass ran the real code path against the real production
+payload, read-only, without deploying the still-pending RPC migration.
+
+### Production verification procedure
+
+Render RSS trend to watch, post-deploy of `dd1d01c4` + the compact RPC
+migration:
+- Baseline context: ~513MB stable after a clean restart; ~1.073GB after the
+  first heavy `/explore/rip-statistics/targets` request pre-fix; ~2.07GB
+  immediately before the crash-triggering restart (against a ~2.147GB Render
+  Standard instance limit). Post-fix, expect a substantially lower stable
+  plateau (this pass's in-process measurement suggests the compact path adds
+  only a few MB per request cycle, not hundreds) instead of any ratchet
+  toward the instance limit.
+- Watch Render's RSS graph for the first `?limit=200` request after deploy:
+  expect a small, bounded step (single compact response + one retained
+  fallback-cache slot), not the ~560MB jump seen pre-fix.
+- Track HTTP 502/500/503 counts across the deploy window — a sustained
+  503 `RIP_STATISTICS_TARGETS_PUBLICATION_SUPERSEDED` is expected until
+  production is republished under the current canonical identity (separate,
+  already-tracked work per project memory); 502s should not recur once RSS
+  stops ratcheting.
+- Check instance restart logs for absence of further forced restarts
+  (Render's out-of-memory restart pattern from the original incident).
+- Confirm health-check continuity (`/healthz` or equivalent) has no gaps
+  correlated with `/explore/rip-statistics/targets` traffic.
+- Correlate three traffic patterns against the RSS graph: (1)
+  `/explore/rip-statistics/targets?limit=200` bursts, (2) homepage
+  simulation-evidence requests
+  (`/tcgs/pokemon/sets/<spotlight-set>/rip/simulation-evidence`), and (3)
+  Market navigation bursts — before vs. after this deploy. Expect all three
+  to show a flat-or-bounded RSS contribution post-deploy where pre-fix (1)
+  in particular showed the ~560MB step.
