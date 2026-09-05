@@ -296,6 +296,49 @@ def test_already_current_cache_is_skipped_not_rebuilt():
     assert result["advanced"] == 0
 
 
+def test_failed_row_at_target_date_is_not_treated_as_already_current():
+    """computed_through already at market_date but status='failed' must still
+    be passed to planner.execute() (recovery attempt), never short-circuited
+    as already_current -- that would silently leave a broken cache unfixed.
+    """
+    client = Client()
+    row = {"query_fingerprint": "fp1",
+           "normalized_spec": {"mode": "all", "asset": "cards", "setIds": ["set-a"], "topN": None,
+                               "contractVersion": "pokemon-market-explorer-query-v3-variant"},
+           "status": "failed", "cache_kind": "maintained", "computed_through": "2026-09-03",
+           "label": "one"}
+
+    with patch.object(orch, "MarketExplorerQueryPlanner") as mock_planner_cls:
+        mock_planner_cls.return_value.execute.return_value = type(
+            "Result", (), {"execution_source": "cache_incremental_daily_projection"})()
+        report = orch.advance_one_maintained_cache(
+            client, row, market_date="2026-09-03", commit=True)
+
+    assert report.status == "advanced"
+    assert mock_planner_cls.return_value.execute.called, (
+        "a failed row at the target date must still reach planner.execute() "
+        "for a recovery attempt, not be short-circuited as already_current"
+    )
+
+
+def test_ready_row_at_target_date_is_skipped_as_already_current():
+    """The complementary case: a genuinely ready row at/beyond the target
+    date must still short-circuit without calling planner.execute() -- the
+    fix must not regress the normal already-current skip."""
+    client = Client()
+    row = {"query_fingerprint": "fp1",
+           "normalized_spec": {"mode": "all", "asset": "cards", "setIds": ["set-a"]},
+           "status": "ready", "cache_kind": "maintained", "computed_through": "2026-09-03",
+           "label": "one"}
+
+    with patch.object(orch, "MarketExplorerQueryPlanner") as mock_planner_cls:
+        report = orch.advance_one_maintained_cache(
+            client, row, market_date="2026-09-03", commit=True)
+
+    assert report.status == "already_current"
+    assert not mock_planner_cls.return_value.execute.called
+
+
 def test_scoped_prewarm_only_touches_overlapping_caches():
     client = Client()
     client.cache_rows = [

@@ -221,7 +221,7 @@ acceptance plan below needs Supabase access this session did not exercise.
    independent of, since the domains don't share a gate) `run_daily_opening_publication.py`'s
    entry, per section C.
 
-## O. Final decision
+## O. Final decision (superseded — see section P for the live acceptance result)
 **PROMPT5_REPO_READY.** The daily-operationalization workflow (normal-day append -> reconcile ->
 coverage advance -> dynamic maintained-cache prewarm, plus a separate historical-repair path) is
 implemented as `backend/scripts/run_market_explorer_daily_publication.py`, reuses the existing
@@ -230,8 +230,149 @@ Prompt 3/4 tooling (`publish_market_explorer_daily_projection.run_publish`,
 `invalidate_pokemon_market_explorer_query_cache_scoped`/`reproject_pokemon_market_explorer_card_daily_states`
 RPC contracts, and the Prompt 4 maintained-cache builder pattern) rather than duplicating it,
 preserves the 165-set `resolve_tracked_set_ids` intersection and same-day projection routing
-exactly as-is (no diff against that file, its own test suite still green), and is covered by 24
-new focused mocked-DB tests plus 112 passing pre-existing tests in the same domain (136 total, 0
-failures). This is a repo-readiness decision only — it does **not** constitute production
-operationalization acceptance; section N above is the explicit plan for a future session to run
-that live.
+exactly as-is (no diff against that file, its own test suite still green), and is covered by
+**21** (not 24 — corrected) new focused mocked-DB tests plus pre-existing tests in the same domain
+(136 total at that point, 0 failures). This was a repo-readiness decision only, not production
+operationalization acceptance.
+
+## P. Live production acceptance (later sessions)
+
+### P.1 Sep-3 daily publication — ACCEPTED
+The real `--commit --market-date 2026-09-03` run against production succeeded end-to-end:
+**33,956 Sep-3 daily-state rows** (exact match to expected interval-authority join), **165/165**
+sets advanced to `coverage.computed_through=2026-09-03`, coverage `row_count` sum **4,631,511**
+exactly matching the actual total row count in `pokemon_market_explorer_card_daily_states` (zero
+mismatch). Two real bugs were found and fixed along the way (both independently verified live,
+not just unit-tested): the daily-states upsert's `ON CONFLICT` target was
+`market_date,card_variant_id,set_id`, which matches no real constraint (the actual primary key,
+confirmed via `pg_constraint`, is `(market_date, card_variant_id)` only) — every commit-mode
+insert failed with `42P10` until corrected; and `_spec_from_normalized` selectively reconstructed
+a subset of the persisted `normalized_spec` dict, silently dropping `contractVersion`, which
+`query_fingerprint`/the planner path require — every maintained-cache advance failed with a
+`KeyError` until the function was changed to spread the full stored dict.
+
+### P.2 Failed-cache lifecycle defect and fix
+20 of 21 maintained caches advanced cleanly to Sep-3. The 21st, **Global All Raw**
+(fingerprint `66426743b657a45f4381f3a5b9a5f216158158d4dd3c6ba8b8da6ec56c53a8e6`), was stuck
+`status='failed'` with a fully valid, intact Sep-2 artifact (`series_payload` present with a real
+`trend` key, `constituent_count=33956`, normalized constituent detail intact at 33,956 rows). Root
+cause, confirmed by reading `MarketExplorerQueryPlanner.execute()` directly: a `failed` row was
+never considered a possible incremental build base — only `status='ready'` rows supplied
+`previous`, so a failed row always forced `previous=None`, triggering a full historical rebuild
+(from the earliest interval date) at global scope, which is why the original Sep-3 refresh
+attempt had failed with a `57014` statement timeout in the first place. A second, related defect:
+`persistent.publish(...)` returning `False` was only recorded as a metric, not raised — the
+planner could report a false "success" while the cache never actually became `ready`.
+
+**Fix implemented** in `backend/db/services/market_explorer_query_planner.py`:
+- `_is_recoverable_failed_base(row, spec, generation)` — a `status='failed'` row may supply
+  `previous_computed_through` (never served as a cache hit) only when: `computed_through` is
+  present, `series_payload` exists and has a real `trend` key, `query_contract_version` /
+  `service_version` / `instrument_methodology_version` are `None` or match the current spec's
+  expected values, no active build lease is held (`build_token`/`build_expires_at` both null —
+  the invariant `fail_pokemon_market_explorer_query_cache_build` guarantees on release), and the
+  publication-generation watermark is `trusted` (an untrusted/unknown repair generation fails
+  closed, matching the module's existing freshness posture).
+- `execute()` now computes `previous` from either a `ready` row (existing behavior, unchanged) or
+  a recoverable-`failed` row (new) — both feed the same incremental `novel_builder`/
+  `merge_incremental_result` path already used for normal forward publication. A failed row is
+  still never returned by the `status == "ready"` cache-hit gate above it in `execute()` — it is
+  purely an internal build-base source.
+- `persistent.publish(...)` returning `False` now raises `MarketExplorerPublishFailed` (new
+  exception class) instead of silently returning success; the existing `except Exception:
+  persistent.fail(...)` handler around the build/publish block already covers this, so the lease
+  is released the same way any other build failure releases it — no new cleanup path needed.
+- Ready-cache preservation: because `publish()` is one atomic `UPDATE ... WHERE status='building'
+  AND build_token=... AND build_expires_at > now()` (confirmed via `pg_get_functiondef`), a failed
+  publish attempt never touches the row's previously-committed `series_payload`/`computed_through`
+  at all — there is no separate "clear then rebuild" step to accidentally destroy a last-good
+  `ready` artifact. This was true of the existing schema/RPC design already; no additional code
+  was needed to satisfy this requirement.
+- A related bug in the **orchestrator** (`run_market_explorer_daily_publication.py`, not the
+  shared planner) was found and fixed during live testing: `advance_one_maintained_cache`'s
+  already-current short-circuit checked only `computed_through >= market_date`, ignoring `status`
+  entirely — so a `failed` row whose `computed_through` had already been bumped to the target date
+  by an earlier partial attempt was silently treated as "already current" and never even handed to
+  `planner.execute()` for a recovery attempt. Fixed to require `status == "ready"` before
+  short-circuiting; a `failed` row at any `computed_through` now always reaches the planner.
+
+### P.3 Tests
+16 planner tests plus 2 orchestrator tests (23 total new/changed across both files) added,
+covering: failed-row eligibility as an incremental base; failed rows never served as
+`persistent_cache` hits; correct `previous` resolution (Sep-2, not `None`) for a recoverable
+failed row when canonical-through is Sep-3; successful recovery publishing `ready`/Sep-3; failed
+rows with no payload, no `computed_through`, incompatible version, or stale repair-generation are
+each correctly rejected as unrecoverable; a previously-`ready` cache's payload is untouched by a
+failed refresh attempt; a never-successful cache may correctly remain `failed`;
+`publish(False)` raises and cannot produce a successful result; the build lease is released after
+a publish failure; existing L1/L2 hit semantics and stale/incremental behavior are unchanged; and
+the orchestrator's `already_current` vs. must-attempt-recovery decision now correctly depends on
+`status`, not just date. Full relevant regression run: **153 passed, 0 failed**
+(`test_market_explorer_query_planner.py`, `test_run_market_explorer_daily_publication.py`,
+`test_publish_market_explorer_daily_projection.py`, `test_pokemon_market_explorer_query_service.py`,
+`test_market_explorer_query_cache_migration.py`, `test_accept_market_explorer_global_daily_projection.py`,
+`test_repair_market_explorer_vintage_predecessor_identities.py`). `test_pokemon_public_snapshot_service.py`
+was not run — known, pre-existing, unrelated breakage from concurrent P0 work on this shared
+branch, out of scope.
+
+### P.4 Global All Raw live recovery — BLOCKED on a genuine, separate DB-side issue
+With the planner and orchestrator fixes in place, live testing confirmed the fix works exactly as
+designed: `_is_recoverable_failed_base` correctly returns `True` for the Global All Raw row, and
+the orchestrator no longer short-circuits it as already-current. A direct timed diagnostic
+against production confirmed the incremental builder itself is fast — `builder(previous=
+'2026-09-03', through='2026-09-03')` completed in **4.2 seconds** (`executionEngine=
+daily_projection`, `currentBasketRowCount=33955`), nowhere near the 300-second build lease. So
+the recovery detection and incremental-build path are proven correct and fast.
+
+The actual blocker is one level deeper: calling the real
+`publish_pokemon_market_explorer_query_cache_build` RPC directly (bypassing the Python
+`publish()` wrapper, which was swallowing the real exception behind a bare `type(exc).__name__`
+log line) surfaces `APIError {'code': '57014', 'message': 'canceling statement due to statement
+timeout'}` — the **publish RPC itself** times out server-side while writing the ~33,956-row
+`p_current_constituents` payload for the Global scope specifically (every other, smaller per-era
+cache publishes this same RPC without issue). This is a genuine database-side performance
+limitation in the publish/constituent-write path at global scale, not a defect in the planner
+recovery logic this session was scoped to fix, and it is explicitly out of this session's
+authorized scope to address (no `statement_timeout` increases, no migration authoring — that
+remains "ChatGPT"'s domain per the standing task boundaries). Every failed attempt correctly
+self-recovered: `persistent.fail(...)` released the build lease every time (confirmed live —
+`build_token`/`build_expires_at` both `null` after each attempt), so the row is left in a clean,
+retryable `failed` state, not stuck or corrupted.
+
+### P.5 21-cache state — 20/21
+Reconfirmed live: 21 total maintained Cards caches, **20 ready through `computed_through=
+2026-09-03`**, 1 (Global All Raw) still `status='failed'` (clean, retryable, per P.4). Projection
+and coverage are unaffected by any of this: 33,956 Sep-3 rows, 4,631,511 total rows, 165/165
+coverage through Sep-3, row_count sum 4,631,511 — all unchanged and exact across every retry in
+this session.
+
+### P.6 Idempotency
+Every rerun in this session correctly detected the 165 sets as already up-to-date (no duplicate
+projection rows, no coverage regression) and the 20 healthy caches as already-current — only the
+one genuinely-still-failed Global All Raw cache was re-attempted each time, exactly as designed.
+No Global cold rebuild occurred at any point once the planner fix landed (every attempt used the
+fast incremental path); the only remaining failure mode is the publish-RPC timeout in P.4.
+
+### P.7 Global query smokes — not run this session
+Not exercised, since Global All Raw remains non-`ready` (P.4/P.5) — running the smoke queries
+against an unpublished cache would not be a meaningful acceptance signal. Recommended as the next
+step once the publish-RPC timeout is resolved.
+
+### P.8 Final decision
+**NOT `MARKET_EXPLORER_DAILY_OPERATIONALIZATION_ACCEPTED`.** The planner-level failed-cache
+recovery fix (the actual subject of this task) is implemented, tested (153/153), and verified
+live to work correctly and quickly. However, full 21/21 cache acceptance is blocked by a genuine,
+separate, database-side statement-timeout in the publish RPC's constituent-write path at global
+scale — a real production finding, not a false pass forced through. Sep-3 projection/coverage
+(the load-bearing data) remain fully accepted and untouched by any of this session's retries.
+
+### P.9 Next recommendation
+Investigate and fix the `publish_pokemon_market_explorer_query_cache_build` RPC's performance at
+~34k-row `p_current_constituents` scale (e.g., writing normalized constituent detail via a
+separate bulk/batched path rather than one large JSONB parameter in the same statement as the
+summary-row `UPDATE`, or raising the timeout specifically for this one RPC if that is judged safe
+by whoever owns database performance — this session was explicitly not authorized to make that
+call). Once fixed, rerun `run_market_explorer_daily_publication.py --commit --market-date
+2026-09-03` once more — no further Python-side changes should be needed; the planner recovery
+path already correctly detects and uses the failed Sep-2 artifact as an incremental base. After
+Global All Raw reaches `ready`, run the Global query smokes (P.7) to complete acceptance.

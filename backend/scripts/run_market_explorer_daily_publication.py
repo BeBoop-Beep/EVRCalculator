@@ -248,7 +248,15 @@ def advance_one_maintained_cache(client: Any, row: dict[str, Any], *,
                                   market_date: str, commit: bool) -> CacheAdvanceReport:
     label = str(row.get("label") or row.get("query_fingerprint") or "?")
     fingerprint = str(row.get("query_fingerprint") or "")
-    if str(row.get("computed_through") or "")[:10] >= market_date:
+    # A row can have computed_through already at/beyond market_date while
+    # still status='failed' -- e.g. a prior attempt updated the watermark
+    # but never completed a successful publish. Only a genuinely ready row
+    # at/beyond the target date is truly "already current"; a failed row
+    # must still go through planner.execute() so it can attempt recovery
+    # (or correctly remain failed if not recoverable), never silently
+    # treated as done.
+    if (row.get("status") == "ready"
+            and str(row.get("computed_through") or "")[:10] >= market_date):
         return CacheAdvanceReport(fingerprint=fingerprint, label=label,
                                   status="already_current",
                                   computed_through=str(row.get("computed_through"))[:10])
