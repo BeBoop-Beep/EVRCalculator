@@ -1,19 +1,14 @@
 """Refresh and audit the canonical Pokemon Set Value / Top-10 authority.
 
-This is intentionally a market-domain job, separate from RIP/opening publication.
-It is safe to run after the daily card-price scrape and before public Market
-snapshots are rebuilt.
+This is a market-domain job, separate from RIP/opening publication. Run it
+after the daily card-price scrape and before public Market snapshots are rebuilt.
 
-Dry-run is the default. Use --commit to refresh variant-price interval authority
-before auditing. Certification itself is always read-only and uses the latest
-READY/LEGACY_VERIFIED Pokemon market date, never wall-clock time.
+Dry-run is the default. ``--commit`` refreshes variant-price interval authority
+first. Certification always uses the latest READY/LEGACY_VERIFIED Pokemon market
+date, never wall-clock time.
 
-Typical post-scrape run:
-
+Examples:
     python -m backend.scripts.run_pokemon_market_set_authority --commit
-
-Focused diagnostic:
-
     python -m backend.scripts.run_pokemon_market_set_authority \
         --set-name "Boundaries Crossed" --show-blockers
 """
@@ -27,13 +22,13 @@ from collections import Counter, defaultdict
 from typing import Any, Iterable, Sequence
 
 from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids
 
 READY_VIEW = "pokemon_market_root_set_market_ready_v1"
 BLOCKER_RPC = "get_pokemon_market_root_set_current_blockers_v1"
 INTERVAL_REFRESH_RPC = "refresh_pokemon_card_variant_market_price_intervals_for_sets"
 DATE_QUALITY_TABLE = "pokemon_market_date_quality"
 SETS_TABLE = "sets"
-
 DEFAULT_SET_CHUNK_SIZE = 8
 
 
@@ -61,37 +56,16 @@ def latest_approved_market_date(client: Any) -> str | None:
     return str(rows[0]["market_date"])[:10] if rows else None
 
 
-def tracked_market_set_ids(client: Any) -> list[str]:
-    """Every non-catalog Pokemon set with market-price scrape participation.
-
-    Child subsets are deliberately included: interval authority is physical-card
-    level, while the root-set publication views decide which children count toward
-    each parent Set Value/Top 10.
-    """
-    response = (
-        client.table(SETS_TABLE)
-        .select("id,name")
-        .eq("tcg", "pokemon")
-        .eq("catalog_only", False)
-        .eq("ready_for_daily_scrape", True)
-        .order("release_date")
-        .execute()
-    )
-    return [str(row["id"]) for row in _rows(response) if row.get("id")]
-
-
 def resolve_set_id(client: Any, set_name: str) -> str:
-    response = (
+    rows = _rows(
         client.table(SETS_TABLE)
         .select("id,name")
-        .eq("tcg", "pokemon")
         .eq("name", set_name)
         .limit(2)
         .execute()
     )
-    rows = _rows(response)
     if len(rows) != 1:
-        raise RuntimeError(f"Expected exactly one Pokemon set named {set_name!r}; found {len(rows)}")
+        raise RuntimeError(f"Expected exactly one set named {set_name!r}; found {len(rows)}")
     return str(rows[0]["id"])
 
 
@@ -102,7 +76,7 @@ def refresh_interval_authority(
     commit: bool,
     chunk_size: int,
 ) -> dict[str, Any]:
-    report = {
+    report: dict[str, Any] = {
         "dry_run": not commit,
         "set_count": len(set_ids),
         "chunk_size": int(chunk_size),
@@ -121,9 +95,8 @@ def refresh_interval_authority(
                 INTERVAL_REFRESH_RPC,
                 {"p_set_ids": chunk},
             ).execute()
-            value = getattr(response, "data", 0)
-            report["refreshed_rows"] += int(value or 0)
-        except Exception as exc:  # noqa: BLE001 - report every failed bounded chunk
+            report["refreshed_rows"] += int(getattr(response, "data", 0) or 0)
+        except Exception as exc:  # noqa: BLE001 - bounded chunk is reported, then next chunk continues
             report["failures"].append({"set_ids": chunk, "error": str(exc)})
     return report
 
@@ -137,18 +110,16 @@ def load_readiness_rows(client: Any, *, set_id: str | None = None) -> list[dict[
 
 def summarize_readiness(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
     by_scope: dict[str, Counter[str]] = defaultdict(Counter)
-    ready_scopes = 0
+    ready = 0
     for row in rows:
         scope = str(row.get("market_scope") or "unknown")
         status = str(row.get("current_certification_status") or "UNKNOWN")
         by_scope[scope][status] += 1
-        if bool(row.get("market_publication_ready")):
-            ready_scopes += 1
-
+        ready += int(bool(row.get("market_publication_ready")))
     return {
         "scope_rows": len(rows),
-        "ready_scope_rows": ready_scopes,
-        "not_ready_scope_rows": len(rows) - ready_scopes,
+        "ready_scope_rows": ready,
+        "not_ready_scope_rows": len(rows) - ready,
         "by_scope": {
             scope: dict(sorted(statuses.items()))
             for scope, statuses in sorted(by_scope.items())
@@ -156,15 +127,14 @@ def summarize_readiness(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def blocker_rows(client: Any, set_id: str) -> list[dict[str, Any]]:
+def load_blockers(client: Any, set_id: str) -> list[dict[str, Any]]:
     return _rows(client.rpc(BLOCKER_RPC, {"p_root_set_id": set_id}).execute())
 
 
 def compact_blockers(rows: Sequence[dict[str, Any]], limit: int = 100) -> dict[str, Any]:
     counts = Counter(str(row.get("blocker_code") or "UNKNOWN") for row in rows)
-    compact = []
-    for row in list(rows)[: max(0, int(limit))]:
-        compact.append({
+    items = [
+        {
             "scope": row.get("market_scope"),
             "card": row.get("card_name"),
             "number": row.get("card_number"),
@@ -174,22 +144,18 @@ def compact_blockers(rows: Sequence[dict[str, Any]], limit: int = 100) -> dict[s
             "canonical_market_date": row.get("canonical_market_date"),
             "reason": row.get("price_selection_reason"),
             "blocker": row.get("blocker_code"),
-        })
+        }
+        for row in list(rows)[: max(0, int(limit))]
+    ]
     return {
         "count": len(rows),
         "by_code": dict(sorted(counts.items())),
-        "rows": compact,
-        "truncated": len(rows) > len(compact),
+        "rows": items,
+        "truncated": len(rows) > len(items),
     }
 
 
-def run(
-    *,
-    commit: bool,
-    set_name: str | None,
-    show_blockers: bool,
-    chunk_size: int,
-) -> dict[str, Any]:
+def run(*, commit: bool, set_name: str | None, show_blockers: bool, chunk_size: int) -> dict[str, Any]:
     started = time.monotonic()
     client = create_service_role_client()
     market_date = latest_approved_market_date(client)
@@ -197,10 +163,10 @@ def run(
         raise RuntimeError("No READY/LEGACY_VERIFIED Pokemon market date exists")
 
     selected_set_id = resolve_set_id(client, set_name) if set_name else None
-    if selected_set_id:
-        interval_set_ids = [selected_set_id]
-    else:
-        interval_set_ids = tracked_market_set_ids(client)
+    # Reuse the already-accepted Market Explorer market-history cohort instead of
+    # inventing a second Pokemon-set filter here. Child subsets are included in
+    # that authority and root-set membership is handled by the DB publication views.
+    interval_set_ids = [selected_set_id] if selected_set_id else list(resolve_tracked_set_ids(client))
 
     interval_report = refresh_interval_authority(
         client,
@@ -208,15 +174,13 @@ def run(
         commit=commit,
         chunk_size=chunk_size,
     )
-
     readiness = load_readiness_rows(client, set_id=selected_set_id)
-    summary: dict[str, Any] = {
+    report: dict[str, Any] = {
         "dry_run": not commit,
         "canonical_market_date": market_date,
         "set_name": set_name,
         "interval_refresh": interval_report,
         "readiness": summarize_readiness(readiness),
-        "elapsed_seconds": None,
     }
 
     if show_blockers:
@@ -232,13 +196,13 @@ def run(
                 if sid and sid not in seen:
                     seen.add(sid)
                     targets.append((sid, str(row.get("set_name") or sid)))
-        summary["blockers"] = {
-            name: compact_blockers(blocker_rows(client, sid))
+        report["blockers"] = {
+            name: compact_blockers(load_blockers(client, sid))
             for sid, name in targets
         }
 
-    summary["elapsed_seconds"] = round(time.monotonic() - started, 3)
-    return summary
+    report["elapsed_seconds"] = round(time.monotonic() - started, 3)
+    return report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -268,9 +232,7 @@ def main() -> int:
         return 2
 
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
-    if report["interval_refresh"].get("failures"):
-        return 1
-    return 0
+    return 1 if report["interval_refresh"].get("failures") else 0
 
 
 if __name__ == "__main__":
