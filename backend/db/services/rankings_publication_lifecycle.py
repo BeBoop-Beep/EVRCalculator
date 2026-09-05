@@ -244,10 +244,19 @@ def evaluate_rankings_publication_readiness(
         )
 
     if chase_accessibility_rows is not None:
+        # `pokemon_set_chase_accessibility_snapshot_latest.set_id` is the set's
+        # UUID (see chase_accessibility_service.build_chase_accessibility_snapshot_row),
+        # never the canonical_key `source_runs` above is keyed by - so the
+        # accessibility lookup needs its own UUID-keyed run map, not source_runs.
+        accessibility_source_runs = {
+            _text(target.get("set_id") or target.get("target_id")):
+            _text(target.get("calculation_run_id"))
+            for target in ranked
+        }
         chase_failures = chase_accessibility_integrity_failures(
             chase_accessibility_rows,
-            simulation_supported_set_ids=list(source_runs.keys()),
-            expected_run_by_set=source_runs,
+            simulation_supported_set_ids=list(accessibility_source_runs.keys()),
+            expected_run_by_set=accessibility_source_runs,
         )
         if chase_failures:
             detail = "; ".join(

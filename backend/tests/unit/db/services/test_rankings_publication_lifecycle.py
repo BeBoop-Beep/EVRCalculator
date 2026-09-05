@@ -88,12 +88,15 @@ def test_source_run_fingerprint_is_order_independent():
 
 def _ready_chase_accessibility_rows():
     from backend.desirability.chase_accessibility import CHASE_ACCESSIBILITY_VERSION
-    # keyed by canonical_key ("alpha"/"beta"), matching source_run_ids' keying in
-    # evaluate_rankings_publication_readiness (canonical_key or set_id/target_id).
+    # keyed by the set's UUID ("set-1"/"set-2", matching candidate()'s target
+    # "set_id" field) - production rows in
+    # pokemon_set_chase_accessibility_snapshot_latest are always keyed by that
+    # UUID (see chase_accessibility_service.build_chase_accessibility_snapshot_row),
+    # never by canonical_key.
     return [
-        {"set_id": "alpha", "calculation_run_id": "run-1", "version": CHASE_ACCESSIBILITY_VERSION,
+        {"set_id": "set-1", "calculation_run_id": "run-1", "version": CHASE_ACCESSIBILITY_VERSION,
          "status": "ready", "accessibility": 0.002, "mapped_hc_mass": 1.0},
-        {"set_id": "beta", "calculation_run_id": "run-2", "version": CHASE_ACCESSIBILITY_VERSION,
+        {"set_id": "set-2", "calculation_run_id": "run-2", "version": CHASE_ACCESSIBILITY_VERSION,
          "status": "ready", "accessibility": 0.003, "mapped_hc_mass": 1.0},
     ]
 
