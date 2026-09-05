@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
+import re
 import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
@@ -13,15 +15,7 @@ from backend.desirability.public_analytics_policy import is_public_analytics_eli
 
 TABLE = "pokemon_explore_set_value_snapshot_latest"
 logger = logging.getLogger("market.performance")
-# The Set Market's window vocabulary. The last key is named "lifetime" rather
-# than "SinceTracking" because a Set Value series has no chain segments to
-# track from - it is simply that Set's own complete published history - but the
-# FIXED windows mean exactly what they mean on the global Market, and are
-# resolved by the same helper rather than by a local date formula.
 WINDOWS = (("1D", 1), ("7D", 7), ("30D", 30), ("3M", 90), ("6M", 180), ("1Y", 365), ("lifetime", None))
-
-#: `lifetime` here is the Set's own history start; the canonical resolver names
-#: the equivalent global key `SinceTracking`. Only the fixed keys are looked up.
 _CANONICAL_WINDOW_KEY = {"1D": "1D", "7D": "7D", "30D": "30D", "3M": "3M", "6M": "6M", "1Y": "1Y"}
 MAX_TREND_POINTS = 48
 MAX_RECENT_DAILY_TREND_POINTS = 30
@@ -98,14 +92,7 @@ def _points(rows: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def _points_through(rows: Iterable[Mapping[str, Any]], through_date: str) -> List[Dict[str, Any]]:
-    """Canonical points clamped to a point-in-time view: ``date <= through_date``.
-
-    Defense in depth for direct callers that hand in a broader history than the
-    CLI loader does. Observations after the target date must never make an
-    otherwise valid historical build look stale. A MISSING target-date
-    observation must still block, so this only drops future points - it never
-    substitutes an earlier date for the required exact one.
-    """
+    """Canonical points clamped to a point-in-time view: ``date <= through_date``."""
     limit = _text(through_date)[:10]
     points = _points(rows)
     if not limit:
@@ -128,11 +115,6 @@ def compute_window_movements(points: Sequence[Mapping[str, Any]]) -> Dict[str, D
             baseline = rows[0]
             target_date = None
         else:
-            # TRUE ELAPSED LOOKBACK, from the ONE canonical resolver. This used
-            # to compute `latest - (days - 1)` here - an inclusive day COUNT -
-            # so the Set Market's "7D" reached six elapsed days while the same
-            # label on the global Market and on this Set's own Cards/Sealed
-            # index reached seven. One label, three surfaces, one span.
             target_date = resolve_market_window_target(latest["date"], _CANONICAL_WINDOW_KEY[key])
             if rows[0]["date"] > target_date:
                 baseline = rows[0]
@@ -176,6 +158,28 @@ def compact_trend(points: Sequence[Mapping[str, Any]], limit: int = MAX_TREND_PO
     return [[rows[index]["date"], rows[index]["value"]] for index in ordered]
 
 
+def _eligible_market_sets(sets: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Prefer explicit market-domain certification, with legacy fallback for tests/callers.
+
+    The old path coupled Market to opening-simulation/public-analytics eligibility.
+    New publishers provide ``market_publication_ready`` from the canonical DB
+    authority. Retaining the fallback keeps historical unit fixtures and any
+    out-of-tree callers compatible while making the production path independent.
+    """
+    rows = [dict(row) for row in sets]
+    if any("market_publication_ready" in row for row in rows):
+        return [
+            row for row in rows
+            if row.get("market_publication_ready") is True
+            and str(row.get("market_scope") or "standard") == "standard"
+        ]
+    return [
+        row for row in rows
+        if row.get("supports_opening_simulation", True) is True
+        and is_public_analytics_eligible(row)
+    ]
+
+
 def build_global_set_value_row(
     sets: Iterable[Mapping[str, Any]],
     dashboard_snapshots: Sequence[Mapping[str, Any]],
@@ -186,71 +190,67 @@ def build_global_set_value_row(
     market_overview: Optional[Mapping[str, Any]] = None,
     publisher_build_sha: Optional[str] = None,
 ) -> Dict[str, Any]:
-    eligible = [dict(row) for row in sets if row.get("supports_opening_simulation", True) is True and is_public_analytics_eligible(row)]
-    # UI windows are slices, never snapshot row selectors. Ignore stale short
-    # rows entirely and choose only the prepared long/current family.
+    eligible = _eligible_market_sets(sets)
     dashboard_by_set = {
         str(row.get("set_id")): row
         for row in dashboard_snapshots
         if str(row.get("window_key") or "365d").lower() == "365d"
     }
-    missing, stale, mismatched, published = [], [], [], []
+    missing, stale, published = [], [], []
     dashboard_index_available_ids: List[str] = []
-    missing_market_index_ids: List[str] = []
+    invalid_market_index_ids: List[str] = []
+    stale_optional_dashboard_ids: List[str] = []
     generation = []
+
     for pokemon_set in eligible:
         set_id = str(pokemon_set.get("id") or pokemon_set.get("set_id") or "")
-        dashboard = dashboard_by_set.get(set_id)
         canonical = _points_through(canonical_histories.get(set_id) or [], target_market_date)
-        histories = dashboard.get("set_value_histories_json") if dashboard else None
-        prepared = _points((histories or {}).get("standard") if isinstance(histories, Mapping) else [])
-        if not dashboard or not canonical or not prepared:
+        if not canonical:
             missing.append(set_id)
             continue
-        dashboard_date = _text(dashboard.get("latest_market_date"))
-        if dashboard_date != target_market_date or canonical[-1]["date"] != target_market_date:
-            stale.append({"setId": set_id, "dashboardDate": dashboard_date, "canonicalDate": canonical[-1]["date"]})
+        if canonical[-1]["date"] != target_market_date:
+            stale.append({"setId": set_id, "canonicalDate": canonical[-1]["date"]})
             continue
-        if prepared[-1]["date"] != canonical[-1]["date"] or abs(prepared[-1]["value"] - canonical[-1]["value"]) > 0.005:
-            mismatched.append({"setId": set_id, "prepared": prepared[-1], "canonical": canonical[-1]})
-            continue
-        cards_market = dashboard.get("cardsMarket") if isinstance(dashboard.get("cardsMarket"), Mapping) else {}
-        prepared_index = cards_market.get("marketIndex") if isinstance(cards_market.get("marketIndex"), Mapping) else None
-        if prepared_index is not None:
-            dashboard_index_available_ids.append(set_id)
-            if (_number(prepared_index.get("currentValue")) is None
-                    or not isinstance(prepared_index.get("movements"), Mapping)):
-                missing_market_index_ids.append(set_id)
-                continue
-        if prepared_index is not None and _text(prepared_index.get("asOf")) != target_market_date:
-            stale.append({"setId": set_id, "dashboardDate": dashboard_date,
-                          "indexDate": _text(prepared_index.get("asOf"))})
-            continue
+
+        dashboard = dashboard_by_set.get(set_id)
+        prepared_index = None
+        if dashboard:
+            dashboard_date = _text(dashboard.get("latest_market_date"))
+            if dashboard_date == target_market_date:
+                cards_market = dashboard.get("cardsMarket") if isinstance(dashboard.get("cardsMarket"), Mapping) else {}
+                candidate_index = cards_market.get("marketIndex") if isinstance(cards_market.get("marketIndex"), Mapping) else None
+                if candidate_index is not None:
+                    dashboard_index_available_ids.append(set_id)
+                    if (_number(candidate_index.get("currentValue")) is None
+                            or not isinstance(candidate_index.get("movements"), Mapping)
+                            or _text(candidate_index.get("asOf")) != target_market_date):
+                        invalid_market_index_ids.append(set_id)
+                    else:
+                        prepared_index = candidate_index
+            else:
+                stale_optional_dashboard_ids.append(set_id)
+
         windows = compute_window_movements(canonical)
         current = canonical[-1]
         published_row = {
             "setId": set_id,
             "canonicalKey": pokemon_set.get("canonical_key"),
-            "name": pokemon_set.get("name"),
+            "name": pokemon_set.get("name") or pokemon_set.get("set_name"),
             "era": pokemon_set.get("era") or pokemon_set.get("era_name"),
             "logoUrl": pokemon_set.get("logo_image_url"),
             "symbolUrl": pokemon_set.get("symbol_image_url"),
             "currentSetValue": current["value"],
             "setValueAsOf": current["date"],
-            # pricedCardCount/totalCardCount are deliberately NOT published. They
-            # were read off `prepared[-1]`, but `_points()` normalizes every point
-            # to {date, value} and strips that metadata, so both keys were always
-            # None. No consumer reads them, so the compact snapshot omits them
-            # rather than advertising two permanently-null fields.
             "windows": windows,
-            "trend": compact_trend(canonical, preserve_dates=[window["startDate"] for window in windows.values()] + [current["date"]]),
+            "trend": compact_trend(
+                canonical,
+                preserve_dates=[window["startDate"] for window in windows.values()] + [current["date"]],
+            ),
             "recentDailyTrend": [[row["date"], row["value"]] for row in canonical[-MAX_RECENT_DAILY_TREND_POINTS:]],
             "historyStartDate": canonical[0]["date"],
             "historyEndDate": current["date"],
             "historyPointCount": len(canonical),
         }
-        # Additive/backward-compatible: old dashboard rows have no Cards
-        # Market contract and simply omit this field. Never substitute 100.
         if prepared_index is not None:
             published_row["marketIndex"] = {
                 "currentValue": prepared_index.get("currentValue"),
@@ -258,32 +258,69 @@ def build_global_set_value_row(
                 "asOf": prepared_index.get("asOf"),
                 "movements": prepared_index.get("movements") if isinstance(prepared_index.get("movements"), Mapping) else {},
             }
-            if not isinstance(published_row.get("marketIndex"), Mapping):
-                missing_market_index_ids.append(set_id)
         published.append(published_row)
         index_value = prepared_index.get("currentValue") if prepared_index is not None else None
         generation.append(f"{set_id}|{current['date']}|{current['value']:.6f}|{len(canonical)}|{index_value}")
+
     published_index_count = sum(1 for row in published if isinstance(row.get("marketIndex"), Mapping))
     diagnostics = {
-        "eligibleSetCount": len(eligible), "publishedSetCount": len(published),
+        "eligibleSetCount": len(eligible),
+        "publishedSetCount": len(published),
         "dashboardMarketIndexAvailableCount": len(dashboard_index_available_ids),
         "publishedMarketIndexCount": published_index_count,
-        "missingMarketIndexSetIds": sorted(set(missing_market_index_ids)),
-        "missingSets": missing, "staleSets": stale, "mismatchedSets": mismatched,
+        "invalidOptionalMarketIndexSetIds": sorted(set(invalid_market_index_ids)),
+        "staleOptionalDashboardSetIds": sorted(set(stale_optional_dashboard_ids)),
+        "missingSets": missing,
+        "staleSets": stale,
+        "mismatchedSets": [],
         "marketDate": target_market_date,
         "publisherBuildSha": _text(publisher_build_sha) or "unknown",
     }
-    if (missing or stale or mismatched or missing_market_index_ids
-            or published_index_count != len(dashboard_index_available_ids)
-            or len(published) != len(eligible)):
-        raise ExploreSetValueUnavailable("eligible Market Set Value sources are incomplete or disagree", diagnostics=diagnostics)
+    if missing or stale or len(published) != len(eligible):
+        raise ExploreSetValueUnavailable(
+            "certified Market Set Value histories are incomplete or stale",
+            diagnostics=diagnostics,
+        )
+
     published.sort(key=lambda row: (-row["currentSetValue"], str(row["name"] or row["setId"])))
     built_at = built_at or datetime.now(timezone.utc).isoformat()
     index_generation = str((market_overview or {}).get("sourceGenerationFingerprint") or "")
     fingerprint = hashlib.sha256("\n".join([target_market_date, *sorted(generation), index_generation]).encode()).hexdigest()
-    payload = {"marketOverview": dict(market_overview) if market_overview is not None else None,
-               "sets": published, "meta": {"snapshot": {"builtAt": built_at, "marketDate": target_market_date}, "source": "canonical_standard_set_value_history", "windowSemantics": "marketDeltaWindows_v1", "publisherBuildSha": diagnostics["publisherBuildSha"], "publicationDiagnostics": {key: diagnostics[key] for key in ("eligibleSetCount", "dashboardMarketIndexAvailableCount", "publishedMarketIndexCount", "missingMarketIndexSetIds", "marketDate", "publisherBuildSha")}, "trendPointLimit": MAX_TREND_POINTS, "recentDailyTrendPointLimit": MAX_RECENT_DAILY_TREND_POINTS, "warnings": []}}
-    return {"tcg": "pokemon", "scope": "market", "payload_json": payload, "market_date": target_market_date, "set_count": len(published), "source_generation_fingerprint": fingerprint, "payload_size_bytes": len(json.dumps(payload, separators=(",", ":")).encode()), "_diagnostics": diagnostics}
+    payload = {
+        "marketOverview": dict(market_overview) if market_overview is not None else None,
+        "sets": published,
+        "meta": {
+            "snapshot": {"builtAt": built_at, "marketDate": target_market_date},
+            "source": "canonical_root_set_market_history_v1",
+            "windowSemantics": "marketDeltaWindows_v1",
+            "publisherBuildSha": diagnostics["publisherBuildSha"],
+            "publicationDiagnostics": {
+                key: diagnostics[key]
+                for key in (
+                    "eligibleSetCount",
+                    "dashboardMarketIndexAvailableCount",
+                    "publishedMarketIndexCount",
+                    "invalidOptionalMarketIndexSetIds",
+                    "staleOptionalDashboardSetIds",
+                    "marketDate",
+                    "publisherBuildSha",
+                )
+            },
+            "trendPointLimit": MAX_TREND_POINTS,
+            "recentDailyTrendPointLimit": MAX_RECENT_DAILY_TREND_POINTS,
+            "warnings": [],
+        },
+    }
+    return {
+        "tcg": "pokemon",
+        "scope": "market",
+        "payload_json": payload,
+        "market_date": target_market_date,
+        "set_count": len(published),
+        "source_generation_fingerprint": fingerprint,
+        "payload_size_bytes": len(json.dumps(payload, separators=(",", ":")).encode()),
+        "_diagnostics": diagnostics,
+    }
 
 
 def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segments: bool = False) -> Dict[str, Any]:
@@ -296,14 +333,9 @@ def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segm
     payload = dict(rows[0].get("payload_json") or {})
     published_sets = payload.get("sets") if isinstance(payload.get("sets"), list) else []
     if not isinstance(payload.get("initialSelectedSetMovers"), Mapping) and published_sets:
-        # Compatibility for the currently deployed publication. Future builds
-        # persist this block, keeping the normal path to one snapshot read.
         payload["initialSelectedSetMovers"] = read_initial_selected_set_movers(active, published_sets[0])
     overview = payload.get("marketOverview")
     if isinstance(overview, Mapping) and not include_explorer_segments:
-        # The persisted publication also contains deep card/sealed segment
-        # explorer data. /Market renders only the three parent families; do not
-        # materialize those unused nested structures into the HTTP response.
         payload["marketOverview"] = {
             key: overview[key] for key in MARKET_PAGE_OVERVIEW_FIELDS if key in overview
         }
