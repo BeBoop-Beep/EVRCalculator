@@ -5,28 +5,36 @@ from ..helpers.sealed_price_helper import parse_sealed_prices
 
 
 class TCGPlayerParser:
-    STRICT_EDITION_REQUIRED = {"jungle", "fossil", "team rocket"}
+    # These English vintage sets have physically distinct First Edition and
+    # Unlimited instruments. Generic provider printings (for example plain
+    # "Holofoil") do not prove which edition was observed, so accepting them
+    # would recreate the mixed-edition Set Value bug at ingestion time.
+    STRICT_EDITION_REQUIRED = {
+        "jungle",
+        "fossil",
+        "team rocket",
+        "gym heroes",
+        "gym challenge",
+        "neo genesis",
+        "neo discovery",
+        "neo revelation",
+        "neo destiny",
+    }
+    # Base is deliberately different: TCGPlayer commonly exposes generic Base
+    # Holofoil/Normal rows. Keep those for market-only collection, but never use
+    # them to certify Base 1st Edition / Shadowless / Unlimited scopes.
     MARKET_FALLBACK_ALLOWED = {"base"}
 
     def __init__(self, pull_rate_mapping, set_name=None):
         """
-        Initialize the parser with configuration
-        
-        Args:
-            pull_rate_mapping: Dictionary mapping rarities to pull rates
+        Initialize service and cache conditions
         """
         self.pull_rate_mapping = pull_rate_mapping
         self.set_name = str(set_name or "").strip()
 
     def parse_cards(self, raw_data):
         """
-        Parse raw card data from TCGPlayer API
-        
-        Args:
-            raw_data: Raw JSON response from TCGPlayer
-            
-        Returns:
-            List of parsed and cleaned card dictionaries
+        Parse raw card data from TCGPlayer API.
         """
         raw_cards = raw_data.get("result", [])
         # Product ids identify commercial cards; canonical printings/finishes
@@ -80,12 +88,10 @@ class TCGPlayerParser:
         card_data = {}
         dropped_no_market = 0
         dropped_invalid = 0
-        
+
         for card in selected_cards:
-            
             product_name, card_dict = process_card(card, self.pull_rate_mapping)
 
-            # Skip invalid cards
             if product_name is None:
                 if not card.get('marketPrice'):
                     dropped_no_market += 1
@@ -98,16 +104,13 @@ class TCGPlayerParser:
                 and not card_dict.get('edition')
                 else 'EXACT_PROVIDER_VARIANT'
             )
-            
-            # Create unique key to differentiate card variants
-            # Include: product name, card number, rarity, special type, printing, and condition
+
             card_number = card_dict.get('number', '')
             rarity = card_dict.get('rarity', '')
             special_type = card_dict.get('specialType', '')
             printing = card_dict.get('printing', '')
             condition = card_dict.get('condition', '')
-            
-            # Build composite key - include card_number and rarity to distinguish different versions
+
             key_parts = [product_name, card_number, rarity]
             if special_type:
                 key_parts.append(special_type)
@@ -115,14 +118,12 @@ class TCGPlayerParser:
                 key_parts.append(printing)
             if condition:
                 key_parts.append(condition)
-            
-            unique_key = "|".join(key_parts)
 
-            # Store card data with unique key (keeps each variant separate)
+            unique_key = "|".join(key_parts)
             card_data[unique_key] = card_dict
-            
+
         cards = list(card_data.values())
-        
+
         print(
             f"[DIAG][parse_cards] raw={len(raw_cards)} products={len(products)} "
             f"kept={len(cards)} "
@@ -155,33 +156,18 @@ class TCGPlayerParser:
         }
 
         return self._clean_card_data(cards)
-    
+
     def parse_sealed_products(self, config, client):
-        """
-        Parse sealed product data from a single URL.
-
-        Args:
-            config: Configuration object containing SEALED_DETAILS_URL
-            client: TCGPlayerClient instance
-
-        Returns:
-            List of cleaned sealed product dictionaries
-        """
+        """Parse sealed product data from a single URL."""
         set_name = config.SET_NAME
-
-        # Fetch data from the URL
         sealed_raw = client.fetch_price_data(config.SEALED_DETAILS_URL)
         raw_products = sealed_raw.get("result", [])
-
-        # Deduplicate strictly by productName
         product_map = {}
 
         for product in raw_products:
             product_name = product.get("productName")
             if not product_name:
                 continue
-
-            # Build sealed product dict WITHOUT their productID
             product_dict = {
                 "name": product_name,
                 "marketPrice": product.get("marketPrice"),
@@ -190,38 +176,28 @@ class TCGPlayerParser:
                 "setAbbrv": product.get("setAbbrv"),
                 "type": product.get("type"),
             }
-
-            # Use productName as the unique key
-            unique_key = product_name
-            product_map[unique_key] = product_dict
+            product_map[product_name] = product_dict
 
         cleaned_products = list(product_map.values())
-
-        # Use your existing cleaner
         return self._clean_sealed_data(cleaned_products, set_name)
 
-    
     def _clean_card_data(self, cards):
-        """Clean and validate card data before DTO conversion"""
+        """Clean and validate card data before DTO conversion."""
         cleaned = []
         dropped_no_name = 0
         dropped_no_price = 0
         for card in cards:
-            
-            # Normalize condition to match database values
             condition = card.get('condition', '')
             condition = clean_condition(condition) if condition else 'Near Mint'
             normalized_condition = normalize_condition(condition)
-            
-            # Get raw rarity
             raw_rarity = card.get('rarity', '').strip()
-            
+
             cleaned_card = {
                 'name': card.get('productName', '').strip(),
                 'card_number': card.get('number'),
                 'rarity': raw_rarity,
-                'variant': (card.get('specialType') or '').lower().strip(),  # Normalize to lowercase
-                'condition': normalized_condition,  # Use normalized condition
+                'variant': (card.get('specialType') or '').lower().strip(),
+                'condition': normalized_condition,
                 'printing': (card.get('printing') or '').strip(),
                 'edition': (card.get('edition') or '').strip(),
                 'printing_type': (card.get('printing_type') or '').strip(),
@@ -231,52 +207,48 @@ class TCGPlayerParser:
                 'tcgplayer_product_id': card.get('tcgplayerProductID'),
                 'external_catalog_key': card.get('externalCatalogKey'),
                 'external_variant_key': card.get('externalVariantKey'),
-                'external_source_reference': (f"https://www.tcgplayer.com/product/{card.get('tcgplayerProductID')}" if card.get('tcgplayerProductID') else None),
+                'external_source_reference': (
+                    f"https://www.tcgplayer.com/product/{card.get('tcgplayerProductID')}"
+                    if card.get('tcgplayerProductID') else None
+                ),
                 'external_source_payload': card.get('externalSourcePayload') or {},
                 'variant_collection_authority': card.get('variantCollectionAuthority'),
-                'prices': {
-                    'market': clean_price_value(card.get('Price ($)')),
-                }
+                'prices': {'market': clean_price_value(card.get('Price ($)'))},
             }
 
-            # Only include cards with valid data
             if cleaned_card['name'] and cleaned_card['condition'] and cleaned_card['prices']['market'] is not None:
                 cleaned.append(cleaned_card)
             elif not cleaned_card['name']:
                 dropped_no_name += 1
             else:
                 dropped_no_price += 1
-        
+
         print(
             f"[DIAG][_clean_card_data] after_clean={len(cleaned)} "
             f"dropped_no_name={dropped_no_name} "
             f"dropped_no_market_price={dropped_no_price}"
         )
-        
         return cleaned
-    
+
     def _clean_sealed_prices(self, prices, set_name):
-        """Clean and validate sealed product prices and convert to list of dicts"""
+        """Clean and validate sealed product prices and convert to list of dicts."""
         cleaned = []
         for product_type, price in prices.items():
             cleaned_price = clean_price_value(price)
             if cleaned_price is not None:
                 cleaned.append({
-                    'name': f"{set_name} {product_type}",  # e.g., "Prismatic Evolutions Booster Box"
-                    'product_type': product_type,  # e.g., "Booster Box", "ETB"
-                    'prices': {
-                        'market': cleaned_price
-                    }
+                    'name': f"{set_name} {product_type}",
+                    'product_type': product_type,
+                    'prices': {'market': cleaned_price},
                 })
         return cleaned
-    
+
     def _clean_sealed_data(self, products, set_name):
-        """Clean and validate sealed product data"""
+        """Clean and validate sealed product data."""
         cleaned = []
         for product in products:
             market_price = clean_price_value(product.get('marketPrice'))
             product_name = product.get('name', '').strip()
-            
             if market_price is not None and product_name:
                 cleaned.append({
                     'name': product_name,
@@ -286,7 +258,7 @@ class TCGPlayerParser:
                     'currency': 'USD',
                     'prices': {
                         'market': market_price,
-                        'low': clean_price_value(product.get('lowPrice'))
-                    }
+                        'low': clean_price_value(product.get('lowPrice')),
+                    },
                 })
         return cleaned
