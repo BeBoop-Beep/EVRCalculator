@@ -5,7 +5,13 @@ from ..helpers.sealed_price_helper import parse_sealed_prices
 
 
 class TCGPlayerParser:
-    STRICT_EDITION_REQUIRED = {"jungle", "fossil", "team rocket"}
+    # These English vintage sets have physically distinct First Edition and
+    # Unlimited instruments. A generic provider printing does not prove which
+    # edition was observed, so fail closed instead of creating a mixed market.
+    STRICT_EDITION_REQUIRED = {
+        "jungle", "fossil", "team rocket", "gym heroes", "gym challenge",
+        "neo genesis", "neo discovery", "neo revelation", "neo destiny",
+    }
     MARKET_FALLBACK_ALLOWED = {"base"}
 
     def __init__(self, pull_rate_mapping, set_name=None):
