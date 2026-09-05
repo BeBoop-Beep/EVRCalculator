@@ -244,3 +244,41 @@ def test_correct_accessibility_version_is_accepted():
     result = _overall_rip_v12_for(_row(run_id=RUN_A), 60.0, accessibility_row, expected_run_id=RUN_A)
     assert result["status"] == "ready"
     assert result["score"] is not None
+
+
+# --------------------------------------------------------------------------
+# I. Regression: the default accessibility_reader_fn must resolve the real
+#    Supabase client module. A prior defect imported from the non-existent
+#    `backend.clients.supabase_client` (the actual module lives at
+#    `backend.db.clients.supabase_client`), which raised ModuleNotFoundError
+#    the first time production reached this branch - only when NO
+#    accessibility_reader_fn override was supplied, so every other test in
+#    this file (which all pass one explicitly) never exercised it.
+# --------------------------------------------------------------------------
+
+def test_default_accessibility_reader_resolves_real_supabase_client_module(monkeypatch):
+    import backend.db.services.sealed_product_rip_finalization_service as svc
+
+    class _FakeFreshnessReport:
+        error = "no_current_runs"
+        market_date = "2026-09-04"
+        statuses: List[Any] = []
+        ok = False
+
+    monkeypatch.setattr(
+        svc, "evaluate_opening_simulation_freshness", lambda *a, **k: _FakeFreshnessReport()
+    )
+
+    # accessibility_reader_fn intentionally omitted -> forces the default
+    # `from backend.db.clients.supabase_client import supabase` branch to run.
+    # Before the fix this raised ModuleNotFoundError instead of returning.
+    result = finalize_sealed_product_rip(
+        client=object(),
+        market_date="2026-09-04",
+        bundle_fn=lambda *a, **k: {},
+        read_rows_fn=lambda *a, **k: [],
+        update_fn=lambda *a, **k: None,
+    )
+
+    assert result["status"] == svc.STATUS_CANNOT_START
+    assert result["error"] == "no_current_runs"

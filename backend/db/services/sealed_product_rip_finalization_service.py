@@ -293,7 +293,7 @@ def finalize_sealed_product_rip(
             update_sealed_product_enrichment as update_fn,  # type: ignore[misc]
         )
     if accessibility_reader_fn is None:
-        from backend.clients.supabase_client import supabase as _supabase_client
+        from backend.db.clients.supabase_client import supabase as _supabase_client
         from backend.db.services.chase_accessibility_service import (
             read_chase_accessibility_snapshots_for_sets,
         )
