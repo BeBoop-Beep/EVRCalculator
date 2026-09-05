@@ -100,7 +100,9 @@ GRANT SELECT ON public.pokemon_market_root_set_publication_current_certification
 
 -- Exact card-level blocker inspection for post-scrape verification. The result
 -- is deliberately service-only and derives from the same root-set constituent
--- authority as Set Value and Top 10.
+-- authority as Set Value and Top 10. Current metadata is consulted only to
+-- distinguish a genuinely absent physical variant from an existing variant
+-- that simply has no qualifying Near Mint USD observation.
 CREATE OR REPLACE FUNCTION public.get_pokemon_market_root_set_current_blockers_v1(
   p_root_set_id uuid
 )
@@ -153,8 +155,32 @@ WITH canonical_date AS (
          p.price_selection_reason,
          CASE
            WHEN p.card_variant_id IS NULL
-                AND coalesce(p.price_selection_reason,'') = 'missing_required_edition_variant'
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM public.pokemon_market_explorer_card_current_metadata m
+                  WHERE m.canonical_card_id = p.canonical_card_id
+                    AND (
+                      p.market_scope = 'standard'
+                      OR (p.market_scope = 'first_edition' AND m.edition = '1st-edition')
+                      OR (p.market_scope = 'unlimited' AND m.edition = 'unlimited')
+                      OR (p.market_scope = 'shadowless' AND m.edition = 'shadowless')
+                    )
+                )
+                AND p.market_scope IN ('first_edition','unlimited','shadowless')
              THEN 'REQUIRED_VARIANT_IDENTITY_MISSING'
+           WHEN p.card_variant_id IS NULL
+                AND EXISTS (
+                  SELECT 1
+                  FROM public.pokemon_market_explorer_card_current_metadata m
+                  WHERE m.canonical_card_id = p.canonical_card_id
+                    AND (
+                      p.market_scope = 'standard'
+                      OR (p.market_scope = 'first_edition' AND m.edition = '1st-edition')
+                      OR (p.market_scope = 'unlimited' AND m.edition = 'unlimited')
+                      OR (p.market_scope = 'shadowless' AND m.edition = 'shadowless')
+                    )
+                )
+             THEN 'NEAR_MINT_USD_PRICE_MISSING'
            WHEN p.card_variant_id IS NULL
              THEN 'CANONICAL_PRICE_IDENTITY_MISSING'
            WHEN p.market_price IS NULL
