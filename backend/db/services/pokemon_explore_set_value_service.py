@@ -3,10 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import math
-import re
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
@@ -92,7 +90,6 @@ def _points(rows: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def _points_through(rows: Iterable[Mapping[str, Any]], through_date: str) -> List[Dict[str, Any]]:
-    """Canonical points clamped to a point-in-time view: ``date <= through_date``."""
     limit = _text(through_date)[:10]
     points = _points(rows)
     if not limit:
@@ -158,26 +155,23 @@ def compact_trend(points: Sequence[Mapping[str, Any]], limit: int = MAX_TREND_PO
     return [[rows[index]["date"], rows[index]["value"]] for index in ordered]
 
 
-def _eligible_market_sets(sets: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
-    """Prefer explicit market-domain certification, with legacy fallback for tests/callers.
-
-    The old path coupled Market to opening-simulation/public-analytics eligibility.
-    New publishers provide ``market_publication_ready`` from the canonical DB
-    authority. Retaining the fallback keeps historical unit fixtures and any
-    out-of-tree callers compatible while making the production path independent.
-    """
+def _select_eligible_sets(sets: Iterable[Mapping[str, Any]]) -> tuple[List[Dict[str, Any]], bool]:
+    """Return eligible rows and whether the explicit market-authority path is active."""
     rows = [dict(row) for row in sets]
-    if any("market_publication_ready" in row for row in rows):
-        return [
+    market_authority_mode = any("market_publication_ready" in row for row in rows)
+    if market_authority_mode:
+        eligible = [
             row for row in rows
             if row.get("market_publication_ready") is True
             and str(row.get("market_scope") or "standard") == "standard"
         ]
-    return [
-        row for row in rows
-        if row.get("supports_opening_simulation", True) is True
-        and is_public_analytics_eligible(row)
-    ]
+    else:
+        eligible = [
+            row for row in rows
+            if row.get("supports_opening_simulation", True) is True
+            and is_public_analytics_eligible(row)
+        ]
+    return eligible, market_authority_mode
 
 
 def build_global_set_value_row(
@@ -190,45 +184,75 @@ def build_global_set_value_row(
     market_overview: Optional[Mapping[str, Any]] = None,
     publisher_build_sha: Optional[str] = None,
 ) -> Dict[str, Any]:
-    eligible = _eligible_market_sets(sets)
+    eligible, market_authority_mode = _select_eligible_sets(sets)
     dashboard_by_set = {
         str(row.get("set_id")): row
         for row in dashboard_snapshots
         if str(row.get("window_key") or "365d").lower() == "365d"
     }
-    missing, stale, published = [], [], []
+    missing, stale, mismatched, published = [], [], [], []
     dashboard_index_available_ids: List[str] = []
-    invalid_market_index_ids: List[str] = []
+    missing_market_index_ids: List[str] = []
     stale_optional_dashboard_ids: List[str] = []
     generation = []
 
     for pokemon_set in eligible:
         set_id = str(pokemon_set.get("id") or pokemon_set.get("set_id") or "")
         canonical = _points_through(canonical_histories.get(set_id) or [], target_market_date)
-        if not canonical:
-            missing.append(set_id)
-            continue
-        if canonical[-1]["date"] != target_market_date:
-            stale.append({"setId": set_id, "canonicalDate": canonical[-1]["date"]})
-            continue
-
         dashboard = dashboard_by_set.get(set_id)
         prepared_index = None
-        if dashboard:
+
+        if market_authority_mode:
+            # New production contract: certification + canonical root-set history
+            # are Set Value authority. Dashboard data is optional enrichment only.
+            if not canonical:
+                missing.append(set_id)
+                continue
+            if canonical[-1]["date"] != target_market_date:
+                stale.append({"setId": set_id, "canonicalDate": canonical[-1]["date"]})
+                continue
+            if dashboard:
+                dashboard_date = _text(dashboard.get("latest_market_date"))
+                if dashboard_date == target_market_date:
+                    cards_market = dashboard.get("cardsMarket") if isinstance(dashboard.get("cardsMarket"), Mapping) else {}
+                    candidate_index = cards_market.get("marketIndex") if isinstance(cards_market.get("marketIndex"), Mapping) else None
+                    if candidate_index is not None:
+                        dashboard_index_available_ids.append(set_id)
+                        if (_number(candidate_index.get("currentValue")) is None
+                                or not isinstance(candidate_index.get("movements"), Mapping)
+                                or _text(candidate_index.get("asOf")) != target_market_date):
+                            missing_market_index_ids.append(set_id)
+                        else:
+                            prepared_index = candidate_index
+                else:
+                    stale_optional_dashboard_ids.append(set_id)
+        else:
+            # Legacy compatibility path retained for existing callers/tests.
+            histories = dashboard.get("set_value_histories_json") if dashboard else None
+            prepared = _points((histories or {}).get("standard") if isinstance(histories, Mapping) else [])
+            if not dashboard or not canonical or not prepared:
+                missing.append(set_id)
+                continue
             dashboard_date = _text(dashboard.get("latest_market_date"))
-            if dashboard_date == target_market_date:
-                cards_market = dashboard.get("cardsMarket") if isinstance(dashboard.get("cardsMarket"), Mapping) else {}
-                candidate_index = cards_market.get("marketIndex") if isinstance(cards_market.get("marketIndex"), Mapping) else None
-                if candidate_index is not None:
-                    dashboard_index_available_ids.append(set_id)
-                    if (_number(candidate_index.get("currentValue")) is None
-                            or not isinstance(candidate_index.get("movements"), Mapping)
-                            or _text(candidate_index.get("asOf")) != target_market_date):
-                        invalid_market_index_ids.append(set_id)
-                    else:
-                        prepared_index = candidate_index
-            else:
-                stale_optional_dashboard_ids.append(set_id)
+            if dashboard_date != target_market_date or canonical[-1]["date"] != target_market_date:
+                stale.append({"setId": set_id, "dashboardDate": dashboard_date, "canonicalDate": canonical[-1]["date"]})
+                continue
+            if prepared[-1]["date"] != canonical[-1]["date"] or abs(prepared[-1]["value"] - canonical[-1]["value"]) > 0.005:
+                mismatched.append({"setId": set_id, "prepared": prepared[-1], "canonical": canonical[-1]})
+                continue
+            cards_market = dashboard.get("cardsMarket") if isinstance(dashboard.get("cardsMarket"), Mapping) else {}
+            candidate_index = cards_market.get("marketIndex") if isinstance(cards_market.get("marketIndex"), Mapping) else None
+            if candidate_index is not None:
+                dashboard_index_available_ids.append(set_id)
+                if (_number(candidate_index.get("currentValue")) is None
+                        or not isinstance(candidate_index.get("movements"), Mapping)):
+                    missing_market_index_ids.append(set_id)
+                    continue
+                if _text(candidate_index.get("asOf")) != target_market_date:
+                    stale.append({"setId": set_id, "dashboardDate": dashboard_date,
+                                  "indexDate": _text(candidate_index.get("asOf"))})
+                    continue
+                prepared_index = candidate_index
 
         windows = compute_window_movements(canonical)
         current = canonical[-1]
@@ -268,30 +292,41 @@ def build_global_set_value_row(
         "publishedSetCount": len(published),
         "dashboardMarketIndexAvailableCount": len(dashboard_index_available_ids),
         "publishedMarketIndexCount": published_index_count,
-        "invalidOptionalMarketIndexSetIds": sorted(set(invalid_market_index_ids)),
+        "missingMarketIndexSetIds": sorted(set(missing_market_index_ids)),
+        "invalidOptionalMarketIndexSetIds": sorted(set(missing_market_index_ids)) if market_authority_mode else [],
         "staleOptionalDashboardSetIds": sorted(set(stale_optional_dashboard_ids)),
         "missingSets": missing,
         "staleSets": stale,
-        "mismatchedSets": [],
+        "mismatchedSets": mismatched,
         "marketDate": target_market_date,
         "publisherBuildSha": _text(publisher_build_sha) or "unknown",
+        "marketAuthorityMode": market_authority_mode,
     }
-    if missing or stale or len(published) != len(eligible):
-        raise ExploreSetValueUnavailable(
-            "certified Market Set Value histories are incomplete or stale",
-            diagnostics=diagnostics,
+
+    if market_authority_mode:
+        blocked = bool(missing or stale or mismatched or len(published) != len(eligible))
+        error_message = "certified Market Set Value histories are incomplete or stale"
+    else:
+        blocked = bool(
+            missing or stale or mismatched or missing_market_index_ids
+            or published_index_count != len(dashboard_index_available_ids)
+            or len(published) != len(eligible)
         )
+        error_message = "eligible Market Set Value sources are incomplete or disagree"
+    if blocked:
+        raise ExploreSetValueUnavailable(error_message, diagnostics=diagnostics)
 
     published.sort(key=lambda row: (-row["currentSetValue"], str(row["name"] or row["setId"])))
     built_at = built_at or datetime.now(timezone.utc).isoformat()
     index_generation = str((market_overview or {}).get("sourceGenerationFingerprint") or "")
     fingerprint = hashlib.sha256("\n".join([target_market_date, *sorted(generation), index_generation]).encode()).hexdigest()
+    source_name = "canonical_root_set_market_history_v1" if market_authority_mode else "canonical_standard_set_value_history"
     payload = {
         "marketOverview": dict(market_overview) if market_overview is not None else None,
         "sets": published,
         "meta": {
             "snapshot": {"builtAt": built_at, "marketDate": target_market_date},
-            "source": "canonical_root_set_market_history_v1",
+            "source": source_name,
             "windowSemantics": "marketDeltaWindows_v1",
             "publisherBuildSha": diagnostics["publisherBuildSha"],
             "publicationDiagnostics": {
@@ -300,10 +335,12 @@ def build_global_set_value_row(
                     "eligibleSetCount",
                     "dashboardMarketIndexAvailableCount",
                     "publishedMarketIndexCount",
+                    "missingMarketIndexSetIds",
                     "invalidOptionalMarketIndexSetIds",
                     "staleOptionalDashboardSetIds",
                     "marketDate",
                     "publisherBuildSha",
+                    "marketAuthorityMode",
                 )
             },
             "trendPointLimit": MAX_TREND_POINTS,
