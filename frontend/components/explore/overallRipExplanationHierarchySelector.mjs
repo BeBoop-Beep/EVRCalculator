@@ -14,7 +14,18 @@
 // render for whichever shape actually arrives, so it needed no code change at
 // cutover time: a generic/current payload now naturally carries V12 data (via
 // the additive `publicRipContractV11`/`overallRipV12` block), and this
-// selector renders 86/4/10 for it exactly as it always would have.
+// selector renders the presentation-safe V12 hierarchy for it exactly as it
+// always would have.
+//
+// CRITICAL DISCLOSURE RULE (UI-1 standardization pass)
+// ------------------------------------------------------
+// This selector never renders scoring-weight percentages (no "86%", "4%",
+// "10%", "90%", "95.56%", "4.44%") in any headline/copy field. Weight
+// fractions remain available on the returned `weights` /
+// `internalFinancialShare` / `internalAccessibilityShare` fields for
+// non-UI/internal consumers (audit payloads, historical tooling) but no
+// render surface may turn them into visible text. See
+// docs/research/OVERALL_RIP_V12_UI_STANDARDIZATION.md.
 //
 // A SURFACE MUST NEVER EXPLAIN ONE VERSION'S DATA WITH THE OTHER'S WEIGHTS
 // --------------------------------------------------------------------------
@@ -67,15 +78,6 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function formatWeightPercent(weight) {
-  const parsed = toNumber(weight);
-  if (parsed === null) return "—";
-  // Weights are decimal fractions (0.86, 0.04, 0.10, …). Rendered to whole
-  // percent for the headline sentence; the exact fraction remains available on
-  // the returned `weights` object for any surface that needs more precision.
-  return `${Math.round(parsed * 100)}%`;
-}
-
 // The approved copy (Prompt closure, locked). Any surface rendering the Overall
 // RIP explanation must source these strings from here rather than re-authoring
 // them, so a future edit cannot drift one render site from another.
@@ -85,6 +87,15 @@ export const MARKET_BASED_PUBLIC_QUESTION =
 export const MARKET_BASED_LABEL = "Market-Based Opening Quality";
 export const MARKET_BASED_EXPLANATORY_NOTE =
   "Explanatory grouping only — not an independent third pillar and never persisted as its own score.";
+
+// PRESENTATION-SAFE headline. Never renders a scoring-weight percentage — see
+// the CRITICAL DISCLOSURE RULE in the Overall RIP V12 UI standardization doc.
+// `internalFinancialShare` / `internalAccessibilityShare` / `marketBasedWeight`
+// / `collectorWeight` remain on the returned object for non-UI/internal
+// consumers (audit payloads, historical comparison tooling) but no render
+// surface may turn them into visible copy.
+const MARKET_BASED_HEADLINE =
+  "Market-Based Opening Quality combines Financial RIP with Chase Accessibility.";
 
 function buildMarketBasedGrouping(weights) {
   const financial = toNumber(weights.financial);
@@ -98,22 +109,14 @@ function buildMarketBasedGrouping(weights) {
     publicQuestion: MARKET_BASED_PUBLIC_QUESTION,
     explanatoryOnly: true,
     note: MARKET_BASED_EXPLANATORY_NOTE,
-    // The 90%/10% outer split, DERIVED (not hand-typed) from the supplied
-    // weights.
+    // Internal/diagnostic only — never rendered as public copy. Kept for
+    // historical/audit consumers that need the derived split.
     marketBasedWeight,
     collectorWeight: collector,
-    // The 95.5556%/4.4444% internal split within Market-Based, likewise
-    // derived by division rather than restated as a literal.
     internalFinancialShare: financial / marketBasedWeight,
     internalAccessibilityShare: accessibility / marketBasedWeight,
-    headline: `${Math.round(marketBasedWeight * 100)}% Market-Based + ${Math.round(
-      collector * 100
-    )}% Collector Appeal`,
-    internalHeadline: `${(100 * (financial / marketBasedWeight)).toFixed(
-      2
-    )}% Financial RIP V4 + ${(100 * (accessibility / marketBasedWeight)).toFixed(
-      2
-    )}% Chase Accessibility Score`,
+    // Presentation-safe: no percentages, no weight disclosure.
+    headline: MARKET_BASED_HEADLINE,
   };
 }
 
@@ -133,11 +136,12 @@ function buildV12Explanation(source) {
   const score = toNumber(overallV12.score);
   const available = status === "ready" && score !== null;
 
+  // PRESENTATION-SAFE headline — never a weight-percentage sentence. See the
+  // CRITICAL DISCLOSURE RULE: no "86% Financial RIP + 4% Chase Accessibility
+  // + 10% Collector Appeal" style copy on normal user-facing surfaces.
   const headline =
     weights.financial !== null && weights.chaseAccessibility !== null && weights.collectorAppeal !== null
-      ? `${formatWeightPercent(weights.financial)} Financial RIP V4 + ${formatWeightPercent(
-          weights.chaseAccessibility
-        )} Chase Accessibility Score + ${formatWeightPercent(weights.collectorAppeal)} Collector Appeal V5`
+      ? "Overall RIP combines Market-Based Opening Quality with Collector Appeal."
       : null;
 
   return {
@@ -180,7 +184,9 @@ function buildV10Explanation(canonicalOverallBlock) {
     weights: { financial: 0.9, chaseAccessibility: null, collectorAppeal: 0.1 },
     effectiveWeights: { chaseAccessibility: null },
     publicQuestion: OVERALL_RIP_PUBLIC_QUESTION,
-    headline: "90% Financial RIP V4 + 10% Collector Appeal V5",
+    // PRESENTATION-SAFE: neutral wording, no weight-percentage disclosure
+    // (V10's 90/10 split stays internal, same disclosure rule as V12).
+    headline: "Overall RIP combines Financial RIP with Collector Appeal.",
     // NEVER shown for V10: Chase Accessibility is not an Overall RIP V10 input,
     // so there is no Market-Based grouping to derive.
     marketBased: null,

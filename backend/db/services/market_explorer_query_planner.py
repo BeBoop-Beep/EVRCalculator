@@ -62,6 +62,10 @@ class MarketExplorerBuildInProgress(RuntimeError):
     """Another worker owns the bounded build lease and has not published yet."""
 
 
+class MarketExplorerPublishFailed(RuntimeError):
+    """The persistent cache write did not commit; the build must not report success."""
+
+
 @dataclass(frozen=True)
 class PublicationGeneration:
     canonical_through: str
@@ -184,7 +188,8 @@ class PersistentMarketExplorerCache:
             else:
                 rows = list((self.client.table(CACHE_TABLE).select(
                     "query_fingerprint,status,computed_from,computed_through,series_payload,"
-                    "current_constituents,build_token,build_expires_at"
+                    "current_constituents,build_token,build_expires_at,"
+                    "query_contract_version,service_version,instrument_methodology_version"
                 ).eq("query_fingerprint", fingerprint).limit(1).execute()).data or [])
                 if rows and rows[0].get("status") == "ready":
                     payload = dict(rows[0].get("series_payload") or {})
@@ -343,6 +348,46 @@ def merge_incremental_result(cached: Mapping[str, Any], delta: Mapping[str, Any]
     return result
 
 
+def _is_recoverable_failed_base(
+    row: Mapping[str, Any] | None,
+    spec: Mapping[str, Any],
+    generation: PublicationGeneration,
+) -> bool:
+    """A ``status='failed'`` row usable ONLY as an incremental build base.
+
+    Never makes a failed row servable as a cache hit -- see the ``status ==
+    'ready'`` gate in ``execute()``, which this helper does not touch. A
+    failed row qualifies as a last-good build base when its persisted
+    payload is real, its versions are compatible with the currently
+    requested spec, and it is not stale relative to the latest known
+    repair generation (an unknown/untrusted generation fails closed, the
+    same posture the rest of this module takes for repair freshness).
+    """
+    if not row or row.get("status") != "failed":
+        return False
+    if not generation.trusted:
+        return False
+    if not row.get("computed_through"):
+        return False
+    series_payload = row.get("series_payload")
+    if not series_payload or not series_payload.get("trend"):
+        return False
+    asset = str(spec["asset"])
+    if row.get("query_contract_version") not in (None, MARKET_EXPLORER_QUERY_CONTRACT_VERSION):
+        return False
+    if row.get("service_version") not in (None, MARKET_EXPLORER_SERVICE_VERSIONS.get(asset)):
+        return False
+    if row.get("instrument_methodology_version") not in (
+            None, MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS.get(asset)):
+        return False
+    # No active competing build lease: a genuinely failed row always has its
+    # lease columns cleared by fail_pokemon_market_explorer_query_cache_build,
+    # so any non-null token here means another worker currently owns it.
+    if row.get("build_token") or row.get("build_expires_at"):
+        return False
+    return True
+
+
 class MarketExplorerQueryPlanner:
     def __init__(self, *, l1: MarketExplorerL1Cache | None = None,
                  metrics: PlannerMetrics | None = None,
@@ -431,12 +476,17 @@ class MarketExplorerQueryPlanner:
 
         # status=stale is the historical-repair signal and must rebuild from
         # source. A normal forward publication leaves the prior row ready but
-        # behind the canonical watermark, which is safe to append.
+        # behind the canonical watermark, which is safe to append. A
+        # status=failed row whose payload/versions/generation are still
+        # trustworthy (see _is_recoverable_failed_base) is likewise a safe
+        # incremental base -- it is never returned as a cache hit above, only
+        # used here to avoid an unnecessary full historical cold rebuild.
         build_row = read_cache(full=True) if summary else row
+        recoverable_failed_base = _is_recoverable_failed_base(build_row, spec, generation)
         previous = (
             str(build_row.get("computed_through"))[:10]
-            if build_row and build_row.get("status") == "ready"
-            and build_row.get("series_payload") else None
+            if build_row and build_row.get("series_payload")
+            and (build_row.get("status") == "ready" or recoverable_failed_base) else None
         )
         try:
             delta = novel_builder(previous, through)
@@ -449,6 +499,9 @@ class MarketExplorerQueryPlanner:
                 source = str(engine or "novel_interval")
             if won is True and not persistent.publish(fingerprint=fingerprint, token=token, payload=payload):
                 self.metrics.record("cache_build_failures", 0)
+                raise MarketExplorerPublishFailed(
+                    f"market_explorer_cache_publish_returned_false fingerprint={fingerprint[:12]}"
+                )
             if generation.trusted:
                 self.l1.put(l1_key, generation, response(payload))
             return self._done(started, source, response(payload))

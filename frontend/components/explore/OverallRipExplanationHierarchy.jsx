@@ -3,10 +3,13 @@
 // Overall RIP explanation hierarchy — ONE shared, version-aware component.
 //
 // Renders the view model produced by `overallRipExplanationHierarchySelector.mjs`.
-// V10 data renders "90% Financial RIP V4 + 10% Collector Appeal V5" with no
-// Accessibility claim. V12/publicRipContractV11 data renders
-// "86% Financial RIP V4 + 4% Chase Accessibility Score + 10% Collector Appeal
-// V5", with an OPTIONAL Market-Based Opening Quality explanatory grouping.
+// PRESENTATION-SAFE: no scoring-weight percentages are ever rendered here (no
+// "86%/4%/10%" or "90%/10%" style copy) — see the CRITICAL DISCLOSURE RULE in
+// docs/research/OVERALL_RIP_V12_UI_STANDARDIZATION.md. V10 data renders
+// "Overall RIP combines Financial RIP with Collector Appeal." with no
+// Accessibility claim. V12/publicRipContractV11 data renders "Overall RIP
+// combines Market-Based Opening Quality with Collector Appeal.", with an
+// OPTIONAL Market-Based Opening Quality explanatory grouping.
 //
 // This is the ONLY Overall RIP explanation implementation in the frontend.
 // PokemonSetAnalysisClient.jsx (Set Analysis) and any future Product RIP V12
@@ -46,9 +49,6 @@ export default function OverallRipExplanationHierarchy({ sources = [] }) {
           <p className="text-xs font-semibold text-[var(--text-primary)]">{explanation.marketBased.label}</p>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">{explanation.marketBased.publicQuestion}</p>
           <p className="mt-2 text-xs text-[var(--text-primary)]">{explanation.marketBased.headline}</p>
-          <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-            {explanation.marketBased.internalHeadline}
-          </p>
           <p className="mt-2 text-[10px] italic text-[var(--text-secondary)]">{explanation.marketBased.note}</p>
         </div>
       ) : null}

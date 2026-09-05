@@ -7,6 +7,7 @@ import pytest
 from backend.db.services.market_explorer_query_planner import (
     MarketExplorerBuildInProgress,
     MarketExplorerL1Cache,
+    MarketExplorerPublishFailed,
     MarketExplorerQueryPlanner,
     PersistentMarketExplorerCache,
     PreparedEquivalenceRegistry,
@@ -18,6 +19,9 @@ from backend.db.services.market_explorer_query_planner import (
     resolve_canonical_through,
 )
 from backend.domain.pokemon.market_explorer_query import (
+    MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS,
+    MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
+    MARKET_EXPLORER_SERVICE_VERSIONS,
     MODE_ALL,
     MODE_CHASE,
     normalize_query_spec,
@@ -52,7 +56,7 @@ class FakePersistent:
         self.read_error = read_error
         self.calls = []
 
-    def read(self, fingerprint):
+    def read(self, fingerprint, summary=False):
         self.calls.append("read")
         if self.read_error:
             return None
@@ -371,16 +375,20 @@ def test_historical_repair_stale_status_forces_full_rebuild():
     assert result.execution_source == "novel_interval"
 
 
-def test_miss_builds_once_and_cache_write_failure_does_not_fail_response():
+def test_miss_builds_once_and_cache_write_failure_propagates_as_publish_failed():
+    # Intentionally changed behavior: a publish() that returns False used to
+    # be swallowed as a "best effort" cache write and still reported success.
+    # It is now a real, propagated failure -- the caller must be able to tell
+    # the cache did not durably persist, and the build lease must be released.
     spec = normalize_query_spec(mode=MODE_CHASE)
     persistent = FakePersistent(publish=False)
     builds = []
-    result = planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
-        persistent=persistent, canonical_through=lambda: "2026-08-28",
-        novel_builder=lambda *_: builds.append(True) or payload())
-    assert result.payload["asOf"] == "2026-08-28"
+    with pytest.raises(MarketExplorerPublishFailed):
+        planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+            persistent=persistent, canonical_through=lambda: "2026-08-28",
+            novel_builder=lambda *_: builds.append(True) or payload())
     assert builds == [True]
-    assert persistent.calls == ["generation", "read", "claim", "publish"]
+    assert persistent.calls == ["generation", "read", "claim", "publish", "fail"]
 
 
 def test_follower_never_launches_duplicate_build_while_lease_is_active():
@@ -635,3 +643,300 @@ def test_two_workers_cannot_serve_old_l1_when_one_generation_read_fails():
     )
     assert known.payload["indexValue"] == 111.0
     assert unknown.payload["indexValue"] == 112.0
+
+
+# --- Recoverable failed-base lifecycle (Global All Raw stuck-failed recovery) ---
+
+_UNSET = object()
+
+
+def _failed_global_row(asset="cards", *, through="2026-09-02",
+                        series_payload=_UNSET, query_contract_version=None,
+                        service_version=None, instrument_methodology_version=None,
+                        build_token=None, build_expires_at=None):
+    return {
+        "status": "failed",
+        "computed_from": "2026-04-07",
+        "computed_through": through,
+        "series_payload": (
+            payload(through, start="2026-04-07") if series_payload is _UNSET else series_payload
+        ),
+        "query_contract_version": (
+            MARKET_EXPLORER_QUERY_CONTRACT_VERSION if query_contract_version is None
+            else query_contract_version
+        ),
+        "service_version": (
+            MARKET_EXPLORER_SERVICE_VERSIONS[asset] if service_version is None else service_version
+        ),
+        "instrument_methodology_version": (
+            MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS[asset]
+            if instrument_methodology_version is None else instrument_methodology_version
+        ),
+        "build_token": build_token,
+        "build_expires_at": build_expires_at,
+    }
+
+
+def test_failed_row_with_valid_last_good_artifact_is_recoverable_build_base():
+    """1. A failed row with a valid, version-compatible payload is a usable base."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(_failed_global_row(through="2026-09-02"))
+    ranges = []
+    result = planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-09-03",
+        novel_builder=lambda start, end: ranges.append((start, end)) or
+            payload("2026-09-03", start="2026-09-02"))
+    assert ranges == [("2026-09-02", "2026-09-03")]
+    assert result.execution_source.startswith("cache_incremental")
+
+
+def test_failed_row_is_never_returned_as_a_persistent_cache_hit():
+    """2. status='failed' must never short-circuit as a servable cache hit."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(_failed_global_row(through="2026-09-03"))
+    result = planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-09-03",
+        novel_builder=lambda start, end: payload("2026-09-03", start="2026-09-02"))
+    assert result.execution_source != "persistent_cache"
+
+
+def test_builder_receives_recoverable_failed_previous_not_none():
+    """3. The builder receives previous='2026-09-02', not a cold-rebuild None."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(_failed_global_row(through="2026-09-02"))
+    seen = []
+    planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-09-03",
+        novel_builder=lambda start, end: seen.append(start) or
+            payload("2026-09-03", start="2026-09-02"))
+    assert seen == ["2026-09-02"]
+
+
+def test_successful_recovery_publishes_ready_through_new_watermark():
+    """4. A successful recovery build publishes status='ready' through D."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(_failed_global_row(through="2026-09-02"))
+    planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-09-03",
+        novel_builder=lambda start, end: payload("2026-09-03", start="2026-09-02"))
+    assert persistent.row["status"] == "ready"
+    assert str(persistent.row["computed_through"])[:10] == "2026-09-03"
+
+
+def test_failed_row_with_no_payload_is_not_recoverable():
+    """5. A failed row with no persisted payload cannot seed an incremental build."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    row = _failed_global_row(series_payload=None)
+    persistent = FakePersistent(row)
+    ranges = []
+    planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-09-03",
+        novel_builder=lambda start, end: ranges.append(start) or payload("2026-09-03"))
+    assert ranges == [None]
+
+
+def test_failed_row_with_no_computed_through_is_not_recoverable():
+    """6. A failed row missing computed_through cannot seed an incremental build."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    row = _failed_global_row()
+    row["computed_through"] = None
+    persistent = FakePersistent(row)
+    ranges = []
+    planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-09-03",
+        novel_builder=lambda start, end: ranges.append(start) or payload("2026-09-03"))
+    assert ranges == [None]
+
+
+def test_incompatible_service_version_is_not_recoverable():
+    """7. A version-incompatible failed row must fail closed to a cold rebuild."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    row = _failed_global_row(service_version="pokemon-market-explorer-cards-v0-ancient")
+    persistent = FakePersistent(row)
+    ranges = []
+    planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-09-03",
+        novel_builder=lambda start, end: ranges.append(start) or payload("2026-09-03"))
+    assert ranges == [None]
+
+
+def test_untrusted_repair_generation_makes_failed_row_unrecoverable():
+    """8. An unknown/invalidated repair generation must not recover a failed row."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(_failed_global_row(), generation_error=True)
+    ranges = []
+    planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-09-03",
+        novel_builder=lambda start, end: ranges.append(start) or payload("2026-09-03"))
+    assert ranges == [None]
+
+
+class LifecyclePersistent:
+    """Mirrors the real RPC contract: claim/fail never clear series_payload."""
+
+    def __init__(self, row):
+        self.row = copy.deepcopy(row)
+        self.calls = []
+        self.publish_result = True
+
+    def read(self, fingerprint, summary=False):
+        self.calls.append("read")
+        return copy.deepcopy(self.row)
+
+    def claim(self, **kwargs):
+        self.calls.append("claim")
+        # claim_pokemon_market_explorer_query_cache_build only ever touches
+        # status/build_* columns -- computed_through/series_payload survive.
+        if self.row is None:
+            self.row = {"status": "building"}
+        else:
+            self.row["status"] = "building"
+        return True
+
+    def publish(self, **kwargs):
+        self.calls.append("publish")
+        if not self.publish_result:
+            return False
+        self.row.update({
+            "status": "ready",
+            "computed_through": kwargs["payload"]["asOf"],
+            "series_payload": copy.deepcopy(kwargs["payload"]),
+        })
+        return True
+
+    def fail(self, **kwargs):
+        self.calls.append("fail")
+        # fail_pokemon_market_explorer_query_cache_build only clears
+        # status/build_* columns -- the prior ready payload is untouched.
+        if self.row is None:
+            self.row = {"status": "failed"}
+        else:
+            self.row["status"] = "failed"
+
+    def repair_generation(self, _asset):
+        self.calls.append("generation")
+        return 0
+
+
+def test_ready_cache_refresh_failure_retains_last_good_ready_artifact():
+    """9. A ready cache whose refresh fails keeps its last-good payload intact."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    good_payload = payload("2026-09-02", start="2026-04-07")
+    persistent = LifecyclePersistent({
+        "status": "ready", "computed_from": "2026-04-07", "computed_through": "2026-09-02",
+        "series_payload": good_payload,
+        "query_contract_version": MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
+        "service_version": MARKET_EXPLORER_SERVICE_VERSIONS["cards"],
+        "instrument_methodology_version": MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS["cards"],
+        "build_token": None, "build_expires_at": None,
+    })
+    persistent.publish_result = False
+
+    def failing_builder(start, end):
+        raise RuntimeError("57014 statement timeout")
+
+    with pytest.raises(RuntimeError, match="57014"):
+        planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+            persistent=persistent, canonical_through=lambda: "2026-09-03",
+            novel_builder=failing_builder)
+
+    assert persistent.row["status"] == "failed"
+    assert persistent.row["computed_through"] == "2026-09-02"
+    assert persistent.row["series_payload"] == good_payload
+
+
+def test_never_successful_cache_may_remain_failed_without_fabricated_ready():
+    """10. A cache with no prior ready publish stays failed; no ready state is invented."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = LifecyclePersistent(None)
+
+    def failing_builder(start, end):
+        raise RuntimeError("cold build failed")
+
+    with pytest.raises(RuntimeError, match="cold build failed"):
+        planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+            persistent=persistent, canonical_through=lambda: "2026-09-03",
+            novel_builder=failing_builder)
+
+    # No row was ever published ready -- fail() marks the attempt failed, it
+    # never fabricates a ready artifact from nothing.
+    assert persistent.row["status"] == "failed"
+    assert "series_payload" not in persistent.row
+
+
+def test_publish_false_raises_and_releases_the_build_lease():
+    """11 & 13. publish()->False raises, and fail() releases the lease so a
+    later attempt is free to claim again."""
+    spec = normalize_query_spec(mode=MODE_CHASE)
+    persistent = FakePersistent(publish=False)
+    with pytest.raises(MarketExplorerPublishFailed):
+        planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+            persistent=persistent, canonical_through=lambda: "2026-08-28",
+            novel_builder=lambda *_: payload())
+    assert persistent.calls[-1] == "fail"
+
+    # Lease released -> a subsequent build attempt can claim and succeed.
+    persistent.publish_result = True
+    persistent.calls = []
+    result = planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-08-28",
+        novel_builder=lambda *_: payload())
+    assert result.execution_source == "novel_interval"
+    assert "claim" in persistent.calls
+
+
+def test_publish_false_never_produces_a_successful_planner_result():
+    """12. No PlannerResult / execution_source can be observed from a False publish."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(publish=False)
+    result_holder = {}
+    try:
+        result_holder["value"] = planner().execute(
+            spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+            canonical_through=lambda: "2026-08-28", novel_builder=lambda *_: payload(),
+        )
+    except MarketExplorerPublishFailed:
+        pass
+    assert "value" not in result_holder
+
+
+def test_recovered_build_republishes_normalized_constituent_detail():
+    """14. A recovered build's payload still carries currentConstituents intact."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(_failed_global_row(through="2026-09-02"))
+    result = planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-09-03",
+        novel_builder=lambda start, end: payload("2026-09-03", start="2026-09-02"))
+    assert result.payload["currentConstituents"] == [{"cardVariantId": "variant-1"}]
+    assert persistent.row["series_payload"]["currentConstituents"] == [
+        {"cardVariantId": "variant-1"},
+    ]
+
+
+def test_existing_l1_l2_cache_hit_semantics_unchanged_regression():
+    """15. Fresh ready L2 still short-circuits to persistent_cache and warms L1."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent({"status": "ready", "computed_through": "2026-08-28",
+                                 "series_payload": payload()})
+    instance = planner()
+    result = instance.execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-08-28",
+        novel_builder=lambda *_: pytest.fail("novel"))
+    assert result.execution_source == "persistent_cache"
+    assert instance.l1.get(
+        query_fingerprint(spec), PublicationGeneration("2026-08-28")
+    )["asOf"] == "2026-08-28"
+
+
+def test_existing_stale_status_still_forces_full_rebuild_not_recovery():
+    """16. status='stale' (historical-repair signal) is unaffected by the new
+    failed-row recovery path and still forces a full rebuild."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent({"status": "stale", "computed_through": "2026-08-28",
+                                 "series_payload": payload()})
+    ranges = []
+    result = planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+        persistent=persistent, canonical_through=lambda: "2026-08-28",
+        novel_builder=lambda start, end: ranges.append((start, end)) or payload())
+    assert ranges == [(None, "2026-08-28")]
+    assert result.execution_source == "novel_interval"

@@ -6474,14 +6474,16 @@ function RipScoreBreakdownModule({
           overallBadges={<HeroScoreBadges rank={rankValue} tier={rankTier} cohortSize={cohortSize} />}
         />
 
-        {/* Version-aware Overall RIP explanation (Phase 3/10 shared component).
+        {/* Version-aware Overall RIP explanation (Phase 3/10 shared component;
+            presentation-safe per the UI-1 standardization pass — no scoring
+            weight percentages are ever rendered here).
             Reads whichever contract shape `canonical` actually carries: the
             current production reality is a V10-only payload, so this renders
-            the truthful "90% Financial RIP V4 + 10% Collector Appeal V5"
-            explanation with no Accessibility claim. If a future fetch attaches
-            an explicit `publicRipContractV11`/`overallRipV12` shape, the SAME
-            component renders the V12 explanation instead — no second
-            implementation, no frontend arithmetic. */}
+            "Overall RIP combines Financial RIP with Collector Appeal." with
+            no Accessibility claim. If a future fetch attaches an explicit
+            `publicRipContractV11`/`overallRipV12` shape, the SAME component
+            renders the V12 explanation instead — no second implementation,
+            no frontend arithmetic. */}
         <div className="mt-4 min-w-0">
           <OverallRipExplanationHierarchy sources={rawSources} />
         </div>

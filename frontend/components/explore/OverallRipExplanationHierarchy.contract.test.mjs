@@ -77,25 +77,29 @@ const AMBIENT_BOTH_VERSIONS_SOURCE = {
   overallRipV12Composition: V12_CONTRACT_SOURCE.publicRipContractV11.overallRipV12Composition,
 };
 
-test("A: V10-only data renders the 90/10 explanation and never claims Accessibility", () => {
+test("A: V10-only data renders a presentation-safe explanation and never claims Accessibility", () => {
   const explanation = selectOverallRipExplanationHierarchy(V10_ONLY_SOURCE);
   assert.equal(explanation.version, "v10");
   assert.equal(explanation.canonical, true);
-  assert.equal(explanation.headline, "90% Financial RIP V4 + 10% Collector Appeal V5");
+  assert.equal(explanation.headline, "Overall RIP combines Financial RIP with Collector Appeal.");
   assert.equal(explanation.marketBased, null);
   assert.equal(/accessibility/i.test(explanation.headline), false);
 });
 
-test("A: explicit V12 contract data renders 86/4/10 with an optional Market-Based grouping", () => {
+test("A: explicit V12 contract data renders a presentation-safe headline with an optional Market-Based grouping", () => {
   const explanation = selectOverallRipExplanationHierarchy(V12_CONTRACT_SOURCE);
   assert.equal(explanation.version, "v12");
   assert.equal(explanation.canonical, false);
   assert.equal(
     explanation.headline,
-    "86% Financial RIP V4 + 4% Chase Accessibility Score + 10% Collector Appeal V5"
+    "Overall RIP combines Market-Based Opening Quality with Collector Appeal."
   );
   assert.ok(explanation.marketBased);
   assert.equal(explanation.marketBased.explanatoryOnly, true);
+  assert.equal(
+    explanation.marketBased.headline,
+    "Market-Based Opening Quality combines Financial RIP with Chase Accessibility."
+  );
 });
 
 test("B: Market-Based grouping is mathematically consistent and explanatory-only, never its own persisted score", () => {
@@ -115,7 +119,7 @@ test("B: Market-Based grouping is mathematically consistent and explanatory-only
 test("J: shadow safety — a generic fixture carrying BOTH versions still resolves V10 until the caller explicitly opts into the V11 contract", () => {
   const explanation = selectOverallRipExplanationHierarchy(AMBIENT_BOTH_VERSIONS_SOURCE);
   assert.equal(explanation.version, "v10");
-  assert.equal(explanation.headline, "90% Financial RIP V4 + 10% Collector Appeal V5");
+  assert.equal(explanation.headline, "Overall RIP combines Financial RIP with Collector Appeal.");
 });
 
 test("J: an explicit V11-contract fixture renders the V12 explanation", () => {
@@ -127,6 +131,26 @@ test("never explains V10 data with V12 weights: V10-only headline never contains
   const explanation = selectOverallRipExplanationHierarchy(V10_ONLY_SOURCE);
   assert.equal(/86%/.test(explanation.headline), false);
   assert.equal(/\b4%\b/.test(explanation.headline), false);
+});
+
+// PERMANENT CONTRACT (Phase 7/10-B): the current V12 presentation must never
+// emit any locked scoring-weight percentage, in either the Overall headline
+// or the Market-Based grouping, for any available explanation.
+test("PERMANENT: no locked scoring-weight percentages anywhere in V12 or V10 presentation output", () => {
+  const forbidden = ["86%", "4%", "10%", "90%", "95.56", "4.44"];
+  const v12 = selectOverallRipExplanationHierarchy(V12_CONTRACT_SOURCE);
+  const v10 = selectOverallRipExplanationHierarchy(V10_ONLY_SOURCE);
+  const rendered = [
+    v12.headline,
+    v12.marketBased && v12.marketBased.headline,
+    v12.marketBased && v12.marketBased.note,
+    v10.headline,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  for (const token of forbidden) {
+    assert.equal(rendered.includes(token), false, `forbidden weight token "${token}" found in: ${rendered}`);
+  }
 });
 
 test("I: no frontend scoring — selector source never implements the V12 blend or the Accessibility transform", () => {
