@@ -3,9 +3,10 @@
 This is a market-domain job, separate from RIP/opening publication. Run it
 after the daily card-price scrape and before public Market snapshots are rebuilt.
 
-Dry-run is the default. ``--commit`` refreshes variant-price interval authority
-first. Certification always uses the latest READY/LEGACY_VERIFIED Pokemon market
-date, never wall-clock time.
+Dry-run is the default. ``--commit`` refreshes current physical-variant metadata
+first, then the variant-price interval authority, and finally audits current
+Set Value / Top-10 certification. Certification always uses the latest
+READY/LEGACY_VERIFIED Pokemon market date, never wall-clock time.
 
 Examples:
     python -m backend.scripts.run_pokemon_market_set_authority --commit
@@ -26,6 +27,7 @@ from backend.db.services.pokemon_market_explorer_query_service import resolve_tr
 
 READY_VIEW = "pokemon_market_root_set_market_ready_v1"
 BLOCKER_RPC = "get_pokemon_market_root_set_current_blockers_v1"
+CURRENT_METADATA_REFRESH_RPC = "refresh_pokemon_market_explorer_card_current_metadata"
 INTERVAL_REFRESH_RPC = "refresh_pokemon_card_variant_market_price_intervals_for_sets"
 DATE_QUALITY_TABLE = "pokemon_market_date_quality"
 SETS_TABLE = "sets"
@@ -67,6 +69,44 @@ def resolve_set_id(client: Any, set_name: str) -> str:
     if len(rows) != 1:
         raise RuntimeError(f"Expected exactly one set named {set_name!r}; found {len(rows)}")
     return str(rows[0]["id"])
+
+
+def market_member_set_ids(client: Any, root_set_id: str) -> list[str]:
+    """Root + children that contribute to the root Set Value universe."""
+    child_rows = _rows(
+        client.table(SETS_TABLE)
+        .select("id,parent_opening_set_id,counts_toward_parent_set_value,catalog_only")
+        .eq("parent_opening_set_id", root_set_id)
+        .eq("counts_toward_parent_set_value", True)
+        .eq("catalog_only", False)
+        .execute()
+    )
+    return [root_set_id, *sorted(str(row["id"]) for row in child_rows if row.get("id"))]
+
+
+def refresh_current_metadata(
+    client: Any,
+    *,
+    set_ids: Sequence[str],
+    commit: bool,
+) -> dict[str, Any]:
+    report: dict[str, Any] = {
+        "dry_run": not commit,
+        "set_count": len(set_ids),
+        "result": None,
+        "failure": None,
+    }
+    if not commit:
+        return report
+    try:
+        response = client.rpc(
+            CURRENT_METADATA_REFRESH_RPC,
+            {"p_set_ids": list(set_ids)},
+        ).execute()
+        report["result"] = getattr(response, "data", None)
+    except Exception as exc:  # noqa: BLE001 - one authoritative metadata projection
+        report["failure"] = str(exc)
+    return report
 
 
 def refresh_interval_authority(
@@ -163,14 +203,35 @@ def run(*, commit: bool, set_name: str | None, show_blockers: bool, chunk_size: 
         raise RuntimeError("No READY/LEGACY_VERIFIED Pokemon market date exists")
 
     selected_set_id = resolve_set_id(client, set_name) if set_name else None
-    # Reuse the already-accepted Market Explorer market-history cohort instead of
-    # inventing a second Pokemon-set filter here. Child subsets are included in
-    # that authority and root-set membership is handled by the DB publication views.
-    interval_set_ids = [selected_set_id] if selected_set_id else list(resolve_tracked_set_ids(client))
+    # Reuse the accepted Market Explorer market-history cohort globally. A
+    # focused root-set run expands to qualifying child subsets because those
+    # cards participate in the same parent Set Value / Top-10 universe.
+    authority_set_ids = (
+        market_member_set_ids(client, selected_set_id)
+        if selected_set_id
+        else list(resolve_tracked_set_ids(client))
+    )
+
+    metadata_report = refresh_current_metadata(
+        client,
+        set_ids=authority_set_ids,
+        commit=commit,
+    )
+    if metadata_report.get("failure"):
+        return {
+            "dry_run": not commit,
+            "canonical_market_date": market_date,
+            "set_name": set_name,
+            "metadata_refresh": metadata_report,
+            "interval_refresh": None,
+            "readiness": None,
+            "status": "metadata_refresh_failed",
+            "elapsed_seconds": round(time.monotonic() - started, 3),
+        }
 
     interval_report = refresh_interval_authority(
         client,
-        set_ids=interval_set_ids,
+        set_ids=authority_set_ids,
         commit=commit,
         chunk_size=chunk_size,
     )
@@ -179,8 +240,11 @@ def run(*, commit: bool, set_name: str | None, show_blockers: bool, chunk_size: 
         "dry_run": not commit,
         "canonical_market_date": market_date,
         "set_name": set_name,
+        "authority_set_count": len(authority_set_ids),
+        "metadata_refresh": metadata_report,
         "interval_refresh": interval_report,
         "readiness": summarize_readiness(readiness),
+        "status": "ok" if not interval_report.get("failures") else "interval_refresh_failed",
     }
 
     if show_blockers:
@@ -210,9 +274,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--commit",
         action="store_true",
-        help="Refresh variant-price interval authority before auditing. Without this flag the run is read-only.",
+        help=(
+            "Refresh current variant metadata and interval authority before auditing. "
+            "Without this flag the run is read-only."
+        ),
     )
-    parser.add_argument("--set-name", default=None, help="Audit one exact Pokemon set name.")
+    parser.add_argument("--set-name", default=None, help="Audit one exact Pokemon root set name.")
     parser.add_argument("--show-blockers", action="store_true", help="Include card-level blocker diagnostics.")
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_SET_CHUNK_SIZE)
     return parser
@@ -232,7 +299,7 @@ def main() -> int:
         return 2
 
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
-    return 1 if report["interval_refresh"].get("failures") else 0
+    return 0 if report.get("status") == "ok" else 1
 
 
 if __name__ == "__main__":
