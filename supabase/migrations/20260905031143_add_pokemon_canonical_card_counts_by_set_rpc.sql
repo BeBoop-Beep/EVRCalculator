@@ -27,4 +27,6 @@ COMMENT ON FUNCTION public.get_pokemon_canonical_card_counts_by_set(uuid[]) IS
     'Sets with zero canonical cards simply do not appear in the result and must be '
     'defaulted to 0 by the caller.';
 
+REVOKE ALL ON FUNCTION public.get_pokemon_canonical_card_counts_by_set(uuid[]) FROM PUBLIC, anon, authenticated;
+
 GRANT EXECUTE ON FUNCTION public.get_pokemon_canonical_card_counts_by_set(uuid[]) TO service_role;
