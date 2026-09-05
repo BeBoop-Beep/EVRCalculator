@@ -24,7 +24,10 @@ from backend.db.services.market_publication_gate import (
 )
 from backend.db.services.publication_gate import add_publication_gate_args, enforce_cli_publication_gate
 from backend.db.services.pokemon_market_index_service import read_index_history
-from backend.db.services.canonical_market_overview import build_canonical_market_overview
+from backend.db.services.canonical_market_overview import (
+    build_canonical_market_overview,
+    resolve_canonical_overview_sets,
+)
 from backend.scripts.pokemon_snapshot_builders import get_client
 
 MARKET_READY_VIEW = "pokemon_market_root_set_market_ready_v1"
@@ -149,6 +152,7 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
 
 
 def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
+    # Broad Set Value publication cohort: current, certified market data only.
     sets = _load_sets(client, market_date=market_date)
     set_ids = [str(row["id"]) for row in sets]
     if not set_ids:
@@ -158,9 +162,8 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         )
 
     dashboards = []
-    # Set dashboard rows are now optional/additive for Cards Market Index data;
-    # they are not Set Value authority. Read any available prepared rows in
-    # bounded batches, but absence cannot shrink the market-domain set cohort.
+    # Set dashboard rows are optional/additive for Cards Market Index data;
+    # they are not Set Value authority. Absence cannot shrink this cohort.
     for offset in range(0, len(set_ids), 20):
         result = (client.table("pokemon_set_market_dashboard_snapshot_latest")
             .select("set_id,window_key,set_value_histories_json,latest_market_date,updated_at,cardsMarket:payload_json->cardsMarket")
@@ -168,13 +171,22 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         dashboards.extend(result.data or [])
 
     histories = _load_canonical_histories(client, set_ids, through_date=market_date)
+
+    # The global Market Overview/index is a separate, already-published contract
+    # with its own cohort and strict parity audit. Expanding Set Value coverage
+    # must not silently redefine Raw/Top-Chase/Sealed index constituents here.
     overview = market_overview
     if overview is None:
         history = market_index_history
         if history is None:
             history = read_index_history(client, through_date=market_date)
+        overview_sets = resolve_canonical_overview_sets(client, market_date=market_date)
+        overview_set_ids = [str(row["id"]) for row in overview_sets]
         overview = build_canonical_market_overview(
-            client, market_date=market_date, history=history, set_ids=set_ids,
+            client,
+            market_date=market_date,
+            history=history,
+            set_ids=overview_set_ids,
         )
 
     row = build_global_set_value_row(
