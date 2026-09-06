@@ -1,0 +1,1 @@
+-- Local CLI history bridge only. Remote migration already applied: promote_compact_v2_market_shadow_candidate.
