@@ -45,6 +45,12 @@ export function normalizePokemonSetInsightsCriticalPayload(payload) {
     financialRipV4: toPlainObject(payload?.financialRipV4),
     overallRipV10: toPlainObject(payload?.overallRipV10),
     publicRipContractV10: toPlainObject(payload?.publicRipContractV10),
+    // CURRENT canonical Overall RIP model (0.86 Financial V4 + 0.04 Chase
+    // Accessibility V1 + 0.10 Collector Appeal V5) and its public contract.
+    // Additive, pass-through only - V10 stays for historical/rollback lineage.
+    overallRipV12: toPlainObject(payload?.overallRipV12),
+    overallRipV12Composition: toPlainObject(payload?.overallRipV12Composition),
+    publicRipContractV11: toPlainObject(payload?.publicRipContractV11),
     // Chase Accessibility V1. Additive, pass-through only, and independent of
     // Overall RIP - never derived from any RIP block above. Null/status is
     // preserved exactly (never coerced to 0) so an unavailable set never

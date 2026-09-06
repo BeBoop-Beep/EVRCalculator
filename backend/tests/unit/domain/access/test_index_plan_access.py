@@ -18,6 +18,9 @@ from backend.domain.access.index_plan_access import (
     has_index_premium_access,
     has_index_feature_access,
     normalize_index_plan,
+    project_insights_critical_response,
+    project_rankings_response,
+    project_set_page_response,
     project_set_rip_simulation_evidence_response,
     resolve_market_explorer_plan_access,
     _PLUS_FEATURES,
@@ -287,3 +290,68 @@ def test_the_two_runtimes_agree_on_the_plan_strings():
     assert FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS in text
     # And on the rule that Premium satisfies Plus.
     assert "normalized === INDEX_PLAN_PLUS || normalized === INDEX_PLAN_PREMIUM" in text
+
+
+def _rankings_target():
+    return {
+        "set_id": "set-1", "name": "Test Set",
+        "overallRipV10": {"rank": 3, "relativeScore": 60.0},
+        "publicRipContractV10": {"overallRip": {"rank": 3}},
+        "overallRipV12": {"rank": 2, "relativeScore": 70.0},
+        "publicRipContractV11": {"overallRip": {"rank": 2}},
+        "chaseAccessibility": {"chaseAccessibility": 0.01},
+    }
+
+
+def test_base_rankings_projection_cannot_see_v12_or_v10_intelligence():
+    result = project_rankings_response({"targets": [_rankings_target()]}, plan=None)
+    target = result["targets"][0]
+    assert "overallRipV12" not in target
+    assert "publicRipContractV11" not in target
+    assert "overallRipV10" not in target
+    assert "publicRipContractV10" not in target
+    assert "chaseAccessibility" not in target
+    assert result["access"]["rankingsIntelligence"] is False
+
+
+def test_plus_rankings_projection_receives_v12_and_v11():
+    result = project_rankings_response({"targets": [_rankings_target()]}, plan=INDEX_PLAN_PLUS)
+    target = result["targets"][0]
+    assert target["overallRipV12"]["rank"] == 2
+    assert target["publicRipContractV11"]["overallRip"]["rank"] == 2
+    assert target["chaseAccessibility"]["chaseAccessibility"] == 0.01
+    # Historical V10 data is preserved for existing Plus consumers.
+    assert target["overallRipV10"]["rank"] == 3
+    assert target["publicRipContractV10"]["overallRip"]["rank"] == 3
+
+
+def test_base_set_page_projection_cannot_see_v12_or_v10_intelligence():
+    payload = {"target": {}, "set": {}, "meta": {}, **_rankings_target()}
+    result = project_set_page_response(payload, plan=None)
+    assert "overallRipV12" not in result
+    assert "publicRipContractV11" not in result
+    assert "overallRipV10" not in result
+
+
+def test_plus_set_page_projection_receives_v12_and_v11():
+    payload = {"target": {}, "set": {}, "meta": {}, **_rankings_target()}
+    result = project_set_page_response(payload, plan=INDEX_PLAN_PLUS)
+    assert result["overallRipV12"]["rank"] == 2
+    assert result["publicRipContractV11"]["overallRip"]["rank"] == 2
+    assert result["overallRipV10"]["rank"] == 3
+
+
+def test_base_insights_critical_projection_cannot_see_v12_or_v10_intelligence():
+    payload = {"set": {}, "meta": {}, **_rankings_target()}
+    result = project_insights_critical_response(payload, plan=None)
+    assert "overallRipV12" not in result
+    assert "publicRipContractV11" not in result
+    assert "overallRipV10" not in result
+
+
+def test_plus_insights_critical_projection_receives_v12_and_v11():
+    payload = {"set": {}, "meta": {}, **_rankings_target()}
+    result = project_insights_critical_response(payload, plan=INDEX_PLAN_PLUS)
+    assert result["overallRipV12"]["rank"] == 2
+    assert result["publicRipContractV11"]["overallRip"]["rank"] == 2
+    assert result["overallRipV10"]["rank"] == 3

@@ -57,10 +57,40 @@ from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
+    OVERALL_RIP_V10_VERSION,
+    OVERALL_RIP_V12_VERSION,
     canonical_public_rip_contract_version,
 )
 
 logger = logging.getLogger(__name__)
+
+# THE ONE canonical-model-selection authority shared by every publication-path
+# consumer (the publisher, the readiness/lifecycle gate, and anything else that
+# needs to know which target key currently carries the ranked canonical Overall
+# RIP object). Maps `CANONICAL_OVERALL_RIP_VERSION` to that target key. FAILS
+# CLOSED on an unregistered version - a cutover that forgets to add its entry
+# here breaks loudly instead of silently continuing to read an older model's
+# key under a version string that claims otherwise.
+_CANONICAL_OVERALL_RIP_TARGET_KEYS: Dict[str, str] = {
+    # Historical entry - V10 is no longer `CANONICAL_OVERALL_RIP_VERSION`, but
+    # stays registered so a rollback of the canonical selection does not also
+    # need to remember to re-add it here.
+    OVERALL_RIP_V10_VERSION: "overallRipV10",
+    OVERALL_RIP_V12_VERSION: "overallRipV12",
+}
+
+
+def canonical_overall_rip_target_key() -> str:
+    """The target key carrying the CURRENT canonical ranked Overall RIP object."""
+    try:
+        return _CANONICAL_OVERALL_RIP_TARGET_KEYS[CANONICAL_OVERALL_RIP_VERSION]
+    except KeyError:
+        raise RuntimeError(
+            "No registered publisher target key for canonical Overall RIP version "
+            f"{CANONICAL_OVERALL_RIP_VERSION!r} - register it instead of defaulting "
+            "to an older model"
+        )
+
 
 # The identifiers under which the leaderboard is published, and the
 # diagnostics_json keys that carry the two with no dedicated column.

@@ -239,6 +239,38 @@ test("packaged V10 survives projection and resolves through the strict headline 
   );
 });
 
+test("current canonical V12/V11 data survives projection (top-level and packaged)", () => {
+  const source = {
+    target_id: "v12-current",
+    overallRipV12: {
+      relativeScore: 9.1, leaderNormalizedScore: 91.0, rank: 1, tier: "S",
+      cohortSize: 22, status: "ready", score: 72.4,
+      components: { financialRip: { score: 70 }, chaseAccessibility: { score: 10 }, collectorAppeal: { score: 60 } },
+    },
+    overallRipV12Composition: {
+      version: "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+      inputs: { financialRip: "financial_rip_v4" }, weights: { financial_rip: 0.86 }, effectiveWeights: {},
+    },
+    chaseAccessibility: { value: 0.01, percent: 1.0, status: "ready" },
+    publicRipContractV11: {
+      overallRip: { relativeScore: 9.1, leaderNormalizedScore: 91.0, absoluteScore: 72.4, rank: 1, tier: "S", rankedSetCount: 22, status: "ready" },
+      financialRip: { relativeScore: 84.5, rank: 2, tier: "A", rankedSetCount: 22 },
+      collectorAppeal: { relativeScore: 60.0, rank: 5, rankedSetCount: 22 },
+      audit: { heavy: "must be dropped" },
+    },
+  };
+  const [projected] = projectRankingsTargets([source]);
+  assert.equal(projected.overallRipV12.rank, 1);
+  assert.equal(projected.overallRipV12.score, 72.4);
+  assert.deepEqual(projected.overallRipV12Composition.weights, { financial_rip: 0.86 });
+  assert.equal(projected.chaseAccessibility.value, 0.01);
+  assert.equal("audit" in projected.publicRipContractV11, false);
+  assert.deepEqual(projected.publicRipContractV11.overallRip, {
+    relativeScore: 9.1, leaderNormalizedScore: 91.0, absoluteScore: 72.4,
+    rank: 1, tier: "S", rankedSetCount: 22, status: "ready",
+  });
+});
+
 test("top-level V10/V4 fallback survives projection", () => {
   const [projected] = projectRankingsTargets([{
     target_id: "v10-top-level",

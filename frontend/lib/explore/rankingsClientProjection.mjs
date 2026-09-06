@@ -110,6 +110,13 @@ const BLOCK_LEAVES = Object.freeze({
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV9: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV10: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
+  // CURRENT canonical Overall RIP model. Kept alongside V10 (historical) - the
+  // V12-aware selectors (`overallRipExplanationHierarchySelector.mjs`,
+  // `chaseAccessibilityPresentationSelector.mjs`) read these fields directly
+  // off the target row, so this client boundary must not silently strip them.
+  overallRipV12: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason", "score", "components"],
+  overallRipV12Composition: ["version", "inputs", "weights", "effectiveWeights"],
+  chaseAccessibility: ["value", "percent", "status", "statusReason", "version", "chaseDepth", "mappedHcMass", "publicQuestion", "technicalTooltip"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],
   financialRipV4: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
   universalSetDesirability: ["score", "rank", "rankedSetCount"],
@@ -173,6 +180,13 @@ function projectTarget(target) {
   if (contractV9 !== undefined) out.publicRipContractV9 = contractV9;
   const contractV10 = projectContract(target.publicRipContractV10);
   if (contractV10 !== undefined) out.publicRipContractV10 = contractV10;
+  // CURRENT canonical public RIP contract (carries V12 in its stable generic
+  // overallRip slot). `projectContract` only projects the shared
+  // overallRip/financialRip/collectorAppeal leaves; the V11-specific
+  // `overallRipV12`/`chaseAccessibility`/`overallRipV12Composition` blocks are
+  // sourced from the top-level fields above (the same objects, unwrapped).
+  const contractV11 = projectContract(target.publicRipContractV11);
+  if (contractV11 !== undefined) out.publicRipContractV11 = contractV11;
 
   return out;
 }
@@ -217,7 +231,7 @@ export function projectRankingsTargets(targets, { canViewRankingsIntelligence = 
 export const RANKINGS_CLIENT_FIELDS = Object.freeze([
   ...SCALAR_FIELDS,
   ...Object.entries(BLOCK_LEAVES).flatMap(([b, ls]) => ls.map((l) => `${b}.${l}`)),
-  ...["publicRipContractV8", "publicRipContractV9", "publicRipContractV10"].flatMap((contract) =>
+  ...["publicRipContractV8", "publicRipContractV9", "publicRipContractV10", "publicRipContractV11"].flatMap((contract) =>
     CONTRACT_BLOCKS.flatMap((b) => CONTRACT_LEAVES.map((l) => `${contract}.${b}.${l}`))
   ),
 ]);

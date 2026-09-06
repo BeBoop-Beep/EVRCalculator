@@ -144,17 +144,44 @@ def _overall_rip_v12_block(target: Mapping[str, Any]) -> Dict[str, Any]:
 def build_public_rip_contract_v11(target: Mapping[str, Any]) -> Dict[str, Any]:
     """Project a ranked target into the CANONICAL public V11 contract.
 
-    Builds on top of V10 (every V10 key is present, byte-for-byte unchanged)
-    and adds the V12/Accessibility blocks described above. `target` is
-    expected to already carry `overallRipV12` and `chaseAccessibility` (set by
-    the Explore RIP statistics service before contracts are attached), exactly
-    as V10 expects `overallRipV10`/`financialRipV4` to already be present.
+    Builds on top of V10 (every V10 key is present, byte-for-byte unchanged,
+    embedded verbatim under its own explicit key) and adds the V12/Accessibility
+    blocks described above. `target` is expected to already carry
+    `overallRipV12` and `chaseAccessibility` (set by the Explore RIP statistics
+    service before contracts are attached), exactly as V10 expects
+    `overallRipV10`/`financialRipV4` to already be present.
+
+    THE STABLE GENERIC ``overallRip`` SLOT IS FORWARDED TO V12, NOT V10.
+    V9 exposed a stable ``overallRip`` name, and V10 became canonical by
+    forwarding THAT SAME slot to V10's data by staging ``overallRipV10`` into
+    the key the V9 builder reads (see ``build_public_rip_contract_v10``). V11
+    repeats exactly that convention one level up: it stages the already-ranked
+    ``overallRipV12`` object into the ``overallRipV10`` key before invoking the
+    V10 builder, so the entire existing projection chain (which is pure
+    re-keying/casting - no arithmetic) forwards V12's score/rank/tier/cohort/
+    relative/leader-normalized/component fields into the generic slot. This is
+    a projection, not a computation: every field placed into `overallRip` is
+    read verbatim off `target["overallRipV12"]`, which was itself ranked
+    upstream by the one ranking authority every other public metric uses.
+
+    The REAL V10 object is built separately, from the untouched `target`, and
+    embedded verbatim under its own explicit key - the staging above never
+    mutates or leaks into the historical V10 contract.
     """
-    contract = dict(build_public_rip_contract_v10(target))
-    # V10's own contract is embedded verbatim under its own key, so a consumer
-    # of V11 never has to fetch V10 separately to get the canonical shape.
-    contract[PUBLIC_RIP_CONTRACT_V10_KEY] = target.get(PUBLIC_RIP_CONTRACT_V10_KEY) or contract
+    overall_v12 = dict(target.get("overallRipV12") or {})
+    staged = dict(target)
+    staged["overallRipV10"] = overall_v12
+    contract = dict(build_public_rip_contract_v10(staged))
+
+    # The REAL, untouched V10 contract - built from the real `target`, never
+    # from the V12-staged copy above. This is what keeps V10 historical
+    # lineage byte-for-byte unchanged regardless of what the generic slot now
+    # forwards.
+    real_v10_contract = target.get(PUBLIC_RIP_CONTRACT_V10_KEY) or build_public_rip_contract_v10(target)
+    contract[PUBLIC_RIP_CONTRACT_V10_KEY] = real_v10_contract
+
     contract["contractVersion"] = PUBLIC_RIP_CONTRACT_V11_VERSION
+    contract["canonicalOverallRipVersion"] = OVERALL_RIP_V12_VERSION
     contract["overallRipV12"] = _overall_rip_v12_block(target)
     contract["chaseAccessibility"] = _chase_accessibility_block(target)
     contract["overallRipV12Composition"] = {

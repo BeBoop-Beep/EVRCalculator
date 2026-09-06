@@ -4074,30 +4074,47 @@ def attach_daily_rip_rank_movements(
 
     ONE MODEL ON BOTH SIDES OF EVERY SUBTRACTION
     --------------------------------------------
-    Overall movement compares ``overallRipV8.rank`` against ``overallRipV8.rank``.
-    Financial movement compares ``financialRipV3.rank`` against
-    ``financialRipV3.rank``. Nothing here ever reads the legacy ``rip`` (Overall
-    RIP v4) or ``ripCore`` (Financial RIP V2) objects.
+    Overall movement compares ``overallRipV12.rank`` against ``overallRipV12.rank``.
+    Financial movement compares ``financialRipV4.rank`` against
+    ``financialRipV4.rank``. Nothing here ever reads the legacy ``rip`` (Overall
+    RIP v4-blend) or ``ripCore`` (Financial RIP V2) objects, nor any
+    intermediate superseded version (V7/V8/V3/V10, etc).
 
-    It used to read exactly those. The previous rank came from ``rip.rank`` /
-    ``ripCore.rank`` while the surface that renders the arrow subtracts it from
-    the CURRENT V7 / V3 rank, so the published "movement" was the disagreement
-    between two different models rather than a change over time. Verified in
-    production on 2026-08-11: Scarlet and Violet 151 held V7 rank 5 on both days
-    and was published with ``previousOverallRipRank1d = 7`` - its v4 rank - which
-    the Explore table rendered as a one-day rise of two places.
+    2026-09-05 cutover: promoted from ``overallRipV8``/``financialRipV3`` to
+    the CURRENT canonical ``overallRipV12``/``financialRipV4`` keys, following
+    the Overall RIP V12 canonical promotion. The version GATE below already
+    read ``CANONICAL_OVERALL_RIP_VERSION``/``CANONICAL_FINANCIAL_RIP_VERSION``
+    dynamically and so was already correct; only the literal rank-lookup keys
+    were still hardcoded to the prior cutover's models and have been repointed
+    here. A previous cutover (V7->V8/V3) suffered from exactly this same class
+    of bug: it used to read ``rip.rank``/``ripCore.rank`` while the surface
+    that renders the arrow subtracted it from the CURRENT V7/V3 rank, so the
+    published "movement" was the disagreement between two different models
+    rather than a change over time (verified in production on 2026-08-11:
+    Scarlet and Violet 151 held V7 rank 5 on both days and was published with
+    ``previousOverallRipRank1d = 7`` - its v4 rank - which the Explore table
+    rendered as a one-day rise of two places). This function's own change
+    history is therefore also the warning for why every cutover must repoint
+    the literal keys here, not just the version-identity constants.
 
     VERSION GATE
     ------------
     Both snapshots must declare the canonical Overall RIP and Financial RIP
     versions, not merely equal ones. Requiring equality alone would happily
-    compare a v4 day against a v4 day and publish it under a field the frontend
-    reads beside a V7 rank. The cohort version must also match: a rank is a
-    statement about a population, and two ranks over different populations are
-    not comparable even under one scoring model.
+    compare two superseded-model days against each other and publish it under
+    a field the frontend reads beside the current canonical rank. The cohort
+    version must also match: a rank is a statement about a population, and two
+    ranks over different populations are not comparable even under one scoring
+    model.
 
-    When any of that fails the movement is ``unavailable`` with a null rank,
-    which the UI already renders as "N/A" rather than as no change.
+    MODEL-TRANSITION DAYS REPORT "unavailable", NEVER A FABRICATED DELTA. If
+    the previous day's snapshot was built under the outgoing model (e.g. a
+    payload whose ``ripWeightsConfig.overallRip.version`` is still V10 while
+    today's is V12), the version gate above fails, movement is reported
+    ``unavailable`` with a null rank, and the UI already renders that as "N/A"
+    rather than as no change. The first V12 publication after cutover may
+    legitimately have no comparable 1-day movement for exactly this reason -
+    that is correct behaviour, not a bug to work around.
     """
     meta = dict(payload.get("meta") or {})
     dates = dict(meta.get("comparisonSnapshots") or {})
@@ -4143,16 +4160,16 @@ def attach_daily_rip_rank_movements(
         elif previous is None:
             status, rank = "new", None
         else:
-            rank = ((previous.get("overallRipV8") or {}).get("rank"))
+            rank = ((previous.get("overallRipV12") or {}).get("rank"))
             status = "available" if rank is not None else "unavailable"
         financial_rank = (
-            ((previous or {}).get("financialRipV3") or {}).get("rank")
+            ((previous or {}).get("financialRipV4") or {}).get("rank")
             if compatible and previous else None
         )
         financial_status = ("new" if compatible and previous is None else
                             "available" if compatible and financial_rank is not None else "unavailable")
-        current_rank = ((target.get("overallRipV8") or {}).get("rank"))
-        current_financial_rank = ((target.get("financialRipV3") or {}).get("rank"))
+        current_rank = ((target.get("overallRipV12") or {}).get("rank"))
+        current_financial_rank = ((target.get("financialRipV4") or {}).get("rank"))
         movement = rank - current_rank if status == "available" and current_rank is not None else None
         financial_movement = (
             financial_rank - current_financial_rank

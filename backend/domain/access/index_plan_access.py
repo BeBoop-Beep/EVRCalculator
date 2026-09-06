@@ -156,8 +156,12 @@ _PLUS_TARGET_FIELDS = _BASE_TARGET_FIELDS | frozenset({
     "expected_loss_when_losing", "mean_value_to_cost_ratio", "mean_value_to_cost_rank",
     "mean_value_to_cost_tier", "p95_value_to_cost_ratio", "p95_value_to_cost_rank",
     "p95_value_to_cost_tier", "p99_value_to_cost_ratio", "p99_value_to_cost_rank",
-    "p99_value_to_cost_tier", "rip", "ripCore", "financialRipV4", "overallRipV10",
-    "publicRipContractV10", "setRipV1", "openingExperience", "rankingsChase",
+    "p99_value_to_cost_tier", "rip", "ripCore", "financialRipV4",
+    # Historical - kept for existing Plus consumers/rollback lineage.
+    "overallRipV10", "publicRipContractV10",
+    # CURRENT canonical Overall RIP model + public contract.
+    "overallRipV12", "publicRipContractV11", "chaseAccessibility",
+    "setRipV1", "openingExperience", "rankingsChase",
     "collector_appeal_score", "collector_appeal_rank", "opening_desirability_score",
     "opening_desirability_rank", "opening_desirability_summary",
 })
@@ -459,7 +463,9 @@ _PLUS_SET_PAGE_FIELDS = _BASE_SET_PAGE_FIELDS | frozenset({
     "top_hits", "openingDesirability", "pull_rate_assumptions",
     "cardDesirabilityValidation", "card_desirability_validation",
     "cardAppealMarketPriceCorrelation", "card_appeal_market_price_correlation",
-    "rip", "ripCore", "financialRipV4", "overallRipV10", "publicRipContractV10",
+    "rip", "ripCore", "financialRipV4",
+    "overallRipV10", "publicRipContractV10",
+    "overallRipV12", "publicRipContractV11", "chaseAccessibility",
     "openingExperience", "publicAnalyticsCohort", "publicAnalyticsStatus",
 })
 
@@ -504,7 +510,9 @@ def project_insights_critical_response(payload: Mapping[str, Any], plan: Any) ->
     if has_index_feature_access(plan, FEATURE_SET_RIP_ANALYTICS):
         return _pick(payload, frozenset({
             "ripDecision", "set", "summary", "recommendation", "ripScore", "rip",
-            "ripCore", "financialRipV4", "overallRipV10", "publicRipContractV10",
+            "ripCore", "financialRipV4",
+            "overallRipV10", "publicRipContractV10",
+            "overallRipV12", "publicRipContractV11", "chaseAccessibility",
             "openingExperience", "publicAnalyticsCohort", "publicAnalyticsStatus",
             "interpretation", "meta",
         }))

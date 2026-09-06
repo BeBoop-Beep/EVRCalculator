@@ -4,20 +4,34 @@ WHAT THIS PUBLISHES, AND WHAT IT USED TO
 ----------------------------------------
 It publishes the CANONICAL models:
 
-    overall_rip_score  <- target['overallRipV10']  (0.90 Financial RIP V4 + 0.10 Collector Appeal, uncapped)
+    overall_rip_score  <- target['overallRipV12'] (0.86 Financial RIP V4 + 0.04
+                            Chase Accessibility V1 (k=0.002) + 0.10 Collector
+                            Appeal V5)
     financial_rip_score<- target['financialRipV4'] (P95-only Realistic Upside @25%)
 
-It previously read ``target['overallRipV9']`` / ``target['financialRipV3']`` and,
-before that, ``target['rip']`` (Overall RIP v4, off the Financial RIP V2 pillars
-and legacy CA7) and ``target['ripCore']`` (Financial RIP V2). Earlier cutovers (V3,
-V5, V6, V7) landed without repointing this file, which is why a past published
-leaderboard reported ``overall_rip_v4_90_financial_10_ca7`` and
-``financial_rip_v2_60_25_15`` while fresher simulations sat underneath it - the
-publisher was faithfully publishing the legacy objects, and the version strings it
-copied alongside them were accurate about that, so nothing downstream contradicted
-it. This file is now part of the V10/V4 promotion checklist for exactly that
-reason: the hard-coded target keys never follow `scoring_config`'s canonical
-selection automatically, so every cutover must repoint them here too.
+It previously read ``target['overallRipV10']`` (0.90 Financial RIP V4 + 0.10
+Collector Appeal, uncapped), before that ``target['overallRipV9']`` /
+``target['financialRipV3']``, and before that ``target['rip']`` (Overall RIP v4,
+off the Financial RIP V2 pillars and legacy CA7) and ``target['ripCore']``
+(Financial RIP V2). Earlier cutovers (V3, V5, V6, V7) landed without repointing
+this file, which is why a past published leaderboard reported
+``overall_rip_v4_90_financial_10_ca7`` and ``financial_rip_v2_60_25_15`` while
+fresher simulations sat underneath it - the publisher was faithfully publishing
+the legacy objects, and the version strings it copied alongside them were
+accurate about that, so nothing downstream contradicted it. This file is now
+part of the V12/V4 promotion checklist for exactly that reason: the hard-coded
+target keys never follow `scoring_config`'s canonical selection automatically,
+so every cutover must repoint them here too.
+
+CANONICAL-MODEL SELECTION IS ONE EXPLICIT AUTHORITY, NOT SCATTERED LITERALS
+----------------------------------------------------------------------------
+``canonical_overall_rip_target_key()`` / ``_canonical_public_rip_contract_target_key()``
+below are the ONE place that maps ``scoring_config.CANONICAL_OVERALL_RIP_VERSION``
+to the target/contract keys this publisher reads. They FAIL CLOSED on an
+unrecognised canonical version rather than silently defaulting to V10 - a future
+cutover that forgets to register its key here breaks publication loudly instead
+of quietly publishing a superseded model under a version string that claims
+otherwise.
 
 THE VERSIONS ARE VERIFIED, NOT JUST COPIED
 ------------------------------------------
@@ -40,11 +54,15 @@ from uuid import UUID, uuid4
 from backend.db.services.public_rip_publication_contract import (
     PUBLIC_SET_VALUE_CONTRACT_VERSION,
     build_publication_diagnostics,
+    canonical_overall_rip_target_key,
     canonical_publication_identity,
     evaluate_set_value_coverage,
     set_value_contract_problems,
     supported_cohort_fingerprint,
 )
+from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION, OVERALL_RIP_V12_VERSION
+from backend.desirability.public_rip_contract_v11 import PUBLIC_RIP_CONTRACT_V11_KEY
+from backend.desirability.public_rip_contract_v10 import PUBLIC_RIP_CONTRACT_V10_KEY
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_RANKINGS_LIMIT,
     attach_daily_rip_rank_movements,
@@ -89,9 +107,10 @@ def _rankings_lifecycle_persistence_supported(client: Any) -> bool:
 #   * the set page keeps them - `_merge_canonical_rip_contract_into_set_payload`
 #     lifts V4/V5/V6 from `get_rip_statistics_targets_payload()`, the LIVE builder,
 #     so set Insights is unaffected by what this artifact stores;
-#   * `_score_contract_problems` validates `publicRipContractV8` only;
-#   * `attach_daily_rip_rank_movements` reads ids plus `overallRipV8.rank` /
-#     `financialRipV3.rank`;
+#   * `_score_contract_problems` validates the canonical `publicRipContractV11`
+#     only (resolved via `_canonical_public_rip_contract_target_key()`);
+#   * `attach_daily_rip_rank_movements` reads ids plus `overallRipV12.rank` /
+#     `financialRipV4.rank`;
 #   * `canonicalRipV7.mjs` has "deliberately no third step" and never falls back to
 #     V5/V6 - they are different models, not shape variants;
 #   * no `getRipStatisticsTargets` consumer reads them.
@@ -182,6 +201,31 @@ def _ranked(target: Dict[str, Any], key: str) -> bool:
     return (target.get(key) or {}).get("rank") is not None
 
 
+# THE ONE canonical-model-selection authority for the ranked target key is
+# `canonical_overall_rip_target_key()` (`public_rip_publication_contract.py`) -
+# shared with the readiness/lifecycle gate so both halves of the publish path
+# agree on which target key currently carries the ranked canonical Overall RIP
+# object. This publisher additionally needs the matching public RIP CONTRACT
+# key (for `_score_contract_problems`), mapped the same way and failing closed
+# the same way.
+_CANONICAL_PUBLIC_RIP_CONTRACT_TARGET_KEYS: Dict[str, str] = {
+    "overall_rip_v10_90_financial_v4_10_collector_appeal_v5": PUBLIC_RIP_CONTRACT_V10_KEY,
+    OVERALL_RIP_V12_VERSION: PUBLIC_RIP_CONTRACT_V11_KEY,
+}
+
+
+def _canonical_public_rip_contract_target_key() -> str:
+    """The target key carrying the CURRENT canonical public RIP contract."""
+    try:
+        return _CANONICAL_PUBLIC_RIP_CONTRACT_TARGET_KEYS[CANONICAL_OVERALL_RIP_VERSION]
+    except KeyError:
+        raise RuntimeError(
+            "Refusing to publish Explore RIP leaderboard: canonical Overall RIP "
+            f"version {CANONICAL_OVERALL_RIP_VERSION!r} has no registered public RIP "
+            "contract key - register it instead of defaulting to an older contract"
+        )
+
+
 # The canonical score contract every ranked target must satisfy. Both layers are
 # required, on every pillar and every weighted component:
 #
@@ -210,10 +254,11 @@ def _score_contract_problems(target: Dict[str, Any]) -> list:
     rest.
     """
     label = target.get("canonical_key") or target.get("set_id") or target.get("target_id")
-    contract = target.get("publicRipContractV10") or {}
+    contract_key = _canonical_public_rip_contract_target_key()
+    contract = target.get(contract_key) or {}
     problems = []
     if not contract:
-        return [f"{label}: publicRipContractV10 is missing"]
+        return [f"{label}: {contract_key} is missing"]
     for pillar in CANONICAL_PILLARS:
         block = contract.get(pillar) or {}
         for field in REQUIRED_PILLAR_FIELDS:
@@ -268,9 +313,13 @@ def publication_contract(row):
     ranked_count = int(overall_ranked.get("rankedSetCount") or 0)
     financial_count = int(cohort.get("eligibleSetCount") or 0)
 
+    canonical_overall_key = canonical_overall_rip_target_key()
     all_targets = list(payload.get("targets") or [])
-    # The canonical ranked cohort: targets carrying an Overall RIP V10 rank.
-    targets = [target for target in all_targets if _ranked(target, "overallRipV10")]
+    # The canonical ranked cohort: targets carrying a valid rank under the
+    # CURRENT canonical Overall RIP object (`overallRipV12`, resolved via the
+    # one canonical-model-selection authority above - never a hardcoded
+    # literal here).
+    targets = [target for target in all_targets if _ranked(target, canonical_overall_key)]
     appeal_versions = sorted({
         str(((target.get("openingExperience") or {}).get("collectorAppeal") or {}).get("version"))
         for target in targets
@@ -290,7 +339,8 @@ def publication_contract(row):
         problems.append("missing built timestamp")
     if ranked_count <= 0 or len(targets) != ranked_count:
         problems.append(
-            f"incomplete Overall RIP V10 cohort expected={ranked_count} actual={len(targets)}"
+            f"incomplete Overall RIP {canonical['overallRipVersion']} cohort "
+            f"expected={ranked_count} actual={len(targets)}"
         )
     if financial_count <= 0:
         problems.append("missing Financial RIP cohort count")
@@ -386,8 +436,14 @@ def publication_contract(row):
     rows = [{
         "set_id": target.get("set_id") or target.get("target_id"),
         "set_canonical_key": target.get("canonical_key") or target.get("slug"),
-        "overall_rip_score": (target.get("overallRipV10") or {}).get("score"),
-        "overall_rip_rank": (target.get("overallRipV10") or {}).get("rank"),
+        # `overall_rip_score`/`overall_rip_rank` are GENERIC column names; model
+        # identity is carried by the snapshot's `overall_rip_version` column
+        # (verified above against `canonical["overallRipVersion"]`). The value
+        # itself always comes from the CURRENT canonical Overall RIP object,
+        # resolved via the one canonical-model-selection authority - never a
+        # hardcoded literal.
+        "overall_rip_score": (target.get(canonical_overall_key) or {}).get("score"),
+        "overall_rip_rank": (target.get(canonical_overall_key) or {}).get("rank"),
         "financial_rip_score": (target.get("financialRipV4") or {}).get("score"),
         "financial_rip_rank": (target.get("financialRipV4") or {}).get("rank"),
         "overall_ranked_cohort_count": ranked_count,
@@ -475,9 +531,10 @@ def validate_publication_payload(
                     f"missing={','.join(missing)}"
                 )
     expected = int(snapshot.get("eligible_cohort_count") or 0)
+    canonical_overall_key = canonical_overall_rip_target_key()
     ranked_targets = [
         target for target in targets
-        if isinstance(target, dict) and (target.get("overallRipV10") or {}).get("rank") is not None
+        if isinstance(target, dict) and (target.get(canonical_overall_key) or {}).get("rank") is not None
     ]
     if expected <= 0 or len(ranked_targets) != expected:
         raise RuntimeError(

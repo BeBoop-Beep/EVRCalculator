@@ -25,9 +25,15 @@ export function adaptCriticalInsightsToExplorePayload(critical) {
     overallRipV9: critical?.overallRipV9 || null,
     publicRipContractV9: critical?.publicRipContractV9 || null,
     // Additive V10/V4 transport. Carried verbatim, never derived from V3/V9.
+    // V10 stays for historical/rollback lineage.
     financialRipV4: critical?.financialRipV4 || null,
     overallRipV10: critical?.overallRipV10 || null,
     publicRipContractV10: critical?.publicRipContractV10 || null,
+    // CURRENT canonical Overall RIP model + public contract. Carried verbatim,
+    // never derived - the V12-aware selectors read these directly.
+    overallRipV12: critical?.overallRipV12 || null,
+    overallRipV12Composition: critical?.overallRipV12Composition || null,
+    publicRipContractV11: critical?.publicRipContractV11 || null,
     // Chase Accessibility V1. Independent of every RIP block above; carried
     // verbatim including null/status so an unsupported/insufficient-coverage
     // set never renders as a measured 0%.

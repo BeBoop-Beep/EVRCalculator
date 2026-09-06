@@ -9,13 +9,18 @@ to carry. That is why the newest published leaderboard reported
 ``overall_rip_v4_90_financial_10_ca7`` / ``financial_rip_v2_60_25_15`` while 22
 fresh Financial RIP V3 simulations sat underneath it.
 
-It then moved to ``overallRipV9`` / ``financialRipV3``. The Financial RIP V4 /
-Overall RIP V10 canonical cutover repointed it again, to ``overallRipV10`` and
-``financialRipV4``, and VERIFIES the version strings against the one canonical
-selection in ``scoring_config`` before writing anything. So the fixture below
-carries the canonical objects and the canonical versions - a fixture on a
-superseded shape would now be testing that the publisher refuses to publish,
-which several tests here do deliberately.
+It then moved to ``overallRipV9`` / ``financialRipV3``, then to
+``overallRipV10``/``financialRipV4`` (contract ``publicRipContractV10``). The
+2026-09-05 Overall RIP V12 canonical promotion repointed it again: the CURRENT
+canonical ranked cohort/history reads are ``overallRipV12``/``financialRipV4``
+(financial stayed on V4), and score-contract validation reads
+``publicRipContractV11`` (V11 is the current CONTRACT identity; it carries
+V12 in its stable generic ``overallRip`` slot - see
+``public_rip_contract_v11.py``). The fixture below now carries BOTH the
+canonical V12/V11 objects (read) and the historical V10 objects (kept present,
+deliberately different scores, to prove the publisher does not read them) - a
+fixture on a superseded shape would now be testing that the publisher refuses
+to publish, which several tests here do deliberately.
 """
 
 from pathlib import Path
@@ -92,7 +97,7 @@ def _score_block(index, *, fingerprint=True):
     return block
 
 
-def _contract_v7(index, contract_version):
+def _contract_v11(index, contract_version):
     """The canonical public contract the publisher validates before publishing."""
     return {
         "contractVersion": contract_version,
@@ -131,7 +136,7 @@ def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
         "set_id": f"00000000-0000-0000-0000-{index:012d}",
         "canonical_key": f"set-{index}",
         # The CANONICAL objects the publisher now reads.
-        "overallRipV10": {"score": 80 - index, "rank": index + 1},
+        "overallRipV12": {"score": 80 - index, "rank": index + 1},
         "setRipV1": {"score": 95 - index, "rank": index + 1, "rankable": True,
                      "methodologyVersion": SET_RIP_VERSION, "participatingFamilyCount": 2,
                      "participatingFamilies": ["loose_booster_pack", "booster_bundle"],
@@ -144,12 +149,15 @@ def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
                           "cohortSize": target_count},
                      ]},
         "financialRipV4": {"score": 75 - index, "rank": index + 1},
-        # The legacy objects, still present. The publish RPC counts ranked
-        # targets by `rip.rank`, so they must select the same rows.
+        # The legacy/historical objects, still present. The publish RPC counts
+        # ranked targets by the CURRENT canonical rank key; these must NOT be
+        # read by it, and are given deliberately different scores so a
+        # regression back to an older model is caught immediately.
         "rip": {"score": 78 - index, "rank": index + 1},
         "ripCore": {"score": 70 - index, "rank": index + 1},
+        "overallRipV10": {"score": 60 - index, "rank": index + 1},
         "openingExperience": {"collectorAppeal": {"version": appeal_version}},
-        "publicRipContractV10": _contract_v7(index, contract_version),
+        "publicRipContractV11": _contract_v11(index, contract_version),
         "cohortFingerprint": "stub-fingerprint",
         "calculation_run_id": f"run-{index}",
         "pack_cost": 5,
@@ -242,7 +250,7 @@ def test_a_superseded_version_refuses_to_publish(kwargs, expected):
 
 
 def test_incomplete_cohort_fails_closed():
-    with pytest.raises(RuntimeError, match=r"incomplete Overall RIP V\d+ cohort"):
+    with pytest.raises(RuntimeError, match=r"incomplete Overall RIP overall_rip_v\d+.* cohort"):
         command.publication_contract(_row(target_count=2, ranked_count=1))
 
 
@@ -286,7 +294,7 @@ def test_a_legacy_v4_rank_no_longer_gates_canonical_publication():
     assert len(rows) == snapshot["eligible_cohort_count"]
 
 
-def test_history_rows_carry_the_canonical_v10_and_v4_scores():
+def test_history_rows_carry_the_canonical_v12_and_v4_scores():
     """The stored history is the canonical model's, on its own fixed-anchor scale.
 
     A rank-movement consumer reads these rows, so a legacy score reaching them
@@ -299,43 +307,45 @@ def test_history_rows_carry_the_canonical_v10_and_v4_scores():
     }
     for row in rows:
         target = targets[str(row["set_id"])]
-        assert row["overall_rip_score"] == target["overallRipV10"]["score"]
-        assert row["overall_rip_rank"] == target["overallRipV10"]["rank"]
+        assert row["overall_rip_score"] == target["overallRipV12"]["score"]
+        assert row["overall_rip_rank"] == target["overallRipV12"]["rank"]
         assert row["financial_rip_score"] == target["financialRipV4"]["score"]
         assert row["financial_rip_rank"] == target["financialRipV4"]["rank"]
-        # Never the legacy objects, which the fixture gives different values.
+        # Never the legacy/historical objects, which the fixture gives
+        # deliberately different values.
         assert row["overall_rip_score"] != target.get("rip", {}).get("score")
+        assert row["overall_rip_score"] != target.get("overallRipV10", {}).get("score")
         assert row["financial_rip_score"] != target.get("ripCore", {}).get("score")
 
 
 @pytest.mark.parametrize(
     ("mutate", "expected"),
     [
-        (lambda t: t["publicRipContractV10"]["overallRip"].pop("relativeScore"),
+        (lambda t: t["publicRipContractV11"]["overallRip"].pop("relativeScore"),
          "overallRip.relativeScore is missing"),
-        (lambda t: t["publicRipContractV10"]["overallRip"].pop("absoluteScore"),
+        (lambda t: t["publicRipContractV11"]["overallRip"].pop("absoluteScore"),
          "overallRip.absoluteScore is missing"),
-        (lambda t: t["publicRipContractV10"]["overallRip"].pop("cohortFingerprint"),
+        (lambda t: t["publicRipContractV11"]["overallRip"].pop("cohortFingerprint"),
          "overallRip.cohortFingerprint is missing"),
-        (lambda t: t["publicRipContractV10"]["financialRip"].pop("relativeScore"),
+        (lambda t: t["publicRipContractV11"]["financialRip"].pop("relativeScore"),
          "financialRip.relativeScore is missing"),
-        (lambda t: t["publicRipContractV10"]["collectorAppeal"].pop("relativeScore"),
+        (lambda t: t["publicRipContractV11"]["collectorAppeal"].pop("relativeScore"),
          "collectorAppeal.relativeScore is missing"),
-        (lambda t: t["publicRipContractV10"]["collectorAppeal"].pop("rankedSetCount"),
+        (lambda t: t["publicRipContractV11"]["collectorAppeal"].pop("rankedSetCount"),
          "collectorAppeal.rankedSetCount is missing"),
-        (lambda t: t["publicRipContractV10"]["financialRip"]["components"]["jackpotUpside"]
+        (lambda t: t["publicRipContractV11"]["financialRip"]["components"]["jackpotUpside"]
          .pop("relativeScore"),
          r"components\.jackpotUpside\.relativeScore is missing"),
-        (lambda t: t["publicRipContractV10"]["collectorAppeal"]["components"]
+        (lambda t: t["publicRipContractV11"]["collectorAppeal"]["components"]
          ["rosterDesirability"].pop("relativeScore"),
          r"collectorAppeal\.components\.rosterDesirability\.relativeScore is missing"),
-        (lambda t: t["publicRipContractV10"]["collectorAppeal"]["components"]
+        (lambda t: t["publicRipContractV11"]["collectorAppeal"]["components"]
          ["desirableOutcomeFrequency"].pop("tier"),
          r"collectorAppeal\.components\.desirableOutcomeFrequency\.tier is missing"),
-        (lambda t: t["publicRipContractV10"]["collectorAppeal"]["components"]
+        (lambda t: t["publicRipContractV11"]["collectorAppeal"]["components"]
          ["rosterDesirability"].pop("modeledPokemon"),
          r"collectorAppeal\.components\.rosterDesirability\.modeledPokemon is missing"),
-        (lambda t: t.pop("publicRipContractV10"), "publicRipContractV10 is missing"),
+        (lambda t: t.pop("publicRipContractV11"), "publicRipContractV11 is missing"),
     ],
 )
 def test_a_supported_set_missing_a_canonical_score_fails_publication(mutate, expected):
@@ -351,6 +361,30 @@ def test_a_supported_set_missing_a_canonical_score_fails_publication(mutate, exp
         command.publication_contract(payload)
 
 
+def test_a_v10_only_payload_is_rejected_when_canonical_config_says_v12():
+    """A target carrying ONLY the historical V10 objects (no `overallRipV12`)
+    must not be treated as ranked/canonical - the cohort must come up short
+    and publication must refuse, not silently fall back to V10."""
+    row = _row()
+    target = row["ranking_payload_json"]["targets"][0]
+    target.pop("overallRipV12")
+    with pytest.raises(RuntimeError, match=r"incomplete Overall RIP overall_rip_v\d+.* cohort"):
+        command.publication_contract(row)
+
+
+def test_v10_remains_valid_historical_data_but_cannot_satisfy_publication_authority():
+    """V10 stays fully present and readable (rollback/lineage), but a payload
+    relying on it alone cannot satisfy CURRENT publication authority, which is
+    V12."""
+    row = _row()
+    target = row["ranking_payload_json"]["targets"][0]
+    assert target["overallRipV10"]["score"] is not None  # historical data intact
+    target.pop("overallRipV12")
+    target.pop("publicRipContractV11")
+    with pytest.raises(RuntimeError):
+        command.publication_contract(row)
+
+
 def test_a_complete_cohort_reports_no_score_contract_problems():
     payload = _row(target_count=2)
     for target in payload["ranking_payload_json"]["targets"]:
@@ -360,7 +394,7 @@ def test_a_complete_cohort_reports_no_score_contract_problems():
 def test_a_zero_relative_score_is_not_treated_as_missing():
     """The bottom-ranked set's relative score IS 0.0, and 0.0 is a value."""
     payload = _row(target_count=2)
-    payload["ranking_payload_json"]["targets"][1]["publicRipContractV10"]["overallRip"][
+    payload["ranking_payload_json"]["targets"][1]["publicRipContractV11"]["overallRip"][
         "relativeScore"
     ] = 0.0
     assert command._score_contract_problems(
@@ -570,7 +604,7 @@ def test_application_preflight_rejects_ranked_count_mismatch():
     nothing would notice.
     """
     row, snapshot, history = _publication_parameters()
-    row["ranking_payload_json"]["targets"][0]["overallRipV10"]["rank"] = None
+    row["ranking_payload_json"]["targets"][0]["overallRipV12"]["rank"] = None
     with pytest.raises(RuntimeError, match="ranked target count"):
         command.validate_publication_payload(row, snapshot, history)
 
@@ -613,7 +647,7 @@ def test_shared_publisher_sends_complete_discovery_payload(monkeypatch):
 
 def _mutate_targets(row, mutate, *, ranked_only=True):
     for target in row["ranking_payload_json"]["targets"]:
-        if ranked_only and (target.get("overallRipV10") or {}).get("rank") is None:
+        if ranked_only and (target.get("overallRipV12") or {}).get("rank") is None:
             continue
         mutate(target)
     return row

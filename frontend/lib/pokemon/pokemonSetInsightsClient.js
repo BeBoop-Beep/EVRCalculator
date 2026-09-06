@@ -74,6 +74,11 @@ export function normalizePokemonSetInsightsPayload(payload) {
     financialRipV4: toPlainObject(payload?.financialRipV4),
     overallRipV10: toPlainObject(payload?.overallRipV10),
     publicRipContractV10: toPlainObject(payload?.publicRipContractV10),
+    // CURRENT canonical Overall RIP model and its public contract. Additive
+    // and PASS-THROUGH ONLY - V10 stays for historical/rollback lineage.
+    overallRipV12: toPlainObject(payload?.overallRipV12),
+    overallRipV12Composition: toPlainObject(payload?.overallRipV12Composition),
+    publicRipContractV11: toPlainObject(payload?.publicRipContractV11),
     openingExperience: toPlainObject(payload?.openingExperience),
     publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
     publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),

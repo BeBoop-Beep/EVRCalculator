@@ -19,6 +19,7 @@ from backend.desirability.scoring_config import (
     canonical_collector_appeal_version,
 )
 from backend.db.services.public_rip_publication_contract import (
+    canonical_overall_rip_target_key,
     canonical_publication_identity,
     supported_cohort_fingerprint,
 )
@@ -127,7 +128,7 @@ def evaluate_rankings_publication_readiness(
     payload = payload if isinstance(payload, Mapping) else {}
     targets = list(payload.get("targets") or [])
     ranked = [target for target in targets if isinstance(target, Mapping) and
-              (target.get("overallRipV10") or {}).get("rank") is not None]
+              (target.get(canonical_overall_rip_target_key()) or {}).get("rank") is not None]
     market_date = _text(snapshot.get("market_date")) or None
     supported = supported_cohort_fingerprint()
     expected_count = int(supported.get("count") or snapshot.get("eligible_cohort_count") or 0)
@@ -366,7 +367,7 @@ def assert_rankings_publication_parity(
         _text(target.get("canonical_key") or target.get("set_id") or target.get("target_id")):
         _text(target.get("calculation_run_id"))
         for target in latest_payload.get("targets") or []
-        if (target.get("overallRipV10") or {}).get("rank") is not None
+        if (target.get(canonical_overall_rip_target_key()) or {}).get("rank") is not None
     }
     if published_runs != report.source_run_ids:
         problems.append("latest source run authority differs from the ready candidate")
@@ -379,7 +380,7 @@ def assert_rankings_publication_parity(
         _text(target.get("canonical_key") or target.get("set_id") or target.get("target_id")):
         _text(target.get("calculation_run_id"))
         for target in history_payload.get("targets") or []
-        if (target.get("overallRipV10") or {}).get("rank") is not None
+        if (target.get(canonical_overall_rip_target_key()) or {}).get("rank") is not None
     }
     if historical_runs != report.source_run_ids:
         problems.append("historical source run authority differs from the ready candidate")

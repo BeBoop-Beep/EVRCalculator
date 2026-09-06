@@ -1,12 +1,22 @@
+"""Publisher score-contract validation.
+
+2026-09-05 cutover: the publisher's canonical score-contract validation
+(`_score_contract_problems`) moved from `publicRipContractV10` to
+`publicRipContractV11` - the CURRENT canonical public RIP contract, which
+carries Overall RIP V12 in its stable generic `overallRip` slot. This file
+keeps its historical name (it predates the V11/V12 cutover) but its
+assertions now exercise the current canonical contract key.
+"""
 import pytest
 from backend.scripts.pokemon_explore_rankings_publisher import (
+    _canonical_public_rip_contract_target_key,
     _score_contract_problems,
     publication_contract,
     validate_publication_payload,
 )
 
 
-def _v10_contract():
+def _v11_contract():
     pillar = lambda: {
         "score": 50.0, "absoluteScore": 50.0, "relativeScore": 50.0, "leaderNormalizedScore": 50.0,
         "rank": 1, "tier": "A", "rankedSetCount": 22, "cohortFingerprint": "fp",
@@ -28,14 +38,28 @@ def _v10_contract():
     }
 
 
-def test_score_contract_problems_reads_v10_contract_key():
-    target = {"set_id": "set-1", "publicRipContractV10": _v10_contract()}
+def test_canonical_contract_target_key_is_v11():
+    assert _canonical_public_rip_contract_target_key() == "publicRipContractV11"
+
+
+def test_score_contract_problems_reads_v11_contract_key():
+    target = {"set_id": "set-1", "publicRipContractV11": _v11_contract()}
     assert _score_contract_problems(target) == []
 
 
-def test_score_contract_problems_flags_missing_v10_contract():
+def test_score_contract_problems_flags_missing_v11_contract():
     problems = _score_contract_problems({"set_id": "set-1"})
-    assert problems == ["set-1: publicRipContractV10 is missing"]
+    assert problems == ["set-1: publicRipContractV11 is missing"]
+
+
+def test_score_contract_problems_ignores_a_v10_only_payload():
+    """A superficially-complete `publicRipContractV10` block does NOT satisfy
+    the canonical score contract now that canonical validation reads V11 - a
+    payload that only carries the historical V10 contract must still fail
+    closed rather than being accepted as if it were current."""
+    target = {"set_id": "set-1", "publicRipContractV10": _v11_contract()}
+    problems = _score_contract_problems(target)
+    assert problems == ["set-1: publicRipContractV11 is missing"]
 
 
 def _dict_key_string_literals(mod):
@@ -73,3 +97,18 @@ def test_publisher_has_no_v9_key_fallback():
     assert "overallRipV9" not in keys
     assert "financialRipV3" not in keys
     assert "publicRipContractV9" not in keys
+
+
+def test_publisher_never_hardcodes_the_old_canonical_v10_literal_as_a_target_read():
+    """The publisher may still MENTION `overallRipV10`/`publicRipContractV10`
+    (historical-lineage docstrings, the registered-but-superseded entry in the
+    canonical-selection authority dict), but the CURRENT ranked-cohort /
+    score-contract reads must resolve through the canonical-selection
+    authority, not a literal V10 key."""
+    from backend.scripts import pokemon_explore_rankings_publisher as mod
+    import inspect
+
+    source = inspect.getsource(mod.publication_contract)
+    assert '"overallRipV10"' not in source
+    source = inspect.getsource(mod.validate_publication_payload)
+    assert '"overallRipV10"' not in source
