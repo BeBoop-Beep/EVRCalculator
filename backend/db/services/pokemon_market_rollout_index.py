@@ -2,11 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
-from backend.db.services.pokemon_market_index_service import (
-    PAGE_SIZE,
-    TABLE,
-    read_raw_index_history_for_audit,
-)
+from backend.db.services.pokemon_market_index_service import TABLE
 from backend.db.services.pokemon_market_rollout_cohort import (
     resolve_market_root_cohort,
     rollout_transition_set_ids,
@@ -41,19 +37,29 @@ def _current_source_rows(client: Any, set_ids: Sequence[str], market_date: str) 
 
 
 def _latest_previous_by_key(client: Any, market_date: str) -> dict[str, dict[str, Any]]:
-    rows = [
-        dict(row)
-        for row in read_raw_index_history_for_audit(client, through_date=market_date)
-        if str(row.get("market_date") or "")[:10] < str(market_date)[:10]
-    ]
+    """Read only the immediately preceding persisted row for each index family.
+
+    The staged daily rollout needs exactly two prior rows (Raw and Top 10).
+    Reading the entire persisted index history just to select those rows was
+    unnecessary and could trip Postgres statement timeouts as history grows.
+    These point lookups are covered by the existing index-key/date indexes.
+    """
+    day = str(market_date)[:10]
     latest: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        key = str(row.get("index_key") or "")
-        if key not in INDEX_KEYS:
-            continue
-        existing = latest.get(key)
-        if existing is None or str(row.get("market_date")) > str(existing.get("market_date")):
-            latest[key] = row
+    for key in INDEX_KEYS:
+        rows = list(
+            client.table(TABLE)
+            .select("*")
+            .eq("tcg", "pokemon")
+            .eq("methodology_version", MARKET_INDEX_METHODOLOGY_VERSION)
+            .eq("index_key", key)
+            .lt("market_date", day)
+            .order("market_date", desc=True)
+            .limit(1)
+            .execute().data or []
+        )
+        if rows:
+            latest[key] = dict(rows[0])
     return latest
 
 
