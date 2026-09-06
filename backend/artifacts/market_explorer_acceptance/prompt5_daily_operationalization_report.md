@@ -376,3 +376,187 @@ call). Once fixed, rerun `run_market_explorer_daily_publication.py --commit --ma
 2026-09-03` once more — no further Python-side changes should be needed; the planner recovery
 path already correctly detects and uses the failed Sep-2 artifact as an incremental base. After
 Global All Raw reaches `ready`, run the Global query smokes (P.7) to complete acceptance.
+
+## Q. Staged/batched publication integration — ACCEPTED (final session)
+
+This section documents the resolution of the P.4/P.9 blocker. The narrative in sections P.1–P.9
+above is preserved exactly as it happened and should not be read as superseded in substance — the
+diagnosis there (a genuine `57014` in the publish path at global scale) was correct; this section
+records the fix and final live acceptance.
+
+### Q.1 Trigger root cause (as reported by the production migration author)
+The pre-existing `PUBLISH_RPC` (`publish_pokemon_market_explorer_query_cache_build`) was not
+itself the bottleneck — a synchronous trigger, `trg_sync_market_explorer_query_cache_constituents`,
+fires whenever `current_constituents` changes and does a `DELETE` + full JSONB parse + `INSERT`
+of one normalized row per constituent, all inside the same statement/transaction as the publish
+RPC. For Global All Raw that is ~34k synchronous row writes inside one PostgREST call, which is
+what actually hit the statement timeout — not the summary-row `UPDATE` itself.
+
+### Q.2 Migration `20260905040740_add_batched_market_explorer_cache_publication`
+Applied live in production (confirmed via `pg_get_functiondef`, not merely trusted). Adds four new
+service-role-only RPCs, alongside the unchanged legacy `PUBLISH_RPC` (kept for other callers, not
+used as a Global fallback):
+- `stage_pokemon_market_explorer_query_cache_build(...)` — writes the summary row
+  (`computed_from`/`computed_through`/`series_payload`/`current_value`/`constituent_count`/
+  `eligible_universe_count`/`current_constituents`) while explicitly setting
+  `market_explorer.skip_constituent_sync = on` for the session, bypassing the synchronous trigger.
+  Requires `status='building'` + matching `build_token` + unexpired lease; returns `false`
+  otherwise.
+- `upsert_pokemon_market_explorer_query_cache_constituent_batch(p_items jsonb)` — inserts/updates
+  up to 1000 items per call (hard-enforced server-side; the function itself returns `-1` for a
+  batch outside `[1, 1000]`), each item keyed by `(query_fingerprint, rank)` with `card_variant_id`
+  extracted for indexing and the full item JSON preserved. Also requires the row to be
+  `building`/token-matched/lease-unexpired, and rejects (`-1`) any batch with a null/non-positive
+  rank or a duplicate rank within the batch. Returns the actual affected row count on success.
+- `trim_pokemon_market_explorer_query_cache_constituent_batch(p_keep_through_rank, p_limit=1000)`
+  — deletes constituent rows with `rank > p_keep_through_rank`, up to `p_limit` (max 5000) per
+  call, for a shrinking market; returns the deleted count, or `-1` on an invalid/unclaimed request.
+- `finalize_pokemon_market_explorer_query_cache_build(...)` — independently re-derives
+  `constituent_count` from the summary row, then cross-validates the just-written detail table:
+  `count(*) == expected`, `count(card_variant_id) == expected` (no nulls), `count(distinct
+  card_variant_id) == expected` (no duplicates), `min(rank) = 1`, `max(rank) = expected` (no
+  gaps). Only if all hold does it atomically flip `building → ready` and clear the lease; any
+  mismatch returns `false` and leaves the row `building` (letting the caller decide to fail/retry).
+
+### Q.3 `PersistentMarketExplorerCache.publish()` rewrite
+`backend/db/services/market_explorer_query_planner.py` — `publish()` now: (1) slices
+`payload["currentConstituents"]` into batches of `CONSTITUENT_BATCH_SIZE=500` (a safety margin
+under the production hard limit of 1000, never sent at more than 1000 regardless), calling
+`upsert_..._constituent_batch` per slice with each item's **absolute** rank preserved (batch N
+contains ranks `500N+1..500N+500`, never renumbered to `1..500`), aborting with `False` if any
+batch call errors, returns `< 0`, or returns a count not equal to the batch length; (2) loops
+`trim_..._constituent_batch` with `p_keep_through_rank=len(constituents)` until it returns `0`,
+aborting with `False` on any negative return (handles a market whose constituent count shrank
+since the last publish); (3) only after all constituent writes complete, calls
+`stage_..._build` with the summary fields, aborting with `False` if it returns `False`; (4) only
+after a successful stage, calls `finalize_..._build`, returning its boolean result directly. Any
+exception at any step is caught by the existing outer `try/except` (unchanged), which logs and
+returns `False` — there is no fallback to the legacy one-shot `PUBLISH_RPC` at any point.
+
+### Q.4 Failed-base validation hardening
+Production re-inspection (before this fix) found the Global All Raw row's "valid" Sep-2 artifact
+from P.4 had since been overwritten by a subsequent failed attempt into an internally
+*incoherent* shape: `computed_through` advanced to Sep-3, `constituent_count` still `33956`
+(stale), but `series_payload` reduced to `{"asOf": "2026-09-03", "trend": [["2026-09-03", 1]]}`
+and `current_constituents: []` — every field individually present, but mutually contradictory.
+`_is_recoverable_failed_base` was hardened to catch exactly this shape (and confirmed live against
+the actual corrupted row before the fix — see Q.6): it now additionally requires
+`current_constituents` to exist as a list and (`if constituent_count > 0`) have length exactly
+equal to `constituent_count`; `series_payload["asOf"]` to agree with `computed_through`;
+`series_payload["historyStartDate"]` to agree with `computed_from` when both are present; and (a
+market spanning more than one day) `len(trend) > 1` — a single-point trend can never honestly
+represent a multi-day history, which is precisely the placeholder shape a partial failed write
+leaves behind. `PersistentMarketExplorerCache.read()`'s column selection was also missing
+`constituent_count` entirely (silently `None` for every caller) and has been added.
+
+### Q.5 Tests
+17 new/changed planner tests (68 total in `test_market_explorer_query_planner.py`, up from 51):
+a direct regression fixture reproducing the exact corrupted-row shape from Q.4
+(`test_corrupted_global_shaped_failed_artifact_is_not_recoverable`, asserting
+`_is_recoverable_failed_base(...) is False`) plus its complementary coherent-artifact case; a
+`StagedRpcClient` fake exercising `PersistentMarketExplorerCache.publish()` directly against the
+real RPC call sequence (no live DB) covering: batching at the configured size, absolute rank
+preservation across batch boundaries, a hard guarantee no single batch call ever exceeds 1000
+items, a batch-count-mismatch or negative-return failure aborting the publish, the trim loop
+running until it returns zero, stage only being called after all batches/trim complete, a `False`
+from `stage` or `finalize` aborting without a false-success, a raised exception during any RPC
+call aborting cleanly, and confirmation that `constituent_page()` and the legacy `read()`
+`currentConstituents` hydration are both untouched by the rewrite. Full relevant regression:
+**170 passed, 0 failed** (`test_market_explorer_query_planner.py`,
+`test_run_market_explorer_daily_publication.py`, `test_publish_market_explorer_daily_projection.py`,
+`test_pokemon_market_explorer_query_service.py`, `test_market_explorer_query_cache_migration.py`,
+`test_accept_market_explorer_global_daily_projection.py`,
+`test_repair_market_explorer_vintage_predecessor_identities.py`). `git diff --check` clean.
+The two previously-restored fixes (`on_conflict="market_date,card_variant_id"` and
+`_spec_from_normalized`'s full-dict spread including `contractVersion`) were reconfirmed present
+and untouched.
+
+### Q.6 Live Global All Raw recovery
+Before running the fix, the corrupted row was reconfirmed live exactly as Q.4 describes
+(`status=failed`, `computed_through=2026-09-03`, `constituent_count=33956`,
+`series_payload={"asOf":"2026-09-03","trend":[["2026-09-03",1]]}`, `current_constituents=[]`) —
+so the hardened `_is_recoverable_failed_base` correctly rejects it, and the planner takes the
+expected path: a full cold rebuild (not a fallback to interval, not a `statement_timeout`
+increase). Running `run_market_explorer_daily_publication.py --commit --market-date 2026-09-03`
+produced `caches: {"advanced": 1, "already_current": 20, "failed": 0}` and overall `"status":
+"ok"`. Live verification immediately after:
+- `pokemon_market_explorer_query_cache`: `status='ready'`, `computed_from='2026-04-07'`,
+  `computed_through='2026-09-03'`, `constituent_count=33955`, `eligible_universe_count=33955`.
+- `pokemon_market_explorer_query_cache_constituents`: `count(*)=33955`,
+  `count(distinct card_variant_id)=33955`, `min(rank)=1`, `max(rank)=33955` — internally exact,
+  confirming `finalize_..._build`'s own integrity check passed for real.
+- Retired-predecessor leakage: `0` (joined against `pokemon_market_explorer_variant_merge_ledger`).
+
+**One honest discrepancy worth flagging, not hidden:** the constituent count is **33,955**, not
+the **33,956** baselined earlier in this document and in Prompt 4's acceptance. This is NOT a
+batching/finalize bug — the detail table is perfectly self-consistent (count = unique IDs = max
+rank), and an earlier same-session diagnostic (a direct, unbatched timed call to the underlying
+builder, before any of today's fix was involved) independently reported the identical
+`currentBasketRowCount: 33955` for real Sep-3 data. The underlying `pokemon_market_explorer_
+card_daily_states` table itself still has exactly `33956` rows for Sep-3 — so one instrument that
+has a valid daily-state row is being excluded somewhere in the cohort/basket-construction layer
+(`run_market_explorer_query`/its helpers in `pokemon_market_explorer_query_service.py`) before it
+reaches the cache payload. That code was not touched by this session and is outside this task's
+scope (planner-side cache lifecycle, not query cohort construction) — flagged here as a real,
+specific, one-row discrepancy for a future session to trace, not swept under "legitimate drift"
+without evidence. It is not a blocker: Sep-3 projection/coverage (the source of truth) remain
+exactly 33,956/4,631,511/165-of-165 throughout, unaffected by this cache-layer discrepancy.
+
+### Q.7 Final 21/21 cache acceptance
+Reconfirmed live: **21 maintained Cards caches, 21 ready**, `min(computed_through) =
+max(computed_through) = 2026-09-03`. No maintained cache left `building`/`failed`/stale for Sep-3.
+
+### Q.8 Idempotency rerun
+Ran the identical `--commit --market-date 2026-09-03` command a second time. Result:
+`caches: {"advanced": 0, "already_current": 21, "failed": 0}`, projection
+`{"sets_appended": 0, "sets_up_to_date": 165, "total_rows_inserted": 0}`, overall `"status": "ok"`.
+Live re-verification: Sep-3 rows unchanged (33,956), total projection rows unchanged (4,631,511),
+coverage unchanged (165/165 through Sep-3, row_count sum 4,631,511 exactly), all 21 caches
+unchanged (still ready through Sep-3). No Global cold rebuild occurred on the rerun — Global All
+Raw was correctly recognized as `status='ready'`/`computed_through>=market_date` and skipped as
+`already_current`, exactly as designed.
+
+### Q.9 Global query smokes
+Ran all four via the real `run_market_explorer_query` application function for `2026-09-03`:
+
+| Query | executionEngine | constituentCount | eligibleUniverseCount | trackedValue |
+|---|---|---|---|---|
+| Global All Raw | `daily_projection` | 33,955 | 33,955 | 637,042.00 |
+| Global Top10 | `daily_projection` | 10 | 33,955 | 35,332.31 |
+| Global rareHolo | `daily_projection` | 3,055 | 3,055 | 148,957.52 |
+| Global Premium | `daily_projection` | 1,344 | 1,344 | 392,879.76 |
+
+All four resolved via `daily_projection` — no interval fallback, no `57014` timeout, in any case.
+rareHolo/Premium counts and values match the originally-baselined Sep-3 figures exactly; All
+Raw/Top10 reflect the same 33,955-vs-33,956 discrepancy noted in Q.6, not a new issue.
+
+### Q.10 Migration source-sync status
+Five Market Explorer production migrations now await exact source-control mirroring (one more
+than before — the new batched-publication migration):
+`20260902221622_add_market_explorer_vintage_identity_repair_primitives.sql`,
+`20260902221819_add_scoped_variant_monthly_rollup_rebuild.sql`,
+`20260903034704_harden_market_explorer_vintage_top_hits_rebuild.sql`,
+`20260903192911_add_market_explorer_current_metadata_projection.sql`,
+`20260905040740_add_batched_market_explorer_cache_publication.sql`. None were reconstructed —
+their exact SQL was read live via `pg_get_functiondef` for verification purposes only, not written
+to any file in this repo. **`PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT`**, non-blocking.
+
+### Q.11 Final decision
+**`MARKET_EXPLORER_DAILY_OPERATIONALIZATION_ACCEPTED`.** The staged/batched publication path is
+implemented, tested (170/170), and verified live end-to-end: the hardened failed-base validation
+correctly rejected the corrupted Global All Raw artifact, the resulting cold rebuild published
+successfully through the new staged RPC sequence, all 21 maintained caches are `ready` through
+Sep-3, a full idempotent rerun performed zero redundant work, and all four Global query smokes
+resolve via `daily_projection` with no timeout. The one open item (Q.6's 33,955-vs-33,956
+one-row discrepancy) is a real, narrow, non-blocking finding in the query cohort-construction
+layer — outside this task's scope — recommended as the next investigation, not a gap in this
+session's actual deliverable.
+
+### Q.12 Next recommendation
+Trace the single-instrument discrepancy from Q.6: compare `pokemon_market_explorer_card_daily_
+states` for `market_date='2026-09-03'` (33,956 rows) against whatever cohort-filtering step in
+`run_market_explorer_query`/its helpers produces the 33,955-row Global All Raw basket, to identify
+which one instrument is being excluded and why (a genuine data-quality exclusion, e.g. a price of
+zero/null slipping through, versus an unintended filter). This is unrelated to Prompt 5's
+daily-operationalization scope and does not block treating this task as complete. Do not begin
+Prompt 6 without explicit instruction.

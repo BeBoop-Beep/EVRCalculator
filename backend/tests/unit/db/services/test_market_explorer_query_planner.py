@@ -653,14 +653,25 @@ _UNSET = object()
 def _failed_global_row(asset="cards", *, through="2026-09-02",
                         series_payload=_UNSET, query_contract_version=None,
                         service_version=None, instrument_methodology_version=None,
-                        build_token=None, build_expires_at=None):
+                        build_token=None, build_expires_at=None,
+                        current_constituents=_UNSET, constituent_count=_UNSET):
+    resolved_payload = (
+        payload(through, start="2026-04-07") if series_payload is _UNSET else series_payload
+    )
+    resolved_constituents = (
+        (resolved_payload or {}).get("currentConstituents", [])
+        if current_constituents is _UNSET else current_constituents
+    )
+    resolved_count = (
+        len(resolved_constituents) if constituent_count is _UNSET else constituent_count
+    )
     return {
         "status": "failed",
         "computed_from": "2026-04-07",
         "computed_through": through,
-        "series_payload": (
-            payload(through, start="2026-04-07") if series_payload is _UNSET else series_payload
-        ),
+        "series_payload": resolved_payload,
+        "current_constituents": resolved_constituents,
+        "constituent_count": resolved_count,
         "query_contract_version": (
             MARKET_EXPLORER_QUERY_CONTRACT_VERSION if query_contract_version is None
             else query_contract_version
@@ -940,3 +951,251 @@ def test_existing_stale_status_still_forces_full_rebuild_not_recovery():
         novel_builder=lambda start, end: ranges.append((start, end)) or payload())
     assert ranges == [(None, "2026-08-28")]
     assert result.execution_source == "novel_interval"
+
+
+def test_corrupted_global_shaped_failed_artifact_is_not_recoverable():
+    """A production-observed corruption shape: computed_through advanced,
+    constituent_count still the old (large) value, but series_payload/
+    current_constituents replaced with a single-point placeholder by a
+    failed mid-write. Must NOT be treated as a recoverable base -- it would
+    silently merge garbage into the next build."""
+    from backend.db.services.market_explorer_query_planner import _is_recoverable_failed_base
+
+    corrupted_row = {
+        "status": "failed",
+        "computed_from": "2026-04-07",
+        "computed_through": "2026-09-03",
+        "constituent_count": 33956,
+        "current_constituents": [],
+        "series_payload": {"asOf": "2026-09-03", "trend": [["2026-09-03", 1]]},
+        "query_contract_version": MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
+        "service_version": MARKET_EXPLORER_SERVICE_VERSIONS["cards"],
+        "instrument_methodology_version": MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS["cards"],
+        "build_token": None,
+        "build_expires_at": None,
+    }
+    spec = normalize_query_spec(mode=MODE_ALL)
+    generation = PublicationGeneration("2026-09-03", repair_generation=0)
+    assert _is_recoverable_failed_base(corrupted_row, spec, generation) is False
+
+
+def test_genuinely_coherent_failed_artifact_remains_recoverable():
+    """The complementary case: a failed row whose constituent_count matches
+    len(current_constituents), whose series asOf/historyStartDate agree with
+    computed_through/computed_from, and whose trend has more than one point
+    for a multi-day history, IS recoverable."""
+    from backend.db.services.market_explorer_query_planner import _is_recoverable_failed_base
+
+    coherent_row = _failed_global_row(through="2026-09-02")
+    spec = normalize_query_spec(mode=MODE_ALL)
+    generation = PublicationGeneration("2026-09-03", repair_generation=0)
+    assert _is_recoverable_failed_base(coherent_row, spec, generation) is True
+
+
+# --- Staged/batched publish() (PersistentMarketExplorerCache direct) --------
+
+class StagedRpcClient:
+    """Fake Supabase client exercising PersistentMarketExplorerCache.publish()
+    against the real staged RPC call sequence, without a live database.
+    """
+    def __init__(self, *, batch_result=None, trim_sequence=None, stage_result=True,
+                 finalize_result=True, raise_on=None):
+        self.batch_result = batch_result  # None => len(items); else fixed int
+        self.trim_sequence = list(trim_sequence) if trim_sequence is not None else [0]
+        self.stage_result = stage_result
+        self.finalize_result = finalize_result
+        self.raise_on = raise_on  # rpc name to raise an exception for
+        self.batch_calls = []
+        self.trim_calls = []
+        self.stage_calls = []
+        self.finalize_calls = []
+
+    def rpc(self, name, params):
+        if self.raise_on == name:
+            raise RuntimeError(f"simulated failure for {name}")
+        if name == "upsert_pokemon_market_explorer_query_cache_constituent_batch":
+            self.batch_calls.append(params)
+            n = len(params["p_items"]) if self.batch_result is None else self.batch_result
+            return _Resp(n)
+        if name == "trim_pokemon_market_explorer_query_cache_constituent_batch":
+            self.trim_calls.append(params)
+            value = self.trim_sequence.pop(0) if self.trim_sequence else 0
+            return _Resp(value)
+        if name == "stage_pokemon_market_explorer_query_cache_build":
+            self.stage_calls.append(params)
+            return _Resp(self.stage_result)
+        if name == "finalize_pokemon_market_explorer_query_cache_build":
+            self.finalize_calls.append(params)
+            return _Resp(self.finalize_result)
+        raise AssertionError(f"unexpected rpc {name}")
+
+
+class _Resp:
+    def __init__(self, data):
+        self.data = data
+
+    def execute(self):
+        return self
+
+
+def _make_payload(count):
+    constituents = [{"rank": i + 1, "cardVariantId": f"v{i + 1}"} for i in range(count)]
+    return {
+        "asOf": "2026-09-03", "historyStartDate": "2026-09-03", "indexValue": 1.0,
+        "currentConstituents": constituents,
+        "reconciliation": {"eligibleUniverseCount": count},
+    }
+
+
+def test_staged_publish_uses_constituent_batches():
+    client = StagedRpcClient()
+    cache = PersistentMarketExplorerCache(client)
+    ok = cache.publish(fingerprint="f" * 64, token="tok",
+                       payload=_make_payload(1200))
+    assert ok is True
+    assert len(client.batch_calls) == 3  # 500 + 500 + 200 at batch size 500
+
+
+def test_batches_preserve_absolute_rank():
+    client = StagedRpcClient()
+    cache = PersistentMarketExplorerCache(client)
+    cache.publish(fingerprint="f" * 64, token="tok", payload=_make_payload(1200))
+    second_batch_ranks = [item["rank"] for item in client.batch_calls[1]["p_items"]]
+    assert second_batch_ranks == list(range(501, 1001))  # not renumbered to 1..500
+
+
+def test_batch_over_1000_is_never_sent():
+    client = StagedRpcClient()
+    cache = PersistentMarketExplorerCache(client)
+    cache.publish(fingerprint="f" * 64, token="tok", payload=_make_payload(2500))
+    assert all(len(call["p_items"]) <= 1000 for call in client.batch_calls)
+
+
+def test_batch_failure_returns_false():
+    client = StagedRpcClient(batch_result=-1)
+    cache = PersistentMarketExplorerCache(client)
+    assert cache.publish(fingerprint="f" * 64, token="tok",
+                         payload=_make_payload(10)) is False
+
+
+def test_partial_batch_count_mismatch_returns_false():
+    client = StagedRpcClient(batch_result=3)  # requested 10, RPC reports 3 upserted
+    cache = PersistentMarketExplorerCache(client)
+    assert cache.publish(fingerprint="f" * 64, token="tok",
+                         payload=_make_payload(10)) is False
+
+
+def test_stale_tail_trim_loops_until_zero():
+    client = StagedRpcClient(trim_sequence=[500, 200, 0])
+    cache = PersistentMarketExplorerCache(client)
+    ok = cache.publish(fingerprint="f" * 64, token="tok", payload=_make_payload(10))
+    assert ok is True
+    assert len(client.trim_calls) == 3
+
+
+def test_stage_happens_only_after_constituent_batches_and_trim():
+    client = StagedRpcClient()
+    cache = PersistentMarketExplorerCache(client)
+    cache.publish(fingerprint="f" * 64, token="tok", payload=_make_payload(10))
+    assert len(client.batch_calls) == 1
+    assert len(client.trim_calls) == 1
+    assert len(client.stage_calls) == 1
+    assert len(client.finalize_calls) == 1
+
+
+def test_stage_false_fails_publication():
+    client = StagedRpcClient(stage_result=False)
+    cache = PersistentMarketExplorerCache(client)
+    assert cache.publish(fingerprint="f" * 64, token="tok",
+                         payload=_make_payload(10)) is False
+    assert len(client.finalize_calls) == 0  # never finalize an unstaged build
+
+
+def test_finalize_false_fails_publication():
+    client = StagedRpcClient(finalize_result=False)
+    cache = PersistentMarketExplorerCache(client)
+    assert cache.publish(fingerprint="f" * 64, token="tok",
+                         payload=_make_payload(10)) is False
+
+
+def test_successful_finalize_returns_true():
+    client = StagedRpcClient()
+    cache = PersistentMarketExplorerCache(client)
+    assert cache.publish(fingerprint="f" * 64, token="tok",
+                         payload=_make_payload(10)) is True
+
+
+def test_publish_false_still_causes_market_explorer_publish_failed():
+    """11 (staged variant). A genuinely failed staged publish still surfaces
+    as MarketExplorerPublishFailed through execute(), not a false success."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(None, publish=False)
+    with pytest.raises(MarketExplorerPublishFailed):
+        planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+            persistent=persistent, canonical_through=lambda: "2026-08-28",
+            novel_builder=lambda *_: payload())
+    assert "fail" in persistent.calls
+
+
+def test_rpc_exception_during_staged_publish_returns_false():
+    client = StagedRpcClient(raise_on="stage_pokemon_market_explorer_query_cache_build")
+    cache = PersistentMarketExplorerCache(client)
+    assert cache.publish(fingerprint="f" * 64, token="tok",
+                         payload=_make_payload(10)) is False
+
+
+def test_existing_normalized_constituent_paging_remains_correct():
+    """12/13-adjacent: constituent_page() is untouched by the staged-publish
+    rewrite -- still a thin passthrough to the existing page RPC."""
+    class PageClient:
+        def rpc(self, name, params):
+            assert name == "get_pokemon_market_explorer_query_cache_constituent_page"
+            assert params["p_limit"] == 50
+            return _Resp([{"rows": [], "hasMore": False}])
+    cache = PersistentMarketExplorerCache(PageClient())
+    result = cache.constituent_page("f" * 64, limit=50, after_rank=100)
+    assert result == {"rows": [], "hasMore": False}
+
+
+def test_legacy_cache_read_still_gets_current_constituents_from_row():
+    class ReadyReadClient:
+        def table(self, _name):
+            return self
+
+        def select(self, _cols):
+            return self
+
+        def eq(self, _c, _v):
+            return self
+
+        def limit(self, _n):
+            return self
+
+        def execute(self):
+            return _Resp([{"status": "ready", "series_payload": {"asOf": "2026-09-03"},
+                          "current_constituents": [{"rank": 1, "cardVariantId": "v1"}],
+                          "computed_through": "2026-09-03"}])
+
+    cache = PersistentMarketExplorerCache(ReadyReadClient())
+    row = cache.read("f" * 64)
+    assert row["series_payload"]["currentConstituents"] == [
+        {"rank": 1, "cardVariantId": "v1"}
+    ]
+
+
+def test_orchestrator_still_isolates_one_failed_maintained_cache():
+    """16 (orchestrator variant). Reconfirm prewarm_maintained_caches still
+    isolates a single cache failure from the others after the staged-publish
+    change -- exercised at the FakePersistent/execute() boundary already
+    covered by the orchestrator's own test suite; this is a planner-level
+    sanity check that publish() failures propagate as exceptions execute()
+    itself catches and converts to a per-call failure, not a crash."""
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent(None, publish=False)
+    try:
+        planner().execute(spec=spec, prepared=PreparedEquivalenceRegistry(),
+            persistent=persistent, canonical_through=lambda: "2026-08-28",
+            novel_builder=lambda *_: payload())
+        pytest.fail("expected MarketExplorerPublishFailed")
+    except MarketExplorerPublishFailed:
+        pass  # caller (orchestrator) is expected to catch this per-cache

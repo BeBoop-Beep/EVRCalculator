@@ -32,8 +32,17 @@ SUMMARY_READ_RPC = "get_pokemon_market_explorer_query_cache_summary"
 CONSTITUENT_PAGE_RPC = "get_pokemon_market_explorer_query_cache_constituent_page"
 CLAIM_RPC = "claim_pokemon_market_explorer_query_cache_build"
 PUBLISH_RPC = "publish_pokemon_market_explorer_query_cache_build"
+STAGE_RPC = "stage_pokemon_market_explorer_query_cache_build"
+UPSERT_CONSTITUENT_BATCH_RPC = "upsert_pokemon_market_explorer_query_cache_constituent_batch"
+TRIM_CONSTITUENT_BATCH_RPC = "trim_pokemon_market_explorer_query_cache_constituent_batch"
+FINALIZE_BUILD_RPC = "finalize_pokemon_market_explorer_query_cache_build"
 FAIL_RPC = "fail_pokemon_market_explorer_query_cache_build"
 INVALIDATE_RPC = "invalidate_pokemon_market_explorer_query_cache"
+
+# Production hard limit on upsert_..._constituent_batch is 1000 items; keep a
+# comfortable margin under it rather than sending the max every time.
+CONSTITUENT_BATCH_SIZE = 500
+TRIM_BATCH_LIMIT = 1000
 
 L1_TTL_SECONDS = 300
 L1_MAX_ENTRIES = 128
@@ -188,7 +197,7 @@ class PersistentMarketExplorerCache:
             else:
                 rows = list((self.client.table(CACHE_TABLE).select(
                     "query_fingerprint,status,computed_from,computed_through,series_payload,"
-                    "current_constituents,build_token,build_expires_at,"
+                    "current_constituents,constituent_count,build_token,build_expires_at,"
                     "query_contract_version,service_version,instrument_methodology_version"
                 ).eq("query_fingerprint", fingerprint).limit(1).execute()).data or [])
                 if rows and rows[0].get("status") == "ready":
@@ -226,8 +235,51 @@ class PersistentMarketExplorerCache:
             return None
 
     def publish(self, *, fingerprint: str, token: str, payload: Mapping[str, Any]) -> bool:
+        """Staged/batched publication: normalized constituent detail is
+        written FIRST in bounded batches (never exceeding the production
+        hard limit of 1000 items/call), then the summary row is staged with
+        the legacy synchronous constituent-sync trigger explicitly bypassed
+        (see ``stage_pokemon_market_explorer_query_cache_build``), and only
+        ``finalize_pokemon_market_explorer_query_cache_build`` -- which
+        independently re-validates detail-row count/uniqueness/rank
+        contiguity against the just-written detail table -- flips the row
+        from ``building`` to ``ready``. Any step returning a failure sentinel
+        (negative int, False, or a raised exception) aborts the whole
+        publish and returns False; there is no fallback to the legacy
+        one-shot ``PUBLISH_RPC`` -- that RPC remains only for other,
+        unrelated callers still using the old contract.
+        """
         try:
-            response = self.client.rpc(PUBLISH_RPC, {
+            constituents = list(payload.get("currentConstituents") or [])
+            expected_count = len(constituents)
+
+            for start in range(0, expected_count, CONSTITUENT_BATCH_SIZE):
+                batch = constituents[start:start + CONSTITUENT_BATCH_SIZE]
+                if len(batch) > 1000:
+                    return False  # never send a batch over the production hard limit
+                result = self.client.rpc(UPSERT_CONSTITUENT_BATCH_RPC, {
+                    "p_query_fingerprint": fingerprint,
+                    "p_build_token": token,
+                    "p_items": batch,
+                }).execute()
+                affected = result.data if result.data is not None else -1
+                if affected is None or int(affected) < 0 or int(affected) != len(batch):
+                    return False
+
+            while True:
+                trimmed = self.client.rpc(TRIM_CONSTITUENT_BATCH_RPC, {
+                    "p_query_fingerprint": fingerprint,
+                    "p_build_token": token,
+                    "p_keep_through_rank": expected_count,
+                    "p_limit": TRIM_BATCH_LIMIT,
+                }).execute()
+                trimmed_count = trimmed.data if trimmed.data is not None else -1
+                if trimmed_count is None or int(trimmed_count) < 0:
+                    return False
+                if int(trimmed_count) == 0:
+                    break
+
+            staged = self.client.rpc(STAGE_RPC, {
                 "p_query_fingerprint": fingerprint,
                 "p_build_token": token,
                 "p_computed_from": payload.get("historyStartDate"),
@@ -237,12 +289,19 @@ class PersistentMarketExplorerCache:
                     if key != "currentConstituents"
                 },
                 "p_current_value": payload.get("indexValue"),
-                "p_constituent_count": (payload.get("metadata") or {}).get("constituentCount"),
+                "p_constituent_count": expected_count,
                 "p_eligible_universe_count":
                     (payload.get("reconciliation") or {}).get("eligibleUniverseCount"),
-                "p_current_constituents": payload.get("currentConstituents") or [],
+                "p_current_constituents": constituents,
             }).execute()
-            return bool(response.data)
+            if not bool(staged.data):
+                return False
+
+            finalized = self.client.rpc(FINALIZE_BUILD_RPC, {
+                "p_query_fingerprint": fingerprint,
+                "p_build_token": token,
+            }).execute()
+            return bool(finalized.data)
         except Exception as exc:
             if self.metrics:
                 self.metrics.record("cache_build_failures", 0)
@@ -367,11 +426,44 @@ def _is_recoverable_failed_base(
         return False
     if not generation.trusted:
         return False
-    if not row.get("computed_through"):
+    computed_through = row.get("computed_through")
+    if not computed_through:
         return False
     series_payload = row.get("series_payload")
-    if not series_payload or not series_payload.get("trend"):
+    if not series_payload:
         return False
+    trend = series_payload.get("trend")
+    if not trend:
+        return False
+
+    # Internal coherence: a build that failed mid-write can leave the summary
+    # row and the constituent detail/series in an inconsistent state (exactly
+    # the shape observed in production once: computed_through advanced,
+    # constituent_count still the old value, but series_payload/current_
+    # constituents replaced with a single-point placeholder). None of that is
+    # a safe incremental base even though every field above looks present.
+    constituent_count = row.get("constituent_count")
+    current_constituents = row.get("current_constituents")
+    if current_constituents is None or not isinstance(current_constituents, list):
+        return False
+    if constituent_count is not None and int(constituent_count) > 0:
+        if len(current_constituents) != int(constituent_count):
+            return False
+
+    as_of = str(series_payload.get("asOf") or "")[:10]
+    if as_of != str(computed_through)[:10]:
+        return False
+
+    computed_from = row.get("computed_from")
+    history_start_date = str(series_payload.get("historyStartDate") or "")[:10]
+    if computed_from and history_start_date and history_start_date != str(computed_from)[:10]:
+        return False
+    # A market spanning more than one day of history cannot be honestly
+    # represented by a single trend point -- that shape only occurs when a
+    # failed build partially overwrote a richer artifact with a placeholder.
+    if computed_from and str(computed_from)[:10] < str(computed_through)[:10] and len(trend) <= 1:
+        return False
+
     asset = str(spec["asset"])
     if row.get("query_contract_version") not in (None, MARKET_EXPLORER_QUERY_CONTRACT_VERSION):
         return False
