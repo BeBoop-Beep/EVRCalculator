@@ -133,12 +133,14 @@ def test_set_ev_representativeness_inherits_from_the_same_run_published_ranking_
     rip = payload["rip"]
     assert rip["setEvRepresentativeness"]["calculationRunId"] == "run-current"
     assert rip["setEvRepresentativeness"]["realizationHorizon"]["packCount"] == 420
-    # No additional table beyond the ones the RIP contract already reads.
+    # No additional table beyond the ones the RIP contract already reads,
+    # plus the ONE bounded Chase Accessibility exact-set read (Phase 5).
     tables_read = {name for name, *_ in client.executed}
     assert tables_read <= {
         "sealed_products", "sets", "sealed_product_price_observations",
         "pokemon_explore_rankings_snapshot_latest", "simulation_sealed_product_results",
         "pokemon_set_sealed_market_snapshot_latest",
+        "pokemon_set_chase_accessibility_snapshot_latest",
     }
 
 
@@ -173,9 +175,15 @@ def test_top_level_v10_shape_lets_the_shared_explanation_hierarchy_render_the_ca
         "status": "ready",
     }
     assert rip["financialRipV4"] == {"leaderNormalizedScore": rip["financialRipLeaderScore"]}
-    # No shadow V12 data on this fixture's ranking row - the contract must be
-    # honestly None, never fabricated.
-    assert rip["publicRipContractV11"] is None
+    # No V12 blend payload on this fixture's ranking row - `overallRipV12`
+    # must be honestly None, never fabricated. `publicRipContractV11` is no
+    # longer None outright though: Chase Accessibility (Phase 2/3) is
+    # projected independently of whether the V12 blend has been (re)computed
+    # for this row, since the known/expected production condition today is
+    # exactly this - a stale V10-only publication with no `overallRipV12`.
+    assert rip["publicRipContractV11"]["overallRipV12"] is None
+    assert rip["publicRipContractV11"]["overallRipV12Composition"] is None
+    assert rip["publicRipContractV11"]["chaseAccessibility"] is not None
 
 
 def test_shadow_v12_ranking_payload_flows_through_as_publicRipContractV11():
@@ -201,7 +209,9 @@ def test_shadow_v12_ranking_payload_flows_through_as_publicRipContractV11():
     assert contract["contractVersion"] == "public_rip_contract_v11"
     assert contract["overallRipV12"]["score"] == 88.42
     assert contract["overallRipV12"]["status"] == "ready"
-    assert contract["overallRipV12"]["canonical"] is False
+    # Overall RIP V12 is CANONICAL as of the 2026-09-03 cutover - this flag
+    # describes the MODEL, not whether this particular row is rankable.
+    assert contract["overallRipV12"]["canonical"] is True
     assert contract["overallRipV12Composition"]["weights"] == v12_payload["weights"]
     assert contract["overallRipV12Composition"]["effectiveWeights"] == v12_payload["effectiveWeights"]
 
@@ -334,3 +344,106 @@ def test_unknown_product_is_404():
     with pytest.raises(service.PokemonSealedProductDetailError) as caught:
         service.get_pokemon_sealed_product_detail_payload("missing", Client(fixture_data()))
     assert caught.value.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Phase 17 — Product RIP Chase Accessibility projection (V12 Market-Based UI)
+# ---------------------------------------------------------------------------
+
+def chase_accessibility_row(set_id="s1", run_id="run-current", accessibility=0.0021):
+    return {
+        "set_id": set_id,
+        "accessibility": accessibility,
+        "status": "ready",
+        "status_reason": None,
+        "version": "chase_accessibility_v1",
+        "chase_depth": 3.4,
+        "mapped_hc_mass": 0.62,
+        "calculation_run_id": run_id,
+        "market_date": "2026-08-28",
+    }
+
+
+def _chase_fixture(**overrides):
+    data = fixture_data()
+    data["pokemon_set_chase_accessibility_snapshot_latest"] = [chase_accessibility_row(**overrides)]
+    return data
+
+
+def test_A_product_detail_projects_exact_run_chase_accessibility():
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(_chase_fixture()))
+    chase = payload["rip"]["publicRipContractV11"]["chaseAccessibility"]
+    assert chase["status"] == "ready"
+    assert chase["value"] == 0.0021
+    assert chase["percent"] == pytest.approx(0.21)
+    assert chase["chaseDepth"] == 3.4
+    assert chase["mappedHcMass"] == 0.62
+    assert chase["calculationRunId"] == "run-current"
+
+
+def test_B_wrong_run_is_rejected_not_shown_as_latest_available():
+    payload = service.get_pokemon_sealed_product_detail_payload(
+        "p1", Client(_chase_fixture(run_id="run-STALE-YESTERDAY"))
+    )
+    chase = payload["rip"]["publicRipContractV11"]["chaseAccessibility"]
+    assert chase["status"] == "unavailable_authority_mismatch"
+    assert chase["value"] is None
+    assert chase["percent"] is None
+    assert "run-STALE-YESTERDAY" in chase["statusReason"]
+    assert "run-current" in chase["statusReason"]
+
+
+def test_C_wrong_set_is_rejected():
+    """A Chase Accessibility row published under a DIFFERENT set must never
+    be substituted for this product's own parent set."""
+    payload = service.get_pokemon_sealed_product_detail_payload(
+        "p1", Client(_chase_fixture(set_id="s-OTHER-SET"))
+    )
+    chase = payload["rip"]["publicRipContractV11"]["chaseAccessibility"]
+    # The exact-set read finds nothing for "s1", so no row is even considered
+    # - never falls back to a different set's row.
+    assert chase["value"] is None
+    assert chase["status"] != "ready"
+
+
+def test_D_unavailable_chase_is_truthful_not_fabricated():
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(fixture_data()))
+    chase = payload["rip"]["publicRipContractV11"]["chaseAccessibility"]
+    assert chase["value"] is None
+    assert chase["percent"] is None
+    assert chase["status"] == "unavailable_authority_mismatch"
+
+
+def test_E_no_latest_by_set_authority_substitution_exploit_attempt():
+    """Even when a snapshot row exists for the CORRECT set but from a
+    different, more-recent-looking run, it must be refused - proving there is
+    no 'use whatever is latest for this set_id' fallback anywhere in the path."""
+    data = _chase_fixture(run_id="run-NEWER-BUT-NOT-THIS-PRODUCTS")
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(data))
+    chase = payload["rip"]["publicRipContractV11"]["chaseAccessibility"]
+    assert chase["status"] == "unavailable_authority_mismatch"
+    assert chase["value"] is None
+
+
+def test_F_no_v12_arithmetic_in_product_detail_service():
+    """The service module must never import or reimplement the Overall RIP
+    V12 saturating transform or blend - it only reads persisted values."""
+    import inspect
+
+    source = inspect.getsource(service)
+    for forbidden in ("chase_accessibility_overall_score(", "compute_overall_rip_v12(", "CHASE_ACCESSIBILITY_OVERALL_SCORE_K"):
+        assert forbidden not in source, f"unexpected V12 arithmetic call {forbidden!r} in product detail service"
+
+
+def test_G_no_product_chase_premium_fields_leak_into_product_rip_payload():
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(_chase_fixture()))
+    chase = payload["rip"]["publicRipContractV11"]["chaseAccessibility"]
+    for forbidden in ("oBudget", "ece", "eceVersion", "quantity", "effectivePacks", "oBudgetRank"):
+        assert forbidden not in chase
+
+
+def test_H_bounded_query_count_one_additional_chase_read():
+    client = Client(_chase_fixture())
+    service.get_pokemon_sealed_product_detail_payload("p1", client)
+    chase_reads = [q for q in client.executed if q[0] == "pokemon_set_chase_accessibility_snapshot_latest"]
+    assert len(chase_reads) == 1

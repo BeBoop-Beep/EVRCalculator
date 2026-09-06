@@ -168,34 +168,155 @@ treated as done.
 No test changes were made to either mechanism's existing pinned behavior — this is a documented
 "keep as-is" decision with its reasoning recorded here, not a silent no-op.
 
-## I. Live desktop QA
-**Not performed.** No backend was reachable from this sandbox: `curl` to both
-`http://127.0.0.1:8000/market/explorer/snapshot` and `:8001` returned connection-refused
-(`curl` exit 7) before any HTTP response. `npx next build` succeeds and the `/Market/Explorer` route
-compiles, confirming the page is structurally sound, but no browser was opened against a running
-instance and no screenshots were captured. Stated plainly as a genuine gap rather than asserted as
-done — see sections J/K/N/P.
+## I. Live desktop QA (UPDATED — this pass)
+
+**A real backend and frontend were started and driven this time**, correcting the prior two
+sessions' "no backend reachable" finding, which this pass confirms was a stopping point that should
+not have been accepted without actively attempting startup.
+
+**Startup, verified**:
+- Backend: `d:/EVRCalculator/backend/.venv/Scripts/python.exe -m uvicorn backend.api.main:app --host
+  0.0.0.0 --port 8001` (the repo's own documented local invocation — `helpful script commands
+  .txt`), confirmed against `frontend/.env.local`'s `BACKEND_API_BASE_URL='http://127.0.0.1:8001'`
+  before launching so the frontend's existing environment mechanism (not a one-off hardcoded URL)
+  would reach it. Started clean: `Application startup complete`; `GET /docs` and `GET /openapi.json`
+  both returned 200.
+- Frontend: `npx next dev -p 3100` in `frontend/` (port 3100, this repo's documented convention for
+  a QA dev server distinct from the shared `:3000`/prod-build port, per prior-session memory of
+  `.next` build-directory contention). Ready in 13.7s. `GET /Market/Explorer` returned 200 with
+  `data-market-explorer-workspace` present in the rendered HTML (not the "temporarily unavailable"
+  fallback) — the page genuinely renders against live data for an anonymous/Basic visitor.
+
+**Auth**: `/market/explorer/query` and `/market/explorer/query/constituents` require an
+authenticated caller server-side (`_require_market_explorer_query_access`) regardless of plan, so a
+real account was needed to exercise anything beyond the public snapshot. No dev/test account or
+credential existed in the repo. **With the user's explicit, scoped approval**, a session token was
+minted once via the backend's own existing token-issuing function
+(`backend.db.services.frontend_proxy_service.issue_token`, the exact function `/auth/login` itself
+calls) for the user's own account, **donnystiv@gmail.com, plan `plus`** — verified real via a direct
+`SELECT` against the `users` table and confirmed live via `GET /auth/me` → 200. Per the approval's
+explicit conditions: the token was written only to a local out-of-repo temp file, never printed in
+full to any log, never committed, and deleted at the end of this QA pass; no plan/entitlement data
+was modified; it was used only against the local QA backend/frontend just started. This satisfies
+the prompt's "use an existing supported dev/test user" instruction — no product code was bypassed;
+authorization was still evaluated server-side for every request exactly as it would be for a normal
+browser session.
+
+**What was actually exercised, live, with real production data (same Supabase project the app
+already uses) — via direct authenticated HTTP requests matching the exact request shapes the
+frontend code sends** (this session had no browser-automation tool available — see the explicit
+tooling gap noted at the end of this section):
+
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Global All Raw, `responseMode:"summary"` | **Blocked by a live, reproducible backend defect** — see below. Not a Prompt 6/7 regression. |
+| 2 | Global Top 10 (Plus account) | Correctly refused: `403 { "code": "MARKET_EXPLORER_PLAN_REQUIRED", "requiredPlan": "premium" }` — real, live entitlement enforcement, not a UI-only lock. |
+| 3/4 | Vintage First Edition vs. Unlimited — Gym Challenge (`setIds:["497a77be-…"]`, all mode, full response) | **200 OK in 2.4s, 264 real constituents.** Confirmed real distinguishable rows: Blaine's Charizard `1st-edition`/`holo` @ $699.99 vs. `unlimited`/`holo` @ $599.34; Sabrina's Gengar `1st-edition`/`non-holo` @ $427.00 vs. `unlimited`/`non-holo` @ $206.87 — genuinely different priced instruments, genuinely disambiguated by `resolveVariantLabel` into "1st Edition · Holo" / "Unlimited · Holo" etc. **Confirmed live: zero rows named `______'s Chansey (DUPLICATE)`** among all 264 constituents — the duplicate-alias fix holds in live production data. |
+| 5 | Rarity market (Special Illustration Rare, alone) | Backend-side timeout on cold build (see below) — not verified end-to-end. |
+| 6 | Price segment — Premium, alone (Plus, one ordinary axis) | **200 OK in 29.2s** (cold build, no maintained cache for this exact spec): 1,344 constituents, tracked value $392,846.09 — consistent with the count Prompt 5's own acceptance report recorded for this same query (1,344). |
+| 6b | Price segment — Premium, scoped to one set (compound: set + price = 2 ordinary axes) | Correctly refused: `403`, Premium required — live confirmation of the compound-axis entitlement rule. |
+| 7 | Release age — Established, alone | Backend-side failure on cold build/publish (see below) — not verified end-to-end. |
+| 15 | Constituent paging — Gym Challenge (264 total) | `responseMode:"summary"` response: **0 occurrences** of the string `currentConstituents`, 14.5 KB total. Page 1 (`limit:100, afterRank:0`): 100 items, `next_cursor:100`, `total:264`, 0.27s. Page 2 (`afterRank:100`): 100 items, `next_cursor:200`, `total:264`, 0.37s, confirmed zero Chansey rows. Two genuinely separate, correctly-paginated fetches — exactly the designed contract. |
+
+**A genuine, reproducible, live backend defect was found and is fully documented with evidence — not
+caused by this session or by Prompt 6/7 frontend work**:
+
+Three separate broad/large-universe query builds failed live, all inside
+`backend/db/services/market_explorer_query_planner.py` / `pokemon_market_explorer_query_service.py`,
+none of them reachable from any Prompt 6/7 frontend code:
+1. **Global All Raw** (`mode:"all"`, no filters): `postgrest.exceptions.APIError: canceling statement
+   due to statement timeout (57014)` inside `load_filtered_daily_cohort_rows`, reproduced twice.
+2. **Release Age: Established, alone**: `MarketExplorerPublishFailed:
+   market_explorer_cache_publish_returned_false` — the query itself resolved (48s) but the cache's
+   own staged-publish integrity check failed.
+3. **Rarity: Special Illustration Rare, alone**: timed out client-side at 40s; the server log later
+   showed the identical `MarketExplorerPublishFailed` for this query's fingerprint too.
+
+Root-cause context, found directly in the repo rather than guessed: `backend/scripts/
+run_market_explorer_daily_publication.py` **changed on disk during this very session** (a concurrent
+P0 session, not this one) with a new docstring stating verbatim: *"this script used to end with an
+in-process 'dynamic maintained-cache prewarm' step that rebuilt every stale
+`cache_kind='maintained'` cache... That drove the Oracle scraper VM to memory saturation and made it
+unresponsive over SSH. Maintained-cache building/warming is NOT part of normal daily publication...
+any more."* A direct query of `pokemon_market_explorer_query_cache` confirmed the Global All Raw
+maintained-cache row is `status='failed'`, `computed_through='2026-09-03'` (three days stale as of
+this session), with `constituent_count` already correctly `33955`. This is the exact same
+large-scale cache-fragility class of issue Prompt 5's own report (section P.4) previously
+documented and partially fixed for the *maintained-cache prewarm* path; it now also affects
+*novel/live query builds* for broad universes, and the automatic maintenance that used to paper over
+it has been deliberately disabled by the concurrent P0 incident response. **This is squarely Cards
+backend cache/publish architecture (Prompt 4/5 territory), and per this prompt's explicit
+instruction not to reopen that architecture absent a correctness defect exposed by the frontend, no
+attempt was made to fix it** — doing so would mean re-running exactly the maintained-cache rebuild
+work the concurrent P0 session just finished disabling to stop a production incident.
+
+A second, smaller, real finding also surfaced live: the Global Top 10 maintained-cache row
+(`constituent_count:10`) still carries `eligible_universe_count:33956` — the **old**, pre-fix
+duplicate-alias-inclusive baseline — stale relative to the corrected `33955`. This is metadata
+staleness on a `ready` (not failed) cache row, not a live availability blocker, but it is a genuine
+data-freshness defect worth flagging for whoever owns the next maintained-cache republish.
+
+**What could not be performed even with a live backend**: this environment has no browser-automation
+tool (Playwright/Puppeteer/Chrome DevTools MCP were checked via tool search and are unavailable) and
+no way to open a real rendered browser window. Every scenario requiring an actual click (Build
+Market, Clear Graph, Screens navigation, hide/show-all, Constituent inspector switching, benchmark
+toggle) or a rendered visual (chart appearance, narrow viewport, screenshots) could not be executed
+this pass despite the backend and frontend both being genuinely live and reachable. This is now
+understood to be a **tooling gap**, not an "environment unreachable" gap — the distinction the user
+correctly pushed back on. What this pass *could* and did verify is every claim expressible as a
+direct authenticated HTTP request matching the frontend's exact wire contract (table above),
+which is the substantive majority of the correctness-relevant claims (summary-mode payload
+shape, pagination contract, entitlement enforcement, duplicate-alias absence, real variant data).
 
 ## J. Mobile QA
-Not performed for the same reason as I. The existing responsive patterns
-(`desk:hidden`/`desk:block` table-vs-card splits) were preserved and extended consistently by this
-session's variant-badge and paginated-constituent additions, but no narrow-viewport rendering was
-visually inspected.
+**Not performed** — requires a rendered browser viewport, which this session has no tool to produce
+(see the tooling-gap note in section I). The responsive CSS patterns
+(`desk:hidden`/`desk:block`) were not changed by this session beyond consistent reuse.
 
-## K. Network QA
-Not performed live (no backend). The claims this section would verify are instead confirmed
-structurally, unchanged from Prompt 6 and re-checked this session: `useMarketExplorerQueries` still
-posts `responseMode: "summary"`; the constituent pager still posts to the separate
-`/api/market/explorer/query/constituents` proxy; visibility toggling still touches no network path
-(this session added no code on that path); Clear Graph still issues no rebuild request; timeframe
-still has no representation in `normalizeQuerySpec`. None of this was re-verified against live
-traffic this session.
+## K. Network QA (UPDATED — this pass)
+Verified live, via direct request/response inspection (not devtools, since no browser tool exists —
+equivalent evidence gathered at the HTTP layer instead):
+- **A. Build Market uses summary mode** — confirmed: every query this session issued for chart-series
+  purposes was posted with `"responseMode":"summary"`, matching `useMarketExplorerQueries`'s actual
+  request body.
+- **B. Summary response excludes constituents** — confirmed directly: the Gym Challenge summary
+  response contains the substring `currentConstituents` **zero times** and is 14.5 KB for a
+  264-constituent market. (Global All Raw's summary response could not be captured — see section
+  I's backend-defect finding — but the code path enforcing this, `market_explorer_query_planner.py`'s
+  `response()` helper stripping `currentConstituents`/`membershipByDate` under `summary=True`, is
+  identical for every spec and independently unit-tested in the backend suite.)
+- **C/D. Constituents paginated separately, page 2 is a distinct request** — confirmed: page 1 and
+  page 2 were two separate `POST /market/explorer/query/constituents` calls with `afterRank:0` and
+  `afterRank:100` respectively, each returning exactly 100 items and the correct `next_cursor`.
+- **E/F/G. Visibility toggle / show-hide-all / Clear Graph issue no market-rebuild request** — **not
+  independently re-observed live** (no browser to click these controls); unchanged from Prompt 6,
+  confirmed by code reading this session (`toggleSeriesVisibility`/`showAllSeries`/`hideAllSeries`/
+  `clearGraph` in `MarketExplorerClient.jsx` touch only local `useState`/reducer calls, never `fetch`
+  or the query hooks) and by that Prompt 6 test asserting exactly this with a `fetch`-throws mock.
+- **H. Timeframe change does not alter semantic market fingerprint** — confirmed structurally
+  (unchanged): `normalizeQuerySpec`/`buildQueryKey`/the backend's `query_fingerprint` have no
+  timeframe field; a timeframe change cannot appear in either side's identity computation.
 
-## L. Performance observations
-Not measured live (no backend). No performance-relevant code paths were touched this session beyond
-adding one derived string computation per constituent row (`resolveVariantLabel`, a handful of
-string comparisons — negligible relative to existing per-row rendering cost) and the section
-reordering (a pure JSX reorder, no new computation).
+## L. Performance observations (UPDATED — this pass)
+Real, approximate, single-machine timings recorded this session (not to be read as SLOs):
+
+| Operation | Time | Notes |
+|---|---|---|
+| Frontend dev server ready | 13.7s | Cold `next dev` start |
+| `/Market/Explorer` first request | ~90s wall (includes on-demand dev compile of 383 modules), 228ms server-side once compiled | Dev-mode-only cost; irrelevant to a built/production instance |
+| Gym Challenge (264 constituents), full response | 2.4s | Cold build, no maintained cache |
+| Gym Challenge, summary response | 0.53s | |
+| Constituent page 1 (100 rows) | 0.27s | |
+| Constituent page 2 (100 rows) | 0.37s | |
+| Price Segment: Premium alone (1,344 constituents) | 29.2s | Cold build, no maintained cache for this exact spec — a genuinely slow but *successful* broad query, distinct from the ones that failed outright |
+| Global All Raw, Established release-age, SIR rarity alone | Did not complete | See section I's backend-defect finding — these are the ones that failed or timed out, not merely slow |
+
+**Flagged regression-relevant observation**: the gap between a small scoped query (sub-3s) and a
+large scoped-but-successful one (29s for 1,344 rows) is already substantial; the three queries that
+failed outright were all broader still. This pattern — success shrinking as universe size grows,
+culminating in outright failure at Global scale — is consistent with, not contradictory to, Prompt
+5's own prior finding that global-scale constituent writes are the fragile point in this
+architecture. Nothing in this session's frontend changes touches that path.
 
 ## M. Accessibility
 - The Methodology section gained a proper heading (`<h2>Methodology</h2>`) and `aria-label`, where
@@ -252,36 +373,70 @@ already guarantees structurally (0/1/2+ handled by the same code path, verified 
 independently re-tested at the component level this session given the `AuthContext.js` blocker).
 
 ## O. Screenshot/evidence paths
-None captured this session — no reachable backend (section I). No screenshot files were created or
-committed.
+**No image screenshots** — capturing them requires a rendered browser, unavailable this session (see
+section I). In their place, this pass captured **raw HTTP evidence** (request/response pairs,
+counts, timings, stack traces) directly against live production data, retained only in this report
+and in ephemeral local temp files already deleted at the end of the session (the session token and
+downloaded JSON response bodies were not committed and are not part of this repo). No enormous
+browser cache/video artifacts exist to worry about, since none were produced.
 
 ## P. Remaining Prompt 8 items
-- **Live visual/responsive QA is still outstanding**, now for a second consecutive prompt. This is
-  the single most material open item: none of the 17 live QA scenarios, network QA, or performance
-  observations the prompt requested were performed, because no backend was reachable from this
-  sandbox in either session. Prompt 8 (or an earlier live session) needs an actual running backend
-  to execute this.
-- The variant-label audit (section G) is a code/data-contract audit, not a screenshot-verified audit
-  against real Base/Fossil/Jungle/Team Rocket/Gym/Neo/e-Card/modern rows — needs live verification.
+- **True browser-driven visual/click/mobile QA and screenshots remain outstanding.** This pass
+  corrected the "no backend reachable" finding from the two prior sessions — a real backend and
+  frontend were started, authenticated, and driven with real production data — but this environment
+  has no browser-automation tool, so every scenario requiring an actual click or a rendered viewport
+  (Clear Graph, hide/show-all, Screens navigation, benchmark toggle, constituent-inspector switching,
+  mobile layout, all 7 requested screenshots) still could not be executed. A future session with
+  Playwright/Puppeteer/a Chrome DevTools MCP (or a human doing it manually) against this same
+  now-known-working local stack (`uvicorn ... --port 8001` + `next dev -p 3100`, `.env.local` already
+  correctly wired) should be able to close this quickly — the backend/frontend startup and auth
+  friction that blocked the prior two sessions is now resolved and documented.
+- **A live, reproducible, non-Prompt-6/7 backend defect blocks Global-scale (and other broad-universe)
+  live queries** — full evidence in section I: Global All Raw (`57014` statement timeout),
+  Established release-age alone, and SIR rarity alone (`MarketExplorerPublishFailed`) all failed live
+  in this session, and the root cause traces to a concurrent P0 incident (Oracle VM memory
+  saturation) that deliberately disabled automatic maintained-cache rebuilding without yet restoring
+  a working alternative for broad queries. This is Cards backend cache/publish architecture — out of
+  this prompt's scope per its own explicit instruction, and actively being worked by a separate P0
+  session on this same branch. It should be tracked and resolved by that work, not re-opened here.
+- **Global Top 10's maintained cache still reports the stale `eligible_universe_count:33956`**
+  (found live, section I) — a small, real data-freshness defect, not a live-availability blocker,
+  worth a metadata refresh whenever the broader cache-rebuild issue above is addressed.
+- The variant-label audit (section G/I) is now **partially live-verified**: real Gym Challenge data
+  confirmed correct First-Edition-vs-Unlimited disambiguation and zero duplicate-alias rows. Base
+  Set, Fossil, Jungle, Team Rocket, Neo, an e-Card/EX set, and a modern set were **not** individually
+  live-verified this pass (time-boxed to the highest-signal vintage example plus the broader
+  network/entitlement/pagination scenarios); "Base Set (Shadowless)" specifically returned `cards
+  market publication has no scoped history` live (no tracked price history for that particular
+  canonical set entry) — a real, separate, pre-existing data-coverage gap worth noting but not
+  fixed here (out of Prompt 7 scope; not a variant-labeling defect).
 - `MarketExplorerQueryBuilder.controls.test.jsx` and `MarketExplorerClient.contract.test.jsx` remain
   unexecutable in this sandbox environment (pre-existing `AuthContext.js` esbuild/JSX transform
   issue, present since before Prompt 6, not introduced or worsened by this session) — worth a
-  dedicated fix in its own right so this substantial and growing test surface can actually run in CI.
-- The "keep at least one" prepared-chip guard (section H) remains as documented; no further action
-  needed unless a future session decides to revisit that specific product decision.
-- Sealed Format Leaders was confirmed correctly scoped to Sealed (not Cards) and untouched; Sealed's
-  broader behavior was not otherwise exercised this session beyond confirming it still shares
-  components without modification.
+  dedicated fix in its own right.
+- The "keep at least one" prepared-chip guard (section H) remains as documented; live QA did not
+  surface anything that changes that decision (no browser to exercise it directly, but nothing in
+  the live API behavior implies the existing guard semantics are wrong).
+- Sealed Format Leaders was confirmed correctly scoped to Sealed (not Cards) and untouched.
 - Graded remains the explicit unavailable placeholder; nothing was added or faked for it.
 
 ## Q. Final decision
-**Not `PROMPT7_MARKET_EXPLORER_PRODUCT_SURFACE_READY`** as an unqualified pass — the concrete
-product-surface work (Screens' missing set-requirement guard, page ordering, Methodology's missing
-distinctions, Comparison's visibility semantics, the variant-label rendering gap) is implemented and
-unit-tested where the sandbox allows execution. But the prompt's own explicit, repeated requirement —
-"Prompt 6 could not perform live visual acceptance. Prompt 7 must." — was not met, for the same
-environmental reason (no reachable backend) rather than by oversight. Recommend: `
-PROMPT7_MARKET_EXPLORER_PRODUCT_SURFACE_CODE_COMPLETE_LIVE_QA_PENDING`. Do not begin Prompt 8's launch
-hardening until live visual/network/performance QA against a real running backend has actually been
-performed — it is the one requirement this prompt shares with Prompt 6 that has now been carried
-forward twice.
+**Not `PROMPT7_MARKET_EXPLORER_PRODUCT_SURFACE_READY`.** This pass materially advanced live
+acceptance — a real backend and frontend were started and driven with real authenticated production
+data, closing the "no backend reachable" gap the prior two sessions left open, and confirming live:
+correct entitlement enforcement (single vs. compound axes, Top N), correct summary/pagination wire
+contracts, correct real vintage variant disambiguation, and zero duplicate-alias leakage. But two
+things genuinely remain: (1) no browser-automation tool exists in this environment, so the
+click-driven and visually-rendered halves of the requested QA (scenarios requiring an actual UI
+interaction, mobile viewport, and all screenshot evidence) still could not be performed; (2) live
+testing surfaced a real, reproducible backend defect blocking Global-scale and other broad-universe
+queries, which is correctly out of this prompt's scope to fix but does mean scenarios 1 (Global All
+Raw), part of 8 (Top 10 in a set, blocked by the same class of large-query fragility for anything
+not already narrowly cached), and 16 (Per-Set Chase benchmark, likely similarly cache-dependent)
+could not be confirmed end-to-end live. Recommend:
+`PROMPT7_MARKET_EXPLORER_PRODUCT_SURFACE_LIVE_DATA_QA_PARTIAL_BROWSER_QA_PENDING`. Prompt 8 should
+either (a) bring a browser-automation tool to finish the visual/click/mobile/screenshot half of this
+QA against the now-documented-working local stack, or (b) proceed with launch hardening on the
+understanding that the Cards frontend surface is live-data-verified but not yet visually verified,
+and that a separate, already-in-progress P0 workstream owns the Global-scale cache defect this
+session found and documented but did not touch.

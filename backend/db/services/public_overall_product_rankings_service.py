@@ -67,6 +67,11 @@ def read_public_overall_product_rankings(
             "collectorAppealScore": raw.get("collector_appeal_score"), "unitPrice": raw.get("product_market_price"),
             "expectedValue": raw.get("expected_value"), "chanceToRecoverCost": raw.get("chance_to_recover_capital"),
             "familyRank": identity.get("familyRank"), "familySize": identity.get("familySize"), "familyTier": identity.get("familyTier"),
+            # SET-level authority, carried verbatim off the same in-memory
+            # `product_family_rankings` identity index this function already
+            # builds — no extra query. See
+            # backend/db/services/chase_accessibility_set_ranking.py.
+            "chaseAccessibility": identity.get("chaseAccessibility"),
         })
     if rows and any(row.get("expectedValue") is None or not row.get("productName") for row in rows):
         return {"available": False, "reason": "public_projection_incomplete", "rows": []}

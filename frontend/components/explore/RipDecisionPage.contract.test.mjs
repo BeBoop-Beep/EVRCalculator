@@ -151,9 +151,21 @@ test("methodology never precedes the decision surface, and EV contribution / bre
 
 test("the deep dive is collapsed and accessible rather than deleted", () => {
   const source = fs.readFileSync(pagePath, "utf8");
+  // V12: the Financial RIP deep dive now renders inside the shared
+  // MarketBasedOpeningQualityBreakdown container (one implementation reused
+  // by both Set RIP and Set Analysis), which itself reuses
+  // <FinancialRipV3Breakdown> verbatim — see MarketBasedOpeningQualityBreakdown.jsx.
   assert.ok(
-    source.includes("<FinancialRipV3Breakdown"),
-    "existing component is reused, not rewritten",
+    source.includes("<MarketBasedOpeningQualityBreakdown"),
+    "the shared Market-Based container is reused, not a duplicate Chase implementation",
+  );
+  const marketBasedContainer = fs.readFileSync(
+    path.resolve(directory, "MarketBasedOpeningQualityBreakdown.jsx"),
+    "utf8",
+  );
+  assert.ok(
+    marketBasedContainer.includes("<FinancialRipV3Breakdown"),
+    "existing Financial RIP component is reused verbatim, not rewritten",
   );
   assert.ok(
     source.includes("<CollectorAppealBreakdown"),
@@ -252,7 +264,7 @@ test("score anatomy is compact and no longer the first thing on the page", () =>
   assert.equal((source.match(/label: "Overall RIP"/g) || []).length, 1);
   for (const cta of [
     "How Overall RIP works",
-    "Explore Financial RIP",
+    "View Market-Based breakdown",
     "Explore Collector Appeal",
   ])
     assert.ok(source.includes(cta));
@@ -369,7 +381,7 @@ test("canonical public scores preserve zero and never fall back to legacy summar
 
 test("Financial explanation mounts the canonical component, now after the evidence", () => {
   const source = fs.readFileSync(pagePath, "utf8");
-  assert.ok(source.includes("<FinancialRipV3Breakdown"));
+  assert.ok(source.includes("<MarketBasedOpeningQualityBreakdown"));
   const renderStart = source.indexOf(
     "return (",
     source.indexOf("export default function RipDecisionPage"),

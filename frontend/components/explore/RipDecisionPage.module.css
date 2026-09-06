@@ -223,6 +223,28 @@
 .compactScores { display: grid; min-width: 0; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem; margin-top: .9rem; }
 .compactScoreTakeaway { margin-top: .75rem; max-width: 58rem; color: var(--text-secondary); font-size: .875rem; line-height: 1.55; }
 
+/* Opening Snapshot hierarchy (V12): Overall on its own row, then a two-up
+   row of Market-Based Opening Quality (Financial + Chase Accessibility) and
+   Collector Appeal. Market-Based never renders its own score/rank/tier — it
+   is a visual container for its two real children. */
+.overallScoreRow { display: flex; justify-content: center; margin-top: .9rem; }
+.marketBasedRow { display: grid; min-width: 0; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: .75rem; margin-top: .75rem; align-items: stretch; }
+.marketBasedGroup { display: flex; min-width: 0; flex-direction: column; gap: .6rem; border: 1px solid var(--border-subtle); border-radius: .875rem; background: rgba(2,8,23,.32); padding: .85rem .85rem .95rem; }
+.marketBasedGroupLabel { display: flex; align-items: center; gap: .4rem; color: var(--text-primary); font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.marketBasedGroupNote { margin: 0; color: var(--text-secondary); font-size: .72rem; line-height: 1.45; }
+.marketBasedChildren { display: flex; min-width: 0; flex-direction: column; gap: .6rem; }
+.chaseAccessSummary { display: flex; min-width: 0; flex-direction: column; gap: .35rem; border: 1px solid var(--border-subtle); border-radius: .75rem; background: linear-gradient(128deg,rgba(15,23,42,.55),rgba(2,8,23,.7) 68%); padding: .75rem .85rem; }
+.chaseAccessMetricRow { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+.chaseAccessMetricValue { font-size: 1.5rem; font-weight: 650; line-height: 1; color: var(--text-primary); }
+.chaseAccessCta { display: inline-flex; align-self: flex-start; min-height: 2.25rem; align-items: center; gap: .4rem; margin-top: .1rem; border-radius: .5rem; padding: .25rem .35rem; color: var(--accent); font-size: .78rem; font-weight: 650; }
+.chaseAccessCta:hover { background: rgba(255,255,255,.04); }
+.chaseAccessCta:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chaseAccessDiagnosticNote { margin: 0; color: var(--text-secondary); font-size: .68rem; line-height: 1.4; font-style: italic; }
+
+@media (max-width: 640px) {
+  .marketBasedRow { grid-template-columns: minmax(0,1fr); }
+}
+
 /* ============================================================
    HERO — Section 1, "Best way to open [set]".
    ============================================================ */

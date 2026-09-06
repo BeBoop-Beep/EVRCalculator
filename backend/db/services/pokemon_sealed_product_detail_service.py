@@ -153,26 +153,127 @@ def _prepared_markets(snapshot: Optional[Mapping[str, Any]]) -> Dict[str, Dict[s
     return indexed
 
 
-def _public_rip_contract_v11_shadow(ranking: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
-    """SHADOW-only V11 wrapper carrying Overall RIP V12 for this product.
+def _chase_accessibility_contract(
+    set_id: str, ranking: Optional[Mapping[str, Any]], client: Any,
+) -> Dict[str, Any]:
+    """Product RIP's Chase Accessibility explanatory child - SET-LEVEL authority.
 
-    NOT canonical: `canonical_public_rip_contract_version()` still resolves to
-    V10, and this block never feeds `overallRipLeaderScore`/`publicTier`/
-    `familyRank` above - those stay sourced from the persisted V10 ranking
-    exactly as before this change. Every number here is a pure passthrough of
-    `overall_rip_v12_payload`, already computed and authority-checked once by
-    `sealed_product_rip_finalization_service._overall_rip_v12_for` (Financial
-    RIP V4 + Chase Accessibility V1 + Collector Appeal V5) - this function
-    performs no Overall RIP arithmetic of its own, matching
-    `public_rip_contract_v11.build_public_rip_contract_v11`'s shape exactly so
-    the SAME shared frontend selector/component
+    Phase 2/4 of the Product RIP Market-Based UI pass. Chase Accessibility is
+    published ONE ROW PER SET (`pokemon_set_chase_accessibility_snapshot_latest`,
+    migration 077) - identical for every sealed product of that set/run. This
+    reuses, unchanged:
+      * `chase_accessibility_service.read_chase_accessibility_snapshot` - the
+        SAME exact-set read/projection the set page already uses (ONE query,
+        never a cohort/18-set load, never `effective_pull_rate`, never a
+        card-level reconstruction);
+      * `public_rip_contract_v11._chase_accessibility_block`'s shape - the
+        SAME presentation-safe projection Set RIP already publishes, so the
+        SAME frontend `chaseAccessibilityPresentationSelector.mjs` can render
+        this without a second contract.
+
+    AUTHORITY RULE (mirrors `sealed_product_rip_finalization_service.
+    _overall_rip_v12_for`): the snapshot's OWN `calculation_run_id` must equal
+    this product's exact ranking run id. A row from any other run - a stale
+    yesterday's build, or a set-level batch job that ran ahead of today's
+    simulation - is refused outright, never accepted as "the latest
+    available". This is NEVER "latest-by-set without run matching".
+
+    Distinguishes (Phase 4):
+      * no ranking run at all -> truthfully unavailable, not an integrity
+        error (there is no V12 claim to be inconsistent with);
+      * a run mismatch while the product's OWN canonical V12 result claims a
+        ready Chase Accessibility component -> a distinct
+        `unavailable_v12_authority_mismatch` status, since that combination is
+        a contract integrity error, not a merely-missing optional diagnostic;
+      * a run mismatch with no such V12 claim -> plain
+        `unavailable_authority_mismatch`.
+    """
+    from backend.db.services.chase_accessibility_service import read_chase_accessibility_snapshot
+    from backend.desirability.public_rip_contract_v11 import _chase_accessibility_block
+
+    run_id = _text((ranking or {}).get("calculationRunId"))
+    projected = read_chase_accessibility_snapshot(set_id=set_id, client=client)
+    snapshot_run_id = _text(projected.get("chaseAccessibilityCalculationRunId"))
+
+    block = _chase_accessibility_block({"chaseAccessibility": projected})
+    # Presentation-safe addition beyond the Set RIP shape (Phase 3): the exact
+    # run this Chase Accessibility row was authenticated against, so a
+    # frontend/test consumer can audit authority without a second read.
+    block["calculationRunId"] = snapshot_run_id
+
+    if run_id is None:
+        block["status"] = "unavailable_no_ranking_run"
+        block["statusReason"] = (
+            "This product has no current published ranking run to authenticate "
+            "Chase Accessibility against."
+        )
+        block["value"] = None
+        block["percent"] = None
+        return block
+
+    if snapshot_run_id is None or snapshot_run_id != run_id:
+        overall_v12 = (ranking or {}).get("overallRipV12") or {}
+        v12_claims_ready_chase = (
+            overall_v12.get("status") == "ready"
+            and bool((overall_v12.get("components") or {}).get("chaseAccessibility"))
+        )
+        block["status"] = (
+            "unavailable_v12_authority_mismatch"
+            if v12_claims_ready_chase
+            else "unavailable_authority_mismatch"
+        )
+        block["statusReason"] = (
+            "Chase Accessibility snapshot belongs to calculation_run_id=%r; this "
+            "product's coherent ranking run is %r. Refused rather than accepted "
+            "as the latest available Accessibility row."
+            % (snapshot_run_id, run_id)
+        )
+        block["value"] = None
+        block["percent"] = None
+        return block
+
+    return block
+
+
+def _public_rip_contract_v11_shadow(
+    ranking: Optional[Mapping[str, Any]], chase: Optional[Mapping[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """CANONICAL V11 wrapper carrying Overall RIP V12 for this product.
+
+    As of the 2026-09-03 cutover, `CANONICAL_OVERALL_RIP_VERSION` resolves to
+    V12 (`backend.desirability.scoring_config`) - this block is no longer a
+    shadow lineage. `overallRipLeaderScore`/`publicTier`/`familyRank` above
+    remain sourced from the persisted V10-shaped ranking fields exactly as
+    before this change (a separate hero-display decision, not this
+    function's concern); this function's own job is unchanged: project the
+    ALREADY-COMPUTED `overall_rip_v12_payload` (Financial RIP V4 + Chase
+    Accessibility V1 + Collector Appeal V5, computed and authority-checked
+    once by `sealed_product_rip_finalization_service._overall_rip_v12_for`)
+    into the SAME shape `public_rip_contract_v11.build_public_rip_contract_v11`
+    produces, so the SAME shared frontend selector/component
     (`overallRipExplanationHierarchySelector.mjs` /
-    `OverallRipExplanationHierarchy.jsx`) can render it without a second
-    implementation.
+    `OverallRipExplanationHierarchy.jsx` /
+    `MarketBasedOpeningQualityBreakdown.jsx`) can render it without a second
+    implementation. This function performs no Overall RIP arithmetic of its
+    own.
     """
     overall_v12 = dict((ranking or {}).get("overallRipV12") or {})
-    if not overall_v12:
+    # Chase Accessibility (Phase 2/3) is projected independently of whether
+    # this ranking row happens to carry an `overallRipV12` payload - the
+    # KNOWN, EXPECTED production condition today is a stale V10-only
+    # publication with no `overallRipV12` field at all, and Product RIP's
+    # Chase explanatory child must still surface truthfully (available or a
+    # specific unavailable reason) rather than disappearing entirely just
+    # because the V12 blend hasn't been (re)computed for this row yet.
+    if not overall_v12 and not chase:
         return None
+    if not overall_v12:
+        return {
+            "contractVersion": "public_rip_contract_v11",
+            "overallRipV12": None,
+            "overallRipV12Composition": None,
+            "chaseAccessibility": dict(chase) if chase else None,
+        }
     return {
         "contractVersion": "public_rip_contract_v11",
         "overallRipV12": {
@@ -183,9 +284,11 @@ def _public_rip_contract_v11_shadow(ranking: Optional[Mapping[str, Any]]) -> Opt
             "version": overall_v12.get("version") or OVERALL_RIP_V12_VERSION,
             "components": overall_v12.get("components") or {},
             "missingInputs": overall_v12.get("missingInputs") or [],
-            # SHADOW, NOT canonical. Never read by ranking order, never
-            # substituted into the canonical overallRipLeaderScore slot above.
-            "canonical": False,
+            # CANONICAL: this is the Overall RIP V12 lineage
+            # (`CANONICAL_OVERALL_RIP_VERSION`). A non-ready row still reports
+            # `canonical: True` with an explicit unavailable status - canonical
+            # describes the MODEL, not whether this row is currently rankable.
+            "canonical": True,
         },
         "overallRipV12Composition": {
             "version": overall_v12.get("version") or OVERALL_RIP_V12_VERSION,
@@ -200,11 +303,17 @@ def _public_rip_contract_v11_shadow(ranking: Optional[Mapping[str, Any]]) -> Opt
             "weights": dict(overall_v12.get("weights") or {}),
             "effectiveWeights": dict(overall_v12.get("effectiveWeights") or {}),
         },
+        # Product RIP's Chase Accessibility explanatory child (Phase 3). Only
+        # attached when a caller supplied one via `_rip_contract` - always the
+        # exact-run-validated result of `_chase_accessibility_contract`, never
+        # fabricated here.
+        "chaseAccessibility": dict(chase) if chase else None,
     }
 
 
 def _rip_contract(
-    ranking: Optional[Mapping[str, Any]], detail: Optional[Mapping[str, Any]], family: str
+    ranking: Optional[Mapping[str, Any]], detail: Optional[Mapping[str, Any]], family: str,
+    *, set_id: Optional[str] = None, client: Any = None,
 ) -> Dict[str, Any]:
     scope = sealed_product_comparison_scope_contract()
     base = {
@@ -223,7 +332,7 @@ def _rip_contract(
         "comparisonScope": scope["comparisonScope"],
         "comparisonScopeVersion": scope["comparisonScopeVersion"],
         "setEvRepresentativeness": None,
-        # SHADOW, NOT canonical - see `_public_rip_contract_v11_shadow`.
+        # Overall RIP V12 projection - see `_public_rip_contract_v11_shadow`.
         "publicRipContractV11": None,
     }
     if not ranking:
@@ -283,7 +392,10 @@ def _rip_contract(
         "entertainmentCost": entertainment,
         "composition": composition,
         "setEvRepresentativeness": set_ev_representativeness,
-        "publicRipContractV11": _public_rip_contract_v11_shadow(ranking),
+        "publicRipContractV11": _public_rip_contract_v11_shadow(
+            ranking,
+            _chase_accessibility_contract(set_id, ranking, client) if set_id and client is not None else None,
+        ),
         # Top-level V10 shape `canonicalRipV7.mjs`'s `resolveCanonicalRipV7`
         # already knows how to read (its "topLevelV10" fallback branch) - a
         # pure re-labeling of the SAME leader/rank/tier fields already
@@ -381,7 +493,7 @@ def get_pokemon_sealed_product_detail_payload(product_id: str, client: Any = Non
             .limit(1)
         )
         detail = details[0] if details else None
-    rip = _rip_contract(ranking, detail, family)
+    rip = _rip_contract(ranking, detail, family, set_id=set_id, client=active)
     if not publication["current"] and family in COMPARABLE_FAMILIES:
         rip["reason"] = "current_rankings_publication_unavailable"
 

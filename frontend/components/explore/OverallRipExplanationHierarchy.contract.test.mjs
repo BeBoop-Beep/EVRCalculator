@@ -80,7 +80,9 @@ const AMBIENT_BOTH_VERSIONS_SOURCE = {
 test("A: V10-only data renders a presentation-safe explanation and never claims Accessibility", () => {
   const explanation = selectOverallRipExplanationHierarchy(V10_ONLY_SOURCE);
   assert.equal(explanation.version, "v10");
-  assert.equal(explanation.canonical, true);
+  // V10 is historical/rollback lineage as of the 2026-09-03 cutover (Overall
+  // RIP V12 is canonical) - `canonical` reflects that real, current state.
+  assert.equal(explanation.canonical, false);
   assert.equal(explanation.headline, "Overall RIP combines Financial RIP with Collector Appeal.");
   assert.equal(explanation.marketBased, null);
   assert.equal(/accessibility/i.test(explanation.headline), false);
@@ -89,7 +91,8 @@ test("A: V10-only data renders a presentation-safe explanation and never claims 
 test("A: explicit V12 contract data renders a presentation-safe headline with an optional Market-Based grouping", () => {
   const explanation = selectOverallRipExplanationHierarchy(V12_CONTRACT_SOURCE);
   assert.equal(explanation.version, "v12");
-  assert.equal(explanation.canonical, false);
+  // Overall RIP V12 IS canonical as of the 2026-09-03 cutover.
+  assert.equal(explanation.canonical, true);
   assert.equal(
     explanation.headline,
     "Overall RIP combines Market-Based Opening Quality with Collector Appeal."
@@ -188,6 +191,21 @@ test("no forbidden chase-probability phrasing in the selector or component", () 
     assert.equal(selectorSource.toLowerCase().includes(phrase), false);
     assert.equal(componentSource.toLowerCase().includes(phrase), false);
   }
+});
+
+// UI-4 regression: current canonical V12 must never render as shadow/not
+// canonical - and V10 (now historical, not the shadow) is the only version
+// that surfaces the amber "historical" banner, with truthful, non-stale copy.
+test("UI-4: canonical V12 never renders shadow/not-canonical banner text", () => {
+  const explanation = selectOverallRipExplanationHierarchy(V12_CONTRACT_SOURCE);
+  assert.equal(explanation.canonical, true);
+  assert.equal(/shadow/i.test(componentSource), false);
+  assert.equal(componentSource.includes("V10 remains the published score"), false);
+});
+
+test("UI-4: the historical-V10 banner states V12 is the current published score", () => {
+  assert.ok(componentSource.includes("Historical Overall RIP V10"));
+  assert.ok(componentSource.includes("Overall RIP V12 is the current published score"));
 });
 
 test("unavailable V12 never fabricates a headline or a Market-Based grouping from missing weights", () => {

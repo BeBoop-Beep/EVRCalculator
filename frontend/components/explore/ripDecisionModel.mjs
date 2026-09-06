@@ -2,6 +2,8 @@ import { readCanonicalBlock } from "./canonicalRipV7.mjs";
 import { buildRipDrivers } from "./ripDrivers.mjs";
 import { getRipQualitativeLabel } from "./ripQualitativeLabel.mjs";
 import { normalizeRarityKey, selectPullRateRows } from "../pokemon/set-page/PullRates/pullRateRowsSelector.mjs";
+import { selectChaseAccessibilityPresentation } from "./chaseAccessibilityPresentationSelector.mjs";
+import { MARKET_BASED_LABEL, MARKET_BASED_PUBLIC_QUESTION } from "./overallRipExplanationHierarchySelector.mjs";
 
 function number(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -114,10 +116,37 @@ export function selectMarketChaseCards(chaseCards = [], { excludeCard = null, li
     .slice(0, limit);
 }
 
+/**
+ * Presentation-only "Market-Based Opening Quality" grouping.
+ *
+ * IMPORTANT: this is NEVER a persisted score, rank, or tier. It exists so the
+ * page can visually group Financial RIP with Chase Accessibility beneath one
+ * label without inventing a Market-Based numeric value. `available` is true
+ * whenever Financial RIP itself has a published score — Chase Accessibility
+ * may still independently be unavailable (its own `chaseAccessibility.available`
+ * flag communicates that, and the page must render that truthfully rather
+ * than hiding it behind this wrapper's `available`).
+ *
+ * No arithmetic is performed here — see chaseAccessibilityPresentationSelector.mjs
+ * for the one true (also-arithmetic-free) reader of the raw Chase Accessibility
+ * contract fields.
+ */
+function buildMarketBasedGrouping({ financial, chaseAccessibility }) {
+  return {
+    available: financial.publicScore !== null,
+    label: MARKET_BASED_LABEL,
+    publicQuestion: MARKET_BASED_PUBLIC_QUESTION,
+    financial,
+    chaseAccessibility,
+  };
+}
+
 export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumptions = null } = {}) {
   const overall = readCanonicalBlock(canonical?.overall);
   const financial = readCanonicalBlock(canonical?.financialRip);
   const collector = readCanonicalBlock(canonical?.collectorAppeal);
+  const chaseAccessibility = selectChaseAccessibilityPresentation(canonical);
+  const marketBased = buildMarketBasedGrouping({ financial, chaseAccessibility });
   const packCost = number(summary.pack_cost);
   const expectedValue = number(summary.mean_value);
   const typicalOpening = number(summary.median_value);
@@ -170,6 +199,8 @@ export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumpt
     overall,
     financial,
     collector,
+    chaseAccessibility,
+    marketBased,
     packCost,
     expectedValue,
     typicalOpening,

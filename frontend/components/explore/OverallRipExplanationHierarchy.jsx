@@ -40,7 +40,7 @@ export default function OverallRipExplanationHierarchy({ sources = [] }) {
 
       {!explanation.canonical ? (
         <p className="mt-1 text-[10px] uppercase tracking-wide text-amber-400">
-          Shadow / not canonical — Overall RIP V10 remains the published score.
+          Historical Overall RIP V10 — Overall RIP V12 is the current published score.
         </p>
       ) : null}
 

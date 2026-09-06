@@ -111,17 +111,16 @@ function ChaseAccessibilityFullPanel({ chase }) {
         </p>
       )}
 
-      {/* Rank line — NEVER a fabricated cohort rank (Phase 8). Rendered only
-          when the backend eventually supplies one. */}
+      {/* Rank line — NEVER a fabricated cohort rank (Phase 8). A non-projected
+          optional diagnostic (rank/cohortSize) is OMITTED entirely rather
+          than shown as an "unavailable" message, which would incorrectly
+          read as an error to users. Rendered only when the backend
+          eventually supplies a real rank. */}
       {chase.rank !== null ? (
         <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
           {`Rank #${chase.rank}${chase.cohortSize ? ` of ${chase.cohortSize}` : ""}`}
         </p>
-      ) : (
-        <p className="mt-1 text-[11px] italic text-[var(--text-secondary)]">
-          Cohort rank not yet available for Chase Accessibility.
-        </p>
-      )}
+      ) : null}
 
       <section
         data-chase-accessibility-diagnostics

@@ -1,6 +1,25 @@
 """Coordinated daily publication for the Market Explorer card-price serving
 projection: current-metadata refresh -> projection append -> exact
-reconciliation -> coverage advance -> dynamic maintained-cache prewarm.
+reconciliation -> coverage advance -> EXIT.
+
+P0 INCIDENT NOTE (2026-09): this script used to end with an in-process
+"dynamic maintained-cache prewarm" step that rebuilt every stale
+``cache_kind='maintained'`` cache (21 of them, all stale on a bad day) through
+the real planner/persistent-cache path, serially, inside the SAME process as
+the authoritative projection. That drove the Oracle scraper VM to memory
+saturation and made it unresponsive over SSH. Maintained-cache
+building/warming is NOT part of normal daily publication or historical
+repair any more -- it never imports the planner/cache machinery on this path.
+That work now lives entirely in the separate, lean, serial,
+resource-guarded, lockable operational CLI
+``backend/scripts/run_market_explorer_maintained_cache_prewarm.py``, which by
+default builds at most one stale cache per invocation and exits, releasing
+all process memory before the next one is considered. Discovery helpers that
+both scripts need (identifying which maintained caches exist / are affected
+by a repair) live in the shared, planner-importing module
+``backend/db/services/market_explorer_maintained_cache_ops.py`` -- this
+script imports ONLY the read-only discovery half of that module for the
+repair path's "which caches are affected" report, never the build half.
 
 Why a separate orchestrator and not a stage bolted onto
 ``run_daily_opening_publication.py``: that script's contract (simulations ->
@@ -35,13 +54,10 @@ Contract per approved market date D (see task spec):
   5. Reconciliation and coverage advancement happen INSIDE step 4's
      per-set contract (never activated on reconciliation failure) --
      preserved exactly, not re-derived here.
-  6. Only then, discover every ``cache_kind='maintained'`` row dynamically
-     and prewarm/advance it to D through the real
-     ``MarketExplorerQueryPlanner`` / ``PersistentMarketExplorerCache`` /
-     ``run_market_explorer_query`` builder path (same mechanism as
-     ``build_market_explorer_maintained_cache.py``). A cache failure is
-     isolated per cache and never rolls back the already-committed
-     projection/coverage advance from step 4/5.
+  6. EXIT. Maintained-cache state can never change this result -- the
+     ``caches`` field of the summary is always the explicit marker
+     ``{"status": "deferred", "reason": "separate_operational_worker"}``,
+     never a build outcome.
 
 Dry-run is the default-safe mode; writes require ``--commit`` and use only
 the service-role client, exactly like the sibling publish/repair scripts.
@@ -57,17 +73,12 @@ from datetime import date
 from typing import Any, Sequence
 
 from backend.db.clients.supabase_client import create_service_role_client
-from backend.db.services.market_explorer_query_planner import (
-    MarketExplorerL1Cache,
-    MarketExplorerQueryPlanner,
-    PersistentMarketExplorerCache,
-    PreparedEquivalenceRegistry,
+from backend.db.services.market_explorer_maintained_cache_ops import (
+    caches_overlapping_set_ids,
 )
 from backend.db.services.pokemon_market_explorer_query_service import (
     resolve_tracked_set_ids,
-    run_market_explorer_query,
 )
-from backend.domain.pokemon.market_explorer_query import query_fingerprint
 from backend.scripts.publish_market_explorer_daily_projection import (
     APPROVED_STATUSES,
     AUTHORITY_RPC,
@@ -81,13 +92,10 @@ LOG = logging.getLogger("market_explorer_daily_publication")
 
 CURRENT_METADATA_TABLE = "pokemon_market_explorer_card_current_metadata"
 CURRENT_METADATA_REFRESH_RPC = "refresh_pokemon_market_explorer_card_current_metadata"
-CACHE_TABLE = "pokemon_market_explorer_query_cache"
 COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage"
 CARDS_ASSET_TABLE = "pokemon_market_explorer_cache_state"
 INVALIDATE_CACHE_SCOPED_RPC = "invalidate_pokemon_market_explorer_query_cache_scoped"
 REPROJECT_DAILY_STATES_RPC = "reproject_pokemon_market_explorer_card_daily_states"
-
-CACHE_BUILD_START = "1999-01-01"
 
 
 # --- Market date resolution --------------------------------------------------
@@ -192,135 +200,24 @@ def refresh_current_metadata(client: Any, *, commit: bool) -> MetadataRefreshRep
     return report
 
 
-# --- Maintained-cache discovery + prewarm ------------------------------------
+# --- Maintained-cache deferral (read-only; never builds) ---------------------
 
-@dataclass
-class CacheAdvanceReport:
-    fingerprint: str
-    label: str
-    status: str  # "advanced" | "already_current" | "failed"
-    execution_source: str | None = None
-    computed_through: str | None = None
-    error: str | None = None
-
-
-def discover_maintained_caches(client: Any) -> list[dict[str, Any]]:
-    """Every ``cache_kind='maintained'`` row, spec-driven -- never a
-    hardcoded fingerprint list. A future maintained cache is picked up
-    automatically the day it is promoted.
+def deferred_cache_report(client: Any | None = None, *,
+                           only_set_ids: Sequence[str] = ()) -> dict[str, Any]:
+    """The explicit marker that replaces the old in-process cache-prewarm
+    result. Maintained-cache building is NEVER part of this script's call
+    path any more -- see the module docstring's P0 incident note. When
+    ``only_set_ids`` is given (the historical-repair path) this does a
+    read-only discovery pass (via
+    ``market_explorer_maintained_cache_ops.caches_overlapping_set_ids``) so
+    the report names which maintained caches are affected and therefore
+    deferred to the separate operational worker; it never builds anything.
     """
-    return _paged(lambda: client.table(CACHE_TABLE).select(
-        "query_fingerprint,normalized_spec,status,cache_kind,computed_through"
-    ).eq("cache_kind", "maintained"))
-
-
-def _spec_from_normalized(normalized_spec: dict[str, Any]) -> dict[str, Any]:
-    """Rehydrate the spec dict exactly as ``normalize_query_spec`` produced it
-    (this IS that dict, persisted verbatim as ``normalized_spec`` at build
-    time -- see ``domain/pokemon/market_explorer_query.py``), converting list
-    fields back to tuples. Must pass every field through, including
-    ``contractVersion``/``asset``/etc -- selectively reconstructing a subset
-    of keys silently drops fields ``query_fingerprint``/planner code expects.
-    """
-    return {
-        **normalized_spec,
-        "eraIds": tuple(normalized_spec.get("eraIds") or ()),
-        "setIds": tuple(normalized_spec.get("setIds") or ()),
-        "segmentIds": tuple(normalized_spec.get("segmentIds") or ()),
-        "pokemonIds": tuple(normalized_spec.get("pokemonIds") or ()),
-        "priceSegmentIds": tuple(normalized_spec.get("priceSegmentIds") or ()),
-        "releaseAgeCohortIds": tuple(normalized_spec.get("releaseAgeCohortIds") or ()),
-    }
-
-
-def _builder(client: Any, spec: dict[str, Any]):
-    def build(previous: str | None, through: str) -> dict[str, Any]:
-        return run_market_explorer_query(
-            client, mode=spec["mode"], era_ids=spec["eraIds"], set_ids=spec["setIds"],
-            segment_ids=spec["segmentIds"], pokemon_ids=spec["pokemonIds"],
-            price_segment_ids=spec["priceSegmentIds"],
-            release_age_cohort_ids=spec["releaseAgeCohortIds"], top_n=spec["topN"],
-            start_date=previous or CACHE_BUILD_START, end_date=through)
-    return build
-
-
-def advance_one_maintained_cache(client: Any, row: dict[str, Any], *,
-                                  market_date: str, commit: bool) -> CacheAdvanceReport:
-    label = str(row.get("label") or row.get("query_fingerprint") or "?")
-    fingerprint = str(row.get("query_fingerprint") or "")
-    # A row can have computed_through already at/beyond market_date while
-    # still status='failed' -- e.g. a prior attempt updated the watermark
-    # but never completed a successful publish. Only a genuinely ready row
-    # at/beyond the target date is truly "already current"; a failed row
-    # must still go through planner.execute() so it can attempt recovery
-    # (or correctly remain failed if not recoverable), never silently
-    # treated as done.
-    if (row.get("status") == "ready"
-            and str(row.get("computed_through") or "")[:10] >= market_date):
-        return CacheAdvanceReport(fingerprint=fingerprint, label=label,
-                                  status="already_current",
-                                  computed_through=str(row.get("computed_through"))[:10])
-    if not commit:
-        return CacheAdvanceReport(fingerprint=fingerprint, label=label,
-                                  status="advanced", computed_through=market_date)
-
-    spec = _spec_from_normalized(row.get("normalized_spec") or {})
-    planner = MarketExplorerQueryPlanner(l1=MarketExplorerL1Cache())
-    persistent = PersistentMarketExplorerCache(client, build_lease_seconds=300)
-    result = planner.execute(
-        spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
-        canonical_through=lambda: market_date, novel_builder=_builder(client, spec),
-    )
-    computed_fingerprint = query_fingerprint(spec)
-    return CacheAdvanceReport(fingerprint=computed_fingerprint, label=label,
-                              status="advanced", execution_source=result.execution_source,
-                              computed_through=market_date)
-
-
-def prewarm_maintained_caches(client: Any, *, market_date: str, commit: bool,
-                               only_set_ids: Sequence[str] = ()) -> dict[str, Any]:
-    """Advance every discovered maintained cache to ``market_date``.
-
-    One failed cache never blocks another -- each build is isolated in its
-    own try/except and reported individually. When ``only_set_ids`` is given
-    (historical-repair path), only caches whose ``setIds``/``eraIds`` overlap
-    the affected sets are touched -- a healthy unrelated maintained cache is
-    left exactly as-is.
-    """
-    rows = discover_maintained_caches(client)
-    scope_filter = set(str(v) for v in only_set_ids)
-    attempted: list[dict[str, Any]] = []
-    advanced = 0
-    already_current = 0
-    failed = 0
-    for row in rows:
-        spec_set_ids = {str(v) for v in ((row.get("normalized_spec") or {}).get("setIds") or [])}
-        if scope_filter and not (spec_set_ids & scope_filter):
-            continue
-        try:
-            report = advance_one_maintained_cache(client, row, market_date=market_date, commit=commit)
-        except Exception as exc:  # noqa: BLE001 - isolated per cache, never fatal to the run
-            failed += 1
-            attempted.append(asdict(CacheAdvanceReport(
-                fingerprint=str(row.get("query_fingerprint") or ""),
-                label=str(row.get("label") or row.get("query_fingerprint") or "?"),
-                status="failed", error=str(exc),
-            )))
-            LOG.error(json.dumps({
-                "event": "maintained_cache_failed",
-                "fingerprint": row.get("query_fingerprint"), "error": str(exc),
-            }, sort_keys=True))
-            continue
-        if report.status == "advanced":
-            advanced += 1
-        elif report.status == "already_current":
-            already_current += 1
-        attempted.append(asdict(report))
-
-    return {
-        "attempted": len(attempted), "advanced": advanced,
-        "already_current": already_current, "failed": failed, "reports": attempted,
-    }
+    report: dict[str, Any] = {"status": "deferred", "reason": "separate_operational_worker"}
+    if only_set_ids and client is not None:
+        affected = caches_overlapping_set_ids(client, only_set_ids)
+        report["affected"] = sorted(str(row.get("query_fingerprint") or "") for row in affected)
+    return report
 
 
 # --- Normal-day orchestration -------------------------------------------------
@@ -362,14 +259,18 @@ def run_daily_publication(
 
     if projection_report.get("failures") or projection_report.get("sets_reconciliation_failed"):
         # Coverage was NOT activated for any failed set inside run_publish;
-        # a failed set stays at its previous computed_through. Caches must
-        # not be advanced past a projection that failed reconciliation.
+        # a failed set stays at its previous computed_through. `caches`
+        # stays None here (never even the deferred marker) -- a failed
+        # projection publishes nothing for the cache worker to act on yet.
         summary.status = "projection_failed"
         summary.error = "one or more sets failed projection reconciliation; coverage held at prior date"
         summary.elapsed_seconds = round(time.monotonic() - started, 3)
         return asdict(summary)
 
-    summary.caches = prewarm_maintained_caches(client, market_date=resolved, commit=commit)
+    # Maintained-cache state can never change this result: no build, no
+    # warm, no advance, no import of the planner/cache machinery happens on
+    # this path. See the module docstring's P0 incident note.
+    summary.caches = deferred_cache_report()
     summary.status = "ok"
     summary.elapsed_seconds = round(time.monotonic() - started, 3)
     return asdict(summary)
@@ -404,9 +305,13 @@ def run_historical_repair(
     """Rebuild affected daily projection from ``repair_start`` (the earliest
     affected approved date) through the canonical current date, exactly
     reconcile, restore coverage from actual rows, bump ``repair_generation``,
-    and invalidate/rebuild ONLY the maintained caches whose scope overlaps
-    the affected sets. Interval repair itself is assumed already done
-    upstream -- this function only re-derives the projection from it.
+    and invalidate (never rebuild inline) the maintained caches whose scope
+    overlaps the affected sets -- those rebuilds are reported as deferred to
+    the separate operational worker. Interval repair itself is assumed
+    already done upstream -- this function only re-derives the projection
+    from it. Repair remains valid even with stale caches: a stale maintained
+    cache is a correctness gap for that cache's own next read, never a
+    reason to fail or block this repair.
     """
     started = time.monotonic()
     set_ids = sorted({str(v) for v in set_ids})
@@ -487,11 +392,12 @@ def run_historical_repair(
         summary.cache_entries_invalidated = int(response.data or 0)
     summary.repair_generation_bumped = True  # atomic on the DB side inside the RPC above
 
-    max_computed_through = max((row.get("computed_through") for row in summary.coverage_repaired
-                                 if row.get("computed_through")), default=through)
-    summary.caches = prewarm_maintained_caches(
-        client, market_date=str(max_computed_through)[:10], commit=commit, only_set_ids=set_ids,
-    )
+    # Invalidation already happened above via INVALIDATE_CACHE_SCOPED_RPC.
+    # Rebuilding those now-invalidated maintained caches is NEVER done
+    # inline here -- report which ones are affected and defer them to the
+    # separate operational worker. `client` is passed only for a read-only
+    # discovery query, never a build.
+    summary.caches = deferred_cache_report(client, only_set_ids=set_ids)
     summary.status = "ok"
     summary.elapsed_seconds = round(time.monotonic() - started, 3)
     return asdict(summary)

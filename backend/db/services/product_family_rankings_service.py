@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping, Sequence
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.chase_accessibility_set_ranking import (
+    load_chase_accessibility_set_authority,
+    project_chase_accessibility_for_set,
+)
 from backend.desirability.composite import assign_composite_tier
 from backend.rankings.public_relative import (
     compute_leader_normalized_scores, compute_public_relative_scores, public_leader_rip_tier,
@@ -171,7 +175,8 @@ def _target_run_authority(
 def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, size: int,
              overall_relative: Any = None, financial_relative: Any = None,
              overall_leader: Any = None, financial_leader: Any = None,
-             product_image_url: Any = None) -> Dict[str, Any]:
+             product_image_url: Any = None,
+             chase_accessibility: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     market = _number(row.get("product_market_cost"), 0.0)
     expected = _number(row.get("expected_value"), 0.0)
     ratio = expected / market if market > 0 else None
@@ -241,6 +246,14 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         # `sealed_product_rip_finalization_service._overall_rip_v12_for`, so
         # this is a pure passthrough, not a recomputation.
         "overallRipV12": row.get("overall_rip_v12_payload") or None,
+        # SET-level authority (backend/db/services/chase_accessibility_set_ranking.py).
+        # Every product row sharing this row's set_id carries the byte-identical
+        # value/setRank/setCohortSize - never a per-product rank. `setRank` is a
+        # CHASE ACCESSIBILITY SET RANK, not a product rank.
+        "chaseAccessibility": chase_accessibility or {
+            "value": None, "percent": None, "status": None, "version": None,
+            "chaseDepth": None, "mappedHcMass": None, "setRank": None, "setCohortSize": None,
+        },
     }
 
 
@@ -279,6 +292,15 @@ def build_product_family_rankings(
         scored_by_family[family] = scored_by_family.get(family, 0) + 1
         if _canonical(row):
             rankable_by_family.setdefault(family, []).append(row)
+
+    # Chase Accessibility set-level authority: ONE batch read + ONE rank pass
+    # for the whole cohort, keyed by the same run_id_by_set_id authority every
+    # other canonical field on this row is validated against - never a second,
+    # independent computation and never a per-product/per-row query.
+    chase_authority = load_chase_accessibility_set_authority(
+        set_ids=list(run_id_by_set_id.keys()), client=client,
+        expected_run_by_set=run_id_by_set_id,
+    )
 
     loose_ids = sorted({
         str(row.get("sealed_product_id")) for row in rankable_by_family.get("loose_booster_pack", [])
@@ -324,7 +346,12 @@ def build_product_family_rankings(
                      financial_relative.get(str(row.get("sealed_product_id"))),
                      overall_leader.get(str(row.get("sealed_product_id"))),
                      financial_leader.get(str(row.get("sealed_product_id"))),
-                     product_images.get(str(row.get("sealed_product_id"))))
+                     product_images.get(str(row.get("sealed_product_id"))),
+                     project_chase_accessibility_for_set(
+                         row.get("set_id"),
+                         rows_by_set_id=chase_authority["rowsBySetId"],
+                         rank_by_set_id=chase_authority["rankBySetId"],
+                     ))
             for index, row in enumerate(ordered, 1)
         ]
         families[family] = {

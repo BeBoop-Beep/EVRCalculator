@@ -11,6 +11,18 @@ function numeric(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * `chaseAccessibilityValue` reads the nested SET-level authority block
+ * (`row.chaseAccessibility.value`) rather than a flat field — mirrors
+ * `ProductFamilyRankingsClient.jsx`'s `sortFieldValue` for the same reason:
+ * every product sharing a set_id carries the byte-identical backend block
+ * (backend/db/services/chase_accessibility_set_ranking.py).
+ */
+function readSortField(row, key) {
+  if (key === "chaseAccessibilityValue") return numeric(row?.chaseAccessibility?.value);
+  return numeric(row?.[key]);
+}
+
 export function sortProductRankingRows(rows, query, sortKey, direction, overall) {
   const needle = String(query || "").trim().toLowerCase();
   const factor = direction === "asc" ? 1 : -1;
@@ -27,8 +39,8 @@ export function sortProductRankingRows(rows, query, sortKey, direction, overall)
           String(left?.sealedProductId || "").localeCompare(String(right?.sealedProductId || ""))
         );
       }
-      const a = numeric(left?.[effectiveKey]);
-      const b = numeric(right?.[effectiveKey]);
+      const a = readSortField(left, effectiveKey);
+      const b = readSortField(right, effectiveKey);
       if (a === null) return b === null ? 0 : 1;
       if (b === null) return -1;
       return factor * (a - b);

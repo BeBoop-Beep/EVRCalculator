@@ -25,6 +25,28 @@ test("top-level Overall Product Rankings populate rows, budgets, sorting, paid f
   assert.equal(normalized.rows[0].collectorAppealScore, 75);
 });
 
+// Chase Accessibility is SET-level; `chaseAccessibilityValue` reads the
+// nested backend authority block (row.chaseAccessibility.value), not a flat
+// field, and an unavailable row (null block) sorts last — never coerced to
+// zero. This is the sort key `RankingsProductLensClient.jsx` wires to its
+// visible "Sort products" menu (a real, user-reachable control, unlike the
+// hidden Set Rankings ranking-mode dropdown).
+test("chaseAccessibilityValue sorts by the nested set-level authority block and puts unavailable last", () => {
+  const rows = [
+    { sealedProductId: "p-mid", chaseAccessibility: { value: 0.05 } },
+    { sealedProductId: "p-high", chaseAccessibility: { value: 0.2 } },
+    { sealedProductId: "p-none", chaseAccessibility: null },
+  ];
+  assert.deepEqual(
+    sortProductRankingRows(rows, "", "chaseAccessibilityValue", "desc", false).map((row) => row.sealedProductId),
+    ["p-high", "p-mid", "p-none"]
+  );
+  assert.deepEqual(
+    sortProductRankingRows(rows, "", "chaseAccessibilityValue", "asc", false).map((row) => row.sealedProductId),
+    ["p-mid", "p-high", "p-none"]
+  );
+});
+
 test("an invalid successful-looking wrapper cannot become an empty ready table", () => {
   assert.deepEqual(normalizeOverallProductResult({ status: "available", data: result }), {
     available: false, reason: "publication_unavailable", rows: [], availableBudgets: [],

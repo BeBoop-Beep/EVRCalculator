@@ -11,6 +11,12 @@ import RipScoreSurface from "@/components/explore/RipScoreSurface.jsx";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { publicLeaderScoreTier } from "@/components/explore/ripTierPresentation.mjs";
 import OverallRipExplanationHierarchy from "@/components/explore/OverallRipExplanationHierarchy";
+import { selectChaseAccessibilityPresentation } from "@/components/explore/chaseAccessibilityPresentationSelector.mjs";
+import {
+  MARKET_BASED_LABEL,
+  MARKET_BASED_PUBLIC_QUESTION,
+  MARKET_BASED_EXPLANATORY_NOTE,
+} from "@/components/explore/overallRipExplanationHierarchySelector.mjs";
 import {
   finite,
   formatStrength,
@@ -111,6 +117,53 @@ function ScoreCard({
   );
 }
 
+function formatChasePercent(value) {
+  return value === null || value === undefined ? "Unavailable" : `${value.toFixed(2)}%`;
+}
+
+/**
+ * Chase Accessibility — Product RIP's compact presentation of the SET-LEVEL
+ * ingredient of Market-Based Opening Quality. Reads ONLY the shared
+ * `chaseAccessibilityPresentationSelector.mjs` contract (Phase 3/6/8) -
+ * performs no arithmetic and fabricates no rank/tier/cohortSize. Labeled
+ * "Parent set" (Phase 9) since this exact number is identical for every
+ * sealed product of the same set/run - never implied to differ between an
+ * ETB and a Booster Box of the same set.
+ */
+function ChaseAccessibilityCard({ chase }) {
+  return (
+    <div
+      data-product-rip-score="chase-accessibility"
+      className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.38)] p-4 sm:p-5"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <dt className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[.08em] text-[var(--text-primary)]">
+          <span>Chase Accessibility</span>
+          <InfoPopover text={chase.technicalTooltip} />
+        </dt>
+        <span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[.06em] text-[var(--text-secondary)]">
+          Parent set
+        </span>
+      </div>
+      <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">{chase.publicQuestion}</p>
+      <dd className="mt-3 text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+        {chase.available ? formatChasePercent(chase.displayAccessibility) : "Unavailable"}
+      </dd>
+      {!chase.available ? (
+        <p className="mt-2 text-xs text-[var(--text-secondary)]">
+          {chase.statusReason || "Chase Accessibility is not currently available for this set."}
+        </p>
+      ) : (
+        <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
+          Context — not an additional scoring input.
+          {chase.chaseDepthAvailable ? ` Chase Depth ${chase.chaseDepth.toFixed(2)}.` : ""}
+          {chase.mappedHcMassAvailable ? ` Mapped coverage ${formatChasePercent(chase.mappedHcMass)}.` : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function ProductRipSection({ detail }) {
   const { rip, product } = detail;
   if (!rip.available)
@@ -133,6 +186,11 @@ export function ProductRipSection({ detail }) {
     );
   const financialTier = publicLeaderScoreTier(rip.financialRipLeaderScore);
   const collectorTier = rip.collectorAppealTier;
+  // Chase Accessibility - reused SHARED presentation contract (Phase 3/6),
+  // never recomputed here. Reads `rip.publicRipContractV11.chaseAccessibility`
+  // when present (the exact-run-authenticated backend projection), falling
+  // back to plain `rip.chaseAccessibility` for any other caller shape.
+  const chase = selectChaseAccessibilityPresentation(rip);
   return (
     <section
       data-product-rip-section
@@ -170,25 +228,81 @@ export function ProductRipSection({ detail }) {
       </dl>
       {/* ONE shared, version-aware Overall RIP explanation. Renders the V10
           90/10 explanation from this product's own persisted V10 ranking
-          when no V12 shadow data is present, or the V12 86/4/10 explanation
+          when no V12 contract data is present, or the V12 86/4/10 explanation
           when `rip.publicRipContractV11` carries it - the SAME component
           Set RIP / Set Analysis already use, never a second implementation
-          or a hardcoded formula string here. */}
+          or a hardcoded formula string here. Overall RIP V12 is now the
+          canonical Overall RIP model. */}
       <div data-product-rip-formula className="my-3">
         <OverallRipExplanationHierarchy sources={[rip]} />
       </div>
-      <dl className="grid gap-3 sm:grid-cols-2">
-        <ScoreCard
-          label="Financial RIP"
-          value={rip.financialRipLeaderScore}
-          tier={financialTier}
-        />
+      {/* MARKET-BASED OPENING QUALITY (Phase 6/7/8) — the same locked
+          explanatory grouping Set RIP renders: Financial RIP (this exact
+          product) + Chase Accessibility (inherited from the parent set,
+          identical across every product of the same set/run). Never an
+          independent third pillar, never persisted as its own score - see
+          `MARKET_BASED_EXPLANATORY_NOTE`. */}
+      <section
+        data-market-based-opening-quality="compact"
+        aria-label={MARKET_BASED_LABEL}
+        className="mt-1 rounded-2xl border border-[var(--border-subtle)] bg-white/[.02] p-4 sm:p-5"
+      >
+        <p className="text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-primary)]">
+          {MARKET_BASED_LABEL}
+        </p>
+        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+          {MARKET_BASED_PUBLIC_QUESTION}
+        </p>
+        <p className="mt-1 text-[10px] italic text-[var(--text-secondary)]">
+          {MARKET_BASED_EXPLANATORY_NOTE}
+        </p>
+        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div
+            data-product-rip-score="financial-rip"
+            className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.38)] p-4 sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <dt className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[.08em] text-[var(--text-primary)]">
+                <span>Financial RIP</span>
+              </dt>
+              <span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[.06em] text-[var(--text-secondary)]">
+                This product
+              </span>
+            </div>
+            <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
+              Reflects this exact product&apos;s price, composition, and
+              modeled opening outcomes.
+            </p>
+            <div className="mt-3">
+              <RankBadge rank={financialTier} format="tier" size="compact" subtle />
+            </div>
+            <dd className="mt-3 text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+              {finite(rip.financialRipLeaderScore) === null
+                ? "Unavailable"
+                : (
+                  <>
+                    {formatPublicRipScore(rip.financialRipLeaderScore)}{" "}
+                    <span className="ml-1 text-xs font-medium text-[var(--text-secondary)]">/10</span>
+                  </>
+                )}
+            </dd>
+          </div>
+          <ChaseAccessibilityCard chase={chase} />
+        </dl>
+      </section>
+      <dl className="mt-3 grid gap-3">
         <ScoreCard
           label="Collector Appeal"
           value={rip.collectorAppealScore}
           tier={collectorTier}
           info="Collector Appeal reflects the collector-facing appeal of the product's parent set. It is not recalculated simply because this product contains more packs."
-        />
+        >
+          <p className="mt-3 text-[11px] text-[var(--text-secondary)]">
+            <span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 font-semibold uppercase tracking-[.06em]">
+              Parent set
+            </span>
+          </p>
+        </ScoreCard>
       </dl>
     </section>
   );

@@ -11,17 +11,31 @@ class Query:
     def __init__(self, rows): self.rows = rows
     def select(self, *_a): return self
     def in_(self, _field, values):
-        self.rows = [r for r in self.rows if r[_field] in values]
+        self.rows = [r for r in self.rows if r.get(_field) in values]
         return self
+    def order(self, *_a, **_kw): return self
+    def range(self, *_a, **_kw): return self
     def execute(self):
         return type("Result", (), {"data": self.rows})()
 
 
 class Client:
-    def __init__(self, rows, products=None): self.rows = rows; self.products = products or []
+    def __init__(self, rows, products=None, chase_rows=None):
+        self.rows = rows; self.products = products or []; self.chase_rows = chase_rows or []
     def table(self, name):
-        assert name in {"simulation_sealed_product_results", "sealed_products"}
-        return Query(list(self.products if name == "sealed_products" else self.rows))
+        assert name in {
+            "simulation_sealed_product_results", "sealed_products",
+            "pokemon_set_chase_accessibility_snapshot_latest",
+        }
+        if name == "sealed_products":
+            return Query(list(self.products))
+        if name == "pokemon_set_chase_accessibility_snapshot_latest":
+            # No fixture in this test module publishes Chase Accessibility -
+            # every row correctly comes back with an unavailable chaseAccessibility
+            # block rather than the test silently faking authority - UNLESS the
+            # test explicitly supplies chase_rows (see the inheritance test below).
+            return Query(list(self.chase_rows))
+        return Query(list(self.rows))
 
 
 def row(product, family="booster_box", run="current", overall=80, financial=70, chance=.4, price=100, **changes):
@@ -170,6 +184,54 @@ def test_families_are_isolated_and_ties_are_deterministic(monkeypatch):
     assert set(families) >= {"booster_box", "half_booster_box", "elite_trainer_box", "pokemon_center_elite_trainer_box"}
     assert all(p["productFamily"] == f for f, block in families.items() for p in block["products"])
     assert "products" not in {k: v for k, v in families.items() if k == "all"}
+
+
+def test_same_set_products_inherit_identical_chase_accessibility_through_full_build():
+    """Two products in the SAME set, two products in a DIFFERENT set - the two
+    products sharing set-1 must carry byte-identical chaseAccessibility
+    (value/setRank/setCohortSize), and it must differ from set-2's, while their
+    Financial RIP / Overall RIP legitimately differ per product. Runs through
+    the real `build_product_family_rankings` pipeline (not the isolated
+    chase_accessibility_set_ranking unit tests), so this proves the ONE
+    shared authority module is actually wired end-to-end."""
+    rows = [
+        row("b1", set_id="set-1", overall=80, financial=70),
+        row("b2", set_id="set-1", family="half_booster_box", overall=90, financial=95),
+        row("c1", set_id="set-2", overall=60, financial=55),
+    ]
+    chase_rows = [
+        {"set_id": "set-1", "calculation_run_id": "current", "accessibility": 0.05,
+         "status": "ready", "version": _chase_version(), "mapped_hc_mass": 0.99},
+        {"set_id": "set-2", "calculation_run_id": "current", "accessibility": 0.20,
+         "status": "ready", "version": _chase_version(), "mapped_hc_mass": 0.99},
+    ]
+    client = Client(rows, chase_rows=chase_rows)
+    result = service.build_product_family_rankings(
+        client,
+        set_targets=[
+            {"set_id": "set-1", "canonical_key": "alpha", "calculation_run_id": "current", "name": "Alpha", "logo_image_url": "logo"},
+            {"set_id": "set-2", "canonical_key": "beta", "calculation_run_id": "current", "name": "Beta", "logo_image_url": "logo"},
+        ],
+    )
+    families = result["families"]
+    b1 = next(p for p in families["booster_box"]["products"] if p["sealedProductId"] == "b1")
+    b2 = next(p for p in families["half_booster_box"]["products"] if p["sealedProductId"] == "b2")
+    c1 = next(p for p in families["booster_box"]["products"] if p["sealedProductId"] == "c1")
+
+    assert b1["chaseAccessibility"] == b2["chaseAccessibility"]
+    assert b1["chaseAccessibility"]["value"] == 0.05
+    assert b1["chaseAccessibility"]["setRank"] == 2  # set-2's 0.20 outranks set-1's 0.05
+    assert b1["chaseAccessibility"]["setCohortSize"] == 2
+    assert c1["chaseAccessibility"]["value"] == 0.20
+    assert c1["chaseAccessibility"]["setRank"] == 1
+    assert c1["chaseAccessibility"] != b1["chaseAccessibility"]
+    # Financial/Overall RIP legitimately differ per product within the SAME set.
+    assert b1["financialRipScore"] != b2["financialRipScore"]
+
+
+def _chase_version():
+    from backend.desirability.chase_accessibility import CHASE_ACCESSIBILITY_VERSION
+    return CHASE_ACCESSIBILITY_VERSION
 
 
 def test_new_score_automatically_appears_on_next_build(monkeypatch):

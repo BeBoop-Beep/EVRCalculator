@@ -72,6 +72,11 @@ import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
 import { formatRankMovement } from "./rankingMovement.mjs";
 import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
+import {
+  chaseAccessibilityDisplay,
+  CHASE_ACCESSIBILITY_HELP,
+  MARKET_BASED_HELP,
+} from "./chaseAccessibilityDisplay.mjs";
 import { FamilySnapshot, RANKINGS_FAMILY_COLUMNS, RankingsFamilyCells, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
 
@@ -107,12 +112,37 @@ const EAGER_LOGO_ROW_LIMIT = 6;
 // The metric menu's sortable set. `modeledReturn` and `entertainmentCost` sit
 // next to the two published numbers they are derived from (market price and
 // model break-even) so the relationship is visible in the list itself.
-const MOBILE_DECISION_COLUMN_IDS = ["setRip", "marketPrice", "typicalOpening", "modelBreakEven", "modeledReturn", "entertainmentCost", "chanceToBeatCost", "topChase"];
+const MOBILE_DECISION_COLUMN_IDS = ["setRip", "financial", "chaseAccessibility", "collectorAppeal", "marketPrice", "typicalOpening", "modelBreakEven", "modeledReturn", "entertainmentCost", "chanceToBeatCost", "topChase"];
 
 function TopChaseCell({ target, compact = false }) {
   const chase = readOptionalRankingsChase(target);
   if (!chase) return <span className="text-[11px] text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>;
   return <span className={`block min-w-0 ${compact ? "max-w-32 text-right" : "text-left"}`}><span className="block truncate text-[12px] font-medium text-[var(--text-primary)]">{chase.name}</span><span className="block whitespace-nowrap text-[10px] tabular-nums text-[var(--text-secondary)]">{chase.marketValue !== null ? formatCurrency(chase.marketValue) : UNAVAILABLE_LABEL}{chase.oneInPacks !== null ? ` · 1 in ${Math.round(chase.oneInPacks).toLocaleString()} packs` : ""}</span></span>;
+}
+
+/**
+ * Chase Accessibility cell — a SET-level backend authority
+ * (backend/db/services/chase_accessibility_set_ranking.py). Reads
+ * `target.setRipV1.chaseAccessibility` verbatim; performs no ranking
+ * arithmetic. "Unavailable" rows (excluded from the cohort, never coerced to
+ * zero) render the same explicit label every other unavailable cell here
+ * uses. This is a distinct metric from the pre-existing "Top Chase" card-level
+ * column (`readOptionalRankingsChase` / `topChase`), which names a specific
+ * chase card rather than measuring set-level pull accessibility.
+ */
+function ChaseAccessibilityCell({ target, compact = false }) {
+  const { primary, detail } = chaseAccessibilityDisplay(target?.setRipV1?.chaseAccessibility, {
+    setLabel: false,
+  });
+  if (primary === "Unavailable") {
+    return <span className="text-[11px] font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>;
+  }
+  return (
+    <span className={`flex flex-col ${compact ? "items-end" : "items-center"} leading-tight`}>
+      <span className="text-[13px] font-semibold text-[var(--text-primary)]">{primary}</span>
+      {detail ? <span className="mt-0.5 text-[10px] text-[var(--text-secondary)]">{detail}</span> : null}
+    </span>
+  );
 }
 
 /**
@@ -850,23 +880,42 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
               */}
               <colgroup>
                 <col style={{ width: "3%" }} />
-                <col style={{ width: "15%" }} />
-                <col style={{ width: "7%" }} />
-                <col style={{ width: "4%" }} />
-                {RANKINGS_FAMILY_COLUMNS.map((column) => <col key={column.key} style={{ width: "5.7%" }} />)}
                 <col style={{ width: "14%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "4%" }} />
+                {RANKINGS_FAMILY_COLUMNS.map((column) => <col key={column.key} style={{ width: "5%" }} />)}
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "12%" }} />
               </colgroup>
               <thead className={`${styles.head} ${styles.analyticsTableHead}`}>
                 <tr>
-                  <th scope="col" className={styles.numeric}>
+                  <th scope="col" rowSpan={2} className={styles.numeric}>
                     <span aria-hidden="true">#</span>
                     <span className="sr-only">Rank</span>
                   </th>
-                  <th scope="col">Set</th>
-                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} />
-                  <th scope="col"><span className="inline-flex items-center gap-1">Tier<InfoPopover><PublicRipTierInfo /></InfoPopover></span></th>
-                  {RANKINGS_FAMILY_COLUMNS.map((column) => <th key={column.key} scope="col" aria-label={column.fullLabel} title={column.fullLabel} className="px-1.5 text-center leading-tight"><span className="inline-flex items-center justify-center gap-1">{column.label}{column.info ? <InfoPopover text={column.info} /> : null}</span></th>)}
-                  <th scope="col">Format Strength</th>
+                  <th scope="col" rowSpan={2}>Set</th>
+                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} />
+                  <th scope="col" rowSpan={2}><span className="inline-flex items-center gap-1">Tier<InfoPopover><PublicRipTierInfo /></InfoPopover></span></th>
+                  {RANKINGS_FAMILY_COLUMNS.map((column) => <th key={column.key} scope="col" rowSpan={2} aria-label={column.fullLabel} title={column.fullLabel} className="px-1.5 text-center leading-tight"><span className="inline-flex items-center justify-center gap-1">{column.label}{column.info ? <InfoPopover text={column.info} /> : null}</span></th>)}
+                  {/*
+                    Market-Based Opening Quality is an explanatory GROUPING
+                    header only — it carries no score/rank/tier/sort of its
+                    own. Financial RIP and Chase Accessibility remain two
+                    separate numeric columns underneath it (mirrors
+                    ProductFamilyRankingsClient.jsx). Collector Appeal stays a
+                    separate, ungrouped column.
+                  */}
+                  <th colSpan={2} className="text-center" data-market-based-header title={MARKET_BASED_HELP}>
+                    Market-Based Opening Quality
+                  </th>
+                  <SortableHeader columnId="collectorAppeal" label="Collector Appeal" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} />
+                  <th scope="col" rowSpan={2}>Format Strength</th>
+                </tr>
+                <tr>
+                  <SortableHeader columnId="financial" label="Financial RIP" sort={sort} onSort={handleSort} note={sortNote} />
+                  <SortableHeader columnId="chaseAccessibility" label="Chase Accessibility" sort={sort} onSort={handleSort} note={sortNote} infoText={CHASE_ACCESSIBILITY_HELP} />
                 </tr>
               </thead>
               <tbody>
@@ -896,6 +945,9 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                       <td className={styles.numeric}><RipScoreBadge score={canonicalOverall.publicScore} tier={tier} /></td>
                       <td className="text-center"><RipTierMark tier={tier} /></td>
                       <RankingsFamilyCells setRip={target?.setRipV1} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
+                      <td className="text-center align-middle"><ScoreCell target={target} modeId="financial" /></td>
+                      <td className="text-center align-middle" data-chase-accessibility-cell><ChaseAccessibilityCell target={target} /></td>
+                      <td className="text-center align-middle"><ScoreCell target={target} modeId={COLLECTOR_APPEAL_COLUMN} /></td>
                       <td className="align-middle"><RankingInsight setRip={target?.setRipV1} /></td>
                     </tr>
                   );
@@ -935,6 +987,23 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                   {expanded ? (
                     <div className="mt-2 border-t border-[var(--border-subtle)] pt-1">
                       <FamilySnapshot setRip={target?.setRipV1} layout="modules" compact canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
+                      {/*
+                        Mobile shape: Overall RIP (above) / Market-Based
+                        (Financial RIP, Chase Accessibility) / Collector
+                        Appeal — same grouping the desktop grouped header
+                        signals, using the same one-field-by-kind cells.
+                      */}
+                      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[var(--border-subtle)] pt-2" title={MARKET_BASED_HELP}>
+                        <p className="col-span-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Market-Based Opening Quality</p>
+                        <MobileScoreBlock target={target} modeId="financial" label="Financial RIP" />
+                        <div data-chase-accessibility-mobile>
+                          <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Chase Accessibility</div>
+                          <div className="mt-0.5"><ChaseAccessibilityCell target={target} compact /></div>
+                        </div>
+                      </div>
+                      <div className="mt-2 border-t border-[var(--border-subtle)] pt-2">
+                        <MobileScoreBlock target={target} modeId={COLLECTOR_APPEAL_COLUMN} label="Collector Appeal" />
+                      </div>
                       <p className="pt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Format Strength</p>
                       <RankingInsight setRip={target?.setRipV1} />
                       <Link href={buildRipLink(target)} className="mt-2 inline-flex min-h-10 items-center text-xs font-semibold text-[var(--accent)]">View full Set RIP breakdown →</Link>

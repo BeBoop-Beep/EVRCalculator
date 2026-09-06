@@ -29,9 +29,9 @@ test("D: FULL mode renders Chase Accessibility's primary metric separately from 
   assert.match(componentSource, /Chase depth &amp;? ?concentration|Chase depth/i);
 });
 
-test("D: rank is never rendered as a real value unless the selector supplies one — no fabricated rank literal", () => {
+test("D: rank is never rendered as a real value unless the selector supplies one — no fabricated rank literal, and a missing rank is OMITTED rather than shown as unavailable", () => {
   assert.doesNotMatch(componentSource, /Rank #\{?["'`]?\d/);
-  assert.match(componentSource, /Cohort rank not yet available/);
+  assert.doesNotMatch(componentSource, /Cohort rank not yet available/);
   assert.match(componentSource, /chase\.rank !== null/);
 });
 

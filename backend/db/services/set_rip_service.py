@@ -50,6 +50,12 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
     evidence: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     display_evidence: dict[str, dict[str, list[Dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     eligible_family_counts: dict[str, int] = {}
+    # Chase Accessibility is SET-level: every product sharing a set_id already
+    # carries the byte-identical value/setRank/setCohortSize (see
+    # chase_accessibility_set_ranking.project_chase_accessibility_for_set), so
+    # Set RIP reuses whichever product row it sees first per set rather than
+    # re-deriving a second, independent ranking computation.
+    chase_accessibility_by_set: dict[str, Dict[str, Any]] = {}
     for family, block in sorted((product_family_rankings.get("families") or {}).items()):
         products = list(block.get("products") or [])
         family_size = int(block.get("count") or 0)
@@ -67,6 +73,8 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
             canonical = (CANONICAL_FINANCIAL_RIP_VERSION, canonical_collector_appeal_version(), CANONICAL_OVERALL_RIP_VERSION)
             if versions != canonical:
                 raise ValueError(f"Set RIP canonical score version mismatch for set_id={set_id}, family={family}")
+            if set_id not in chase_accessibility_by_set and product.get("chaseAccessibility"):
+                chase_accessibility_by_set[set_id] = product["chaseAccessibility"]
             standing = sku_relative_standing(int(product.get("familyRank")), family_size)
             display_evidence[set_id][family].append({
                 "standing": standing,
@@ -145,7 +153,11 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
                      "participatingFamilyCount": len(family_scores),
                      "participatingFamilies": [item["family"] for item in family_scores],
                      "skuEvidenceCount": sum(item["skuCount"] for item in family_scores),
-                     "familyScores": family_scores, "displayFamilyScores": display_family_scores})
+                     "familyScores": family_scores, "displayFamilyScores": display_family_scores,
+                     "chaseAccessibility": chase_accessibility_by_set.get(set_id) or {
+                         "value": None, "percent": None, "status": None, "version": None,
+                         "chaseDepth": None, "mappedHcMass": None, "setRank": None, "setCohortSize": None,
+                     }})
 
     ranked = sorted((row for row in rows if row["rankable"]), key=lambda row: (-row["score"], row["setId"]))
     cohort_size = len(ranked)

@@ -200,6 +200,20 @@ export const RANKINGS_SORT_COLUMNS = {
     label: "Collector Appeal",
     read: (target) => readCollectorAppealBlock(target).publicScore,
   },
+  /**
+   * Chase Accessibility — SET-level backend authority
+   * (backend/db/services/chase_accessibility_set_ranking.py). Reads the raw
+   * `value` (not the display `percent`, though they carry the same ordering)
+   * verbatim off `setRipV1.chaseAccessibility`; every product row sharing a
+   * set_id already carries the byte-identical block. An unavailable set
+   * (excluded from the ranked cohort) reads `null` here and, per the shared
+   * null-handling below, sorts last rather than being coerced to zero.
+   */
+  chaseAccessibility: {
+    id: "chaseAccessibility",
+    label: "Chase Accessibility",
+    read: (target) => toNumber(target?.setRipV1?.chaseAccessibility?.value),
+  },
   typicalOpening: {
     id: "typicalOpening",
     label: "Typical Opening",

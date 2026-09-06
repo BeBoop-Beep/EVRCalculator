@@ -21,11 +21,17 @@ import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import styles from "./explore.module.css";
 import { buildIndexUpgradeHref } from "@/lib/membership/upgradeFunnel.mjs";
 import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
+import {
+  chaseAccessibilityDisplay as sharedChaseAccessibilityDisplay,
+  CHASE_ACCESSIBILITY_HELP as SHARED_CHASE_ACCESSIBILITY_HELP,
+  MARKET_BASED_HELP as SHARED_MARKET_BASED_HELP,
+} from "./chaseAccessibilityDisplay.mjs";
 
 const FAMILY_SORT_OPTIONS = [
   { value: "alphabetical", label: "Alphabetical A–Z" },
   { value: "overallRipLeaderScore", label: "Overall RIP" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
+  { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
   { value: "marketPrice", label: "Market Price" },
   { value: "expectedValue", label: "Expected Value" },
@@ -35,11 +41,16 @@ const OVERALL_SORT_OPTIONS = [
   { value: "alphabetical", label: "Alphabetical A–Z" },
   { value: "overallRipLeaderScore", label: "Overall RIP" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
+  { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
   { value: "unitPrice", label: "Unit Price" },
   { value: "expectedValue", label: "Expected Value" },
   { value: "chanceToRecoverCost", label: "Chance to Recover Cost" },
 ];
+// Locked copy (no scoring weights) — sourced from chaseAccessibilityDisplay.mjs
+// so this wording can never drift from Set Rankings' copy of the same text.
+const MARKET_BASED_HELP = SHARED_MARKET_BASED_HELP;
+const CHASE_ACCESSIBILITY_HELP = SHARED_CHASE_ACCESSIBILITY_HELP;
 export const PRODUCT_FAMILY_NAV_ORDER = [
   "loose_booster_pack",
   "sleeved_booster_pack",
@@ -107,6 +118,19 @@ const pluralFamilyLabel = (label) =>
     "Enhanced Booster Box": "Enhanced Booster Boxes",
   })[label] || `${label}s`;
 
+// `chaseAccessibilityValue` reads the nested SET-level authority block
+// (`product.chaseAccessibility.value`) rather than a flat product field.
+// Every product sharing a set_id carries the byte-identical block from the
+// backend (backend/db/services/chase_accessibility_set_ranking.py), so
+// sorting by it groups same-set products together; the existing
+// budgetRank/familyRank fallback below is the stable secondary ordering that
+// breaks same-set ties, using the same canonical Overall RIP order every
+// other column already falls back to - no new tie rule was introduced.
+function sortFieldValue(row, key) {
+  if (key === "chaseAccessibilityValue") return number(row?.chaseAccessibility?.value);
+  return number(row?.[key]);
+}
+
 export function filterAndSortProducts(products, query, sortKey, sortDirection = "desc") {
   const needle = String(query || "")
       .trim()
@@ -137,8 +161,8 @@ export function filterAndSortProducts(products, query, sortKey, sortDirection = 
           String(a?.sealedProductId || "").localeCompare(String(b?.sealedProductId || ""))
         );
       }
-      const av = number(a?.[key]),
-        bv = number(b?.[key]);
+      const av = sortFieldValue(a, key),
+        bv = sortFieldValue(b, key);
       if (av === null)
         return bv === null
           ? Number(a.budgetRank || a.familyRank) -
@@ -162,6 +186,17 @@ const recovery = (v) => {
 };
 function productHref(p) {
   return buildSealedProductHref(p);
+}
+
+/**
+ * Chase Accessibility cell text: the raw metric plus, where layout allows,
+ * "Set #X of Y" - NEVER "Product #X of Y". `setRank`/`setCohortSize` come
+ * straight from the backend's set-level authority
+ * (backend/db/services/chase_accessibility_set_ranking.py); this function
+ * performs no ranking arithmetic of its own, only formatting.
+ */
+export function chaseAccessibilityDisplay(p) {
+  return sharedChaseAccessibilityDisplay(p?.chaseAccessibility, { setLabel: true });
 }
 export function productFormatStrength(p) {
   const rank = number(p?.familyRank),
@@ -214,6 +249,25 @@ function Strategy({ p }) {
     <span className="mt-1 block text-[10.5px] text-[var(--text-secondary)]">
       {p.quantity} {Number(p.quantity) === 1 ? "unit" : "units"} ·{" "}
       {money.format(p.actualCommittedCapital)} committed
+    </span>
+  );
+}
+
+/**
+ * Desktop cell: raw metric on top, "Set #X of Y" underneath where it fits.
+ * Mobile disclosure conventions (RankedProductIdentity's secondary line) reuse
+ * the same `chaseAccessibilityDisplay` helper so both surfaces stay in sync.
+ */
+function ChaseAccessibilityCell({ product: p, compact = false }) {
+  const { primary, detail } = chaseAccessibilityDisplay(p);
+  return (
+    <span className={compact ? "inline-flex flex-col items-end" : "inline-flex flex-col items-end"}>
+      <span>{primary}</span>
+      {detail ? (
+        <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-secondary)]">
+          {detail}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -307,34 +361,39 @@ function ProductRankingsTable({
         <>
           <div className="hidden overflow-x-auto md:block">
             <table className={styles.table}>
-              <colgroup><col className={styles.productRankColumn} /><col className={styles.productIdentityColumn} /><col span="8" /></colgroup>
+              <colgroup><col className={styles.productRankColumn} /><col className={styles.productIdentityColumn} /><col span="9" /></colgroup>
               <caption className="sr-only">
                 {title}. Sorting preserves official{" "}
                 {overall ? "budget" : "family"} rank.
               </caption>
               <thead className={styles.head}>
-                <tr>
-                  <th>Rank</th>
-                  <th>Product / Set</th>
-                  <th>
+                <tr data-market-based-group-row>
+                  <th rowSpan={2}>Rank</th>
+                  <th rowSpan={2}>Product / Set</th>
+                  <th rowSpan={2}>
                     <RankedProductHeader text={HELP.overall}>
                       Overall RIP
                     </RankedProductHeader>
                   </th>
-                  <th>
+                  <th rowSpan={2}>
                     <RankedProductHeader info={<PublicRipTierInfo />}>Tier</RankedProductHeader>
                   </th>
-                  <th>
-                    <RankedProductHeader text={HELP.financial}>
-                      Financial RIP
+                  {/* Market-Based Opening Quality is an explanatory GROUPING
+                      header only - it carries no score/rank/tier/sort of its
+                      own. Financial RIP and Chase Accessibility remain two
+                      separate numeric columns underneath it. Collector Appeal
+                      stays a separate, ungrouped column. */}
+                  <th colSpan={2} className="text-center" data-market-based-header>
+                    <RankedProductHeader text={MARKET_BASED_HELP}>
+                      Market-Based Opening Quality
                     </RankedProductHeader>
                   </th>
-                  <th>
+                  <th rowSpan={2}>
                     <RankedProductHeader text={HELP.collector}>
                       Collector Appeal
                     </RankedProductHeader>
                   </th>
-                  <th>
+                  <th rowSpan={2}>
                     <RankedProductHeader
                       text={
                         overall
@@ -345,7 +404,7 @@ function ProductRankingsTable({
                       {overall ? "Unit Price" : "Market Price"}
                     </RankedProductHeader>
                   </th>
-                  <th>
+                  <th rowSpan={2}>
                     <RankedProductHeader
                       text={
                         overall
@@ -356,7 +415,7 @@ function ProductRankingsTable({
                       Expected Value
                     </RankedProductHeader>
                   </th>
-                  <th>
+                  <th rowSpan={2}>
                     <RankedProductHeader
                       text={
                         overall
@@ -367,9 +426,21 @@ function ProductRankingsTable({
                       Chance to Recover Cost
                     </RankedProductHeader>
                   </th>
-                  <th>
+                  <th rowSpan={2}>
                     <RankedProductHeader text={HELP.format}>
                       Format Strength
+                    </RankedProductHeader>
+                  </th>
+                </tr>
+                <tr>
+                  <th>
+                    <RankedProductHeader text={HELP.financial}>
+                      Financial RIP
+                    </RankedProductHeader>
+                  </th>
+                  <th data-chase-accessibility-header>
+                    <RankedProductHeader text={CHASE_ACCESSIBILITY_HELP}>
+                      Chase Accessibility
                     </RankedProductHeader>
                   </th>
                 </tr>
@@ -391,6 +462,13 @@ function ProductRankingsTable({
                     </td>
                     <td className={styles.numeric}>
                       {canViewProductRipIntelligence ? score(p.financialRipScore) : <PremiumMetricLock />}
+                    </td>
+                    <td className={styles.numeric} data-chase-accessibility-cell>
+                      {canViewProductRipIntelligence ? (
+                        <ChaseAccessibilityCell product={p} />
+                      ) : (
+                        <PremiumMetricLock />
+                      )}
                     </td>
                     <td className={styles.numeric}>
                       {canViewProductRipIntelligence ? score(p.collectorAppealScore) : <PremiumMetricLock />}
@@ -425,6 +503,22 @@ function ProductRankingsTable({
                 <div className="min-w-0">
                   <ProductIdentity product={p} overall={overall} canViewProductRipIntelligence={canViewProductRipIntelligence} />
                   <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{number(p[price]) === null ? "Unavailable" : money.format(p[price])}</span>
+                  {canViewProductRipIntelligence ? (
+                    // Compact Market-Based disclosure: Financial RIP and Chase
+                    // Accessibility read together as the same grouping the
+                    // desktop table shows, with Collector Appeal kept visibly
+                    // separate - never four disconnected numbers.
+                    <span
+                      className="mt-1 block text-[10.5px] text-[var(--text-secondary)]"
+                      data-mobile-market-based-line
+                    >
+                      Market-Based: {score(p.financialRipScore)} Financial ·{" "}
+                      {chaseAccessibilityDisplay(p).primary} Chase
+                      {chaseAccessibilityDisplay(p).detail ? ` (${chaseAccessibilityDisplay(p).detail})` : ""}
+                      {" · "}
+                      {score(p.collectorAppealScore)} Collector Appeal
+                    </span>
+                  ) : null}
                 </div>
                 {canViewProductRipIntelligence ? <RipScoreBadge
                   score={p.overallRipScore}

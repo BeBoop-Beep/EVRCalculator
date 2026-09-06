@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import patch
 
+import backend.db.services.market_explorer_maintained_cache_ops as cache_ops
 import backend.scripts.run_market_explorer_daily_publication as orch
 
 
@@ -157,7 +158,7 @@ class Query:
             rows = [dict(v) for v in self.client.current_metadata.values()]
             return Response(self._slice(rows))
 
-        if self.name == orch.CACHE_TABLE:
+        if self.name == cache_ops.CACHE_TABLE:
             rows = [dict(r) for r in self.client.cache_rows
                     if r.get("cache_kind") == self.eq_filters.get("cache_kind", r.get("cache_kind"))]
             return Response(self._slice(rows))
@@ -264,100 +265,31 @@ def test_metadata_refresh_dry_run_performs_no_writes():
     assert report.expected_row_count == 3
 
 
-# --- Maintained-cache discovery + prewarm --------------------------------------
+# --- Maintained-cache deferral (never builds; see cache_ops for the build-side tests) ---
 
-def test_maintained_caches_discovered_dynamically_not_hardcoded():
-    client = Client()
-    client.cache_rows = [
-        {"query_fingerprint": "fp1", "normalized_spec": {"setIds": ["set-a"]},
-         "status": "ready", "cache_kind": "maintained", "computed_through": "2026-09-01",
-         "label": "one"},
-        {"query_fingerprint": "fp2", "normalized_spec": {"setIds": []},
-         "status": "ready", "cache_kind": "novel", "computed_through": "2026-09-01",
-         "label": "two"},
-    ]
-    rows = orch.discover_maintained_caches(client)
-    assert [r["query_fingerprint"] for r in rows] == ["fp1"]  # only cache_kind=maintained
-
-
-def test_one_failed_cache_does_not_block_others():
-    client = Client()
-    client.cache_rows = [
-        {"query_fingerprint": "fp1", "normalized_spec": {"mode": "all", "setIds": ["set-a"]},
-         "status": "ready", "cache_kind": "maintained", "computed_through": "2026-09-01", "label": "one"},
-        {"query_fingerprint": "fp2", "normalized_spec": {"mode": "all", "setIds": ["set-b"]},
-         "status": "ready", "cache_kind": "maintained", "computed_through": "2026-09-01", "label": "two"},
-    ]
-
-    def fake_advance(client_, row, *, market_date, commit):
-        if row["label"] == "one":
-            raise RuntimeError("boom")
-        return orch.CacheAdvanceReport(fingerprint=row["query_fingerprint"], label=row["label"],
-                                       status="advanced", computed_through=market_date)
-
-    with patch.object(orch, "advance_one_maintained_cache", side_effect=fake_advance):
-        result = orch.prewarm_maintained_caches(client, market_date="2026-09-02", commit=True)
-
-    assert result["failed"] == 1
-    assert result["advanced"] == 1
-    assert result["attempted"] == 2
-
-
-def test_already_current_cache_is_skipped_not_rebuilt():
-    client = Client()
-    client.cache_rows = [
-        {"query_fingerprint": "fp1", "normalized_spec": {"mode": "all", "setIds": ["set-a"]},
-         "status": "ready", "cache_kind": "maintained", "computed_through": "2026-09-02", "label": "one"},
-    ]
-    result = orch.prewarm_maintained_caches(client, market_date="2026-09-02", commit=True)
-    assert result["already_current"] == 1
-    assert result["advanced"] == 0
-
-
-def test_failed_row_at_target_date_is_not_treated_as_already_current():
-    """computed_through already at market_date but status='failed' must still
-    be passed to planner.execute() (recovery attempt), never short-circuited
-    as already_current -- that would silently leave a broken cache unfixed.
+def test_daily_publication_module_never_imports_planner_or_cache_build_symbols():
+    """The authoritative publication script must not have an import-time (or
+    call-time) path to the planner/cache-build machinery at all -- that is
+    the whole point of extracting it into
+    backend.db.services.market_explorer_maintained_cache_ops. Assert none of
+    the build-side names leaked back into this module's namespace.
     """
-    client = Client()
-    row = {"query_fingerprint": "fp1",
-           "normalized_spec": {"mode": "all", "asset": "cards", "setIds": ["set-a"], "topN": None,
-                               "contractVersion": "pokemon-market-explorer-query-v3-variant"},
-           "status": "failed", "cache_kind": "maintained", "computed_through": "2026-09-03",
-           "label": "one"}
-
-    with patch.object(orch, "MarketExplorerQueryPlanner") as mock_planner_cls:
-        mock_planner_cls.return_value.execute.return_value = type(
-            "Result", (), {"execution_source": "cache_incremental_daily_projection"})()
-        report = orch.advance_one_maintained_cache(
-            client, row, market_date="2026-09-03", commit=True)
-
-    assert report.status == "advanced"
-    assert mock_planner_cls.return_value.execute.called, (
-        "a failed row at the target date must still reach planner.execute() "
-        "for a recovery attempt, not be short-circuited as already_current"
-    )
+    forbidden = {
+        "MarketExplorerQueryPlanner", "PersistentMarketExplorerCache",
+        "PreparedEquivalenceRegistry", "MarketExplorerL1Cache",
+        "run_market_explorer_query", "advance_one_maintained_cache",
+        "prewarm_maintained_caches", "discover_maintained_caches",
+    }
+    present = forbidden & set(dir(orch))
+    assert not present, f"cache-build machinery leaked into daily publication module: {present}"
 
 
-def test_ready_row_at_target_date_is_skipped_as_already_current():
-    """The complementary case: a genuinely ready row at/beyond the target
-    date must still short-circuit without calling planner.execute() -- the
-    fix must not regress the normal already-current skip."""
-    client = Client()
-    row = {"query_fingerprint": "fp1",
-           "normalized_spec": {"mode": "all", "asset": "cards", "setIds": ["set-a"]},
-           "status": "ready", "cache_kind": "maintained", "computed_through": "2026-09-03",
-           "label": "one"}
-
-    with patch.object(orch, "MarketExplorerQueryPlanner") as mock_planner_cls:
-        report = orch.advance_one_maintained_cache(
-            client, row, market_date="2026-09-03", commit=True)
-
-    assert report.status == "already_current"
-    assert not mock_planner_cls.return_value.execute.called
+def test_deferred_cache_report_shape_with_no_client():
+    report = orch.deferred_cache_report()
+    assert report == {"status": "deferred", "reason": "separate_operational_worker"}
 
 
-def test_scoped_prewarm_only_touches_overlapping_caches():
+def test_deferred_cache_report_names_affected_caches_for_repair_scope():
     client = Client()
     client.cache_rows = [
         {"query_fingerprint": "fp1", "normalized_spec": {"mode": "all", "setIds": ["set-a"]},
@@ -365,13 +297,9 @@ def test_scoped_prewarm_only_touches_overlapping_caches():
         {"query_fingerprint": "fp2", "normalized_spec": {"mode": "all", "setIds": ["set-b"]},
          "status": "ready", "cache_kind": "maintained", "computed_through": "2026-09-01", "label": "healthy"},
     ]
-    with patch.object(orch, "advance_one_maintained_cache",
-                      side_effect=lambda c, row, **kw: orch.CacheAdvanceReport(
-                          fingerprint=row["query_fingerprint"], label=row["label"], status="advanced")):
-        result = orch.prewarm_maintained_caches(
-            client, market_date="2026-09-02", commit=True, only_set_ids=["set-a"])
-    assert result["attempted"] == 1
-    assert result["reports"][0]["label"] == "affected"
+    report = orch.deferred_cache_report(client, only_set_ids=["set-a"])
+    assert report["status"] == "deferred"
+    assert report["affected"] == ["fp1"]
 
 
 # --- Normal-day orchestration (monkeypatched DB-facing helpers) ---------------
@@ -379,14 +307,18 @@ def test_scoped_prewarm_only_touches_overlapping_caches():
 def test_normal_day_not_ready_is_a_noop_case_d():
     with patch.object(orch, "resolve_latest_approved_market_date", return_value=None), \
          patch.object(orch, "run_publish") as mock_publish, \
-         patch.object(orch, "prewarm_maintained_caches") as mock_prewarm:
+         patch.object(orch, "deferred_cache_report") as mock_deferred:
         result = orch.run_daily_publication(object(), commit=True)
     assert result["status"] == "not_ready"
     mock_publish.assert_not_called()
-    mock_prewarm.assert_not_called()
+    mock_deferred.assert_not_called()
 
 
 def test_normal_day_full_success_case_a():
+    """Successful normal publication does metadata refresh + projection and
+    exits without calling any cache prewarm/build path -- the summary's
+    `caches` field is always the explicit deferred marker, never a build
+    outcome, and no build-side function is ever invoked."""
     with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
          patch.object(orch, "market_date_is_approved", return_value=True), \
          patch.object(orch, "refresh_current_metadata",
@@ -394,32 +326,34 @@ def test_normal_day_full_success_case_a():
          patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
          patch.object(orch, "run_publish",
                       return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_new": 2}), \
-         patch.object(orch, "prewarm_maintained_caches",
-                      return_value={"attempted": 2, "advanced": 2, "already_current": 0, "failed": 0}):
+         patch.object(cache_ops, "advance_one_maintained_cache") as mock_build:
         result = orch.run_daily_publication(object(), commit=True)
     assert result["status"] == "ok"
     assert result["market_date"] == "2026-09-02"
-    assert result["caches"]["advanced"] == 2
+    assert result["caches"] == {"status": "deferred", "reason": "separate_operational_worker"}
+    mock_build.assert_not_called()
 
 
-def test_cache_failure_does_not_roll_back_projection_case_b():
+def test_cache_state_cannot_change_publication_result_case_b():
+    """Whatever a real maintained-cache's state is (stale, failed, absent),
+    the authoritative publication result is unaffected -- the script never
+    even reads cache-build state on this path any more."""
     with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
          patch.object(orch, "market_date_is_approved", return_value=True), \
          patch.object(orch, "refresh_current_metadata",
                       return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
          patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
          patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_new": 2}), \
-         patch.object(orch, "prewarm_maintained_caches",
-                      return_value={"attempted": 2, "advanced": 1, "already_current": 0, "failed": 1}):
+                      return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_new": 2}):
         result = orch.run_daily_publication(object(), commit=True)
-    # Projection status still "ok" -- a stale/failed cache never rolls back
-    # an already-committed valid projection.
+    # Projection status still "ok" -- no cache read/build ever runs on this
+    # path, so nothing about cache health can roll back an already-committed
+    # valid projection.
     assert result["status"] == "ok"
-    assert result["caches"]["failed"] == 1
+    assert result["caches"]["status"] == "deferred"
 
 
-def test_projection_failure_prevents_cache_prewarm_case_c():
+def test_projection_failure_prevents_any_cache_deferral_report_case_c():
     with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
          patch.object(orch, "market_date_is_approved", return_value=True), \
          patch.object(orch, "refresh_current_metadata",
@@ -427,10 +361,10 @@ def test_projection_failure_prevents_cache_prewarm_case_c():
          patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
          patch.object(orch, "run_publish",
                       return_value={"failures": 0, "sets_reconciliation_failed": 1, "sets_new": 1}), \
-         patch.object(orch, "prewarm_maintained_caches") as mock_prewarm:
+         patch.object(orch, "deferred_cache_report") as mock_deferred:
         result = orch.run_daily_publication(object(), commit=True)
     assert result["status"] == "projection_failed"
-    mock_prewarm.assert_not_called()
+    mock_deferred.assert_not_called()
     assert result["caches"] is None
 
 
@@ -441,13 +375,11 @@ def test_dry_run_same_date_rerun_is_idempotent_report_shape():
                       return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
          patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
          patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_up_to_date": 2}), \
-         patch.object(orch, "prewarm_maintained_caches",
-                      return_value={"attempted": 2, "advanced": 0, "already_current": 2, "failed": 0}):
+                      return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_up_to_date": 2}):
         first = orch.run_daily_publication(object(), commit=False)
         second = orch.run_daily_publication(object(), commit=False)
     assert first["status"] == second["status"] == "ok"
-    assert second["caches"]["already_current"] == 2
+    assert second["caches"] == {"status": "deferred", "reason": "separate_operational_worker"}
 
 
 # --- Historical repair -----------------------------------------------------
@@ -472,7 +404,7 @@ def test_historical_repair_reprojects_from_earliest_affected_date():
                   "coverage_after", {"set_id": set_id, "computed_through": "2026-04-08", "row_count": 2})), \
          patch("backend.scripts.publish_market_explorer_daily_projection.purge_ineligible_daily_state_rows",
               return_value=0) as mock_purge, \
-         patch.object(orch, "prewarm_maintained_caches", return_value={"attempted": 0}):
+         patch.object(cache_ops, "advance_one_maintained_cache") as mock_build:
         result = orch.run_historical_repair(
             client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
             repair_through=date(2026, 4, 8),
@@ -483,6 +415,7 @@ def test_historical_repair_reprojects_from_earliest_affected_date():
     assert result["reconciled"] is True
     mock_purge.assert_called_once()
     assert mock_purge.call_args.kwargs["eligible_variant_ids"] == ["v1"]
+    mock_build.assert_not_called()  # repair invalidates/reports deferred; never rebuilds inline
 
 
 def test_historical_repair_bumps_repair_generation_via_scoped_rpc():
@@ -500,8 +433,7 @@ def test_historical_repair_bumps_repair_generation_via_scoped_rpc():
               side_effect=lambda c, *, commit, set_id, report: report.__setattr__(
                   "coverage_after", {"set_id": set_id, "computed_through": "2026-04-07", "row_count": 0})), \
          patch("backend.scripts.publish_market_explorer_daily_projection.purge_ineligible_daily_state_rows",
-              return_value=0), \
-         patch.object(orch, "prewarm_maintained_caches", return_value={"attempted": 0}):
+              return_value=0):
         result = orch.run_historical_repair(
             client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
             repair_through=date(2026, 4, 7),
@@ -509,6 +441,7 @@ def test_historical_repair_bumps_repair_generation_via_scoped_rpc():
     assert client.invalidate_calls == [["set-a"]]
     assert client.repair_generation == 1
     assert result["repair_generation_bumped"] is True
+    assert result["caches"]["status"] == "deferred"
 
 
 def test_historical_repair_reconciliation_failure_blocks_coverage_and_caches():
@@ -524,7 +457,7 @@ def test_historical_repair_reconciliation_failure_blocks_coverage_and_caches():
               return_value=999), \
          patch("backend.scripts.publish_market_explorer_daily_projection.purge_ineligible_daily_state_rows",
               return_value=0), \
-         patch.object(orch, "prewarm_maintained_caches") as mock_prewarm:
+         patch.object(cache_ops, "advance_one_maintained_cache") as mock_build:
         result = orch.run_historical_repair(
             client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
             repair_through=date(2026, 4, 7),
@@ -532,7 +465,8 @@ def test_historical_repair_reconciliation_failure_blocks_coverage_and_caches():
     assert result["status"] == "reconciliation_failed"
     assert result["reconciled"] is False
     assert client.invalidate_calls == []  # never bumps generation / invalidates on failed reconcile
-    mock_prewarm.assert_not_called()
+    assert result["caches"] is None
+    mock_build.assert_not_called()
 
 
 def test_historical_repair_purges_ineligible_rows_left_by_opaque_reproject_rpc():
@@ -559,8 +493,7 @@ def test_historical_repair_purges_ineligible_rows_left_by_opaque_reproject_rpc()
               return_value=[{"card_variant_id": "v1"}]), \
          patch("backend.scripts.publish_market_explorer_daily_projection.activate_or_repair_coverage",
               side_effect=lambda c, *, commit, set_id, report: report.__setattr__(
-                  "coverage_after", {"set_id": set_id, "computed_through": "2026-04-07", "row_count": 1})), \
-         patch.object(orch, "prewarm_maintained_caches", return_value={"attempted": 0}):
+                  "coverage_after", {"set_id": set_id, "computed_through": "2026-04-07", "row_count": 1})):
         result = orch.run_historical_repair(
             client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
             repair_through=date(2026, 4, 7),
@@ -610,8 +543,6 @@ def test_summary_is_json_serializable():
                       return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
          patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a"]), \
          patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 0}), \
-         patch.object(orch, "prewarm_maintained_caches",
-                      return_value={"attempted": 0, "advanced": 0, "already_current": 0, "failed": 0}):
+                      return_value={"failures": 0, "sets_reconciliation_failed": 0}):
         result = orch.run_daily_publication(object(), commit=True)
     json.dumps(result, default=str)  # must not raise

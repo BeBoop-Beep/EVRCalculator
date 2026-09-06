@@ -11,8 +11,12 @@ import {
   selectFinancialRipV3Breakdown,
 } from "./financialRipV3Selector.mjs";
 import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
-import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
+import MarketBasedOpeningQualityBreakdown from "./MarketBasedOpeningQualityBreakdown.jsx";
+import {
+  MARKET_BASED_LABEL,
+  MARKET_BASED_PUBLIC_QUESTION,
+} from "./overallRipExplanationHierarchySelector.mjs";
 import RipDistributionChart from "./RipDistributionChart";
 import SimulationFullReport, {
   SimulationDiagnostics,
@@ -192,6 +196,47 @@ function ScoreSurface({
         </div>
       ) : null}
     </RipScoreSurface>
+  );
+}
+
+/**
+ * Chase Accessibility summary card for the Opening Snapshot's Market-Based
+ * group. Shows ONLY the primary raw metric plus short interpretive copy —
+ * no rank/tier (never fabricated, see chaseAccessibilityPresentationSelector.mjs)
+ * and no Chase Depth / Mapped HC Mass diagnostics (those belong in the
+ * deeper Market-Based breakdown, not the snapshot).
+ */
+function ChaseAccessibilitySnapshotCard({ chase, onActivate }) {
+  return (
+    <div data-chase-accessibility-snapshot className={styles.chaseAccessSummary}>
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">
+        <IconCue name="trend" />
+        {chase.label}
+      </div>
+      {chase.available ? (
+        <>
+          <div className={styles.chaseAccessMetricRow}>
+            <span className={styles.chaseAccessMetricValue}>
+              {chase.displayAccessibility === null
+                ? "—"
+                : `${chase.displayAccessibility.toFixed(2)}%`}
+            </span>
+          </div>
+          <p className="text-xs text-[var(--text-secondary)]">
+            {chase.publicQuestion}
+          </p>
+        </>
+      ) : (
+        <p className="text-xs text-[var(--text-secondary)]">
+          {chase.statusReason ||
+            "Chase Accessibility is not currently available for this set."}
+        </p>
+      )}
+      <button type="button" onClick={onActivate} className={styles.chaseAccessCta}>
+        View Market-Based breakdown
+        <span aria-hidden="true">→</span>
+      </button>
+    </div>
   );
 }
 
@@ -1000,7 +1045,7 @@ export default function RipDecisionPage({
       score: model.financial.publicScore,
       rank: model.financial.rank,
       cohortSize: model.financial.cohortSize,
-      cta: "Explore Financial RIP",
+      cta: "View Market-Based breakdown",
       href: "/Articles/how-financial-rip-works",
       help: "Opening economics across typical outcomes, losses, upside, and efficiency.",
     },
@@ -1070,20 +1115,13 @@ export default function RipDecisionPage({
           The headline view of what opening {setName || "this set"} is like at
           today&apos;s pack price.
         </p>
-        <div className={styles.compactScores}>
+        <div className={styles.overallScoreRow}>
           <ScoreSurface
             metric={metrics.overall}
+            prominent
             onActivate={() => setOverallOpen((value) => !value)}
             expanded={overallOpen}
             controls="overall-rip-explanation"
-          />
-          <ScoreSurface
-            metric={metrics.financial}
-            onActivate={() => scrollToSection("set-detail-financial-rip")}
-          />
-          <ScoreSurface
-            metric={metrics.collector}
-            onActivate={() => scrollToSection("set-detail-collector-appeal")}
           />
         </div>
         {overallOpen ? (
@@ -1091,10 +1129,41 @@ export default function RipDecisionPage({
             id="overall-rip-explanation"
             className={styles.overallDisclosure}
           >
-            Overall RIP combines Financial RIP opening economics with Collector
+            Overall RIP combines Market-Based Opening Quality with Collector
             Appeal.
           </div>
         ) : null}
+        <div className={styles.marketBasedRow}>
+          <div
+            data-market-based-summary-group
+            role="group"
+            aria-label={MARKET_BASED_LABEL}
+            className={styles.marketBasedGroup}
+          >
+            <p className={styles.marketBasedGroupLabel}>
+              <IconCue name="shield" />
+              {MARKET_BASED_LABEL}
+            </p>
+            <p className={styles.marketBasedGroupNote}>
+              {MARKET_BASED_PUBLIC_QUESTION} Explanatory grouping only — never
+              its own persisted score.
+            </p>
+            <div className={styles.marketBasedChildren}>
+              <ScoreSurface
+                metric={metrics.financial}
+                onActivate={() => scrollToSection("set-detail-market-based")}
+              />
+              <ChaseAccessibilitySnapshotCard
+                chase={model.chaseAccessibility}
+                onActivate={() => scrollToSection("set-detail-market-based")}
+              />
+            </div>
+          </div>
+          <ScoreSurface
+            metric={metrics.collector}
+            onActivate={() => scrollToSection("set-detail-collector-appeal")}
+          />
+        </div>
         <p className={styles.compactScoreTakeaway}>{model.takeaway}</p>
       </article>
 
@@ -1523,7 +1592,7 @@ export default function RipDecisionPage({
             <strong>Advanced research with Index Plus</strong>
             <p>
               Unlock EV composition, opening break-even analytics, downside and
-              tail diagnostics, plus Financial RIP and Collector Appeal factor
+              tail diagnostics, plus Market-Based Opening Quality and Collector Appeal factor
               breakdowns.
             </p>
             <a href="/terms">Index Plus is not yet available</a>
@@ -1579,16 +1648,22 @@ export default function RipDecisionPage({
             </DeepDiveRow>
 
             <div
-              id="set-detail-financial-rip"
+              id="set-detail-market-based"
               tabIndex={-1}
               data-rip-section="financial-explanation"
+              data-rip-section-alt="market-based-explanation"
               className="scroll-mt-24 md:scroll-mt-28"
             >
               <DeepDiveRow
                 id="deep-dive-financial-rip"
-                title={`Financial RIP Breakdown — why Financial RIP is ${score(model.financial.publicScore)}`}
+                title={`${MARKET_BASED_LABEL} — why Financial RIP is ${score(model.financial.publicScore)}`}
                 defaultOpen={financialDeepDiveOpen}
               >
+                <p className="text-sm text-[var(--text-secondary)]">
+                  {MARKET_BASED_LABEL} combines the modeled financial profile
+                  of opening this set with how reachable its most important
+                  collectible value is.
+                </p>
                 <SectionMeta metric={model.financial} />
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
                   Six dimensions explain this set&apos;s modeled opening
@@ -1596,8 +1671,10 @@ export default function RipDecisionPage({
                 </p>
                 <FinancialDriverSummary drivers={financialDrivers} />
                 <div className="mt-3">
-                  <FinancialRipV3Breakdown
+                  <MarketBasedOpeningQualityBreakdown
                     canonical={analyticalCanonical}
+                    sources={[analyticalCanonical, canonical]}
+                    depth="full"
                     requestTimeout={false}
                   />
                 </div>

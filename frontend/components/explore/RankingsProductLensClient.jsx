@@ -17,6 +17,11 @@ import { getTierTone } from "@/lib/explore/interpretationTone";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
 import { normalizeOverallProductResult, sortProductRankingRows } from "./rankingsProductLensModel.mjs";
+import {
+  chaseAccessibilityDisplay,
+  CHASE_ACCESSIBILITY_HELP,
+  MARKET_BASED_HELP,
+} from "./chaseAccessibilityDisplay.mjs";
 
 const FAMILY_ORDER = [
   "loose_booster_pack",
@@ -31,6 +36,7 @@ const FAMILY_ORDER = [
 const SORTS = [
   { value: "overallRipLeaderScore", label: "Overall RIP" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
+  { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
   { value: "marketPrice", label: "Market Price" },
   { value: "expectedValue", label: "Expected Value" },
@@ -113,9 +119,23 @@ function ProductRows({ rows, overall, entitled }) {
         <table className={styles.table}>
           <thead className={styles.head}>
             <tr>
-              <th>Rank</th><th>Product / Set</th><th>Overall RIP</th><th>Tier</th>
-              <th>Financial RIP</th><th>Collector Appeal</th><th>{overall ? "Unit Price" : "Market Price"}</th>
-              <th>Expected Value</th><th>Chance to Recover Cost</th><th>Format Strength</th>
+              <th rowSpan={2}>Rank</th><th rowSpan={2}>Product / Set</th><th rowSpan={2}>Overall RIP</th><th rowSpan={2}>Tier</th>
+              {/*
+                Market-Based Opening Quality is an explanatory GROUPING
+                header only — it carries no score/rank/tier/sort of its own.
+                Financial RIP and Chase Accessibility remain two separate
+                numeric columns underneath it (mirrors
+                ProductFamilyRankingsClient.jsx / ExploreTableClient.jsx).
+                Collector Appeal stays a separate, ungrouped column.
+              */}
+              <th colSpan={2} className="text-center" data-market-based-header title={MARKET_BASED_HELP}>Market-Based Opening Quality</th>
+              <th rowSpan={2}>Collector Appeal</th>
+              <th rowSpan={2}>{overall ? "Unit Price" : "Market Price"}</th>
+              <th rowSpan={2}>Expected Value</th><th rowSpan={2}>Chance to Recover Cost</th><th rowSpan={2}>Format Strength</th>
+            </tr>
+            <tr>
+              <th>Financial RIP</th>
+              <th data-chase-accessibility-header title={CHASE_ACCESSIBILITY_HELP}>Chase Accessibility</th>
             </tr>
           </thead>
           <tbody>
@@ -123,6 +143,7 @@ function ProductRows({ rows, overall, entitled }) {
               const rank = overall ? row?.budgetRank : row?.familyRank;
               const price = overall ? row?.unitPrice : row?.marketPrice;
               const href = buildSealedProductHref(row) || "#";
+              const chase = chaseAccessibilityDisplay(row?.chaseAccessibility);
               return (
                 <tr key={row?.sealedProductId} className={styles.row}>
                   <td className={styles.numeric}>{entitled ? `#${rank ?? "—"}` : <PremiumMetricLock />}</td>
@@ -136,6 +157,14 @@ function ProductRows({ rows, overall, entitled }) {
                   <td className={styles.numeric}>{entitled ? <RipScoreBadge score={row?.overallRipLeaderScore} tier={row?.publicTier} /> : <PremiumMetricLock />}</td>
                   <td className="text-center">{entitled ? <RipTierMark tier={row?.publicTier} /> : <PremiumMetricLock />}</td>
                   <td className={styles.numeric}>{entitled && numeric(row?.financialRipLeaderScore) !== null ? `${formatPublicRipScore(row.financialRipLeaderScore)} / 10` : entitled ? "Unavailable" : <PremiumMetricLock />}</td>
+                  <td className={styles.numeric} data-chase-accessibility-cell>
+                    {entitled ? (
+                      <span className="inline-flex flex-col items-end">
+                        <span>{chase.primary}</span>
+                        {chase.detail ? <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-secondary)]">{chase.detail}</span> : null}
+                      </span>
+                    ) : <PremiumMetricLock />}
+                  </td>
                   <td className={styles.numeric}>{entitled && numeric(row?.collectorAppealScore) !== null ? `${formatPublicRipScore(row.collectorAppealScore)} / 10` : entitled ? "Unavailable" : <PremiumMetricLock />}</td>
                   <td className={styles.numeric}>{numeric(price) === null ? "Unavailable" : money.format(price)}</td>
                   <td className={styles.numeric}>{entitled ? (numeric(row?.expectedValue) === null ? "Unavailable" : money.format(row.expectedValue)) : <PremiumMetricLock />}</td>
@@ -152,6 +181,7 @@ function ProductRows({ rows, overall, entitled }) {
           const rank = overall ? row?.budgetRank : row?.familyRank;
           const price = overall ? row?.unitPrice : row?.marketPrice;
           const href = buildSealedProductHref(row) || "#";
+          const chase = chaseAccessibilityDisplay(row?.chaseAccessibility);
           return (
             <Link key={row?.sealedProductId} href={href} className={`${styles.mobileRow} grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2.5`}>
               <b className="text-right text-xs">{entitled ? `#${rank ?? "—"}` : "🔒"}</b>
@@ -160,6 +190,17 @@ function ProductRows({ rows, overall, entitled }) {
                   {overall && entitled ? <Strategy row={row} /> : null}
                 </RankedProductIdentity>
                 <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
+                {/*
+                  Mobile shape: Overall RIP (right, below) / Market-Based
+                  (Financial RIP, Chase Accessibility) / Collector Appeal.
+                */}
+                {entitled ? (
+                  <span className="mt-1 block text-[10px] text-[var(--text-secondary)]" title={MARKET_BASED_HELP}>
+                    Market-Based: {numeric(row?.financialRipLeaderScore) !== null ? `${formatPublicRipScore(row.financialRipLeaderScore)} Financial` : "Financial Unavailable"} ·{" "}
+                    {chase.primary} Chase{chase.detail ? ` (${chase.detail})` : ""}
+                    {numeric(row?.collectorAppealScore) !== null ? ` · ${formatPublicRipScore(row.collectorAppealScore)} Collector` : ""}
+                  </span>
+                ) : null}
               </div>
               {entitled ? <RipScoreBadge score={row?.overallRipLeaderScore} tier={row?.publicTier} compact /> : <PremiumMetricLock />}
             </Link>

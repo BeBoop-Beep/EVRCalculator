@@ -7,15 +7,19 @@
 // — retained as explicit historical/rollback lineage) and Overall RIP V12
 // (86% Financial RIP V4 + 4% Chase Accessibility Score + 10% Collector Appeal
 // V5, published on the `publicRipContractV11` / `overallRipV12` shape).
+//
 // AS OF THE 2026-09-03 CUTOVER, V12 IS CANONICAL
-// (`backend.desirability.scoring_config.CANONICAL_OVERALL_RIP_VERSION`). This
-// module does not read that backend constant directly and never changes which
-// contract shape a caller supplies — it ONLY decides which EXPLANATION to
-// render for whichever shape actually arrives, so it needed no code change at
-// cutover time: a generic/current payload now naturally carries V12 data (via
-// the additive `publicRipContractV11`/`overallRipV12` block), and this
-// selector renders the presentation-safe V12 hierarchy for it exactly as it
-// always would have.
+// (`backend.desirability.scoring_config.CANONICAL_OVERALL_RIP_VERSION` ==
+// `OVERALL_RIP_V12_VERSION`, confirmed in the Set/Explore publisher and
+// public read-path as of commits `db387f25`/`85ebdedd`). This module does not
+// read that backend constant directly and never changes which contract shape
+// a caller supplies — it ONLY decides which EXPLANATION to render for
+// whichever shape actually arrives. `buildV12Explanation` marks its result
+// `canonical: true` and `buildV10Explanation` marks its result
+// `canonical: false` to reflect this real, current state — a V10 explanation
+// is still rendered faithfully (its own copy never claims to be canonical or
+// current), it is simply presented as the historical/rollback lineage it now
+// is, never as "the shadow" the way it was described before the cutover.
 //
 // CRITICAL DISCLOSURE RULE (UI-1 standardization pass)
 // ------------------------------------------------------
@@ -146,8 +150,11 @@ function buildV12Explanation(source) {
 
   return {
     version: "v12",
-    // SHADOW, never canonical — mirrors the backend contract's own flag.
-    canonical: false,
+    // Overall RIP V12 IS canonical as of the 2026-09-03 cutover
+    // (backend.desirability.scoring_config.CANONICAL_OVERALL_RIP_VERSION ==
+    // OVERALL_RIP_V12_VERSION). This flag mirrors that real, current state —
+    // it is no longer the pre-cutover "shadow, never canonical" marker.
+    canonical: true,
     contractVersion: composition.version || overallV12.version || null,
     available,
     score,
@@ -172,7 +179,10 @@ function buildV10Explanation(canonicalOverallBlock) {
   const available = canonicalOverallBlock.available;
   return {
     version: "v10",
-    canonical: true,
+    // No longer canonical as of the 2026-09-03 cutover (Overall RIP V12 is).
+    // V10 remains explicit historical/rollback lineage - still rendered
+    // truthfully, just no longer flagged as the current published score.
+    canonical: false,
     contractVersion: null,
     available,
     score: canonicalOverallBlock.publicScore,
@@ -198,14 +208,21 @@ function buildV10Explanation(canonicalOverallBlock) {
  * Resolve the version-aware Overall RIP explanation for whichever contract
  * shape the given sources actually carry.
  *
- * Precedence: the explicit SHADOW `publicRipContractV11` opt-in key is
- * preferred WHEN PRESENT, because a caller that explicitly fetched the V11
- * contract asked to see the V12 explanation. A generic/current-resolver
- * caller that has NOT fetched the V11 contract — the common case, everywhere
- * V10 remains canonical — renders the V10 explanation even if the underlying
- * target row also carries ambient top-level `overallRipV12` fields (see the
- * shadow-safety note inline below). This function never promotes V12 over V10
- * on its own initiative; it renders whichever shape it was actually handed.
+ * Precedence: the explicit `publicRipContractV11` opt-in key is preferred
+ * WHEN PRESENT, because a caller that explicitly fetched the V11 contract
+ * asked to see the V12 explanation. This is still the correct self-
+ * identification mechanism now that V12 is canonical — every current
+ * production surface (Set RIP / Product RIP / Rankings, via
+ * `rankingsClientProjection.mjs`, `RipStatisticsPageClient.jsx`,
+ * `ProductRipSection.jsx`, `pokemonSetInsightsClient.js`) already fetches and
+ * supplies `publicRipContractV11`, so the V12 explanation IS what renders on
+ * those real, current surfaces. A generic/current-resolver caller that has
+ * NOT fetched the V11 contract (e.g. an older/partial fixture, or a surface
+ * that only has ambient top-level `overallRipV12` fields without the
+ * validated contract wrapper) still renders the V10 explanation rather than
+ * trusting unvalidated ambient data — see the safety note inline below. This
+ * function never promotes V12 over V10 on its own initiative; it renders
+ * whichever shape it was actually handed.
  */
 export function selectOverallRipExplanationHierarchy(...sources) {
   // ONLY the explicit `publicRipContractV11` opt-in key selects the V12
@@ -213,11 +230,11 @@ export function selectOverallRipExplanationHierarchy(...sources) {
   // top-level `overallRipV12` / `overallRipV12Composition` fields (the shape
   // `explore_rip_statistics_service.py` enriches onto every target row,
   // additively, well before any contract is attached) is NOT treated as an
-  // opt-in on its own — the same shadow-safety rule the backend contract
-  // layer already enforces: V12 is additive and a consumer must explicitly
-  // ask for the V11 contract to see it. This is what keeps a
-  // generic/current-resolver caller rendering V10 even once V12 data is
-  // ambiently present everywhere, until a real canonical cutover.
+  // opt-in on its own: those ambient fields are not run through the
+  // validated V11 contract wrapper, so a consumer must explicitly ask for it
+  // rather than being silently upgraded from unvalidated data. This safety
+  // rule is orthogonal to which version is canonical - it is a validation
+  // gate, not a V10-preference rule, and stays in force after the cutover.
   for (const source of sources) {
     const safe = toObject(source);
     const v11 = toObject(safe.publicRipContractV11);

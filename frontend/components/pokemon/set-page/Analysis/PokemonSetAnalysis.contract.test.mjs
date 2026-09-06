@@ -19,7 +19,11 @@ test("analysis is a child route with accessible internal navigation and return p
 test("analysis reads canonical contracts and reuses production deep dives", () => {
   const client = read("components/pokemon/set-page/Analysis/PokemonSetAnalysisClient.jsx");
   assert.match(client, /resolveCanonicalRipV7\(critical\)/);
-  assert.match(client, /<FinancialRipV3Breakdown canonical=\{canonical\}/);
+  // V12: Financial RIP now renders inside the shared
+  // MarketBasedOpeningQualityBreakdown container (one implementation reused
+  // by both Set RIP and Set Analysis) rather than a direct, independently
+  // authored <FinancialRipV3Breakdown> call.
+  assert.match(client, /<MarketBasedOpeningQualityBreakdown canonical=\{canonical\}/);
   assert.match(client, /<CollectorAppealBreakdown canonical=\{canonical\}/);
   assert.match(client, /<RipDistributionChart/);
   assert.doesNotMatch(client, /Ascended Heroes|Journey Together|Surging Sparks/);

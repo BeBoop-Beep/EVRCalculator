@@ -135,6 +135,7 @@ test("all required Rankings metrics are sortable columns", () => {
     "overall",
     "financial",
     "collectorAppeal",
+    "chaseAccessibility",
     "typicalOpening",
     "modelBreakEven",
     "modeledReturn",
@@ -150,6 +151,7 @@ test("all required Rankings metrics are sortable columns", () => {
       "Overall RIP",
       "Financial RIP",
       "Collector Appeal",
+      "Chase Accessibility",
       "Typical Opening",
       "Model Break-Even",
       "Modeled Return",
@@ -159,6 +161,27 @@ test("all required Rankings metrics are sortable columns", () => {
       "Top Chase Market Value",
     ]
   );
+});
+
+/* ---------------------------------------------- Chase Accessibility (Set) --- */
+// Set-level backend authority (chase_accessibility_set_ranking.py). This
+// column reads the raw `value`, not the display `percent`; an unavailable
+// set (excluded from the ranked cohort, never coerced to zero) sorts last in
+// BOTH directions, exactly like every other metric here.
+test("Chase Accessibility reads the set-level authority value and sorts unavailable last both ways", () => {
+  const withChase = (name, value) => ({
+    ...makeTarget({ name, overallRank: 1 }),
+    setRipV1: { chaseAccessibility: value === null ? null : { value } },
+  });
+  const hi = withChase("hi", 0.09);
+  const lo = withChase("lo", 0.01);
+  const missing = withChase("missing", null);
+  assert.equal(readSortValue(hi, "chaseAccessibility"), 0.09);
+  assert.equal(readSortValue(lo, "chaseAccessibility"), 0.01);
+  assert.equal(readSortValue(missing, "chaseAccessibility"), null);
+  const rows = [missing, lo, hi];
+  assert.deepEqual(names(sortRankingsRows(rows, { column: "chaseAccessibility", direction: SORT_DESC })), ["hi", "lo", "missing"]);
+  assert.deepEqual(names(sortRankingsRows(rows, { column: "chaseAccessibility", direction: SORT_ASC })), ["lo", "hi", "missing"]);
 });
 
 /* ------------------------------------------------------- the data contract --- */

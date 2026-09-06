@@ -51,7 +51,7 @@ d:/EVRCalculator/backend/.venv/Scripts/python.exe -m pytest backend/tests/unit/s
 ./backend/.venv/Scripts/python.exe backend/scripts/run_all_v2_sets.py --set "Scarlet and Violet 151"
 
 
-----------------------------
+----------------------------Set RIP EV Realization restoration
 activate venv:
 ----------------------------
 backend:
