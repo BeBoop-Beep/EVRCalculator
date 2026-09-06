@@ -648,3 +648,95 @@ The projection authority boundary is hardened: excluded catalog roles (`duplicat
 either the normal daily-append path or the historical-repair path, via a single generic
 self-healing purge rather than an instrument-specific patch. Do not begin Prompt 6 without explicit
 instruction.
+
+## S. DB-side authority hardening — production migration mirrored (later session)
+
+This section closes the remaining gap R.2 flagged: the opaque, DB-side
+`reproject_pokemon_market_explorer_card_daily_states` RPC that this repo could not audit.
+
+### S.1 What changed at the database level
+The historical reproject RPC previously rebuilt `pokemon_market_explorer_card_daily_states`
+directly from `pokemon_card_variant_market_price_intervals` alone -- no authority join -- so any
+interval row for an excluded catalog role (`duplicate_alias`, `abstract_identity`, unapproved)
+would be re-materialized verbatim by a historical repair, regardless of the Python-side purge
+added in R.3. Production migration `20260906003840_harden_market_explorer_reproject_authority_
+boundary` replaces the function so its `INSERT` now joins interval candidates through
+`get_pokemon_canonical_card_variant_authority(p_set_ids)` on **both** `card_variant_id` and
+`set_id` before they can reach the daily-states table -- an excluded catalog role can no longer
+be reintroduced by historical repair at the database level, not merely purged after the fact.
+The RPC is unchanged otherwise: still `service_role`-only execute, still `SET statement_timeout TO
+'300s'` / `SET work_mem TO '64MB'`, still enforces its pre-existing coverage preconditions (every
+requested set must already have a coverage row; the repair end date may not exceed any requested
+set's `computed_through`), and still recomputes coverage `row_count`/`first_market_date` from the
+actual post-repair table contents rather than trusting an input. It additionally returns
+`authorityFiltered: true` in its result payload, an explicit signal the authority join is active.
+
+### S.2 Repo migration file
+Added `backend/db/migrations/20260906003840_harden_market_explorer_reproject_authority_boundary.sql`
+containing the exact statement recorded in production's `supabase_migrations.schema_migrations`
+for version `20260906003840` (read via direct SQL query against that ledger, byte-compared against
+the file on disk to confirm an exact match) -- not reconstructed or paraphrased from the task
+description or from reading the function live via `pg_get_functiondef`.
+
+### S.3 Live verification (already performed, not rerun)
+For Gym Challenge across the previously-affected historical window: raw interval candidates
+**35,252**, authority-filtered candidates **35,112**, difference **140** -- exactly matching the
+140 duplicate_alias state rows removed from production in the original diagnosis (see the root
+Prompt 5 summary above). No destructive reproject was rerun in this session merely to reprove this;
+the ledger SQL and this arithmetic match are the verification.
+
+### S.4 Contract tests
+New file `backend/tests/unit/db/test_market_explorer_reproject_authority_boundary_migration.py`,
+following the same string-contract pattern as the existing eligibility-migration test
+(`test_market_explorer_instrument_eligibility_migration.py`), asserting on the normalized SQL text:
+the authority RPC is called with `p_set_ids`; the join is keyed by both `card_variant_id` and
+`set_id`; the `INSERT`'s own join chain actually includes the authority CTE (not merely defined and
+unused); the coverage preconditions and their exact error text are preserved; coverage `row_count`
+is recomputed from actual daily-states contents; `service_role`-only grant/revoke is preserved; the
+`300s`/`64MB` session settings are preserved; and the result payload asserts
+`'authorityfiltered',true`. **8/8 passed.** The pre-existing Python purge tests from commit
+`6b8f5417` were left untouched and reconfirmed passing. Combined regression across the migration
+contract tests, the eligibility migration test, and the full Prompt 4/5 script/service/planner
+suite: **194 passed, 0 failed**. `git diff --check` clean.
+
+### S.5 Defense-in-depth posture
+Both layers now independently enforce the authority boundary: the database-level join in this
+migration prevents an excluded catalog role from ever being written by historical repair, and the
+Python-level `purge_ineligible_daily_state_rows` (R.3) independently self-heals any stray row from
+any source -- including a row written before this migration existed, or by any future write path
+this repo does not control. Neither depends on the other for correctness; removing either still
+leaves the boundary enforced by the remaining one.
+
+### S.6 Corrected baseline reconfirmed
+Canonical Sep-3 Global All Raw / daily-states universe remains **33,955** (unchanged by this
+session -- this session hardened the write path, it did not touch data).
+
+### S.7 Market Explorer migration-source-sync backlog
+Queried production's `supabase_migrations.schema_migrations` directly (version >=
+`20260902000000`) and cross-checked against `backend/db/migrations/` and `supabase/migrations/` in
+this repo. Market-Explorer-scoped migrations still live in production but **absent from this repo**
+(none reconstructed or guessed -- listed here as backlog only):
+- `20260902221622_add_market_explorer_vintage_identity_repair_primitives`
+- `20260902221819_add_scoped_variant_monthly_rollup_rebuild`
+- `20260903034704_harden_market_explorer_vintage_top_hits_rebuild`
+- `20260903192911_add_market_explorer_current_metadata_projection`
+- `20260904173530_canonical_market_root_set_universe_v1`
+- `20260904173806_exclude_invalid_gym_challenge_duplicate` -- notable: this is very likely the
+  actual production data-repair migration for the Chansey duplicate_alias rows this entire
+  investigation traces back to; it has not been read or reconstructed this session.
+- `20260904174406_canonical_market_publication_certification_v1`
+- `20260904174801_canonical_market_root_set_daily_history_v1`
+- `20260905040740_add_batched_market_explorer_cache_publication`
+
+Confirmed already present and unaffected: `20260902031454_push_down_market_explorer_daily_scope_
+filters` (in `supabase/migrations/`), and this session's own
+`20260906003840_harden_market_explorer_reproject_authority_boundary` (in `backend/db/migrations/`).
+`PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT` remains the status for the backlog above --
+non-blocking, and out of this session's scope to reconstruct.
+
+### S.8 Final decision
+DB-side authority hardening is mirrored into the repo, byte-verified against the production
+migration ledger, and covered by a passing contract test suite. Combined with the R-section
+Python-side purge, the Market Explorer daily/historical projection write path is now enforced
+against the canonical instrument authority at both the database and application layers. Do not
+begin Prompt 6 without explicit instruction.
