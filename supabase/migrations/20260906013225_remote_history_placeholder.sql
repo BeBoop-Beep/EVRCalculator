@@ -1,0 +1,1 @@
+-- Local CLI history bridge only. Remote migration already applied: add_incremental_v2_market_interval_sync.
