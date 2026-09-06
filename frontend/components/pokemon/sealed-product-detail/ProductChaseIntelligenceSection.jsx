@@ -119,7 +119,15 @@ export default function ProductChaseIntelligenceSection({ sealedProductId, setId
     })
       .then((response) => {
         if (response.status === 404) return { products: [] };
-        if (!response.ok) return Promise.reject(new Error("request_failed"));
+        // Never collapse 401/403 into the generic error bucket (Phase 9): a
+        // signed-out caller and a Free/Plus caller who reaches this fetch
+        // anyway (an unexpected state, since the parent already gates on
+        // `premiumEntitled` and shows `ProductChaseIntelligenceLock` instead
+        // of mounting this component - see SealedProductDetailClient.jsx)
+        // both need their own honest state, not "couldn't be loaded".
+        if (response.status === 401) return Promise.reject(Object.assign(new Error("auth_required"), { chaseState: "auth-required" }));
+        if (response.status === 403) return Promise.reject(Object.assign(new Error("plan_upgrade_required"), { chaseState: "plan-upgrade-required" }));
+        if (!response.ok) return Promise.reject(Object.assign(new Error("request_failed"), { chaseState: "error" }));
         return response.json();
       })
       .then((payload) => {
@@ -129,8 +137,10 @@ export default function ProductChaseIntelligenceSection({ sealedProductId, setId
         ) || (payload.products || [])[0] || null;
         setState({ status: row ? "ready" : "unavailable", row });
       })
-      .catch(() => {
-        if (active) setState({ status: "error", row: null });
+      .catch((error) => {
+        if (!active) return;
+        if (error?.name === "AbortError") return;
+        setState({ status: error?.chaseState || "error", row: null });
       });
     return () => {
       active = false;
@@ -155,6 +165,19 @@ export default function ProductChaseIntelligenceSection({ sealedProductId, setId
         <p data-chase-state="loading" className="mt-4 text-sm opacity-60">
           Loading Chase Access…
         </p>
+      )}
+
+      {state.status === "auth-required" && (
+        <p data-chase-state="auth-required" className="mt-4 text-sm text-[var(--text-secondary)]">
+          Sign in to view Chase Access for this product.
+        </p>
+      )}
+
+      {state.status === "plan-upgrade-required" && (
+        <div data-chase-state="plan-upgrade-required" className="mt-4">
+          <p className="text-sm text-[var(--text-secondary)]">Product Chase Intelligence requires Index Premium.</p>
+          <PlanUpgradeLink requiredPlan={INDEX_PLAN_PREMIUM} source="sealed-product-chase-intelligence-unexpected-403" className="mt-3" />
+        </div>
       )}
 
       {state.status === "error" && (

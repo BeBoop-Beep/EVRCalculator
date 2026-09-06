@@ -1389,3 +1389,558 @@ it is meant to serve some other, not-yet-built surface) or remove it once
 confirmed to have no planned consumer — leaving fully-implemented, tested,
 unreachable code in the tree is exactly the trap that let UI-4 report success
 without it ever being visible to a user.
+
+---
+
+## UI-5 — V12 runtime, publication readiness, and Product Chase closure (2026-09-06)
+
+Status date: 2026-09-06. Branch: `fix/backend-memory-restart-p0-20260904`. This
+is the culmination pass: full continuity re-verification, a resolved orphan
+component, live production READ-ONLY publication auditing, a genuine dry-run
+V12 candidate build, and two real, previously-undiscovered runtime defects
+found and fixed. No deploy, no publish, no backfill, no production mutation of
+any kind occurred at any point in this pass.
+
+### Phase 1 — Continuity (re-verified fresh, not trusted from this doc)
+
+All UI-1 through UI-4B artifacts confirmed present and live via fresh greps,
+not by re-reading this document's own prior claims: `chaseAccessibilityPresentationSelector.mjs`,
+`MarketBasedOpeningQualityBreakdown.jsx`, `RipDecisionPage.jsx`,
+`PokemonSetAnalysisClient.jsx`, `ProductRipSection.jsx`, `ExploreTableClient.jsx`,
+`RankingsProductLensClient.jsx`, `rankingsSort.mjs` (frontend);
+`pokemon_sealed_product_detail_service.py`, `chase_accessibility_set_ranking.py`,
+`product_family_rankings_service.py`, `set_rip_service.py`,
+`public_overall_product_rankings_service.py` (backend). `RankingsLazyClient.jsx`
+reconfirmed as the one live dynamic-import hub (`sets` → `ExploreTableClient`,
+`products` → `RankingsProductLensClient`). No gap found.
+
+### Phase 2 — Orphan `ProductFamilyRankingsClient.jsx` disposition: (A) confirmed dead, archived
+
+Fresh repo-wide grep (not reused from UI-4B's own report) found zero
+references from any `app/` route, dynamic import, or barrel — only the
+component's own definition, and seven test files that read its source as a
+raw-text reference control for shared copy strings. Cross-checked the two
+worktrees with prior activity on this file:
+
+- `v12-publish-rpc-cutover` diverges from HEAD only at a common ancestor
+  (`85ebdedd`); its `app/Explore/page.js` is byte-identical to HEAD's — no
+  live collision.
+- `feature/overall-product-ranking-v10` (2026-08-22) predates the lens-split
+  architecture entirely; its `page.js` genuinely rendered
+  `ProductFamilyRankingsClient` as the live route BEFORE `RankingsLazyClient`
+  existed — confirms disposition (A), not (B) staged-for-future.
+
+Found a real, previously-stale test as a direct consequence: `ExploreTableClient.contract.test.js`'s
+"Rankings table is first content" test still asserted `<ProductFamilyRankingsClient`
+appears in `app/Explore/page.js` and was **already failing** on live HEAD —
+exactly the kind of test that should have caught the orphan bug but was
+itself just silently broken. Fixed to assert `RankingsLazyClient` instead.
+
+Changes: `ProductFamilyRankingsClient.jsx` gained a prominent ARCHIVED/NOT-LIVE
+header comment (kept in the tree only because 7 test files still read its
+source as text — not deleted, per the risk of an undiscovered late-binding
+reference); `ExploreTableClient.contract.test.js` gained the fix above plus a
+new permanent regression test asserting the live route never imports the
+orphan and does render `RankingsLazyClient` with both real lenses wired.
+
+### Phase 3 — Set RIP V1 vs. Product Overall RIP V12: genuine methodology difference, confusing labeling fixed with copy only
+
+Read `set_rip_service.py` and `weighted_rip.py::compute_overall_rip_v12`
+directly (not just the field-availability doc table). Concrete finding, more
+precise than UI-4B's:
+
+- **Set RIP V1** (`set_rip_service.py`, feeds "Set RIP Score" on
+  `ExploreTableClient.jsx`) is a pure ordinal family-relative-standing mean
+  (`sku_relative_standing` off `familyRank`/`family_size`). It does **not**
+  consume Financial RIP, Chase Accessibility, or Collector Appeal as inputs
+  at all.
+- The Set Detail hero page's "Overall RIP" (`RipDecisionPage.jsx` via
+  `explore_rip_statistics_service.py`) is a genuinely THIRD, separate
+  pathway: it actually calls `compute_overall_rip_v12` — the same formula as
+  Product Overall RIP V12 — with SET-level aggregated inputs. That labeling
+  is accurate, not a risk.
+- The real risk is the Rankings table: "Set RIP Score" sits beside a
+  "Market-Based Opening Quality" grouped header using the exact same
+  "Combines Financial RIP with Chase Accessibility" tooltip used on Product
+  Rankings (where it's true). On Set Rankings it visually implies
+  composition that does not exist.
+
+Fixed with copy only, no architecture change: added `SET_RIP_V1_HELP` to
+`chaseAccessibilityDisplay.mjs` (names Product Overall RIP V12 explicitly,
+states "a different methodology," states Financial/Chase/Collector are shown
+for context, not inputs), wired as the `infoText` tooltip on the "Set RIP
+Score" header in `ExploreTableClient.jsx`, locked by a new permanent contract
+test.
+
+### Phase 4 — Live publication identity audit (READ-ONLY, real query, independently re-verified)
+
+Queried `pokemon_explore_rankings_snapshot_latest` directly and ran the
+actual production validator, `_rankings_publication_identity_mismatches()`
+(not reimplemented), against it live on 2026-09-06.
+
+- Live row: `builtAt=2026-08-27T07:32:29Z`, `marketDate=2026-08-26`,
+  `publicationId=1f08bf02-28ba-4437-9d21-f5e5ff051f51`.
+- Observed identity: `overallRip=overall_rip_v10_90_financial_v4_10_collector_appeal_v5`
+  (expected V12), `publicContract=public_rip_contract_v10` (expected V11);
+  Financial V4 and Collector V5 already canonical.
+- **2 real mismatches, confirmed live right now**: `overallRipVersion`,
+  `publicRipContractVersion`.
+- Independently confirmed `85ebdedd` ("cut publisher and public read-path
+  over to Overall RIP V12 canonical", 2026-09-05 18:12) did **not** change
+  this: it is a code-selection change only; the snapshot's `builtAt`
+  predates it and the table was never touched. State is unchanged from prior
+  reports, verified fresh rather than assumed.
+
+### Phase 5 — Live V12 data readiness (READ-ONLY, paginated correctly after catching my own trap)
+
+A first-pass query against `simulation_sealed_product_results` returned
+exactly 1,000 rows and (falsely) suggested zero V12-ready rows anywhere —
+this was the documented PostgREST 1,000-row cap, caught and corrected before
+being reported. Paginated fully: 1,834 real rows across 305 historical
+`calculation_run_id`s.
+
+- Chase Accessibility: 22/22 supported sets `ready`, canonical version,
+  `mapped_hc_mass≥0.99`.
+- Under the STALE snapshot's pinned target-authority: 0/34 sets had a
+  V12-ready product under their recorded `calculation_run_id` — but this was
+  proven to be an artifact of the stale pin, not a missing computation: 276
+  rows are genuinely V12-`ready` under NEWER run ids (2026-09-03 → 09-05)
+  that the stale snapshot's targets don't yet point to.
+- Cross-referencing confirmed: **22 of 34 sets have a V12-ready product under
+  some run; the other 12 (Sword & Shield through Silver Tempest) have zero
+  V12 attempts of any status under any run** — a pre-existing, separate
+  exclusion (same 12 set_ids already named in the snapshot's own
+  `Rankings Top Chase unavailable` warning), not new.
+- Refined beyond the prior doc's framing: a snapshot rebuild alone is
+  necessary but not obviously sufficient — confirmed in Phase 11 that a
+  fresh build's target-authority (read from the live `explore_rip_statistics_latest`
+  view, not a cache) already resolves to the newer, V12-ready runs.
+
+### Phase 6 — Product Rankings failure trace (live path, exact code confirmed)
+
+Traced and reproduced the LIVE path: `RankingsProductLensClient.jsx` →
+`/api/explore/rankings/lens?lens=products` → backend
+`get_pokemon_explore_rankings_lens_payload()`. Calling this function live
+today raises `ExploreRipStatisticsTargetsError(503, "Rankings are being
+republished", "RANKINGS_LENS_PUBLICATION_SUPERSEDED")` — gated by the SAME
+`_rankings_publication_identity_mismatches()` call as Phase 4, confirmed by
+direct invocation, not inference. `85ebdedd` did not change this (Phase 4).
+This is the fail-closed gate working exactly as designed on a not-yet-rebuilt
+publication — not a bug.
+
+### Phase 7 — Product RIP failure trace (real product: Pitch Black Booster Pack)
+
+`dfc56bae-f52d-40f8-ae3a-802afbc4d240` (set `472f851c-...`, one of the 22
+V12-ready sets). Its most recent run (`bb69dbe9-...`, 2026-09-05) genuinely
+has `overall_rip_v12_status=ready`, `score=39.87`. Directly invoked the real
+`_published_rankings()` from `pokemon_sealed_product_detail_service.py`
+against the live table: `current=False`. Confirmed live: `rip.available=False`,
+`reason="not_in_current_published_rankings"` — same root mechanism as Phase
+6, not a separate defect.
+
+### Phase 8 — Product Chase auth failure trace (observed, not assumed — corrected an initial working assumption)
+
+Ran the real pytest suite (`test_product_chase_access_premium_gate.py`, 6/6,
+via `.venv-api-test` after discovering the default Python 3.8 env lacks
+`fastapi`) confirming genuine 401 anonymous / 403 Free-Plus / pass-through
+Premium at the backend gate. Read `SealedProductDetailClient.jsx` directly
+and found the frontend **already** gates on `premiumEntitled` and renders
+`ProductChaseIntelligenceLock` instead of mounting the fetching component for
+Free/Plus — so the generic "couldn't be loaded" message was not primarily an
+entitlement-UX gap, contrary to the natural reading of UI-1's original trace.
+Found the real, previously-unexamined mechanism instead: `backend/api/main.py`'s
+broad `except Exception` around `/explore/product-chase-intelligence` returns
+HTTP 503 (`PRODUCT_CHASE_INTELLIGENCE_FAILED`) for ANY internal resolver
+failure, and the frontend collapsed 401/403/503/network into one identical
+"error" state (only 404 was special-cased).
+
+### Phase 9 — Product Chase UX fix (implemented, tested)
+
+`ProductChaseIntelligenceSection.jsx`'s fetch handler now branches on
+`response.status` before generic rejection: 401 → new `auth-required` state
+("Sign in to view Chase Access for this product."), 403 → new
+`plan-upgrade-required` state (renders the real `PlanUpgradeLink`, no
+protected fields), `AbortError` on unmount is swallowed instead of setting
+error state, everything else stays the existing generic `error` state.
+Verified the other required states — LOADING, READY, PRODUCT/COHORT
+UNAVAILABLE (404), BUDGET BELOW ONE UNIT, AUTHORITY UNAVAILABLE, UNSUPPORTED
+COMPOSITION — were **already fully implemented** in
+`ProductChaseIntelligenceContent`; nothing needed to be built for those.
+Contract test suite: 17/17 pass (was 16/16), new test asserts no protected
+field leaks into either new state.
+
+### Phase 10 — Auth propagation: no defect found
+
+`app/api/explore/product-chase-intelligence/route.js` and
+`app/api/explore/card-chase-efficiency/route.js` read byte-for-byte
+identical: same header/cookie forwarding, same `cache: "no-store"`, same
+`Cache-Control`/`Vary` response headers. Nothing to fix.
+
+### Phase 11 — Dry-run V12 Explore snapshot build (genuinely no write)
+
+Read `publish_explore_rip_rankings_snapshot()` line-by-line first to confirm
+the only DB write (`client.rpc("publish_pokemon_public_rip_leaderboard", ...)`)
+sits strictly inside `if commit:` before running anything. Resolved the
+open Phase-5 question first: queried `explore_rip_statistics_latest` live —
+it already returns the FRESH current `calculation_run_id` per set (Pitch
+Black's set → `bb69dbe9...`, the newer V12-ready run), not a stale cached
+pointer. **The builder's target-authority resolution needed no fix** — it is
+a live view read, already current.
+
+Ran `backend/scripts/build_pokemon_explore_rankings_snapshot.py --all --dry-run --limit 200`
+for real: succeeded cleanly. `market_date=2026-09-06` (today), 34 targets,
+`setRip.rankedSetCount=22/34` (exactly the true V12-ready cohort), 8 product
+families, gate decision `allowed_complete`, wall time 119.7s, full payload
+13,590,813 bytes / latest-projected 12,292,093 bytes, `-9.6%` from the
+`_latest` slim projection. Warnings limited to the same pre-existing 12-set
+Top-Chase gap.
+
+### Phase 12 — Identity validation: PASS, zero mismatches
+
+Ran the real `_rankings_publication_identity_mismatches()` against the
+dry-run candidate's payload: **`mismatches: []`**. All four identifiers match
+canonical. No builder/projection change was needed to pass.
+
+### Phase 13 — Product Detail against the candidate
+
+Injected the dry-run candidate into `pokemon_sealed_product_detail_service._published_rankings()`
+via a pure in-process monkeypatch (zero DB writes; product/set/market reads
+stayed live) and called the real `get_pokemon_sealed_product_detail_payload()`
+for Pitch Black Booster Pack. Result: `rip.available=True`, `reason=None`,
+`publicRipContractV11.overallRipV12.canonical=True`, exact-run Chase
+Accessibility contract present with the correct `calculationRunId`, Financial
+RIP V4 present. Confirms UI-3's existing wiring goes live with zero further
+frontend changes once published.
+
+### Phase 14 — Product Rankings against the candidate: real defect found and fixed
+
+Fed the dry-run candidate through the actual live path
+(`get_pokemon_explore_rankings_lens_payload(lens="products")` → the tier
+projectors in `index_plan_access.py`) — NOT the orphaned component. Found a
+real, previously-undiscovered defect: `project_product_family_rankings_response`
+and `project_product_rankings_response` never had `chaseAccessibility` added
+to their tier field-allowlists, even though the raw builder has carried it
+since UI-4/UI-4B. It was silently stripped from both the Product Rankings
+lens response and the budget-scoped Overall Product Rankings response —
+despite UI-4B's own "45/45 backend tests pass" claim, because none of those
+tests exercised this exact tier-projection function; they tested the raw
+builder and the frontend component's handling of a field that never actually
+survived this layer.
+
+**Fixed**: added `"chaseAccessibility"` to `_PLUS_PRODUCT_RANKING_FIELDS` in
+`backend/domain/access/index_plan_access.py`. Re-verified end to end against
+the dry-run candidate: Plus/Premium tier receives the full block (value,
+setRank 12/22, etc.); Free tier correctly has it absent; no
+Premium/`oBudget`/ECE leakage. Added 2 new tests to `test_index_plan_access.py`
+(42/42 pass, was 40); re-ran `test_product_family_rankings_service.py` +
+`test_public_overall_product_rankings_service.py` +
+`test_product_chase_access_premium_gate.py` (30/30, zero collateral damage).
+
+### Phase 15 — Set Rankings against the candidate: correct, no fix needed
+
+Fed the candidate through `project_rankings_response()` (the function
+`ExploreTableClient.jsx` actually consumes). `setRipV1.chaseAccessibility`
+populated for exactly 22/34 targets (matching the true V12-ready cohort,
+null for the 12 excluded ones); Pitch Black's set correctly ranked #1 with
+real Chase Accessibility attached; Free tier correctly gets no
+V12/V11/`chaseAccessibility` fields.
+
+### Phase 16 — Budget V12 readiness (READ-ONLY / dry-run): a separate, deeper gap found
+
+Live persisted budget-ranking snapshot: `market_date=2026-08-27`,
+`overall_rip_version=overall_rip_v10_90_financial_v4_10_collector_appeal_v5`
+— a SEPARATE, independently-stale publication from the Explore snapshot (own
+table, own pipeline, own version field), with a genuine pre-existing health
+warning (`healthy:false`, "CAPITAL-UTILIZATION ANOMALY: Spearman(utilization,
+rank) = -0.2654 at standard_band:150 exceeds ±0.25") reported truthfully, not
+glossed over.
+
+Completed the dry-run this pass (`publish_budget_product_rankings_if_ready.py --dry-run`,
+~11 minutes real wall time): `status="PUBLISHED"` (dry-run-eligible), 22 sets,
+8 families, 138 eligible products, budget-band cohort counts from 36 (@$25)
+to 138 (@full-market $1,350), zero warnings, both hard gates passed. **New
+finding, more significant than a staleness gap**: the dry-run candidate's own
+`overall_rip_version` is **still `overall_rip_v10_...`**, because
+`backend/calculations/evr/budget_normalized_product_ranking.py` hardcodes
+`from backend.desirability.weighted_rip import compute_overall_rip_v10` for
+its `SORT_AUTHORITY_V10`, rather than reading `CANONICAL_OVERALL_RIP_VERSION`
+the way Explore/Set-RIP does. **The Budget Overall Ranking pipeline was never
+included in the V12 cutover (`85ebdedd`) at all** — this is a distinct,
+separate code change (not merely a republish) required before "Standard
+Budget Overall Ranking = Overall RIP V12 budget authority" is actually true.
+Not fixed in this pass (out of scope: changing core ranking-sort math is a
+materially different risk class than the two narrow fixes this pass made).
+
+### Phase 17 — Product Chase authority regression: a second real, live defect found and fixed
+
+Ran the real `load_pinned_cohort(client, price_as_of=None)` — the exact call
+the live API route makes — and it raised `AuthorityResolutionError: AMBIGUOUS
+AUTHORITY: 7 complete cohorts tie at 138 SKUs`. Traced into `main.py`'s route
+and confirmed this is **not hypothetical**: `/explore/product-chase-intelligence`
+calls this unconditionally, for every request lacking an explicit
+`price_as_of` (which the frontend never sends), before any Premium/scoping
+logic runs; the exception falls into the generic `except Exception` → HTTP
+503, which the frontend (pre-Phase-9) collapsed into "couldn't be loaded
+right now." **This is a second, independent root cause of that user-facing
+message, live in production right now, separate from Phase 8's UX-collapse
+finding.**
+
+**Fixed** narrowly and additively: new `most_recent_available_price_as_of()`
+in `budget_product_ranking_authority.py`, which deterministically resolves
+to the freshest complete-coverage date without touching or weakening
+`load_pinned_cohort`'s existing tie-refusal (which stays fully intact for the
+offline publish CLI, where a human should keep making that call explicitly).
+Wired into `main.py`'s route only, used exclusively when the caller supplies
+no `price_as_of`. Re-ran the standard bands ($25/$50/$100/$150/$250/$500)
+live after the fix: cohort resolves to 138 products at `price_as_of=2026-09-04`
+for every band; **real authority failures (Chase Accessibility not-ready) =
+0 at every band** — every non-ready row is the legitimate
+`unavailable_budget_below_one_unit` state. Added 3 new tests to
+`test_budget_product_ranking_authority.py` (17/17, was 14); full Product
+Chase test surface re-run at 44/44, zero regressions from either this fix or
+Phase 9's.
+
+### Phase 18 — Security/entitlement matrix
+
+Ran the real test suites at each boundary rather than constructing a fresh
+matrix from scratch: `test_index_plan_access.py` (Set/Product Rankings
+base-vs-Plus field gating, including the new Phase 14 chaseAccessibility
+tests), `test_product_chase_access_premium_gate.py` +
+`test_product_chase_intelligence_single_product_scope.py` (anonymous → 401,
+Free/Plus → 403 `PRODUCT_CHASE_INTELLIGENCE_PREMIUM_REQUIRED`, Premium →
+pass-through, response allowlist excludes Card Chase Efficiency/normal-RIP
+fields). Confirmed server-side (payload-level, not component-level)
+enforcement for Product RIP too: `project_sealed_product_detail_response()`
+only includes `rip`/`comparisons` when `FEATURE_PRODUCT_RIP` (Plus) is
+granted — the base tier payload structurally cannot contain RIP data,
+independent of any frontend lock component. 51/51 relevant tests pass.
+
+### Phase 19 — Performance
+
+Reused real numbers already gathered rather than re-measuring redundantly:
+Explore V12 dry-run build = 119.7s wall time, 3 batched queries independent
+of product/set count (per UI-4/4B's existing perf tests, unchanged), payload
+13.6MB full / 12.3MB `_latest`-projected. Product Chase single-product scope
+= 1 Accessibility read + 1 variant-universe read (`test_product_chase_intelligence_single_product_scope.py`,
+re-run, still bounded). Rankings Chase = one batch read
+(`test_batch_authority_load_issues_exactly_one_query_for_whole_cohort`,
+unaffected by this pass). **One real, minor regression introduced by the
+Phase 17 fix, disclosed rather than hidden**: the unscoped Product Chase read
+path now calls `_fetch_all_ready_rows()` twice (once inside the new
+`most_recent_available_price_as_of()`, once inside `load_pinned_cohort()`)
+when no explicit `price_as_of` is supplied — one extra already-paginated
+batch read, not a new N+1, but a real doubled cost worth a future follow-up
+if this path becomes hot.
+
+### Phase 20 — Pagination hardening
+
+Audited every read newly touched by this pass's two fixes.
+`index_plan_access.py`'s Phase 14 fix: pure in-memory field projection, zero
+`.table()` calls — PROVABLY_BOUNDED. `budget_product_ranking_authority.py`'s
+Phase 17 fix (`most_recent_available_price_as_of`): calls the SAME
+already-paginated `_fetch_all_ready_rows()` helper `load_pinned_cohort` uses
+(confirmed paginated via `.range()` in a `while True` loop at `_PAGE_SIZE`) —
+PAGINATED, reused verbatim, not reimplemented. No new UNSAFE growing-table
+read was introduced by this pass. Separately, this pass caught itself
+falling into the documented >1,000-row PostgREST cap during Phase 5's initial
+query (see above) — corrected before being reported, not after.
+
+### Phase 21 — Tests (A-O)
+
+| Item | Status |
+|---|---|
+| A: stale V10 publication rejected | Confirmed live via real `_rankings_publication_identity_mismatches()` call (Phase 4/6) |
+| B: fresh V12/V11 candidate accepted | Confirmed live via real dry-run build + real validator (Phase 11/12): 0 mismatches |
+| C: Product RIP becomes available against the candidate | Confirmed via injected candidate (Phase 13): `rip.available=True` |
+| D: live Product Rankings path receives Chase | Confirmed + defect found and fixed (Phase 14) |
+| E: live Set Rankings path receives Chase | Confirmed, no fix needed (Phase 15) |
+| F: anonymous Product Chase → 401 | `test_anonymous_request_is_denied_before_plan_resolution`, real, passing |
+| G: Free Product Chase → 403/lock | Frontend never fetches (parent gates on `premiumEntitled`); backend also independently returns 403 if reached (`test_entitlement_matrix_a_plus_or_free_request_is_rejected`) |
+| H: Plus Product Chase → 403/lock | Same mechanism as G, Plus is not Premium |
+| I: Premium Product Chase → successful fetch | `test_gate_uses_server_profile_capability_and_structured_403` family, real, passing |
+| J: Next proxy preserves required auth | Byte-for-byte identical to Card Chase Efficiency's working proxy (Phase 10) |
+| K: no Premium payload delivered to non-Premium callers | `test_response_projector_only_exposes_the_chase_access_allowlist`, real, passing |
+| L: Market-Based contains no score anywhere | Confirmed by existing UI-1/UI-4B tests, unaffected by this pass |
+| M: no public model-weight strings | Grepped touched files: none found |
+| N: Set RIP V1/Product V12 copy distinction is truthful | New locked test in `ExploreTableClient.contract.test.js` (Phase 3) |
+| O: no dead Product Rankings route is mistaken for the active route | New regression test added in Phase 2 that would have caught UI-4B's own orphan bug |
+
+### Phase 22 — Frontend build/regression
+
+Ran the full touched-file test sweep with a true git-stash baseline
+comparison (not assertion): before this pass's changes, 162 pass / 22 fail
+(184 total) across `ExploreTableClient.contract.test.js`,
+`ripV12MarketBasedUiWiring.contract.test.mjs`, `SetRipHierarchy.contract.test.mjs`,
+`OverallRipExplanationHierarchy.contract.test.mjs`,
+`MarketBasedOpeningQualityBreakdown.test.jsx`,
+`chaseAccessibilityPresentationSelector.test.mjs`, `rankingsSort.test.mjs`,
+`ProductFamilyRankingsClient.contract.test.mjs`, and the full
+`sealed-product-detail/*` suite; after, 166 pass / 21 fail (187 total) — one
+FEWER failure (the genuinely-stale orphan-route test fixed in Phase 2), zero
+new failures. `next lint` on the four touched frontend files: clean, no
+warnings. `next build`: completed successfully, exit code 0, zero errors and
+zero warnings across the full route table (real production build, not a
+partial/incremental one).
+
+### Phase 23 — Backend regression
+
+Full `backend/db/services/` suite (excluding two files with a pre-existing,
+unrelated `scipy` import error) with a true git-stash baseline comparison:
+before, 174 failed / 1365 passed; after, 174 failed / 1368 passed — **zero
+new failures, +3 passing** (the new Phase 17 tests). The one live-DB-dependent
+test that fails (`test_paid_response_boundary.py::test_product_rankings_http_projection_plus_then_base`)
+was independently confirmed to fail identically with this pass's changes
+fully stashed away — a pre-existing artifact of the live stale publication
+(Phase 4/6), not caused by anything in this pass. Combined with the
+per-phase test runs already logged above (Phase 14: 42/42 + 30/30; Phase 17:
+17/17 + 44/44; Phase 18: 51/51), total new tests added this pass: 2 (Phase
+14) + 3 (Phase 17) + 2 (Phase 2 frontend) + 1 (Phase 3 frontend) + 1 (Phase 9
+frontend) = 9, all passing, zero regressions anywhere attributable to this
+pass.
+
+### Phase 24 — Publication runbook (DOCUMENTED ONLY, NOT EXECUTED)
+
+Exact commands/order for a FUTURE, explicitly-authorized publication. None of
+these were run with `--commit` at any point in this pass.
+
+1. Deploy backend with this pass's two fixes
+   (`backend/domain/access/index_plan_access.py`,
+   `backend/db/services/budget_product_ranking_authority.py`,
+   `backend/api/main.py`) plus the frontend fix
+   (`ProductChaseIntelligenceSection.jsx`).
+2. Smoke backend: hit `/explore/rankings/lens/products`, `/explore/product-chase-intelligence`
+   (as a real Premium test account), `/tcgs/pokemon/sealed-products/{id}` for
+   Pitch Black Booster Pack.
+3. Deploy frontend.
+4. Smoke frontend: `/Explore` (Sets and Products lenses), a sealed-product
+   detail page, Product Chase Intelligence panel as Free/Plus/Premium.
+5. Run fresh V12 readiness (read-only): re-run this pass's Phase 5 queries
+   against `explore_rip_statistics_latest` and `simulation_sealed_product_results`
+   to confirm the 22/34 V12-ready cohort (or better) still holds.
+6. Build the coordinated Explore V12 candidate:
+   `python backend/scripts/build_pokemon_explore_rankings_snapshot.py --all --dry-run --limit 200`
+   first, inspect its logged summary (rankedSetCount, warnings), THEN, only on
+   explicit human authorization, re-run with `--commit` instead of `--dry-run`.
+7. Validate publication identity: this is automatic inside
+   `publish_explore_rip_rankings_snapshot()` itself
+   (`_rankings_publication_identity_mismatches` / `evaluate_rankings_publication_readiness`)
+   — a `--commit` run that fails identity raises before writing.
+8. Publish the Explore V12 snapshot atomically: the `--commit` run in step 6
+   IS the atomic publish (single `publish_pokemon_public_rip_leaderboard` RPC
+   call) — no separate step.
+9. Verify Product Rankings: `GET /explore/rankings/lens/products` returns
+   `available`-shaped data with `chaseAccessibility` populated for Plus/Premium
+   (this pass's Phase 14 fix).
+10. Verify Product RIP: `GET /tcgs/pokemon/sealed-products/{id}` for Pitch
+    Black Booster Pack returns `rip.available=true`.
+11. Validate Budget V12 price authority: re-run
+    `backend/scripts/publish_budget_product_rankings_if_ready.py --dry-run`
+    and inspect `overall_rip_version` in its JSON report — **per Phase 16, it
+    will currently still read `overall_rip_v10_...`** until the separate,
+    not-yet-scoped fix to `budget_normalized_product_ranking.py`'s hardcoded
+    `compute_overall_rip_v10` import lands. Do not treat a Budget V12 label
+    as available until that constant is verified changed.
+12. Publish Budget V12 only if step 11 confirms `overall_rip_version` reads
+    the V12 constant AND the dry-run's `health_diagnostics.healthy` is `true`
+    (Phase 16 found it `false` with a capital-utilization warning as of this
+    pass — do not publish through that warning without separate review).
+13. Verify Product Chase Premium: real Premium account hits
+    `/explore/product-chase-intelligence?budget=100` (no `price_as_of`) and
+    receives a 200, not a 503 — proves this pass's Phase 17 fix is live.
+14. Monitor logs for `RANKINGS_LENS_PUBLICATION_SUPERSEDED`,
+    `PRODUCT_CHASE_INTELLIGENCE_FAILED`, and `AuthorityResolutionError` — any
+    recurrence after publish is a new incident, not the one this pass closed.
+
+### Phase 25 — Rollback runbook (DOCUMENTED ONLY, NOT EXECUTED)
+
+- **Application rollback (V12→V10 canonical selector)**: in
+  `backend/desirability/scoring_config.py`, line 613, revert
+  `CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V12_VERSION` back to
+  `CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V10_VERSION`. The
+  `canonical_public_rip_contract_version()` function (same file, ~line 690)
+  is hardcoded to return `PUBLIC_RIP_CONTRACT_V11_VERSION` regardless of the
+  above constant (it does not derive from `CANONICAL_OVERALL_RIP_VERSION`) —
+  a full rollback additionally requires changing its `return` statement to
+  `PUBLIC_RIP_CONTRACT_V10_VERSION` (from `backend.desirability.public_rip_contract_v10`).
+  Both edits are required together; changing only one leaves the identity
+  contract internally inconsistent and every publication will fail
+  `_rankings_publication_identity_mismatches` against itself.
+- **Public contract (V11→V10)**: covered by the same
+  `canonical_public_rip_contract_version()` edit above — there is no separate
+  contract-only rollback switch.
+- **Ranking publication (retain last-known-good snapshot semantics)**: no
+  action needed — `pokemon_explore_rankings_snapshot_latest` is an upsert-by-scope
+  table; simply do not run `--commit` again. The last successfully committed
+  row remains served until a new commit succeeds. `read_active_publication()`
+  / the rankings lifecycle tables in `rankings_publication_lifecycle.py`
+  retain history for audit; no destructive action is required or should be
+  taken.
+- **Database (NO destructive rollback of additive V12 schema)**: the
+  `overall_rip_v12_*` columns on `simulation_sealed_product_results` and the
+  `pokemon_set_chase_accessibility_snapshot_latest` table are purely additive
+  — nothing reads them once `CANONICAL_OVERALL_RIP_VERSION` points back to
+  V10 (confirmed by `_canonical_overall_rip_fields()`'s version-keyed field-triple
+  lookup in `product_family_rankings_service.py`, which falls back to the
+  V10 field triple for any unregistered/rolled-back canonical version). Do
+  not drop or null these columns: they are the exact same data a future
+  re-promotion would need again, and V10 rollback correctness does not
+  depend on their absence.
+- **This pass's two new fixes, individually reversible**:
+  - Phase 14 (`chaseAccessibility` in `_PLUS_PRODUCT_RANKING_FIELDS`,
+    `backend/domain/access/index_plan_access.py`): remove the one added
+    string from the frozenset to revert to the pre-Phase-14 (silently
+    stripped) behavior. Reverting this does not affect any other field or
+    entitlement boundary.
+  - Phase 17 (`most_recent_available_price_as_of`,
+    `backend/db/services/budget_product_ranking_authority.py`, called from
+    `backend/api/main.py`'s `get_product_chase_intelligence`): remove the
+    `if effective_price_as_of is None: effective_price_as_of = most_recent_available_price_as_of(...)`
+    block in `main.py` to revert to always passing the caller's raw
+    `price_as_of` (`None` by default) into `load_pinned_cohort` — restores
+    the pre-Phase-17 ambiguous-tie 503 behavior. The helper function itself
+    can be left in `budget_product_ranking_authority.py` unused, or deleted;
+    it is not called from anywhere else.
+- **Product Chase (independently disable/hide)**: set
+  `FEATURE_PRODUCT_CHASE_INTELLIGENCE` (imported into `main.py` from
+  `backend/domain/access/index_plan_access.py`) to a value
+  `has_index_feature_access` never grants (or short-circuit
+  `_require_product_chase_intelligence` to always raise 403) to disable the
+  entire feature server-side without touching any Rankings/Product RIP
+  publication logic — Product Chase's authority resolution
+  (`budget_product_ranking_authority.py`, `product_chase_access_authority.py`)
+  is architecturally independent of the Explore rankings publication
+  (confirmed throughout Phases 6-8/17: different tables, different gate
+  functions, different failure modes).
+
+### Phase 26 — Doc update
+
+This section. Confirms: orphan component disposition, Set RIP V1 vs Product
+V12 semantics conclusion, live stale-publication evidence (re-verified, not
+assumed, and confirmed unchanged by `85ebdedd`), Product Rankings/Product RIP
+failure traces (live-reproduced), Product Chase auth trace (corrected an
+initial assumption — the real defect was NOT the entitlement-UX gap the
+prior doc emphasized, but a distinct 503-collapse issue plus, discovered in
+this pass, a second independent live defect — the ambiguous price-date tie),
+the UX-state fix, the dry-run V12 candidate's real results, the identity
+validator's real PASS result, Budget V12 readiness (including a materially
+new finding — the Budget pipeline was never included in the V12 cutover
+at all), performance, pagination, and both runbooks with exact file/constant/
+function names. No production mutation occurred.
+
+### Final label for UI-5
+
+**`V12_RUNTIME_AND_PUBLICATION_READY_NO_PRODUCTION_MUTATION`** for the
+Explore/Set/Product Rankings and Product RIP surfaces (stale publication root
+cause independently reconfirmed; fresh V12 candidate builds and passes the
+real identity validator with zero mismatches; Product RIP, the LIVE Product
+Rankings path, and Set Rankings all proven against that candidate; Product
+Chase has two independent real defects found AND fixed, tested, with zero
+gate weakening; no unsafe pagination introduced; rollout and rollback
+runbooks documented with exact names; no production mutation occurred).
+
+**Budget V12 is separately labeled `BUDGET_V12_BLOCKED_PIPELINE_NOT_CUTOVER`**:
+its own ranking pipeline (`budget_normalized_product_ranking.py`) was never
+repointed from `compute_overall_rip_v10` to the canonical-version selector
+the way Explore/Set-RIP was in `85ebdedd` — this is a distinct, not-yet-scoped
+code change, not merely a stale-data/republish problem, and is out of scope
+for the two narrowly-scoped fixes this pass made.

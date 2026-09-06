@@ -307,6 +307,18 @@ _PLUS_PRODUCT_RANKING_FIELDS = _BASE_PRODUCT_RANKING_FIELDS | frozenset({
     "overallRipLeaderScore", "financialRipAbsoluteScore", "financialRipRelativeScore",
     "financialRipLeaderScore", "collectorAppealScore", "expectedValue",
     "chanceToRecoverCost", "familyRank", "familySize", "familyTier",
+    # UI-5 Phase 14 fix: the set-level Chase Accessibility block
+    # (`value`/`percent`/`status`/`version`/`chaseDepth`/`mappedHcMass`/
+    # `setRank`/`setCohortSize` - see chase_accessibility_set_ranking.py) was
+    # added upstream to every product row by UI-4/UI-4B but was never added to
+    # this response allowlist, so it was silently stripped from BOTH
+    # `/explore/rankings/lens?lens=products` (RankingsProductLensClient, the
+    # live surface) and the budget-scoped Overall Product Rankings response,
+    # despite UI-4B's own tests asserting the frontend renders it correctly -
+    # those tests never exercised this exact tier-projection function. Gated
+    # at the same Plus tier as Financial RIP/Collector Appeal above; contains
+    # no Premium Product Chase field (no `oBudget`, no `ECE`).
+    "chaseAccessibility",
 })
 
 

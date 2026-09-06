@@ -20,6 +20,7 @@ from backend.db.services.budget_product_ranking_authority import (
     EXPECTED_OVERALL_RIP_VERSION,
     assert_expected_model_versions,
     load_pinned_cohort,
+    most_recent_available_price_as_of,
 )
 
 FINANCIAL = EXPECTED_FINANCIAL_RIP_VERSION
@@ -189,6 +190,43 @@ def test_two_complete_cohorts_without_a_pin_fails_closed():
     ])
     with pytest.raises(AuthorityResolutionError, match="AMBIGUOUS AUTHORITY"):
         load_pinned_cohort(client)
+
+
+def test_most_recent_available_price_as_of_breaks_ties_the_publish_gate_refuses():
+    # UI-5 Phase 17 fix. `load_pinned_cohort()` correctly refuses to guess
+    # between two equally-complete cohorts for a PUBLISH (persisted) call -
+    # `test_two_complete_cohorts_without_a_pin_fails_closed` above pins that.
+    # But the live `GET /explore/product-chase-intelligence` read path has no
+    # human to supply an explicit pin, so it must not inherit that refusal;
+    # it resolves to the freshest complete date via this helper instead, then
+    # passes that as an explicit pin into `load_pinned_cohort` (which still
+    # runs every other integrity check unchanged).
+    client = _FakeClient([
+        _row("a", "run1", "2026-08-17"), _row("b", "run1", "2026-08-17"),
+        _row("a", "run2", "2026-08-21"), _row("b", "run2", "2026-08-21"),
+    ])
+    resolved = most_recent_available_price_as_of(client)
+    assert resolved == "2026-08-21"
+    # Feeding that resolution back in as an explicit pin must succeed, not
+    # re-raise the ambiguity error.
+    products, authority = load_pinned_cohort(client, price_as_of=resolved)
+    assert len(products) == 2
+    assert authority["pinnedPriceAsOf"] == "2026-08-21"
+    assert authority["pinMode"] == "explicit"
+
+
+def test_most_recent_available_price_as_of_prefers_higher_coverage_over_recency():
+    # A newer date with partial coverage must not beat an older, complete one.
+    client = _FakeClient([
+        _row("a", "run1", "2026-08-17"), _row("b", "run1", "2026-08-17"),
+        _row("a", "run2", "2026-08-21"),
+    ])
+    assert most_recent_available_price_as_of(client) == "2026-08-17"
+
+
+def test_most_recent_available_price_as_of_returns_none_when_nothing_is_priced():
+    client = _FakeClient([])
+    assert most_recent_available_price_as_of(client) is None
 
 
 def test_explicit_price_as_of_selects_only_that_cohort():

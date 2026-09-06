@@ -82,7 +82,7 @@ from backend.domain.access.index_plan_access import (
     project_set_page_response,
     project_set_rip_simulation_evidence_response,
 )
-from backend.db.services.budget_product_ranking_authority import load_pinned_cohort
+from backend.db.services.budget_product_ranking_authority import load_pinned_cohort, most_recent_available_price_as_of
 from backend.db.services.product_chase_access_authority import resolve_product_chase_access
 from backend.db.services.chase_efficiency_query_service import (
     get_card_chase_efficiency as read_card_chase_efficiency,
@@ -1187,7 +1187,18 @@ def get_product_chase_intelligence(
     _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
                         route="/explore/product-chase-intelligence")
     try:
-        cohort, _authority = load_pinned_cohort(service_read_client, price_as_of=price_as_of)
+        # UI-5 Phase 17 fix: this is a live, non-persisting read - unlike the
+        # offline publish CLI, there is no human present to break a tie
+        # between multiple equally-complete price_as_of dates. Resolve to the
+        # freshest complete date ourselves rather than letting
+        # `load_pinned_cohort`'s publish-time "refuse to guess" gate (correct
+        # for a persisted snapshot) take down every Premium request with a
+        # 503 whenever such a tie exists. A caller-supplied `price_as_of`
+        # still wins unchanged.
+        effective_price_as_of = price_as_of
+        if effective_price_as_of is None:
+            effective_price_as_of = most_recent_available_price_as_of(service_read_client)
+        cohort, _authority = load_pinned_cohort(service_read_client, price_as_of=effective_price_as_of)
         scoped = False
         if sealed_product_id:
             cohort = [row for row in cohort if str(row.get("sealed_product_id")) == str(sealed_product_id)]

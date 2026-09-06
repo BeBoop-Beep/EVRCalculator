@@ -109,6 +109,26 @@ test("five distinct states are implemented: loading, budget-below-minimum, autho
   assert.match(source, /data-chase-state="unsupported-composition"/);
 });
 
+test("UI-5 Phase 9: 401/403 are never collapsed into the generic error state", () => {
+  // Prior behavior treated any non-ok, non-404 response as one generic
+  // "couldn't be loaded" error, indistinguishable from a real 401 or 403.
+  // The fetch handler must now branch on status before falling through to
+  // the generic error/network-failure state.
+  assert.match(source, /response\.status === 401/);
+  assert.match(source, /response\.status === 403/);
+  assert.match(source, /data-chase-state="auth-required"/);
+  assert.match(source, /data-chase-state="plan-upgrade-required"/);
+  assert.match(source, /Sign in to view Chase Access/);
+  assert.match(source, /Product Chase Intelligence requires Index Premium\./);
+  // The upgrade state must render a real upgrade CTA, not just static text.
+  assert.match(source, /plan-upgrade-required[\s\S]{0,400}PlanUpgradeLink/);
+  // No protected payload field may appear anywhere near these two states.
+  const authBlock = source.slice(source.indexOf('data-chase-state="auth-required"'), source.indexOf('data-chase-state="error"'));
+  for (const leaked of ["oBudget", "effectivePacks", "quantity", "chaseAccessibilityReasons"]) {
+    assert.ok(!authBlock.includes(leaked), `${leaked} must not appear in the auth-required/plan-upgrade-required states`);
+  }
+});
+
 test("ECE is presented as a per-product diagnostic, never a cross-format score or rank", () => {
   assert.match(source, /Effective Pack Efficiency/);
   assert.doesNotMatch(source, /Effective Pack Efficiency Rank|ECE Rank/i);

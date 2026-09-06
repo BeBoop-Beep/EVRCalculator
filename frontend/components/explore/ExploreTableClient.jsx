@@ -76,6 +76,7 @@ import {
   chaseAccessibilityDisplay,
   CHASE_ACCESSIBILITY_HELP,
   MARKET_BASED_HELP,
+  SET_RIP_V1_HELP,
 } from "./chaseAccessibilityDisplay.mjs";
 import { FamilySnapshot, RANKINGS_FAMILY_COLUMNS, RankingsFamilyCells, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
@@ -896,7 +897,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                     <span className="sr-only">Rank</span>
                   </th>
                   <th scope="col" rowSpan={2}>Set</th>
-                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} />
+                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} infoText={SET_RIP_V1_HELP} />
                   <th scope="col" rowSpan={2}><span className="inline-flex items-center gap-1">Tier<InfoPopover><PublicRipTierInfo /></InfoPopover></span></th>
                   {RANKINGS_FAMILY_COLUMNS.map((column) => <th key={column.key} scope="col" rowSpan={2} aria-label={column.fullLabel} title={column.fullLabel} className="px-1.5 text-center leading-tight"><span className="inline-flex items-center justify-center gap-1">{column.label}{column.info ? <InfoPopover text={column.info} /> : null}</span></th>)}
                   {/*

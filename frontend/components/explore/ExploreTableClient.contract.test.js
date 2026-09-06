@@ -312,6 +312,23 @@ test("desktop and mobile ranking rows route to the canonical set RIP tab", () =>
   assert.ok(!source.includes('tab: "insights", section: "rip-score"'));
 });
 
+test("Set RIP Score is distinguished from Product Overall RIP V12 (UI-5 Phase 3, locked terminology)", () => {
+  // Set RIP Score (this table's headline) is built by set_rip_service.py's
+  // family-relative-standing mean — a genuinely different methodology from
+  // Product Overall RIP V12 (the Financial/Chase Accessibility/Collector
+  // composite used on Product Rankings and Product RIP). The two must never
+  // be presented as the same score. This test guards against that drift by
+  // requiring the header to carry the locked distinguishing tooltip.
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(source.includes("SET_RIP_V1_HELP"), "the Set RIP Score header must import/use the locked distinction copy");
+  assert.match(source, /columnId="setRip"[^/]*infoText=\{SET_RIP_V1_HELP\}/, "the Set RIP Score header must render the distinction tooltip");
+
+  const displayModule = fs.readFileSync(path.resolve(__dirname, "chaseAccessibilityDisplay.mjs"), "utf8");
+  assert.match(displayModule, /SET_RIP_V1_HELP\s*=/);
+  assert.ok(displayModule.includes("Product Overall RIP V12"), "the locked copy must name Product Overall RIP V12 by name");
+  assert.ok(/different methodology/i.test(displayModule), "the locked copy must state it is a different methodology");
+});
+
 test("the redundant top-three and Why #1 sections are absent", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   for (const removed of ["Top ranked sets", "TopRankedCard", "Why #1?", "topThree", "leaderExplanation"]) assert.ok(!source.includes(removed));
@@ -320,8 +337,31 @@ test("the redundant top-three and Why #1 sections are absent", () => {
 
 test("the Rankings table is the first ranking content after the page title", () => {
   const page = fs.readFileSync(path.resolve(__dirname, "../../app/Explore/page.js"), "utf8");
-  assert.ok(page.indexOf("<ProductFamilyRankingsClient") > page.indexOf("Pokémon RIP Rankings"));
+  // Stale assertion updated (UI-5 Phase 2): `ProductFamilyRankingsClient` was
+  // the pre-lens-split "all lenses in one client" implementation. The live
+  // route renders `RankingsLazyClient`, which lazily mounts `ExploreTableClient`
+  // (sets lens) and `RankingsProductLensClient` (products lens) instead.
+  // `ProductFamilyRankingsClient` is confirmed unreferenced by any route — see
+  // its own archival header comment and
+  // docs/research/OVERALL_RIP_V12_UI_STANDARDIZATION.md (UI-4B / UI-5).
+  assert.ok(page.indexOf("<RankingsLazyClient") > page.indexOf("Pokémon RIP Rankings"));
   assert.ok(!page.includes("Top ranked sets"));
+});
+
+test("the orphaned all-lenses Rankings client is never mistaken for the live route (regression)", () => {
+  // Locks in the UI-4B/UI-5 finding: ProductFamilyRankingsClient.jsx is a
+  // fully-built, fully-tested, but UNREACHABLE component. Its own contract
+  // test suite passing is not proof of live wiring — this test asserts the
+  // actual live route file directly, so a future accidental re-wiring (or a
+  // regression back to the dead component) is caught here rather than only
+  // being discoverable by a manual reachability audit.
+  const page = fs.readFileSync(path.resolve(__dirname, "../../app/Explore/page.js"), "utf8");
+  assert.ok(!page.includes("ProductFamilyRankingsClient"), "the live Explore route must not import the archived all-lenses client");
+  assert.ok(page.includes("RankingsLazyClient"), "the live Explore route must render RankingsLazyClient");
+
+  const lazyClient = fs.readFileSync(path.resolve(__dirname, "RankingsLazyClient.jsx"), "utf8");
+  assert.ok(lazyClient.includes('import("./ExploreTableClient")'), "RankingsLazyClient must lazily mount the live Set Rankings lens");
+  assert.ok(lazyClient.includes('import("./RankingsProductLensClient")'), "RankingsLazyClient must lazily mount the live Product Rankings lens");
 });
 
 test("missing Top Chase data renders an explicit unavailable state", () => {

@@ -26,6 +26,23 @@ export const MARKET_BASED_HELP_SENTENCE =
 // the reader inside its own tooltip.
 export const MARKET_BASED_HELP = "Combines Financial RIP with Chase Accessibility.";
 
+// LOCKED — Set RIP V1 vs. Product Overall RIP V12 semantic distinction
+// (UI-5 Phase 3). "Set RIP Score" (this table's headline, built by
+// `backend/db/services/set_rip_service.py`'s family-relative-standing mean,
+// `METHODOLOGY_VERSION = set_rip_v1_...`) is a DIFFERENT methodology from
+// Product Overall RIP V12 (`backend/desirability/weighted_rip.py`'s
+// `compute_overall_rip_v12`, the 0.86 Financial + 0.04 Chase Accessibility +
+// 0.10 Collector Appeal composite used on Product Rankings and Product RIP).
+// Set RIP V1 does NOT consume Financial RIP, Chase Accessibility, or
+// Collector Appeal as inputs at all — it is a pure ordinal standing across
+// each set's participating product families. The Financial RIP/Chase
+// Accessibility/Collector Appeal columns shown alongside "Set RIP Score" in
+// this table are independently-sourced, per-set context metrics, not
+// components of that score. Never state or imply that Set RIP Score is
+// derived from, or equivalent to, Product Overall RIP V12.
+export const SET_RIP_V1_HELP =
+  "How strong is this set across its supported opening formats? Set RIP Score averages this set's relative standing among comparable products in each supported family. It is a different methodology from Product Overall RIP V12 (used on Product Rankings and each product's own page) and does not combine the Financial RIP, Chase Accessibility, or Collector Appeal columns shown here — those are shown for context, not as inputs to this score.";
+
 function number(value) {
   return Number.isFinite(Number(value)) && value !== null && value !== ""
     ? Number(value)

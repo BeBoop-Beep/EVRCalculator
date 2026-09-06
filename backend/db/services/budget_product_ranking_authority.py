@@ -127,6 +127,41 @@ def _fetch_all_ready_rows(client: Any) -> List[Dict[str, Any]]:
         offset += _PAGE_SIZE
 
 
+def most_recent_available_price_as_of(client: Any) -> Optional[str]:
+    """The freshest fully-covered ``price_as_of`` date, or ``None`` if none exist.
+
+    UI-5 Phase 17 fix. ``load_pinned_cohort``'s ambiguous-tie refusal below is
+    the correct fail-closed behavior for the offline PUBLISH path
+    (``publish_budget_product_rankings_if_ready.py``), which persists a
+    snapshot and must never silently guess which historical market state to
+    commit. But that same refusal was being reached, unintentionally, by the
+    live, unauthenticated-by-date ``GET /explore/product-chase-intelligence``
+    read path (``main.py``), which calls ``load_pinned_cohort(client,
+    price_as_of=None)`` on every request with no human present to supply an
+    explicit pin - so ANY tie among complete-coverage dates (a normal,
+    frequent occurrence; 7 dates were tied at full coverage when this was
+    diagnosed) took down Product Chase Intelligence for every Premium user
+    with a 503, collapsed by the frontend into "couldn't be loaded right
+    now" (see ProductChaseIntelligenceSection.jsx). A live read is not a
+    publish: it commits nothing, so deterministically preferring the FRESHEST
+    complete date among ties is a legitimate, non-guessing default, not a
+    weakening of the publish-time gate. Callers that persist state (the CLI
+    script) must keep resolving ties explicitly via ``load_pinned_cohort``
+    itself and must NOT call this helper as a substitute.
+    """
+    raw = _fetch_all_ready_rows(client)
+    priced = [r for r in raw if float(r.get("product_market_cost") or 0) > 0]
+    if not priced:
+        return None
+    by_as_of: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for row in priced:
+        by_as_of[str(row.get("price_as_of"))].append(row)
+    coverage = {key: len({str(r["sealed_product_id"]) for r in group}) for key, group in by_as_of.items()}
+    best = max(coverage.values())
+    contenders = sorted((k for k, n in coverage.items() if n == best), reverse=True)
+    return contenders[0] if contenders else None
+
+
 def load_pinned_cohort(
     client: Any,
     price_as_of: Optional[str] = None,

@@ -1,4 +1,28 @@
 "use client";
+/**
+ * ARCHIVED / NOT LIVE — DO NOT MISTAKE FOR THE CURRENT RANKINGS UI.
+ *
+ * This "all lenses in one client" component was the pre-lens-split Rankings
+ * implementation. It has been fully superseded by `RankingsLazyClient.jsx`,
+ * which lazily renders `ExploreTableClient.jsx` (Set Rankings lens) and
+ * `RankingsProductLensClient.jsx` (Product Rankings lens) instead. No route
+ * under `frontend/app/` imports or renders this file (confirmed by repo-wide
+ * grep, most recently during the UI-4B/UI-5 Rankings closure passes —
+ * see docs/research/OVERALL_RIP_V12_UI_STANDARDIZATION.md). The
+ * `P0PerformanceArchitecture.contract.test.mjs` suite enforces that this
+ * "legacy all-lenses client" stays off the initial Rankings route by design.
+ *
+ * It is kept in the tree, unrendered, ONLY because several other contract
+ * test files (`CardChaseEfficiencyRankings`, `EraAndPackEconomicsTables`,
+ * `OpeningEconomicsTables`, `SetRipHierarchy`, `TableSearchInput`,
+ * `sealedProductRouting`) read its source as a text-based reference control
+ * to prove copy/behavior parity with the live components. Do not add new
+ * live functionality here, do not link to it from any route, and do not cite
+ * its presence as evidence that Product Rankings work is wired into the live
+ * UI — check `RankingsLazyClient.jsx` and `frontend/app/Explore/page.js` for
+ * what is actually live. If a future pass removes the last test dependency
+ * on this file's source text, delete it.
+ */
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import ExploreTableClient from "./ExploreTableClient";

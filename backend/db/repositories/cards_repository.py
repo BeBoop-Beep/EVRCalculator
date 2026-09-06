@@ -192,6 +192,33 @@ def get_card_set_ids_bulk(card_ids: List[Any]) -> Dict[str, str]:
     return resolved
 
 
+def get_cards_bulk(card_ids: List[Any]) -> Dict[str, Dict[str, Any]]:
+    """Resolve card IDs to their (set_id, name, card_number) with bounded, read-only queries.
+
+    Used by the external-identity resolver to check that a provider identity's
+    already-established owner card carries the same card_number as the incoming
+    row before that identity is trusted to select a base card. Kept separate
+    from `get_card_set_ids_bulk` (which only a handful of call sites already
+    depend on for the narrower set-ownership check) so existing callers/tests
+    are unaffected.
+    """
+    resolved: Dict[str, Dict[str, Any]] = {}
+    unique_ids = sorted({str(value) for value in card_ids if value is not None})
+    for offset in range(0, len(unique_ids), CARD_BULK_READ_CHUNK_SIZE):
+        chunk = unique_ids[offset:offset + CARD_BULK_READ_CHUNK_SIZE]
+
+        def operation(client, _attempt, chunk=chunk):
+            return list((client.table("cards").select("id,set_id,name,card_number")
+                         .in_("id", chunk).execute()).data or [])
+
+        rows = run_supabase_with_transient_retry(
+            operation, operation_name="get_cards_bulk"
+        )
+        for row in rows:
+            resolved[str(row["id"])] = dict(row)
+    return resolved
+
+
 def update_card_image_sync_fields(card_id: str, update_fields: Dict[str, Any]) -> Dict[str, Any]:
     """Update card image sync fields for a single card row."""
     payload = {

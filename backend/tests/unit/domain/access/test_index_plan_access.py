@@ -19,6 +19,8 @@ from backend.domain.access.index_plan_access import (
     has_index_feature_access,
     normalize_index_plan,
     project_insights_critical_response,
+    project_product_family_rankings_response,
+    project_product_rankings_response,
     project_rankings_response,
     project_set_page_response,
     project_set_rip_simulation_evidence_response,
@@ -323,6 +325,54 @@ def test_plus_rankings_projection_receives_v12_and_v11():
     # Historical V10 data is preserved for existing Plus consumers.
     assert target["overallRipV10"]["rank"] == 3
     assert target["publicRipContractV10"]["overallRip"]["rank"] == 3
+
+
+def _product_family_ranking_row():
+    return {
+        "sealedProductId": "prod-1", "setId": "set-1", "productName": "Test Booster Box",
+        "setName": "Test Set", "productFamily": "booster_box", "productFamilyLabel": "Booster Box",
+        "marketPrice": 100.0, "financialRipLeaderScore": 80.0, "collectorAppealScore": 60.0,
+        "chaseAccessibility": {
+            "value": 0.002, "percent": 0.2, "status": "ready",
+            "version": "chase_accessibility_v1_hc_value_squared_modeled_probability",
+            "chaseDepth": 3.1, "mappedHcMass": 1.0, "setRank": 1, "setCohortSize": 22,
+        },
+    }
+
+
+def test_product_family_rankings_projection_carries_chase_accessibility_at_plus_and_strips_it_at_base():
+    # UI-5 Phase 14 regression: `chaseAccessibility` was added to the raw
+    # product-family-rankings builder by UI-4/UI-4B but was never added to
+    # this response's tier allowlist, so it was silently stripped from the
+    # LIVE `/explore/rankings/lens?lens=products` response
+    # (RankingsProductLensClient.jsx) despite existing frontend/backend tests
+    # for the raw builder and the component both passing.
+    payload = {"families": {"booster_box": {"label": "Booster Box", "count": 1, "products": [_product_family_ranking_row()]}}}
+
+    base = project_product_family_rankings_response(payload, plan=None)
+    base_product = base["families"]["booster_box"]["products"][0]
+    assert "chaseAccessibility" not in base_product
+
+    plus = project_product_family_rankings_response(payload, plan=INDEX_PLAN_PLUS)
+    plus_product = plus["families"]["booster_box"]["products"][0]
+    assert plus_product["chaseAccessibility"]["value"] == 0.002
+    assert plus_product["chaseAccessibility"]["setRank"] == 1
+    assert plus_product["chaseAccessibility"]["setCohortSize"] == 22
+    # No Premium Product Chase field ever rides along with it.
+    for leaked in ("oBudget", "ece", "effectivePacks", "quantity"):
+        assert leaked not in plus_product
+
+
+def test_overall_product_rankings_projection_carries_chase_accessibility_at_plus():
+    payload = {
+        "available": True, "reason": None, "selectedBudget": None, "availableBudgets": [],
+        "cohortSize": 1, "rows": [_product_family_ranking_row()],
+    }
+    base = project_product_rankings_response(payload, plan=None)
+    assert "chaseAccessibility" not in base["rows"][0]
+
+    plus = project_product_rankings_response(payload, plan=INDEX_PLAN_PLUS)
+    assert plus["rows"][0]["chaseAccessibility"]["value"] == 0.002
 
 
 def test_base_set_page_projection_cannot_see_v12_or_v10_intelligence():

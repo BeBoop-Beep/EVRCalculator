@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set, get_card_set_ids_bulk
+from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set, get_card_set_ids_bulk, get_cards_bulk
 from backend.db.repositories.card_variant_repository import (insert_card_variant, get_card_variant_by_card_and_type,
     insert_card_variants_batch, get_card_variant_external_identity, link_card_variant_external_identity,
     get_card_variant_by_id, get_card_variant_external_identities_bulk, get_card_variants_bulk,
@@ -99,7 +99,8 @@ class CardsService(BatchProcessor):
         name = re.sub(r'\s*-\s*\d+(?:/\d+)?\s*$', '', name)
         return re.sub(r'\s+\(', '(', name).strip()
 
-    def _extract_variant_info(self, card):
+    @staticmethod
+    def _extract_variant_info(card):
         """
         Extract variant information from card data.
         
@@ -137,23 +138,60 @@ class CardsService(BatchProcessor):
         return printing_type, special_type, edition
 
     @staticmethod
-    def _validate_external_identities_before_card_insert(set_id, cards):
-        """Reject cross-set provider identities before base-card persistence."""
+    def resolve_external_identity_card_owners_before_insert(set_id, cards_by_key):
+        """Resolve proven provider-identity base-card ownership before any base-card
+        write, and reject real identity conflicts before base-card persistence.
+
+        A TCGPlayer product/variant identity is the strongest signal of "which
+        base card is this" that ingestion has. It must be consulted BEFORE any
+        decision to insert a new base card or fall back to an exact name+number
+        match — a mutable provider display-name change (e.g. TCGPlayer relabeling
+        "Boss's Orders" as "Boss's Orders [Cyrus]" while keeping the same
+        product/variant IDs) must never cause a new, duplicate base card to be
+        created out from under an already-known identity.
+
+        Args:
+            set_id: The incoming set's UUID.
+            cards_by_key: Mapping of base-card key (canonical_name, card_number)
+                -> list of incoming upstream row dicts for that base card.
+
+        Returns:
+            Dict mapping base-card key -> existing base card_id, for every base
+            card key whose incoming rows carry a provider identity that already
+            maps to an existing card. Callers must prefer this mapping over any
+            exact-name lookup and must never insert a new base card for a key
+            present here.
+
+        Raises:
+            ExternalVariantIdentityConflict: for any case that cannot be safely
+            resolved — a missing mapped variant/card, a cross-set identity, a
+            mapped variant whose printing/special/edition state contradicts the
+            incoming row, a mapped owner card whose card_number contradicts the
+            incoming row's card_number, or two rows in the same base-card group
+            whose identities resolve to two different existing base cards. Never
+            guessed; always fails closed.
+        """
         pairs_by_provider = {}
-        for card in cards:
-            product_id = card.get('tcgplayer_product_id')
-            variant_key = card.get('external_variant_key')
-            if product_id and variant_key:
-                pairs_by_provider.setdefault('tcgplayer', []).append(
-                    (product_id, variant_key)
-                )
+        row_identity_rows = []  # (base_key, product_id, variant_key, printing_type, special_type, edition)
+        for base_key, card_list in cards_by_key.items():
+            for card in card_list:
+                product_id = card.get('tcgplayer_product_id')
+                variant_key = card.get('external_variant_key')
+                if product_id and variant_key:
+                    pairs_by_provider.setdefault('tcgplayer', []).append(
+                        (product_id, variant_key)
+                    )
+                    printing_type, special_type, edition = CardsService._extract_variant_info(card)
+                    row_identity_rows.append(
+                        (base_key, product_id, variant_key, printing_type, special_type, edition)
+                    )
 
         identities = {}
         for provider, pairs in pairs_by_provider.items():
             loaded, _operations = get_card_variant_external_identities_bulk(provider, pairs)
             identities.update(loaded)
         if not identities:
-            return
+            return {}
 
         variant_ids = sorted({str(row['card_variant_id']) for row in identities.values()})
         variants_by_id, _variants_by_natural_key, _operations = get_card_variants_bulk(
@@ -190,6 +228,46 @@ class CardsService(BatchProcessor):
             raise ExternalVariantIdentityConflict(
                 f"external identity belongs to a different set before card insert: {conflicts[:5]}"
             )
+
+        # Every surviving identity now maps into the incoming set. Bulk-load the
+        # owner cards' (name, card_number) once so a mutable display-name change
+        # can be distinguished from a genuine same-set number contradiction.
+        cards_by_id = get_cards_bulk(card_ids)
+
+        base_key_owner = {}
+        for base_key, product_id, variant_key, printing_type, special_type, edition in row_identity_rows:
+            identity_key = external_identity_key('tcgplayer', product_id, variant_key)
+            identity = identities.get(identity_key)
+            if identity is None:
+                continue
+            variant = variants_by_id[str(identity['card_variant_id'])]
+            expected = (printing_type, special_type, edition)
+            actual = (variant.get('printing_type'), variant.get('special_type'), variant.get('edition'))
+            if expected != actual:
+                raise ExternalVariantIdentityConflict(
+                    "external identity contradicts incoming variant state before card insert: "
+                    f"base_key={base_key} expected={expected} actual={actual}"
+                )
+
+            owner_card_id = str(variant['card_id'])
+            owner_card = cards_by_id.get(owner_card_id)
+            incoming_card_number = base_key[1]
+            if owner_card is not None and str(owner_card.get('card_number')) != str(incoming_card_number):
+                raise ExternalVariantIdentityConflict(
+                    "external identity owner card_number contradicts incoming card_number before "
+                    f"card insert: base_key={base_key} owner_card_id={owner_card_id} "
+                    f"owner_card_number={owner_card.get('card_number')}"
+                )
+
+            existing_owner = base_key_owner.get(base_key)
+            if existing_owner is not None and existing_owner != owner_card_id:
+                raise ExternalVariantIdentityConflict(
+                    "incoming base card group maps to multiple existing base cards before card "
+                    f"insert: base_key={base_key} owners={{{existing_owner!r}, {owner_card_id!r}}}"
+                )
+            base_key_owner[base_key] = owner_card_id
+
+        return base_key_owner
 
     def _process_batch_worker(self, batch_data, batch_id):
         # This wrapper executes inside the child process. The client is created
@@ -646,12 +724,16 @@ class CardsService(BatchProcessor):
                 cards_by_key[key] = []
             cards_by_key[key].append(card)
 
-        # External identities are globally provider-owned.  Validate their
-        # existing set ownership before the first base-card write so a fatal
-        # conflict cannot leave orphan base cards behind.  Worker validation
-        # remains in place as defense in depth.
+        # External identities are globally provider-owned. Resolve any proven
+        # existing base-card ownership — and validate identity ownership — before
+        # the first base-card write, so a mutable provider display-name change
+        # cannot create a duplicate base card and so a fatal conflict cannot
+        # leave orphan base cards behind. Worker validation remains in place as
+        # defense in depth.
         try:
-            self._validate_external_identities_before_card_insert(set_id, cards)
+            provider_owner_card_id_by_key = self.resolve_external_identity_card_owners_before_insert(
+                set_id, cards_by_key
+            )
         except ExternalVariantIdentityConflict as exc:
             results['errors'].append(str(exc))
             results['error_codes'].append(ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT)
@@ -685,7 +767,32 @@ class CardsService(BatchProcessor):
         for (name, card_number), card_list in cards_by_key.items():
             card_key = (name, card_number)
 
-            # Skip if it already exists in DB
+            # Precedence 1: a proven provider (TCGPlayer) identity always wins,
+            # even over an existing exact-name orphan row with a different
+            # card_id, and even before any historical alias cleanup migration
+            # has run. This is what prevents a mutable display-name change
+            # (e.g. "Boss's Orders" -> "Boss's Orders [Cyrus]") from creating a
+            # brand-new base card out from under an identity that already
+            # belongs to the real canonical card.
+            provider_owner_card_id = provider_owner_card_id_by_key.get(card_key)
+            if provider_owner_card_id is not None:
+                card_key_to_id[card_key] = provider_owner_card_id
+                already_known = (
+                    card_key in existing_cards_set
+                    and str(existing_cards_set[card_key]) == str(provider_owner_card_id)
+                )
+                if not already_known:
+                    self.externalIdentityBaseCardReuses = getattr(
+                        self, 'externalIdentityBaseCardReuses', 0
+                    ) + 1
+                    print(
+                        "[INFO]  [EXTERNAL_IDENTITY_BASE_CARD_REUSE] canonical_name="
+                        f"'{name}' card_number='{card_number}' -> existing ID={provider_owner_card_id} "
+                        "(provider identity overrides mutable display name / orphan exact-name row)"
+                    )
+                continue
+
+            # Precedence 2: exact normalized (name, card_number) already exists
             if card_key in existing_cards_set:
                 card_key_to_id[card_key] = existing_cards_set[card_key]
                 print(f"[INFO]  [CARD REUSED] canonical_name='{name}' card_number='{card_number}' -> ID={existing_cards_set[card_key]}")
