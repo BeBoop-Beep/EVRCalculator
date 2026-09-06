@@ -552,7 +552,7 @@ one-row discrepancy) is a real, narrow, non-blocking finding in the query cohort
 layer — outside this task's scope — recommended as the next investigation, not a gap in this
 session's actual deliverable.
 
-### Q.12 Next recommendation
+### Q.12 Next recommendation (superseded — see section R for the resolution)
 Trace the single-instrument discrepancy from Q.6: compare `pokemon_market_explorer_card_daily_
 states` for `market_date='2026-09-03'` (33,956 rows) against whatever cohort-filtering step in
 `run_market_explorer_query`/its helpers produces the 33,955-row Global All Raw basket, to identify
@@ -560,3 +560,91 @@ which one instrument is being excluded and why (a genuine data-quality exclusion
 zero/null slipping through, versus an unintended filter). This is unrelated to Prompt 5's
 daily-operationalization scope and does not block treating this task as complete. Do not begin
 Prompt 6 without explicit instruction.
+
+## R. Projection authority hardening — RESOLVED (later session)
+
+This section resolves the Q.6/Q.12 open item. The 33,955-vs-33,956 discrepancy is **not** a
+query-cohort construction bug — it was a genuine leaked row in the daily-states projection itself.
+
+### R.1 Root cause
+One invalid instrument was present in the daily projection: `card_variant_id
+1358073e-4ad4-4d8c-8b87-5801fd36c7e8` (Gym Challenge, "______'s Chansey (DUPLICATE)" #113),
+whose canonical `catalog_role` is `duplicate_alias` — a role Market Explorer instrument semantics
+explicitly exclude (alongside `abstract_identity` and any unapproved role), via the existing
+canonical predicate `is_pokemon_market_instrument_catalog_role(...)`. The query/cache layer
+correctly excluded it through current metadata (hence the correct `33,955` cache basket); the
+**daily projection publisher** did not, so `pokemon_market_explorer_card_daily_states` carried
+`33,956` Sep-3 rows — one too many. 140 invalid historical state rows (2026-04-11 through
+2026-09-03) were removed from production directly (by the collaborating session that traced this
+live); this session did not touch production data, only the Python-side authority boundary that
+allowed the leak to persist/reproduce.
+
+### R.2 Why the normal append path didn't already exclude it
+`publish_market_explorer_daily_projection.py`'s normal new/append path already derives its
+candidate variant set from `get_pokemon_canonical_card_variant_authority` (via
+`load_variant_ids_for_set`), which already filters on `is_pokemon_market_instrument_catalog_role`
+— that RPC's output is trusted as-is, not re-filtered with a Python allow-list. The leaked row
+predates that filtering being authoritative for this instrument (or was written via
+`run_market_explorer_daily_publication.py`'s historical-repair path, which invokes the opaque,
+DB-side `reproject_pokemon_market_explorer_card_daily_states` RPC — a function this repo does not
+own the SQL for and cannot audit). Because normal daily runs only ever append *new* dates forward
+(`process_set`'s `append`/`up_to_date` modes never re-touch previously-materialized dates), a stray
+row written by any other path — a historical reproject, or a row predating a catalog-role
+correction — would never be re-examined or removed by the ordinary day-to-day flow, regardless of
+how correct that flow's own filtering is.
+
+### R.3 Fix — self-healing authority boundary, not a Chansey special case
+Added `purge_ineligible_daily_state_rows(client, *, commit, set_id, eligible_variant_ids)` to
+`backend/scripts/publish_market_explorer_daily_projection.py`: it loads every `card_variant_id`
+currently materialized for a set (`load_materialized_variant_ids`) and deletes any row whose
+variant is not in the current authority-eligible set (variant ids from
+`get_pokemon_canonical_card_variant_authority`, minus active vintage-predecessor retirements — the
+same `eligible` set already used for materialization). This is called:
+- In `process_set`, immediately after resolving `variant_ids`/`retired_ids`, **before** any
+  reconciliation or coverage decision — for every mode (`new`/`append`/`up_to_date`), so a stray
+  row is purged even on a set that has nothing new to materialize.
+- In `run_historical_repair`, immediately after the opaque `reproject_pokemon_market_explorer_card_
+  daily_states` RPC call and before the expected/actual reconciliation loop, using the identical
+  `eligible` list that produces `expected` — guaranteeing both sides of that reconciliation compare
+  the same instrument universe regardless of what the RPC itself wrote.
+
+No catalog-role list is duplicated in Python: eligibility is entirely delegated to the existing
+`get_pokemon_canonical_card_variant_authority` RPC (which already applies
+`is_pokemon_market_instrument_catalog_role`). This makes the fix generic — it would equally purge
+an `abstract_identity` or any future-excluded role, and self-heals a rerun so an excluded identity
+can never be reintroduced, without naming any one instrument in code.
+
+### R.4 Reconciliation-filter implementation
+`reconcile_set` and the historical-repair reconciliation loop already computed `expected` from
+`load_interval_join(client, eligible, market_date)` using the same authority-filtered `eligible`
+list used for materialization — so once the purge removes a stray row from the `actual` side,
+`expected == actual` holds exactly, with no separate "expected-side" allow-list needed.
+
+### R.5 Tests
+14 new tests added across `backend/tests/unit/scripts/test_publish_market_explorer_daily_
+projection.py` and `test_run_market_explorer_daily_publication.py`, covering: duplicate_alias
+excluded from materialization and from the expected count; approved physical roles still
+materialize; a valid instrument with no NM state on a date is not fabricated; both reconciliation
+sides use the identical filtered universe; a rerun cannot reinsert an excluded alias; purge removes
+a stray row left by any prior leak (dry-run-safe); a reduced-scale Sep-3-style fixture (5 valid +
+1 duplicate_alias raw candidate → expected/actual = 5); the opaque historical-reproject RPC path is
+purged before reconciliation; and all pre-existing idempotency / `on_conflict="market_date,card_
+variant_id"` behavior remains intact. Full regression: **336 passed, 0 failed**
+(`-k market_explorer` across `backend/tests`, billing/stripe-module and one unrelated logging test
+module excluded from collection — pre-existing `ModuleNotFoundError: stripe` / Python 3.8 typing
+issue, unrelated to this change). `git diff --check` clean on all changed files.
+
+### R.6 Corrected baselines going forward
+Sep-3 valid Global All Raw / canonical daily-states universe: **33,955** (not 33,956). Sep-3 total
+projection rows, coverage sum, and the 4,631,511 figure throughout sections P/Q above are likewise
+superseded by the corrected, reconciled production figures: **4,631,371** total projection rows,
+coverage sum **4,631,371**, 0 mismatches, 165/165 sets covered through Sep-3, 21/21 maintained
+caches ready. The `33,956` / `4,631,511` figures anywhere above are historical narrative of the
+leak as it was diagnosed, not the current correct state.
+
+### R.7 Final decision
+The projection authority boundary is hardened: excluded catalog roles (`duplicate_alias`,
+`abstract_identity`, any unapproved role) can no longer be materialized or survive a rerun, on
+either the normal daily-append path or the historical-repair path, via a single generic
+self-healing purge rather than an instrument-specific patch. Do not begin Prompt 6 without explicit
+instruction.

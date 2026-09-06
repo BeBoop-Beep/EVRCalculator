@@ -388,6 +388,7 @@ class HistoricalRepairSummary:
     expected_rows: int = 0
     actual_rows: int = 0
     coverage_repaired: list[dict[str, Any]] = field(default_factory=list)
+    stray_rows_purged: int = 0
     repair_generation_bumped: bool = False
     cache_entries_invalidated: int = 0
     caches: dict[str, Any] | None = None
@@ -435,6 +436,7 @@ def run_historical_repair(
         load_interval_join,
         load_retired_predecessor_ids,
         load_variant_ids_for_set,
+        purge_ineligible_daily_state_rows,
     )
 
     approved_dates = load_approved_dates(client, after=None, through=date.fromisoformat(through))
@@ -442,14 +444,25 @@ def run_historical_repair(
 
     expected_total = 0
     actual_total = 0
+    purged_total = 0
     for set_id in set_ids:
         variant_ids = load_variant_ids_for_set(client, set_id)
         retired = load_retired_predecessor_ids(client, variant_ids)
         eligible = [v for v in variant_ids if v not in retired]
+        # Purge BEFORE counting actual -- the reprojection RPC above is an
+        # opaque DB-side path this module does not control; it may re-derive
+        # rows for an ineligible instrument (e.g. a duplicate_alias) from raw
+        # intervals alone. Purging here, using the same authority-eligible
+        # set that produces `expected`, guarantees both sides of this
+        # reconciliation compare the identical instrument universe.
+        purged_total += purge_ineligible_daily_state_rows(
+            client, commit=commit, set_id=set_id, eligible_variant_ids=eligible,
+        )
         expected = sum(len(load_interval_join(client, eligible, d)) for d in approved_dates)
         actual = count_actual_rows(client, set_id) if commit else expected
         expected_total += expected
         actual_total += actual
+    summary.stray_rows_purged = purged_total
     summary.expected_rows = expected_total
     summary.actual_rows = actual_total
     summary.reconciled = expected_total == actual_total

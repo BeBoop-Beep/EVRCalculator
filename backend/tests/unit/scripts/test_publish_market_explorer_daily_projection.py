@@ -1,5 +1,6 @@
 from backend.scripts.publish_market_explorer_daily_projection import (
     load_approved_dates,
+    purge_ineligible_daily_state_rows,
     run_publish,
 )
 
@@ -70,7 +71,20 @@ class Query:
         self.client.writes.append(("upsert", self.name, list(rows)))
         return self
 
+    def delete(self):
+        self._deleting = True
+        return self
+
     def execute(self):
+        if getattr(self, "_deleting", False):
+            ids = self.in_filters.get("card_variant_id", [])
+            set_id = self.eq_filters.get("set_id")
+            self.client.daily_states = [
+                r for r in self.client.daily_states
+                if not (r["set_id"] == set_id and r["card_variant_id"] in ids)
+            ]
+            return Response(ids)
+
         if self._upsert_rows is not None:
             return Response(self._upsert_rows)
 
@@ -324,6 +338,137 @@ def test_no_nm_variant_excluded_without_fabricating_a_row():
     set_report = report["reports"][0]
     assert set_report["no_nm_skips"] > 0
     assert all(r["card_variant_id"] != "v1" for r in client.daily_states)
+
+
+def test_duplicate_alias_excluded_from_daily_materialization():
+    """The authority RPC (``get_pokemon_canonical_card_variant_authority``)
+    already excludes duplicate_alias/abstract_identity/unapproved catalog
+    roles server-side -- this script's ``load_variant_ids_for_set`` trusts
+    exactly what the RPC returns, never a Python-side allow-list. A variant
+    absent from the authority's output must never be materialized even if it
+    has a qualifying interval price on the date.
+    """
+    client = Client()
+    # v-alias has a real interval price but is NOT in the authority for set-a
+    # -- modeling a duplicate_alias/abstract_identity/unapproved-role variant
+    # the canonical authority has already excluded.
+    client.intervals["v-alias"] = [{"valid_from": "2026-04-07", "valid_to": None, "market_price": 1.0}]
+    report = commit_with_apply(client, set_ids=["set-a"])
+    assert all(r["card_variant_id"] != "v-alias" for r in client.daily_states)
+    assert report["reports"][0]["reconciled"] is True
+
+
+def test_duplicate_alias_excluded_from_expected_reconciliation_count():
+    client = Client()
+    client.intervals["v-alias"] = [{"valid_from": "2026-04-07", "valid_to": None, "market_price": 1.0}]
+    report = commit_with_apply(client, set_ids=["set-a"])
+    set_report = report["reports"][0]
+    # v-alias's interval must not inflate expected_rows even though it has a
+    # qualifying price on every materialized date.
+    assert set_report["expected_rows"] == set_report["actual_rows"] == set_report["rows_inserted"]
+
+
+def test_approved_physical_role_still_materializes_normally():
+    client = Client()
+    report = commit_with_apply(client, set_ids=["set-a"])
+    assert any(r["card_variant_id"] == "v1" for r in client.daily_states)
+    assert any(r["card_variant_id"] == "v2" for r in client.daily_states)
+    assert report["reports"][0]["reconciled"] is True
+
+
+def test_valid_instrument_with_no_nm_state_on_date_not_fabricated():
+    client = Client()
+    client.intervals["v1"] = [{"valid_from": "2026-04-09", "valid_to": None, "market_price": 10.0}]
+    report = commit_with_apply(client, set_ids=["set-a"])
+    assert not any(r["card_variant_id"] == "v1" and r["market_date"] != "2026-04-09"
+                   for r in client.daily_states)
+    assert report["reports"][0]["reconciled"] is True
+
+
+def test_reconciliation_compares_the_same_filtered_universe_on_both_sides():
+    """A variant excluded from authority must be excluded from BOTH the
+    expected (interval-authority) side and the actual (materialized) side --
+    never one filtered and the other not, which would either silently
+    fabricate a mismatch or silently hide a leak.
+    """
+    client = Client()
+    client.intervals["v-alias"] = [{"valid_from": "2026-04-07", "valid_to": None, "market_price": 1.0}]
+    report = commit_with_apply(client, set_ids=["set-a"])
+    set_report = report["reports"][0]
+    assert set_report["reconciled"] is True
+    assert set_report["expected_rows"] == set_report["actual_rows"]
+
+
+def test_rerun_cannot_reinsert_an_excluded_alias():
+    client = Client()
+    client.intervals["v-alias"] = [{"valid_from": "2026-04-07", "valid_to": None, "market_price": 1.0}]
+    commit_with_apply(client, set_ids=["set-a"])
+    second = commit_with_apply(client, set_ids=["set-a"])
+    assert second["reports"][0]["mode"] == "up_to_date"
+    assert all(r["card_variant_id"] != "v-alias" for r in client.daily_states)
+
+
+def test_purge_removes_stray_ineligible_row_left_by_a_prior_leak():
+    """Self-heals a leak from ANY source (e.g. a historical reprojection RPC,
+    or a stale row predating a catalog-role correction) without needing to
+    special-case the specific instrument that leaked.
+    """
+    client = Client()
+    client.daily_states = [
+        {"set_id": "set-a", "market_date": "2026-04-07", "card_variant_id": "v1"},
+        {"set_id": "set-a", "market_date": "2026-04-07", "card_variant_id": "v-stray"},
+    ]
+    client.coverage["set-a"] = {
+        "set_id": "set-a", "first_market_date": "2026-04-07",
+        "computed_through": "2026-04-09", "row_count": 2,
+    }
+    report = commit_with_apply(client, set_ids=["set-a"])
+    set_report = report["reports"][0]
+    assert set_report["stray_rows_purged"] == 1
+    assert all(r["card_variant_id"] != "v-stray" for r in client.daily_states)
+    # Coverage row_count reflects only actually-valid projected rows post-purge.
+    assert client.coverage["set-a"]["row_count"] == set_report["actual_rows"] or \
+        client.coverage["set-a"]["row_count"] == len(
+            [r for r in client.daily_states if r["set_id"] == "set-a"])
+
+
+def test_purge_is_dry_run_safe():
+    client = Client()
+    client.daily_states = [
+        {"set_id": "set-a", "market_date": "2026-04-07", "card_variant_id": "v-stray"},
+    ]
+    removed = purge_ineligible_daily_state_rows(
+        client, commit=False, set_id="set-a", eligible_variant_ids=["v1", "v2"],
+    )
+    assert removed == 1
+    # Dry-run: nothing actually removed.
+    assert any(r["card_variant_id"] == "v-stray" for r in client.daily_states)
+
+
+def test_sep3_style_fixture_one_duplicate_alias_among_raw_candidates():
+    """Regression fixture for the production Sep-3 leak: 33,956 raw interval
+    candidates existed for a set, one of them (a duplicate_alias instrument)
+    is absent from authority, so the valid expected/actual projection is
+    33,955 -- reduced to a small N for a fast, deterministic test.
+    """
+    client = Client()
+    client.set_ids = ["set-a"]
+    client.authority = {"set-a": [f"v{i}" for i in range(5)]}  # 5 valid physical instruments
+    client.approved_dates = ["2026-09-03"]
+    client.intervals = {
+        f"v{i}": [{"valid_from": "2026-09-03", "valid_to": None, "market_price": 1.0}]
+        for i in range(5)
+    }
+    # The 6th raw interval candidate: a duplicate_alias, absent from authority.
+    client.intervals["v-duplicate-alias"] = [
+        {"valid_from": "2026-09-03", "valid_to": None, "market_price": 1.0}
+    ]
+    report = commit_with_apply(client, set_ids=["set-a"])
+    set_report = report["reports"][0]
+    assert set_report["expected_rows"] == 5
+    assert set_report["actual_rows"] == 5
+    assert set_report["rows_inserted"] == 5
+    assert all(r["card_variant_id"] != "v-duplicate-alias" for r in client.daily_states)
 
 
 def test_load_approved_dates_filters_status_and_range():

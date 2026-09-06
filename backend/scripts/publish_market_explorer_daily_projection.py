@@ -33,6 +33,20 @@ Vintage-repair safety: this script never projects a row whose
 No-NM semantics: a variant with no qualifying interval row for a date is
 simply skipped for that date -- never fabricated, never substituted from
 another condition.
+
+Authority boundary: every row eligible for the daily-states table must
+correspond to a physical Market Explorer instrument, i.e. a
+``card_variant_id`` returned by ``get_pokemon_canonical_card_variant_authority``
+(which already filters on ``is_pokemon_market_instrument_catalog_role`` --
+excluding ``duplicate_alias``/``abstract_identity``/any unapproved role).
+This authority is consulted on BOTH sides of every reconciliation: the
+expected count from interval authority is scoped to the same eligible
+variant set, and, before any counting happens, ``purge_ineligible_daily_
+state_rows`` deletes any already-materialized row that is no longer
+authority-eligible. This self-heals a leak from any source -- a historical
+reprojection RPC, a stale row predating a catalog-role correction, or any
+future drift -- without special-casing any one instrument, and guarantees a
+rerun can never reintroduce an excluded identity.
 """
 from __future__ import annotations
 
@@ -92,6 +106,7 @@ class SetReport:
     coverage_after: dict[str, Any] | None = None
     predecessor_variants_excluded: int = 0
     no_nm_skips: int = 0
+    stray_rows_purged: int = 0
 
 
 @dataclass
@@ -180,6 +195,38 @@ def load_interval_join(client: Any, variant_ids: Sequence[str], market_date: str
         if valid_to is None or str(valid_to)[:10] > market_date:
             matched.append(row)
     return matched
+
+
+def load_materialized_variant_ids(client: Any, set_id: str) -> list[str]:
+    """Every distinct ``card_variant_id`` currently materialized for a set,
+    regardless of when or how it was written -- including rows written by an
+    opaque reprojection RPC or predating a catalog-role correction.
+    """
+    rows = _paged(lambda: client.table(DAILY_STATES_TABLE).select("card_variant_id")
+                  .eq("set_id", set_id))
+    return sorted({str(row["card_variant_id"]) for row in rows})
+
+
+def purge_ineligible_daily_state_rows(client: Any, *, commit: bool, set_id: str,
+                                       eligible_variant_ids: Sequence[str]) -> int:
+    """Delete any already-materialized row whose ``card_variant_id`` is not in
+    the current authority-eligible set for this set -- self-heals a leak from
+    ANY source (a historical reprojection RPC, a stale row predating a
+    catalog-role correction) without special-casing any one instrument.
+    Runs before every reconciliation so ``actual`` always reflects only valid
+    physical instruments; a rerun can never reintroduce an excluded identity.
+    Returns the count of stray rows found (dry-run) or removed (commit).
+    """
+    materialized = load_materialized_variant_ids(client, set_id)
+    eligible = set(eligible_variant_ids)
+    stray_ids = sorted(v for v in materialized if v not in eligible)
+    if not stray_ids:
+        return 0
+    if commit:
+        client.table(DAILY_STATES_TABLE).delete().eq("set_id", set_id).in_(
+            "card_variant_id", stray_ids
+        ).execute()
+    return len(stray_ids)
 
 
 def load_actual_state_rows(client: Any, set_id: str, market_date: str) -> list[dict[str, Any]]:
@@ -292,6 +339,11 @@ def process_set(client: Any, *, commit: bool, set_id: str,
 
     variant_ids = load_variant_ids_for_set(client, set_id)
     retired_ids = load_retired_predecessor_ids(client, variant_ids)
+    eligible_ids = [v for v in variant_ids if v not in retired_ids]
+
+    report.stray_rows_purged = purge_ineligible_daily_state_rows(
+        client, commit=commit, set_id=set_id, eligible_variant_ids=eligible_ids,
+    )
 
     if coverage is None:
         dates_to_materialize = list(approved_dates)

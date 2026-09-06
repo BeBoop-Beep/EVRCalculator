@@ -22,8 +22,9 @@ import backend.scripts.run_market_explorer_daily_publication as orch
 # --- Fake client for the DB-facing helpers -----------------------------------
 
 class Response:
-    def __init__(self, data):
+    def __init__(self, data, count=None):
         self.data = data
+        self.count = count
 
 
 class Query:
@@ -38,8 +39,10 @@ class Query:
         self.end = None
         self._upsert_rows = None
         self._delete_ids = None
+        self.want_count = False
 
-    def select(self, *_a, **_k):
+    def select(self, *_a, count=None, **_k):
+        self.want_count = count == "exact"
         return self
 
     def order(self, *_a, **_k):
@@ -87,8 +90,15 @@ class Query:
 
         if getattr(self, "_deleting", False):
             ids = self.in_filters.get("card_variant_id", [])
-            for vid in ids:
-                self.client.current_metadata.pop(vid, None)
+            if self.name == "pokemon_market_explorer_card_daily_states":
+                set_id = self.eq_filters.get("set_id")
+                self.client.daily_states = [
+                    r for r in self.client.daily_states
+                    if not (r["set_id"] == set_id and r["card_variant_id"] in ids)
+                ]
+            else:
+                for vid in ids:
+                    self.client.current_metadata.pop(vid, None)
             self.client.writes.append(("delete", self.name, list(ids)))
             return Response(ids)
 
@@ -157,6 +167,13 @@ class Query:
             rows = [dict(r) for r in self.client.coverage_rows if r["set_id"] == set_id]
             return Response(self._slice(rows))
 
+        if self.name == "pokemon_market_explorer_card_daily_states":
+            set_id = self.eq_filters.get("set_id")
+            rows = [dict(r) for r in self.client.daily_states if r["set_id"] == set_id]
+            total = len(rows)
+            sliced = self._slice(rows)
+            return Response(sliced, count=total if self.want_count else None)
+
         raise AssertionError(f"unexpected table {self.name}")
 
     def _slice(self, rows):
@@ -189,6 +206,7 @@ class Client:
         self.invalidate_calls: list = []
         self.reproject_calls: list = []
         self.repair_generation = 0
+        self.daily_states: list = []
 
     def rpc(self, name, params):
         return Query(self, "rpc", name, params)
@@ -452,6 +470,8 @@ def test_historical_repair_reprojects_from_earliest_affected_date():
          patch("backend.scripts.publish_market_explorer_daily_projection.activate_or_repair_coverage",
               side_effect=lambda c, *, commit, set_id, report: report.__setattr__(
                   "coverage_after", {"set_id": set_id, "computed_through": "2026-04-08", "row_count": 2})), \
+         patch("backend.scripts.publish_market_explorer_daily_projection.purge_ineligible_daily_state_rows",
+              return_value=0) as mock_purge, \
          patch.object(orch, "prewarm_maintained_caches", return_value={"attempted": 0}):
         result = orch.run_historical_repair(
             client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
@@ -461,6 +481,8 @@ def test_historical_repair_reprojects_from_earliest_affected_date():
     assert client.reproject_calls[0]["p_start_date"] == "2026-04-07"
     assert result["status"] == "ok"
     assert result["reconciled"] is True
+    mock_purge.assert_called_once()
+    assert mock_purge.call_args.kwargs["eligible_variant_ids"] == ["v1"]
 
 
 def test_historical_repair_bumps_repair_generation_via_scoped_rpc():
@@ -477,6 +499,8 @@ def test_historical_repair_bumps_repair_generation_via_scoped_rpc():
          patch("backend.scripts.publish_market_explorer_daily_projection.activate_or_repair_coverage",
               side_effect=lambda c, *, commit, set_id, report: report.__setattr__(
                   "coverage_after", {"set_id": set_id, "computed_through": "2026-04-07", "row_count": 0})), \
+         patch("backend.scripts.publish_market_explorer_daily_projection.purge_ineligible_daily_state_rows",
+              return_value=0), \
          patch.object(orch, "prewarm_maintained_caches", return_value={"attempted": 0}):
         result = orch.run_historical_repair(
             client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
@@ -498,6 +522,8 @@ def test_historical_repair_reconciliation_failure_blocks_coverage_and_caches():
               return_value=[{"card_variant_id": "v1"}]), \
          patch("backend.scripts.publish_market_explorer_daily_projection.count_actual_rows",
               return_value=999), \
+         patch("backend.scripts.publish_market_explorer_daily_projection.purge_ineligible_daily_state_rows",
+              return_value=0), \
          patch.object(orch, "prewarm_maintained_caches") as mock_prewarm:
         result = orch.run_historical_repair(
             client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
@@ -507,6 +533,43 @@ def test_historical_repair_reconciliation_failure_blocks_coverage_and_caches():
     assert result["reconciled"] is False
     assert client.invalidate_calls == []  # never bumps generation / invalidates on failed reconcile
     mock_prewarm.assert_not_called()
+
+
+def test_historical_repair_purges_ineligible_rows_left_by_opaque_reproject_rpc():
+    """The reprojection RPC (``REPROJECT_DAILY_STATES_RPC``) is an opaque
+    DB-side call this module does not control -- it must not be trusted to
+    respect the current authority boundary on its own. A stray row for an
+    excluded instrument (e.g. a duplicate_alias) left behind by that RPC (or
+    predating a catalog-role correction) must be purged before reconciliation,
+    self-healing the leak without special-casing any one instrument.
+    """
+    client = Client()
+    client.approved_dates = {"2026-04-07": "READY"}
+    # v1 is authority-eligible; v-duplicate-alias is a stray already sitting
+    # in daily_states for this set (simulating the historical leak).
+    client.daily_states = [
+        {"set_id": "set-a", "market_date": "2026-04-07", "card_variant_id": "v1"},
+        {"set_id": "set-a", "market_date": "2026-04-07", "card_variant_id": "v-duplicate-alias"},
+    ]
+    with patch("backend.scripts.publish_market_explorer_daily_projection.load_variant_ids_for_set",
+              return_value=["v1"]), \
+         patch("backend.scripts.publish_market_explorer_daily_projection.load_retired_predecessor_ids",
+              return_value=set()), \
+         patch("backend.scripts.publish_market_explorer_daily_projection.load_interval_join",
+              return_value=[{"card_variant_id": "v1"}]), \
+         patch("backend.scripts.publish_market_explorer_daily_projection.activate_or_repair_coverage",
+              side_effect=lambda c, *, commit, set_id, report: report.__setattr__(
+                  "coverage_after", {"set_id": set_id, "computed_through": "2026-04-07", "row_count": 1})), \
+         patch.object(orch, "prewarm_maintained_caches", return_value={"attempted": 0}):
+        result = orch.run_historical_repair(
+            client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
+            repair_through=date(2026, 4, 7),
+        )
+
+    assert result["status"] == "ok"
+    assert result["reconciled"] is True
+    assert result["stray_rows_purged"] == 1
+    assert [r["card_variant_id"] for r in client.daily_states] == ["v1"]
 
 
 def test_historical_repair_no_sets_is_a_noop():
