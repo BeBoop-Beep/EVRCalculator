@@ -423,3 +423,193 @@ data authority, daily projection, Screens, Benchmarks, Comparison, Methodology, 
 and the test suite — passes. This is a genuinely narrow, well-evidenced blocker, not a broad
 readiness failure: small and medium-scope markets work correctly end to end, live, in production
 data, right now.
+
+## U. Remediation pass (V2 cold fallback + maintained cache coverage + scheduling)
+
+This section documents a follow-up session addressing the two runtime blockers from section T.
+Browser visual QA is explicitly out of scope here and remains a separate, final gate.
+
+### U.1 V2 diagnosis, confirmed
+Live investigation confirmed the diagnosis handed into this session: V2 was promoted correctly, the
+daily shadow is current (165 sets, retained_from=2026-05-29, computed_through=2026-09-05), the
+100-day hot retention window is intentional (per migration 20260906014642's own "bounded hot daily
+cache" framing), and get_pokemon_market_explorer_filtered_cohort[_daily] both delegate to the V2
+hybrid shadow function. The failure is specifically the pre-retention cold slice (Apr-7 through
+May-29) needing interval fallback, chunked far too broadly for its per-call cost at Global (165-set)
+scale — reproduced directly: a 3-calendar-day / 165-set get_pokemon_market_explorer_filtered_cohort
+call took ~9.15s (unsafe, reproduces 57014); the identical scope over 1 calendar day took ~3.62s
+(safe).
+
+### U.2 Root cause and fix, Part 1 (adaptive cold-fallback chunking)
+load_filtered_daily_cohort_rows (backend/db/services/pokemon_market_explorer_query_service.py)
+computed one chunk-size formula (max(3, 70 // len(set_ids))) for BOTH the hot DAILY_PROJECTION_RPC
+and the cold FILTERED_COHORT_RPC paths — safe for the hot path at moderate scope, unsafe for either
+path at Global breadth. Fixed to two distinct, purely request-shape-driven formulas (never a
+hardcoded retention date, per the task's explicit instruction):
+- FILTERED_COHORT_RPC (interval fallback): max(1, 60 // len(set_ids)) — degrades to 1 day only as
+  breadth approaches Global scale; a narrow scope keeps a larger, still-bounded chunk.
+- DAILY_PROJECTION_RPC (hot path): max(1, 70 // len(set_ids)) — the hardcoded floor of 3 was ALSO
+  removed here after live testing (recovering the Global All Raw maintained cache) showed even the
+  hot path timing out at 165 sets with that floor in place. Moderate-breadth hot queries (the common
+  case) are unaffected — the floor only mattered above ~23 sets, and only Global-scale scope now
+  drops to 1-day chunks.
+
+Verified effective, live: of 21 maintained caches, this fix let 20 advance cleanly from their prior
+3-day-stale 2026-09-03 watermark to 2026-09-05 in a single prewarm run (~92 seconds total,
+run_market_explorer_maintained_cache_prewarm.py --commit) — none of these had ever advanced under
+the old chunking. Global All Raw's own interval-fallback stage progressed further than it ever had
+before under the old code (reached the constituent-staging step for the first time, rather than
+failing during cohort computation).
+
+### U.3 A second, real bug fixed in the process (not V2-related)
+discover_maintained_caches (backend/db/services/market_explorer_maintained_cache_ops.py) originally
+selected a label column on pokemon_market_explorer_query_cache that does not exist in production —
+confirmed live (42703 column does not exist), and this alone made
+run_market_explorer_maintained_cache_prewarm.py fail to even start in dry-run. Fixed by dropping the
+column from the select() call (and from the new health-check script's own query); every consumer
+already null-safely falls back to the fingerprint (row.get("label") or row.get("query_fingerprint")),
+so this is a pure fix, not a behavior change. This one bug alone was likely why the CLI had never
+successfully run since it was introduced — worth flagging explicitly, since it means the "no evidence
+of scheduling" finding in the original Prompt 8 report may partly reflect "would have crashed
+immediately even if scheduled," not only "never invoked."
+
+### U.4 Maintained cache coverage expansion (Part 2)
+Added backend/scripts/provision_market_explorer_maintained_cards_axes.py: discovers every finite,
+broad, single-non-asset-axis Cards market (era All Raw, each canonical rarity segment, each canonical
+price segment, each canonical release-age cohort) entirely from the existing options registry
+(build_market_explorer_filter_options — the same registry the frontend/Builder/Screens already
+consume), builds each through the real planner path exactly once, and promotes its cache row to
+cache_kind='maintained'. Explicitly does not touch Pokemon or any compound/Premium combination.
+Identity reuse is automatic and required no new code: a Screen and an equivalent hand-built Builder
+market already normalize to the identical queryFingerprint (verified by a dedicated test), so
+provisioning one covers the other.
+
+Not run live this session. Given the residual defect in U.6/U.10, running this script against still-
+unstable broad-query infrastructure risked burning further production query quota without a reliable
+payoff. The script and its 6 tests are complete and ready to run once that is resolved.
+
+### U.5 Global All Raw recovery (Part 3) — partially succeeded, with an honest disclosure
+With the chunking fix in place, Global All Raw's cold interval-fallback stage completed for the
+first time (previously it failed inside cohort computation on every attempt). It then failed at the
+staging step (stage_pokemon_market_explorer_query_cache_build) with a bare APIError (the existing
+except Exception: log(type(exc).__name__) pattern swallows the real message, a known, pre-existing
+limitation shared with the original one-shot publish path Prompt 5 already flagged).
+
+While isolating that failure with a standalone diagnostic script, this session made a mistake: a
+manual test call to stage_pokemon_market_explorer_query_cache_build with placeholder
+p_series_payload/p_current_constituents values actually wrote that placeholder data to the Global
+All Raw row before the deliberately-following fail_... call released the lease (staging is not
+undone by releasing a lease). The row's status remained failed throughout — Prompt 5's own
+_is_recoverable_failed_base hardening (validating series_payload["historyStartDate"] against
+computed_from and requiring len(trend) > 1) correctly rejects this contaminated shape as a
+recoverable base, exactly as it was designed to for a real production incident — so this mistake
+never reached a ready state and was never served to a live user. It should still be corrected by a
+subsequent honest rebuild (not a manual edit — none was made or attempted) once the underlying
+timeout below is resolved; documented here in full rather than concealed.
+
+Subsequent attempts to complete a full cold rebuild (required once the recoverable-base shape was
+invalidated) consistently hit a new, narrower finding: get_pokemon_market_explorer_filtered_cohort_daily
+(the hot RPC) times out on at least the earliest tracked date (2026-04-07) at Global (165-set) scope,
+even for a single 1-day chunk — a direct, isolated call to the same RPC for 2026-09-03 through
+2026-09-05 (3 days, same scope) completed in 2.4-3.1 seconds each. This means Global-scale cold
+rebuild is not (only) a Python chunk-size problem; something in the V2 hybrid function's own query
+plan is specifically expensive for early-history dates at Global breadth, independent of requested
+range size. That is SQL/V2-side behavior this session does not have visibility into and, per this
+task's own scope boundary, did not attempt to patch.
+
+### U.6 Global Top 10 (Part 4) — new discrepancy found, not corrected
+Global Top 10's cache row did advance to 2026-09-05 during the successful 20-cache prewarm run, but
+its eligible_universe_count is now 33,959 — not the stale 33,956 this session started with, and also
+not the correct 33,955 confirmed via direct pokemon_market_explorer_card_daily_states counts earlier
+in this same session. This is a new, small (4-row) data-consistency finding between the chase-mode
+reconciliation path and the authoritative daily-states count, surfaced by this session's changes
+rather than caused by them (the count is computed by the same run_market_explorer_query/cohort-
+reconciliation code this session touched only for chunk sizing, not for count derivation) — flagged
+for investigation, not patched, given the time already spent isolating the two issues above.
+
+### U.7 Prewarm CLI (Part 5) — separation preserved
+No change to the accepted P0 design: run_market_explorer_maintained_cache_prewarm.py remains single-
+cache-per-invocation by default and entirely separate from run_market_explorer_daily_publication.py,
+which still does not import or invoke any cache-building code. This session ran the prewarm CLI with
+--max-caches 25 (a CLI flag it already exposed, not a design change) purely to advance the backlog of
+20 stale-but-otherwise-healthy caches efficiently in one supervised session; the recommended
+production schedule (U.8) still runs it with its existing conservative default.
+
+### U.8 Scheduler / cron (Part 7)
+Confirmed, still true: this repo has no committed cron/systemd/CI definition for either publication
+script. Recommended, concrete production step (not installed — this session was not authorized to
+modify the VM):
+
+    # after run_market_explorer_daily_publication.py --commit completes for the day:
+    */15 * * * * cd /path/to/repo && .venv/bin/python -m backend.scripts.run_market_explorer_maintained_cache_prewarm --commit --max-caches 5 >> /var/log/market_explorer_prewarm.log 2>&1
+    */15 * * * * cd /path/to/repo && .venv/bin/python -m backend.scripts.check_market_explorer_maintained_cache_health >> /var/log/market_explorer_cache_health.log 2>&1
+
+Every-15-minutes with --max-caches 5 clears a 20-cache backlog in about an hour without holding a
+long-running process, self-limits retry pressure on a genuinely broken cache (it is simply re-
+attempted next tick, isolated from the others per the CLI's existing per-cache try/except), and never
+touches or blocks the daily publication script's own separate cron line. The health-check script
+(U.9) runs on the same cadence so a stuck cache is visible within 15 minutes rather than 3 days.
+
+### U.9 Alerting (added)
+New backend/scripts/check_market_explorer_maintained_cache_health.py (read-only, makes no writes, 6
+tests, all passing): reports any maintained cache that is failed, or ready but more than a
+configurable threshold (default 1 day) behind the latest approved market date, plus any orphaned
+building lease past its own expiry. Alert payload is deliberately minimal — fingerprint/label,
+status, computed_through, latest approved date, age in days, reason — never a constituent array or
+cache payload. Run live this session: correctly identified exactly the one real problem (Global All
+Raw, failed) and 20 healthy/current caches, 0 orphan leases.
+
+### U.10 Live broad-query retest (Part 8) — mixed, honestly reported
+- Price Segment: Premium, alone — 200 OK, 0.55s (already-ready from a prior session's own test
+  query, itself now current through Sep-5; a real cache hit, not a coincidence).
+- Established release-age, alone — still fails live, 57014, ~10s. No maintained cache exists for
+  this axis yet (U.4's provisioning script was not run), so this is a cold interval-fallback build
+  hitting the same class of broad-early-history timeout as U.5's Global finding.
+- SIR rarity, alone — still fails/times out live (client-side 30s cutoff reached; the server-side
+  outcome was not confirmed to complete or fail beyond that point). Same root cause as Established.
+- Global All Raw — still failed (U.5).
+- Global Top 10 — cache row exists and is ready/current, but carries the U.6 count discrepancy; not
+  re-queried live this pass to avoid a third write to an already-flagged-inconsistent row.
+
+### U.11 Custom cold-fallback timing (Part 9)
+Not independently re-measured this pass beyond what U.2 and U.10 already produced live evidence for
+(the 165-set / 1-day / 3-day interval-fallback timings, and the Established/SIR cold-build
+attempts). No new isolated custom-query timing test was run given the session's time budget was
+already committed to isolating the two deeper findings in U.5/U.6.
+
+### U.12 Tests / build / lint
+backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py: 3 new/changed chunk-
+sizing tests (broad fallback bounded, hot path bounded at Global scale, hot path unaffected at
+moderate scale, narrow fallback not forced to 1 day) — 43/43 pass in this file.
+test_provision_market_explorer_maintained_cards_axes.py (new, 6 tests) and
+test_check_market_explorer_maintained_cache_health.py (new, 6 tests) — 12/12 pass. Full targeted
+Market Explorer backend sweep (16 files spanning projection, publication, historical repair,
+planner/cache, query service, migrations, API entitlement, and this session's two new scripts): 315
+passed, 0 failed. git diff --check: clean. Frontend was not touched this session — no frontend
+lint/build re-run needed.
+
+### U.13 V2 migration source sync (Part 11)
+Per this task's own instruction, no SQL was reconstructed and no guessing was applied. The exact
+missing production versions, as handed into this task and independently reconfirmed still absent
+from backend/db/migrations/ this session: 20260906011633_add_price_storage_v2_market_explorer_shadow_state,
+20260906011959_optimize_v2_market_explorer_shadow_state,
+20260906014642_add_retention_aware_v2_daily_projection_shadow,
+20260906065949_add_market_explorer_filtered_cohort_v2_shadow,
+20260906070842_add_market_explorer_v2_compact_interval_fallback,
+20260906071020_add_market_explorer_v2_hybrid_shadow,
+20260906174814_promote_market_explorer_v2_hybrid_with_legacy_rollback. An additional adjacent
+version, 20260906070138_add_market_explorer_v2_acceptance_helper, was also confirmed still absent
+and is included in the backlog for whoever mirrors this series once the rollout stabilizes, per this
+task's explicit deferral to that separate step.
+
+### U.14 Final runtime decision for this pass
+Not MARKET_EXPLORER_RUNTIME_BLOCKERS_RESOLVED. Real, verified progress was made — the Python chunk-
+sizing defect is fixed and proven live (20 of 21 maintained caches recovered from 3-day staleness in
+one run), a second real bug blocking the prewarm CLI entirely was found and fixed, and new alerting
+now exists and correctly detects the remaining problem. But broad queries do not consistently
+succeed live: Global All Raw, Established, and SIR-alone all still fail, now traced to a narrower,
+deeper V2/SQL-side timeout specific to early-history dates at Global breadth — genuinely out of this
+session's authorized scope to fix (would require modifying the V2 hybrid SQL function or its
+statement timeout, not this repo's Python layer). This remains a release blocker, now substantially
+better-diagnosed and with two fewer confounding Python-side bugs in the way, owned by the same
+concurrent V2/P0 workstream referenced in the original Prompt 8 report.

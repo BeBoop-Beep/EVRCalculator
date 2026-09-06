@@ -575,6 +575,84 @@ def test_all_filter_axes_are_sent_to_one_variant_cohort_rpc():
     }
 
 
+def _recorded_chunk_spans(rpc_name, set_count, *, start_date, end_date):
+    """Every (p_start_date, p_end_date) pair load_filtered_daily_cohort_rows
+    actually sent for a scope of `set_count` sets, using the real chunking
+    logic (never re-derived here)."""
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            calls.append((payload["p_start_date"], payload["p_end_date"]))
+            return _RpcResult([])
+
+    set_ids = [f"set-{i}" for i in range(set_count)]
+    svc.load_filtered_daily_cohort_rows(
+        Client(), set_ids, start_date=start_date, end_date=end_date,
+        card_ids=None, rpc_name=rpc_name,
+    )
+    return calls
+
+
+def test_broad_interval_fallback_uses_a_safe_bounded_chunk_size():
+    """Live-measured contract: at Global (165-set) scope, FILTERED_COHORT_RPC
+    (interval fallback -- far more expensive per row than the daily-
+    projection read) must never be asked to cover more than 1 calendar day in
+    a single statement. 3 days at this scope reproduced a real Postgres
+    statement timeout (57014) in production; 1 day completed safely.
+    """
+    calls = _recorded_chunk_spans(
+        svc.FILTERED_COHORT_RPC, 165, start_date="2026-04-07", end_date="2026-04-12"
+    )
+    for start, end in calls:
+        from datetime import date
+        span_days = (date.fromisoformat(end) - date.fromisoformat(start)).days + 1
+        assert span_days <= 1, (start, end)
+
+
+def test_hot_daily_projection_path_stays_bounded_at_global_scale():
+    """Live evidence this session: even the hot DAILY_PROJECTION_RPC path
+    timed out recovering the Global All Raw maintained cache at 165 sets
+    with the old hardcoded 3-day floor. At Global breadth it must now use a
+    1-day chunk, same conservative floor as the interval-fallback path --
+    the two RPCs converge to the same safety bound only at extreme scope.
+    """
+    calls = _recorded_chunk_spans(
+        svc.DAILY_PROJECTION_RPC, 165, start_date="2026-08-01", end_date="2026-08-04"
+    )
+    from datetime import date
+    spans = [(date.fromisoformat(end) - date.fromisoformat(start)).days + 1 for start, end in calls]
+    assert all(span == 1 for span in spans), spans
+
+
+def test_hot_daily_projection_path_keeps_its_efficient_chunk_size_at_moderate_scope():
+    """A moderate-breadth hot query (well under Global scale) must be
+    unaffected by the Global-scale safety floor -- this is the exact
+    regression the fix must not introduce.
+    """
+    calls = _recorded_chunk_spans(
+        svc.DAILY_PROJECTION_RPC, 10, start_date="2026-08-01", end_date="2026-08-10"
+    )
+    from datetime import date
+    spans = [(date.fromisoformat(end) - date.fromisoformat(start)).days + 1 for start, end in calls]
+    assert all(span >= 3 for span in spans[:-1]), spans
+    assert len(calls) <= 4, "a moderate-breadth hot-path query must still complete in very few chunks"
+
+
+def test_narrow_interval_fallback_is_not_forced_to_one_day_chunks():
+    """A narrow scope (few sets) must keep using a larger, still-bounded
+    chunk on the fallback path -- the fix must not blanket every fallback
+    query down to one day regardless of breadth.
+    """
+    calls = _recorded_chunk_spans(
+        svc.FILTERED_COHORT_RPC, 2, start_date="2026-04-07", end_date="2026-04-30"
+    )
+    from datetime import date
+    spans = [(date.fromisoformat(end) - date.fromisoformat(start)).days + 1 for start, end in calls]
+    assert max(spans) > 1, "a 2-set fallback query should not be chunked down to 1 day"
+    assert len(calls) < 24, "a narrow fallback query should not need one call per day"
+
+
 def test_daily_projection_coverage_requires_every_set_and_full_range():
     class Query:
         def select(self, *_args): return self

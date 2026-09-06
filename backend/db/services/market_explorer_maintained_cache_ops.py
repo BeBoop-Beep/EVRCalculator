@@ -51,8 +51,13 @@ def discover_maintained_caches(client: Any) -> list[dict[str, Any]]:
     """
     from backend.scripts.publish_market_explorer_daily_projection import _paged
 
+    # NOTE: no ``label`` column exists on this table in production (confirmed
+    # live -- selecting it raised a real 42703 "column does not exist").
+    # Every consumer already falls back to the fingerprint when ``label`` is
+    # absent (``row.get("label") or row.get("query_fingerprint")``), so this
+    # is a pure fix, not a behavior change.
     return _paged(lambda: client.table(CACHE_TABLE).select(
-        "query_fingerprint,normalized_spec,status,cache_kind,computed_through,label"
+        "query_fingerprint,normalized_spec,status,cache_kind,computed_through"
     ).eq("cache_kind", "maintained"))
 
 

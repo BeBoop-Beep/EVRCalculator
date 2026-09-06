@@ -468,10 +468,34 @@ def load_filtered_daily_cohort_rows(
     latest_basket: list[dict[str, Any]] = []
     cursor = first
     previous_observed: str | None = None
-    # Interval fallback work grows with both dates and sets. Keep each fallback
-    # statement bounded at mixed-cohort scale; projection calls are cheap but
-    # use the same overlap contract for deterministic equivalence.
-    chunk_days = min(int(chunk_days), max(3, 70 // max(1, len(set_ids))))
+    # Interval fallback work grows with both dates and sets, and does far more
+    # per-row work than the daily-projection RPC (it derives eligibility from
+    # raw price intervals rather than reading a pre-materialized row). The two
+    # RPCs are NOT safe to chunk identically at broad scope.
+    #
+    # Measured live against production at Global (165-set) scope: a single
+    # FILTERED_COHORT_RPC statement covering 3 calendar days took ~9.15s --
+    # long enough to reproduce a real Postgres statement-timeout (57014) --
+    # while the same scope over 1 calendar day took ~3.62s and completed
+    # safely. DAILY_PROJECTION_RPC has no such problem; it keeps its existing,
+    # more generous chunk size.
+    #
+    # This is a pure function of request shape (which RPC, how many sets) --
+    # never a hardcoded retention date. Whichever historical window currently
+    # requires interval fallback (today: before V2's rolling hot-retention
+    # boundary) automatically gets the conservative chunking; a range that is
+    # daily-projection-covered automatically keeps the efficient one. Neither
+    # path needs to know where that boundary currently sits.
+    if rpc_name == DAILY_PROJECTION_RPC:
+        # Live evidence (this session, recovering the Global All Raw
+        # maintained cache) showed even this "hot" RPC time out at 165 sets
+        # with the OLD hardcoded floor of 3 days -- the floor was safe at
+        # moderate breadth but not at Global scale. Removing the hard floor
+        # lets breadth alone decide: unchanged (>=3 days) for anything up to
+        # ~23 sets, degrading toward 1 day only as scope approaches Global.
+        chunk_days = min(int(chunk_days), max(1, 70 // max(1, len(set_ids))))
+    else:
+        chunk_days = min(int(chunk_days), max(1, 60 // max(1, len(set_ids))))
     while cursor <= last:
         chunk_end = min(last, cursor + timedelta(days=max(1, int(chunk_days)) - 1))
         request_start = date.fromisoformat(previous_observed) if previous_observed else cursor
