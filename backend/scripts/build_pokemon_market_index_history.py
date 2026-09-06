@@ -33,7 +33,10 @@ from backend.domain.pokemon.market_index import (
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
 
-ROLLOUT_REFRESH_RPC = "refresh_pokemon_market_rollout_daily_snapshots_v1"
+# This RPC uses the public-era rollout authority only. The older generic
+# rollout RPC intentionally remains available for Price Storage V2 workflows,
+# but must not expand the global Market cohort.
+ROLLOUT_REFRESH_RPC = "refresh_pokemon_market_public_rollout_daily_snapshots_v1"
 
 
 def parser():
