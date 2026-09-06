@@ -1,0 +1,1 @@
+-- Local CLI history bridge only. Remote migration already applied: add_compact_v2_market_interval_shadow.
