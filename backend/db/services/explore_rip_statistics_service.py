@@ -666,6 +666,15 @@ PUBLIC_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
     # one it will replace cannot be compared to it.
     ("_rank_financial_rip_v4", "financialRipV4"),
     ("_rank_overall_rip_v10", "overallRipV10"),
+    # CANONICAL Overall rank: the absolute Overall RIP V12 score (0.86 Financial
+    # RIP V4 + 0.04 Chase Accessibility Score(k=0.002) + 0.10 Collector Appeal
+    # V5). V10 stays registered above as explicit historical/rollback lineage -
+    # ranked side-by-side from the same fixed cohort, exactly as V9 was kept
+    # ranked through the V9-to-V10 cutover. A row whose V12 is not rankable
+    # (missing/mismatched/non-ready Chase Accessibility authority) is excluded
+    # from the V12 ranking by the same "None score => unranked" rule every
+    # other metric here already follows; it is never given a fabricated rank.
+    ("_rank_overall_rip_v12", "overallRipV12"),
     *(
         (f"_rank_v3_{component}", f"financialRipV3.{component}")
         for component in FINANCIAL_RIP_V3_COMPONENT_ORDER
@@ -792,12 +801,11 @@ def _build_financial_rip_v4(target: Mapping[str, Any]) -> Dict[str, Any]:
     ``backend.calculations.evr.financial_rip_v4.project_financial_rip_v4_from_v3_payload``
     for why that is exact rather than an approximation.
 
-    NOT CANONICAL, but now RANKED on the same cohort as V3/V9. A candidate model
-    that carries only an absolute score cannot be compared against the model it
-    would replace, because rank movement is the thing under review. The rank,
-    relative score, tier and cohort denominator are all computed in the same
-    pass, over the same fixed cohort, from the same authoritative target rows.
-    Canonical constants still resolve V3/V9, so nothing published changes.
+    CANONICAL as of the Financial RIP V4 cutover (``CANONICAL_FINANCIAL_RIP_
+    VERSION`` resolves to V4), and RANKED on the same cohort as V3/V9 so the
+    V4-vs-V3 comparison remains available. The rank, relative score, tier and
+    cohort denominator are all computed in the same pass, over the same fixed
+    cohort, from the same authoritative target rows.
     """
     payload = _parse_v3_payload(target.get("financial_rip_v3_payload"))
     return project_financial_rip_v4_from_v3_payload(payload)
@@ -846,10 +854,14 @@ def _rank_overall_rip_v10(row: Mapping[str, Any]) -> Optional[float]:
 
 
 def _rank_overall_rip_v12(row: Mapping[str, Any]) -> Optional[float]:
-    """Explicit V12 read-model accessor. SHADOW ONLY - not registered in any
-    active ranking list below; V10 remains canonical for ordering. Exists so a
-    future V10-vs-V12 comparison/audit can read the same absolute score every
-    other version's accessor reads, without inventing a second convention."""
+    """CANONICAL Overall rank accessor: the ABSOLUTE Overall RIP V12 score.
+
+    Never a cohort min-max transformation of it, for the same reason every
+    other absolute-ranked model here isn't: min-maxing wouldn't change order
+    but would put a cohort-dependent number under a field whose contract is
+    cohort independence. Registered in ``PUBLIC_RANKED_METRICS`` and read by
+    ``_attach_relative_scores``; V10's accessor above stays live too, as
+    explicit historical/rollback lineage."""
     return _to_optional_float((row.get("overallRipV12") or {}).get("score"))
 
 
@@ -1091,7 +1103,7 @@ def _attach_public_rip_contract(
     cohort_ids = set(cohort["eligibleSetIds"])
 
     # ---- exactly ONE batch Chase Accessibility read for the whole cohort ----
-    # SHADOW Overall RIP V12 input. Never one query per set inside the loop
+    # CANONICAL Overall RIP V12 input. Never one query per set inside the loop
     # below - this cohort can be up to MAX_TARGETS_LIMIT (200) sets.
     accessibility_by_set_id_v12 = read_chase_accessibility_snapshots_for_sets(
         set_ids=[target.get("target_id") for target in targets if target.get("target_id")],
@@ -1158,19 +1170,18 @@ def _attach_public_rip_contract(
         target["overallRipV9"] = compute_overall_rip_v9(
             financial_v3.get("score"), collector_appeal_score
         )
-        # IMPLEMENTED, NOT CANONICAL: Financial RIP V4 and the Overall RIP V10
-        # blend over it. Both are now ranked on the SAME cohort as V3/V9 so the
-        # models can be compared rank-for-rank ahead of a deliberate promotion;
-        # no publication surface reads them while the canonical constants still
-        # resolve V3/V9. Collector Appeal V5 is the SAME score V9 consumes -
-        # `collector_appeal_score` is one variable feeding both blends, so the
-        # appeal input cannot silently differ between V9 and V10.
+        # Financial RIP V4 (now canonical) and the Overall RIP V10 blend over
+        # it. Both stay ranked on the SAME cohort as V3/V9 - V10 is explicit
+        # historical/rollback lineage now that V12 is canonical (see below).
+        # Collector Appeal V5 is the SAME score V9 consumes - `collector_
+        # appeal_score` is one variable feeding both blends, so the appeal
+        # input cannot silently differ between V9 and V10.
         financial_v4 = _build_financial_rip_v4(target)
         target["financialRipV4"] = financial_v4
         target["overallRipV10"] = compute_overall_rip_v10(
             financial_v4.get("score"), collector_appeal_score
         )
-        # SHADOW, NOT CANONICAL: Overall RIP V12 = 0.86*FinancialV4 +
+        # CANONICAL: Overall RIP V12 = 0.86*FinancialV4 +
         # 0.04*ChaseAccessibilityScore(k=0.002) + 0.10*CollectorV5. Chase
         # Accessibility is set-level (migration 077) and is only accepted when
         # its OWN `calculation_run_id` matches this target's own authoritative
@@ -1235,32 +1246,45 @@ def _attach_public_rip_contract(
     cohort_rows = [target for target in targets if str(target.get("target_id")) in cohort_ids]
     _rank_within_cohort(cohort_rows, cohort_size=len(cohort_ids))
 
-    # 5. Overall-ranked cohort audit, against the CANONICAL Overall RIP.
-    #    Overall RIP V7 needs a valid Collector Appeal V3, so the Overall ranking
+    # 5. Overall-ranked cohort audit, against the CANONICAL Overall RIP - now
+    #    V12 (0.86 Financial RIP V4 + 0.04 Chase Accessibility Score(k=0.002) +
+    #    0.10 Collector Appeal V5). V12 needs a valid Collector Appeal V5 AND a
+    #    Chase Accessibility row whose calculation_run_id matches this target's
+    #    authoritative run and whose status is "ready", so the Overall ranking
     #    is a stricter population than the eligible cohort: an eligible set
-    #    without one keeps Financial RIP + Universal Set Desirability but is
-    #    flagged out of the Overall denominator (never dropped silently, never
-    #    given a fabricated Overall RIP). Mixed appeal versions fail closed.
+    #    without a rankable V12 keeps Financial RIP + Universal Set
+    #    Desirability but is flagged out of the Overall denominator (never
+    #    dropped silently, never given a fabricated Overall RIP). Mixed appeal
+    #    versions fail closed.
     #
-    #    Audited on `overallRipV8`, NOT on `overallRipV7` and NOT on the legacy
-    #    `rip` (v4) object. Auditing a superseded model would certify the cohort
-    #    of something nobody publishes any more: a set could hold a V7 score off
-    #    Collector Appeal V3 while having no canonical V8 score at all, and the
-    #    denominator would count it.
+    #    Availability is read directly off `overallRipV12.score` - the SAME
+    #    status `compute_overall_rip_v12` / `_align_overall_rip_v12_authority_
+    #    status` already produced a few lines above (missing input, non-ready
+    #    Accessibility, and authority mismatch all collapse `score` to `None`
+    #    there). This block does not re-derive a second, independent Chase
+    #    Accessibility authority check - it reuses that one status.
+    #
+    #    Audited on `overallRipV12`, NOT on `overallRipV9`/`overallRipV10` or
+    #    the legacy `rip` (v4) object. Auditing a superseded model would
+    #    certify the cohort of something nobody publishes any more: a set
+    #    could hold a V9 score off an older Financial/Appeal pairing while
+    #    having no canonical V12 score at all, and the denominator would count
+    #    it anyway.
     overall_available = {
-        str(target.get("target_id")): (target.get("overallRipV9") or {}).get("score") is not None
+        str(target.get("target_id")): (target.get("overallRipV12") or {}).get("score") is not None
         for target in cohort_rows
     }
     # The version OF THE NUMBER that fed the canonical blend, read from the
-    # appeal block the V8 resolver accepted. A set whose appeal declares some
-    # other version contributes that version here, so the mismatch check sees it
+    # appeal block the V12 resolver accepted (the same `collector_appeal_score`
+    # variable V9/V10/V12 all consume). A set whose appeal declares some other
+    # version contributes that version here, so the mismatch check sees it
     # rather than a quiet absence.
     appeal_version_by_set = {
         str(target.get("target_id")): (
             (target.get("openingExperience") or {}).get("collectorAppeal") or {}
         ).get("version")
         for target in cohort_rows
-        if (target.get("overallRipV9") or {}).get("score") is not None
+        if (target.get("overallRipV12") or {}).get("score") is not None
     }
     overall_audit = audit_overall_ranked_cohort(
         cohort.get("eligibleSetIds") or [], overall_available, appeal_version_by_set
@@ -1276,7 +1300,10 @@ def _attach_public_rip_contract(
     # audit can assert the property instead of trusting it, and so a future change
     # that loosens the resolver shows up here rather than silently.
     overall_audit["expectedAppealVersion"] = COLLECTOR_APPEAL_V5_VERSION
-    overall_audit["expectedOverallRipVersion"] = OVERALL_RIP_V9_VERSION
+    # CANONICAL_OVERALL_RIP_VERSION is the actual canonical-authority constant
+    # (currently V12) - never another stale version literal - so this audit
+    # metadata always names the model actually ranked.
+    overall_audit["expectedOverallRipVersion"] = CANONICAL_OVERALL_RIP_VERSION
     overall_audit["appealVersionMatchesCanonical"] = (
         overall_audit["appealVersion"] == COLLECTOR_APPEAL_V5_VERSION
     )
@@ -1383,6 +1410,10 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
         (_rank_overall_rip_v9, "overallRipV9"),
         (_rank_financial_rip_v4, "financialRipV4"),
         (_rank_overall_rip_v10, "overallRipV10"),
+        # CANONICAL: overallRipV12 gets the identical relative/leader/tier
+        # treatment V10 received before it - the promotion invariant is that
+        # V12's standing contract is never weaker than the model it replaces.
+        (_rank_overall_rip_v12, "overallRipV12"),
     ):
         scratch = [
             {"target_id": row.get("target_id"), "_score": extractor(row)}
@@ -1396,7 +1427,7 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
                 continue
             relative = relatives.get(str(row.get("target_id")))
             obj["relativeScore"] = round(relative, 2) if relative is not None else None
-            if obj_key in {"overallRipV10", "financialRipV4"}:
+            if obj_key in {"overallRipV10", "overallRipV12", "financialRipV4"}:
                 leader = leaders.get(str(row.get("target_id")))
                 obj["leaderNormalizedScore"] = round(leader, 2) if leader is not None else None
                 obj["tier"] = public_leader_rip_tier(leader)
@@ -1520,7 +1551,7 @@ def _apply_rank(
     if contract_key in (
         "rip", "ripCore", "financialRipV3",
         "overallRipV5", "overallRipV6", "overallRipV7", "overallRipV8", "overallRipV9",
-        "financialRipV4", "overallRipV10",
+        "financialRipV4", "overallRipV10", "overallRipV12",
     ):
         target = row.get(contract_key) or {}
         target["rank"] = entry.get("rank")
@@ -2387,9 +2418,12 @@ def get_rip_statistics_targets_payload(
         # so the backend payload is self-describing rather than requiring the
         # frontend to synthesize a contract it was not given.
         target[PUBLIC_RIP_CONTRACT_V10_KEY] = build_public_rip_contract_v10(target)
-        # SHADOW contract carrying Overall RIP V12 + Chase Accessibility.
-        # Additive: every key set above (through V10) is unchanged. Not read by
-        # any canonical publication surface while V10 remains canonical.
+        # CANONICAL contract carrying Overall RIP V12 (rank/tier/standing
+        # already attached above, inside `_attach_public_rip_contract`) +
+        # Chase Accessibility. Additive: every key set above (through V10) is
+        # unchanged and V10's own block is embedded verbatim for
+        # historical/rollback lineage. This is the contract current
+        # Set/Explore consumers read for the canonical Overall RIP.
         target[PUBLIC_RIP_CONTRACT_V11_KEY] = build_public_rip_contract_v11(target)
 
     default_target_row = next(

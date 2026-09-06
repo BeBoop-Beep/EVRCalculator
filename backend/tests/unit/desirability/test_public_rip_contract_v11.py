@@ -1,4 +1,4 @@
-"""Public RIP contract V11 - SHADOW contract carrying Overall RIP V12.
+"""Public RIP contract V11 - CANONICAL contract carrying Overall RIP V12.
 
 Phase 14 E: raw Accessibility distinct from A_score, V12 composition correct,
 ECE absent, Chase Depth diagnostic only, no "chance of a chase" string
@@ -93,9 +93,42 @@ def test_v12_composition_names_exact_three_inputs_and_weights():
     assert composition["version"] == OVERALL_RIP_V12_VERSION
 
 
-def test_v12_block_marked_shadow_not_canonical():
+def test_v12_block_marked_canonical():
+    """Post-promotion: overallRipV12 is the canonical Overall RIP lineage."""
     contract = build_public_rip_contract_v11(_target())
-    assert contract["overallRipV12"]["canonical"] is False
+    assert contract["overallRipV12"]["canonical"] is True
+
+
+def test_v12_block_projects_ranked_standing_fields_from_target():
+    """The V11 contract must not compute a second rank - it only projects the
+    rank/tier/standing fields already attached upstream by the ranking
+    machinery in explore_rip_statistics_service.py."""
+    target = _target()
+    target["overallRipV12"].update(
+        {
+            "rank": 3,
+            "tier": "strong",
+            "cohortSize": 22,
+            "relativeScore": 61.5,
+            "leaderNormalizedScore": 88.2,
+            "publicTier": "strong",
+        }
+    )
+    contract = build_public_rip_contract_v11(target)
+    v12 = contract["overallRipV12"]
+    assert v12["rank"] == 3
+    assert v12["tier"] == "strong"
+    assert v12["cohortSize"] == 22
+    assert v12["relativeScore"] == 61.5
+    assert v12["leaderNormalizedScore"] == 88.2
+    assert v12["publicTier"] == "strong"
+
+
+def test_v10_historical_block_unaffected_by_v12_promotion():
+    target = _target()
+    contract = build_public_rip_contract_v11(target)
+    # V10's explicit score stays available for comparison/rollback.
+    assert contract[PUBLIC_RIP_CONTRACT_V10_KEY] is not None
 
 
 def test_chase_depth_present_only_as_diagnostic_never_in_composition_inputs():

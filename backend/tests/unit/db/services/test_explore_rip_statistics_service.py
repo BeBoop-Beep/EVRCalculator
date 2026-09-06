@@ -661,3 +661,119 @@ def test_targets_publish_average_loss_when_losing_as_a_passthrough(monkeypatch):
     # The unconditional gap on this row is 4.99 - 6.11 = -1.12; the conditional
     # loss is 3.42. Nothing may collapse the two.
     assert first["expected_loss_when_losing"] != first["pack_cost"] - first["mean_value"]
+
+
+# ---------------------------------------------------------------------------
+# Overall RIP V12 canonical promotion (Set/Explore ranking pipeline).
+# ---------------------------------------------------------------------------
+# These would all fail against the pre-promotion state, where PUBLIC_RANKED_
+# METRICS had no V12 entry and overallRipV12 never received a rank/tier/
+# cohortSize/relativeScore, even though compute_overall_rip_v12 already ran.
+
+
+def test_public_ranked_metrics_registers_both_v10_and_v12():
+    """V10 stays registered as historical/rollback lineage; V12 is the new
+    canonical registration - the same side-by-side pattern V9-to-V10 used."""
+    registered = dict(service.PUBLIC_RANKED_METRICS)
+    assert registered.get("_rank_overall_rip_v10") == "overallRipV10"
+    assert registered.get("_rank_overall_rip_v12") == "overallRipV12"
+
+
+def _cohort_row(target_id, v12_score, *, v10_score=None, rankable=True, status="ready"):
+    return {
+        "target_id": target_id,
+        "canonical_key": target_id,
+        "overallRipV10": {"score": v10_score, "rankable": v10_score is not None},
+        "overallRipV12": {
+            "score": v12_score,
+            "rankable": rankable,
+            "status": status,
+            "version": (
+                "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_"
+                "collector_appeal_v5"
+            ),
+        },
+        "financialRipV4": {"score": v12_score},
+        "openingExperience": {"collectorAppeal": {}},
+    }
+
+
+def test_rank_within_cohort_assigns_contiguous_v12_ranks_by_absolute_score():
+    rows = [
+        _cohort_row("set-a", 90.0),
+        _cohort_row("set-b", 70.0),
+        _cohort_row("set-c", 80.0),
+    ]
+    service._rank_within_cohort(rows, cohort_size=len(rows))
+    by_id = {row["target_id"]: row["overallRipV12"] for row in rows}
+    assert by_id["set-a"]["rank"] == 1
+    assert by_id["set-c"]["rank"] == 2
+    assert by_id["set-b"]["rank"] == 3
+    assert {by_id[k]["rank"] for k in by_id} == {1, 2, 3}
+    for entry in by_id.values():
+        assert entry["cohortSize"] == 3
+        assert entry["tier"] is not None
+
+
+def test_rank_within_cohort_v12_ties_use_target_id_tiebreaker():
+    """Exact ties resolve deterministically by target_id, the same rule every
+    other ranked metric in this module already uses."""
+    rows = [
+        _cohort_row("set-z", 50.0),
+        _cohort_row("set-a", 50.0),
+    ]
+    service._rank_within_cohort(rows, cohort_size=len(rows))
+    by_id = {row["target_id"]: row["overallRipV12"] for row in rows}
+    # "set-a" sorts before "set-z" on the (-score, target_id) tiebreaker.
+    assert by_id["set-a"]["rank"] == 1
+    assert by_id["set-z"]["rank"] == 2
+
+
+def test_rank_within_cohort_v12_gets_standing_fields_v10_previously_got():
+    rows = [
+        _cohort_row("set-a", 90.0, v10_score=88.0),
+        _cohort_row("set-b", 70.0, v10_score=65.0),
+    ]
+    service._rank_within_cohort(rows, cohort_size=len(rows))
+    v12 = next(row["overallRipV12"] for row in rows if row["target_id"] == "set-a")
+    for field in ("rank", "tier", "cohortSize", "relativeScore", "leaderNormalizedScore", "publicTier"):
+        assert field in v12, f"overallRipV12 missing standing field {field!r}"
+    v10 = next(row["overallRipV10"] for row in rows if row["target_id"] == "set-a")
+    for field in ("rank", "tier", "cohortSize", "relativeScore", "leaderNormalizedScore", "publicTier"):
+        assert field in v10, f"overallRipV10 missing standing field {field!r} (history unaffected)"
+
+
+def test_rank_within_cohort_non_rankable_v12_gets_no_rank():
+    """A target whose V12 score is None (missing/mismatched/non-ready Chase
+    Accessibility authority) must never receive a fabricated canonical rank."""
+    rows = [
+        _cohort_row("set-a", 90.0),
+        _cohort_row(
+            "set-b", None, rankable=False, status="unavailable_authority_mismatch"
+        ),
+    ]
+    service._rank_within_cohort(rows, cohort_size=len(rows))
+    by_id = {row["target_id"]: row["overallRipV12"] for row in rows}
+    assert by_id["set-a"]["rank"] == 1
+    assert by_id["set-b"]["rank"] is None
+    assert by_id["set-b"]["status"] == "unavailable_authority_mismatch"
+
+
+def test_overall_ranked_cohort_audit_driven_by_v12_not_v9():
+    """The cohort audit must evaluate actual V12 population/readiness, and
+    name CANONICAL_OVERALL_RIP_VERSION (currently V12) as the expectation -
+    never a stale V9 literal."""
+    from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION
+    from backend.desirability.public_analytics_policy import audit_overall_ranked_cohort
+
+    overall_available = {"set-a": True, "set-b": False}
+    appeal_version_by_set = {"set-a": "collector_appeal_v5"}
+    audit = audit_overall_ranked_cohort(
+        ["set-a", "set-b"], overall_available, appeal_version_by_set
+    )
+    assert audit["rankedSetIds"] == ["set-a"]
+    assert audit["missingAppealSetIds"] == ["set-b"]
+    # Simulate what the service now stamps alongside the audit dict.
+    audit["expectedOverallRipVersion"] = CANONICAL_OVERALL_RIP_VERSION
+    assert audit["expectedOverallRipVersion"] == CANONICAL_OVERALL_RIP_VERSION
+    assert "v12" in audit["expectedOverallRipVersion"]

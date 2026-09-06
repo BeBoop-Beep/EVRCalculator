@@ -483,10 +483,8 @@ def overall_rip_v11_required_chase_opportunity_version() -> str:
 # so no second call site can reimplement (and silently drift from) the
 # transform.
 #
-# NOT CANONICAL. ``CANONICAL_OVERALL_RIP_VERSION`` continues to resolve to V10
-# (see the cutover switches below); this prompt implements the scoring
-# function only, does not flip any selector, and performs no publication,
-# migration or deployment.
+# CANONICAL as of the 2026-09-03 cutover below: ``CANONICAL_OVERALL_RIP_VERSION``
+# now resolves to this V12 version (see the cutover switches below).
 
 OVERALL_RIP_V12_VERSION = (
     "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5"

@@ -1,4 +1,4 @@
-"""Public RIP contract V11 - SHADOW projection carrying Overall RIP V12.
+"""Public RIP contract V11 - CANONICAL projection carrying Overall RIP V12.
 
 Public contract numbering is its OWN lineage, separate from Overall RIP model
 numbering: the highest existing contract file is `public_rip_contract_v10.py`
@@ -6,20 +6,30 @@ numbering: the highest existing contract file is `public_rip_contract_v10.py`
 V11 - NOT "v12" - even though the Overall RIP model it carries is V12. Do not
 conflate the two counters.
 
-NOT CANONICAL. `canonical_public_rip_contract_version()`
-(`backend/desirability/scoring_config.py`) continues to resolve to
-`PUBLIC_RIP_CONTRACT_V10_VERSION`. This contract is additive: every key the V10
-contract emits is unchanged, and a consumer pinned to V10 (or any earlier
-version) keeps receiving exactly what it always has. `publicRipContractV11` is
-a NEW top-level key a caller must explicitly opt into.
+CANONICAL. `canonical_public_rip_contract_version()`
+(`backend/desirability/scoring_config.py`) resolves to
+`PUBLIC_RIP_CONTRACT_V11_VERSION`, and `CANONICAL_OVERALL_RIP_VERSION` resolves
+to Overall RIP V12. This contract remains additive over V10: every key the V10
+contract emits is unchanged and embedded verbatim under `publicRipContractV10`
+(see `build_public_rip_contract_v11` below), so an explicit V10 consumer (or
+any earlier version) keeps receiving exactly what it always has - V10 is kept
+as historical/rollback lineage, not deleted. `publicRipContractV11` is the
+top-level key current Set/Explore consumers read for the canonical Overall RIP.
 
 WHAT IT ADDS OVER V10
 ----------------------
-* ``overallRipV12``: score / rankable / status / version for the SHADOW Overall
-  RIP V12 lineage (0.86 Financial RIP V4 + 0.04 Chase Accessibility V1 score +
-  0.10 Collector Appeal V5). While V10 remains canonical, an unavailable V12 is
-  reported as an explicit non-ready status - never coerced into the canonical
-  ``overallRip`` slot and never used to reorder anything.
+* ``overallRipV12``: score / rank / tier / cohortSize / relativeScore /
+  leaderNormalizedScore / publicTier / rankable / status / version for the
+  CANONICAL Overall RIP V12 lineage (0.86 Financial RIP V4 + 0.04 Chase
+  Accessibility V1 score + 0.10 Collector Appeal V5). The rank/standing fields
+  are attached upstream, by the same one ranking authority every other public
+  metric uses (`_rank_within_cohort` / `_attach_relative_scores` in
+  `explore_rip_statistics_service.py`), before this contract is built - this
+  module only projects them, it never computes a second rank. An unavailable
+  V12 (missing/mismatched/non-ready Chase Accessibility authority, or missing
+  Financial/Collector input) is reported as an explicit non-ready status and
+  simply has no rank - never a fabricated one, and never coerced into a
+  neighboring version's slot.
 * ``chaseAccessibility``: the PUBLIC RAW metric (a decimal fraction / percent,
   unchanged shape from ``project_chase_accessibility`` in
   ``backend.db.services.chase_accessibility_service``), together with its
@@ -99,6 +109,14 @@ def _chase_accessibility_block(target: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 def _overall_rip_v12_block(target: Mapping[str, Any]) -> Dict[str, Any]:
+    """Project the already-ranked canonical `overallRipV12` object.
+
+    `rank`/`tier`/`cohortSize`/`relativeScore`/`leaderNormalizedScore`/
+    `publicTier` are read verbatim off `target["overallRipV12"]` - they were
+    written by `_rank_within_cohort` / `_attach_relative_scores` in
+    `explore_rip_statistics_service.py` before this contract is built. This
+    function never computes or re-derives a rank of its own.
+    """
     overall_v12 = dict(target.get("overallRipV12") or {})
     return {
         "score": overall_v12.get("score"),
@@ -108,14 +126,23 @@ def _overall_rip_v12_block(target: Mapping[str, Any]) -> Dict[str, Any]:
         "version": overall_v12.get("version") or OVERALL_RIP_V12_VERSION,
         "components": overall_v12.get("components") or {},
         "missingInputs": overall_v12.get("missingInputs") or [],
-        # SHADOW, NOT canonical. Never read by ranking order or the canonical
-        # `overallRip` public slot.
-        "canonical": False,
+        "rank": overall_v12.get("rank"),
+        "tier": overall_v12.get("tier"),
+        "cohortSize": overall_v12.get("cohortSize"),
+        "relativeScore": overall_v12.get("relativeScore"),
+        "leaderNormalizedScore": overall_v12.get("leaderNormalizedScore"),
+        "publicTier": overall_v12.get("publicTier"),
+        # CANONICAL: this is the Overall RIP V12 lineage,
+        # `CANONICAL_OVERALL_RIP_VERSION` in scoring_config.py. A non-ready row
+        # still reports `canonical: True` with an explicit unavailable status -
+        # canonical describes the MODEL, not whether this particular row is
+        # currently rankable.
+        "canonical": True,
     }
 
 
 def build_public_rip_contract_v11(target: Mapping[str, Any]) -> Dict[str, Any]:
-    """Project a ranked target into the SHADOW public V11 contract.
+    """Project a ranked target into the CANONICAL public V11 contract.
 
     Builds on top of V10 (every V10 key is present, byte-for-byte unchanged)
     and adds the V12/Accessibility blocks described above. `target` is

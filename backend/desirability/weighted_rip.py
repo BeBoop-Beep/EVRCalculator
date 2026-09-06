@@ -419,11 +419,11 @@ def compute_overall_rip_v12(
     and meaning exactly as already shipped.
 
     LOCKED BY RESEARCH (``docs/research/OVERALL_RIP_ACCESSIBILITY_ARCHITECTURE_
-    CLOSURE.md``, FINAL CLOSURE). NOT CANONICAL:
-    ``CANONICAL_OVERALL_RIP_VERSION`` still resolves to V10. This function is
-    computable and directly testable now; promotion is a separate, later
-    change (out of scope here), exactly the pattern V10 and V11 already used
-    before their own eventual promotion decisions.
+    CLOSURE.md``, FINAL CLOSURE). CANONICAL as of the 2026-09-03 cutover:
+    ``CANONICAL_OVERALL_RIP_VERSION`` resolves to this V12 version. The
+    Set/Explore ranking pipeline (``explore_rip_statistics_service.py``) ranks
+    on this score and V10 remains registered as explicit historical/rollback
+    lineage, exactly the pattern V8/V9 used before their own promotions.
 
     ``chase_accessibility_raw`` is the RAW decimal-fraction Chase Accessibility
     value (``A_raw`` / the ``accessibility`` field of
