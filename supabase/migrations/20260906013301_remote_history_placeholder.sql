@@ -1,0 +1,1 @@
+-- Local CLI history bridge only. Remote migration already applied: wire_compact_intervals_into_v2_shadow_worker.
