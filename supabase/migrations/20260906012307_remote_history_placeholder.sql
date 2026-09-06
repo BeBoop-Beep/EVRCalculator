@@ -1,0 +1,1 @@
+-- Local CLI history bridge only. Remote migration already applied: pilot_compact_v2_market_intervals.
