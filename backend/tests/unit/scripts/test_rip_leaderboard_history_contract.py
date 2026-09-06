@@ -450,6 +450,12 @@ def test_production_code_has_no_direct_latest_writer_outside_canonical_rpc():
             # a forward-only CREATE OR REPLACE of the same function, repointed at
             # `{overallRipV10,rank}` and the Financial RIP V4 identity strings.
             "072_update_public_rip_rpc_to_v10.sql",
+            # The canonical V12 revision, and the writer in force today after the
+            # Overall RIP V12 (Chase Accessibility) canonical cutover. Same
+            # pattern: a forward-only CREATE OR REPLACE of the same function,
+            # repointed at `{overallRipV12,rank}` and the public_rip_contract_v11
+            # identity string. Financial RIP stays V4.
+            "078_update_public_rip_rpc_to_v12.sql",
         }
         if writes and not approved:
             offenders.append(str(path.relative_to(root)))
