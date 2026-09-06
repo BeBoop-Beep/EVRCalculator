@@ -1,0 +1,1 @@
+-- Local CLI history bridge only. Remote migration already applied: optimize_v2_market_explorer_shadow_state.
