@@ -37,6 +37,8 @@ from backend.scripts.pokemon_snapshot_builders import get_client
 # rollout RPC intentionally remains available for Price Storage V2 workflows,
 # but must not expand the global Market cohort.
 ROLLOUT_REFRESH_RPC = "refresh_pokemon_market_public_rollout_daily_snapshots_v1"
+PUBLIC_ROLLOUT_TABLE = "pokemon_market_public_era_rollout_v1"
+SOURCE_TABLE = "pokemon_set_value_daily_history"
 
 
 def parser():
@@ -56,6 +58,69 @@ def parser():
     return p
 
 
+def _rollout_source_materialization(client, market_date: str) -> dict:
+    """Cheap prerequisite check for staged public-era daily source rows.
+
+    The rollout refresh RPC can be relatively expensive because it derives
+    canonical parent/subset Set Value and Top-10 rows. Do not rerun it inside
+    the index publisher when both source scopes are already materialized for
+    every active rollout root. This keeps index publication idempotent and
+    avoids paying for the same canonical rebuild twice in one market day.
+    """
+    day = str(market_date)[:10]
+    era_rows = list(
+        client.table(PUBLIC_ROLLOUT_TABLE)
+        .select("era_id,activated_market_date")
+        .eq("enabled", True)
+        .lte("activated_market_date", day)
+        .execute().data or []
+    )
+    era_ids = sorted({str(row.get("era_id")) for row in era_rows if row.get("era_id")})
+    if not era_ids:
+        return {"ready": True, "rootCount": 0, "materializedPairCount": 0}
+
+    set_rows = list(
+        client.table("sets")
+        .select("id,era_id,parent_opening_set_id,catalog_only,ready_for_daily_scrape,release_date")
+        .in_("era_id", era_ids)
+        .execute().data or []
+    )
+    root_ids = sorted({
+        str(row["id"])
+        for row in set_rows
+        if row.get("id")
+        and not row.get("parent_opening_set_id")
+        and row.get("catalog_only") is not True
+        and row.get("ready_for_daily_scrape") is True
+        and (not row.get("release_date") or str(row.get("release_date"))[:10] <= day)
+    })
+    if not root_ids:
+        return {"ready": True, "rootCount": 0, "materializedPairCount": 0}
+
+    source_rows = list(
+        client.table(SOURCE_TABLE)
+        .select("set_id,value_scope")
+        .in_("set_id", root_ids)
+        .eq("snapshot_date", day)
+        .in_("value_scope", ["standard", "top10"])
+        .execute().data or []
+    )
+    pairs = {
+        (str(row.get("set_id")), str(row.get("value_scope")))
+        for row in source_rows
+        if row.get("set_id") and row.get("value_scope")
+    }
+    ready = all(
+        (set_id, "standard") in pairs and (set_id, "top10") in pairs
+        for set_id in root_ids
+    )
+    return {
+        "ready": ready,
+        "rootCount": len(root_ids),
+        "materializedPairCount": len(pairs),
+    }
+
+
 def build(client, *, market_date=None, backfill=False, from_date=None, commit=False, accepted_dates=None):
     # Historical/backfill behavior remains the legacy full-history builder.
     # Normal daily publication is incremental once staged era rollout is active:
@@ -63,9 +128,18 @@ def build(client, *, market_date=None, backfill=False, from_date=None, commit=Fa
     # neutralized explicitly instead of being misreported as price performance.
     rollout_refresh = None
     if market_date and not backfill:
-        if commit:
-            response = client.rpc(ROLLOUT_REFRESH_RPC, {"p_market_date": str(market_date)[:10]}).execute()
+        materialization = _rollout_source_materialization(client, str(market_date)[:10])
+        if commit and not materialization["ready"]:
+            response = client.rpc(
+                ROLLOUT_REFRESH_RPC,
+                {"p_market_date": str(market_date)[:10]},
+            ).execute()
             rollout_refresh = getattr(response, "data", None)
+        else:
+            rollout_refresh = {
+                "status": "already_materialized" if materialization["ready"] else "dry_run",
+                **materialization,
+            }
         rows = build_rollout_market_index_rows(client, market_date=str(market_date)[:10])
         persisted = persist_rollout_market_index_rows(client, rows) if commit else 0
     else:
