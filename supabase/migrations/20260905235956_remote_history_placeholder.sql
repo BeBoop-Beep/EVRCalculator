@@ -1,0 +1,1 @@
+-- Local CLI history bridge only. Remote migration already applied: start_price_storage_v2_shadow_migration.
