@@ -711,7 +711,7 @@ leaves the boundary enforced by the remaining one.
 Canonical Sep-3 Global All Raw / daily-states universe remains **33,955** (unchanged by this
 session -- this session hardened the write path, it did not touch data).
 
-### S.7 Market Explorer migration-source-sync backlog
+### S.7 Market Explorer migration-source-sync backlog (superseded — see section T)
 Queried production's `supabase_migrations.schema_migrations` directly (version >=
 `20260902000000`) and cross-checked against `backend/db/migrations/` and `supabase/migrations/` in
 this repo. Market-Explorer-scoped migrations still live in production but **absent from this repo**
@@ -734,9 +734,98 @@ filters` (in `supabase/migrations/`), and this session's own
 `PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT` remains the status for the backlog above --
 non-blocking, and out of this session's scope to reconstruct.
 
-### S.8 Final decision
+### S.8 Final decision (superseded — see section T for the completed sync)
 DB-side authority hardening is mirrored into the repo, byte-verified against the production
 migration ledger, and covered by a passing contract test suite. Combined with the R-section
 Python-side purge, the Market Explorer daily/historical projection write path is now enforced
 against the canonical instrument authority at both the database and application layers. Do not
 begin Prompt 6 without explicit instruction.
+
+## T. Final production migration source sync — COMPLETE (later session)
+
+This section resolves the S.7 backlog. All nine previously-missing Market Explorer production
+migrations were retrieved directly from `supabase_migrations.schema_migrations` and mirrored
+verbatim -- no SQL reconstructed, paraphrased, normalized, or "cleaned up."
+
+### T.1 Files added
+`backend/db/migrations/`:
+- `20260902221622_add_market_explorer_vintage_identity_repair_primitives.sql`
+- `20260902221819_add_scoped_variant_monthly_rollup_rebuild.sql`
+- `20260903034704_harden_market_explorer_vintage_top_hits_rebuild.sql`
+- `20260903192911_add_market_explorer_current_metadata_projection.sql`
+- `20260904173530_canonical_market_root_set_universe_v1.sql`
+- `20260904173806_exclude_invalid_gym_challenge_duplicate.sql`
+- `20260904174406_canonical_market_publication_certification_v1.sql`
+- `20260904174801_canonical_market_root_set_daily_history_v1.sql`
+- `20260905040740_add_batched_market_explorer_cache_publication.sql`
+
+`20260906003840_harden_market_explorer_reproject_authority_boundary.sql` (mirrored in the prior
+session, section S) was compared against the ledger again and left unmodified -- exact match.
+
+### T.2 Exact ledger verification (two independent passes)
+Pass 1: fetched each version's `statements` array from `supabase_migrations.schema_migrations`,
+wrote it verbatim to its target file, and round-tripped a read-back comparison at write time. Pass
+2 (independent, on a fresh query): computed `md5(array_to_string(statements, E'\n'))` directly in
+production for all ten versions (the nine new mirrors plus `20260906003840`) and compared each
+against the local file's MD5 (file content minus the single trailing newline added on write, since
+`array_to_string` of a one-element array reproduces that element exactly). **All 10 versions
+MD5-matched exactly.** No whitespace normalization, reformatting, or reconstruction occurred at any
+step -- every file is the literal ledger statement.
+
+### T.3 Chansey migration content confirmed
+`20260904173806_exclude_invalid_gym_challenge_duplicate` contains **only** an `UPDATE
+public.pokemon_canonical_cards` for canonical id `5b336ad8-1397-42ea-a88b-53c0d67f6d82`
+(`______'s Chansey (DUPLICATE)`), setting `catalog_role='duplicate_alias'`,
+`set_value_eligible=false`, `opening_eligible=false`, and an explanatory `eligibility_reason`. It
+does not reference or delete from `pokemon_market_explorer_card_daily_states` -- confirming the
+root-cause narrative exactly: the canonical correction alone did not retroactively clean
+already-materialized daily-state rows; that gap was closed separately by Prompt 5's own generic
+purge (`purge_ineligible_daily_state_rows`, commit `6b8f5417`) and by the later DB-side
+`20260906003840` hardening (section S), not by this migration.
+
+### T.4 Historical ordering preserved, not "fixed"
+`20260902221622` (the *original* `reproject_pokemon_market_explorer_card_daily_states`,
+2026-09-02) inserts directly from `pokemon_card_variant_market_price_intervals` with no canonical-
+authority join -- exactly as it ran in production at that time, left untouched as historical
+record. `20260906003840` (2026-09-06) is the later `CREATE OR REPLACE` that adds the authority join
+described in section S. Both files coexist in the repo because both actually ran, in that order,
+in production; the repo now reflects the true migration history rather than only the final state.
+
+### T.5 Contract tests
+New file `backend/tests/unit/db/test_market_explorer_migration_source_sync.py`, 7 focused tests
+(not one-per-line): every listed version has a repo file; the original reproject migration lacks
+the authority join while the hardened one has it (proving supersession without rewriting the
+original); the Chansey migration is scoped to exactly the canonical UPDATE with no daily-states
+reference; the batched-publication migration contains all four staged RPCs
+(stage/upsert/trim/finalize) plus the trigger-bypass sync function; service-role-only
+revoke/grant boundaries are present on the reproject, current-metadata-refresh, and
+finalize-build functions; and the mirrored versions sort in production chronological order.
+**7/7 passed.** Combined with the existing migration-contract tests
+(`test_market_explorer_reproject_authority_boundary_migration.py`,
+`test_market_explorer_instrument_eligibility_migration.py`) and the full Prompt 4/5 script/
+service/planner/cache suite: **201 passed, 0 failed**. Broader `-k market_explorer` sweep across
+`backend/tests` (billing/stripe and one unrelated logging module excluded from collection --
+pre-existing, unrelated to this change): **351 passed, 0 failed**. `git diff --check` clean.
+
+### T.6 Corrected baseline reconfirmed
+Canonical Sep-3 Global All Raw / daily-states universe remains **33,955**. This session performed
+no production reads or writes beyond `SELECT`s against the migration ledger; no data changed.
+
+### T.7 Remaining Market Explorer migration-source-sync backlog
+**None outstanding.** Every Market Explorer production migration identified in this investigation
+(back through `20260902031454_push_down_market_explorer_daily_scope_filters`, already present) is
+now mirrored in this repo across `backend/db/migrations/` and `supabase/migrations/`. Status is
+updated from `PRODUCTION_MIGRATION_SOURCE_SYNC_PENDING_CHATGPT` to
+**`PRODUCTION_MIGRATION_SOURCE_SYNC_COMPLETE`** for the Market Explorer domain specifically. (This
+does not claim every migration in the wider production ledger -- e.g. the concurrent price-storage-
+v2, collector-appeal, and budget-ranking migrations visible in the same ledger query -- is mirrored;
+those are outside Market Explorer scope and were not evaluated by this session.)
+
+### T.8 Final decision
+`PRODUCTION_MIGRATION_SOURCE_SYNC_COMPLETE` for the Market Explorer domain. The database now has a
+complete, byte-verified, chronologically faithful repo mirror of every migration that shaped
+`reproject_pokemon_market_explorer_card_daily_states`, the canonical vintage/merge-ledger
+primitives, the current-metadata projection, the Chansey duplicate_alias correction, the top-hits
+rebuild hardening, the canonical market-root/publication-certification/daily-history migrations,
+the batched cache-publication RPCs, and the final authority-join hardening -- in the exact order
+they ran. Do not begin Prompt 6 without explicit instruction.
