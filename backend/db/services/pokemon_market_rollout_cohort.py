@@ -4,7 +4,12 @@ from typing import Any, Sequence
 
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 
-ROLLOUT_VIEW = "pokemon_market_rollout_root_sets_v1"
+# Public Market historical-era rollout is intentionally isolated from the
+# older Price Storage V2 per-set/era rollout authorities. Those authorities
+# may contain individually validated older sets, but they must not silently
+# expand the global Raw/Top-10/Sealed Market cohort. New eras enter this view
+# only when we explicitly activate them for public Market rollout.
+ROLLOUT_VIEW = "pokemon_market_public_rollout_root_sets_v1"
 
 _CORE_SET_COLUMNS = (
     "id,canonical_key,name,era_id,release_date,logo_image_url,symbol_image_url,"
@@ -58,10 +63,10 @@ def _rollout_market_sets(client: Any, *, market_date: str | None = None) -> list
 def resolve_market_root_cohort(client: Any, *, market_date: str | None = None) -> list[dict[str, Any]]:
     """Core public Market roots plus explicitly activated historical-era roots.
 
-    Existing public/RIP eligibility remains the core cohort. The rollout table
-    can add older eras without changing RIP eligibility. If a rollout set was
-    already in the core cohort, rollout metadata is attached to the same root
-    rather than producing a duplicate.
+    Existing public/RIP eligibility remains the core cohort. The public rollout
+    authority can add older eras without changing RIP eligibility. If a rollout
+    set was already in the core cohort, rollout metadata is attached to the same
+    root rather than producing a duplicate.
     """
     core = _core_market_sets(client)
     rollout = _rollout_market_sets(client, market_date=market_date)
@@ -95,7 +100,7 @@ def resolve_market_root_cohort(client: Any, *, market_date: str | None = None) -
 
 
 def rollout_transition_set_ids(client: Any, market_date: str) -> set[str]:
-    """Root sets whose staged era activates exactly on ``market_date``."""
+    """Root sets whose staged public era activates exactly on ``market_date``."""
     return {
         str(row["id"])
         for row in _rollout_market_sets(client, market_date=market_date)
