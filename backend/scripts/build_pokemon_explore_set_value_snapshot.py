@@ -20,15 +20,22 @@ from backend.db.services.pokemon_explore_set_value_service import (
     upsert_explore_set_value_snapshot,
 )
 from backend.db.services.market_publication_gate import (
-    MarketForcePublishRejected, enforce_market_publication_gate,
+    MarketForcePublishRejected,
+    enforce_market_publication_gate,
 )
-from backend.db.services.publication_gate import add_publication_gate_args, enforce_cli_publication_gate
+from backend.db.services.publication_gate import add_publication_gate_args
 from backend.db.services.pokemon_market_index_service import read_index_history
 from backend.db.services.canonical_market_overview import (
     build_canonical_market_overview,
     resolve_canonical_overview_sets,
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
+
+MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
+CANONICAL_HISTORY_RPC = "get_pokemon_market_root_set_value_daily_history_bulk_v1"
+CANONICAL_HISTORY_START = "1999-01-01"
+CANONICAL_HISTORY_SET_BATCH = 4
+ROLLOUT_STANDARD_SOURCE = "canonical_root_set_rollout_v1"
 
 
 def _attach_initial_selected_set_movers(client, row: dict) -> None:
@@ -73,64 +80,137 @@ def parser() -> argparse.ArgumentParser:
 
 
 def _load_sets(client, *, market_date: str):
-    """The Market cohort. Delegates so the audit resolves the SAME set rows."""
-    return resolve_canonical_overview_sets(client, market_date=market_date)
+    """Staged market-domain Set Value cohort, independent of RIP eligibility."""
+    rows = list((
+        client.table(MARKET_READY_VIEW)
+        .select(
+            "set_id,set_name,canonical_key,era_name,release_date,logo_image_url,"
+            "symbol_image_url,market_scope,canonical_market_date,market_publication_ready,"
+            "current_certification_status"
+        )
+        .eq("market_scope", "standard")
+        .eq("market_publication_ready", True)
+        .eq("canonical_market_date", str(market_date)[:10])
+        .order("release_date")
+        .execute()
+    ).data or [])
+    return [
+        {
+            "id": row.get("set_id"),
+            "name": row.get("set_name"),
+            "canonical_key": row.get("canonical_key"),
+            "era": row.get("era_name"),
+            "release_date": row.get("release_date"),
+            "logo_image_url": row.get("logo_image_url"),
+            "symbol_image_url": row.get("symbol_image_url"),
+            "market_scope": row.get("market_scope"),
+            "market_publication_ready": bool(row.get("market_publication_ready")),
+            "current_certification_status": row.get("current_certification_status"),
+        }
+        for row in rows
+        if row.get("set_id")
+    ]
 
 
 def _load_canonical_histories(client, set_ids, *, through_date: str):
-    """Canonical Set Value history as of ``through_date`` - a point-in-time read.
+    """Canonical parent/subset Set Value history plus staged current-day overlay.
 
-    The upper bound is applied server-side. A promoted build for D must not be
-    made stale by observations that arrived for D+1: without this bound a build
-    for 2026-08-17 loaded rows through 2026-08-18 and every set was rejected
-    as stale because canonical[-1] was the future date.
+    Historical points retain the strict per-day canonical certification rule.
+    For an activated rollout era, the current Market value is the materialized
+    latest-known canonical basket, which may carry a small number of stale NM
+    constituents while still meeting the explicit >=95% rollout threshold.
     """
     grouped = defaultdict(list)
-    page_size = 1000
-    start = 0
     limit_date = str(through_date)[:10]
-    while True:
-        rows = list((client.table("pokemon_set_value_daily_history")
-            .select("set_id,snapshot_date,set_value").in_("set_id", set_ids)
-            .eq("value_scope", "standard").lte("snapshot_date", limit_date)
-            .order("snapshot_date", desc=False)
-            .order("set_id", desc=False)
-            .range(start, start + page_size - 1).execute()).data or [])
+    for offset in range(0, len(set_ids), CANONICAL_HISTORY_SET_BATCH):
+        batch = set_ids[offset:offset + CANONICAL_HISTORY_SET_BATCH]
+        response = client.rpc(
+            CANONICAL_HISTORY_RPC,
+            {
+                "p_root_set_ids": batch,
+                "p_start_date": CANONICAL_HISTORY_START,
+                "p_end_date": limit_date,
+            },
+        ).execute()
+        for row in list(response.data or []):
+            if str(row.get("market_scope") or "") != "standard":
+                continue
+            if row.get("certified_on_date") is not True:
+                continue
+            grouped[str(row.get("set_id"))].append({
+                "set_id": row.get("set_id"),
+                "snapshot_date": row.get("market_date"),
+                "set_value": row.get("set_value"),
+            })
+
+    for offset in range(0, len(set_ids), 100):
+        batch = set_ids[offset:offset + 100]
+        rows = list((
+            client.table("pokemon_set_value_daily_history")
+            .select("set_id,snapshot_date,set_value,source")
+            .in_("set_id", batch)
+            .eq("snapshot_date", limit_date)
+            .eq("value_scope", "standard")
+            .eq("source", ROLLOUT_STANDARD_SOURCE)
+            .execute()
+        ).data or [])
         for row in rows:
-            grouped[str(row.get("set_id"))].append(row)
-        if len(rows) < page_size:
-            break
-        start += page_size
+            set_id = str(row.get("set_id"))
+            grouped[set_id] = [
+                point
+                for point in grouped.get(set_id, [])
+                if str(point.get("snapshot_date"))[:10] != limit_date
+            ]
+            grouped[set_id].append({
+                "set_id": row.get("set_id"),
+                "snapshot_date": row.get("snapshot_date"),
+                "set_value": row.get("set_value"),
+            })
+
+    for rows in grouped.values():
+        rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
     return grouped
 
 
 def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
     sets = _load_sets(client, market_date=market_date)
     set_ids = [str(row["id"]) for row in sets]
+    if not set_ids:
+        raise ExploreSetValueUnavailable(
+            "no staged Market Set Value scopes are available",
+            diagnostics={"marketDate": str(market_date)[:10]},
+        )
+
     dashboards = []
-    # One bounded query per batch, never one request per set. Read only the
-    # split Set Value column plus the one prepared Cards Market path; raw
-    # dashboard payload_json is intentionally absent.
     for offset in range(0, len(set_ids), 20):
         result = (client.table("pokemon_set_market_dashboard_snapshot_latest")
             .select("set_id,window_key,set_value_histories_json,latest_market_date,updated_at,cardsMarket:payload_json->cardsMarket")
             .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
         dashboards.extend(result.data or [])
+
     histories = _load_canonical_histories(client, set_ids, through_date=market_date)
+
     overview = market_overview
     if overview is None:
         history = market_index_history
         if history is None:
             history = read_index_history(client, through_date=market_date)
-        # ONE construction, shared with the publication parity audit. Additive
-        # Market contracts are added in canonical_market_overview, never here,
-        # so the audit can never fall behind the publisher again.
+        overview_sets = resolve_canonical_overview_sets(client, market_date=market_date)
+        overview_set_ids = [str(row["id"]) for row in overview_sets]
         overview = build_canonical_market_overview(
-            client, market_date=market_date, history=history, set_ids=set_ids,
+            client,
+            market_date=market_date,
+            history=history,
+            set_ids=overview_set_ids,
         )
+
     row = build_global_set_value_row(
-        sets, dashboards, histories, target_market_date=market_date,
-        market_overview=overview, publisher_build_sha=publisher_build_sha(),
+        sets,
+        dashboards,
+        histories,
+        target_market_date=market_date,
+        market_overview=overview,
+        publisher_build_sha=publisher_build_sha(),
     )
     _attach_initial_selected_set_movers(client, row)
     if commit:
@@ -143,9 +223,12 @@ def main() -> None:
     client = get_client()
     try:
         gate = enforce_market_publication_gate(
-            client, commit=bool(args.commit), market_date=args.market_date,
+            client,
+            commit=bool(args.commit),
+            market_date=args.market_date,
             force_publish=bool(args.force_publish),
-            entry_point="Global Market Set Value snapshot")
+            entry_point="Global Market Set Value snapshot",
+        )
     except MarketForcePublishRejected as exc:
         print(str(exc))
         raise SystemExit(2) from exc
@@ -159,7 +242,12 @@ def main() -> None:
     except ExploreSetValueUnavailable as exc:
         print(json.dumps({"status": "blocked", "reason": str(exc), **exc.diagnostics}, indent=2, sort_keys=True))
         raise SystemExit(1) from exc
-    print(json.dumps({"status": "validated", **row["_diagnostics"], "payloadSizeBytes": row["payload_size_bytes"], "sourceGenerationFingerprint": row["source_generation_fingerprint"]}, indent=2, sort_keys=True))
+    print(json.dumps({
+        "status": "validated",
+        **row["_diagnostics"],
+        "payloadSizeBytes": row["payload_size_bytes"],
+        "sourceGenerationFingerprint": row["source_generation_fingerprint"],
+    }, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
