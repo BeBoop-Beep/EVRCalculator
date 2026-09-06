@@ -436,10 +436,14 @@ def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
     assert targets_by_id["set-1"]["setValueComparisonStatus7d"] == "available"
     assert targets_by_id["set-2"]["setValueComparisonStatus7d"] == "new"
     assert targets_by_id["set-1"]["ripRankComparisonStatus1d"] == "unavailable"
-    assert payload["meta"]["comparisonSnapshots"] == {
-        "currentMarketDate": "2026-01-04",
-        "previousMarketDate": "2026-01-03",
-    }
+    assert payload["meta"]["comparisonSnapshots"]["currentMarketDate"] == "2026-01-04"
+    assert payload["meta"]["comparisonSnapshots"]["previousMarketDate"] == "2026-01-03"
+    # Diagnostics-only simulation source market date summary (distinct from the
+    # publication/scrape-derived currentMarketDate above); no fixture target
+    # here carries a resolvable calculation_run_market_date, so it's empty.
+    assert payload["meta"]["comparisonSnapshots"]["simulationSourceMarketDate"] is None
+    assert payload["meta"]["comparisonSnapshots"]["simulationSourceMarketDates"] == []
+    assert payload["meta"]["comparisonSnapshots"]["simulationSourceMarketDateCoherent"] is True
     assert payload["meta"]["ripDesirabilityComparison"]["valid_comparison_count"] == 2
     assert payload["meta"]["sources"]["explore_rip_statistics_latest"] == "OK"
     assert payload["meta"]["sources"]["simulation_latest_by_target"] == "SKIPPED_RIP_SUMMARY"

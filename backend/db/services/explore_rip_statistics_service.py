@@ -381,6 +381,74 @@ def _load_complete_published_snapshot_dates(
         return None, None
 
 
+def _load_calculation_run_market_dates(
+    calculation_run_ids: List[str],
+    *,
+    sources: Dict[str, str],
+    warnings: List[str],
+) -> Dict[str, Optional[str]]:
+    """Resolve each target's OWN authoritative simulation market date.
+
+    This is the SIMULATION SOURCE MARKET DATE, distinct from the publication /
+    scrape-derived market date returned by `_load_complete_published_snapshot_dates`.
+    It must come from `calculation_runs.market_date` for the exact
+    `calculation_run_id` backing each target - never from the current scrape
+    batch, wall-clock date, or any other target's run. A single batched `IN`
+    query keeps this from becoming an N+1 lookup in the publisher.
+
+    `calculation_runs.market_date` is nullable (migration 076): legacy runs
+    predate the explicit column and resolve to `None` here rather than being
+    backfilled from `created_at`, which would fabricate a market date that was
+    never actually promoted.
+    """
+    unique_run_ids = sorted({_to_optional_str(run_id) for run_id in calculation_run_ids if _to_optional_str(run_id)})
+    if not unique_run_ids:
+        sources["calculation_runs_market_date"] = "SKIPPED"
+        return {}
+    try:
+        lookup: Dict[str, Optional[str]] = {}
+        for chunk in _chunks(unique_run_ids, _SET_VALUE_HISTORY_CHUNK_SIZE):
+            result = (
+                service_read_client.table("calculation_runs")
+                .select("id,market_date")
+                .in_("id", chunk)
+                .execute()
+            )
+            for row in (result.data or []):
+                run_id = _to_optional_str(row.get("id"))
+                if run_id:
+                    lookup[run_id] = _to_optional_str(row.get("market_date"))
+        sources["calculation_runs_market_date"] = "OK"
+        return lookup
+    except Exception as exc:
+        logger.warning("[rip-statistics-targets] calculation run market date lookup failed: %s", exc)
+        warnings.append("Failed to resolve simulation source market dates for one or more RIP targets")
+        sources["calculation_runs_market_date"] = "FAILED"
+        return {}
+
+
+def _simulation_source_market_date_diagnostics(targets: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Summarize the simulation source market date(s) actually present.
+
+    Diagnostics only: never authoritative for publication, which independently
+    resolves and validates `calculation_run_market_date` per canonical target
+    and fails closed on incoherence. Reports a single `simulationSourceMarketDate`
+    only when every target carrying a resolvable source date agrees; otherwise
+    reports the distinct set so a mixed cohort is visible before it ever reaches
+    publication.
+    """
+    observed = sorted({
+        _to_optional_str(target.get("calculation_run_market_date"))
+        for target in targets
+        if _to_optional_str(target.get("calculation_run_market_date"))
+    })
+    return {
+        "simulationSourceMarketDate": observed[0] if len(observed) == 1 else None,
+        "simulationSourceMarketDates": observed,
+        "simulationSourceMarketDateCoherent": len(observed) <= 1,
+    }
+
+
 def _load_current_checklist_set_value_lookup(
     set_ids: List[str],
     *,
@@ -1943,6 +2011,11 @@ def get_rip_statistics_targets_payload(
     current_snapshot_date, previous_snapshot_date = _load_complete_published_snapshot_dates(
         sources=sources, warnings=warnings
     )
+    calculation_run_market_date_lookup = _load_calculation_run_market_dates(
+        [row.get("calculation_run_id") for row in ranked_rows],
+        sources=sources,
+        warnings=warnings,
+    )
     current_checklist_set_value_lookup = _load_current_checklist_set_value_lookup(
         set_value_lookup_ids,
         current_snapshot_date=current_snapshot_date,
@@ -2215,6 +2288,14 @@ def get_rip_statistics_targets_payload(
                 # contract builder never mixes a score from one run with raw
                 # metrics from another.
                 "calculation_run_id": row.get("calculation_run_id"),
+                # AUTHORITATIVE SIMULATION SOURCE MARKET DATE for this target's
+                # OWN calculation_run_id - never the publication/scrape market
+                # date. `None` when the run predates migration 076's explicit
+                # column; the publisher fails closed on that rather than
+                # substituting the publication date.
+                "calculation_run_market_date": calculation_run_market_date_lookup.get(
+                    _to_optional_str(row.get("calculation_run_id"))
+                ),
                 "rankingsChase": rankings_top_chase_lookup.get(str(row.get("set_id"))),
                 "financial_rip_v3_payload": row.get("financial_rip_v3_payload"),
                 "financial_rip_v3_score": row.get("financial_rip_v3_score"),
@@ -2529,8 +2610,18 @@ def get_rip_statistics_targets_payload(
                 "rip_score_without_desirability": "Legacy comparison field; see `ripCore.score`.",
             },
             "comparisonSnapshots": {
+                # PUBLICATION / MARKET-AS-OF DATE. Driven by the newest complete,
+                # promoted SCRAPE batch (`pokemon_scrape_batches`) - this is the
+                # public "market context is current through" identity, and is
+                # deliberately allowed to be newer than the simulations below.
                 "currentMarketDate": current_snapshot_date,
                 "previousMarketDate": previous_snapshot_date,
+                # SIMULATION SOURCE MARKET DATE. Distinct concept: the date(s)
+                # actually carried by each target's OWN `calculation_runs.market_date`.
+                # Diagnostics only here - the publisher independently re-derives
+                # and validates this per target and fails closed rather than
+                # trusting this summary.
+                **_simulation_source_market_date_diagnostics(targets),
             },
             "timings": {
                 "targets_query_ms": round(query_ms, 2),
