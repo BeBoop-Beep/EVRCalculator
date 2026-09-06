@@ -1,0 +1,1 @@
+-- Local CLI history bridge only. Remote migration already applied: index_price_storage_v2_event_foreign_key.
