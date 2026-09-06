@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 
@@ -112,14 +112,17 @@ def expand_raw_card_member_set_ids(client: Any, root_set_ids: Sequence[str]) -> 
     roots = sorted({str(value) for value in root_set_ids if value})
     if not roots:
         return []
-    rows = list(
-        client.table("sets")
-        .select("id,parent_opening_set_id,counts_toward_parent_set_value,catalog_only")
-        .or_(
-            "id.in.(" + ",".join(roots) + "),parent_opening_set_id.in.(" + ",".join(roots) + ")"
+    rows: list[dict[str, Any]] = []
+    for offset in range(0, len(roots), 100):
+        batch = roots[offset:offset + 100]
+        rows.extend(
+            list(
+                client.table("sets")
+                .select("id,parent_opening_set_id,counts_toward_parent_set_value,catalog_only")
+                .in_("parent_opening_set_id", batch)
+                .execute().data or []
+            )
         )
-        .execute().data or []
-    )
     result = set(roots)
     for row in rows:
         parent_id = str(row.get("parent_opening_set_id") or "")
