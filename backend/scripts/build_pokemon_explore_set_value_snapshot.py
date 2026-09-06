@@ -20,9 +20,10 @@ from backend.db.services.pokemon_explore_set_value_service import (
     upsert_explore_set_value_snapshot,
 )
 from backend.db.services.market_publication_gate import (
-    MarketForcePublishRejected, enforce_market_publication_gate,
+    MarketForcePublishRejected,
+    enforce_market_publication_gate,
 )
-from backend.db.services.publication_gate import add_publication_gate_args, enforce_cli_publication_gate
+from backend.db.services.publication_gate import add_publication_gate_args
 from backend.db.services.pokemon_market_index_service import read_index_history
 from backend.db.services.canonical_market_overview import (
     build_canonical_market_overview,
@@ -30,10 +31,11 @@ from backend.db.services.canonical_market_overview import (
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
 
-MARKET_READY_VIEW = "pokemon_market_root_set_market_ready_v1"
+MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
 CANONICAL_HISTORY_RPC = "get_pokemon_market_root_set_value_daily_history_bulk_v1"
 CANONICAL_HISTORY_START = "1999-01-01"
 CANONICAL_HISTORY_SET_BATCH = 4
+ROLLOUT_STANDARD_SOURCE = "canonical_root_set_rollout_v1"
 
 
 def _attach_initial_selected_set_movers(client, row: dict) -> None:
@@ -78,13 +80,7 @@ def parser() -> argparse.ArgumentParser:
 
 
 def _load_sets(client, *, market_date: str):
-    """Current market-domain Set Value cohort, independent of RIP/simulation.
-
-    The global Market snapshot remains one-row-per-set today, so it publishes
-    the certified ``standard`` scope. Vintage First/Unlimited/Shadowless scopes
-    remain separately available in the canonical authority until the frontend
-    receives an explicit edition-scope selector instead of silently mixing them.
-    """
+    """Staged market-domain Set Value cohort, independent of RIP eligibility."""
     rows = list((
         client.table(MARKET_READY_VIEW)
         .select(
@@ -117,12 +113,12 @@ def _load_sets(client, *, market_date: str):
 
 
 def _load_canonical_histories(client, set_ids, *, through_date: str):
-    """Canonical parent/subset-aware Set Value history for the Market cohort.
+    """Canonical parent/subset Set Value history plus staged current-day overlay.
 
-    The per-root DB function is the mathematical authority. The bulk RPC merely
-    batches it; small set batches keep PostgREST responses below row limits.
-    Historical dates that fail their own constituent certification are omitted
-    instead of silently drawing an incomplete basket into the trend.
+    Historical points retain the strict per-day canonical certification rule.
+    For an activated rollout era, the current Market value is the materialized
+    latest-known canonical basket, which may carry a small number of stale NM
+    constituents while still meeting the explicit >=95% rollout threshold.
     """
     grouped = defaultdict(list)
     limit_date = str(through_date)[:10]
@@ -146,24 +142,46 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 "snapshot_date": row.get("market_date"),
                 "set_value": row.get("set_value"),
             })
+
+    for offset in range(0, len(set_ids), 100):
+        batch = set_ids[offset:offset + 100]
+        rows = list((
+            client.table("pokemon_set_value_daily_history")
+            .select("set_id,snapshot_date,set_value,source")
+            .in_("set_id", batch)
+            .eq("snapshot_date", limit_date)
+            .eq("value_scope", "standard")
+            .eq("source", ROLLOUT_STANDARD_SOURCE)
+            .execute()
+        ).data or [])
+        for row in rows:
+            set_id = str(row.get("set_id"))
+            grouped[set_id] = [
+                point
+                for point in grouped.get(set_id, [])
+                if str(point.get("snapshot_date"))[:10] != limit_date
+            ]
+            grouped[set_id].append({
+                "set_id": row.get("set_id"),
+                "snapshot_date": row.get("snapshot_date"),
+                "set_value": row.get("set_value"),
+            })
+
     for rows in grouped.values():
         rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
     return grouped
 
 
 def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
-    # Broad Set Value publication cohort: current, certified market data only.
     sets = _load_sets(client, market_date=market_date)
     set_ids = [str(row["id"]) for row in sets]
     if not set_ids:
         raise ExploreSetValueUnavailable(
-            "no certified-current standard Set Value scopes are available",
+            "no staged Market Set Value scopes are available",
             diagnostics={"marketDate": str(market_date)[:10]},
         )
 
     dashboards = []
-    # Set dashboard rows are optional/additive for Cards Market Index data;
-    # they are not Set Value authority. Absence cannot shrink this cohort.
     for offset in range(0, len(set_ids), 20):
         result = (client.table("pokemon_set_market_dashboard_snapshot_latest")
             .select("set_id,window_key,set_value_histories_json,latest_market_date,updated_at,cardsMarket:payload_json->cardsMarket")
@@ -172,9 +190,6 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
 
     histories = _load_canonical_histories(client, set_ids, through_date=market_date)
 
-    # The global Market Overview/index is a separate, already-published contract
-    # with its own cohort and strict parity audit. Expanding Set Value coverage
-    # must not silently redefine Raw/Top-Chase/Sealed index constituents here.
     overview = market_overview
     if overview is None:
         history = market_index_history
@@ -190,8 +205,12 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         )
 
     row = build_global_set_value_row(
-        sets, dashboards, histories, target_market_date=market_date,
-        market_overview=overview, publisher_build_sha=publisher_build_sha(),
+        sets,
+        dashboards,
+        histories,
+        target_market_date=market_date,
+        market_overview=overview,
+        publisher_build_sha=publisher_build_sha(),
     )
     _attach_initial_selected_set_movers(client, row)
     if commit:
@@ -204,9 +223,12 @@ def main() -> None:
     client = get_client()
     try:
         gate = enforce_market_publication_gate(
-            client, commit=bool(args.commit), market_date=args.market_date,
+            client,
+            commit=bool(args.commit),
+            market_date=args.market_date,
             force_publish=bool(args.force_publish),
-            entry_point="Global Market Set Value snapshot")
+            entry_point="Global Market Set Value snapshot",
+        )
     except MarketForcePublishRejected as exc:
         print(str(exc))
         raise SystemExit(2) from exc
