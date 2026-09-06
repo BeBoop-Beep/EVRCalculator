@@ -9,6 +9,7 @@ import {
   isEnumerableSeries,
   resolveSeriesAsset,
   resolveSeriesConstituents,
+  resolveVariantLabel,
 } from "./marketExplorerConstituents.mjs";
 
 test("a parent market that publishes a roster can be inspected; one that does not cannot", () => {
@@ -206,4 +207,41 @@ test("window boundary dates are read from the market, not from a row", () => {
   };
   assert.equal(resolveSeriesConstituents(series, { movementWindow: "7D" }).movementWindowMeta.startDate, "2026-08-18");
   assert.equal(resolveSeriesConstituents(series, { movementWindow: "30D" }).movementWindowMeta.available, false);
+});
+
+// --- variant labeling (Prompt 7 audit) --------------------------------------
+//
+// Vintage physical identity matters where it distinguishes two real,
+// separately-priced instruments; a modern row with no `edition` at all must
+// never grow a noisy "Holo"/"Non-Holo" suffix it never asked for.
+
+test("a vintage 1st Edition row is labeled, distinct from its Unlimited counterpart", () => {
+  assert.equal(resolveVariantLabel({ edition: "1st-edition" }), "1st Edition");
+  assert.equal(resolveVariantLabel({ edition: "unlimited" }), "Unlimited");
+});
+
+test("Shadowless is called out explicitly when the special type carries it", () => {
+  assert.equal(resolveVariantLabel({ edition: "unlimited", specialType: "shadowless" }), "Unlimited · Shadowless");
+});
+
+test("Reverse Holo is always labeled, vintage or modern, since it is a real separate instrument", () => {
+  assert.equal(resolveVariantLabel({ printingType: "reverse-holo" }), "Reverse Holo");
+  assert.equal(resolveVariantLabel({ edition: "1st-edition", printingType: "reverse-holo" }), "1st Edition · Reverse Holo");
+});
+
+test("a modern row with no edition and plain Holo/Non-Holo gets no noisy label", () => {
+  assert.equal(resolveVariantLabel({ printingType: "holo" }), null);
+  assert.equal(resolveVariantLabel({ printingType: "non-holo" }), null);
+  assert.equal(resolveVariantLabel({ cardName: "Charizard ex", rarity: "Special Illustration Rare" }), null);
+});
+
+test("Holo/Non-Holo only render alongside edition, where the vintage context makes them meaningful", () => {
+  assert.equal(resolveVariantLabel({ edition: "1st-edition", printingType: "holo" }), "1st Edition · Holo");
+  assert.equal(resolveVariantLabel({ edition: "unlimited", printingType: "non-holo" }), "Unlimited · Non-Holo");
+});
+
+test("an unrecognized or missing row never throws", () => {
+  assert.equal(resolveVariantLabel(null), null);
+  assert.equal(resolveVariantLabel({}), null);
+  assert.equal(resolveVariantLabel({ edition: "", printingType: "", specialType: "" }), null);
 });

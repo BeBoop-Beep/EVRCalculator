@@ -124,6 +124,38 @@ const idFieldFor = (asset) =>
   (asset === QUERY_ASSET_SEALED ? "sealedProductId" : "canonicalCardId");
 
 /**
+ * Contextual variant identity for one card row, or null.
+ *
+ * PHYSICAL IDENTITY MATTERS WHERE IT DISTINGUISHES TWO REAL INSTRUMENTS. A
+ * First Edition/Unlimited/Shadowless card is a genuinely different priced
+ * instrument from its counterpart in the same set, and showing the SAME
+ * ambiguous label on both would misrepresent which row is which. Modern
+ * printings overwhelmingly carry no `edition` at all (the concept ended with
+ * the WotC era) -- `edition` being present is itself the "this needs a label"
+ * signal, so Holo/Non-Holo only render alongside it rather than on every
+ * ordinary modern row. Reverse Holo is the one distinction that recurs across
+ * every era (a modern reverse-holo pull is a different instrument from its
+ * regular printing too), so it always renders regardless of edition.
+ *
+ * Returns null rather than an empty string so a caller can cheaply skip
+ * rendering anything at all for the common case of no variant identity.
+ */
+export function resolveVariantLabel(row) {
+  if (!row || typeof row !== "object") return null;
+  const parts = [];
+  const edition = String(row.edition || "").toLowerCase();
+  if (edition === "1st-edition") parts.push("1st Edition");
+  else if (edition === "unlimited") parts.push("Unlimited");
+  const specialType = String(row.specialType || "").toLowerCase();
+  if (specialType.includes("shadowless")) parts.push("Shadowless");
+  const printingType = String(row.printingType || "").toLowerCase();
+  if (printingType === "reverse-holo") parts.push("Reverse Holo");
+  else if (edition && printingType === "holo") parts.push("Holo");
+  else if (edition && printingType === "non-holo") parts.push("Non-Holo");
+  return parts.length ? parts.join(" · ") : null;
+}
+
+/**
  * The asset's columns plus the ONE movement column for the selected window.
  *
  * Appended rather than baked into CONSTITUENT_COLUMNS so the label always

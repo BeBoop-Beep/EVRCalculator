@@ -269,20 +269,33 @@ export default function MarketExplorerClient({
         />
       </section>
 
-      <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Market comparison analysis">
-        <MarketExplorerDetails
-          series={selectedSeries}
-          activeSeriesId={activeDetailSeriesId}
-          onInspect={setRequestedDetailSeriesId}
-          timeframe={timeframe}
-        />
-      </section>
-
+      {/* ACCEPTED LOWER-PAGE ORDER: Active Markets -> Constituents -> Market
+          Comparison Analysis -> Methodology. Constituents answers "what is
+          inside the one market I'm inspecting" right after Active Markets
+          names it; Comparison Analysis is the cross-market summary table and
+          reads naturally after the reader has seen one market's composition;
+          Methodology is reference material and never sits between two
+          interactive result sections. */}
       <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Current market constituents">
         <MarketExplorerConstituents
           selectedSeries={selectedSeries}
           activeSeriesId={activeDetailSeriesId}
           onSelectSeries={setRequestedDetailSeriesId}
+        />
+      </section>
+
+      <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Market comparison analysis">
+        <MarketExplorerDetails
+          // VISIBLE, not merely active: comparison reflects what the chart is
+          // currently showing ("compare what I see"). A hidden market stays a
+          // full Active Market (still removable, still inspectable in
+          // Constituents above) but drops out of this summary table until
+          // shown again -- it never disappears from the workspace, only from
+          // this one comparison view.
+          series={visibleSeries}
+          activeSeriesId={activeDetailSeriesId}
+          onInspect={setRequestedDetailSeriesId}
+          timeframe={timeframe}
         />
       </section>
 

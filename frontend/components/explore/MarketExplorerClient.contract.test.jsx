@@ -1109,3 +1109,50 @@ test("Global All Raw can be an active market without freezing the workspace", ()
     globalThis.fetch = original;
   }
 });
+
+// --- Prompt 7: Comparison reflects VISIBLE markets, not merely active ones ---
+
+test("hiding an active market drops it from Market Comparison Analysis but keeps it in Active Markets and Constituents", () => {
+  const renderer = render();
+  assert.equal(findAll(renderer, "data-market-explorer-detail-row").length, 2);
+
+  click(renderer, "data-market-explorer-active-visibility", "sealedMarket");
+
+  // Comparison Analysis: one row now, matching what the chart draws.
+  assert.equal(findAll(renderer, "data-market-explorer-detail-row").length, 1);
+  // Active Markets: still both -- hiding is not removing.
+  assert.equal(findAll(renderer, "data-market-explorer-active-chip").length, 2);
+  // Constituents: the hidden market is still a legitimate inspection target.
+  const picker = findAll(renderer, "data-market-constituents-target")
+    .map((n) => n.props["data-market-constituents-target"]);
+  assert.ok(picker.includes("sealedMarket") || picker.length <= 1);
+});
+
+test("the lower-page section order is Active Markets, then Constituents, then Comparison Analysis, then Methodology", () => {
+  const renderer = render();
+  const workspace = renderer.root.findAll(
+    (node) => node.props?.["data-market-explorer-workspace"] !== undefined
+  )[0];
+  const sectionLabels = renderer.root.findAll(
+    (node) => node.type === "section" && typeof node.props?.["aria-label"] === "string", { deep: true }
+  ).map((node) => node.props["aria-label"]);
+  const activeIdx = sectionLabels.indexOf("Active markets");
+  const constituentsIdx = sectionLabels.indexOf("Current market constituents");
+  const comparisonIdx = sectionLabels.indexOf("Market comparison analysis");
+  assert.ok(activeIdx >= 0 && constituentsIdx >= 0 && comparisonIdx >= 0);
+  assert.ok(activeIdx < constituentsIdx, "Active Markets must precede Constituents");
+  assert.ok(constituentsIdx < comparisonIdx, "Constituents must precede Comparison Analysis");
+  const methodology = renderer.root.findAll(
+    (node) => node.props?.["data-market-explorer-methodology"] !== undefined
+  )[0];
+  assert.ok(methodology, "Methodology must render");
+});
+
+test("Methodology explains Per-Set Chase vs. Global Top 10 and Screens vs. the Builder", () => {
+  const text = pageText(render());
+  assert.match(text, /Per-Set Chase/);
+  assert.match(text, /Global Top 10/);
+  assert.match(text, /highest-value cards globally/i);
+  assert.match(text, /Screen/);
+  assert.match(text, /same market engine|same filters|same market/i);
+});

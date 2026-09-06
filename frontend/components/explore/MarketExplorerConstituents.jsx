@@ -14,6 +14,7 @@ import {
   isEnumerableSeries,
   resolveSeriesAsset,
   resolveSeriesConstituents,
+  resolveVariantLabel,
 } from "@/lib/explore/marketExplorerConstituents.mjs";
 import useMarketExplorerConstituentPage from "@/hooks/explore/useMarketExplorerConstituentPage";
 
@@ -92,6 +93,25 @@ function cellValue(row, column) {
   if (column.price) return formatBasketValue(value);
   if (value === null || value === undefined || value === "") return "—";
   return value;
+}
+
+/**
+ * A card's variant identity (First Edition / Unlimited / Shadowless /
+ * Reverse Holo / Holo / Non-Holo), rendered only when the row actually
+ * carries one — see resolveVariantLabel for exactly when that is. Sealed
+ * products have no such concept and never pass a row here.
+ */
+function VariantBadge({ row }) {
+  const label = resolveVariantLabel(row);
+  if (!label) return null;
+  return (
+    <span
+      data-market-constituent-variant
+      className="ml-1.5 inline-flex flex-none items-center rounded border border-[var(--border-subtle)] px-1 py-0.5 text-[9px] font-medium uppercase tracking-[0.04em] text-[var(--text-secondary)]"
+    >
+      {label}
+    </span>
+  );
 }
 
 /**
@@ -246,6 +266,11 @@ function QueryConstituentSection({ series, movementWindow, onChangeMovementWindo
                   >
                     {column.change ? (
                       <ChangeCell row={row} window={column.window} label={cellValue(row, primaryColumn)} />
+                    ) : column.primary ? (
+                      <span className="inline-flex min-w-0 items-center">
+                        <span className="min-w-0 truncate">{cellValue(row, column)}</span>
+                        {asset === "cards" ? <VariantBadge row={row} /> : null}
+                      </span>
                     ) : cellValue(row, column)}
                   </td>
                 ))}
@@ -259,7 +284,10 @@ function QueryConstituentSection({ series, movementWindow, onChangeMovementWindo
           <li key={row[idField] || row.rank} data-market-constituent={row[idField] || row.rank} className="flex items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-2.5 py-2">
             <span className="w-5 flex-none pt-0.5 text-[10px] tabular-nums text-[var(--text-secondary)]">{row.rank}</span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium text-[var(--text-primary)]">{cellValue(row, primaryColumn)}</span>
+              <span className="flex min-w-0 items-center">
+                <span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">{cellValue(row, primaryColumn)}</span>
+                {asset === "cards" ? <VariantBadge row={row} /> : null}
+              </span>
               <span className="block truncate text-[10px] text-[var(--text-secondary)]">
                 {row.setName || "—"} · {asset === "sealed" ? (row.productFamilyLabel || "—") : (row.rarity || "—")}
               </span>
@@ -428,6 +456,7 @@ export default function MarketExplorerConstituents({
                               <img src={row.imageUrl} alt="" loading="lazy" className="h-10 w-7 flex-none rounded object-cover" />
                             ) : null}
                             <span className="min-w-0 truncate">{cellValue(row, column)}</span>
+                            {model.asset === "cards" ? <VariantBadge row={row} /> : null}
                           </span>
                         ) : cellValue(row, column)}
                       </td>
@@ -453,8 +482,11 @@ export default function MarketExplorerConstituents({
                   <img src={row.imageUrl} alt="" loading="lazy" className="h-12 w-9 flex-none rounded object-cover" />
                 ) : null}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-medium text-[var(--text-primary)]">
-                    {cellValue(row, primaryColumn)}
+                  <span className="flex min-w-0 items-center">
+                    <span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">
+                      {cellValue(row, primaryColumn)}
+                    </span>
+                    {model.asset === "cards" ? <VariantBadge row={row} /> : null}
                   </span>
                   <span className="block truncate text-[10px] text-[var(--text-secondary)]">
                     {row.setName || "—"} · {model.asset === "sealed" ? (row.productFamilyLabel || "—") : (row.rarity || "—")}

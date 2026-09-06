@@ -405,9 +405,22 @@ export default function MarketExplorerQueryBuilder({
                     </span>
                   </button>
                 ))
+              ) : selectedScreen.id === "set-top-ten" && draft.setIds.length === 0 ? (
+                // "Top 10 in Selected Set" is meaningless with no set: an empty
+                // setIds resolves to "every eligible set" (the canonical
+                // EMPTY-MEANS-ALL rule), silently turning this screen into a
+                // plain Global Top 10 -- a different market the user did not
+                // ask for. Require the set explicitly rather than guess it.
+                <p
+                  data-market-screen-requires-set
+                  className="rounded-md border border-[var(--border-subtle)] px-2 py-2 text-[11px] text-[var(--text-secondary)]"
+                >
+                  Select one set under Raw Cards → Era &amp; Set first, then apply this screen.
+                </p>
               ) : (
                 <button
                   type="button"
+                  data-market-screen-apply={selectedScreen.id}
                   onClick={() =>
                     builder.replace(
                       draftForScreenResult(selectedScreen, null, draft),
