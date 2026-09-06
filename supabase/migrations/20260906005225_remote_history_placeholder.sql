@@ -1,0 +1,1 @@
+-- Local CLI history bridge only. Remote migration already applied: enqueue_v2_from_completed_scrape_jobs.
