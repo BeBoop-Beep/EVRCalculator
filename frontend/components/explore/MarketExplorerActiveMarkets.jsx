@@ -35,8 +35,13 @@ export default function MarketExplorerActiveMarkets({
   onInspect,
   onRemove,
   canRemove = true,
+  hiddenSeriesKeys = null,
+  onToggleVisibility,
+  onShowAll,
+  onHideAll,
 }) {
   if (!series.length) return null;
+  const hidden = hiddenSeriesKeys instanceof Set ? hiddenSeriesKeys : new Set();
   return (
     <section
       data-market-explorer-active-markets
@@ -44,15 +49,38 @@ export default function MarketExplorerActiveMarkets({
       className="flex min-w-0 flex-col gap-2 px-3 py-3 sm:px-4"
       aria-label="Active markets"
     >
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Active Markets</h2>
-        <p className="min-w-0 text-[10px] text-[var(--text-secondary)]">
-          All are on the chart. Select one to inspect its constituents.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Active Markets</h2>
+          <p className="min-w-0 text-[10px] text-[var(--text-secondary)]">
+            Select one to inspect its constituents. The eye toggles whether it is drawn on the chart.
+          </p>
+        </div>
+        {series.length > 1 ? (
+          <div role="group" aria-label="Visibility, all markets" className="flex flex-none items-center gap-1">
+            <button
+              type="button"
+              data-market-explorer-active-show-all
+              onClick={onShowAll}
+              className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+            >
+              Show all
+            </button>
+            <button
+              type="button"
+              data-market-explorer-active-hide-all
+              onClick={onHideAll}
+              className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+            >
+              Hide all
+            </button>
+          </div>
+        ) : null}
       </div>
       <ul className="flex min-w-0 flex-wrap gap-1.5">
         {series.map((entry) => {
           const isActive = entry.key === activeSeriesId;
+          const isHidden = hidden.has(entry.key);
           // Custom markets have no summary card anywhere else on the page, so
           // their index level rides on the chip. Prepared markets already have
           // a card and would only be repeating themselves.
@@ -62,16 +90,27 @@ export default function MarketExplorerActiveMarkets({
               <span
                 data-market-explorer-active-chip={entry.key}
                 data-market-explorer-active-chip-selected={isActive ? "true" : "false"}
+                data-market-explorer-active-chip-hidden={isHidden ? "true" : "false"}
                 data-market-explorer-active-chip-asset={entry.asset || undefined}
                 data-market-explorer-active-chip-source={entry.queryKey ? "query" : "prepared"}
                 className={[
                   "flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 transition-colors",
+                  isHidden ? "opacity-50" : "",
                   isActive
                     ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.15)]"
                     : "border-[var(--border-subtle)] bg-[var(--surface-page)]/35 hover:border-[rgba(45,212,191,0.38)]",
                 ].join(" ")}
               >
-                <span aria-hidden="true" className="inline-block h-2 w-2 flex-none rounded-full" style={{ backgroundColor: entry.color }} />
+                <button
+                  type="button"
+                  data-market-explorer-active-visibility={entry.key}
+                  aria-pressed={!isHidden}
+                  aria-label={isHidden ? `Show ${entry.label} on the chart` : `Hide ${entry.label} from the chart`}
+                  onClick={() => onToggleVisibility?.(entry.key)}
+                  className="flex-none rounded-full p-0.5 leading-none text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+                >
+                  <span aria-hidden="true" className="inline-block h-2 w-2 flex-none rounded-full" style={{ backgroundColor: isHidden ? "transparent" : entry.color, border: isHidden ? `1.5px solid ${entry.color}` : "none" }} />
+                </button>
                 <button
                   type="button"
                   data-market-explorer-active-inspect={entry.key}
@@ -92,8 +131,9 @@ export default function MarketExplorerActiveMarkets({
                 <button
                   type="button"
                   data-market-explorer-active-remove={entry.key}
-                  // The chart may never be emptied, so the final chip cannot
-                  // remove itself — the same rule the checkboxes enforce.
+                  // canRemove is a caller-decided floor (today: at least one
+                  // prepared market stays selectable via this button; Clear
+                  // Graph is the dedicated path to a genuinely empty chart).
                   disabled={!canRemove}
                   aria-label={`Remove ${entry.label} from the comparison`}
                   onClick={() => onRemove?.(entry.key)}

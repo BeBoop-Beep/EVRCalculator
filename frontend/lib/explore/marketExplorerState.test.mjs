@@ -35,6 +35,8 @@ import {
   toggleAssetUniverseKey,
   toggleCardSegmentId,
   toggleSealedFamilyId,
+  EXPLORER_SELECTION_ACTIONS,
+  reduceExplorerSelection,
 } from "./marketExplorerState.mjs";
 import {
   CARD_SEGMENT_SERIES,
@@ -819,4 +821,41 @@ test("the chart model clips submarkets to their own backend window, like parents
   // A series with no available own-history change draws no line.
   const unavailable = buildExplorerChartModel(overview, selected, "6M");
   assert.equal(unavailable.available, false);
+});
+
+// --- Clear Graph: clearAll bypasses the "keep at least one" guard --------
+
+test("clearAll empties every axis at once, unlike an individual toggle", () => {
+  const available = { assetKeys: ["raw", "sealedMarket"], sealedFamilyIds: ["sealed:boosterBox"], cardSegmentIds: [] };
+  const state = { assetUniverse: ["raw"], sealedFamilyIds: ["sealed:boosterBox"], segmentIds: [] };
+  const next = reduceExplorerSelection(state, { type: EXPLORER_SELECTION_ACTIONS.clearAll, available });
+  assert.deepEqual(next, { assetUniverse: [], sealedFamilyIds: [], segmentIds: [], explicitlyCleared: true });
+});
+
+test("a reconcile after clearAll does not resurrect the default asset classes", () => {
+  const available = { assetKeys: ["raw", "sealedMarket"], sealedFamilyIds: [], cardSegmentIds: [] };
+  const cleared = reduceExplorerSelection(
+    { assetUniverse: ["raw", "sealedMarket"], sealedFamilyIds: [], segmentIds: [] },
+    { type: EXPLORER_SELECTION_ACTIONS.clearAll, available },
+  );
+  // A snapshot re-publish (or any other reconcile trigger) must respect the
+  // user's explicit Clear Graph rather than silently repopulating it — this
+  // is the one behavior a plain `reconcileAssetUniverse` call cannot express
+  // on its own, which is why `explicitlyCleared` exists on the reducer state.
+  const reconciled = reduceExplorerSelection(cleared, { type: EXPLORER_SELECTION_ACTIONS.reconcile, available });
+  assert.deepEqual(reconciled.assetUniverse, []);
+  assert.equal(reconciled.explicitlyCleared, true);
+});
+
+test("selecting a market again after Clear Graph cancels explicitlyCleared", () => {
+  const available = { assetKeys: ["raw", "sealedMarket"], sealedFamilyIds: [], cardSegmentIds: [] };
+  const cleared = reduceExplorerSelection(
+    { assetUniverse: ["raw"], sealedFamilyIds: [], segmentIds: [] },
+    { type: EXPLORER_SELECTION_ACTIONS.clearAll, available },
+  );
+  const reselected = reduceExplorerSelection(
+    cleared, { type: EXPLORER_SELECTION_ACTIONS.toggleMarket, seriesId: "raw", available },
+  );
+  assert.equal(reselected.explicitlyCleared, false);
+  assert.deepEqual(reselected.assetUniverse, ["raw"]);
 });

@@ -8,7 +8,13 @@ async function executeQuery(spec) {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(spec),
+    // SUMMARY, NEVER FULL. Building a market only needs its chart series and
+    // headline numbers; `currentConstituents` for a broad universe (Global
+    // All Raw alone is 33,955 rows) has no business riding along with every
+    // Build Market click. Composition is fetched separately, a page at a
+    // time, only when and if the Constituents section actually inspects this
+    // market — see useMarketExplorerConstituentPage.
+    body: JSON.stringify({ ...spec, responseMode: "summary" }),
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
@@ -40,5 +46,8 @@ export default function useMarketExplorerQueries() {
     return "added";
   }, [querySeries]);
   const removeQuery = useCallback((key) => setQuerySeries((current) => current.filter((entry) => entry.key !== key)), []);
-  return { querySeries, addQuery, removeQuery };
+  // Clear Graph's bulk action. A distinct entry point from `removeQuery` so a
+  // graph-wide clear is one state update, not N re-renders of one filter each.
+  const clearAll = useCallback(() => setQuerySeries([]), []);
+  return { querySeries, addQuery, removeQuery, clearAll };
 }

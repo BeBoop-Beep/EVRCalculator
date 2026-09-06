@@ -9,10 +9,13 @@ import {
   CONSTITUENTS_PENDING_PUBLICATION,
   CONSTITUENT_MOVEMENT_WINDOWS,
   DEFAULT_CONSTITUENT_MOVEMENT_WINDOW,
+  buildConstituentColumns,
   getConstituentChange,
   isEnumerableSeries,
+  resolveSeriesAsset,
   resolveSeriesConstituents,
 } from "@/lib/explore/marketExplorerConstituents.mjs";
+import useMarketExplorerConstituentPage from "@/hooks/explore/useMarketExplorerConstituentPage";
 
 // Current Constituents — a first-class section, not an incidental query output.
 //
@@ -162,6 +165,132 @@ function SeriesPicker({ series, activeId, onSelect }) {
   );
 }
 
+/**
+ * A QUERY-BUILT market's constituents, loaded a backend page at a time.
+ *
+ * WHY THIS EXISTS SEPARATELY. `resolveSeriesConstituents` reads whatever rows
+ * already arrived on the series object — correct for a prepared/parent
+ * market, whose published roster is small by construction, but wrong for a
+ * custom query: the market-summary response never carries a query market's
+ * composition at all (`responseMode: "summary"` — see
+ * useMarketExplorerQueries), and even if it did, Global All Raw alone is
+ * 33,955 rows. This component owns its OWN loading/error state
+ * (`useMarketExplorerConstituentPage`), independent of the chart's, so a slow
+ * or failed constituent page never blocks the rest of the workspace.
+ */
+function QueryConstituentSection({ series, movementWindow, onChangeMovementWindow }) {
+  const asset = resolveSeriesAsset(series);
+  const idField = asset === "sealed" ? "sealedProductId" : "canonicalCardId";
+  const columns = buildConstituentColumns(asset, movementWindow);
+  const primaryColumn = columns.find((column) => column.primary);
+  const page = useMarketExplorerConstituentPage(series?.spec || null);
+
+  if (page.isLoading && page.rows.length === 0) {
+    return (
+      <p role="status" data-market-constituents-page-loading className="px-3 pb-6 pt-1 text-xs text-[var(--text-secondary)] sm:px-4">
+        Loading constituents…
+      </p>
+    );
+  }
+  if (page.error) {
+    return (
+      <div className="px-3 pb-6 pt-1 sm:px-4">
+        <p role="alert" data-market-constituents-page-error className="text-xs text-[var(--text-secondary)]">
+          {page.error}
+        </p>
+        <button
+          type="button"
+          data-market-constituents-page-retry
+          onClick={page.reload}
+          className="mt-2 rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 pb-2 sm:px-4">
+        <span data-market-constituents-page-count className="text-[10px] text-[var(--text-secondary)]">
+          Showing <span className="tabular-nums">{page.rows.length}</span> of{" "}
+          <span className="tabular-nums" data-market-constituents-count>{page.totalCount}</span>
+          {asset === "sealed" ? " products" : " cards"}
+          {page.asOf ? ` · as of ${page.asOf}` : ""}
+        </span>
+      </div>
+      <div data-market-constituents-table className="hidden overflow-x-auto px-3 pb-2 sm:px-4 desk:block">
+        <table className="w-full min-w-[720px] text-left text-xs">
+          <thead className="border-y border-[var(--border-subtle)] text-[10px] uppercase tracking-[0.07em] text-[var(--text-secondary)]">
+            <tr>
+              {columns.map((column) => (
+                <th key={column.key} scope="col" className={`px-3 py-2 ${column.align === "right" ? "text-right" : ""}`}>
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {page.rows.map((row) => (
+              <tr key={row[idField] || row.rank} data-market-constituent={row[idField] || row.rank} className="border-b border-[var(--border-subtle)] last:border-0">
+                {columns.map((column) => (
+                  <td
+                    key={column.key}
+                    className={[
+                      "px-3 py-2",
+                      column.align === "right" ? "text-right" : "",
+                      column.numeric || column.price ? "tabular-nums" : "",
+                      column.primary ? "font-medium text-[var(--text-primary)]" : "",
+                    ].join(" ")}
+                  >
+                    {column.change ? (
+                      <ChangeCell row={row} window={column.window} label={cellValue(row, primaryColumn)} />
+                    ) : cellValue(row, column)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul data-market-constituents-cards className="space-y-1.5 px-3 pb-2 sm:px-4 desk:hidden">
+        {page.rows.map((row) => (
+          <li key={row[idField] || row.rank} data-market-constituent={row[idField] || row.rank} className="flex items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-2.5 py-2">
+            <span className="w-5 flex-none pt-0.5 text-[10px] tabular-nums text-[var(--text-secondary)]">{row.rank}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-medium text-[var(--text-primary)]">{cellValue(row, primaryColumn)}</span>
+              <span className="block truncate text-[10px] text-[var(--text-secondary)]">
+                {row.setName || "—"} · {asset === "sealed" ? (row.productFamilyLabel || "—") : (row.rarity || "—")}
+              </span>
+            </span>
+            <span className="flex flex-none flex-col items-end pt-0.5">
+              <span className="text-xs font-semibold tabular-nums text-[var(--text-primary)]">{formatBasketValue(row.marketPrice)}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {page.hasMore ? (
+        <div className="px-3 pb-4 sm:px-4">
+          <button
+            type="button"
+            data-market-constituents-load-more
+            onClick={page.loadMore}
+            disabled={page.isLoadingMore}
+            className="rounded-full border border-[var(--border-subtle)] px-3 py-1.5 text-[11px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:opacity-50"
+          >
+            {page.isLoadingMore ? "Loading more…" : `Load more (${page.totalCount - page.rows.length} remaining)`}
+          </button>
+        </div>
+      ) : (
+        <p data-market-constituents-page-complete className="px-3 pb-4 text-[10px] text-[var(--text-secondary)] sm:px-4">
+          All {page.totalCount} constituents loaded.
+        </p>
+      )}
+    </>
+  );
+}
+
 export default function MarketExplorerConstituents({
   selectedSeries = [],
   activeSeriesId = null,
@@ -185,14 +314,18 @@ export default function MarketExplorerConstituents({
     (series) => series && series.available !== false && isEnumerableSeries(series)
   );
   const active = inspectable.find((series) => series.key === activeSeriesId) || null;
+  // A QUERY-BUILT market pages its roster from the backend; a prepared/parent
+  // market keeps reading its already-published (small) summary.
+  const isQuerySourced = Boolean(active?.queryFingerprint);
   const model = resolveSeriesConstituents(active, { movementWindow });
   const primaryColumn = model.columns.find((column) => column.primary);
 
   return (
     <section
       data-market-explorer-constituents
-      data-market-constituents-asset={model.asset}
-      data-market-constituents-availability={model.availability}
+      data-market-constituents-asset={isQuerySourced ? resolveSeriesAsset(active) : model.asset}
+      data-market-constituents-availability={isQuerySourced ? CONSTITUENTS_AVAILABLE : model.availability}
+      data-market-constituents-source={isQuerySourced ? "query-paged" : "published"}
       data-market-constituents-movement-window={model.movementWindow}
       data-market-constituents-has-movement={model.hasMovement ? "true" : "false"}
       className="flex min-w-0 flex-col"
@@ -205,7 +338,7 @@ export default function MarketExplorerConstituents({
         {active ? (
           <span data-market-constituents-active className="text-[11px] text-[var(--text-secondary)]">
             {active.label}
-            {model.availability === CONSTITUENTS_AVAILABLE ? (
+            {!isQuerySourced && model.availability === CONSTITUENTS_AVAILABLE ? (
               <>
                 {" · "}
                 <span data-market-constituents-count className="tabular-nums">{model.totalCount}</span>
@@ -221,7 +354,7 @@ export default function MarketExplorerConstituents({
             Select a market to see what is inside it.
           </span>
         )}
-        {model.availability === CONSTITUENTS_AVAILABLE ? (
+        {(isQuerySourced || model.availability === CONSTITUENTS_AVAILABLE) ? (
           <div className="ml-auto">
             <MovementWindowSelector value={model.movementWindow} onChange={setMovementWindow} />
           </div>
@@ -230,7 +363,10 @@ export default function MarketExplorerConstituents({
 
       <SeriesPicker series={inspectable} activeId={active?.key || null} onSelect={onSelectSeries} />
 
-      {model.availability === CONSTITUENTS_AVAILABLE ? (
+      {isQuerySourced ? (
+        // NEVER the 33k-row static path — always the paged backend consumer.
+        <QueryConstituentSection series={active} movementWindow={movementWindow} />
+      ) : model.availability === CONSTITUENTS_AVAILABLE ? (
         <>
           {model.belowRequestedTopN ? (
             <p data-market-constituents-short className="px-3 pb-2 text-[10px] text-[var(--text-secondary)] sm:px-4">

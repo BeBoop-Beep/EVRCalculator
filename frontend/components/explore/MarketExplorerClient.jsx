@@ -85,13 +85,35 @@ export default function MarketExplorerClient({
   } = useMemo(() => resolveMarketExplorerPlanAccess(user), [user]);
   const {
     selection: { assetUniverse, sealedFamilyIds, segmentIds },
-    selectedSeriesIds, toggleMarket, toggleAny,
+    selectedSeriesIds, toggleMarket, toggleAny, clearAll: clearAllSelection,
   } = useMarketExplorerSelection({ overview, sealedSegments, cardSegments, initialState });
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
   // ONE detail target at a time. Four selected markets must not produce four
   // constituent tables; the user names the one they are inspecting.
   const [requestedDetailSeriesId, setRequestedDetailSeriesId] = useState(null);
-  const { querySeries, addQuery, removeQuery } = useMarketExplorerQueries();
+  const { querySeries, addQuery, removeQuery, clearAll: clearAllQueries } = useMarketExplorerQueries();
+  // VISIBILITY IS NOT REMOVAL. A hidden series is still an Active Market — it
+  // still counts toward "what is built", it is still inspectable in
+  // Constituents, and un-hiding it never refetches or rebuilds anything. Only
+  // Remove (and Clear Graph) actually drop a market from the active set.
+  const [hiddenSeriesKeys, setHiddenSeriesKeys] = useState(() => new Set());
+  const toggleSeriesVisibility = useCallback((key) => {
+    setHiddenSeriesKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+  const showAllSeries = useCallback(() => setHiddenSeriesKeys(new Set()), []);
+  const hideAllSeries = useCallback((keys) => setHiddenSeriesKeys(new Set(keys)), []);
+  // CLEAR GRAPH. Removes every active market (prepared AND query-built) and
+  // resets visibility, but never touches the Builder draft — a user clearing
+  // the chart has not said they want to lose the filters they were composing.
+  const clearGraph = useCallback(() => {
+    clearAllSelection();
+    clearAllQueries();
+    setHiddenSeriesKeys(new Set());
+  }, [clearAllSelection, clearAllQueries]);
 
   // Era & Sets and Build a Market read the SAME canonical option payload, in
   // one shared request.
@@ -126,6 +148,17 @@ export default function MarketExplorerClient({
     const byKey = new Map(comparableSeries.map((series) => [series.key, series]));
     return [...selectedSeriesIds.map((id) => byKey.get(id)).filter(Boolean), ...querySeries];
   }, [comparableSeries, selectedSeriesIds, querySeries]);
+
+  // WHAT THE CHART ACTUALLY DRAWS. A hidden series is still active (still in
+  // Active Markets, still inspectable), it just contributes no line. Zero
+  // visible series is a valid, intentional chart state — toggling visibility
+  // never adds or removes a market, so it never refetches or rebuilds one.
+  const visibleSeries = useMemo(
+    () => selectedSeries.filter((series) => !hiddenSeriesKeys.has(series.key)),
+    [selectedSeries, hiddenSeriesKeys]
+  );
+  const allSeriesKeys = useMemo(() => selectedSeries.map((series) => series.key), [selectedSeries]);
+  const hideAllActiveSeries = useCallback(() => hideAllSeries(allSeriesKeys), [hideAllSeries, allSeriesKeys]);
 
   // Derived, never stored: the requested target is kept while it is still on
   // the chart, so adding a market cannot yank the panel away from what the user
@@ -187,12 +220,16 @@ export default function MarketExplorerClient({
       >
         <MarketExplorerChart
           overview={overview}
-          selectedSeries={selectedSeries}
+          selectedSeries={visibleSeries}
+          totalActiveCount={selectedSeries.length}
           timeframe={timeframe}
           timeframeLabel={timeframeLabel}
           timeframeOptions={timeframeOptions}
           onTimeframeChange={setRequestedTimeframe}
-          onToggleSeries={toggleSeries}
+          onToggleSeries={toggleSeriesVisibility}
+          onClearGraph={clearGraph}
+          onShowAll={showAllSeries}
+          onHideAll={hideAllActiveSeries}
         />
         <MarketExplorerQueryBuilder
           options={options}
@@ -225,6 +262,10 @@ export default function MarketExplorerClient({
           onInspect={setRequestedDetailSeriesId}
           onRemove={toggleSeries}
           canRemove={selectedSeries.length > 1}
+          hiddenSeriesKeys={hiddenSeriesKeys}
+          onToggleVisibility={toggleSeriesVisibility}
+          onShowAll={showAllSeries}
+          onHideAll={hideAllActiveSeries}
         />
       </section>
 

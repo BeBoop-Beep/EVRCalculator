@@ -549,6 +549,7 @@ export const EXPLORER_SELECTION_ACTIONS = {
   toggleSealedFamily: "toggleSealedFamily",
   toggleCardSegment: "toggleCardSegment",
   reconcile: "reconcile",
+  clearAll: "clearAll",
 };
 
 const sameList = (left, right) =>
@@ -562,11 +563,13 @@ function settle(previous, next) {
     ? previous.sealedFamilyIds : next.sealedFamilyIds;
   const segmentIds = sameList(previous.segmentIds, next.segmentIds)
     ? previous.segmentIds : next.segmentIds;
+  const explicitlyCleared = Boolean(next.explicitlyCleared);
   return (assetUniverse === previous.assetUniverse
     && sealedFamilyIds === previous.sealedFamilyIds
-    && segmentIds === previous.segmentIds)
+    && segmentIds === previous.segmentIds
+    && explicitlyCleared === Boolean(previous.explicitlyCleared))
     ? previous
-    : { ...previous, assetUniverse, sealedFamilyIds, segmentIds };
+    : { ...previous, assetUniverse, sealedFamilyIds, segmentIds, explicitlyCleared };
 }
 
 /**
@@ -587,6 +590,9 @@ export function reduceExplorerSelection(state, action) {
     case EXPLORER_SELECTION_ACTIONS.toggleMarket: {
       return settle(state, {
         ...state,
+        // Any deliberate selection change cancels a prior Clear Graph — the
+        // user is actively building the chart again.
+        explicitlyCleared: false,
         assetUniverse: toggleAssetUniverseKey(state.assetUniverse, action.seriesId, assetKeys, {
           sealedFamilyIds: state.sealedFamilyIds,
           segmentIds: state.segmentIds,
@@ -599,7 +605,7 @@ export function reduceExplorerSelection(state, action) {
         availableAssetKeys: assetKeys,
         segmentIds: state.segmentIds,
       });
-      return settle(state, { ...state, ...result });
+      return settle(state, { ...state, ...result, explicitlyCleared: false });
     }
     case EXPLORER_SELECTION_ACTIONS.toggleCardSegment: {
       const result = toggleCardSegmentId(state.segmentIds, action.seriesId, cardIds, {
@@ -607,11 +613,38 @@ export function reduceExplorerSelection(state, action) {
         availableAssetKeys: assetKeys,
         sealedFamilyIds: state.sealedFamilyIds,
       });
-      return settle(state, { ...state, ...result });
+      return settle(state, { ...state, ...result, explicitlyCleared: false });
+    }
+    case EXPLORER_SELECTION_ACTIONS.clearAll: {
+      // CLEAR GRAPH'S bulk action. Deliberately bypasses the "at least one
+      // series must remain" guard every individual toggle enforces — that
+      // guard exists to stop a single click from accidentally blanking the
+      // chart, which is a different concern from a user explicitly asking to
+      // clear everything. An empty chart is now a valid, intentional state
+      // (see MarketExplorerClient).
+      //
+      // `explicitlyCleared: true` is the ONLY thing that stops `reconcile`
+      // (fired automatically whenever the published snapshot's available-id
+      // lists change reference) from silently repopulating the default asset
+      // classes the next time it runs — without it, a Clear Graph a user just
+      // performed would be invisibly undone by an unrelated re-render.
+      return settle(state, {
+        ...state, assetUniverse: [], sealedFamilyIds: [], segmentIds: [], explicitlyCleared: true,
+      });
     }
     case EXPLORER_SELECTION_ACTIONS.reconcile: {
       // A re-published snapshot can add or drop a market. Selection follows it
-      // rather than pointing at a series that no longer exists.
+      // rather than pointing at a series that no longer exists. A user's own
+      // Clear Graph is respected instead: emptiness here is deliberate, not a
+      // gap to fill.
+      if (state.explicitlyCleared) {
+        return settle(state, {
+          ...state,
+          assetUniverse: reconcileAssetUniverse(state.assetUniverse, assetKeys, { hasOtherSeries: true }),
+          sealedFamilyIds: reconcileSealedFamilyIds(state.sealedFamilyIds, sealedIds),
+          segmentIds: reconcileCardSegmentIds(state.segmentIds, cardIds),
+        });
+      }
       return settle(state, {
         ...state,
         assetUniverse: reconcileAssetUniverse(state.assetUniverse, assetKeys, {

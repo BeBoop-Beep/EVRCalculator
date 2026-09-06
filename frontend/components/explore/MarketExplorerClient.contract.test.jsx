@@ -994,3 +994,118 @@ test("the workspace fails closed when no user prop is supplied at all", () => {
   const workspace = findAll(renderer, "data-market-explorer-access-mode")[0];
   assert.equal(workspace.props["data-market-explorer-access-mode"], "basic");
 });
+
+// --- Prompt 6: Clear Graph / Builder Clear / visibility --------------------
+//
+// TWO DISTINCT CLEAR CONTROLS, and neither may reach into the other's state:
+// Builder Clear (owned by MarketExplorerQueryBuilder, verified in its own
+// suite) resets the DRAFT only, never the chart. Clear Graph, tested here,
+// removes every active market and never touches the draft filters a user was
+// still composing.
+
+test("Clear Graph removes every active market and never re-adds a default", () => {
+  const renderer = render();
+  assert.equal(findAll(renderer, "data-market-explorer-active-chip").length, 2);
+
+  click(renderer, "data-market-explorer-clear-graph", undefined);
+
+  assert.equal(findAll(renderer, "data-market-explorer-active-chip").length, 0);
+  assert.equal(findAll(renderer, "data-market-explorer-workspace")[0].props["data-market-explorer-selection"], "");
+  // Zero active markets renders an intentional empty state, not an error.
+  assert.ok(findAll(renderer, "data-market-explorer-no-active-markets").length > 0);
+});
+
+test("Clear Graph does not reset the Builder draft", () => {
+  const renderer = render();
+  const eraToggle = renderer.root.findAll(
+    (node) => node.props?.["data-market-builder-era"] !== undefined, { deep: true }
+  )[0];
+  if (eraToggle) TestRenderer.act(() => { eraToggle.props.onClick?.(); });
+  const draftBefore = findAll(renderer, "data-market-builder-preview")[0]?.props?.["data-market-builder-preview"];
+
+  click(renderer, "data-market-explorer-clear-graph", undefined);
+
+  const draftAfter = findAll(renderer, "data-market-builder-preview")[0]?.props?.["data-market-builder-preview"];
+  assert.equal(draftAfter, draftBefore);
+});
+
+test("show all / hide all is one click, and zero visible series is a valid chart state", () => {
+  const renderer = render();
+  assert.equal(findAll(renderer, "data-market-performance-series").length, 2);
+
+  click(renderer, "data-market-explorer-hide-all", undefined);
+  assert.equal(findAll(renderer, "data-market-performance-series").length, 0);
+  // Still two ACTIVE markets — hiding is not removing.
+  assert.equal(findAll(renderer, "data-market-explorer-active-chip").length, 2);
+  assert.ok(findAll(renderer, "data-market-explorer-all-hidden").length > 0);
+
+  click(renderer, "data-market-explorer-show-all", undefined);
+  assert.equal(findAll(renderer, "data-market-performance-series").length, 2);
+});
+
+test("toggling one series' visibility never issues a network request", () => {
+  const renderer = render();
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (...args) => { calls.push(args[0]); return Promise.reject(new Error("no network expected")); };
+  try {
+    click(renderer, "data-market-explorer-active-visibility", "raw");
+    assert.deepEqual(calls, []);
+    assert.equal(findAll(renderer, "data-market-performance-series").length, 1);
+    // Un-hiding does not refetch either.
+    click(renderer, "data-market-explorer-active-visibility", "raw");
+    assert.deepEqual(calls, []);
+    assert.equal(findAll(renderer, "data-market-performance-series").length, 2);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("removing one active market preserves the others", () => {
+  const renderer = render(overview, { market: "raw,sealedMarket" });
+  assert.equal(findAll(renderer, "data-market-explorer-active-chip").length, 2);
+  click(renderer, "data-market-explorer-active-remove", "sealedMarket");
+  const remaining = findAll(renderer, "data-market-explorer-active-chip")
+    .map((n) => n.props["data-market-explorer-active-chip"]);
+  assert.deepEqual(remaining, ["raw"]);
+});
+
+test("Global All Raw can be an active market without freezing the workspace", () => {
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (url, init) => {
+    calls.push({ url, body: init?.body ? JSON.parse(init.body) : null });
+    return Promise.resolve({
+      ok: true,
+      json: async () => ({
+        queryFingerprint: "global-all-raw-fp",
+        queryKey: "cards|era=all|set=all|segment=all|pokemon=all|priceSegment=all|releaseAge=all|mode=all|topN=na",
+        displayLabel: "Global · All Rarities · All",
+        indexValue: 100,
+        trackedValue: 1234567,
+        historyStartDate: "2026-01-01",
+        trend: [["2026-01-01", 100], ["2026-01-02", 100.5]],
+        spec: { asset: "cards", mode: "all" },
+        scope: { resolvedSetCount: 165 },
+        reconciliation: { eligibleUniverseCount: 33955 },
+        // A "full" response would carry the whole 33,955-row roster here; the
+        // request must have asked for responseMode=summary, which never sends
+        // this field at all.
+      }),
+    });
+  };
+  try {
+    const renderer = render();
+    const addQueryButton = renderer.root.findAll(
+      (node) => node.props?.["data-market-builder-build"] !== undefined, { deep: true }
+    )[0];
+    assert.ok(addQueryButton, "Build Market control must exist");
+    TestRenderer.act(() => { addQueryButton.props.onClick?.(); });
+
+    const queryCall = calls.find((call) => call.url === "/api/market/explorer/query");
+    assert.ok(queryCall, "building a market must call the query endpoint");
+    assert.equal(queryCall.body.responseMode, "summary");
+  } finally {
+    globalThis.fetch = original;
+  }
+});

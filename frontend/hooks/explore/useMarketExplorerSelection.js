@@ -76,6 +76,10 @@ export default function useMarketExplorerSelection({
   const toggleCardSegment = useCallback((seriesId) => {
     dispatch({ type: EXPLORER_SELECTION_ACTIONS.toggleCardSegment, seriesId, available });
   }, [available]);
+  /** Clear Graph's prepared-market half. See marketExplorerState's `clearAll`. */
+  const clearAll = useCallback(() => {
+    dispatch({ type: EXPLORER_SELECTION_ACTIONS.clearAll, available });
+  }, [available]);
 
   const selectedSeriesIds = useMemo(() => resolveSelectedSeriesIds(selection), [selection]);
 
@@ -85,6 +89,7 @@ export default function useMarketExplorerSelection({
     toggleMarket,
     toggleSealed,
     toggleCardSegment,
+    clearAll,
     /** One entry point for the legend and the Active Markets chips, neither of
      *  which cares which axis a series came from. */
     toggleAny: (seriesId, removeQuery) => {
