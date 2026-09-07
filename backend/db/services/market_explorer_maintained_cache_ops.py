@@ -57,7 +57,7 @@ def discover_maintained_caches(client: Any) -> list[dict[str, Any]]:
     # absent (``row.get("label") or row.get("query_fingerprint")``), so this
     # is a pure fix, not a behavior change.
     return _paged(lambda: client.table(CACHE_TABLE).select(
-        "query_fingerprint,normalized_spec,status,cache_kind,computed_through"
+        "query_fingerprint,normalized_spec,status,cache_kind,computed_through,updated_at"
     ).eq("cache_kind", "maintained"))
 
 
