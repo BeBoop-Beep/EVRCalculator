@@ -494,7 +494,11 @@ def load_filtered_daily_cohort_rows(
         # moderate breadth but not at Global scale. Removing the hard floor
         # lets breadth alone decide: unchanged (>=3 days) for anything up to
         # ~23 sets, degrading toward 1 day only as scope approaches Global.
-        chunk_days = min(int(chunk_days), max(1, 70 // max(1, len(set_ids))))
+        statement_set_count = (
+            min(len(set_ids), DAILY_PROJECTION_SET_BATCH_SIZE)
+            if top_n is None else len(set_ids)
+        )
+        chunk_days = min(int(chunk_days), max(1, 70 // max(1, statement_set_count)))
     else:
         chunk_days = min(int(chunk_days), max(1, 60 // max(1, len(set_ids))))
     while cursor <= last:

@@ -611,18 +611,16 @@ def test_broad_interval_fallback_uses_a_safe_bounded_chunk_size():
 
 
 def test_hot_daily_projection_path_stays_bounded_at_global_scale():
-    """Live evidence this session: even the hot DAILY_PROJECTION_RPC path
-    timed out recovering the Global All Raw maintained cache at 165 sets
-    with the old hardcoded 3-day floor. At Global breadth it must now use a
-    1-day chunk, same conservative floor as the interval-fallback path --
-    the two RPCs converge to the same safety bound only at extreme scope.
+    """Global unranked reads split sets, so each statement remains bounded
+    while processing more than one day and avoiding one RPC per set/day.
     """
     calls = _recorded_chunk_spans(
         svc.DAILY_PROJECTION_RPC, 165, start_date="2026-08-01", end_date="2026-08-04"
     )
     from datetime import date
     spans = [(date.fromisoformat(end) - date.fromisoformat(start)).days + 1 for start, end in calls]
-    assert all(span == 1 for span in spans), spans
+    assert all(span <= 3 for span in spans), spans
+    assert len(calls) == 18  # two 3-day windows times nine set batches
 
 
 def test_unranked_daily_projection_aggregates_broad_set_batches_exactly():
