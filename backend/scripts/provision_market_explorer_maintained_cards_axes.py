@@ -173,7 +173,10 @@ def provision_one(client: Any, *, commit: bool, label: str, spec_kind: str,
         return report
 
     planner = MarketExplorerQueryPlanner(l1=MarketExplorerL1Cache())
-    persistent = PersistentMarketExplorerCache(client)
+    # First-time broad axes can spend minutes in materialized history reads.
+    # Use the schema's maximum bounded lease while the heartbeat still renews
+    # it, matching the maintained-cache prewarm worker's production posture.
+    persistent = PersistentMarketExplorerCache(client, build_lease_seconds=300)
     try:
         result = planner.execute(
             spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
