@@ -751,3 +751,71 @@ This pass corrects U.14's core misdiagnosis (a V2/SQL-side timeout) to the real 
 operational scheduling gap) and fixes three real Python-side bugs (V.4) along the way, but broad
 queries and the new rarity-segment maintained caches still do not consistently succeed live pending
 (1) and (2) above.
+
+## W. Final runtime-engineering closure pass (2026-09-07)
+
+Browser QA remained explicitly out of scope. This section supersedes V.5-V.8 where the new live
+evidence below differs.
+
+### W.1 V2 advance and cache lease heartbeat shipped
+
+Migration `20260907055306_market_explorer_v2_daily_advance_and_cache_lease_heartbeat.sql` is applied
+and recorded in the linked production migration ledger. It adds the service-role-only
+`advance_pokemon_market_explorer_daily_v2_shadow_for_set` RPC (authority-set membership, forward-only
+append, exact coverage counts, and rolling 100-day retention) and
+`renew_pokemon_market_explorer_query_cache_build` (matching live token, `building` status, and an
+unexpired lease are all required; an old worker cannot revive an expired lease).
+
+The daily orchestrator now publishes V1 and then V2 before the separately scheduled cache prewarm.
+The planner heartbeats through blocking computation and renews synchronously before every bounded
+constituent upsert/trim batch, stage, and finalize operation. A Rare Holo first-time production build
+ran for approximately 11 minutes and still finalized under its original ownership token, directly
+proving that the former 30-second static lease limitation is closed.
+
+### W.2 Production data and maintained cache results
+
+- V1 coverage: 165 authority sets, 165 coverage rows, minimum `computed_through=2026-09-06`.
+- V2 coverage: 165 authority sets, 165 coverage rows, minimum `computed_through=2026-09-06`,
+  `retained_from=2026-05-30`.
+- V2 declared row counts equal the physical table count exactly: 3,142,442 rows.
+- Destined Rivals was repaired through the normal publication path: 410 Sep-6 V1 rows and 58,630
+  total declared rows.
+- All nine required rarity axes built and promoted successfully: Rare Holo, Rare Rainbow, Rare
+  Secret, Rare Ultra, Double Rare, Hyper Rare, Ultra Rare, Illustration Rare, and Special
+  Illustration Rare. This disproves V.5's proposed general first-build publication defect; the
+  actual issue was the static lease expiring during compute/publication.
+- Premium, New, and the previously maintained caches are current. Final health is 31 ready/current,
+  one failed, zero building, and zero orphaned leases across 32 maintained caches.
+
+The production crontab now contains separate lock-protected publication, prewarm, and health jobs,
+running from the isolated deployment worktree. The prior crontab is recoverably backed up at
+`/home/ubuntu/crontab.before-market-explorer-20260907`.
+
+### W.3 Remaining verified blocker
+
+Global All Raw (`66426743...`) remains failed at `computed_through=2026-09-05`. Its prior failed
+publication left `series_payload.asOf=2026-09-05` but no trend/history payload, so it is not a valid
+incremental base and correctly fails closed into a full cold rebuild. Live retries after V1/V2 were
+fully current still produced PostgreSQL `57014`, including after adding exact additive set batching
+for unranked daily-projection queries and reducing the statement scope from 165 sets to five. The
+first dense five-set/multi-day batch still timed out. Obtainable, Intermediate, Recent, Established,
+and Legacy likewise remain unpromoted due to the same broad cold-history execution limit; Premium
+and New succeed.
+
+This is not a lease failure: every long rarity build retained ownership, no orphan lease exists, and
+the failing SQL statement occurs during source computation before staged publication. Closing it
+requires a separate bounded cold-recovery design (for example a server-side aggregate that avoids
+re-emitting latest constituent JSON for each historical chunk, or a durable per-axis checkpoint),
+not a larger lease or a false status repair.
+
+### W.4 Verification and decision
+
+The focused suite passed 103 tests; all Market Explorer unit files passed 405 tests; the final query
+service file passed 45 tests after the exact set-batch aggregation coverage was added. Two warnings
+are upstream Supabase client deprecations. A broader unit collection attempt was blocked only by a
+pre-existing missing local Stripe dependency, outside the Market Explorer files.
+
+**Not `MARKET_EXPLORER_RUNTIME_BLOCKERS_RESOLVED`.** Daily V2 advancement, retention, scheduler
+ordering, lease heartbeat, all nine rarity builds, production coverage, and 31/32 maintained caches
+are closed. The damaged Global All Raw cold rebuild and five broad finite axes remain genuine,
+reproduced `57014` blockers, so emitting the requested resolution token would be incorrect.
