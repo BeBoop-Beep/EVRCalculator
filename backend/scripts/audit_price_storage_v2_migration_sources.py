@@ -44,7 +44,9 @@ def audit(repo: Path) -> dict:
         name=f"{record['version']}_{record['name']}.sql"
         exact=[f['path'] for f in files if f['name']==name and f['md5']==record['md5']]
         same_version=[f['path'] for f in files if f['name'].startswith(record['version']+'_') and f['path'] not in exact]
-        same_name=[f['path'] for f in files if f['name'].endswith('_'+record['name']+'.sql') and f['path'] not in exact]
+        # Compare the complete name after the version, not a suffix: fix_foo is
+        # a distinct migration from foo, whereas a second version of foo is an alias.
+        same_name=[f['path'] for f in files if f['name'].partition('_')[2]==record['name']+'.sql' and f['path'] not in exact]
         other_exact=[f['path'] for f in files if f['md5']==record['md5'] and f['path'] not in exact]
         archived=(archive/name).exists()
         status=('reconciled' if len(exact)==len(FOLDERS) and not (same_version or same_name)
