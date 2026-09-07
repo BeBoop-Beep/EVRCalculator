@@ -9,6 +9,8 @@ on:
       - 'backend/db/services/pokemon_market_rollout_index.py'
       - 'backend/scripts/*price_storage_v2*'
       - 'backend/tests/*price_storage_v2*'
+      - 'docs/price_storage_v2/applied_migration_manifest.psv'
+      - 'docs/price_storage_v2/applied_migrations/**'
 
 permissions:
   contents: read
@@ -45,6 +47,15 @@ jobs:
         run: |
           python3 backend/tests/run_price_storage_v2_unit.py
           python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py
+      - name: Verify original SQL archive and report remaining migration gaps
+        run: |
+          python3 backend/scripts/audit_price_storage_v2_migration_sources.py > /tmp/price-storage-v2-migration-audit.json
+          python3 - <<'PY'
+          import json
+          report=json.load(open('/tmp/price-storage-v2-migration-audit.json'))
+          print('MIGRATION_SOURCE_INVENTORY='+json.dumps({k:v for k,v in report.items() if k!='records'},sort_keys=True))
+          print('MIGRATION_SOURCE_CONFLICTS='+json.dumps([r for r in report['records'] if r['status']=='alias_or_content_conflict'],sort_keys=True))
+          PY
       - name: Execute proposal on disposable PostgreSQL, never Supabase
         env:
           PRICE_STORAGE_V2_TEST_CONTAINER: ${{ job.services.postgres.id }}
