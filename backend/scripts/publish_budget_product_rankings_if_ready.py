@@ -405,6 +405,20 @@ def run(*, commit: bool, force_price_as_of: Optional[str] = None, client: Any = 
             "failed_gate": "v12_canonical_authority_required",
         })
         return _finish(report, BudgetRankingStatus.HEALTH_GATE_BLOCKED, started)
+    # UI-5B fix: past this point, whenever `is_canonical_v12` is True the V12
+    # candidate has ALREADY been proven to pass (the gate above returns before
+    # here otherwise) and IS what `publish_rankings` below will actually
+    # persist/report on (via `merge_v12_publication_fields`). Before this fix,
+    # `report["overall_rip_version"]` stayed the `_base_report()` scaffold
+    # default (the V10-resolved BASE COHORT's identity string) even on a run
+    # that publishes/would-publish the V12-merged candidate — exactly the
+    # "dry-run candidate's own overall_rip_version is still overall_rip_v10_..."
+    # defect UI-5 (2026-09-06) recorded. The actual publication PAYLOAD was
+    # never wrong (`merge_v12_publication_fields` has always set the
+    # persisted snapshot's `overall_rip_version` column to the V12 identity)
+    # - only this run's own reported metadata field lagged it.
+    if is_canonical_v12:
+        report["overall_rip_version"] = EXPECTED_OVERALL_RIP_V12_VERSION
     if not commit:
         # PUBLISHED means publish-eligible on dry-run; no write is attempted.
         return _finish(report, BudgetRankingStatus.PUBLISHED, started)

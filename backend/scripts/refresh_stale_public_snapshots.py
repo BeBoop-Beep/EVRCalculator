@@ -1919,8 +1919,18 @@ def _run_market_quality_index_phase(
 
     target = str(decision.market_date or market_date or "")[:10]
     try:
-        from backend.db.services.pokemon_market_index_service import (
-            build_market_index_history, persist_index_rows,
+        # Canonical rollout-aware daily Market index path. This is the SAME
+        # function backend/scripts/build_pokemon_market_index_history.py uses
+        # for normal (non-backfill) daily publication. Do not reintroduce the
+        # legacy full-history build_market_index_history/persist_index_rows
+        # pair here: that pair recomputes eligibility from the CORE cohort
+        # only and, on a day a historical-era rollout is staged, would
+        # silently overwrite the larger public rollout cohort (e.g. 39 roots)
+        # with the smaller legacy cohort (e.g. 22 roots).
+        from backend.db.services.pokemon_market_index_service import read_index_history
+        from backend.db.services.pokemon_market_rollout_cohort import resolve_market_root_cohort
+        from backend.db.services.pokemon_market_rollout_index import (
+            build_rollout_market_index_rows, persist_rollout_market_index_rows,
         )
         # Dry-run cannot persist today's verdict, so carry precisely that
         # computed authority into candidate construction. Commit deliberately
@@ -1928,10 +1938,28 @@ def _run_market_quality_index_phase(
         accepted = market_index_accepted_dates(client, through_date=target)
         if not commit:
             accepted.add(target)
-        index_rows = build_market_index_history(
-            client, through_date=target, accepted_dates=accepted)
+        index_rows = build_rollout_market_index_rows(client, market_date=target)
+
+        # Fail-closed invariant: the current rollout authority (never a
+        # literal count) says how many roots a candidate Raw/Top10 row must
+        # carry. A candidate that disagrees is refused rather than persisted
+        # over a larger existing public cohort. This protects any future era
+        # activation (e.g. a hypothetical Sun & Moon rollout) the same way.
+        expected_root_count = len(resolve_market_root_cohort(client, market_date=target))
+        mismatched = sorted({
+            int(row.get("set_count") or 0)
+            for row in index_rows
+            if int(row.get("set_count") or 0) != expected_root_count
+        })
+        if mismatched:
+            raise RuntimeError(
+                f"candidate Market index set_count {mismatched} disagrees with "
+                f"expected root cohort {expected_root_count} for {target}; "
+                "refusing to publish (would overwrite the public cohort)"
+            )
+
         if commit:
-            persist_index_rows(client, index_rows)
+            persist_rollout_market_index_rows(client, index_rows)
             from backend.alerts.pipeline_alerts import alert_market_index
             latest = {key: max((str(row.get("market_date"))[:10] for row in index_rows
                                 if row.get("index_key") == key), default=None)
@@ -1945,7 +1973,15 @@ def _run_market_quality_index_phase(
             snapshot_history = None
         else:
             summary.stale_snapshot_families.add("pokemon_market_index")
-            snapshot_history = index_rows
+            # Read-only candidate preview: prior persisted history (unchanged)
+            # plus the in-memory candidate rows for `target`, so downstream
+            # dry-run consumers (global Market Set Value / overview) can
+            # preview today's would-be numbers without any write firing.
+            prior_history = [
+                row for row in read_index_history(client, through_date=target, accepted_dates=accepted)
+                if str(row.get("market_date"))[:10] != target
+            ]
+            snapshot_history = prior_history + list(index_rows)
         reached = sorted({str(row.get("market_date"))[:10] for row in index_rows})
         print(f"[market-index] raw/top10 target={target} latest={reached[-1] if reached else 'none'}")
         return True, snapshot_history

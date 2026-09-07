@@ -49,6 +49,8 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
     BUDGET_TYPE_STANDARD,
     CANONICAL_BUDGET_BANDS,
     FULL_MARKET_ROUNDING_RULE_VERSION,
+    SORT_AUTHORITY_V10,
+    SORT_AUTHORITY_V12,
     build_budget_strategy_values,
     rank_budget_cohort,
     resolve_full_market_budget,
@@ -61,6 +63,7 @@ from backend.db.services.budget_product_ranking_authority import (
     load_pinned_cohort,
 )
 from backend.db.services.pack_outcome_artifact_service import load_pack_outcome_artifact
+from backend.desirability.scoring_config import canonical_overall_rip_is_v12
 from backend.scripts.pokemon_snapshot_builders import get_client
 
 #: Validated financial-only dominance inversion rate at the V1 freeze was
@@ -128,11 +131,23 @@ def rank_one_budget(
     budget_type: str,
     full_market: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Rank one budget ceiling over the whole cohort.
+    """Rank one budget ceiling over the whole cohort — the V10 BASE SUBSTRATE.
 
     Accepts ANY positive budget — the canonical bands are just the values the
     builder happens to precompute. A future "user enters $X" flow calls this
     directly with no new scoring architecture.
+
+    UNCONDITIONALLY V10 (never threads Chase Accessibility, never resolves a
+    canonical sort authority): this is the substrate `to_publication_payload`
+    maps directly onto the V10-shaped snapshot/row columns
+    (`budget_rank`, `budget_cohort_size`, `overall_rip_v10_score`, ...), so it
+    must stay genuinely, exclusively V10-ordered or those columns would
+    silently carry a different authority's rank under a V10 label — exactly
+    the "mixed authority" defect Phase 7 of the UI-5B cutover forbids. The
+    generic/current V12 candidate is a SEPARATE, parallel build
+    (`build_v12_shadow_rankings_for_cohort`, wired into `build_all_rankings`
+    below) whose rows are merged onto this V10 substrate via
+    `merge_v12_publication_fields` — never by re-sorting this function.
     """
     if target_budget <= 0:
         raise ValueError("target_budget must be positive")
@@ -161,7 +176,7 @@ def rank_one_budget(
             run_fingerprint=None,
         )
         scored = score_budget_strategy(
-            values, allocation["actualCommittedCapital"], product.get("collector_appeal_score")
+            values, allocation["actualCommittedCapital"], product.get("collector_appeal_score"),
         )
         strategies.append({
             "sealedProductId": str(product["sealed_product_id"]),
@@ -177,7 +192,9 @@ def rank_one_budget(
             **scored,
         })
 
-    ranked = rank_budget_cohort(strategies)
+    # ALWAYS V10-sorted here, unconditionally, regardless of what is
+    # program-canonical (see the docstring above).
+    ranked = rank_budget_cohort(strategies, sort_authority=SORT_AUTHORITY_V10)
     unrankable = [s for s in strategies if s.get("overallRipV10Score") is None]
 
     if budget_type == BUDGET_TYPE_FULL_MARKET and full_market is not None:
@@ -202,6 +219,7 @@ def rank_one_budget(
         "minimumUtilization": (min(utilizations) if utilizations else None),
         "meanUtilization": (sum(utilizations) / len(utilizations) if utilizations else None),
         "utilizationRankSpearman": _spearman(utilizations, [r["budgetRank"] for r in ranked]),
+        "sortAuthority": SORT_AUTHORITY_V10,
         "rows": ranked,
     }
 
@@ -268,6 +286,14 @@ def build_rankings_for_cohort(
         "marketDate": market_date,
         "cohortFingerprint": cohort_fingerprint(products, authority["pinnedPriceAsOf"]),
         "rankingMethodVersion": BUDGET_NORMALIZED_RANKING_METHOD_VERSION,
+        # This substrate is ALWAYS the V10-sorted base build (see the
+        # docstring on `rank_one_budget` above). The generic/current V12
+        # candidate, when canonical, is attached separately by
+        # `build_all_rankings` as `result["v12Results"]` plus the
+        # `overallRipSortAuthority`/`rankedUnderV12Authority` keys it adds at
+        # that outer level — never by mutating this dict's own ordering.
+        "overallRipSortAuthority": SORT_AUTHORITY_V10,
+        "rankedUnderV12Authority": False,
         "allocationMethodVersion": ALLOCATION_METHOD_VERSION,
         "comparisonScopeVersion": BUDGET_COMPARISON_SCOPE_VERSION,
         "fullMarketRoundingRuleVersion": FULL_MARKET_ROUNDING_RULE_VERSION,
@@ -445,11 +471,37 @@ def build_v12_shadow_rankings_for_cohort(
 
 
 def build_all_rankings(client: Any, price_as_of: Optional[str] = None) -> Dict[str, Any]:
-    """Operator-compatible resolver followed by the canonical cohort builder."""
+    """Operator-compatible resolver followed by the canonical cohort builder.
+
+    UI-5B cutover: this is the actual generic/current entry point (`main()`
+    and the readiness/publish CLI call this, not `build_rankings_for_cohort`
+    directly). When Overall RIP V12 is program-canonical
+    (`scoring_config.canonical_overall_rip_is_v12()`), the V10 base build
+    above is joined by the EXISTING, already-tested V12 shadow build
+    (`build_v12_shadow_rankings_for_cohort` — Gate F) for the SAME cohort and
+    authority, attached under `result["v12Results"]`. This is what makes the
+    generic Budget Overall Ranking candidate genuinely V12: `main()`'s commit
+    path passes `v12Results` into `publish_rankings`, which merges it onto the
+    V10 substrate via `merge_v12_publication_fields` before the single atomic
+    RPC call — the V10 build itself is never re-sorted or mutated.
+
+    If V12 is canonical but the shadow build's own readiness addendum
+    (`resolve_v12_budget_authority_readiness`) is not fully ready (e.g. a
+    set's Chase Accessibility snapshot is stale/missing/below mass
+    threshold), `v12Results` is still attached with its `v12Readiness.ready`
+    explicitly False — this function never raises to silently fall back to
+    V10; the caller (readiness/publish layer) is responsible for refusing to
+    publish an incomplete V12 candidate as canonical.
+    """
     started = time.time()
     products, authority = load_pinned_cohort(client, price_as_of)
     result = build_rankings_for_cohort(client, products, authority)
     result["timings"]["cohortLoadSeconds"] = round(time.time() - started, 3)
+    if canonical_overall_rip_is_v12():
+        v12_results = build_v12_shadow_rankings_for_cohort(client, products, authority)
+        result["v12Results"] = v12_results
+        result["overallRipSortAuthority"] = SORT_AUTHORITY_V12
+        result["rankedUnderV12Authority"] = bool(v12_results["v12Readiness"]["ready"])
     return result
 
 
@@ -714,6 +766,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     print("                  : %s" % authority["overallRipVersion"])
     print("                  : %s" % authority["collectorAppealVersion"])
     print("method            : %s" % results["rankingMethodVersion"])
+    print("generic authority : %s (rankedUnderV12Authority=%s)"
+          % (results["overallRipSortAuthority"], results["rankedUnderV12Authority"]))
+    v12_results = results.get("v12Results")
+    if v12_results is not None:
+        v12r = v12_results["v12Readiness"]
+        print("V12 readiness     : ready=%s  eligibleSets=%d/%d"
+              % (v12r["ready"], len(v12r["eligibleSetIds"]), len(v12r["perSet"])))
+        if not v12r["ready"]:
+            not_eligible = {sid: v for sid, v in v12r["perSet"].items() if not v["eligible"]}
+            for sid, v in list(not_eligible.items())[:5]:
+                print("   ! set %s not V12-eligible: %s" % (sid, v.get("reason")))
     print("allocation        : %s" % results["allocationMethodVersion"])
     print("comparison scope  : %s" % results["comparisonScopeVersion"])
     print("full market       : $%.2f  (max SKU $%.2f, %s)"
@@ -746,9 +809,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("DRY RUN — no publication attempted.")
         return 0
 
+    v12_results = results.get("v12Results")
+    if v12_results is not None and not v12_results["v12Readiness"]["ready"]:
+        print("REFUSING TO PUBLISH: program-canonical Overall RIP is V12 but the V12 "
+              "candidate is not ready (see V12 readiness detail above). Publishing the "
+              "V10 substrate under a V12-canonical label would be exactly the "
+              "'mixed authority' defect this cutover forbids; publish only resumes once "
+              "the V12 candidate is genuinely ready, never by silently falling back to V10.")
+        return 1
+
     snapshot, rows = to_publication_payload(results)
-    print("publishing %d rows under snapshot market_date=%s ..." % (len(rows), snapshot["market_date"]))
-    snapshot_id = publish_rankings(client, results)
+    print("publishing %d rows under snapshot market_date=%s (authority=%s) ..."
+          % (len(rows), snapshot["market_date"], results["overallRipSortAuthority"]))
+    snapshot_id = publish_rankings(client, results, v12_results=v12_results)
     print("published snapshot id: %s" % snapshot_id)
     return 0
 

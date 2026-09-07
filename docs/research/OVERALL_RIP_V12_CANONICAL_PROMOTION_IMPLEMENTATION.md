@@ -569,6 +569,27 @@ readiness, sort and build-orchestration primitives it would call are now in
 place and tested, but the publish-script wiring itself is deferred. This is
 the one Gate F phase left incomplete; see Blockers below.
 
+**SUPERSEDED (confirmed by UI-5B, 2026-09-06).** The note above is preserved
+as the accurate record of this session's own scope (2026-09-02, before the
+2026-09-03 program-wide V10->V12 cutover). By the time UI-5 (2026-09-06) and
+UI-5B (2026-09-06) investigated, `publish_budget_product_rankings_if_ready.py`
+already contained exactly this wiring — committed at `ceea9164` (2026-09-03,
+same day as the program-wide cutover `85ebdedd`), evidently in a session not
+documented here: `run_v12_dry_run`, `validate_v12_publication_payload`,
+`default_budget_sort_authority_is_v12()`, and the `v12_canonical_authority_required`
+fail-closed gate (refusing to publish a plain V10 snapshot when canonical
+authority is V12) all predate UI-5's investigation. UI-5B's own real,
+narrow fix on top of that existing wiring — see
+`docs/research/OVERALL_RIP_V12_UI_STANDARDIZATION.md`, "UI-5B — Budget
+Overall V12 Cutover" — was a single stale-reporting-field bug
+(`report["overall_rip_version"]` never updated to the V12 identity even when
+the V12-merged candidate was what actually validated/would-publish), not a
+missing publish-script wiring. Live dry-run evidence (production DB,
+read-only, run twice): `status=PUBLISHED`, `overall_rip_version` now
+genuinely reports `overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5`,
+138 eligible products / 22 sets / 8 families, V12 candidate validated
+`passed: true` with all 22 sets V12-eligible.
+
 ### Historical compatibility (Phase 12)
 
 No existing V10 code path, table read, or persisted-row shape was modified.

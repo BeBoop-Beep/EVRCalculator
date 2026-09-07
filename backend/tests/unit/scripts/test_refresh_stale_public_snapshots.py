@@ -18,54 +18,169 @@ def _market_enforcement(*, allowed=True, proceed=True, status="READY"):
     )
 
 
+def _patch_rollout_index(monkeypatch, *, rows, expected_root_count, order=None, prior_history=None):
+    """Patch the canonical rollout-aware daily builder seams.
+
+    ``_run_market_quality_index_phase`` must delegate to
+    ``pokemon_market_rollout_index.build_rollout_market_index_rows`` /
+    ``persist_rollout_market_index_rows`` and to
+    ``pokemon_market_rollout_cohort.resolve_market_root_cohort`` for the
+    fail-closed root-count invariant, never to the legacy
+    ``pokemon_market_index_service.build_market_index_history`` /
+    ``persist_index_rows`` pair.
+    """
+    from backend.db.services import pokemon_market_index_service as index_service
+    from backend.db.services import pokemon_market_rollout_cohort as rollout_cohort
+    from backend.db.services import pokemon_market_rollout_index as rollout_index
+
+    calls = order if order is not None else []
+
+    def build_rows(_client, *, market_date):
+        calls.append(("build", market_date))
+        return [dict(row) for row in rows]
+
+    def persist_rows(_client, built_rows):
+        calls.append("persist")
+        return len(built_rows)
+
+    monkeypatch.setattr(rollout_index, "build_rollout_market_index_rows", build_rows)
+    monkeypatch.setattr(rollout_index, "persist_rollout_market_index_rows", persist_rows)
+    monkeypatch.setattr(
+        rollout_cohort, "resolve_market_root_cohort",
+        lambda *_a, **_k: [{"id": str(i)} for i in range(expected_root_count)])
+    monkeypatch.setattr(index_service, "read_index_history",
+                        lambda *_a, **_k: list(prior_history or []))
+
+    def fail_legacy_build(*_a, **_k):
+        pytest.fail("must not call legacy build_market_index_history for current-day publication")
+
+    def fail_legacy_persist(*_a, **_k):
+        pytest.fail("must not call legacy persist_index_rows for current-day publication")
+
+    monkeypatch.setattr(index_service, "build_market_index_history", fail_legacy_build)
+    monkeypatch.setattr(index_service, "persist_index_rows", fail_legacy_persist)
+    return calls
+
+
 def test_market_quality_phase_dry_run_carries_computed_date_without_write(monkeypatch):
-    captured = {}
     monkeypatch.setattr(refresh, "enforce_market_publication_gate",
                         lambda *_a, **_k: _market_enforcement())
     monkeypatch.setattr(refresh, "market_index_accepted_dates",
                         lambda *_a, **_k: {"2026-08-22"})
-    from backend.db.services import pokemon_market_index_service as index_service
-    def build_index(_client, **kwargs):
-        captured["accepted"] = kwargs["accepted_dates"]
-        return [
-            {"market_date": "2026-08-23", "index_key": "pokemon_raw"},
-            {"market_date": "2026-08-23", "index_key": "pokemon_top10"},
-        ]
-    monkeypatch.setattr(index_service, "build_market_index_history", build_index)
-    monkeypatch.setattr(index_service, "persist_index_rows",
-                        lambda *_a, **_k: pytest.fail("dry-run wrote index"))
+    calls = _patch_rollout_index(
+        monkeypatch, expected_root_count=22,
+        rows=[
+            {"market_date": "2026-08-23", "index_key": "raw", "set_count": 22, "card_count": 220},
+            {"market_date": "2026-08-23", "index_key": "top10", "set_count": 22, "card_count": 220},
+        ])
     summary = refresh.RefreshSummary()
 
     ready, rows = refresh._run_market_quality_index_phase(
         object(), market_date="2026-08-23", commit=False, summary=summary)
 
     assert ready is True
-    assert captured["accepted"] == {"2026-08-22", "2026-08-23"}
+    assert ("build", "2026-08-23") in calls
+    assert "persist" not in calls, "dry-run must not persist rollout-aware rows either"
     assert rows is not None
+    assert {row["index_key"] for row in rows if row["market_date"] == "2026-08-23"} == {"raw", "top10"}
 
 
-def test_market_quality_phase_commit_uses_persisted_accepted_authority(monkeypatch):
+def test_market_quality_phase_dry_run_is_completely_write_free(monkeypatch):
+    """Requirement B: no writes of any kind fire, including MDQ/publication state."""
+    monkeypatch.setattr(refresh, "enforce_market_publication_gate",
+                        lambda *_a, **_k: _market_enforcement())
+    monkeypatch.setattr(refresh, "market_index_accepted_dates",
+                        lambda *_a, **_k: {"2026-08-22"})
+    _patch_rollout_index(
+        monkeypatch, expected_root_count=22,
+        rows=[
+            {"market_date": "2026-08-23", "index_key": "raw", "set_count": 22},
+            {"market_date": "2026-08-23", "index_key": "top10", "set_count": 22},
+        ])
+    from backend.db.services import pokemon_market_rollout_index as rollout_index
+
+    def fail_persist(*_a, **_k):
+        pytest.fail("dry-run must never persist rollout index rows")
+
+    monkeypatch.setattr(rollout_index, "persist_rollout_market_index_rows", fail_persist)
+    summary = refresh.RefreshSummary()
+
+    ready, _rows = refresh._run_market_quality_index_phase(
+        object(), market_date="2026-08-23", commit=False, summary=summary)
+
+    assert ready is True
+
+
+def test_market_quality_phase_commit_uses_rollout_aware_builder(monkeypatch):
     order = []
     monkeypatch.setattr(refresh, "enforce_market_publication_gate",
                         lambda *_a, **_k: order.append("quality") or _market_enforcement())
     monkeypatch.setattr(refresh, "market_index_accepted_dates",
                         lambda *_a, **_k: order.append("read-quality") or {"2026-08-23"})
-    from backend.db.services import pokemon_market_index_service as index_service
-    monkeypatch.setattr(
-        index_service, "build_market_index_history",
-        lambda _client, **kwargs: order.append(("build", kwargs["accepted_dates"])) or [
-            {"market_date": "2026-08-23", "index_key": "pokemon_raw"},
-            {"market_date": "2026-08-23", "index_key": "pokemon_top10"},
+    _patch_rollout_index(
+        monkeypatch, order=order, expected_root_count=39,
+        rows=[
+            {"market_date": "2026-08-23", "index_key": "raw", "set_count": 39, "card_count": 390},
+            {"market_date": "2026-08-23", "index_key": "top10", "set_count": 39, "card_count": 390},
         ])
-    monkeypatch.setattr(index_service, "persist_index_rows",
-                        lambda *_a, **_k: order.append("persist-index"))
     summary = refresh.RefreshSummary()
 
     ready, rows = refresh._run_market_quality_index_phase(
         object(), market_date="2026-08-23", commit=True, summary=summary)
 
     assert ready is True and rows is None
-    assert order == ["quality", "read-quality", ("build", {"2026-08-23"}), "persist-index"]
+    assert order == ["quality", "read-quality", ("build", "2026-08-23"), "persist"]
+
+
+def test_market_quality_phase_rejects_undersized_candidate_cohort(monkeypatch):
+    """Requirement F: a candidate smaller than the authoritative root cohort
+    must abort publication instead of overwriting the larger public cohort.
+
+    This is the exact production regression: rollout authority says 39 roots
+    are active, but the candidate rows only carry the legacy 22-root cohort.
+    """
+    monkeypatch.setattr(refresh, "enforce_market_publication_gate",
+                        lambda *_a, **_k: _market_enforcement())
+    monkeypatch.setattr(refresh, "market_index_accepted_dates",
+                        lambda *_a, **_k: {"2026-08-22"})
+    calls = _patch_rollout_index(
+        monkeypatch, expected_root_count=39,
+        rows=[
+            {"market_date": "2026-08-23", "index_key": "raw", "set_count": 22, "card_count": 220},
+            {"market_date": "2026-08-23", "index_key": "top10", "set_count": 22, "card_count": 220},
+        ])
+    summary = refresh.RefreshSummary()
+
+    ready, rows = refresh._run_market_quality_index_phase(
+        object(), market_date="2026-08-23", commit=True, summary=summary)
+
+    assert ready is False and rows is None
+    assert "persist" not in calls, "must never persist an undersized candidate cohort"
+    assert summary.global_failed
+    assert "39" in summary.global_failed[0] and "22" in summary.global_failed[0]
+
+
+def test_market_quality_phase_no_rollout_active_preserves_legacy_shape(monkeypatch):
+    """Requirement 9 regression: with no public rollout active, the rollout-
+    aware builder's cohort resolution degrades to the core-only cohort and the
+    phase still succeeds exactly as before (no rollout-only fields required)."""
+    monkeypatch.setattr(refresh, "enforce_market_publication_gate",
+                        lambda *_a, **_k: _market_enforcement())
+    monkeypatch.setattr(refresh, "market_index_accepted_dates",
+                        lambda *_a, **_k: {"2026-08-22"})
+    _patch_rollout_index(
+        monkeypatch, expected_root_count=22,
+        rows=[
+            {"market_date": "2026-08-23", "index_key": "raw", "set_count": 22, "card_count": 220},
+            {"market_date": "2026-08-23", "index_key": "top10", "set_count": 22, "card_count": 220},
+        ])
+    summary = refresh.RefreshSummary()
+
+    ready, rows = refresh._run_market_quality_index_phase(
+        object(), market_date="2026-08-23", commit=True, summary=summary)
+
+    assert ready is True and rows is None
+    assert not summary.global_failed
 
 
 @pytest.mark.parametrize("status", ["INCOMPLETE", "DEGRADED"])

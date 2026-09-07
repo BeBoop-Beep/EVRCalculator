@@ -328,14 +328,30 @@ def score_budget_strategy(
     }
 
 
-#: Sort-authority selector for :func:`rank_budget_cohort` (Gate F, Phase 7).
-#: V10 stays the default/canonical authority everywhere this engine is
-#: called without an explicit override - nothing in this module changes that
-#: default. V12 is available ONLY on explicit request (a future, later,
-#: separate cutover would change the default; that cutover is out of scope
-#: here and must never happen implicitly).
+#: Sort-authority selector for :func:`rank_budget_cohort` (Gate F, Phase 7;
+#: UI-5B, Phase 3/7/8 promotes the *default* below to resolve dynamically).
 SORT_AUTHORITY_V10 = "overall_rip_v10"
 SORT_AUTHORITY_V12 = "overall_rip_v12"
+
+
+def resolve_default_budget_sort_authority() -> str:
+    """The generic/current Budget sort authority: whatever Overall RIP model
+    is canonical program-wide (`scoring_config.CANONICAL_OVERALL_RIP_VERSION`),
+    resolved fresh on every call rather than cached at import time.
+
+    UI-5B cutover: prior to this, `rank_budget_cohort`'s default was the
+    literal constant `SORT_AUTHORITY_V10`, hardcoded independently of the
+    program's canonical-version switch — the exact defect
+    (`BUDGET_V12_BLOCKED_PIPELINE_NOT_CUTOVER`) recorded in
+    docs/research/OVERALL_RIP_V12_UI_STANDARDIZATION.md. A caller that wants a
+    specific, explicit authority regardless of what is canonical (e.g. the
+    offline V10 rollback/compat path) must keep passing `sort_authority=`
+    explicitly — this resolver is consulted ONLY when the caller omits the
+    argument entirely.
+    """
+    from backend.desirability.scoring_config import canonical_overall_rip_is_v12
+
+    return SORT_AUTHORITY_V12 if canonical_overall_rip_is_v12() else SORT_AUTHORITY_V10
 
 
 def _tier_sort_key(entry: Mapping[str, Any]) -> tuple:
@@ -401,9 +417,17 @@ def rank_budget_cohort(
 ) -> List[Dict[str, Any]]:
     """Rank only the RANKABLE strategies under the requested sort authority.
 
-    ``sort_authority`` defaults to V10 (the canonical/default budget-ranking
-    authority) and MUST be passed explicitly to get V12 ordering - there is no
-    implicit or inferred cutover. Ineligible/unrankable strategies (for V10:
+    ``sort_authority`` defaults to V10 and MUST be passed explicitly to get
+    V12 ordering - there is no implicit/inferred cutover AT THIS FUNCTION.
+    (UI-5B note: the engine stays a dumb, explicit-only comparator on purpose
+    - many existing callers/tests build V10-only strategy fixtures with no
+    V12 fields populated at all, so resolving a canonical default HERE would
+    silently empty their rankable set under V12. The generic/current-vs-V10
+    decision belongs one layer up, at the orchestration layer that actually
+    has the data to populate V12 fields in the first place - see
+    `resolve_default_budget_sort_authority` and
+    `backend.scripts.build_budget_normalized_product_rankings`.)
+    Ineligible/unrankable strategies (for V10:
     ``overallRipV10Score`` is None; for V12: ``overallRipV12Rankable`` is not
     True) are never assigned a rank; callers must keep them out of this list's
     cohort-size accounting and report them as excluded with a reason, never as

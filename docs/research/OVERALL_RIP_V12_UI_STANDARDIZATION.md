@@ -1944,3 +1944,175 @@ repointed from `compute_overall_rip_v10` to the canonical-version selector
 the way Explore/Set-RIP was in `85ebdedd` — this is a distinct, not-yet-scoped
 code change, not merely a stale-data/republish problem, and is out of scope
 for the two narrowly-scoped fixes this pass made.
+
+**SUPERSEDED by UI-5B (2026-09-06) below.** The finding above is preserved
+verbatim as the historical record of what UI-5 actually observed; UI-5B
+re-investigated with real file reads and corrected the severity/location of
+the defect (it was one stale reporting field, not an un-cutover calculation
+path — the calculation path was already correctly gated) and closed it.
+
+## UI-5B — Budget Overall V12 Cutover (2026-09-06)
+
+**Scope**: close the gap UI-5 recorded above. Real investigation (reading
+`backend/calculations/evr/budget_normalized_product_ranking.py`,
+`backend/scripts/build_budget_normalized_product_rankings.py`, and
+`backend/scripts/publish_budget_product_rankings_if_ready.py` in full)
+produced a materially different, narrower diagnosis than UI-5's framing:
+
+1. **What UI-5's finding got right**: `budget_normalized_product_ranking.py`'s
+   `rank_budget_cohort` does default to the literal `SORT_AUTHORITY_V10`
+   constant rather than a canonical-version selector, and `main()`'s
+   `--commit` path in `build_budget_normalized_product_rankings.py` never
+   built or published a V12 candidate.
+2. **What UI-5's finding got wrong (severity, not existence)**: the *actual*
+   automated production entry point — `publish_budget_product_rankings_if_ready.py`
+   — was **already committed at `ceea9164` (2026-09-03), three days before
+   UI-5 ran**, and already: builds a V12 shadow candidate via the existing,
+   tested `build_v12_shadow_rankings_for_cohort` (Gate F); validates it via
+   `validate_v12_publication_payload`; and **refuses to publish V10 under
+   canonical-V12 authority** (`v12_canonical_authority_required` gate,
+   `run()` lines ~396-407). The dry-run UI-5 ran
+   (`publish_budget_product_rankings_if_ready.py --dry-run`) was already
+   correctly gated by this logic. Its one real, surviving bug: `run()`'s
+   `report["overall_rip_version"]` field was hardcoded from the
+   `_base_report()` scaffold to the V10 identity string and never updated
+   even when the actual candidate being validated/published was the
+   V12-merged one — exactly the symptom UI-5 observed ("dry-run candidate's
+   own `overall_rip_version` is still `overall_rip_v10_...`"). The
+   underlying publication *payload* (via `merge_v12_publication_fields`,
+   which has always set the persisted snapshot's `overall_rip_version`
+   column to the V12 identity) was never wrong — only this one reported
+   metadata field lagged it.
+
+**Fix applied** (3 files, additive/narrow):
+
+- `backend/scripts/publish_budget_product_rankings_if_ready.py` — one
+  conditional line: `report["overall_rip_version"] = EXPECTED_OVERALL_RIP_V12_VERSION`
+  when `is_canonical_v12`, placed after the existing V12 gate (so it only
+  fires once the V12 candidate has already been proven ready).
+- `backend/calculations/evr/budget_normalized_product_ranking.py` — added
+  `resolve_default_budget_sort_authority()` as a standalone utility
+  resolving `scoring_config.canonical_overall_rip_is_v12()`. Deliberately
+  **not** wired as `rank_budget_cohort`'s own default: an earlier attempt to
+  do exactly that was reverted after discovering it would silently empty the
+  rankable set for the ~15 existing tests (and any future caller) that build
+  V10-only strategy fixtures with no V12 fields populated — the canonical
+  V10/V12 decision belongs at the orchestration layer that actually has the
+  data to compute V12 fields, not inside the dumb comparator. The locked
+  test `test_default_sort_authority_is_v10_unchanged` still holds and still
+  passes.
+- `backend/scripts/build_budget_normalized_product_rankings.py` — `build_all_rankings`
+  (the actual generic entry point both scripts call, not `build_rankings_for_cohort`
+  directly) now additionally attaches `result["v12Results"]` via the existing
+  `build_v12_shadow_rankings_for_cohort` when canonical is V12, plus honest
+  `overallRipSortAuthority`/`rankedUnderV12Authority` fields; `main()`'s
+  manual-operator CLI now reports V12 readiness and refuses `--commit` if
+  canonical is V12 but the candidate isn't ready. The V10 base substrate
+  (`rank_one_budget`/`build_rankings_for_cohort`) stays permanently,
+  unconditionally V10-sorted by explicit design, documented in its own
+  docstring: `to_publication_payload` maps its `budgetRank`/`budget_cohort_size`
+  directly onto V10-labeled snapshot/row columns, so re-sorting it under V12
+  would silently produce "V10-labeled column, V12-ordered rank" — exactly
+  the mixed-authority defect Phase 7 forbids.
+
+**A real bug caught by the live dry-run, not by unit tests**: an
+intermediate edit left a stale `sort_authority` local-variable reference in
+`rank_one_budget`'s return dict after that variable had been removed in a
+later revision of the same edit. The full mocked unit suite (207 budget
+tests) did not exercise this code path and passed anyway; a live,
+read-only `--dry-run` against production immediately raised
+`NameError: name 'sort_authority' is not defined` and reported
+`HEALTH_GATE_BLOCKED` / `failed_gate: ranking_build`. Fixed, then
+reverified with two independent live dry-runs.
+
+**Live dry-run evidence** (real production DB, read-only, `--dry-run`,
+`price_as_of=2026-09-04`, run twice for determinism):
+
+```
+status: PUBLISHED
+overall_rip_version: overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5
+default_sort_authority: overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5
+eligible_cohort_count: 138, set_count: 22, family_count: 8, row_count: 1002
+v12_canonical_validation.passed: true (all 22 sets V12-eligible, 1 batch Accessibility read)
+budget_cohort_counts: $25->36, $50->41, $100->58, $150->77, $250->108, $500->133,
+                       $750->137, $1000->137, $1250->137, full_market($1350)->138
+build_duration_ms: ~335,000 (V12 shadow build); total run: ~686,000 ms (~11.4 min)
+```
+Product/set/cohort-progression counts match UI-5's own earlier-recorded
+numbers almost exactly (138 products, 22 sets, 36->138 progression, ~11 min
+wall time) — strong cross-validation that only the reported/generic
+authority changed (V10 -> genuinely-validated V12), not the underlying data.
+
+**V10-vs-V12 comparison** (same live cohort, both builds run once,
+`sealed_product_id`-matched rank comparison per band):
+
+| Budget | n | Spearman | Top-5 overlap | Top-10 overlap | Leader changed | Mean \|Δrank\| | Max \|Δrank\| |
+|---|---|---|---|---|---|---|---|
+| $25 | 36 | 0.9907 | 5/5 | 9/10 | No | 0.78 | 4 |
+| $50 | 41 | 0.9920 | 4/5 | 10/10 | **Yes** | 1.02 | 4 |
+| $100 | 58 | 0.9944 | 5/5 | 9/10 | No | 1.24 | 6 |
+| $150 | 77 | 0.9969 | 5/5 | 10/10 | **Yes** | 1.22 | 5 |
+| $250 | 108 | 0.9958 | 5/5 | 10/10 | No | 2.04 | 9 |
+| $500 | 133 | 0.9959 | 5/5 | 10/10 | No | 2.69 | 11 |
+| $750 | 137 | 0.9948 | 4/5 | 9/10 | No | 2.99 | 13 |
+| $1000 | 137 | 0.9951 | 5/5 | 9/10 | No | 2.86 | 12 |
+| $1250 | 137 | 0.9939 | 5/5 | 10/10 | No | 3.15 | 13 |
+| Full Market ($1350) | 138 | 0.9936 | 5/5 | 9/10 | No | 3.30 | 14 |
+
+Spearman range (0.9907-0.9969) matches the range the earlier Gate F
+methodology validation reported (0.9866-0.9968) closely, and both leader
+changes (at $50 and $150 only) are small-magnitude — consistent with the
+program-wide V10->V12 cutover already validated elsewhere (Explore/Set-RIP),
+not evidence of a wrong input authority.
+
+**Same-set invariant** (Phase 14): 0 in-set rank reversals across all 10
+bands and all 22 sets — within any one set, V10 order and V12 order over
+that set's own products agreed exactly everywhere tested, confirming
+product ordering within a set is still driven purely by Financial RIP V4
+differences (Accessibility and Collector Appeal are constant within a set
+and cannot by themselves explain an in-set reversal).
+
+**Product Chase separation** (Phase 15): grepped all three changed files for
+`o_budget`/`oBudget`/`ece` (case-insensitive) — zero matches. No code path
+in this change reads or writes Product Chase's `O_budget`/ECE fields.
+
+**Entitlement** (Phase 17): `backend/db/services/budget_product_ranking_service.py`
+(pre-existing, not modified by this pass) allowlists exactly
+`overall_rip_v12_score,budget_rank_v12,budget_cohort_size_v12` in
+`PUBLIC_ROW_FIELDS` for the Budget V12 read model — `chase_accessibility_raw`
+and every Product-Chase-specific field are absent from that allowlist, so no
+Premium-gated Product Chase field is reachable through the Budget V12 read
+path.
+
+**Regression evidence**: 207/207 pre-existing budget-domain tests pass
+(engine, authority, readiness, publisher, migration-contract, payload
+tests) — zero regressions. Broader `backend/tests/unit/desirability/`
+sweep: 1955 passed, 74 failed, all 74 confirmed (by import-grep) to be
+pre-existing failures in an unrelated `test_treatment_market_prestige_v3_round*`
+research module with zero reference to any budget-ranking file.
+
+**Rollback**: no destructive DB rollback needed (no migration added, no
+columns dropped, nothing published to production by this pass). Full
+program-wide rollback: revert `CANONICAL_OVERALL_RIP_VERSION` in
+`backend/desirability/scoring_config.py` from `OVERALL_RIP_V12_VERSION`
+back to `OVERALL_RIP_V10_VERSION` — the single switch this entire cutover
+(and every other V12 surface) keys off; `canonical_overall_rip_is_v12()`
+then returns `False` everywhere, `build_all_rankings` stops attaching
+`v12Results`, and `publish_budget_product_rankings_if_ready.py`'s
+`default_budget_sort_authority_is_v12()` reverts the automated publish path
+to V10-only. Surgical rollback of just this pass's 3-file diff (leaving the
+canonical switch at V12) is also safe: `git checkout -- backend/calculations/evr/budget_normalized_product_ranking.py backend/scripts/build_budget_normalized_product_rankings.py backend/scripts/publish_budget_product_rankings_if_ready.py` —
+verified none of the 3 diffs change behavior when canonical is V10 (all 207
+pre-existing tests, including the V10-default lock, still pass with the
+diff applied).
+
+### Final label for UI-5B
+
+**`BUDGET_OVERALL_V12_CUTOVER_IMPLEMENTED_CODE_ONLY`**: the generic/current
+Budget Overall Ranking calculation now genuinely resolves and reports
+Overall RIP V12 when V12 is program-canonical (live-proven against
+production data, twice, read-only); V10 compatibility is preserved and
+locked by existing tests; Chase Accessibility/Financial/Collector authorities
+are reused, never rebuilt or reimplemented; no mixed V10/V12 authority is
+possible by construction; Product Chase O_budget/ECE remain completely
+separate; entitlement is unchanged; no production mutation occurred.
