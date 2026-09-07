@@ -25,6 +25,26 @@ export function formatOutcomePercent(value) {
   return number === null ? "Unavailable" : new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(number);
 }
 
+export function openingCostLabel(row) {
+  const floor = finite(row?.floorRatio);
+  const ceiling = row?.ceilingRatio === null ? null : finite(row?.ceilingRatio);
+  return ({
+    "0:0.25": "Under 25% of opening cost", "0.25:0.5": "25–50% of opening cost",
+    "0.5:0.75": "50–75% of opening cost", "0.75:1": "75–100% of opening cost",
+    "1:1.5": "1–1.5× opening cost", "1.5:2": "1.5–2× opening cost",
+    "2:5": "2–5× opening cost", "5:null": "5×+ opening cost",
+  })[`${floor}:${ceiling}`] || `${row?.label || "Outcome"} of opening cost`;
+}
+
+export function openingCostDollarRange(row, openingCost) {
+  const cost = finite(openingCost);
+  const floor = finite(row?.floorRatio);
+  const ceiling = row?.ceilingRatio === null ? null : finite(row?.ceilingRatio);
+  if (cost === null || cost <= 0 || floor === null) return null;
+  const money = (value) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+  return ceiling === null ? `${money(floor * cost)}+` : `${money(floor * cost)}–${money(ceiling * cost)}`;
+}
+
 export function buildOutcomeProfileViewModel(profile) {
   if (!profile?.buckets?.length) return null;
   const sum = (predicate) => profile.buckets.filter(predicate).reduce((total, row) => total + row.probability, 0);

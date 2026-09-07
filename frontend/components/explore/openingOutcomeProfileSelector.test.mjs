@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildOutcomeProfileViewModel, formatOutcomePercent, selectOpeningOutcomeProfileV1 } from "./openingOutcomeProfileSelector.mjs";
+import { buildOutcomeProfileViewModel, formatOutcomePercent, openingCostDollarRange, openingCostLabel, selectOpeningOutcomeProfileV1 } from "./openingOutcomeProfileSelector.mjs";
 
 const profile = { contractVersion: "opening_outcome_profile_v1", researchMethodVersion: "opening_outcome_profile_research_v1", calculationRunId: "run-a",
   buckets: Array.from({ length: 8 }, (_, i) => ({ key: `b${i}`, label: `${i}`, floorRatio: i, ceilingRatio: i === 7 ? null : i + 1, probability: .125, occurrenceCount: 125 })),
@@ -20,4 +20,13 @@ test("macro outcome groups preserve the exact eight-bucket probability mass", ()
   assert.deepEqual(view.groups.map((row) => row.probability), [.25, .25, .25, .25]);
   assert.equal(view.details.length, 8);
   assert.deepEqual(view.groups.map((row) => row.label), ["Under half back", "Half to pack cost", "Pack cost to 2×", "2× or more"]);
+});
+test("exact bucket labels identify opening-cost recovery", () => {
+  const bounds = [[0,.25],[.25,.5],[.5,.75],[.75,1],[1,1.5],[1.5,2],[2,5],[5,null]];
+  assert.deepEqual(bounds.map(([floorRatio, ceilingRatio]) => openingCostLabel({ floorRatio, ceilingRatio })), ["Under 25% of opening cost", "25–50% of opening cost", "50–75% of opening cost", "75–100% of opening cost", "1–1.5× opening cost", "1.5–2× opening cost", "2–5× opening cost", "5×+ opening cost"]);
+});
+test("dollar ranges use the actual opening cost without changing boundaries", () => {
+  assert.equal(openingCostDollarRange({ floorRatio: .25, ceilingRatio: .5 }, 10), "$2.50–$5.00");
+  assert.equal(openingCostDollarRange({ floorRatio: 5, ceilingRatio: null }, 10), "$50.00+");
+  assert.equal(openingCostDollarRange({ floorRatio: .25, ceilingRatio: .5 }, null), null);
 });

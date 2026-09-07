@@ -40,7 +40,7 @@ test("hero mirrors current Card Detail atmosphere, navigation, and image states"
 test("sealed market is public, has all approved windows, and no card mode toggle", () => {
   assert.ok(
     client.indexOf("SealedProductMarketPanel") <
-      client.indexOf("detail.rip.available ?"),
+      client.indexOf("detail.rip?.available ?"),
   );
   for (const token of ["1D", "7D", "30D", "3M", "6M", "1Y", "lifetime"])
     assert.match(read("./productDetailModel.mjs"), new RegExp(`"${token}"`));
@@ -143,31 +143,16 @@ test("audited user-facing market surfaces use source-agnostic wording", () => {
 test("Basic entitlement keeps Product RIP and opening outcomes behind the lock", () => {
   assert.match(
     client,
-    /detail\.rip\.available \? entitled \? <><ProductRipSection/,
+    /detail\.rip\?\.available \? entitled \? <><ProductRipSection/,
   );
-  assert.ok(
-    client.indexOf("<ProductRipLock />") <
-      client.indexOf(": <ProductRipSection detail={detail} />"),
-  );
+  assert.match(client, /detail\.rip && entitled \? <ProductRipSection detail=\{detail\} \/> : <ProductRipLock \/>/);
 });
 
-test("Set EV Realization is public like Set RIP's own headline, not locked behind Product RIP entitlement", () => {
-  // Renders in the unconditional product-identity header, before the
-  // entitled/locked/unavailable RIP branch - same access model as Set RIP's
-  // ungated SimulationFullReport headline, never inside ProductRipLock or
-  // the Plus-only ProductRipSection/ProductOpeningProfile.
-  const headerIndex = client.indexOf("data-product-identity");
-  const headlineIndex = client.indexOf("data-set-ev-realization-headline");
-  const ripBranchIndex = client.indexOf("detail.rip.available ? entitled ?");
-  assert.ok(headlineIndex > headerIndex);
-  assert.ok(headlineIndex < ripBranchIndex);
+test("Set EV Realization is a Plus-gated parent-set module, not a public header sentence", () => {
   assert.match(client, /selectSetEvRealizationHeadline/);
-  assert.doesNotMatch(rip, /selectSetEvRealizationHeadline|setEvRepresentativeness/);
-  assert.match(client, /Set EV Realization/);
-  // Never claims a per-opener guarantee or reads as product-specific.
-  const headlineParagraph = client.slice(headlineIndex, client.indexOf("</p>", headlineIndex));
-  assert.doesNotMatch(headlineParagraph, /guarantee/i);
-  assert.doesNotMatch(headlineParagraph, /Product EV Realization/);
+  assert.match(client, /entitled \? selectSetEvRealizationHeadline/);
+  assert.match(client, /<EvRealizationCard horizon=\{setEvRealization\} entitled=\{entitled\} context="product"/);
+  assert.doesNotMatch(client, /data-set-ev-realization-headline|Set EV Realization: about/);
 });
 
 test("Set EV Realization reuses the Set RIP selector/formatters - no forked module, no new request", () => {

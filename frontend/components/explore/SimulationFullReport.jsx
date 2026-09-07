@@ -2,8 +2,8 @@
 import { useId, useMemo, useState } from "react";
 import InfoPopover from "@/components/ui/InfoPopover";
 import OpeningOutcomeProfileSection from "./simulation-evidence/OpeningOutcomeProfileSection.jsx";
+import EvRealizationCard from "./EvRealizationCard.jsx";
 import {
-  formatEvRepPacks,
   formatEvRepPercent,
   selectEvRepresentativenessPublicV1,
 } from "./evRepresentativenessSelector.mjs";
@@ -90,15 +90,7 @@ function EvGapExplanation({
         Rare high-value openings pull the average upward, so Expected Value can
         sit well above what a typical pack returns.
       </p>
-      {evRep?.realizationHorizon ? (
-        <p className={styles.evTailNote} data-ev-realization-headline>
-          About {formatEvRepPercent(evRep.realizationHorizon.openerProbability)} of
-          modeled openers reach at least{" "}
-          {formatEvRepPercent(evRep.realizationHorizon.targetEvRatio)} of this
-          set&apos;s long-run EV by{" "}
-          <strong>{formatEvRepPacks(evRep.realizationHorizon.packCount)}</strong>.
-        </p>
-      ) : null}
+      <div className="mt-4"><EvRealizationCard horizon={evRep?.realizationHorizon ?? null} entitled={canViewAdvanced} /></div>
       {canViewAdvanced && evRep?.top1OutcomeEvShare != null ? (
         <p className={styles.evTailNote}>
           The best 1% of modeled openings account for{" "}
@@ -163,6 +155,7 @@ export default function SimulationFullReport({
             calculationRunId={calculationRunId}
             headingId={`${panelId}-outcomes`}
             canViewAdvanced={canViewAdvanced}
+            openingCost={summary?.packCost ?? summary?.pack_cost}
           />
           <EvGapExplanation
             summary={summary}
