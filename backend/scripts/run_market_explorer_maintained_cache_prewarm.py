@@ -290,7 +290,18 @@ def select_stale_caches(
     row (not removed -- it is still selected, and thus still retried, once it
     is the only stale cache left) so a persistently-failing cache cannot
     starve everything behind it under ``--max-caches 1``. It naturally
-    regains normal priority once ``updated_at`` ages past the cooldown."""
+    regains normal priority once ``updated_at`` ages past the cooldown.
+
+    Within the cooling-down group itself, rows are ordered by *oldest
+    ``updated_at`` first* (least-recently-failed first), not by the normal
+    oldest-``computed_through``/fingerprint key. Every retry rewrites
+    ``updated_at`` to "now", so if two or more maintained caches are
+    chronically failing at once, ordering that group by the normal key would
+    let the alphabetically-first chronic failure re-win the slot forever
+    (each retry keeps it "most recently failed" among equals, but that is
+    irrelevant -- what matters is giving every other chronic failure a turn
+    too). Oldest-failure-first makes retries rotate fairly across all of
+    them instead of hammering the same one."""
     now = now or datetime.now(timezone.utc)
     stale = [row for row in rows if _is_stale(row, target_market_date)]
     ordered = sorted(
@@ -301,7 +312,12 @@ def select_stale_caches(
     cooling_down = [row for row in ordered
                     if _in_failure_cooldown(row, now=now, cooldown_seconds=failure_cooldown_seconds)]
     eligible = [row for row in ordered if row not in cooling_down]
-    return eligible + cooling_down
+    cooling_down_by_oldest_failure_first = sorted(
+        cooling_down,
+        key=lambda row: (_parse_timestamp(row.get("updated_at")) or now,
+                          str(row.get("query_fingerprint") or "")),
+    )
+    return eligible + cooling_down_by_oldest_failure_first
 
 
 # --- Worker summary -----------------------------------------------------------

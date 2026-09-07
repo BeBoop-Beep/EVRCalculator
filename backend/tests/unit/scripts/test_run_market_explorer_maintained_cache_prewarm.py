@@ -296,6 +296,48 @@ def test_deprioritization_never_touches_the_deprioritized_rows_status_or_reports
                    for r in result["reports"])
 
 
+def test_multiple_chronic_failures_rotate_fairly_instead_of_one_winning_forever():
+    """Regression for a real production finding: when several maintained
+    caches are ALL chronically failing at once, every retry rewrites each
+    one's updated_at to "now", so if the cooling-down group were ordered by
+    the normal (computed_through, fingerprint) key, the alphabetically-first
+    chronic failure would re-win the slot on every single invocation forever
+    -- reproducing the exact starvation the cooldown exists to prevent, just
+    scoped to the failing subset. Ordering the cooling-down group by
+    oldest-updated_at-first must rotate the attempt across all of them."""
+    t0 = _NOW
+
+    def make_failing(fp):
+        return _row(fp, "2026-08-01", status="failed", updated_at=t0.isoformat())
+
+    fingerprints = ["fp-a", "fp-b", "fp-c"]
+    rows = {fp: make_failing(fp) for fp in fingerprints}
+
+    def flaky_advance(client, row, *, market_date, commit):
+        return worker.CacheAdvanceReport(fingerprint=row["query_fingerprint"],
+                                          label=row["label"], status="failed", error="57014")
+
+    attempted_order = []
+    current_time = t0
+    for _ in range(len(fingerprints)):
+        with patch.object(worker, "discover_maintained_caches", return_value=list(rows.values())), \
+             patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+             patch.object(worker, "advance_one_maintained_cache", side_effect=flaky_advance):
+            result = worker.run_prewarm(client=Client(), commit=True, now=current_time,
+                                         lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
+        fp = result["reports"][0]["fingerprint"]
+        attempted_order.append(fp)
+        # Simulate the real DB write: a failed attempt rewrites updated_at to "now".
+        current_time = current_time + timedelta(seconds=1)
+        rows[fp] = make_failing_at(fp, current_time)
+
+    assert set(attempted_order) == set(fingerprints)
+
+
+def make_failing_at(fp, when):
+    return _row(fp, "2026-08-01", status="failed", updated_at=when.isoformat())
+
+
 def test_memory_guard_behavior_unchanged_by_cooldown_logic():
     rows = [_row("fp-stuck", "2026-08-01", status="failed", updated_at=_NOW.isoformat())]
     failing_guard = lambda: worker.HostGuardResult(
