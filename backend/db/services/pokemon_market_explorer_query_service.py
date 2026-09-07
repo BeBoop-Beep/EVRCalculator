@@ -434,6 +434,7 @@ DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_daily"
 V1_DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_daily_candidate"
 V2_DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_v2_shadow"
 V2_INTERVAL_FALLBACK_RPC = "get_pokemon_market_explorer_filtered_cohort_v2_interval_shadow"
+MATERIALIZED_SERIES_RPC = "get_pokemon_market_explorer_filtered_cohort_materialized_series"
 V2_COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage_v2_shadow"
 
 _RPC_MAX_ROWS_PER_RESPONSE = 1000
@@ -508,6 +509,7 @@ def load_filtered_daily_cohort_rows(
     top_n: int | None = None,
     chunk_days: int = COHORT_CHUNK_DAYS,
     rpc_name: str = FILTERED_COHORT_RPC,
+    include_latest_basket: bool = True,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Reduced point-in-time cohort and latest basket from the filtered SQL RPC.
 
@@ -557,6 +559,10 @@ def load_filtered_daily_cohort_rows(
         chunk_days = min(int(chunk_days), max(1, 70 // max(1, statement_set_count)))
     else:
         chunk_days = min(int(chunk_days), max(1, 60 // max(1, len(set_ids))))
+    if (rpc_name in (V1_DAILY_PROJECTION_RPC, V2_DAILY_PROJECTION_RPC)
+            and len(set_ids) > 100
+            and (price_segment_ids or release_age_cohort_ids)):
+        chunk_days = 1
     while cursor <= last:
         chunk_end = min(last, cursor + timedelta(days=max(1, int(chunk_days)) - 1))
         request_start = date.fromisoformat(previous_observed) if previous_observed else cursor
@@ -587,8 +593,13 @@ def load_filtered_daily_cohort_rows(
         batch_pages: list[list[dict[str, Any]]] = []
         for set_batch in set_batches:
             batch_payload = {**payload, "p_set_ids": [str(value) for value in set_batch]}
+            call_rpc = rpc_name
+            if (rpc_name in (V1_DAILY_PROJECTION_RPC, V2_DAILY_PROJECTION_RPC)
+                    and (chunk_end < last or not include_latest_basket)):
+                call_rpc = MATERIALIZED_SERIES_RPC
+                batch_payload["p_use_v2"] = rpc_name == V2_DAILY_PROJECTION_RPC
             batch_pages.append(list(getattr(
-                client.rpc(rpc_name, batch_payload).execute(), "data", None,
+                client.rpc(call_rpc, batch_payload).execute(), "data", None,
             ) or []))
         if len(batch_pages) == 1:
             page = batch_pages[0]
@@ -1209,7 +1220,7 @@ def run_market_explorer_query(
     if execution_engine == "materialized_hybrid" and bridge_date:
         v1_rows, _v1_basket = load_filtered_daily_cohort_rows(
             client, scope_set_ids, start_date=effective_start, end_date=bridge_date,
-            rpc_name=V1_DAILY_PROJECTION_RPC, **load_kwargs,
+            rpc_name=V1_DAILY_PROJECTION_RPC, include_latest_basket=False, **load_kwargs,
         )
         v2_rows, basket_rows = load_filtered_daily_cohort_rows(
             client, scope_set_ids, start_date=bridge_date, end_date=effective_end,
