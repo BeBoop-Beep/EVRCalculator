@@ -1027,7 +1027,7 @@ class StagedRpcClient:
             self.trim_calls.append(params)
             value = self.trim_sequence.pop(0) if self.trim_sequence else 0
             return _Resp(value)
-        if name == "stage_pokemon_market_explorer_query_cache_build":
+        if name == "stage_pokemon_market_explorer_query_cache_build_from_detail":
             self.stage_calls.append(params)
             return _Resp(self.stage_result)
         if name == "finalize_pokemon_market_explorer_query_cache_build":
@@ -1106,6 +1106,7 @@ def test_stage_happens_only_after_constituent_batches_and_trim():
     assert len(client.batch_calls) == 1
     assert len(client.trim_calls) == 1
     assert len(client.stage_calls) == 1
+    assert "p_current_constituents" not in client.stage_calls[0]
     assert len(client.finalize_calls) == 1
 
 

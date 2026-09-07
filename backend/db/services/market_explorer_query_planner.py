@@ -35,6 +35,7 @@ CONSTITUENT_PAGE_RPC = "get_pokemon_market_explorer_query_cache_constituent_page
 CLAIM_RPC = "claim_pokemon_market_explorer_query_cache_build"
 PUBLISH_RPC = "publish_pokemon_market_explorer_query_cache_build"
 STAGE_RPC = "stage_pokemon_market_explorer_query_cache_build"
+STAGE_FROM_DETAIL_RPC = "stage_pokemon_market_explorer_query_cache_build_from_detail"
 UPSERT_CONSTITUENT_BATCH_RPC = "upsert_pokemon_market_explorer_query_cache_constituent_batch"
 TRIM_CONSTITUENT_BATCH_RPC = "trim_pokemon_market_explorer_query_cache_constituent_batch"
 FINALIZE_BUILD_RPC = "finalize_pokemon_market_explorer_query_cache_build"
@@ -305,7 +306,7 @@ class PersistentMarketExplorerCache:
 
             if not self.renew(fingerprint=fingerprint, token=token):
                 return False
-            staged = self.client.rpc(STAGE_RPC, {
+            staged = self.client.rpc(STAGE_FROM_DETAIL_RPC, {
                 "p_query_fingerprint": fingerprint,
                 "p_build_token": token,
                 "p_computed_from": payload.get("historyStartDate"),
@@ -318,7 +319,6 @@ class PersistentMarketExplorerCache:
                 "p_constituent_count": expected_count,
                 "p_eligible_universe_count":
                     (payload.get("reconciliation") or {}).get("eligibleUniverseCount"),
-                "p_current_constituents": constituents,
             }).execute()
             if not bool(staged.data):
                 return False
