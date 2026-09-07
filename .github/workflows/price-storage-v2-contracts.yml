@@ -8,7 +8,7 @@ on:
       - 'backend/db/services/price_storage_v2_integration.py'
       - 'backend/db/services/pokemon_market_rollout_index.py'
       - 'backend/scripts/*price_storage_v2*'
-      - 'backend/tests/test_price_storage_v2*'
+      - 'backend/tests/*price_storage_v2*'
 
 permissions:
   contents: read
@@ -29,6 +29,8 @@ jobs:
           POSTGRES_DB: price_storage_v2_ci
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: ephemeral-ci-only
+          PGUSER: postgres
+          PGDATABASE: price_storage_v2_ci
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
@@ -41,7 +43,7 @@ jobs:
           persist-credentials: false
       - name: Unit and compile checks
         run: |
-          python3 -m unittest backend.tests.test_price_storage_v2_integration -v
+          python3 backend/tests/run_price_storage_v2_unit.py
           python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py
       - name: Execute proposal on disposable PostgreSQL, never Supabase
         env:
