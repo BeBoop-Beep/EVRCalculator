@@ -1,0 +1,15 @@
+{
+  "checked_at_utc": "2026-09-07T03:46:06.012647+00:00",
+  "baseline_commit": "7d7ae88565a66607f2b727b12530580d1a816bf6",
+  "database_audit_checkpoint": 37,
+  "first_version": "20260905235956",
+  "last_version": "20260906233651",
+  "migration_records_in_window": 89,
+  "statement_bytes": 409228,
+  "manifest_md5": "d988d2e6e877d3373f613d2351e86339",
+  "manifest_rule": "MD5 of newline-joined version:MD5(newline-joined-statements), ordered by version",
+  "all_original_statements_imported_to_repository": false,
+  "placeholder_migrations_allowed": false,
+  "production_apply_authorized": false,
+  "note": "The window includes interleaved rollout/RIP/scraper work. Reconcile collisions rather than renumbering or replacing another session's migrations. SQL proposal must not be installed until reconciliation and isolated PostgreSQL tests pass."
+}
