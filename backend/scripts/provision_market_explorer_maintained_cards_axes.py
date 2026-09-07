@@ -195,9 +195,13 @@ def provision_one(client: Any, *, commit: bool, label: str, spec_kind: str,
     return report
 
 
-def run_provision(client: Any, *, commit: bool) -> dict[str, Any]:
+def run_provision(client: Any, *, commit: bool,
+                  only_labels: tuple[str, ...] = ()) -> dict[str, Any]:
     summary = ProvisionSummary(dry_run=not commit)
     candidates = discover_candidate_specs(client)
+    if only_labels:
+        selected = {value.casefold() for value in only_labels}
+        candidates = [row for row in candidates if row[0].casefold() in selected]
     summary.candidates_considered = len(candidates)
     for label, spec_kind, spec in candidates:
         report = provision_one(client, commit=commit, label=label, spec_kind=spec_kind, spec=spec)
@@ -222,13 +226,16 @@ def build_parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="List candidates; perform no writes.")
     mode.add_argument("--commit", action="store_true", help="Build and promote via the service-role client.")
+    parser.add_argument("--only-label", action="append", default=[],
+                        help="Exact candidate label to build; repeatable. Keeps cold builds process-isolated.")
     return parser
 
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = build_parser().parse_args()
-    report = run_provision(create_service_role_client(), commit=bool(args.commit))
+    report = run_provision(create_service_role_client(), commit=bool(args.commit),
+                           only_labels=tuple(args.only_label))
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
     return 1 if report["failures"] else 0
 

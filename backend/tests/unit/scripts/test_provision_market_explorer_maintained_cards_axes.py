@@ -152,6 +152,15 @@ def test_dry_run_never_writes():
     assert result["candidates_considered"] > 0
 
 
+def test_only_label_is_exact_and_process_isolatable():
+    with patch.object(prov, "build_market_explorer_filter_options", return_value=FAKE_OPTIONS):
+        result = prov.run_provision(
+            Client(), commit=False, only_labels=("price:Premium",),
+        )
+    assert result["candidates_considered"] == 1
+    assert result["reports"][0]["label"] == "price:Premium"
+
+
 def test_a_failed_candidate_does_not_block_the_others():
     """Cache prewarm/provisioning failure isolation, mirrored from the
     accepted prewarm-orchestrator contract: one candidate's build error must
