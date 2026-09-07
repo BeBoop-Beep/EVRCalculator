@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import backend.scripts.run_market_explorer_maintained_cache_prewarm as worker
@@ -24,7 +25,8 @@ class Client:
         self.cache_rows = cache_rows or []
 
 
-def _row(fingerprint, computed_through, status="ready", set_ids=None, label=None):
+def _row(fingerprint, computed_through, status="ready", set_ids=None, label=None,
+         updated_at=None):
     return {
         "query_fingerprint": fingerprint,
         "normalized_spec": {"mode": "all", "setIds": set_ids or []},
@@ -32,6 +34,7 @@ def _row(fingerprint, computed_through, status="ready", set_ids=None, label=None
         "cache_kind": "maintained",
         "computed_through": computed_through,
         "label": label or fingerprint,
+        "updated_at": updated_at,
     }
 
 
@@ -137,6 +140,173 @@ def test_only_set_id_restricts_to_overlapping_caches():
                                      lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
     assert result["discoveredMaintained"] == 1
     assert mock_advance.call_args.args[1]["query_fingerprint"] == "fp-a"
+
+
+def test_skip_fingerprint_excludes_a_persistently_failing_cache():
+    """A cache that fails every invocation would otherwise starve every other
+    stale cache forever under deterministic oldest-first ordering with
+    --max-caches 1. --skip-fingerprint lets an operator route around it
+    without raising --max-caches (which would reintroduce the P0 in-process
+    serial-rebuild pattern) or touching the row's own status."""
+    rows = [_row("fp-stuck", "2026-08-01"), _row("fp-next", "2026-08-02")]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()) as mock_advance:
+        result = worker.run_prewarm(client=Client(), commit=True,
+                                     skip_fingerprints=["fp-stuck"],
+                                     lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
+    assert mock_advance.call_count == 1
+    assert mock_advance.call_args.args[1]["query_fingerprint"] == "fp-next"
+    assert result["skipped"] == ["fp-stuck"]
+    assert result["deferred"] == []
+
+
+def test_skip_fingerprint_does_not_alter_discovered_or_already_current_counts():
+    rows = [_row("fp-stuck", "2026-08-01"), _row("fp-current", "2026-09-02")]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+         patch.object(worker, "advance_one_maintained_cache") as mock_advance:
+        result = worker.run_prewarm(client=Client(), commit=True,
+                                     skip_fingerprints=["fp-stuck"],
+                                     lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
+    assert result["discoveredMaintained"] == 2
+    assert result["staleMaintained"] == 1
+    assert result["alreadyCurrent"] == 1
+    assert result["stopReason"] == "no_stale_caches"
+    mock_advance.assert_not_called()
+
+
+# --- Failure cooldown (deprioritization, not exclusion) ----------------------
+
+_NOW = datetime(2026, 9, 6, 18, 0, 0, tzinfo=timezone.utc)
+
+
+def test_max_caches_one_is_the_default():
+    import inspect
+    assert inspect.signature(worker.run_prewarm).parameters["max_caches"].default == 1
+    parser_default = worker.build_parser().parse_args(["--commit"]).max_caches
+    assert parser_default == 1
+
+
+def test_recently_failed_cache_is_deprioritized_behind_other_stale_caches():
+    """A cache that failed 1 minute ago must not win the single selection
+    slot over an eligible stale cache that hasn't failed recently -- this is
+    the exact starvation this mechanism exists to prevent."""
+    recently_failed_at = (_NOW - timedelta(minutes=1)).isoformat()
+    rows = [
+        _row("fp-stuck", "2026-08-01", status="failed", updated_at=recently_failed_at),
+        _row("fp-next", "2026-08-02", status="ready"),
+    ]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()) as mock_advance:
+        result = worker.run_prewarm(client=Client(), commit=True, now=_NOW,
+                                     lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
+    assert mock_advance.call_count == 1
+    assert mock_advance.call_args.args[1]["query_fingerprint"] == "fp-next"
+    assert result["coolingDown"] == ["fp-stuck"]
+    assert "fp-stuck" in result["deferred"]
+
+
+def test_one_failed_cache_does_not_starve_later_caches_across_invocations():
+    """Simulates the real incident: one maintained cache fails every single
+    invocation forever. Every OTHER stale cache must still advance."""
+    recently_failed_at = _NOW.isoformat()
+    stuck = _row("fp-stuck", "2026-08-01", status="failed", updated_at=recently_failed_at)
+    others = [_row(f"fp-{i}", "2026-08-02") for i in range(3)]
+
+    def advance(client, row, *, market_date, commit):
+        if row["query_fingerprint"] == "fp-stuck":
+            return worker.CacheAdvanceReport(fingerprint="fp-stuck", label="fp-stuck",
+                                              status="failed", error="57014")
+        return worker.CacheAdvanceReport(fingerprint=row["query_fingerprint"],
+                                          label=row["label"], status="advanced")
+
+    advanced = []
+    for _ in range(3):
+        with patch.object(worker, "discover_maintained_caches",
+                           return_value=[stuck] + [r for r in others if r["query_fingerprint"] not in advanced]), \
+             patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+             patch.object(worker, "advance_one_maintained_cache", side_effect=advance):
+            result = worker.run_prewarm(client=Client(), commit=True, now=_NOW,
+                                         lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
+        report = result["reports"][0]
+        if report["status"] == "advanced":
+            advanced.append(report["fingerprint"])
+    assert set(advanced) == {"fp-0", "fp-1", "fp-2"}
+
+
+def test_recently_failed_cache_becomes_retryable_after_cooldown_elapses():
+    long_ago = (_NOW - timedelta(seconds=worker.DEFAULT_FAILURE_COOLDOWN_SECONDS + 1)).isoformat()
+    rows = [_row("fp-recovered", "2026-08-01", status="failed", updated_at=long_ago)]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()) as mock_advance:
+        result = worker.run_prewarm(client=Client(), commit=True, now=_NOW,
+                                     lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
+    assert mock_advance.call_count == 1
+    assert mock_advance.call_args.args[1]["query_fingerprint"] == "fp-recovered"
+    assert result["coolingDown"] == []
+
+
+def test_ready_and_current_caches_remain_skipped_regardless_of_cooldown():
+    rows = [_row("fp-current", "2026-09-02", status="ready"),
+            _row("fp-stuck", "2026-08-01", status="failed", updated_at=_NOW.isoformat())]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()) as mock_advance:
+        result = worker.run_prewarm(client=Client(), commit=True, now=_NOW,
+                                     lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
+    assert result["alreadyCurrent"] == 1
+    assert mock_advance.call_args.args[1]["query_fingerprint"] == "fp-stuck"
+
+
+def test_failure_cooldown_zero_disables_deprioritization():
+    rows = [_row("fp-stuck", "2026-08-01", status="failed", updated_at=_NOW.isoformat()),
+            _row("fp-next", "2026-08-02", status="ready")]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()) as mock_advance:
+        result = worker.run_prewarm(client=Client(), commit=True, now=_NOW,
+                                     failure_cooldown_seconds=0,
+                                     lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
+    assert mock_advance.call_args.args[1]["query_fingerprint"] == "fp-stuck"
+    assert result["coolingDown"] == []
+
+
+def test_deprioritization_never_touches_the_deprioritized_rows_status_or_reports_it_falsely():
+    """The cooldown mechanism reorders selection only -- it must never write
+    to the deprioritized row (no status flip, no fabricated success report)."""
+    rows = [_row("fp-stuck", "2026-08-01", status="failed", updated_at=_NOW.isoformat()),
+            _row("fp-next", "2026-08-02", status="ready")]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()) as mock_advance:
+        result = worker.run_prewarm(client=Client(), commit=True, now=_NOW,
+                                     lock=worker.FileLock(_tmp_lock()), guard=_ok_guard)
+    fingerprints_touched = {call.args[1]["query_fingerprint"] for call in mock_advance.call_args_list}
+    assert "fp-stuck" not in fingerprints_touched
+    assert not any(r["fingerprint"] == "fp-stuck" and r["status"] == "advanced"
+                   for r in result["reports"])
+
+
+def test_memory_guard_behavior_unchanged_by_cooldown_logic():
+    rows = [_row("fp-stuck", "2026-08-01", status="failed", updated_at=_NOW.isoformat())]
+    failing_guard = lambda: worker.HostGuardResult(
+        ok=False, reason="available memory 100.0MB below threshold 512.0MB", observed={})
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+         patch.object(worker, "advance_one_maintained_cache") as mock_advance:
+        result = worker.run_prewarm(client=Client(), commit=True, now=_NOW, guard=failing_guard,
+                                     lock=worker.FileLock(_tmp_lock()))
+    mock_advance.assert_not_called()
+    assert "host_guard" in result["stopReason"]
 
 
 # --- Resource guard -----------------------------------------------------------

@@ -27,6 +27,22 @@ are unavailable (e.g. a Windows dev box, or a container without
 it must never crash local/non-Linux runs.
 
 Dry-run is the default-safe mode; writes require ``--commit``.
+
+FAILURE COOLDOWN (added after a live 2026-09 remediation found that
+deterministic oldest-``computed_through``-first ordering lets one
+persistently-failing maintained cache win the single selection slot on every
+invocation forever, starving every other stale cache behind it): a stale row
+with ``status='failed'`` whose ``updated_at`` is within
+``--failure-cooldown-seconds`` (default 900s / 15 minutes) of "now" is
+deprioritized -- sorted after every other eligible stale cache -- rather than
+excluded outright, so it is still picked (and thus still retried) when it is
+the only stale cache left. This uses the cache row's own ``updated_at``
+column; no schema change and no separate failure-tracking table. The row's
+``status`` is never rewritten by this deprioritization and it is never
+permanently excluded: once ``updated_at`` ages past the cooldown it re-enters
+normal oldest-first priority on its own. ``--skip-fingerprint`` remains
+available as a manual override for a human operator, but the cooldown is what
+lets the unattended scheduler make progress on its own.
 """
 from __future__ import annotations
 
@@ -36,6 +52,7 @@ import logging
 import os
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional, Sequence
 
 from backend.db.services.market_explorer_maintained_cache_ops import (
@@ -53,6 +70,7 @@ DEFAULT_LOCK_PATH = "/tmp/market_explorer_maintained_cache_prewarm.lock"
 DEFAULT_MIN_AVAILABLE_MEMORY_MB = 512.0
 DEFAULT_MIN_AVAILABLE_MEMORY_PERCENT = 25.0
 DEFAULT_MAX_LOAD_PER_CPU = 1.5
+DEFAULT_FAILURE_COOLDOWN_SECONDS = 900.0
 
 
 # --- Host resource metrics (stdlib only; never crashes off-Linux) ------------
@@ -231,16 +249,59 @@ def _is_stale(row: dict[str, Any], target_market_date: str) -> bool:
                 and str(row.get("computed_through") or "")[:10] >= target_market_date)
 
 
-def select_stale_caches(rows: Sequence[dict[str, Any]], *,
-                         target_market_date: str) -> list[dict[str, Any]]:
+def _parse_timestamp(value: Any) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _in_failure_cooldown(row: dict[str, Any], *, now: datetime,
+                          cooldown_seconds: float) -> bool:
+    """True when ``row`` failed recently enough that it should be
+    deprioritized behind other eligible stale caches this invocation.
+
+    Only ``status='failed'`` rows are ever deprioritized -- a row stuck
+    ``status='building'`` (an orphaned lease) is a different failure mode
+    the health checker surfaces separately and is not touched here."""
+    if row.get("status") != "failed" or cooldown_seconds <= 0:
+        return False
+    updated_at = _parse_timestamp(row.get("updated_at"))
+    if updated_at is None:
+        return False
+    return (now - updated_at).total_seconds() < cooldown_seconds
+
+
+def select_stale_caches(
+    rows: Sequence[dict[str, Any]], *, target_market_date: str,
+    now: Optional[datetime] = None,
+    failure_cooldown_seconds: float = DEFAULT_FAILURE_COOLDOWN_SECONDS,
+) -> list[dict[str, Any]]:
     """Deterministic oldest-``computed_through``-first, then stable
-    fingerprint order -- never a random / dict-iteration-order pick."""
+    fingerprint order -- never a random / dict-iteration-order pick.
+
+    A ``status='failed'`` row whose ``updated_at`` is within
+    ``failure_cooldown_seconds`` is moved behind every other eligible stale
+    row (not removed -- it is still selected, and thus still retried, once it
+    is the only stale cache left) so a persistently-failing cache cannot
+    starve everything behind it under ``--max-caches 1``. It naturally
+    regains normal priority once ``updated_at`` ages past the cooldown."""
+    now = now or datetime.now(timezone.utc)
     stale = [row for row in rows if _is_stale(row, target_market_date)]
-    return sorted(
+    ordered = sorted(
         stale,
         key=lambda row: (str(row.get("computed_through") or "0000-00-00")[:10],
                           str(row.get("query_fingerprint") or "")),
     )
+    cooling_down = [row for row in ordered
+                    if _in_failure_cooldown(row, now=now, cooldown_seconds=failure_cooldown_seconds)]
+    eligible = [row for row in ordered if row not in cooling_down]
+    return eligible + cooling_down
 
 
 # --- Worker summary -----------------------------------------------------------
@@ -255,6 +316,8 @@ class PrewarmSummary:
     advanced: int = 0
     failed: int = 0
     deferred: list[str] = None  # type: ignore[assignment]
+    skipped: list[str] = None  # type: ignore[assignment]
+    coolingDown: list[str] = None  # type: ignore[assignment]
     stopReason: Optional[str] = None
     reports: list[dict[str, Any]] = None  # type: ignore[assignment]
     elapsedSeconds: float = 0.0
@@ -262,6 +325,10 @@ class PrewarmSummary:
     def __post_init__(self) -> None:
         if self.deferred is None:
             self.deferred = []
+        if self.skipped is None:
+            self.skipped = []
+        if self.coolingDown is None:
+            self.coolingDown = []
         if self.reports is None:
             self.reports = []
 
@@ -269,6 +336,9 @@ class PrewarmSummary:
 def run_prewarm(
     client: Any, *, market_date: Optional[str] = None, max_caches: int = 1,
     commit: bool = False, only_set_ids: Sequence[str] = (),
+    skip_fingerprints: Sequence[str] = (),
+    failure_cooldown_seconds: float = DEFAULT_FAILURE_COOLDOWN_SECONDS,
+    now: Optional[datetime] = None,
     lock: Optional[FileLock] = None,
     guard: Callable[[], HostGuardResult] = evaluate_host_guard,
 ) -> dict[str, Any]:
@@ -301,9 +371,21 @@ def run_prewarm(
             summary.elapsedSeconds = round(time.monotonic() - started, 3)
             return asdict(summary)
 
-        stale = select_stale_caches(rows, target_market_date=target)
+        stale = select_stale_caches(rows, target_market_date=target,
+                                     now=now, failure_cooldown_seconds=failure_cooldown_seconds)
         summary.staleMaintained = len(stale)
         summary.alreadyCurrent = summary.discoveredMaintained - summary.staleMaintained
+        summary.coolingDown = [
+            str(row.get("query_fingerprint") or "") for row in stale
+            if _in_failure_cooldown(row, now=now or datetime.now(timezone.utc),
+                                     cooldown_seconds=failure_cooldown_seconds)
+        ]
+
+        if skip_fingerprints:
+            skip = {str(v) for v in skip_fingerprints}
+            summary.skipped = [str(row.get("query_fingerprint") or "") for row in stale
+                                if str(row.get("query_fingerprint") or "") in skip]
+            stale = [row for row in stale if str(row.get("query_fingerprint") or "") not in skip]
 
         if not stale:
             summary.stopReason = "no_stale_caches"
@@ -364,6 +446,20 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Maximum stale caches to build in this invocation (default: 1).")
     parser.add_argument("--only-set-id", action="append", default=[],
                         help="Repeatable; restrict to maintained caches overlapping these set IDs.")
+    parser.add_argument("--skip-fingerprint", action="append", default=[],
+                        help="Repeatable; manual override to exclude these query_fingerprint values "
+                             "from selection this invocation. Does not clear or alter the skipped "
+                             "row's own status. Prefer letting --failure-cooldown-seconds handle this "
+                             "automatically; this flag is for a human operator investigating a "
+                             "specific cache.")
+    parser.add_argument("--failure-cooldown-seconds", type=float,
+                        default=DEFAULT_FAILURE_COOLDOWN_SECONDS,
+                        help="A stale cache with status='failed' whose updated_at is within this many "
+                             "seconds is deprioritized behind other eligible stale caches so it cannot "
+                             "starve them under --max-caches 1 (default: 900s / 15 minutes). It is "
+                             "still selected -- and thus retried -- once it is the only stale cache "
+                             "left, and regains normal priority once the cooldown elapses. Set to 0 "
+                             "to disable.")
     parser.add_argument("--lock-path", default=DEFAULT_LOCK_PATH)
     parser.add_argument("--min-available-memory-mb", type=float,
                         default=DEFAULT_MIN_AVAILABLE_MEMORY_MB)
@@ -389,6 +485,8 @@ def main() -> int:
     report = run_prewarm(
         client, market_date=args.market_date, max_caches=args.max_caches,
         commit=bool(args.commit), only_set_ids=args.only_set_id,
+        skip_fingerprints=args.skip_fingerprint,
+        failure_cooldown_seconds=args.failure_cooldown_seconds,
         lock=FileLock(args.lock_path), guard=guard,
     )
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
