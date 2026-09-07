@@ -40,6 +40,41 @@ def main() -> int:
 
     cls = RealSourceContractTests
     cls.setUpClass()
+
+    # The minimal exact-source fixture creates its source tables as postgres and does not
+    # replay every older Supabase ACL migration. Mirror the backend read posture explicitly.
+    # This grants SELECT only: service_role still cannot UPDATE the release gate or rewrite
+    # immutable destination rows. Production's Market Date Quality migration explicitly grants
+    # service_role SELECT/INSERT/UPDATE on that source authority.
+    quality_migration = (
+        REPO_ROOT / "supabase/migrations/20260820120000_create_pokemon_market_date_quality.sql"
+    ).read_text(encoding="utf-8")
+    if "GRANT SELECT, INSERT, UPDATE" not in quality_migration or "TO service_role" not in quality_migration:
+        raise AssertionError("production Market Date Quality service-role read grant not found")
+    cls.run("""
+GRANT SELECT ON TABLE
+ public.conditions,
+ public.sets,
+ public.cards,
+ public.card_variants,
+ public.pokemon_canonical_cards,
+ public.pokemon_canonical_card_legacy_identity_links,
+ public.card_variant_price_observations,
+ public.card_variant_price_events_v2,
+ public.card_variant_price_observation_ranges_v2,
+ public.card_variant_price_current_v2,
+ public.pokemon_canonical_card_market_prices_latest,
+ public.pokemon_market_explorer_card_current_metadata,
+ public.pokemon_market_date_quality,
+ public.scrape_jobs,
+ public.price_storage_v2_shadow_queue,
+ public.pokemon_edition_split_root_sets_v2,
+ public.pokemon_card_desirability_links,
+ public.pokemon_canonical_card_variant_preferences_v2,
+ public.simulation_input_cards
+TO service_role;
+""")
+
     proposal = REPO_ROOT / "backend/db/proposals/price_storage_v2_scoped_publication_cycle.sql"
     sql = proposal.read_text(encoding="utf-8")
     if "cron.schedule" in sql or "cron.unschedule" in sql:
