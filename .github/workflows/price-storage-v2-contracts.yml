@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/price-storage-v2-contracts.yml'
-      - 'backend/db/proposals/price_storage_v2_scoped_publication.sql'
+      - 'backend/db/proposals/price_storage_v2_scoped_publication*.sql'
       - 'backend/db/services/price_storage_v2_integration.py'
       - 'backend/db/services/price_storage_v2_snapshot_replay.py'
       - 'backend/db/services/pokemon_market_rollout_index.py'
@@ -19,7 +19,7 @@ on:
     branches: ['codex/price-storage-v2-scope-integration-10176be']
     paths:
       - '.github/workflows/price-storage-v2-contracts.yml'
-      - 'backend/db/proposals/price_storage_v2_scoped_publication.sql'
+      - 'backend/db/proposals/price_storage_v2_scoped_publication*.sql'
       - 'backend/db/services/price_storage_v2_integration.py'
       - 'backend/db/services/price_storage_v2_snapshot_replay.py'
       - 'backend/db/services/pokemon_market_rollout_index.py'
@@ -65,7 +65,7 @@ jobs:
         run: |
           python3 backend/tests/run_price_storage_v2_unit.py
           python3 -m unittest backend.tests.test_price_storage_v2_migration_reconciliation backend.tests.test_price_storage_v2_full_ledger backend.tests.test_price_storage_v2_reimport backend.tests.test_price_storage_v2_snapshot_replay -v
-          python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py backend/tests/test_price_storage_v2_real_source_sql.py backend/tests/run_price_storage_v2_real_source_sql.py backend/scripts/compare_price_storage_v2_pipeline.py backend/scripts/recover_price_storage_v2_repository_sources.py
+          python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py backend/tests/test_price_storage_v2_real_source_sql.py backend/tests/run_price_storage_v2_real_source_sql.py backend/tests/run_price_storage_v2_coordinator_sql.py backend/scripts/compare_price_storage_v2_pipeline.py backend/scripts/recover_price_storage_v2_repository_sources.py
       - name: Require complete byte-exact migration sources for the frozen window
         run: |
           python3 backend/scripts/audit_price_storage_v2_migration_sources.py --strict > /tmp/price-storage-v2-migration-audit.json
@@ -85,3 +85,7 @@ jobs:
         env:
           PRICE_STORAGE_V2_TEST_CONTAINER: ${{ job.services.postgres.id }}
         run: python3 backend/tests/run_price_storage_v2_real_source_sql.py
+      - name: Execute fail-closed scoped coordinator on exact restored source fixture
+        env:
+          PRICE_STORAGE_V2_TEST_CONTAINER: ${{ job.services.postgres.id }}
+        run: python3 backend/tests/run_price_storage_v2_coordinator_sql.py
