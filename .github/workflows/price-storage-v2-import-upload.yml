@@ -1,0 +1,28 @@
+name: Price Storage V2 verified ledger source import
+
+# Temporary, one-use source-file import into the existing PR168 branch only.
+# Never connects to a database or executes uploaded SQL. Removed after inspection.
+on:
+  push:
+    branches: ['codex/price-storage-v2-scope-integration-10176be']
+    paths:
+      - '.github/workflows/price-storage-v2-import-upload.yml'
+      - 'backend/scripts/import_price_storage_v2_verified_upload.py'
+      - 'docs/price_storage_v2/import_transport/**'
+
+permissions:
+  contents: write
+
+jobs:
+  source-import:
+    if: github.repository == 'BeBoop-Beep/EVRCalculator' && contains(github.event.head_commit.message, 'restore-v2-ledger-upload-26f40b3')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Verify and restore original source files; no SQL execution
+        run: python3 backend/scripts/import_price_storage_v2_verified_upload.py
