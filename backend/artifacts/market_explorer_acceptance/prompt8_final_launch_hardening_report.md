@@ -819,3 +819,149 @@ pre-existing missing local Stripe dependency, outside the Market Explorer files.
 ordering, lease heartbeat, all nine rarity builds, production coverage, and 31/32 maintained caches
 are closed. The damaged Global All Raw cold rebuild and five broad finite axes remain genuine,
 reproduced `57014` blockers, so emitting the requested resolution token would be incorrect.
+
+## X. Materialized historical-build closure (2026-09-07)
+
+This section supersedes W.3-W.4. Browser/mobile QA remained explicitly out of scope.
+
+### A. Branch / HEAD
+
+Work remained on `fix/backend-memory-restart-p0-20260904`. The implementation HEAD before this
+report-only commit was `5693ef54f74c218a50552aa604b5e79cb5926e47`.
+
+### B. Materialized hybrid implementation
+
+`pokemon_market_explorer_query_service.py` now resolves coverage once and chooses one observable
+source: `v1_daily`, `v2_daily`, `materialized_hybrid`, or the last-resort
+`interval_fallback`. The bridge is dynamic: the maximum required V2 `retained_from` across the
+resolved set scope, advanced to the first approved Pokemon market date on/after that boundary.
+Spanning reads request the bridge from both sources, retain the V1 bridge row, discard only the
+duplicate V2 bridge row, and take the latest basket exclusively from the V2 tail.
+
+Every materialized chunk after the first starts at the preceding *observed approved market date*.
+That overlap is calculation context; its duplicate output is removed while the following row keeps
+the RPC-computed common-cohort values. Materialized reads are bounded to three calendar days, with
+price/release-age Global reads conservatively bounded to one calendar day. Historical chunks use
+the new aggregate-only RPC; only the overall final V2 chunk transports the current constituent
+basket. Compact intervals remain intact solely as coverage fallback. No fingerprint/contract
+version changed.
+
+### C. Boundary equivalence evidence
+
+The dynamic production bridge resolved to `2026-05-30`. Direct V1/V2 calls for Global All Raw,
+Global Top 10, SIR, Rare Holo, Obtainable, Intermediate, Premium, New, Recent, Established, and
+Legacy all matched exactly on membership, per-variant market price, constituent count, eligible
+universe, and basket value. Every comparison had zero V1-only variants, zero V2-only variants, and
+zero shared price differences. Global was 32,948 / 32,948 and `$486,947.61` in both sources; the
+slowest of all 22 bridge RPCs was 2.691 seconds.
+
+A separate live Premium control compared one unchunked request with real overlapping three-day
+chunks across `2026-05-18..2026-05-30`. All 13 dates matched for constituent count, eligible
+universe, basket value, common count, common current value, common previous value, and the derived
+chain-linked index. This directly proves chunk-boundary continuity rather than inferring it from
+the source bridge alone.
+
+### D. Global rebuild
+
+Global All Raw was rebuilt honestly from `2026-04-07` through `2026-09-06`; none of the damaged
+historical artifact was reused. It completed from `materialized_hybrid` in 186.315 seconds and
+published `ready` with a derived current constituent/eligible-universe count of 33,961. There was no
+`57014` or 520.
+
+### E. Broad segment builds
+
+All five first-time markets were independently claimed, computed from `materialized_hybrid`, batch
+uploaded, server-staged, finalized, promoted, and are now `ready` through `2026-09-06`:
+
+| Market | Fingerprint prefix | Planner/build evidence | Max cohort RPC | Constituents | Computed from |
+|---|---|---:|---:|---:|---|
+| Obtainable | `a8c961fe` | 87.759s planner | 2.093s | 26,459 | 2026-04-07 |
+| Intermediate | `a9a264a1` | 70.053s end-to-end / 56.397s planner | 0.634s | 6,149 | 2026-04-07 |
+| Recent | `7b793fb9` | 63.974s end-to-end / 51.919s planner | 0.622s | 3,669 | 2026-04-07 |
+| Established | `d90b11c5` | approximately 70.5s publication wall | 0.667s | 5,870 | 2026-04-07 |
+| Legacy | `49a06a7c` | 90.014s end-to-end / 74.988s planner | 1.813s | 23,827 | 2026-04-11 |
+
+The max-RPC figures came from an instrumented, read-only full-range replay of the exact production
+route (154 cohort calls per market). Replay totals were 63.551s, 38.639s, 44.119s, 45.322s, and
+59.165s respectively. No individual statement approached the cancellation envelope.
+
+### F. Final maintained-cache health
+
+The production health command reports 37 maintained rows: 37 ready/current, zero failed, zero
+stale, zero building, zero alerts/orphan leases. Latest approved date is `2026-09-06`. V1 and V2
+each cover all 165 authority sets through that date; V2 remains bounded at `retained_from=2026-05-30`.
+
+### G. Live API results
+
+Real FastAPI route execution against the production project returned HTTP 200 for every required
+shape: Global All Raw 0.818s; Global Top 10 0.062s; SIR 0.098s; Rare Holo 0.059s; Obtainable
+0.107s; Intermediate 0.058s; Premium 0.059s; New 0.089s; Recent 0.064s; Established 0.056s; Legacy
+0.061s. These sub-second responses read the maintained persistent artifacts; no interactive cold
+build, `57014`, or 520 occurred. The acceptance harness replaced only authentication/abuse gates
+with a fixed accepted identity because no test credential is stored in the repo; normalization,
+planner, persistent cache, response serialization, and production data paths were unmodified.
+
+### H. Custom spanning query
+
+The intentionally non-maintained compound `specialIllustrationRare + premium` query completed via
+the same HTTP application route in 97.507s, using `materialized_hybrid`, with no interval fallback,
+`57014`, or 520. Its returned fingerprint
+`0db2db5b88cacb608f8c2439d0b73a0b64002eaff839d27f6d182e223c9791b4` exactly equals the canonical
+normalizer's fingerprint for that spec, proving semantic fingerprint stability.
+
+### I. Performance timings
+
+Global's one-time honest publication took 186.315s. The five publication/replay timings and maximum
+RPC durations are recorded in E; maintained HTTP hits were 0.056-0.818s. The design optimizes the
+interactive contract while keeping offline first-build calls individually bounded.
+
+### J. Tests
+
+The complete Market Explorer backend selection passes: **411 passed**, with only two upstream
+Supabase-client deprecation warnings. The suite includes routing, dynamic bridge, overlap merge,
+latest-basket authority, fallback, staging failure, heartbeat, publication, and fingerprint
+coverage. `git diff --check` passes.
+
+### K. Production migration
+
+Two forward migrations were applied and mirrored exactly in the repo:
+
+- `20260907075615_stage_market_explorer_cache_from_detail.sql` assembles the rank-ordered current
+  basket server-side only after exact normalized-detail count validation.
+- `20260907174821_add_market_explorer_materialized_series_rpc.sql` returns historical cohort
+  aggregates without repeatedly serializing the current basket.
+
+Both functions have empty `search_path`, retain a bounded 300-second statement timeout, deny
+EXECUTE to `anon` and `authenticated`, and grant it only to `service_role`. No timeout was increased.
+Publication order is claim -> compute with heartbeat -> upload every normalized batch -> trim/verify
+exact detail -> server-stage ordered JSON -> heartbeat -> authoritative existing finalize.
+
+### L. Report update
+
+The remaining broad cold-build blocker was not V2 hot performance, cache lease expiry, or interval
+correctness. The engine was unnecessarily recomputing the pre-retention historical slice from
+compact intervals despite already having a full materialized canonical V1 daily projection.
+Historical construction was changed to use V1 materialized daily states before the V2 retention
+boundary and V2 materialized daily states afterward, preserving one bridge date for chain-link
+continuity.
+
+### M. Commit SHA
+
+Implementation commits are `6ed1f558`, `35ae0958`, `1339add8`, `faf9fc4e`, `daefca52`,
+`d623256a`, and `5693ef54`. The final report commit is recorded in the handoff response.
+
+### N. Genuine blockers
+
+None remain in the runtime-engineering closure scope. Browser/mobile visual QA remains a separate,
+deliberately unstarted release gate.
+
+### O. Runtime decision
+
+`MARKET_EXPLORER_RUNTIME_BLOCKERS_RESOLVED`.
+
+### P. Exact remaining steps to MARKET_EXPLORER_LAUNCH_READY
+
+Merge/deploy the reviewed branch through the normal release process, let the installed publication
+-> prewarm -> health schedule continue, then perform the separately authorized browser/mobile
+visual QA and its release sign-off. No further Market Explorer runtime/data repair is required by
+this closure contract.
