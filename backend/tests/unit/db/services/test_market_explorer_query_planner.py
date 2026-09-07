@@ -1196,7 +1196,9 @@ def test_publish_false_still_causes_market_explorer_publish_failed():
 
 
 def test_rpc_exception_during_staged_publish_returns_false():
-    client = StagedRpcClient(raise_on="stage_pokemon_market_explorer_query_cache_build")
+    client = StagedRpcClient(
+        raise_on="stage_pokemon_market_explorer_query_cache_build_from_detail"
+    )
     cache = PersistentMarketExplorerCache(client)
     assert cache.publish(fingerprint="f" * 64, token="tok",
                          payload=_make_payload(10)) is False
