@@ -32,7 +32,7 @@ test("Format Strength remains qualitative and renders no aggregate score", () =>
 
 test("Sets uses one dense header row with only the requested family help", () => {
   assert.equal(source.includes("Product Family Snapshot"), false);
-  assert.equal(source.includes('scope="colgroup"'), false);
+  assert.ok(source.includes('scope="colgroup"'), "the Market-Based grouped header identifies its column group");
   assert.equal(source.includes("rowSpan={2}"), false);
   assert.ok(source.includes("column.info ? <InfoPopover"));
   assert.ok(familySource.includes('key: "pc-etb"') && familySource.includes('key: "half-box"'));

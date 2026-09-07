@@ -2116,3 +2116,500 @@ locked by existing tests; Chase Accessibility/Financial/Collector authorities
 are reused, never rebuilt or reimplemented; no mixed V10/V12 authority is
 possible by construction; Product Chase O_budget/ECE remain completely
 separate; entitlement is unchanged; no production mutation occurred.
+
+**IMPORTANT CORRECTION FROM UI-6 (see below): the "live-proven against
+production data" claim above is true only for the offline publish/build CLI
+path (`publish_budget_product_rankings_if_ready.py`). It does NOT hold for
+the live public read path a browser actually hits. UI-6's Phase 9 found and
+root-caused this gap in full — see that section.**
+
+## UI-6 — Final Cross-Surface Acceptance (2026-09-06)
+
+**Scope**: the final release-candidate acceptance pass across every UI-1
+through UI-5B live surface — Set RIP, Set Analysis, Product RIP, Product
+Chase, Product Rankings, Set Rankings, Budget Rankings, terminology,
+component consolidation, responsive/accessibility, entitlement, and fresh
+regression evidence. Code-only, read-only DB validation, no
+deploy/publish/backfill. Full 27-phase brief; findings below are organized by
+phase group as they were actually executed, in five batches across one
+session.
+
+### Phase 1-2 — Continuity audit and live route map
+
+Re-traced every route via real import chains (not file existence), confirming
+no UI-1–UI-5B live-path feature has regressed since the last recorded state
+(working tree was clean, `git status --short` empty, at `f8e0ed0c` for the
+entire session — zero edits were made during this acceptance pass).
+
+| Route | Live component chain |
+|---|---|
+| Set RIP detail | `app/TCGs/Pokemon/Sets/[setSlug]/page.js` → `PokemonSetPageClient.jsx` → (dynamic) `PokemonSetRichPageClient.jsx` → (dynamic) `rich/RichRipSetTab.jsx` → `components/explore/RipDecisionPage.jsx` |
+| Set Analysis | `app/TCGs/Pokemon/Sets/[setSlug]/analysis/page.js` → `PokemonSetAnalysisClient.jsx` |
+| Sealed Product detail | `app/sealed-products/[productId]/page.js` → `SealedProductDetailClient.jsx` → `ProductRipSection.jsx` + `ProductChaseIntelligenceSection.jsx` |
+| Rankings (Set/Product/Cards/Era, Budget as a Products-lens toggle) | `/Rankings` (canonical) re-exports `app/Explore/page.js` → `RankingsLazyClient.jsx` → `ExploreTableClient.jsx` (Sets) / `RankingsProductLensClient.jsx` (Products, incl. `budgetKey`/"Opening Budget" selector) / `CardChaseEfficiencyRankings.jsx` |
+| Legacy `/Explore/rip-statistics` | `RipStatisticsPageClient.jsx`; every `target_type=set` request redirects to the canonical Set RIP route above |
+
+`ProductFamilyRankingsClient.jsx` reconfirmed NOT in any live import chain —
+orphan status from UI-4/UI-5 holds. All UI-1–UI-5B live-path features
+(shared Market-Based component, Chase presentation selector, Chase backend
+set-rank authority, Product detail/Ranking Chase projection, Budget V12
+candidate attachment, publication-readiness fixes) are **PRESENT** in the
+working tree by direct inspection; entitlement projection fixes are present
+for every surface traced except the live Budget read path (see Phase 9).
+
+### Phase 3-6 — Set RIP / Set Analysis / Product RIP / Product Chase content acceptance: PASS
+
+All four surfaces were read in full (not skimmed) and verified against the
+locked hierarchy, no-weight-disclosure rule, and construct-distinction rules:
+
+- **Set RIP** (`RipDecisionPage.jsx`): Overall RIP prominent; Market-Based
+  Opening Quality is a single grouped block (Financial RIP + a
+  rank/tier-free Chase Accessibility snapshot card) carrying the literal
+  copy "Explanatory grouping only — never its own persisted score"; Collector
+  Appeal is a separate sibling; both Market-Based CTAs scroll to one shared
+  deep-dive block; Top Chase ("The Chase") is a structurally and
+  data-source-separate section. One non-blocking copy nit: the deep-dive
+  title interpolates `${MARKET_BASED_LABEL} — why Financial RIP is X`, which
+  momentarily reads as if Market-Based itself carries that score (it does
+  not — X is Financial's own score).
+- **Set Analysis** (`PokemonSetAnalysisClient.jsx`): nav is exactly
+  `Overview, Simulation, Market-Based, Collector Appeal, Market Context`; the
+  Overview mirrors Set RIP's hierarchy verbatim (same explanatory sentence);
+  the `market-based` tab imports and renders the identical
+  `MarketBasedOpeningQualityBreakdown.jsx` component Set RIP uses (import
+  path identity confirmed, not just similar naming); no separate Chase tab.
+- **Product RIP** (`ProductRipSection.jsx`): Financial RIP tagged "This
+  product", Chase Accessibility and Collector Appeal both tagged "Parent
+  set" with explicit copy explaining why (identical across every product of
+  the same set/run); no `oBudget`/`ece` field anywhere in the file; Product
+  Chase Intelligence is a separate, separately-entitlement-gated component
+  rendered below in `SealedProductDetailClient.jsx`.
+- **Product Chase** (`ProductChaseIntelligenceSection.jsx`): all 8 required
+  states (Premium ready, anonymous 401, Free/Plus pre-gated with no fetch,
+  404 unavailable, budget-below-one-unit, authority-unavailable,
+  unsupported-composition, generic network/5xx error) are genuinely distinct
+  code branches with distinct `data-chase-state` attributes and distinct
+  copy — none collapsed into a generic bucket. Copy distinguishes "Set Chase
+  Accessibility" from "Chase Access at $X" as two separate `<dt>/<dd>` rows.
+
+### Phase 7-9 — Product Rankings / Set Rankings / Budget Rankings: PASS, PASS, **BLOCKER FOUND**
+
+- **Product Rankings** (`RankingsProductLensClient.jsx`, confirmed live, not
+  the archived `ProductFamilyRankingsClient.jsx`): desktop hierarchy matches
+  spec exactly; Chase cell always renders "Set #X of Y" (never "Product #X of
+  Y" — enforced by `chaseAccessibilityDisplay.mjs`'s own docstring and
+  default `setLabel: true`); Chase sort is reachable via the real "Sort
+  products" menu and reads the correct nested authority field; tie behavior
+  relies on `Array.prototype.sort`'s ES2019+ stability rather than an
+  explicit secondary key (functionally correct, not explicitly documented).
+- **Set Rankings** (`ExploreTableClient.jsx`): `SET_RIP_V1_HELP` (the UI-5
+  Set-RIP-V1-vs-Product-Overall-RIP-V12 distinction copy) is genuinely wired
+  live as the "Set RIP Score" column's `InfoPopover` text (line 900), and the
+  column's position (standalone, left of the family/Market-Based/Collector
+  columns) does not visually imply composition. Chase Accessibility
+  correctly uses the bare "#X of Y" form here (`setLabel: false`) since the
+  table is already exclusively about sets.
+- **Budget Rankings — BLOCKER**: see below.
+
+#### Phase 9 root cause (confirmed genuine, not intentionally deferred)
+
+The "Opening Budget" selector inside `RankingsProductLensClient.jsx`
+("All Products" view) is the actual live Budget Rankings surface. Its full
+request chain was traced end to end:
+
+`RankingsProductLensClient.jsx` → `GET /api/explore/product-rankings/overall?budget=X`
+→ `frontend/lib/explore/overallProductRankingsServer.js` → backend
+`GET /explore/product-rankings/overall` (`backend/api/main.py:1097`) →
+`read_public_overall_product_rankings()`
+(`backend/db/services/public_overall_product_rankings_service.py:24-92`) →
+`load_budget_ranking()` / `load_full_market_ranking()` +
+`public_budget_cohort_presentation()` (both in
+`backend/db/services/budget_product_ranking_service.py`).
+
+UI-5B (2026-09-06, same day, above) added three V12-authority-aware
+resolvers to `budget_product_ranking_service.py` —
+`snapshot_ranked_under_v12_authority()` (lines 45-53),
+`resolve_generic_overall_score()` (56-64), `resolve_generic_budget_rank()`
+(67-70), `resolve_generic_budget_cohort_size()` (73-76) — and confirmed via
+`git log --follow -p` that commit `ceea9164` (2026-09-03) wired them
+correctly into a function called `build_public_overall_projection()`
+(lines 241-292, e.g. line 282: `"budgetRank": resolve_generic_budget_rank(row, snapshot)`).
+
+**`build_public_overall_projection()` has zero callers anywhere in the
+repository** (confirmed by repo-wide grep — only its own `def` line
+matches) and zero test coverage. The function that actually serves the live
+`/Rankings` → Products lens → Opening Budget UI is the separate
+`read_public_overall_product_rankings()`, which never calls
+`build_public_overall_projection` or any of the three resolvers:
+
+- `public_overall_product_rankings_service.py:55` —
+  `"budgetRank": raw.get("budget_rank")` (direct V10 column read, bypasses
+  `resolve_generic_budget_rank()` entirely)
+- `public_overall_product_rankings_service.py:60` —
+  `"overallRipScore": raw.get("overall_rip_v10_score")` (explicitly V10;
+  this specific field is unused by the current frontend, but is still
+  mislabeled)
+- `public_overall_product_rankings_service.py:62-66` — `overallRipRelativeScore`
+  / `overallRipLeaderScore` / `financialRipAbsoluteScore` /
+  `financialRipRelativeScore` / `financialRipLeaderScore` — the fields the
+  frontend's `RipScoreBadge`/`RipTierMark` actually render — are all sourced
+  from `presentation = public_budget_cohort_presentation(raw_rows)`
+  (line 44)
+- `budget_product_ranking_service.py:83-113` (`public_budget_cohort_presentation`)
+  is unconditionally hardcoded to `row.get("overall_rip_v10_score")` /
+  `row.get("financial_rip_v4_score")` at lines 87, 91, 95, 99, 103, 106 —
+  **no branch on `snapshot_ranked_under_v12_authority()` anywhere in this
+  function.**
+
+**Confirmed not intentionally deferred**: re-read UI-4B's own section
+(lines 1199-1213 above), which touched `public_overall_product_rankings_service.py`
+only to add a `chaseAccessibility` pass-through field, never inspecting
+score/rank resolution. Re-read UI-5B's own text (lines 1954-2083 above),
+which explicitly states `budget_product_ranking_service.py` was
+"pre-existing, not modified by this pass" (2079-2080), and whose entire
+"live dry-run evidence" table came from running
+`publish_budget_product_rankings_if_ready.py --dry-run` — the offline
+publish/report CLI — never an HTTP request to
+`/explore/product-rankings/overall`. Grepped the full doc, all commit
+messages touching these two files, and every backend test file for any
+mention of `build_public_overall_projection`, `resolve_generic_overall_score`,
+or an intentional-deferral note: **zero hits**. The dedicated unit test file
+for the exact module at the center of this gap,
+`backend/tests/unit/db/services/test_budget_product_ranking_service.py`
+(9/9 passing), contains zero mentions of "v12"/"V12" anywhere — the passing
+suite simply never exercises this behavior, so its green status is not
+evidence against the finding.
+
+**User-visible impact**: today, a user selecting a budget in Product
+Rankings sees Overall RIP scores, tiers, and budget ranks computed from V10,
+not V12 — even though every other surface confirmed in this pass (Set RIP,
+Set Analysis, Product RIP) correctly resolves V12 via
+`OverallRipExplanationHierarchy`/`canonicalRipV7.mjs`. This directly
+contradicts the "generic/current Budget Overall Ranking... now genuinely
+resolves... V12" claim in UI-5B's own final label above, which was true only
+for the offline publish/build pipeline, not the live read path.
+
+**Conflation check (the other half of Phase 9): PASS.** No `oBudget`/ECE
+field appears anywhere in this file or its frontend consumer; Product
+Chase's construct stays fully separate from normal Budget Overall.
+
+**Required fix (NOT performed in this pass — out of scope for a UX/acceptance
+pass; documented here for a follow-up implementation task)**: wire
+`resolve_generic_overall_score()`, `resolve_generic_budget_rank()`, and
+`resolve_generic_budget_cohort_size()` into the actual live read path. Two
+viable approaches, in order of preference:
+1. Change `read_public_overall_product_rankings()`
+   (`public_overall_product_rankings_service.py`) to call
+   `build_public_overall_projection()` (or the three resolvers directly) for
+   the raw-row-to-public-row transform of `budgetRank`/`overallRipScore`,
+   instead of its own hand-built dict — and update
+   `public_budget_cohort_presentation()` to branch its `score_getter`
+   arguments on `snapshot_ranked_under_v12_authority(snapshot)` so
+   `overallRipLeaderScore`/`overallRipRelativeScore`/`publicTier` resolve V12
+   when canonical.
+2. Alternatively, delete the now-confirmed-dead `build_public_overall_projection()`
+   and reimplement the same V12-authority branching directly inside
+   `public_budget_cohort_presentation()` and `read_public_overall_product_rankings()`,
+   if consolidating call sites is judged simpler than routing through the
+   existing dead function.
+Either path needs a new test asserting `overallRipLeaderScore`/`budgetRank`
+actually change when `ranked_under_v12_authority` flips, added to
+`test_budget_product_ranking_service.py` and/or
+`test_public_overall_product_rankings_service.py` — the exact test gap that
+let this ship unnoticed.
+
+### Phase 10-11 — Terminology sweep and component consolidation: PASS, no action needed
+
+Full forbidden-string sweep (`86%/90% Financial`, `4% Chase`, `10% Collector`,
+`95.56`, `4.44`, `Chase Opportunity`, `Core K`, `Shadow V12`, `not canonical
+V12`, `Market Score`, `Financial + Chase Score`, `Financial RIP Breakdown`)
+across `frontend/`: all historical-naming/rule-documentation hits (in
+`canonicalRipV7.mjs`, `overallRipExplanationHierarchySelector.mjs`,
+`ripScoreBreakdownSelector.mjs`) are code comments, never rendered UI copy —
+VALID_HISTORICAL, no fix needed. `ProductFamilyRankingsClient.jsx` reconfirmed
+correctly archived: still carries its exact archival header, provably
+unreferenced by any route, and still cited as a text-reference control by 5
+distinct contract test files (verified each references it exactly once) —
+deletion would break those tests, so it must remain archived as-is.
+
+### Phase 12-14 — Responsive visual acceptance: STRUCTURAL EVIDENCE ONLY, real browser attempted and blocked
+
+A genuine attempt was made to run a real, read-only (GET-only, no auth
+mutation) Playwright script against the live production site
+(`https://www.inthedex.io/Rankings`) at 1440/768/390px to screenshot and
+structurally probe the live DOM. The session's sandbox auto-mode command
+classifier blocked the execution outright; no attempt was made to route
+around it. This is the same honest limitation UI-4B recorded (its own
+"Visual smoke" section above, lines 1267-1284). Structural evidence
+gathered instead: both ranking tables wrap their `<table>` in
+`overflow-x-auto` containers (graceful tablet degradation, not page-level
+overflow); both have dedicated, separately-coded mobile card layouts
+(`md:hidden` blocks) rather than shrunken tables; `ProductChaseIntelligenceSection.jsx`'s
+budget selector uses `flex flex-wrap`. Actual rendered pixel alignment and
+visual balance were not and could not be verified this session.
+
+### Phase 15 — Color/visual semantics: PASS
+
+Financial/Chase/Collector are always distinguished by explicit text label,
+never color alone, across every surface read this pass. Chase Accessibility's
+raw `%` renders as plain text everywhere (`ChaseAccessibilitySnapshotCard`,
+`ChaseAccessibilityCard`, `ChaseAccessibilityCell`, both Rankings tables) —
+zero instances of a progress-bar/width-bar rendering tied to the Chase
+metric were found. The only `role="progressbar"` found
+(`PokemonSetAnalysisClient.jsx`'s generic `ScoreCard`) is legitimately used
+for 0-10 scores, never for Chase's raw reachability percentage. No
+fabricated tier color for Chase was found anywhere — no `RankBadge`/
+`RipTierMark` is ever passed a Chase-derived tier value.
+
+### Phase 16 — Accessibility acceptance: PASS with one real, non-blocking finding
+
+Heading hierarchy, `aria-label`/`aria-labelledby`/`scope="col"` are used
+correctly and extensively in `RipDecisionPage.jsx`, `PokemonSetAnalysisClient.jsx`,
+and `ExploreTableClient.jsx`. **Real gap**: the "Market-Based Opening
+Quality" spanning `<th colSpan={2}>` header has no `scope` attribute at all
+in either `ExploreTableClient.jsx:911` or `RankingsProductLensClient.jsx:131`
+(should be `scope="colgroup"` per HTML table accessibility convention).
+Additionally, `RankingsProductLensClient.jsx`'s entire header row has zero
+`scope="col"` attributes anywhere, unlike `ExploreTableClient.jsx`, which is
+fully scoped via `SortableHeader`'s unconditional `scope="col"`
+(`ExploreTableClient.jsx:511`) except for that one grouped-header gap. Minor,
+non-blocking, but a real inconsistency between the two tables the doc claims
+mirror each other's convention.
+
+### Phase 17 — Entitlement matrix
+
+| Surface | Anonymous | Free | Plus | Premium |
+|---|---|---|---|---|
+| Set RIP / Set Analysis Overview, Market-Based, Collector | Public, ungated | Same | Same, plus Plus-gated deep-dive sections | Same as Plus |
+| Product RIP | Locked (`ProductRipLock`) | Locked | Unlocked | Unlocked |
+| Product Chase Intelligence | Locked, no fetch | Locked, no fetch | Locked, no fetch | Unlocked, real fetch; defensive 401/403 states exist |
+| Product Rankings / Set Rankings | Cells locked (`PremiumMetricLock`) | Locked | Unlocked | Unlocked |
+| Card Chase Efficiency | Locked | Locked | Locked | Unlocked |
+
+UI/backend agreement confirmed for Product Chase specifically (distinct
+401/403 upgrade/sign-in prompts, never generic error). Server-side
+enforcement for every other row was not independently re-verified via live
+authenticated requests this session (no live network/browser access) — this
+is a disclosed gap, not a claimed pass.
+
+### Phase 18 — Real-data spot checks: NOT PERFORMED, honest limitation
+
+No DB credentials or live API access were available in this session (the
+one live-network attempt, in Phase 12-14, was blocked by the sandbox).
+Static/code-level evidence supports cross-surface consistency by
+construction (`chase_accessibility_set_ranking.py` is read once per set and
+the identical block threaded to `set_rip_service`, `product_family_rankings_service`,
+and `public_overall_product_rankings_service`, per the doc's own cited test
+`test_same_set_products_inherit_identical_chase_accessibility_through_full_build`),
+but no live numeric comparison across Pitch Black or any other specific set
+was performed this session.
+
+### Phase 19 — Unsupported Sword & Shield sets: PASS
+
+`frontend/lib/pokemon/pokemonSetPublicCoverage.js` centralizes SWSH
+exclusion: `HIDDEN_PENDING_VALIDATION` status, filtered out of the Rankings
+"sets" lens by `frontend/app/api/explore/rankings/lens/route.js:56-57`, and
+hidden from the public Sets catalog by `isHiddenFromPublicPokemonSetsCatalog`.
+Any directly-reachable SWSH set/product page falls back to the same generic,
+honest "No current calculation run is available for this set" /
+"Opening intelligence is not currently available" copy found throughout
+`RipDecisionPage.jsx`/`ProductRipSection.jsx`/`PokemonSetAnalysisClient.jsx`
+— never a fabricated zero score or a silent V10-under-V12-label fallback.
+Confirms current support policy intentionally excludes this cohort; not a
+UI-6 blocker. Completing SWSH modeling remains a separate future research
+task.
+
+### Phase 20-21 — Performance and payload: STRUCTURAL, consistent with documented bounds
+
+No live latency/DB measurement was possible this session (same network
+limitation as Phase 12-14/18). Code-level bounds confirmed: Product RIP
+Chase reads an already-fetched field, no extra request; Product Chase
+single-product scoping (`backend/api/main.py:1172-1184`) costs exactly "1
+Accessibility read + 1 variant-universe read" per its own code comment;
+Rankings Chase is a single batched, session-cached fetch; Budget Chase
+(`selectBudget`) issues exactly one fetch per budget change with in-flight
+abort. No N+1 found. Payload audit: no model weights, no "contributions"
+field, no transform K, no Product Chase (`oBudget`/ECE) fields leak into
+normal Product RIP/Rankings payloads anywhere traced. One minor note:
+`public_overall_product_rankings_service.py:60` still emits a legacy,
+frontend-unused `overallRipScore`/`financialRipScore` V10 pair — dead
+payload weight, not a disclosure violation.
+
+### Phase 22-23 — Frontend/backend regression: run this session
+
+Frontend: 161 focused contract tests across every UI-1–UI-6 touched surface,
+140 pass / 21 fail, all 21 concentrated in the pre-existing
+`ExploreTableClient.contract.test.js` known-failure set (doc's own UI-4B
+section already recorded this file's failures as pre-existing baseline).
+Since zero files were edited during this entire UI-6 session (verified clean
+`git status --short` throughout), every failure is provably pre-existing by
+construction — no diff exists that could have caused a regression.
+
+Backend: 93/93 targeted tests pass across every touched budget/rankings
+service, including `test_budget_product_ranking_service.py` (9/9) — the
+dedicated test file for the module at the center of the Phase 9 finding,
+confirmed to contain zero V12 assertions, corroborating that the gap has
+always been untested rather than caught-and-ignored.
+
+### Phase 24 — Fresh publication dry-runs: NOT PERFORMED this session
+
+Both the Explore V12 and Budget V12 dry-runs require a live production
+Supabase connection. No DB credentials were available in this session, and
+the one live-network attempt this session (Phase 12-14's Playwright check)
+was blocked by the sandbox's auto-mode classifier; a second similar attempt
+was judged unlikely to succeed and not repeated. This is a genuine gap.
+Critically, given the Phase 9 finding: even a fully successful fresh dry-run
+would **not** resolve or contradict Phase 9 — the dry-run tooling validates
+the offline publish/build pipeline (`publish_budget_product_rankings_if_ready.py`),
+a different code path from the live read path
+(`public_overall_product_rankings_service.py`) Phase 9 found still serves
+V10. A "dry-run ready" result must not be read as evidence the live UI shows
+V12-resolved Budget Overall scores.
+
+### Phase 25 — Final release runbook (documented only, not executed)
+
+1. Freeze/coordinate overlapping worktrees (repo has ~20+ active worktrees
+   per `git worktree list`; confirm no concurrent writer targets any of the
+   files this program touches before merging).
+2. Commit/merge reviewed UI-1 through UI-6 code to `main`.
+3. **New required step, inserted by UI-6's Phase 9 finding, BEFORE any Budget
+   V12 publication is treated as meaningful to end users**: implement and
+   merge the live-read-path fix described in Phase 9 above (wire
+   `resolve_generic_overall_score`/`resolve_generic_budget_rank`/
+   `resolve_generic_budget_cohort_size` into
+   `read_public_overall_product_rankings()`/`public_budget_cohort_presentation()`,
+   plus a regression test asserting V12 resolution flips with
+   `ranked_under_v12_authority`). Without this step, publishing Budget V12
+   data changes only the offline snapshot table — the live Product Rankings
+   "Opening Budget" UI will continue silently showing V10-derived scores,
+   tiers, and ranks to every user regardless of publication state.
+4. Deploy backend.
+5. Smoke backend (health checks, `/explore/product-rankings/overall`,
+   `/explore/rankings/lens`, `/explore/product-chase-intelligence`).
+6. Deploy frontend.
+7. Smoke frontend (Set RIP, Set Analysis, Product RIP, Rankings, Product
+   Chase across a few representative sets/products/budgets and all four
+   entitlement tiers).
+8. Run Explore V12 dry-run fresh against current production data.
+9. Run Budget V12 dry-run fresh against current production data — **and,
+   post step 3's fix, additionally verify via a live authenticated request
+   to `/explore/product-rankings/overall?budget=X` that `overallRipLeaderScore`/
+   `budgetRank` actually change relative to a V10 baseline**, not just that
+   the CLI reports readiness.
+10. Publish Explore V12.
+11. Verify Product Rankings/Product RIP against production.
+12. Publish Budget V12 if readiness passes (per step 9's stricter check).
+13. Verify Budget Rankings shows V12-resolved values live, not just that the
+    publish CLI reported success.
+14. Verify Product Chase Intelligence Premium end to end (401/403/404/
+    budget-below-minimum/authority-unavailable/unsupported-composition/error
+    states).
+15. Verify Set RIP/Set Rankings.
+16. Monitor logs/DB/API latency post-rollout.
+
+### Phase 26 — Final rollback plan (documented only, exact names)
+
+- **Overall V12 → V10 (program-wide switch)**: revert
+  `CANONICAL_OVERALL_RIP_VERSION` in `backend/desirability/scoring_config.py`
+  from `OVERALL_RIP_V12_VERSION` back to `OVERALL_RIP_V10_VERSION`.
+  `canonical_overall_rip_is_v12()` then returns `False` everywhere, and every
+  V12-aware consumer (`build_all_rankings`,
+  `publish_budget_product_rankings_if_ready.py`'s
+  `default_budget_sort_authority_is_v12()`) reverts to V10-only behavior by
+  construction.
+- **Public contract V11 → V10**: repoint the public projection version
+  constant consumed by `OverallRipExplanationHierarchy`/`canonicalRipV7.mjs`
+  (the `publicRipContractV11` shape) back to its V10 predecessor contract —
+  exact constant name to be confirmed against
+  `backend/desirability/scoring_config.py`'s public-contract-version export
+  at rollback time, since this session did not need to touch it.
+- **Budget explicit V10 compatibility path**: `budget_normalized_product_ranking.py`'s
+  `rank_budget_cohort` stays permanently, unconditionally V10-sorted by
+  explicit design (per UI-5B) — no rollback action needed there; the only
+  Budget-specific rollback action is reverting the Phase 9 fix itself if it
+  is ever found to regress something, via `git revert` of that fix's commit
+  once merged (no destructive `git reset`).
+- **Database**: leave all additive V12 schema (columns, snapshot tables)
+  intact — no destructive rollback of schema or data at any point.
+- **Product Chase**: independently disable via its existing entitlement gate
+  (`premiumEntitled` check in `SealedProductDetailClient.jsx`) or a feature
+  flag equivalent — it is architecturally separate from Overall RIP V12 and
+  can be hidden without touching any V12 switch.
+- **Explore publication**: repoint to the last-known-good snapshot only
+  through the existing supported publication mechanism (re-running the
+  publish script against an earlier `price_as_of`/snapshot id) — never a
+  destructive migration rollback.
+
+### Phase 27 — Documentation
+
+This section. Full historical audit trail (UI-1 through UI-5B above)
+preserved unedited except for the one corrective note inserted at the end of
+UI-5B's final-label block, which is clearly marked as a UI-6 correction
+rather than a silent edit of history.
+
+### Final label for UI-6
+
+**`V12_UI_STANDARDIZATION_RELEASE_CANDIDATE_BLOCKED_LIVE_BUDGET_READ_PATH_STILL_V10`**:
+every surface's UX hierarchy, terminology, construct separation, and
+entitlement gating verified correct by direct source reading across Set RIP,
+Set Analysis, Product RIP, Product Chase, Product Rankings, and Set
+Rankings. One genuine, root-caused, non-deferred blocker found: the live
+Budget Rankings read path
+(`public_overall_product_rankings_service.py`/`budget_product_ranking_service.py`)
+still serves Overall RIP V10-derived scores/ranks/tiers to users regardless
+of program-canonical V12 status, contradicting UI-5B's own claimed cutover,
+which validated only the offline publish/build pipeline. One minor,
+non-blocking accessibility nit (missing `scope="colgroup"`/`scope="col"` on
+two ranking tables' grouped headers) and one minor payload nit (unused
+legacy V10 fields in one response) were also found. Phases 12-14, 18, 20-21,
+and 24 could not be completed with live browser/DB/network access in this
+session's sandbox and are disclosed as verification gaps, not passes. No
+production mutation occurred at any point in this session.
+
+## UI-6B — Live Budget Read Path Closure (2026-09-06)
+
+**Decision: `V12_LIVE_BUDGET_READ_PATH_FIXED_CODE_ONLY`.** The UI-6 blocker
+`LIVE_BUDGET_READ_PATH_STILL_V10` is resolved in the code-only read path. The
+historical UI-6 blocked report above is intentionally preserved.
+
+The pre-fix live-path fixture carried V10 score/rank/cohort `10/9/10`, V12
+score/rank/cohort `90/1/7`, and `ranked_under_v12_authority=true`; the live
+presentation returned V10 score `10`. Root cause was the V10-only score getter
+in `public_budget_cohort_presentation()` plus direct V10-era field reads in
+`read_public_overall_product_rankings()`.
+
+The live reader now passes its loaded snapshot into
+`public_budget_cohort_presentation()`. That projector uses the existing single
+generic authority — `snapshot_ranked_under_v12_authority()` and the three
+`resolve_generic_*` functions — for Overall score, Budget rank, and Budget
+cohort size. The public reader consumes those projected generic fields and
+fails closed with `public_projection_incomplete` if any required generic field
+is absent. It never falls back to V10 under declared V12 authority, preventing
+a V12-score/V10-rank response. Historical false/null authority continues to
+resolve all three fields from V10.
+
+Focused backend result: 65/65 service, relative-score, and entitlement tests
+pass, including the actual public read service with V12, historical V10,
+missing-V12-score, and missing-V12-rank fixtures. The Plus allowlist remains
+unchanged; Free/public policy remains unchanged; normal Budget rows contain no
+`O_budget` or `ECE`. The frontend still reads only generic backend fields and
+contains no authority selector. Five directly relevant frontend model tests
+pass, including stable Chase-tie ordering and the no-client-V10-selection
+contract. Broader frontend runs retain documented stale contract failures
+unrelated to this patch. Backend import compilation and the production Next
+build pass; the build's existing lint warnings remain non-fatal.
+
+The Market-Based grouped ranking headers now use `scope="colgroup"`, and the
+live Product Rankings leaf headers use `scope="col"`. The Chase sort explicitly
+documents and tests stable preservation of backend order for equal numeric
+values. The Set RIP deep-dive title now labels the displayed number as
+Financial RIP details rather than implying Market-Based Opening Quality owns
+that score. Legacy `overallRipScore`/`financialRipScore` remain because they
+are present in the established entitlement allowlist and compatibility tests;
+removing them is not proven safe in this narrow closure.
+
+No live database credentials were available, so no fresh Budget or Explore
+dry-run was claimed. The deterministic persisted-snapshot fixture was fed
+through the actual live read service and returned V12 identity values
+`90/1/7`. No deploy, publication, backfill, production mutation, commit,
+branch switch, reset, stash, clean, or unrelated-work discard occurred.

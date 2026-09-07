@@ -43,6 +43,8 @@ export function sortProductRankingRows(rows, query, sortKey, direction, overall)
       const b = readSortField(right, effectiveKey);
       if (a === null) return b === null ? 0 : 1;
       if (b === null) return -1;
+      // Numeric ties intentionally return 0: modern JavaScript's stable sort
+      // preserves the backend's authoritative rank order as the tiebreaker.
       return factor * (a - b);
     });
 }

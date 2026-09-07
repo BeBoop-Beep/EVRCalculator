@@ -80,11 +80,13 @@ def _rows(response: Any) -> List[Dict[str, Any]]:
     return list((response.data if response else []) or [])
 
 
-def public_budget_cohort_presentation(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def public_budget_cohort_presentation(
+    rows: List[Dict[str, Any]], snapshot: Dict[str, Any]
+) -> Dict[str, Dict[str, Any]]:
     """Presentation-only relative fields for exactly one selected budget cohort."""
     overall = compute_public_relative_scores(
         rows, id_getter=lambda row: row.get("sealed_product_id"),
-        score_getter=lambda row: row.get("overall_rip_v10_score"),
+        score_getter=lambda row: resolve_generic_overall_score(row, snapshot),
     )
     financial = compute_public_relative_scores(
         rows, id_getter=lambda row: row.get("sealed_product_id"),
@@ -92,7 +94,7 @@ def public_budget_cohort_presentation(rows: List[Dict[str, Any]]) -> Dict[str, D
     )
     overall_leader = compute_leader_normalized_scores(
         rows, id_getter=lambda row: row.get("sealed_product_id"),
-        score_getter=lambda row: row.get("overall_rip_v10_score"),
+        score_getter=lambda row: resolve_generic_overall_score(row, snapshot),
     )
     financial_leader = compute_leader_normalized_scores(
         rows, id_getter=lambda row: row.get("sealed_product_id"),
@@ -100,7 +102,10 @@ def public_budget_cohort_presentation(rows: List[Dict[str, Any]]) -> Dict[str, D
     )
     return {
         str(row.get("sealed_product_id")): {
-            "overallRipAbsoluteScore": row.get("overall_rip_v10_score"),
+            "overallRipScore": resolve_generic_overall_score(row, snapshot),
+            "budgetRank": resolve_generic_budget_rank(row, snapshot),
+            "budgetCohortSize": resolve_generic_budget_cohort_size(row, snapshot),
+            "overallRipAbsoluteScore": resolve_generic_overall_score(row, snapshot),
             "overallRipRelativeScore": overall.get(str(row.get("sealed_product_id"))),
             "overallRipLeaderScore": overall_leader.get(str(row.get("sealed_product_id"))),
             "financialRipAbsoluteScore": row.get("financial_rip_v4_score"),

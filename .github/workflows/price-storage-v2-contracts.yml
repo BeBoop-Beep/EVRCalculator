@@ -11,6 +11,9 @@ on:
       - 'backend/tests/*price_storage_v2*'
       - 'docs/price_storage_v2/applied_migration_manifest.psv'
       - 'docs/price_storage_v2/applied_migrations/**'
+      - 'docs/price_storage_v2/reconciliation_repository_copies/**'
+      - 'supabase/migrations/**'
+      - 'backend/db/migrations/**'
 
 permissions:
   contents: read
@@ -46,7 +49,8 @@ jobs:
       - name: Unit and compile checks
         run: |
           python3 backend/tests/run_price_storage_v2_unit.py
-          python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py
+          python3 -m unittest backend.tests.test_price_storage_v2_migration_reconciliation -v
+          python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py backend/scripts/recover_price_storage_v2_repository_sources.py
       - name: Verify original SQL archive and report remaining migration gaps
         run: |
           python3 backend/scripts/audit_price_storage_v2_migration_sources.py > /tmp/price-storage-v2-migration-audit.json

@@ -76,7 +76,7 @@ def test_budget_projection_is_cohort_isolated_and_preserves_model_tier():
         {"sealed_product_id": "a", "overall_rip_v10_score": 30, "financial_rip_v4_score": 10, "budget_rank": 1, "budget_cohort_size": 2, "budget_tier": "C"},
         {"sealed_product_id": "b", "overall_rip_v10_score": 20, "financial_rip_v4_score": 30, "budget_rank": 2, "budget_cohort_size": 2, "budget_tier": "D"},
     ]
-    projected = public_budget_cohort_presentation(fifty)
+    projected = public_budget_cohort_presentation(fifty, {"ranked_under_v12_authority": False})
     assert projected["a"]["overallRipRelativeScore"] == 100.0
     assert projected["a"]["financialRipRelativeScore"] == 0.0
     assert projected["a"]["budgetModelTier"] == "C"

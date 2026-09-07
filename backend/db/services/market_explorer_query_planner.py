@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import copy
 import logging
+import threading
 import time
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
+from contextlib import nullcontext
 from uuid import uuid4
 
 from backend.domain.pokemon.market_explorer_query import (
@@ -33,9 +35,11 @@ CONSTITUENT_PAGE_RPC = "get_pokemon_market_explorer_query_cache_constituent_page
 CLAIM_RPC = "claim_pokemon_market_explorer_query_cache_build"
 PUBLISH_RPC = "publish_pokemon_market_explorer_query_cache_build"
 STAGE_RPC = "stage_pokemon_market_explorer_query_cache_build"
+STAGE_FROM_DETAIL_RPC = "stage_pokemon_market_explorer_query_cache_build_from_detail"
 UPSERT_CONSTITUENT_BATCH_RPC = "upsert_pokemon_market_explorer_query_cache_constituent_batch"
 TRIM_CONSTITUENT_BATCH_RPC = "trim_pokemon_market_explorer_query_cache_constituent_batch"
 FINALIZE_BUILD_RPC = "finalize_pokemon_market_explorer_query_cache_build"
+RENEW_BUILD_RPC = "renew_pokemon_market_explorer_query_cache_build"
 FAIL_RPC = "fail_pokemon_market_explorer_query_cache_build"
 INVALIDATE_RPC = "invalidate_pokemon_market_explorer_query_cache"
 
@@ -234,6 +238,23 @@ class PersistentMarketExplorerCache:
                            fingerprint[:12], type(exc).__name__)
             return None
 
+    def renew(self, *, fingerprint: str, token: str) -> bool:
+        """Extend an unexpired lease owned by this token; never reclaim it."""
+        try:
+            response = self.client.rpc(RENEW_BUILD_RPC, {
+                "p_query_fingerprint": fingerprint,
+                "p_build_token": token,
+                "p_lease_seconds": self.build_lease_seconds,
+            }).execute()
+            return bool(response.data)
+        except Exception as exc:
+            logger.warning("market_explorer_cache_heartbeat_failed fingerprint=%s error=%s",
+                           fingerprint[:12], type(exc).__name__)
+            return False
+
+    def heartbeat(self, *, fingerprint: str, token: str) -> "_BuildLeaseHeartbeat":
+        return _BuildLeaseHeartbeat(self, fingerprint=fingerprint, token=token)
+
     def publish(self, *, fingerprint: str, token: str, payload: Mapping[str, Any]) -> bool:
         """Staged/batched publication: normalized constituent detail is
         written FIRST in bounded batches (never exceeding the production
@@ -254,6 +275,8 @@ class PersistentMarketExplorerCache:
             expected_count = len(constituents)
 
             for start in range(0, expected_count, CONSTITUENT_BATCH_SIZE):
+                if not self.renew(fingerprint=fingerprint, token=token):
+                    return False
                 batch = constituents[start:start + CONSTITUENT_BATCH_SIZE]
                 if len(batch) > 1000:
                     return False  # never send a batch over the production hard limit
@@ -267,6 +290,8 @@ class PersistentMarketExplorerCache:
                     return False
 
             while True:
+                if not self.renew(fingerprint=fingerprint, token=token):
+                    return False
                 trimmed = self.client.rpc(TRIM_CONSTITUENT_BATCH_RPC, {
                     "p_query_fingerprint": fingerprint,
                     "p_build_token": token,
@@ -279,7 +304,9 @@ class PersistentMarketExplorerCache:
                 if int(trimmed_count) == 0:
                     break
 
-            staged = self.client.rpc(STAGE_RPC, {
+            if not self.renew(fingerprint=fingerprint, token=token):
+                return False
+            staged = self.client.rpc(STAGE_FROM_DETAIL_RPC, {
                 "p_query_fingerprint": fingerprint,
                 "p_build_token": token,
                 "p_computed_from": payload.get("historyStartDate"),
@@ -292,11 +319,12 @@ class PersistentMarketExplorerCache:
                 "p_constituent_count": expected_count,
                 "p_eligible_universe_count":
                     (payload.get("reconciliation") or {}).get("eligibleUniverseCount"),
-                "p_current_constituents": constituents,
             }).execute()
             if not bool(staged.data):
                 return False
 
+            if not self.renew(fingerprint=fingerprint, token=token):
+                return False
             finalized = self.client.rpc(FINALIZE_BUILD_RPC, {
                 "p_query_fingerprint": fingerprint,
                 "p_build_token": token,
@@ -350,6 +378,45 @@ class PersistentMarketExplorerCache:
             logger.warning("market_explorer_repair_generation_read_failed asset=%s error=%s",
                            asset, type(exc).__name__)
             return None
+
+
+class _BuildLeaseHeartbeat:
+    """Renew a cache-build lease while a blocking cold compute is running."""
+
+    def __init__(self, cache: PersistentMarketExplorerCache, *, fingerprint: str,
+                 token: str) -> None:
+        self.cache = cache
+        self.fingerprint = fingerprint
+        self.token = token
+        self.interval = max(0.25, min(30.0, cache.build_lease_seconds / 3.0))
+        self._stop = threading.Event()
+        self._lost = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def _run(self) -> None:
+        while not self._stop.wait(self.interval):
+            if not self.cache.renew(fingerprint=self.fingerprint, token=self.token):
+                self._lost.set()
+                return
+
+    def __enter__(self) -> "_BuildLeaseHeartbeat":
+        if not self.cache.renew(fingerprint=self.fingerprint, token=self.token):
+            raise MarketExplorerPublishFailed("market_explorer_cache_lease_lost_before_compute")
+        self._thread = threading.Thread(target=self._run, daemon=True,
+                                        name="market-explorer-cache-heartbeat")
+        self._thread.start()
+        return self
+
+    def assert_owned(self) -> None:
+        if self._lost.is_set() or not self.cache.renew(
+                fingerprint=self.fingerprint, token=self.token):
+            self._lost.set()
+            raise MarketExplorerPublishFailed("market_explorer_cache_build_lease_lost")
+
+    def __exit__(self, *_exc: object) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=max(1.0, self.interval + 1.0))
 
 
 class PreparedEquivalenceRegistry:
@@ -581,15 +648,24 @@ class MarketExplorerQueryPlanner:
             and (build_row.get("status") == "ready" or recoverable_failed_base) else None
         )
         try:
-            delta = novel_builder(previous, through)
-            engine = (delta.get("diagnostics") or {}).get("executionEngine")
-            if previous and previous < through and build_row:
-                payload = merge_incremental_result(build_row.get("series_payload") or {}, delta)
-                source = f"cache_incremental_{engine}" if engine else "cache_incremental"
-            else:
-                payload = delta
-                source = str(engine or "novel_interval")
-            if won is True and not persistent.publish(fingerprint=fingerprint, token=token, payload=payload):
+            heartbeat_factory = getattr(persistent, "heartbeat", None)
+            heartbeat_context = (heartbeat_factory(fingerprint=fingerprint, token=token)
+                                 if won is True and heartbeat_factory else nullcontext())
+            with heartbeat_context as heartbeat:
+                delta = novel_builder(previous, through)
+                if heartbeat is not None:
+                    heartbeat.assert_owned()
+                engine = (delta.get("diagnostics") or {}).get("executionEngine")
+                if previous and previous < through and build_row:
+                    payload = merge_incremental_result(build_row.get("series_payload") or {}, delta)
+                    source = f"cache_incremental_{engine}" if engine else "cache_incremental"
+                else:
+                    payload = delta
+                    source = str(engine or "novel_interval")
+                published = persistent.publish(
+                    fingerprint=fingerprint, token=token, payload=payload
+                ) if won is True else True
+            if not published:
                 self.metrics.record("cache_build_failures", 0)
                 raise MarketExplorerPublishFailed(
                     f"market_explorer_cache_publish_returned_false fingerprint={fingerprint[:12]}"

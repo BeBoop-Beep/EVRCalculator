@@ -24,6 +24,7 @@ from backend.domain.access.index_plan_access import (
     project_rankings_response,
     project_set_page_response,
     project_set_rip_simulation_evidence_response,
+    project_sealed_product_detail_response,
     resolve_market_explorer_plan_access,
     _PLUS_FEATURES,
     _PREMIUM_FEATURES,
@@ -94,6 +95,30 @@ def test_set_rip_simulation_evidence_projector_passes_plus_through_unchanged(pla
     fixture = _sim_evidence_fixture()
     projected = project_set_rip_simulation_evidence_response(fixture, plan)
     assert projected == fixture
+
+
+@pytest.mark.parametrize("plan", [None, "base", "unknown"])
+def test_basic_product_detail_cannot_receive_set_ev_realization_values(plan):
+    payload = {
+        "set": {"id": "set-1"}, "product": {"id": "product-1"},
+        "market": {"currentPrice": 99}, "meta": {},
+        "rip": {"setEvRepresentativeness": {"realizationHorizon": {
+            "packCount": 420, "targetEvRatio": .8, "openerProbability": .8,
+        }}},
+    }
+    projected = project_sealed_product_detail_response(payload, plan)
+    assert "rip" not in projected
+    assert "packCount" not in str(projected)
+    assert "targetEvRatio" not in str(projected)
+    assert "openerProbability" not in str(projected)
+
+
+@pytest.mark.parametrize("plan", ["plus", "premium"])
+def test_paid_product_detail_receives_existing_snapshot_contract(plan):
+    payload = {"set": {}, "product": {}, "market": {}, "meta": {}, "rip": {
+        "setEvRepresentativeness": {"realizationHorizon": {"packCount": 420}}
+    }}
+    assert project_sealed_product_detail_response(payload, plan)["rip"] == payload["rip"]
 
 
 def test_locked_commercial_capability_sets_fail_closed_and_inherit():

@@ -71,6 +71,9 @@ class _Query:
     def in_(self, column, values):
         return _Query(self._rows, self._filters + [(column, "in", list(values))])
 
+    def gte(self, column, value):
+        return _Query(self._rows, self._filters + [(column, "gte", value)])
+
     def order(self, column, desc=False):
         # Real paging depends on a deterministic order, so the double must sort
         # too: a fake that ignored `order` would let a paging bug pass here and
@@ -91,6 +94,8 @@ class _Query:
         for column, op, value in self._filters:
             if op == "eq":
                 rows = [row for row in rows if str(row.get(column)) == str(value)]
+            elif op == "gte":
+                rows = [row for row in rows if str(row.get(column) or "") >= str(value)]
             elif op == "order":
                 orderings.append((column, value))
             else:
@@ -154,7 +159,9 @@ class FakeClient:
         if name == "get_pokemon_cards_daily_constituents":
             return _RpcResult(rows)
 
-        if name in (svc.FILTERED_COHORT_RPC, svc.DAILY_PROJECTION_RPC):
+        if name in (svc.FILTERED_COHORT_RPC, svc.DAILY_PROJECTION_RPC,
+                    svc.V1_DAILY_PROJECTION_RPC, svc.V2_DAILY_PROJECTION_RPC,
+                    svc.V2_INTERVAL_FALLBACK_RPC):
             segment_ids = set(payload.get("p_segment_ids") or [])
             price_segments = set(payload.get("p_price_segment_ids") or [])
             release_cohorts = set(payload.get("p_release_age_cohort_ids") or [])
@@ -575,7 +582,7 @@ def test_all_filter_axes_are_sent_to_one_variant_cohort_rpc():
     }
 
 
-def _recorded_chunk_spans(rpc_name, set_count, *, start_date, end_date):
+def _recorded_chunk_spans(rpc_name, set_count, *, start_date, end_date, top_n=None):
     """Every (p_start_date, p_end_date) pair load_filtered_daily_cohort_rows
     actually sent for a scope of `set_count` sets, using the real chunking
     logic (never re-derived here)."""
@@ -589,7 +596,7 @@ def _recorded_chunk_spans(rpc_name, set_count, *, start_date, end_date):
     set_ids = [f"set-{i}" for i in range(set_count)]
     svc.load_filtered_daily_cohort_rows(
         Client(), set_ids, start_date=start_date, end_date=end_date,
-        card_ids=None, rpc_name=rpc_name,
+        card_ids=None, rpc_name=rpc_name, top_n=top_n,
     )
     return calls
 
@@ -611,18 +618,68 @@ def test_broad_interval_fallback_uses_a_safe_bounded_chunk_size():
 
 
 def test_hot_daily_projection_path_stays_bounded_at_global_scale():
-    """Live evidence this session: even the hot DAILY_PROJECTION_RPC path
-    timed out recovering the Global All Raw maintained cache at 165 sets
-    with the old hardcoded 3-day floor. At Global breadth it must now use a
-    1-day chunk, same conservative floor as the interval-fallback path --
-    the two RPCs converge to the same safety bound only at extreme scope.
+    """Global unranked reads split sets, so each statement remains bounded
+    while processing more than one day and avoiding one RPC per set/day.
     """
     calls = _recorded_chunk_spans(
         svc.DAILY_PROJECTION_RPC, 165, start_date="2026-08-01", end_date="2026-08-04"
     )
     from datetime import date
     spans = [(date.fromisoformat(end) - date.fromisoformat(start)).days + 1 for start, end in calls]
-    assert all(span == 1 for span in spans), spans
+    assert all(span <= 14 for span in spans), spans
+    assert len(calls) == 33  # one date window times 33 set batches
+
+
+def test_unranked_daily_projection_aggregates_broad_set_batches_exactly():
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            calls.append(payload)
+            ordinal = len(calls)
+            return _RpcResult([{
+                "market_date": "2026-09-06",
+                "constituent_count": ordinal,
+                "eligible_universe_count": ordinal + 10,
+                "basket_value": ordinal * 100,
+                "common_count": ordinal + 20,
+                "common_current_value": ordinal * 90,
+                "common_previous_value": ordinal * 80,
+                "current_constituents": [{
+                    "card_variant_id": f"variant-{ordinal}",
+                    "canonical_card_id": f"card-{ordinal}",
+                    "set_id": payload["p_set_ids"][0],
+                    "market_price": ordinal * 10,
+                    "market_date": "2026-09-06",
+                    "rank": 1,
+                }],
+            }])
+
+    cohorts, basket = svc.load_filtered_daily_cohort_rows(
+        Client(), [f"set-{index}" for index in range(41)],
+        start_date="2026-09-06", end_date="2026-09-06", card_ids=None,
+        rpc_name=svc.DAILY_PROJECTION_RPC,
+    )
+
+    assert [len(call["p_set_ids"]) for call in calls] == [5] * 8 + [1]
+    assert cohorts == [{
+        "marketDate": "2026-09-06", "constituentCount": 45,
+        "eligibleUniverseCount": 135, "basketValue": 4500.0,
+        "commonCount": 225, "commonCurrentValue": 4050.0,
+        "commonPreviousValue": 3600.0,
+    }]
+    assert [row["cardVariantId"] for row in basket] == [
+        "variant-1", "variant-2", "variant-3", "variant-4", "variant-5",
+        "variant-6", "variant-7", "variant-8", "variant-9",
+    ]
+
+
+def test_ranked_daily_projection_keeps_complete_scope_in_one_statement():
+    calls = _recorded_chunk_spans(
+        svc.DAILY_PROJECTION_RPC, 41, start_date="2026-09-06",
+        end_date="2026-09-06", top_n=10,
+    )
+    assert calls == [("2026-09-06", "2026-09-06")]
 
 
 def test_hot_daily_projection_path_keeps_its_efficient_chunk_size_at_moderate_scope():
@@ -736,12 +793,13 @@ def test_uncovered_range_uses_bounded_interval_fallback(monkeypatch):
         seen.append(kwargs.get("rpc_name"))
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(svc, "daily_projection_covers", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(svc, "resolve_materialized_history_route",
+                        lambda *_args, **_kwargs: ("interval_fallback", None))
     monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", recording_loader)
     result = _run(mode=MODE_ALL, set_ids=["set-ah"])
 
     assert result["diagnostics"]["executionEngine"] == "interval_fallback"
-    assert seen == [svc.FILTERED_COHORT_RPC]
+    assert seen == [svc.V2_INTERVAL_FALLBACK_RPC]
     assert [row[0] for row in result["trend"]] == DATES
 
 
@@ -900,14 +958,15 @@ def test_covered_same_day_query_uses_daily_projection(monkeypatch):
         seen.append(kwargs.get("rpc_name"))
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(svc, "daily_projection_covers", lambda *_a, **_k: True)
+    monkeypatch.setattr(svc, "resolve_materialized_history_route",
+                        lambda *_a, **_k: ("v2_daily", DATES[0]))
     monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", recording_loader)
 
     result = _run(mode=MODE_ALL, set_ids=["set-ah"],
                   start_date=DATES[0], end_date=DATES[0])
 
-    assert result["diagnostics"]["executionEngine"] == "daily_projection"
-    assert seen == [svc.DAILY_PROJECTION_RPC]
+    assert result["diagnostics"]["executionEngine"] == "v2_daily"
+    assert seen == [svc.V2_DAILY_PROJECTION_RPC]
 
 
 def test_uncovered_same_day_query_preserves_interval_current(monkeypatch):
@@ -918,14 +977,15 @@ def test_uncovered_same_day_query_preserves_interval_current(monkeypatch):
         seen.append(kwargs.get("rpc_name"))
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(svc, "daily_projection_covers", lambda *_a, **_k: False)
+    monkeypatch.setattr(svc, "resolve_materialized_history_route",
+                        lambda *_a, **_k: ("interval_fallback", None))
     monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", recording_loader)
 
     result = _run(mode=MODE_ALL, set_ids=["set-ah"],
                   start_date=DATES[0], end_date=DATES[0])
 
-    assert result["diagnostics"]["executionEngine"] == "interval_current"
-    assert seen == [svc.FILTERED_COHORT_RPC]
+    assert result["diagnostics"]["executionEngine"] == "interval_fallback"
+    assert seen == [svc.V2_INTERVAL_FALLBACK_RPC]
 
 
 def test_covered_multi_day_query_remains_daily_projection(monkeypatch):
@@ -936,14 +996,15 @@ def test_covered_multi_day_query_remains_daily_projection(monkeypatch):
         seen.append(kwargs.get("rpc_name"))
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(svc, "daily_projection_covers", lambda *_a, **_k: True)
+    monkeypatch.setattr(svc, "resolve_materialized_history_route",
+                        lambda *_a, **_k: ("v2_daily", DATES[0]))
     monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", recording_loader)
 
     result = _run(mode=MODE_ALL, set_ids=["set-ah"],
                   start_date=DATES[0], end_date=DATES[-1])
 
-    assert result["diagnostics"]["executionEngine"] == "daily_projection"
-    assert seen == [svc.DAILY_PROJECTION_RPC]
+    assert result["diagnostics"]["executionEngine"] == "v2_daily"
+    assert seen == [svc.V2_DAILY_PROJECTION_RPC]
 
 
 def test_uncovered_multi_day_query_remains_interval_fallback():
@@ -952,6 +1013,93 @@ def test_uncovered_multi_day_query_remains_interval_fallback():
     result = _run(mode=MODE_ALL, set_ids=["set-ah"],
                   start_date=DATES[0], end_date=DATES[-1])
     assert result["diagnostics"]["executionEngine"] == "interval_fallback"
+
+
+class _MaterializedCoverageClient:
+    def __init__(self, *, v1=True, v2=True, retained="2026-05-29"):
+        self.v1 = v1
+        self.v2 = v2
+        self.retained = retained
+
+    def table(self, name):
+        if name == "pokemon_market_explorer_card_daily_coverage":
+            return _Query([{"set_id": "set-a", "computed_through": "2026-09-06"}] if self.v1 else [])
+        if name == svc.V2_COVERAGE_TABLE:
+            return _Query([{"set_id": "set-a", "retained_from": self.retained,
+                            "computed_through": "2026-09-06"}] if self.v2 else [])
+        if name == "pokemon_market_date_quality":
+            return _Query([
+                {"market_date": "2026-05-29", "tcg": "pokemon", "status": "REJECTED"},
+                {"market_date": "2026-05-30", "tcg": "pokemon", "status": "READY"},
+                {"market_date": "2026-05-31", "tcg": "pokemon", "status": "READY"},
+            ])
+        raise AssertionError(name)
+
+
+@pytest.mark.parametrize(("start", "end", "expected"), [
+    ("2026-05-30", "2026-09-06", "v2_daily"),
+    ("2026-04-07", "2026-05-30", "v1_daily"),
+    ("2026-04-07", "2026-09-06", "materialized_hybrid"),
+])
+def test_materialized_route_uses_dynamic_approved_bridge(start, end, expected):
+    route, bridge = svc.resolve_materialized_history_route(
+        _MaterializedCoverageClient(), ["set-a"], start_date=start, end_date=end,
+    )
+    assert route == expected
+    assert bridge == "2026-05-30"
+
+
+def test_materialized_route_uses_interval_only_when_coverage_is_missing():
+    route, bridge = svc.resolve_materialized_history_route(
+        _MaterializedCoverageClient(v1=False, v2=False), ["set-a"],
+        start_date="2026-04-07", end_date="2026-09-06",
+    )
+    assert (route, bridge) == ("interval_fallback", None)
+
+
+def test_hybrid_retains_v1_bridge_drops_v2_duplicate_and_uses_v2_basket(monkeypatch):
+    calls = []
+    v2_basket = [{"cardVariantId": "latest", "canonicalCardId": "latest",
+                  "marketPrice": 3.0, "marketDate": "2026-05-31"}]
+
+    def loader(_client, _sets, *, start_date, end_date, rpc_name, **_kwargs):
+        calls.append((rpc_name, start_date, end_date))
+        if rpc_name == svc.V1_DAILY_PROJECTION_RPC:
+            return ([{"marketDate": "2026-05-29", "constituentCount": 1,
+                      "eligibleUniverseCount": 1, "basketValue": 1,
+                      "commonCount": 0, "commonCurrentValue": 0,
+                      "commonPreviousValue": 0},
+                     {"marketDate": "2026-05-30", "constituentCount": 1,
+                      "eligibleUniverseCount": 1, "basketValue": 2,
+                      "commonCount": 1, "commonCurrentValue": 2,
+                      "commonPreviousValue": 1}], [{"cardVariantId": "bridge"}])
+        return ([{"marketDate": "2026-05-30", "constituentCount": 1,
+                  "eligibleUniverseCount": 1, "basketValue": 2,
+                  "commonCount": 0, "commonCurrentValue": 0,
+                  "commonPreviousValue": 0},
+                 {"marketDate": "2026-05-31", "constituentCount": 1,
+                  "eligibleUniverseCount": 1, "basketValue": 3,
+                  "commonCount": 1, "commonCurrentValue": 3,
+                  "commonPreviousValue": 2}], v2_basket)
+
+    monkeypatch.setattr(svc, "resolve_materialized_history_route",
+                        lambda *_a, **_k: ("materialized_hybrid", "2026-05-30"))
+    monkeypatch.setattr(svc, "resolve_scope_history_bounds",
+                        lambda *_a, **_k: ("2026-05-29", "2026-05-31"))
+    monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", loader)
+    result = _run(mode=MODE_ALL, set_ids=["set-ah"],
+                  start_date="2026-05-29", end_date="2026-05-31")
+
+    assert calls == [
+        (svc.V1_DAILY_PROJECTION_RPC, "2026-05-29", "2026-05-30"),
+        (svc.V2_DAILY_PROJECTION_RPC, "2026-05-30", "2026-05-31"),
+    ]
+    assert [row[0] for row in result["trend"]] == [
+        "2026-05-29", "2026-05-30", "2026-05-31",
+    ]
+    assert result["trackedValueHistory"][-1]["value"] == 3.0
+    assert result["currentConstituents"][0]["cardVariantId"] == "latest"
+    assert result["diagnostics"]["executionEngine"] == "materialized_hybrid"
 
 
 def test_an_unrelated_database_error_still_propagates():

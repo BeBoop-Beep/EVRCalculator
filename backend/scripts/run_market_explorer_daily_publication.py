@@ -1,6 +1,6 @@
 """Coordinated daily publication for the Market Explorer card-price serving
 projection: current-metadata refresh -> projection append -> exact
-reconciliation -> coverage advance -> EXIT.
+reconciliation -> V1 coverage advance -> bounded V2 shadow advance -> EXIT.
 
 P0 INCIDENT NOTE (2026-09): this script used to end with an in-process
 "dynamic maintained-cache prewarm" step that rebuilt every stale
@@ -96,6 +96,8 @@ COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage"
 CARDS_ASSET_TABLE = "pokemon_market_explorer_cache_state"
 INVALIDATE_CACHE_SCOPED_RPC = "invalidate_pokemon_market_explorer_query_cache_scoped"
 REPROJECT_DAILY_STATES_RPC = "reproject_pokemon_market_explorer_card_daily_states"
+ADVANCE_V2_DAILY_RPC = "advance_pokemon_market_explorer_daily_v2_shadow_for_set"
+V2_RETENTION_DAYS = 100
 
 
 # --- Market date resolution --------------------------------------------------
@@ -229,9 +231,39 @@ class DailyPublicationSummary:
     status: str = "not_started"  # ready | not_ready | projection_failed | ok
     metadata_refresh: dict[str, Any] | None = None
     projection: dict[str, Any] | None = None
+    v2_projection: dict[str, Any] | None = None
     caches: dict[str, Any] | None = None
     elapsed_seconds: float = 0.0
     error: str | None = None
+
+
+def advance_v2_daily_shadow(
+    client: Any, *, commit: bool, set_ids: Sequence[str], through_date: str,
+    retention_days: int = V2_RETENTION_DAYS,
+) -> dict[str, Any]:
+    """Advance the bounded V2 serving shadow for the canonical V1 resolver set."""
+    report: dict[str, Any] = {
+        "through_date": through_date,
+        "retention_days": retention_days,
+        "sets_considered": len(set_ids),
+        "sets_advanced": 0,
+        "failures": [],
+    }
+    if not commit:
+        return report
+    for set_id in set_ids:
+        try:
+            client.rpc(ADVANCE_V2_DAILY_RPC, {
+                "p_set_id": str(set_id),
+                "p_through_date": through_date,
+                "p_retention_days": retention_days,
+            }).execute()
+            report["sets_advanced"] += 1
+        except Exception as exc:
+            report["failures"].append({
+                "set_id": str(set_id), "error": f"{type(exc).__name__}: {exc}",
+            })
+    return report
 
 
 def run_daily_publication(
@@ -264,6 +296,15 @@ def run_daily_publication(
         # projection publishes nothing for the cache worker to act on yet.
         summary.status = "projection_failed"
         summary.error = "one or more sets failed projection reconciliation; coverage held at prior date"
+        summary.elapsed_seconds = round(time.monotonic() - started, 3)
+        return asdict(summary)
+
+    summary.v2_projection = advance_v2_daily_shadow(
+        client, commit=commit, set_ids=tracked_set_ids, through_date=resolved,
+    )
+    if summary.v2_projection["failures"]:
+        summary.status = "projection_failed"
+        summary.error = "one or more sets failed bounded V2 daily advancement"
         summary.elapsed_seconds = round(time.monotonic() - started, 3)
         return asdict(summary)
 

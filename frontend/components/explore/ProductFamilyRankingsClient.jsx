@@ -407,7 +407,7 @@ function ProductRankingsTable({
                       own. Financial RIP and Chase Accessibility remain two
                       separate numeric columns underneath it. Collector Appeal
                       stays a separate, ungrouped column. */}
-                  <th colSpan={2} className="text-center" data-market-based-header>
+                  <th scope="colgroup" colSpan={2} className="text-center" data-market-based-header>
                     <RankedProductHeader text={MARKET_BASED_HELP}>
                       Market-Based Opening Quality
                     </RankedProductHeader>
@@ -457,12 +457,12 @@ function ProductRankingsTable({
                   </th>
                 </tr>
                 <tr>
-                  <th>
+                  <th scope="col">
                     <RankedProductHeader text={HELP.financial}>
                       Financial RIP
                     </RankedProductHeader>
                   </th>
-                  <th data-chase-accessibility-header>
+                  <th scope="col" data-chase-accessibility-header>
                     <RankedProductHeader text={CHASE_ACCESSIBILITY_HELP}>
                       Chase Accessibility
                     </RankedProductHeader>

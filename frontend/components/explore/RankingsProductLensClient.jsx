@@ -119,7 +119,7 @@ function ProductRows({ rows, overall, entitled }) {
         <table className={styles.table}>
           <thead className={styles.head}>
             <tr>
-              <th rowSpan={2}>Rank</th><th rowSpan={2}>Product / Set</th><th rowSpan={2}>Overall RIP</th><th rowSpan={2}>Tier</th>
+              <th scope="col" rowSpan={2}>Rank</th><th scope="col" rowSpan={2}>Product / Set</th><th scope="col" rowSpan={2}>Overall RIP</th><th scope="col" rowSpan={2}>Tier</th>
               {/*
                 Market-Based Opening Quality is an explanatory GROUPING
                 header only — it carries no score/rank/tier/sort of its own.
@@ -128,14 +128,14 @@ function ProductRows({ rows, overall, entitled }) {
                 ProductFamilyRankingsClient.jsx / ExploreTableClient.jsx).
                 Collector Appeal stays a separate, ungrouped column.
               */}
-              <th colSpan={2} className="text-center" data-market-based-header title={MARKET_BASED_HELP}>Market-Based Opening Quality</th>
-              <th rowSpan={2}>Collector Appeal</th>
-              <th rowSpan={2}>{overall ? "Unit Price" : "Market Price"}</th>
-              <th rowSpan={2}>Expected Value</th><th rowSpan={2}>Chance to Recover Cost</th><th rowSpan={2}>Format Strength</th>
+              <th scope="colgroup" colSpan={2} className="text-center" data-market-based-header title={MARKET_BASED_HELP}>Market-Based Opening Quality</th>
+              <th scope="col" rowSpan={2}>Collector Appeal</th>
+              <th scope="col" rowSpan={2}>{overall ? "Unit Price" : "Market Price"}</th>
+              <th scope="col" rowSpan={2}>Expected Value</th><th scope="col" rowSpan={2}>Chance to Recover Cost</th><th scope="col" rowSpan={2}>Format Strength</th>
             </tr>
             <tr>
-              <th>Financial RIP</th>
-              <th data-chase-accessibility-header title={CHASE_ACCESSIBILITY_HELP}>Chase Accessibility</th>
+              <th scope="col">Financial RIP</th>
+              <th scope="col" data-chase-accessibility-header title={CHASE_ACCESSIBILITY_HELP}>Chase Accessibility</th>
             </tr>
           </thead>
           <tbody>

@@ -1,0 +1,2 @@
+create index pokemon_card_collector_appeal_scores_set_fk_idx
+on public.pokemon_card_collector_appeal_scores(set_id, model_run_id);
