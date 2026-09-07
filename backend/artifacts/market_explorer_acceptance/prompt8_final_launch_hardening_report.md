@@ -613,3 +613,141 @@ session's authorized scope to fix (would require modifying the V2 hybrid SQL fun
 statement timeout, not this repo's Python layer). This remains a release blocker, now substantially
 better-diagnosed and with two fewer confounding Python-side bugs in the way, owned by the same
 concurrent V2/P0 workstream referenced in the original Prompt 8 report.
+
+## V. Second remediation pass (2026-09-07) — V2 diagnosis corrected, scheduling gap found and fixed
+
+This section supersedes U.14's "V2/SQL-side timeout" conclusion with live re-profiling from a
+follow-up session. Browser visual QA remains explicitly out of scope.
+
+### V.1 The U.14/U.5 "V2 hybrid SQL is slow at Global scale" diagnosis was wrong
+Direct DB timing this session found the V2 hot daily path fully healthy: Global All Raw hot daily
+~1.56s, SIR-only hot daily ~0.44s, Established hot daily ~0.23s, all at 2026-05-29 (the start of
+V2's 100-day retained window). V2 promotion is correct (165/165 rows, retained_from=2026-05-29,
+computed_through advancing daily). The real constraint is unchanged from U.2: the **cold**
+pre-retention interval fallback (2026-04-07 through 2026-05-29, ~52 days) is expensive per
+statement at broad scope — a 3-day chunk reproduces 57014 (~9.15s), a 1-day chunk is safe (~3.62s).
+U.5's specific claim that even a single 1-day chunk failed at the earliest tracked date was not
+reproduced this session and is now believed to have been a measurement taken while a build lease
+or a concurrent contaminated-row condition (see U.5's own disclosure) was still in effect, not a
+persistent V2/SQL defect.
+
+### V.2 Global Sep-5 → Sep-7 baseline correction (supersedes D and U.6)
+The `33,955` baseline in sections D/S is date-specific, not permanent. Direct comparison of V1
+interval authority against V2 on 2026-09-05 found V2's `33,959` (U.6's "discrepancy") is **correct,
+not a bug**: V1 simply has no interval rows for four now-legitimately-priced instruments (Expedition
+Base Set Butterfree #38 reverse-holo, HS—Unleashed Squirtle #63 reverse-holo, Pokémon Rumble
+Gyarados #6 non-holo, POP Series 5 Umbreon ★ #17 holo — all current-authority, Near Mint, TCGPlayer,
+USD, positive price). U.6 should be read as resolved, not open. **The count moves as new instruments
+acquire valid prices; product logic must never hard-code a permanent Global constant.** (Audited
+this session: no repo fixture or test does — see V.7.)
+
+### V.3 Root cause of the remaining broad-query failures: a scheduling gap, not a query bug
+Live investigation traced the actual cause of Global/Established/SIR/large-era failures to
+`pokemon_market_explorer_card_daily_coverage`: multiple tracked sets were still watermarked at the
+prior day, not today, at the time these were checked. `daily_projection_covers()` (by design) fails
+closed for any query whose scope touches an uncovered set, forcing it onto the expensive interval
+RPC — which then times out for large scopes exactly as U.2 describes, even though the request is
+logically a same-day continuation. **Nothing in this repository's crontab has ever invoked
+`run_market_explorer_daily_publication.py`** — confirmed by reading the live crontab directly; every
+existing entry covers scraping, onboarding, and set-value snapshots, none covers Market Explorer
+projection publication. This is the gap U.8 flagged as "no committed cron/systemd/CI definition,"
+now root-caused precisely: without that job ever running, coverage silently falls behind for
+whichever sets update slower, and every maintained/custom query touching those sets pays the full
+cold-fallback cost indefinitely, not just on a bad day.
+
+### V.4 A third real bug found and fixed: picker starvation in the prewarm CLI
+`select_stale_caches`'s deterministic oldest-first ordering has no failure back-off: a
+persistently-failing maintained cache re-wins the single `--max-caches 1` selection slot on every
+invocation forever, starving every other stale cache behind it — reproduced live (one cache retried
+identically 8 consecutive times while 17 others sat untouched). Fixed with a bounded, automatic
+failure-cooldown: a `status='failed'` row whose `updated_at` is within `--failure-cooldown-seconds`
+(default 900s) is deprioritized behind other eligible stale rows, using the existing `updated_at`
+column (no schema change). A second, subtler instance of the same bug was found and fixed during
+verification: when *several* caches fail at once, each retry rewrites its own `updated_at` to "now,"
+so ordering the cooling-down group by the normal key let the alphabetically-first chronic failure
+re-win forever within that subset too — fixed by ordering the cooling-down group by
+oldest-`updated_at`-first, verified live to rotate fairly across 5 simultaneously-failing caches.
+`discover_maintained_caches` was also found to not select `updated_at` at all, silently making the
+first fix a no-op until caught by live verification and corrected. All three fixes are covered by
+new unit tests (see V.7) and shipped as three separate commits on this branch
+(`cf9561a3`, `204ddfc7`, `7d7ae885`).
+
+### V.5 Live remediation results
+- Deployed this branch to production (prod's `main` checkout was stale at `1d72eb38`; fast-forwarded
+  to `origin/main`@`04050ff7`, which already contained `e13469b0` — the fix had been merged but never
+  deployed). The three new fixes above were run from an isolated git worktree on the prod box rather
+  than merged to `main` mid-session, to avoid a PR cycle for an operational hotfix; they still need a
+  proper PR/merge before the crontab in V.6 can reference the `main` checkout directly.
+- Ran `run_market_explorer_maintained_cache_prewarm.py --commit` repeatedly: **16 of 21** maintained
+  caches reached `ready`/`computed_through=2026-09-06`. The remaining 5 (Global All Raw, and the
+  Scarlet-and-Violet, Sword-and-Shield, Sun-and-Moon, and Scarlet+Mega-Evolution-combined era
+  markets — exactly the 5 largest maintained caches by constituent count, 4,845–33,955) chronically
+  hit 57014 for the reason in V.3, not a code defect; the cooldown fix (V.4) correctly deprioritizes
+  and rotates among them rather than starving progress on the other 16.
+- `run_market_explorer_daily_publication.py --commit` was identified as the correct next step to
+  close the coverage gap (V.3) but was intentionally **not run this session** — routed to a human
+  operator rather than executed unilaterally, since it is the authoritative projection writer and
+  was not itself named in this session's original authorization list, unlike the prewarm/health/
+  provisioning scripts.
+- Ran `provision_market_explorer_maintained_cards_axes.py --commit` (U.4's script, written but never
+  run live in the prior pass) to completion: 33 candidates considered (17 era markets, already
+  `cache_kind='maintained'` from before this session — unchanged, expected; 9 rarity segments; 7
+  price/release-age segments). **Zero of the 16 new candidates were successfully provisioned.** The
+  7 price/release-age segments all failed with `57014` — the same cold-history scaling cause as the
+  5 chronic maintained-cache failures in this section, unsurprising since these are cross-era broad
+  axes that also touch the pre-retention window. The 9 rarity segments failed with a *different*
+  error: `market_explorer_cache_publish_returned_false` on every single one (Special Illustration
+  Rare, Illustration Rare, Ultra Rare, Hyper Rare, Double Rare, Rare Ultra, Rare Secret, Rare Rainbow,
+  Rare Holo) — this is the exact same failure mode U.5 flagged once, undiagnosed, on Global All Raw;
+  seeing it reproduce identically across 9 unrelated, freshly-attempted fingerprints this session
+  confirms it is a real, general defect in the persistent-cache publish/staging path for a
+  **first-time build of a brand-new fingerprint**, not an isolated incident. This was not
+  investigated further this session (query-layer/publish-RPC internals, out of the scope authorized
+  here) but is now a well-evidenced, reproducible, separately-trackable defect blocking every rarity
+  segment's maintained-cache promotion, independent of the cold-history timeout issue.
+
+### V.6 Scheduler (closes U.8)
+Added `backend/docs/samples/crontab-market-explorer-sample.sh`, matching this repo's existing
+crontab-sample convention (`crontab-alerts-sample.sh`): three separate, lockable cron entries —
+publication (`--commit`, once daily) → maintained-cache prewarm (`--commit`, every 15 minutes,
+offset 5 minutes after publication's slot) → health check (read-only, every 15 minutes, offset
+another 5 minutes) — with the P0 rationale for why these must never be recombined into one process
+documented inline. Not yet installed on the production crontab; that is an operator action separate
+from this repo change.
+
+### V.7 Tests
+30 new/changed tests in `test_run_market_explorer_maintained_cache_prewarm.py` covering: `--max-caches
+1` remains the default, a single chronic failure does not starve later caches, a recently-failed
+cache is deprioritized, it becomes retryable after the cooldown elapses, ready/current caches stay
+skipped regardless of cooldown, `--failure-cooldown-seconds 0` disables the mechanism, the
+deprioritized row's status/reports are never falsified, memory-guard behavior is unchanged, and
+multiple simultaneous chronic failures rotate fairly instead of one starving the rest. Full local
+Market Explorer regression (247 tests across the suite, excluding pre-existing unrelated collection
+failures from missing `stripe`/`jwt` packages and a Python 3.8 typing incompatibility in this local
+environment, none of which are Market Explorer files): all passing. Audited for hard-coded Global
+counts (Part 8 of this session's task): the two files referencing `33,955` either use it as an
+arbitrary large-list fixture size (not asserting it as the true count) or as a historical comment
+about the Sep-3 incident — neither hard-codes a permanent invariant; no change needed.
+
+### V.8 Final runtime decision for this pass
+**Not `MARKET_EXPLORER_RUNTIME_BLOCKERS_RESOLVED`.** Real, verified progress: the V2-hybrid-SQL
+diagnosis in U.14 is corrected (the hot path is healthy), the actual root cause of the broad-query
+failures (a never-scheduled publication job, V.3) is identified with direct evidence, a genuine
+picker-starvation defect blocking 5 of 21 maintained caches is fixed and proven live (V.4), and the
+scheduler gap is closed with a committed, documented crontab definition (V.6). Two genuine blockers
+remain, neither a Python-side query-planning defect this session is authorized to patch:
+
+1. **Coverage gap (V.3)** — closes once a human operator runs
+   `run_market_explorer_daily_publication.py --commit`; the 5 chronic maintained-cache failures are
+   expected to then resolve on their own via the existing cooldown-rotation mechanism (V.4), no
+   further code change anticipated.
+2. **`market_explorer_cache_publish_returned_false` on first-time builds (V.5)** — a newly
+   well-evidenced (9-for-9 reproduction), previously only-once-observed defect that independently
+   blocks every rarity-segment maintained cache regardless of (1). This is a distinct, separately-
+   trackable engineering defect in the persistent-cache publish/staging path, not diagnosed further
+   this session.
+
+This pass corrects U.14's core misdiagnosis (a V2/SQL-side timeout) to the real cause (an
+operational scheduling gap) and fixes three real Python-side bugs (V.4) along the way, but broad
+queries and the new rarity-segment maintained caches still do not consistently succeed live pending
+(1) and (2) above.
