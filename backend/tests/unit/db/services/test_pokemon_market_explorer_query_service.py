@@ -161,7 +161,7 @@ class FakeClient:
 
         if name in (svc.FILTERED_COHORT_RPC, svc.DAILY_PROJECTION_RPC,
                     svc.V1_DAILY_PROJECTION_RPC, svc.V2_DAILY_PROJECTION_RPC,
-                    svc.V2_INTERVAL_FALLBACK_RPC):
+                    svc.V2_INTERVAL_FALLBACK_RPC, svc.MATERIALIZED_SERIES_RPC):
             segment_ids = set(payload.get("p_segment_ids") or [])
             price_segments = set(payload.get("p_price_segment_ids") or [])
             release_cohorts = set(payload.get("p_release_age_cohort_ids") or [])
@@ -700,8 +700,8 @@ def test_broad_materialized_price_axis_uses_one_day_statements():
     calls = []
 
     class Client:
-        def rpc(self, _name, payload):
-            calls.append((payload["p_start_date"], payload["p_end_date"]))
+        def rpc(self, name, payload):
+            calls.append((name, payload["p_start_date"], payload["p_end_date"]))
             return _RpcResult([])
 
     svc.load_filtered_daily_cohort_rows(
@@ -710,8 +710,10 @@ def test_broad_materialized_price_axis_uses_one_day_statements():
         price_segment_ids=["obtainable"], rpc_name=svc.V1_DAILY_PROJECTION_RPC,
     )
     assert calls == [
-        ("2026-05-18", "2026-05-18"), ("2026-05-19", "2026-05-19"),
-        ("2026-05-20", "2026-05-20"), ("2026-05-21", "2026-05-21"),
+        (svc.MATERIALIZED_SERIES_RPC, "2026-05-18", "2026-05-18"),
+        (svc.MATERIALIZED_SERIES_RPC, "2026-05-19", "2026-05-19"),
+        (svc.MATERIALIZED_SERIES_RPC, "2026-05-20", "2026-05-20"),
+        (svc.V1_DAILY_PROJECTION_RPC, "2026-05-21", "2026-05-21"),
     ]
 
 
