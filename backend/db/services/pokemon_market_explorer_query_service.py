@@ -439,6 +439,7 @@ _RPC_MAX_ROWS_PER_RESPONSE = 1000
 #: timeout over the same span, so the bound has to come from days-per-statement
 #: rather than from the caller's date range.
 COHORT_CHUNK_DAYS = 30
+DAILY_PROJECTION_SET_BATCH_SIZE = 20
 
 
 def load_filtered_daily_cohort_rows(
@@ -510,7 +511,50 @@ def load_filtered_daily_cohort_rows(
             "p_release_age_cohort_ids": list(release_age_cohort_ids) or None,
             "p_top_n": int(top_n) if top_n else None,
         }
-        page = list(getattr(client.rpc(rpc_name, payload).execute(), "data", None) or [])
+        # An unranked market is exactly additive across disjoint set batches:
+        # basket/common values and all counts sum, while the current basket is
+        # the union of the batch baskets. This keeps broad V2 reads below the
+        # database statement limit without changing market semantics. A Top-N
+        # market is deliberately excluded because ranking must happen across
+        # the complete filtered universe inside one SQL statement.
+        set_batches = [list(set_ids)]
+        if (rpc_name == DAILY_PROJECTION_RPC and top_n is None
+                and len(set_ids) > DAILY_PROJECTION_SET_BATCH_SIZE):
+            set_batches = [
+                list(set_ids[index:index + DAILY_PROJECTION_SET_BATCH_SIZE])
+                for index in range(0, len(set_ids), DAILY_PROJECTION_SET_BATCH_SIZE)
+            ]
+        batch_pages: list[list[dict[str, Any]]] = []
+        for set_batch in set_batches:
+            batch_payload = {**payload, "p_set_ids": [str(value) for value in set_batch]}
+            batch_pages.append(list(getattr(
+                client.rpc(rpc_name, batch_payload).execute(), "data", None,
+            ) or []))
+        if len(batch_pages) == 1:
+            page = batch_pages[0]
+        else:
+            combined: dict[str, dict[str, Any]] = {}
+            for batch_page in batch_pages:
+                for batch_row in batch_page:
+                    market_date = str(batch_row.get("market_date"))[:10]
+                    row = combined.setdefault(market_date, {
+                        "market_date": market_date,
+                        "constituent_count": 0,
+                        "eligible_universe_count": 0,
+                        "basket_value": 0,
+                        "common_count": 0,
+                        "common_current_value": 0,
+                        "common_previous_value": 0,
+                        "current_constituents": [],
+                    })
+                    for field in ("constituent_count", "eligible_universe_count",
+                                  "basket_value", "common_count",
+                                  "common_current_value", "common_previous_value"):
+                        row[field] += batch_row.get(field) or 0
+                    row["current_constituents"].extend(
+                        batch_row.get("current_constituents") or []
+                    )
+            page = [combined[key] for key in sorted(combined)]
         if previous_observed is not None:
             page = [row for row in page if str(row.get("market_date"))[:10] != previous_observed]
         if page:

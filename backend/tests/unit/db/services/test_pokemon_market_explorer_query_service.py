@@ -575,7 +575,7 @@ def test_all_filter_axes_are_sent_to_one_variant_cohort_rpc():
     }
 
 
-def _recorded_chunk_spans(rpc_name, set_count, *, start_date, end_date):
+def _recorded_chunk_spans(rpc_name, set_count, *, start_date, end_date, top_n=None):
     """Every (p_start_date, p_end_date) pair load_filtered_daily_cohort_rows
     actually sent for a scope of `set_count` sets, using the real chunking
     logic (never re-derived here)."""
@@ -589,7 +589,7 @@ def _recorded_chunk_spans(rpc_name, set_count, *, start_date, end_date):
     set_ids = [f"set-{i}" for i in range(set_count)]
     svc.load_filtered_daily_cohort_rows(
         Client(), set_ids, start_date=start_date, end_date=end_date,
-        card_ids=None, rpc_name=rpc_name,
+        card_ids=None, rpc_name=rpc_name, top_n=top_n,
     )
     return calls
 
@@ -623,6 +623,57 @@ def test_hot_daily_projection_path_stays_bounded_at_global_scale():
     from datetime import date
     spans = [(date.fromisoformat(end) - date.fromisoformat(start)).days + 1 for start, end in calls]
     assert all(span == 1 for span in spans), spans
+
+
+def test_unranked_daily_projection_aggregates_broad_set_batches_exactly():
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            calls.append(payload)
+            ordinal = len(calls)
+            return _RpcResult([{
+                "market_date": "2026-09-06",
+                "constituent_count": ordinal,
+                "eligible_universe_count": ordinal + 10,
+                "basket_value": ordinal * 100,
+                "common_count": ordinal + 20,
+                "common_current_value": ordinal * 90,
+                "common_previous_value": ordinal * 80,
+                "current_constituents": [{
+                    "card_variant_id": f"variant-{ordinal}",
+                    "canonical_card_id": f"card-{ordinal}",
+                    "set_id": payload["p_set_ids"][0],
+                    "market_price": ordinal * 10,
+                    "market_date": "2026-09-06",
+                    "rank": 1,
+                }],
+            }])
+
+    cohorts, basket = svc.load_filtered_daily_cohort_rows(
+        Client(), [f"set-{index}" for index in range(41)],
+        start_date="2026-09-06", end_date="2026-09-06", card_ids=None,
+        rpc_name=svc.DAILY_PROJECTION_RPC,
+    )
+
+    assert [len(call["p_set_ids"]) for call in calls] == [20, 20, 1]
+    assert cohorts == [{
+        "marketDate": "2026-09-06", "constituentCount": 6,
+        "eligibleUniverseCount": 36, "basketValue": 600.0,
+        "commonCount": 66, "commonCurrentValue": 540.0,
+        "commonPreviousValue": 480.0,
+    }]
+    assert [row["cardVariantId"] for row in basket] == [
+        "variant-1", "variant-2", "variant-3",
+    ]
+
+
+def test_ranked_daily_projection_keeps_complete_scope_in_one_statement():
+    calls = _recorded_chunk_spans(
+        svc.DAILY_PROJECTION_RPC, 41, start_date="2026-09-06",
+        end_date="2026-09-06", top_n=10,
+    )
+    assert calls == [("2026-09-06", "2026-09-06")]
 
 
 def test_hot_daily_projection_path_keeps_its_efficient_chunk_size_at_moderate_scope():
