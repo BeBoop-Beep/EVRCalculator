@@ -557,6 +557,10 @@ def load_filtered_daily_cohort_rows(
         chunk_days = min(int(chunk_days), max(1, 70 // max(1, statement_set_count)))
     else:
         chunk_days = min(int(chunk_days), max(1, 60 // max(1, len(set_ids))))
+    if (rpc_name in (V1_DAILY_PROJECTION_RPC, V2_DAILY_PROJECTION_RPC)
+            and len(set_ids) > 100
+            and (price_segment_ids or release_age_cohort_ids)):
+        chunk_days = 1
     while cursor <= last:
         chunk_end = min(last, cursor + timedelta(days=max(1, int(chunk_days)) - 1))
         request_start = date.fromisoformat(previous_observed) if previous_observed else cursor

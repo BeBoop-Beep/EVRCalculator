@@ -696,6 +696,25 @@ def test_hot_daily_projection_path_keeps_its_efficient_chunk_size_at_moderate_sc
     assert len(calls) <= 4, "a moderate-breadth hot-path query must still complete in very few chunks"
 
 
+def test_broad_materialized_price_axis_uses_one_day_statements():
+    calls = []
+
+    class Client:
+        def rpc(self, _name, payload):
+            calls.append((payload["p_start_date"], payload["p_end_date"]))
+            return _RpcResult([])
+
+    svc.load_filtered_daily_cohort_rows(
+        Client(), [f"set-{index}" for index in range(165)],
+        start_date="2026-05-18", end_date="2026-05-21", card_ids=None,
+        price_segment_ids=["obtainable"], rpc_name=svc.V1_DAILY_PROJECTION_RPC,
+    )
+    assert calls == [
+        ("2026-05-18", "2026-05-18"), ("2026-05-19", "2026-05-19"),
+        ("2026-05-20", "2026-05-20"), ("2026-05-21", "2026-05-21"),
+    ]
+
+
 def test_narrow_interval_fallback_is_not_forced_to_one_day_chunks():
     """A narrow scope (few sets) must keep using a larger, still-bounded
     chunk on the fallback path -- the fix must not blanket every fallback
