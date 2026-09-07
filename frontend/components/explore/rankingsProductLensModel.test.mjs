@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import { buildSealedProductHref } from "../../lib/pokemon/sealedProductRoutes.mjs";
 import { normalizeOverallProductResult, sortProductRankingRows } from "./rankingsProductLensModel.mjs";
+
+const productClientSource = fs.readFileSync(new URL("./RankingsProductLensClient.jsx", import.meta.url), "utf8");
 
 const result = {
   available: true,
@@ -44,6 +47,25 @@ test("chaseAccessibilityValue sorts by the nested set-level authority block and 
   assert.deepEqual(
     sortProductRankingRows(rows, "", "chaseAccessibilityValue", "asc", false).map((row) => row.sealedProductId),
     ["p-mid", "p-high", "p-none"]
+  );
+});
+
+test("Budget Products UI consumes backend generic fields without V10 authority logic", () => {
+  assert.match(productClientSource, /row\?\.budgetRank/);
+  assert.match(productClientSource, /row\?\.overallRipLeaderScore/);
+  assert.doesNotMatch(productClientSource, /overallRipV10|overall_rip_v10|rankedUnderV12Authority/);
+  assert.match(productClientSource, /scope="colgroup"/);
+});
+
+test("equal Chase Accessibility scores preserve backend rank order", () => {
+  const rows = [
+    { sealedProductId: "rank-2", budgetRank: 2, chaseAccessibility: { value: 0.2 } },
+    { sealedProductId: "rank-5", budgetRank: 5, chaseAccessibility: { value: 0.2 } },
+  ];
+  assert.deepEqual(
+    sortProductRankingRows(rows, "", "chaseAccessibilityValue", "desc", true)
+      .map((row) => row.sealedProductId),
+    ["rank-2", "rank-5"],
   );
 });
 

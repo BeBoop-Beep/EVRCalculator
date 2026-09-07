@@ -16,7 +16,7 @@ test("Rankings desktop exposes the approved Set RIP hierarchy and no economics c
   }
   const head = rankings.slice(rankings.indexOf("<thead"), rankings.indexOf("</thead>"));
   assert.ok(!head.includes("Product Family Snapshot"));
-  assert.ok(!head.includes('scope="colgroup"'));
+  assert.ok(head.includes('scope="colgroup"'));
   for (const retired of ["Market Price", "Typical Opening", "Model Break-Even", "Chance to Beat Cost", "Top Chase"]) {
     assert.ok(!head.includes(retired), retired);
   }
@@ -62,7 +62,7 @@ test("Rankings keeps the compact mobile snapshot and uses fixed desktop family c
   assert.ok(scoreBadgeSource.includes("data-rip-score-badge"));
   assert.ok(rankings.includes("data-ranking-insight"));
   assert.ok(rankings.includes("RankingsFamilyCells"));
-  assert.ok(!rankings.includes('scope="colgroup"'));
+  assert.ok(rankings.includes('scope="colgroup"'));
   assert.ok(cohortControl.includes("SegmentedControl"));
   assert.ok(cohortControl.includes('variant="primary"'));
 });

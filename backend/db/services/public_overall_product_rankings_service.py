@@ -41,7 +41,7 @@ def read_public_overall_product_rankings(
 
     identities = _identity_index(product_family_rankings)
     raw_rows = result.get("rows") or []
-    presentation = public_budget_cohort_presentation(raw_rows)
+    presentation = public_budget_cohort_presentation(raw_rows, snapshot)
     rows = []
     for raw in raw_rows:
         identity = identities.get(str(raw.get("sealed_product_id")), {})
@@ -52,12 +52,12 @@ def read_public_overall_product_rankings(
             "productName": identity.get("productName"), "setName": identity.get("setName"),
             "productFamily": raw.get("product_family"), "productFamilyLabel": identity.get("productFamilyLabel"),
             "productImageUrl": identity.get("productImageUrl"), "setCanonicalKey": identity.get("setCanonicalKey"),
-            "budgetRank": raw.get("budget_rank"), "budgetCohortSize": raw.get("budget_cohort_size"),
+            "budgetRank": public.get("budgetRank"), "budgetCohortSize": public.get("budgetCohortSize"),
             "budgetTier": raw.get("budget_tier"), "budgetModelTier": public.get("budgetModelTier"),
             "publicTier": public.get("publicTier"),
             "quantity": raw.get("quantity"),
             "actualCommittedCapital": raw.get("actual_committed_capital"), "unusedCapital": raw.get("unused_capital"),
-            "overallRipScore": raw.get("overall_rip_v10_score"), "financialRipScore": raw.get("financial_rip_v4_score"),
+            "overallRipScore": public.get("overallRipScore"), "financialRipScore": raw.get("financial_rip_v4_score"),
             "overallRipAbsoluteScore": public.get("overallRipAbsoluteScore"),
             "overallRipRelativeScore": public.get("overallRipRelativeScore"),
             "overallRipLeaderScore": public.get("overallRipLeaderScore"),
@@ -73,7 +73,13 @@ def read_public_overall_product_rankings(
             # backend/db/services/chase_accessibility_set_ranking.py.
             "chaseAccessibility": identity.get("chaseAccessibility"),
         })
-    if rows and any(row.get("expectedValue") is None or not row.get("productName") for row in rows):
+    required_generic_fields = ("overallRipScore", "budgetRank", "budgetCohortSize")
+    if rows and any(
+        row.get("expectedValue") is None
+        or not row.get("productName")
+        or any(row.get(field) is None for field in required_generic_fields)
+        for row in rows
+    ):
         return {"available": False, "reason": "public_projection_incomplete", "rows": []}
 
     target = float(snapshot["full_market_budget"]) if budget == "full_market" else float(budget)

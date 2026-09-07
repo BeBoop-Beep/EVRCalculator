@@ -1656,7 +1656,7 @@ export default function RipDecisionPage({
             >
               <DeepDiveRow
                 id="deep-dive-financial-rip"
-                title={`${MARKET_BASED_LABEL} — why Financial RIP is ${score(model.financial.publicScore)}`}
+                title={`${MARKET_BASED_LABEL} — Financial RIP details (${score(model.financial.publicScore)})`}
                 defaultOpen={financialDeepDiveOpen}
               >
                 <p className="text-sm text-[var(--text-secondary)]">

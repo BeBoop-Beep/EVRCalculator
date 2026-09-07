@@ -908,7 +908,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                     ProductFamilyRankingsClient.jsx). Collector Appeal stays a
                     separate, ungrouped column.
                   */}
-                  <th colSpan={2} className="text-center" data-market-based-header title={MARKET_BASED_HELP}>
+                  <th scope="colgroup" colSpan={2} className="text-center" data-market-based-header title={MARKET_BASED_HELP}>
                     Market-Based Opening Quality
                   </th>
                   <SortableHeader columnId="collectorAppeal" label="Collector Appeal" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} />
