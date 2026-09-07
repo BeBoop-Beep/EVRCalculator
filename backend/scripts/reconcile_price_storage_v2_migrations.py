@@ -66,7 +66,8 @@ def plan_files(records: list[dict[str, str]], repo: Path) -> tuple[list[tuple[Pa
         for row in records:
             target = folder / f"{row['version']}_{row['name']}.sql"
             by_version = [p for p in existing if p.name.startswith(row["version"] + "_")]
-            by_name = [p for p in existing if p.name.endswith("_" + row["name"] + ".sql")]
+            # A separate fix_foo migration is not a nominal-version alias of foo.
+            by_name = [p for p in existing if p.name.partition("_")[2] == row["name"] + ".sql"]
             if len(by_version) > 1 or any(p != target for p in by_version + by_name):
                 conflicts.append(f"{folder.name}: version/name collision for {target.name}")
             elif target.exists():

@@ -1,96 +1,85 @@
 # Price Storage V2 integration — draft, no production cutover
 
-## Current source checkpoint: September 7, 2026
+## Current milestone: source reconciliation is complete for the frozen window
 
-See `SOURCE_RECONCILIATION_2026-09-07.md` for the reviewed original-source reconciliation.
-All five previously flagged discrepancies were comment/whitespace differences, with
-three also carrying nominal filenames different from their applied ledger timestamps.
-Each complete recovered byte stream matches the independent ledger checksum and Git
-blob SHA. Explanatory repository copies remain preserved separately.
+The owner supplied the full migration-ledger export. All **89** records in
+`20260905235956`–`20260906233651` pass their original SQL checksums and the
+independent manifest `d988d2e6e877d3373f613d2351e86339`.
 
-**Eight original migrations are now present under the ledger IDs in both migration
-folders and the archive. Eighty-one are still missing.** The existing strict checker
-continues to block complete migration synchronization. None of the recovered files
-was executed against a database. Do not reapply them manually or deploy this partial
-history. A fresh export of the remaining originals is required; database access was
-not available in this continuation.
+The remaining **81** originals have been restored to both migration directories
+and the archive without changing existing SQL or version IDs. The source import
+commit is `6ef09bcba773c5fa4319ce9ab00c08c031d2d399`; workflow `34155095653`
+verified all 267 SQL copies and passed the strict 89-record gate before committing.
+There are **zero missing originals and zero source conflicts within this window**.
 
-The PR incorporates main through `a3efb5e8ebde199a58d42d90ff8a27e1e4701544`, preserving
-its newer Collector Appeal and Market Explorer work. The two sets of changed paths
-had no overlap. This is a feature-branch update, not a merge into or deployment of main.
+Read `FULL_LEDGER_RECONCILIATION_2026-09-07.md` and the machine-readable
+`FULL_LEDGER_IMPORT_2026-09-07.json` for exact provenance and limitations. The earlier
+`SOURCE_RECONCILIATION_2026-09-07.md` records the preceding eight-original checkpoint
+and is historical, not the current remaining-work inventory.
 
-## Implemented, still unpublished
+The import caught and fixed a name-matching bug in the audit: `fix_foo` must not
+be treated as another timestamped copy of `foo`. No SQL content or hash was relaxed.
+The temporary write-enabled importer and compressed transport have been removed.
+The standard CI workflow now enforces `--strict` and contains no DB credentials.
 
-- Explicit member/root coordinator, dry-run by default.
-- Separate-destination SQL proposal with a disabled release gate, independently
-  revalidated source evidence, immutable conflicting-publication rejection and retries.
-- Correct public-root source-materialization checks, not just row-existence checks.
-- Shared production index math and an opt-in read-only three-set comparison runner.
-- Exact migration export/import tools, an offline inventory, and original-source tests.
+## Proposed application integration remains unpublished
 
-`backend/db/proposals/price_storage_v2_scoped_publication.sql` remains outside executable
-migration directories. Existing scheduled producers have not been connected to its new
-destinations. No trigger, scheduler or production gate is added by these source changes.
+- Member/root coordinator defaults to dry-run and uses separate publisher RPCs.
+- `backend/db/proposals/price_storage_v2_scoped_publication.sql` specifies separate
+  destinations, a disabled release gate, exact source-generation revalidation,
+  candidate comparison, and immutable/conflict-rejecting publication.
+- The public source check distinguishes combined public-root publication from
+  member-only or generic rollout rows; no cohort expansion is implied.
+- The production index math is shared with a read-only three-set comparison CLI.
+- Existing scheduled writers have NOT been connected to these new destinations.
+- No legacy history is retired by this PR or by source reconciliation.
 
-## Validation boundaries
+## Validation coverage and limits
 
-Earlier GitHub Actions runs executed the actual SQL proposal on disposable PostgreSQL
-17.6: 40 pure unit tests and 20 SQL transaction/permission/concurrency tests passed.
-The current suite additionally checks the eight exact sources, original timestamps,
-retained comment copies, and the distinction between subset recovery and full completion.
-Use the current commit's CI results rather than treating older green runs as new proof.
+The existing suite consists of 40 pure unit tests, seven original-source regressions
+and 20 PostgreSQL 17.6 transaction/permission/concurrency tests. New full-window tests
+check all89 originals in allthree locations, import provenance, strict positive and
+negative gates, full-name alias semantics and zero-write repeated reconciliation.
 
-The SQL tests use controlled synthetic prerequisite tables and a synthetic price preview.
-They prove transaction behavior, writer order independence, repeat/noop behavior,
-concurrent same-run calls, permission rejection, source-drift rejection and rollback.
-They do not establish real-source database restore or full scraper/simulator/snapshot
-integration. Sentinel data verifies isolated tests do not modify their protected fixtures;
-it is not a production-data audit.
+The PostgreSQL test executes the publisher proposal unchanged on a disposable service
+with synthetic prerequisite tables and a controlled preview. It has proven writer-order
+independence, independent destinations, retries/noops, conflicts and rollback, source
+and candidate rejection, and role restrictions. It is NOT a restored production schema,
+real pricing selection test, or scraper/simulator/snapshot end-to-end replay.
 
 ```sh
-python backend/tests/run_price_storage_v2_unit.py
-python -m unittest backend.tests.test_price_storage_v2_migration_reconciliation -v
-python backend/scripts/audit_price_storage_v2_migration_sources.py
-# Intentionally fails while original sources remain missing:
 python backend/scripts/audit_price_storage_v2_migration_sources.py --strict
+python backend/tests/run_price_storage_v2_unit.py
+python -m unittest backend.tests.test_price_storage_v2_migration_reconciliation backend.tests.test_price_storage_v2_full_ledger backend.tests.test_price_storage_v2_reimport -v
 ```
 
-The original migration reconciler uses READ ONLY database transactions and defaults to
-filesystem dry-run. It retains exact original SQL and IDs and refuses conflicting
-paths. It never runs migration repair, applies SQL, renumbers ledger history or creates
-placeholder SQL. The frozen 89-record window includes interleaved work, not one standalone
-replayable migration. Later migrations need separate inspection before deployment.
+`compare_price_storage_v2_pipeline.py` remains read-only. It freezes index cohort/prior
+inputs, compares source paths through the same index math, fingerprints existing
+snapshot payloads, optionally compares specified simulator runs, and detects concurrent
+input changes. Existing payload fingerprints are not a replacement for replaying actual
+snapshot builders. Missing simulator run IDs remain `not_run`; full E2E remains false.
 
-```sh
-python backend/scripts/reconcile_price_storage_v2_migrations.py --database-url-env DATABASE_URL
-# Only after reviewing the plan and resolving collisions:
-python backend/scripts/reconcile_price_storage_v2_migrations.py --database-url-env DATABASE_URL --write-files
-```
+## Historical live evidence — not refreshed by this file import
 
-The read-only comparison CLI remains opt-in. It does not scrape, simulate, stage or publish.
-It compares the shared index math on frozen inputs, fingerprints complete existing
-snapshot payloads before/after and checks source stability. Payload fingerprints are
-not a replay of the actual snapshot builders. Missing simulator run IDs remain `not_run`;
-`full_end_to_end_pass` remains false until the actual builder replay is implemented and run.
+The September 6 canary previews matched on 517 raw/V2 canonical prices and root baskets.
+Stored member-only Crown Zenith and Celebrations rows nevertheless differed from their
+combined-root candidates. They were not overwritten to manufacture publication parity.
+The earlier 42 historical constituent exceptions remain a separate acceptance question.
+No current scraper completion, publication approval, or DB health is certified by the
+uploaded migration ledger. This continuation performed no production DB statements.
 
-```sh
-python backend/scripts/compare_price_storage_v2_pipeline.py --market-date 2026-09-06 --output artifacts/v2-canary.json
-```
+## Remaining integration gates
 
-The last recorded three-set source preflight covered 517 canonical prices across Evolving
-Skies, Crown Zenith and Celebrations with zero raw/V2 and live-root basket differences.
-Stored member-only rows for the latter two were not overwritten to manufacture parity.
-Those are historical observations, not refreshed live status in this continuation.
+1. Review migration ordering and dependencies outside the now-complete frozen window;
+   incorporate concurrent main changes without overwriting unrelated work.
+2. Execute against real prerequisite schema and source functions with representative
+   data, rather than only the controlled preview used for writer-transaction tests.
+3. Connect scheduled member and combined-root producers under explicit release control.
+4. Replay actual snapshot/index builders and simulator price readers, preserving subset,
+   edition, partial-coverage, freshness, and historical-publication semantics.
+5. Approve a bounded production cutover with rollback; retire legacy structures only
+   after all direct readers, rebuild scripts and historical fallbacks are replaced.
 
-## Remaining release gates
-
-1. Obtain/import the 81 missing original source sequences and inspect post-window migrations.
-2. Restore relevant real prerequisites and verify the actual pricing/preview functions.
-3. Connect the scheduled member and root producers under explicit release control.
-4. Replay actual snapshot/index builders and simulator price-reader checks, preserving
-   subset, edition, partial-coverage, freshness and already-published-history semantics.
-5. Approve a bounded production cutover with rollback, then retire legacy structures
-   individually only after every direct/rebuild/fallback dependency has been replaced.
-
-The PR remains draft. Source-only reconciliation and successful fixture CI do not
-permit data deletion, gate enablement or a production deployment.
+No new Supabase branch, production SQL apply, database push, source-job state repair,
+raw-price deletion, snapshot publication or simulator run was performed for this import.
+Do not reapply recovered SQL to production or treat source completeness as release approval.

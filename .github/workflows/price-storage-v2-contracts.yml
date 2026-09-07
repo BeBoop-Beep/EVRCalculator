@@ -9,9 +9,20 @@ on:
       - 'backend/db/services/pokemon_market_rollout_index.py'
       - 'backend/scripts/*price_storage_v2*'
       - 'backend/tests/*price_storage_v2*'
-      - 'docs/price_storage_v2/applied_migration_manifest.psv'
-      - 'docs/price_storage_v2/applied_migrations/**'
-      - 'docs/price_storage_v2/reconciliation_repository_copies/**'
+      - 'docs/price_storage_v2/**'
+      - 'supabase/migrations/**'
+      - 'backend/db/migrations/**'
+  # Test this draft's head even when unrelated changes on main prevent a PR merge ref.
+  push:
+    branches: ['codex/price-storage-v2-scope-integration-10176be']
+    paths:
+      - '.github/workflows/price-storage-v2-contracts.yml'
+      - 'backend/db/proposals/price_storage_v2_scoped_publication.sql'
+      - 'backend/db/services/price_storage_v2_integration.py'
+      - 'backend/db/services/pokemon_market_rollout_index.py'
+      - 'backend/scripts/*price_storage_v2*'
+      - 'backend/tests/*price_storage_v2*'
+      - 'docs/price_storage_v2/**'
       - 'supabase/migrations/**'
       - 'backend/db/migrations/**'
 
@@ -19,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: price-storage-v2-contracts-${{ github.event.pull_request.number }}
+  group: price-storage-v2-contracts-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -46,21 +57,23 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Unit and compile checks
+      - name: Unit, exact-source and full-ledger checks
         run: |
           python3 backend/tests/run_price_storage_v2_unit.py
-          python3 -m unittest backend.tests.test_price_storage_v2_migration_reconciliation -v
+          python3 -m unittest backend.tests.test_price_storage_v2_migration_reconciliation backend.tests.test_price_storage_v2_full_ledger backend.tests.test_price_storage_v2_reimport -v
           python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py backend/scripts/recover_price_storage_v2_repository_sources.py
-      - name: Verify original SQL archive and report remaining migration gaps
+      - name: Require complete byte-exact migration sources for the frozen window
         run: |
-          python3 backend/scripts/audit_price_storage_v2_migration_sources.py > /tmp/price-storage-v2-migration-audit.json
+          python3 backend/scripts/audit_price_storage_v2_migration_sources.py --strict > /tmp/price-storage-v2-migration-audit.json
           python3 - <<'PY'
           import json
           report=json.load(open('/tmp/price-storage-v2-migration-audit.json'))
+          assert report['migration_sync_complete'] and report['status_counts']=={'reconciled':89}
+          assert report['originals_archived']==89 and report['originals_not_archived']==0
           print('MIGRATION_SOURCE_INVENTORY='+json.dumps({k:v for k,v in report.items() if k!='records'},sort_keys=True))
           print('MIGRATION_SOURCE_CONFLICTS='+json.dumps([r for r in report['records'] if r['status']=='alias_or_content_conflict'],sort_keys=True))
           PY
-      - name: Execute proposal on disposable PostgreSQL, never Supabase
+      - name: Execute proposed writers on disposable PostgreSQL, never Supabase
         env:
           PRICE_STORAGE_V2_TEST_CONTAINER: ${{ job.services.postgres.id }}
         run: python3 -m backend.tests.test_price_storage_v2_postgres

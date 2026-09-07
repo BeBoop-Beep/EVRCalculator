@@ -1,18 +1,22 @@
-# Exact original applied SQL — eight-record checkpoint
+# Exact original applied SQL — complete frozen 89-record window
 
-This archive contains eight exact original UTF-8 statement sequences from the frozen
-89-record production ledger. The same bytes now appear under their original applied
-version IDs in both `supabase/migrations/` and `backend/db/migrations/`.
+All **89** original SQL sequences for `20260905235956` through `20260906233651`
+are now present here and mirrored byte-for-byte in both migration directories.
+Original version IDs, SQL bytes and final-newline presence are retained. The
+complete statement bytes total **409,228**; the independent manifest MD5 is
+`d988d2e6e877d3373f613d2351e86339`.
 
-Five were recovered by checksum from repository copies; three were previously
-exported and archived. All eight match the captured ledger MD5 and Git blob SHA.
-See `../SOURCE_RECONCILIATION_2026-09-07.md` for each difference and timestamp mapping.
-The explanatory repository copies are preserved separately, not in executable folders.
+The first eight originals came from prior verified recovery. The owner's full
+ledger export supplied the remaining 81. See `../FULL_LEDGER_IMPORT_2026-09-07.json`
+for per-record MD5, size, Git blob SHA and upload provenance. Historical annotated
+repository copies remain under `../reconciliation_repository_copies/`.
 
-**81 original migrations are still missing. Full history reconciliation and dependency
-replay are NOT complete.** Do not execute this partial archive, reapply these records
-to production, repair the live migration ledger, or deploy the unpublished proposal.
+These are records of migrations ALREADY APPLIED. Do not execute this archive,
+reapply the SQL manually, or infer production deployment approval from source
+restoration. The window includes interleaved rollout, RIP and scraper work and
+requires its preceding schema/data for a meaningful isolated restore test.
+Migrations outside the frozen window are not certified by this archive.
 
-Run `python backend/scripts/audit_price_storage_v2_migration_sources.py` to inspect
-status. `--strict` must remain nonzero until all 89 sources are reconciled. Archive
-integrity is not deployment readiness.
+`python backend/scripts/audit_price_storage_v2_migration_sources.py --strict`
+now requires 89 exact sources in both executable directories with no same-name
+aliases or byte conflicts. It does not run any database command.
