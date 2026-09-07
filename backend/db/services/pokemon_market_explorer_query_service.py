@@ -439,7 +439,7 @@ _RPC_MAX_ROWS_PER_RESPONSE = 1000
 #: timeout over the same span, so the bound has to come from days-per-statement
 #: rather than from the caller's date range.
 COHORT_CHUNK_DAYS = 30
-DAILY_PROJECTION_SET_BATCH_SIZE = 20
+DAILY_PROJECTION_SET_BATCH_SIZE = 5
 
 
 def load_filtered_daily_cohort_rows(

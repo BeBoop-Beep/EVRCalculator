@@ -619,8 +619,8 @@ def test_hot_daily_projection_path_stays_bounded_at_global_scale():
     )
     from datetime import date
     spans = [(date.fromisoformat(end) - date.fromisoformat(start)).days + 1 for start, end in calls]
-    assert all(span <= 3 for span in spans), spans
-    assert len(calls) == 18  # two 3-day windows times nine set batches
+    assert all(span <= 14 for span in spans), spans
+    assert len(calls) == 33  # one date window times 33 set batches
 
 
 def test_unranked_daily_projection_aggregates_broad_set_batches_exactly():
@@ -654,15 +654,16 @@ def test_unranked_daily_projection_aggregates_broad_set_batches_exactly():
         rpc_name=svc.DAILY_PROJECTION_RPC,
     )
 
-    assert [len(call["p_set_ids"]) for call in calls] == [20, 20, 1]
+    assert [len(call["p_set_ids"]) for call in calls] == [5] * 8 + [1]
     assert cohorts == [{
-        "marketDate": "2026-09-06", "constituentCount": 6,
-        "eligibleUniverseCount": 36, "basketValue": 600.0,
-        "commonCount": 66, "commonCurrentValue": 540.0,
-        "commonPreviousValue": 480.0,
+        "marketDate": "2026-09-06", "constituentCount": 45,
+        "eligibleUniverseCount": 135, "basketValue": 4500.0,
+        "commonCount": 225, "commonCurrentValue": 4050.0,
+        "commonPreviousValue": 3600.0,
     }]
     assert [row["cardVariantId"] for row in basket] == [
-        "variant-1", "variant-2", "variant-3",
+        "variant-1", "variant-2", "variant-3", "variant-4", "variant-5",
+        "variant-6", "variant-7", "variant-8", "variant-9",
     ]
 
 
