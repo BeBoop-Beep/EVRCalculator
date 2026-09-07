@@ -37,7 +37,7 @@ jobs:
   isolated-postgres:
     name: PostgreSQL 17.6 scope transaction tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 12
     services:
       postgres:
         image: postgres:17.6@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
@@ -61,7 +61,7 @@ jobs:
         run: |
           python3 backend/tests/run_price_storage_v2_unit.py
           python3 -m unittest backend.tests.test_price_storage_v2_migration_reconciliation backend.tests.test_price_storage_v2_full_ledger backend.tests.test_price_storage_v2_reimport -v
-          python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py backend/scripts/recover_price_storage_v2_repository_sources.py
+          python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py backend/tests/test_price_storage_v2_real_source_sql.py backend/scripts/recover_price_storage_v2_repository_sources.py
       - name: Require complete byte-exact migration sources for the frozen window
         run: |
           python3 backend/scripts/audit_price_storage_v2_migration_sources.py --strict > /tmp/price-storage-v2-migration-audit.json
@@ -77,3 +77,7 @@ jobs:
         env:
           PRICE_STORAGE_V2_TEST_CONTAINER: ${{ job.services.postgres.id }}
         run: python3 -m backend.tests.test_price_storage_v2_postgres
+      - name: Execute exact restored source contracts on a second disposable database
+        env:
+          PRICE_STORAGE_V2_TEST_CONTAINER: ${{ job.services.postgres.id }}
+        run: python3 -m backend.tests.test_price_storage_v2_real_source_sql
