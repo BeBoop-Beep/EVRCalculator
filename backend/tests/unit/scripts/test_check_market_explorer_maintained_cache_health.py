@@ -42,6 +42,15 @@ class Query:
             if self.eq_filters.get("cache_kind") == "maintained":
                 return Response(list(self.client.maintained_rows))
             return Response([])
+        if self.name == "pokemon_set_value_daily_history_coverage":
+            return Response([{"set_id": "set-a"}])
+        if self.name == "sets":
+            return Response([{"id": "set-a", "catalog_only": False}])
+        if self.name == health.V1_COVERAGE_TABLE:
+            return Response([{"set_id": "set-a", "computed_through": "2026-09-05"}])
+        if self.name == health.V2_COVERAGE_TABLE:
+            return Response([{"set_id": "set-a", "retained_from": "2026-05-29",
+                              "computed_through": "2026-09-05"}])
         raise AssertionError(self.name)
 
 
@@ -134,3 +143,13 @@ def test_alert_payload_never_carries_bulk_cache_data():
         "fingerprint", "label", "status", "computed_through",
         "latest_approved_market_date", "age_days", "reason",
     }
+
+
+def test_health_reports_both_projection_freshness_contracts():
+    report = health.check_maintained_cache_health(Client(
+        approved_dates=["2026-09-05"], maintained_rows=[]
+    ))
+    assert report["v1"]["coverage_sets"] == 1
+    assert report["v1"]["lagging_sets"] == []
+    assert report["v2"]["coverage_sets"] == 1
+    assert report["v2"]["retained_from"] == "2026-05-29"

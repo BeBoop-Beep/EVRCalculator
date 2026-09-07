@@ -29,6 +29,7 @@ from typing import Any
 
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.db.services.market_explorer_maintained_cache_ops import discover_maintained_caches
+from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids
 from backend.scripts.publish_market_explorer_daily_projection import (
     APPROVED_STATUSES,
     DATE_QUALITY_TABLE,
@@ -36,7 +37,9 @@ from backend.scripts.publish_market_explorer_daily_projection import (
 )
 
 CACHE_TABLE = "pokemon_market_explorer_query_cache"
-DEFAULT_STALE_THRESHOLD_DAYS = 1
+DEFAULT_STALE_THRESHOLD_DAYS = 0
+V1_COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage"
+V2_COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage_v2_shadow"
 
 
 @dataclass
@@ -55,6 +58,9 @@ class HealthReport:
     latest_approved_market_date: str | None
     maintained_count: int = 0
     ready_and_current: int = 0
+    v1: dict[str, Any] = field(default_factory=dict)
+    v2: dict[str, Any] = field(default_factory=dict)
+    cache_status_counts: dict[str, int] = field(default_factory=dict)
     alerts: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -84,8 +90,39 @@ def check_maintained_cache_health(
     if latest_approved is None:
         return asdict(report)
 
+    tracked = set(resolve_tracked_set_ids(client))
+    v1_rows = _paged(lambda: client.table(V1_COVERAGE_TABLE)
+                     .select("set_id,computed_through"))
+    v2_rows = _paged(lambda: client.table(V2_COVERAGE_TABLE)
+                     .select("set_id,retained_from,computed_through"))
+
+    def coverage_report(rows: list[dict[str, Any]], *, include_retention: bool) -> dict[str, Any]:
+        scoped = [row for row in rows if str(row.get("set_id")) in tracked]
+        lagging = sorted(str(row.get("set_id")) for row in scoped
+                         if str(row.get("computed_through") or "")[:10] < latest_approved)
+        present = {str(row.get("set_id")) for row in scoped}
+        lagging.extend(sorted(tracked - present))
+        result: dict[str, Any] = {
+            "coverage_sets": len(scoped),
+            "authority_sets": len(tracked),
+            "min_computed_through": min((str(row.get("computed_through"))[:10]
+                                          for row in scoped), default=None),
+            "lagging_sets": lagging,
+        }
+        if include_retention:
+            result["retained_from"] = min((str(row.get("retained_from"))[:10]
+                                            for row in scoped), default=None)
+        return result
+
+    report.v1 = coverage_report(v1_rows, include_retention=False)
+    report.v2 = coverage_report(v2_rows, include_retention=True)
+
     rows = discover_maintained_caches(client)
     report.maintained_count = len(rows)
+    report.cache_status_counts = {
+        status: sum(1 for row in rows if str(row.get("status") or "") == status)
+        for status in ("ready", "failed", "stale", "building")
+    }
     for row in rows:
         fingerprint = str(row.get("query_fingerprint") or "")
         label = str(row.get("label") or fingerprint or "?")

@@ -27,10 +27,10 @@
 # process:
 #
 #   1. run_market_explorer_daily_publication.py --commit
-#      Authoritative projection only: current-metadata refresh -> projection
-#      append -> exact reconciliation -> coverage advance -> EXIT. Never
+#      Both serving projections: current-metadata refresh -> canonical/V1
+#      append and reconciliation -> bounded V2 hot-shadow append/trim -> EXIT. Never
 #      imports the planner/cache-build machinery. This is what advances
-#      pokemon_market_explorer_card_daily_coverage for every tracked set --
+#      both V1 and V2 daily coverage for every authority-bearing set --
 #      a maintained cache's incremental advance for large scopes silently
 #      falls back onto the expensive interval RPC (real production 57014s
 #      seen at Global/large-era scope) for any set this hasn't reached yet,

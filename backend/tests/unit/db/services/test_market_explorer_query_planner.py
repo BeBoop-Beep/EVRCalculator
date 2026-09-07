@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import time
 
 import pytest
 
@@ -17,6 +18,7 @@ from backend.db.services.market_explorer_query_planner import (
     publication_scope_key,
     resolve_cards_canonical_through,
     resolve_canonical_through,
+    _BuildLeaseHeartbeat,
 )
 from backend.domain.pokemon.market_explorer_query import (
     MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS,
@@ -1009,10 +1011,14 @@ class StagedRpcClient:
         self.trim_calls = []
         self.stage_calls = []
         self.finalize_calls = []
+        self.renew_calls = []
 
     def rpc(self, name, params):
         if self.raise_on == name:
             raise RuntimeError(f"simulated failure for {name}")
+        if name == "renew_pokemon_market_explorer_query_cache_build":
+            self.renew_calls.append(params)
+            return _Resp(True)
         if name == "upsert_pokemon_market_explorer_query_cache_constituent_batch":
             self.batch_calls.append(params)
             n = len(params["p_items"]) if self.batch_result is None else self.batch_result
@@ -1123,6 +1129,57 @@ def test_successful_finalize_returns_true():
     cache = PersistentMarketExplorerCache(client)
     assert cache.publish(fingerprint="f" * 64, token="tok",
                          payload=_make_payload(10)) is True
+
+
+def test_staged_constituent_batching_renews_ownership():
+    client = StagedRpcClient()
+    cache = PersistentMarketExplorerCache(client)
+    assert cache.publish(fingerprint="f" * 64, token="tok",
+                         payload=_make_payload(1200)) is True
+    assert len(client.renew_calls) >= 6  # each batch, trim, stage, finalize
+
+
+def test_renew_wrong_or_reclaimed_token_fails_closed():
+    class LostLeaseClient:
+        def rpc(self, name, params):
+            assert name == "renew_pokemon_market_explorer_query_cache_build"
+            return _Resp(False)
+    cache = PersistentMarketExplorerCache(LostLeaseClient())
+    assert cache.renew(fingerprint="f" * 64, token="old-worker") is False
+
+
+def test_long_build_heartbeat_renews_more_than_once():
+    class Cache:
+        build_lease_seconds = 1
+        def __init__(self):
+            self.calls = 0
+        def renew(self, **_kwargs):
+            self.calls += 1
+            return True
+    cache = Cache()
+    heartbeat = _BuildLeaseHeartbeat(cache, fingerprint="f" * 64, token="tok")
+    heartbeat.interval = 0.02
+    with heartbeat:
+        time.sleep(0.07)
+        heartbeat.assert_owned()
+    assert cache.calls >= 4
+
+
+def test_heartbeat_detects_takeover_and_cannot_continue():
+    class Cache:
+        build_lease_seconds = 1
+        def __init__(self):
+            self.calls = 0
+        def renew(self, **_kwargs):
+            self.calls += 1
+            return self.calls == 1
+    cache = Cache()
+    heartbeat = _BuildLeaseHeartbeat(cache, fingerprint="f" * 64, token="old")
+    heartbeat.interval = 0.01
+    with pytest.raises(MarketExplorerPublishFailed):
+        with heartbeat:
+            time.sleep(0.03)
+            heartbeat.assert_owned()
 
 
 def test_publish_false_still_causes_market_explorer_publish_failed():

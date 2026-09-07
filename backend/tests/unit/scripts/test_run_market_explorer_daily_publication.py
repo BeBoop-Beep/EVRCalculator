@@ -326,12 +326,15 @@ def test_normal_day_full_success_case_a():
          patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
          patch.object(orch, "run_publish",
                       return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_new": 2}), \
+         patch.object(orch, "advance_v2_daily_shadow",
+                      return_value={"failures": [], "sets_advanced": 2}) as mock_v2, \
          patch.object(cache_ops, "advance_one_maintained_cache") as mock_build:
         result = orch.run_daily_publication(object(), commit=True)
     assert result["status"] == "ok"
     assert result["market_date"] == "2026-09-02"
     assert result["caches"] == {"status": "deferred", "reason": "separate_operational_worker"}
     mock_build.assert_not_called()
+    mock_v2.assert_called_once()
 
 
 def test_cache_state_cannot_change_publication_result_case_b():
@@ -344,7 +347,9 @@ def test_cache_state_cannot_change_publication_result_case_b():
                       return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
          patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
          patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_new": 2}):
+                      return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_new": 2}), \
+         patch.object(orch, "advance_v2_daily_shadow",
+                      return_value={"failures": [], "sets_advanced": 2}):
         result = orch.run_daily_publication(object(), commit=True)
     # Projection status still "ok" -- no cache read/build ever runs on this
     # path, so nothing about cache health can roll back an already-committed
@@ -366,6 +371,23 @@ def test_projection_failure_prevents_any_cache_deferral_report_case_c():
     assert result["status"] == "projection_failed"
     mock_deferred.assert_not_called()
     assert result["caches"] is None
+
+
+def test_v2_failure_stops_before_cache_prewarm_boundary():
+    with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
+         patch.object(orch, "market_date_is_approved", return_value=True), \
+         patch.object(orch, "refresh_current_metadata",
+                      return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
+         patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a"]), \
+         patch.object(orch, "run_publish",
+                      return_value={"failures": 0, "sets_reconciliation_failed": 0}), \
+         patch.object(orch, "advance_v2_daily_shadow",
+                      return_value={"failures": [{"set_id": "set-a"}], "sets_advanced": 0}), \
+         patch.object(orch, "deferred_cache_report") as mock_deferred:
+        result = orch.run_daily_publication(object(), commit=True)
+    assert result["status"] == "projection_failed"
+    assert "V2" in result["error"]
+    mock_deferred.assert_not_called()
 
 
 def test_dry_run_same_date_rerun_is_idempotent_report_shape():
