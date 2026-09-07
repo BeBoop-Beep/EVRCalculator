@@ -8,6 +8,7 @@ on:
     paths:
       - '.github/workflows/price-storage-v2-import-upload.yml'
       - 'backend/scripts/import_price_storage_v2_verified_upload.py'
+      - 'backend/scripts/audit_price_storage_v2_migration_sources.py'
       - 'docs/price_storage_v2/import_transport/**'
 
 permissions:
