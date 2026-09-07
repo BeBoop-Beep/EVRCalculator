@@ -74,8 +74,8 @@ BEGIN
       p_market_date
     );
 
-    IF v_member->>'status' NOT IN ('complete','noop')
-       OR v_root->>'status' NOT IN ('complete','noop') THEN
+    IF coalesce(v_member->>'status','') NOT IN ('complete','noop')
+       OR coalesce(v_root->>'status','') NOT IN ('complete','noop') THEN
       RAISE EXCEPTION USING ERRCODE='55000',
         MESSAGE='Scoped publisher returned a non-complete status';
     END IF;
