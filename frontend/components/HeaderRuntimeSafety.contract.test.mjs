@@ -28,6 +28,15 @@ test("critical header account and auth controls remain present", () => {
   assert.ok(source.includes("<MembershipNavLink"), "Upgrade/Membership navigation must remain available");
 });
 
+test("account identity has a stable email-derived fallback", () => {
+  const labelResolver = source.slice(source.indexOf("function getPreferredAccountLabel"), source.indexOf("export default function Header"));
+  assert.match(labelResolver, /display_name/);
+  assert.match(labelResolver, /username/);
+  assert.match(labelResolver, /email/);
+  assert.ok(labelResolver.indexOf("display_name") < labelResolver.indexOf("username"));
+  assert.ok(labelResolver.indexOf("username") < labelResolver.indexOf("email"));
+});
+
 test("primary public navigation remains intact", () => {
   for (const destination of ["/Rankings", "/Market", "/Articles"]) {
     assert.ok(source.includes(`href="${destination}"`), `${destination} must remain in the Header`);

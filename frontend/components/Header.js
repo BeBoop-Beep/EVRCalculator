@@ -22,6 +22,12 @@ function getPreferredAccountLabel(user) {
   const username = getCleanText(user?.username);
   if (username) return username;
 
+  const email = getCleanText(user?.email);
+  if (email) {
+    const localPart = getCleanText(email.split("@")[0]);
+    if (localPart) return localPart.replace(/[._-]+/g, " ");
+  }
+
   return null;
 }
 

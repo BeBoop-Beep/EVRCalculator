@@ -31,12 +31,14 @@ logger = logging.getLogger(__name__)
 
 CACHE_TABLE = "pokemon_market_explorer_query_cache"
 SUMMARY_READ_RPC = "get_pokemon_market_explorer_query_cache_summary"
+BUILD_BASE_METADATA_RPC = "get_pokemon_market_explorer_query_cache_build_base_metadata"
 CONSTITUENT_PAGE_RPC = "get_pokemon_market_explorer_query_cache_constituent_page"
 CLAIM_RPC = "claim_pokemon_market_explorer_query_cache_build"
 PUBLISH_RPC = "publish_pokemon_market_explorer_query_cache_build"
 STAGE_RPC = "stage_pokemon_market_explorer_query_cache_build"
 STAGE_FROM_DETAIL_RPC = "stage_pokemon_market_explorer_query_cache_build_from_detail"
 UPSERT_CONSTITUENT_BATCH_RPC = "upsert_pokemon_market_explorer_query_cache_constituent_batch"
+PREPARE_CONSTITUENTS_RPC = "prepare_pokemon_market_explorer_query_cache_constituents"
 TRIM_CONSTITUENT_BATCH_RPC = "trim_pokemon_market_explorer_query_cache_constituent_batch"
 FINALIZE_BUILD_RPC = "finalize_pokemon_market_explorer_query_cache_build"
 RENEW_BUILD_RPC = "renew_pokemon_market_explorer_query_cache_build"
@@ -198,6 +200,12 @@ class PersistentMarketExplorerCache:
                 rows = list(self.client.rpc(SUMMARY_READ_RPC, {
                     "p_query_fingerprint": fingerprint,
                 }).execute().data or [])
+                if rows and rows[0].get("status") == "failed":
+                    metadata = list(self.client.rpc(BUILD_BASE_METADATA_RPC, {
+                        "p_query_fingerprint": fingerprint,
+                    }).execute().data or [])
+                    if metadata:
+                        rows[0].update(metadata[0])
             else:
                 rows = list((self.client.table(CACHE_TABLE).select(
                     "query_fingerprint,status,computed_from,computed_through,series_payload,"
@@ -274,12 +282,38 @@ class PersistentMarketExplorerCache:
             constituents = list(payload.get("currentConstituents") or [])
             expected_count = len(constituents)
 
+            def rejected(stage_name: str, sentinel: Any, *, batch_offset: int | None = None,
+                         batch_count: int | None = None) -> bool:
+                logger.warning(
+                    "market_explorer_cache_publish_rejected fingerprint=%s stage=%s "
+                    "batchOffset=%s batchCount=%s expectedCount=%d sentinel=%s",
+                    fingerprint[:12], stage_name, batch_offset, batch_count,
+                    expected_count, sentinel,
+                )
+                return False
+
+            stage = "lease_before_upload"
+            if not self.renew(fingerprint=fingerprint, token=token):
+                return rejected(stage, False)
+
+            stage = "detail_prepare"
+            prepared = self.client.rpc(PREPARE_CONSTITUENTS_RPC, {
+                "p_query_fingerprint": fingerprint,
+                "p_build_token": token,
+            }).execute()
+            prepared_count = prepared.data if prepared.data is not None else -1
+            if int(prepared_count) < 0:
+                return rejected(stage, prepared_count)
+
             for start in range(0, expected_count, CONSTITUENT_BATCH_SIZE):
-                if not self.renew(fingerprint=fingerprint, token=token):
-                    return False
+                stage = "upsert_batch"
                 batch = constituents[start:start + CONSTITUENT_BATCH_SIZE]
+                if not self.renew(fingerprint=fingerprint, token=token):
+                    return rejected("lease_before_upload", False,
+                                    batch_offset=start, batch_count=len(batch))
                 if len(batch) > 1000:
-                    return False  # never send a batch over the production hard limit
+                    return rejected(stage, "oversized", batch_offset=start,
+                                    batch_count=len(batch))
                 result = self.client.rpc(UPSERT_CONSTITUENT_BATCH_RPC, {
                     "p_query_fingerprint": fingerprint,
                     "p_build_token": token,
@@ -287,11 +321,13 @@ class PersistentMarketExplorerCache:
                 }).execute()
                 affected = result.data if result.data is not None else -1
                 if affected is None or int(affected) < 0 or int(affected) != len(batch):
-                    return False
+                    return rejected(stage, affected, batch_offset=start,
+                                    batch_count=len(batch))
 
+            stage = "trim"
             while True:
                 if not self.renew(fingerprint=fingerprint, token=token):
-                    return False
+                    return rejected("lease_before_stage", False)
                 trimmed = self.client.rpc(TRIM_CONSTITUENT_BATCH_RPC, {
                     "p_query_fingerprint": fingerprint,
                     "p_build_token": token,
@@ -300,12 +336,13 @@ class PersistentMarketExplorerCache:
                 }).execute()
                 trimmed_count = trimmed.data if trimmed.data is not None else -1
                 if trimmed_count is None or int(trimmed_count) < 0:
-                    return False
+                    return rejected(stage, trimmed_count)
                 if int(trimmed_count) == 0:
                     break
 
             if not self.renew(fingerprint=fingerprint, token=token):
-                return False
+                return rejected("lease_before_stage", False)
+            stage = "stage_from_detail"
             staged = self.client.rpc(STAGE_FROM_DETAIL_RPC, {
                 "p_query_fingerprint": fingerprint,
                 "p_build_token": token,
@@ -321,20 +358,28 @@ class PersistentMarketExplorerCache:
                     (payload.get("reconciliation") or {}).get("eligibleUniverseCount"),
             }).execute()
             if not bool(staged.data):
-                return False
+                return rejected(stage, staged.data)
 
+            stage = "lease_before_finalize"
             if not self.renew(fingerprint=fingerprint, token=token):
-                return False
+                return rejected(stage, False)
+            stage = "finalize"
             finalized = self.client.rpc(FINALIZE_BUILD_RPC, {
                 "p_query_fingerprint": fingerprint,
                 "p_build_token": token,
             }).execute()
-            return bool(finalized.data)
+            if not bool(finalized.data):
+                return rejected(stage, finalized.data)
+            return True
         except Exception as exc:
             if self.metrics:
                 self.metrics.record("cache_build_failures", 0)
-            logger.warning("market_explorer_cache_publish_failed fingerprint=%s error=%s",
-                           fingerprint[:12], type(exc).__name__)
+            logger.warning(
+                "market_explorer_cache_publish_failed fingerprint=%s stage=%s "
+                "expectedCount=%s error=%s", fingerprint[:12],
+                locals().get("stage", "exception"), locals().get("expected_count", "unknown"),
+                type(exc).__name__,
+            )
             return False
 
     def constituent_page(self, fingerprint: str, *, limit: int = 100,
@@ -511,10 +556,28 @@ def _is_recoverable_failed_base(
     # a safe incremental base even though every field above looks present.
     constituent_count = row.get("constituent_count")
     current_constituents = row.get("current_constituents")
-    if current_constituents is None or not isinstance(current_constituents, list):
+    if isinstance(current_constituents, list):
+        detail_count = len(current_constituents)
+        nonnull_instrument_count = detail_count
+        unique_instrument_count = detail_count
+        min_rank = 1 if detail_count else None
+        max_rank = detail_count or None
+    else:
+        detail_count = row.get("detail_count")
+        nonnull_instrument_count = row.get("nonnull_instrument_count")
+        unique_instrument_count = row.get("unique_instrument_count")
+        min_rank = row.get("min_rank")
+        max_rank = row.get("max_rank")
+    if constituent_count is None or detail_count is None:
         return False
-    if constituent_count is not None and int(constituent_count) > 0:
-        if len(current_constituents) != int(constituent_count):
+    expected_count = int(constituent_count)
+    if int(detail_count) != expected_count:
+        return False
+    if expected_count:
+        if (int(nonnull_instrument_count or 0) != expected_count
+                or int(unique_instrument_count or 0) != expected_count
+                or int(min_rank or 0) != 1
+                or int(max_rank or 0) != expected_count):
             return False
 
     as_of = str(series_payload.get("asOf") or "")[:10]
@@ -640,7 +703,10 @@ class MarketExplorerQueryPlanner:
         # trustworthy (see _is_recoverable_failed_base) is likewise a safe
         # incremental base -- it is never returned as a cache hit above, only
         # used here to avoid an unnecessary full historical cold rebuild.
-        build_row = read_cache(full=True) if summary else row
+        # Capture the complete bounded build base before claim mutates status.
+        # Summary reads carry series history and (for failed rows) compact
+        # detail-integrity metadata; they never transport constituent JSON.
+        build_row = row
         recoverable_failed_base = _is_recoverable_failed_base(build_row, spec, generation)
         previous = (
             str(build_row.get("computed_through"))[:10]

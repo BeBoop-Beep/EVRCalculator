@@ -229,3 +229,73 @@ The personal-market foundation is source-ready and secure, responsive review pas
 - Consequently edit/update/save-as-new, active-query keyboard/network invariants, and query constituent movement/paging remain unaccepted.
 - Focused regression: 66 backend tests and 26 frontend source/unit tests passed. Next production build passed with existing warnings.
 - Final decision remains `MARKET_EXPLORER_REFINEMENT_AUTH_QA_BLOCKED`; the authenticated session itself worked, but a genuine backend product blocker prevents completion of the remaining authenticated scenarios. No broader cache-architecture work was attempted in this closure-only phase.
+
+## AJ. Custom-cache failure root cause
+
+- CONFIRMED publication defect: rank-first upsert retained old `instrument_id` values, so a reorder could violate `UNIQUE(query_fingerprint, instrument_id)` before the old rank was reconciled.
+- CONFIRMED planner defect: summary execution claimed the row before a second full read. The claim changed `ready`/`failed` to `building`, destroyed the status evidence used for incremental-base selection, and transported the full constituent JSON.
+- A separate unresolved failure remains for the original global Premium-price axis: its current-date interval-fallback statement failed at the Supabase REST origin with HTTP/Cloudflare 520 after the normal client timeout failures. This occurred before cache publication.
+
+## AK. Planner build-base correction
+
+- The bounded summary row is now captured once before claim and reused as the build base.
+- Failed-base integrity uses compact detail count, non-null/unique instrument count, rank bounds, and version metadata from a service-only RPC. Summary mode no longer fetches `current_constituents` to decide reuse.
+- Tests prove stale READY summary reuse, FAILED build-base-only behavior, stale/unknown-repair fail-closed behavior, and incompatible-version rejection.
+
+## AL. Detail publication reconciliation correction
+
+- Publication now renews the lease, calls a lease-guarded prepare RPC, then performs the existing bounded upsert/trim/stage/finalize sequence.
+- Prepare nulls old generic/legacy identities while the row remains `building`; the uniqueness rule remains intact and no partially prepared row can be served.
+- Internal diagnostics now identify lease, prepare, upsert batch offset/count, trim, stage, finalize, and exception stages without payloads or credentials.
+- Rollback-only live SQL passed `A,B,C -> C,A,B`, `A,B,C -> B,D,A`, shrink, grow, partial-batch retry, finalization, mismatched token, and expired token.
+
+## AM. Production migration
+
+- Applied forward migration `20260908192748_reconcile_market_explorer_cache_publication` and recorded version `20260908192748` in `supabase_migrations.schema_migrations`.
+- Both functions are `SECURITY INVOKER`, have empty `search_path`, deny `anon`/`authenticated`, and grant execute only to `service_role`.
+- The production SQL is mirrored byte-for-byte under both migration trees. Existing migration history was not rewritten.
+
+## AN. Original two-query reproduction after fix
+
+- Gym Challenge fingerprint `702144a82725`: PASS. The failed 2026-09-06 artifact incrementally published through 2026-09-08 in 8174.7 ms; 264 detail rows, 264 non-null and unique instrument IDs, ranks 1..264, lease cleared. Immediate repeat used L1 in 178.7 ms.
+- Premium-price fingerprint `7771a3cd5510`: FAIL before publication. Bounded one-day interval fallback still exceeded the REST transport/origin envelope; a diagnostic 120-second attempt ultimately received Cloudflare 520 from the Supabase host. The row correctly returned to `failed` with no orphan lease.
+
+## AO. Maintained-cache regression
+
+- FAIL due upstream daily advancement state, not the reconciliation migration: health audit reports 37 maintained caches, 36 ready through 2026-09-06, one Premium cache failed, and 0/37 current against the approved 2026-09-08 watermark.
+- V1 and V2 coverage each contain all 165 authority sets but have minimum `computed_through=2026-09-07`; no cache-wide rebuild or invalidation was performed.
+
+## AP. Exact-instrument regression
+
+- The generic uniqueness index was retained and rollback-only live reorder/retry validation passed.
+- Full 1/5/25/sealed live cache regression was not run after the Premium compute blocker and maintained-cache freshness gate failed.
+
+## AQ. Authenticated edit/update/save-as-new closure
+
+- BLOCKED. A fresh token was not minted because the required backend gate failed before browser QA; the prior approval was therefore not consumed in this pass.
+
+## AR. Query constituent movement/paging closure
+
+- BLOCKED because the required end-to-end custom lifecycle could not be completed after the Premium-price failure.
+
+## AS. Network/keyboard closure
+
+- BLOCKED for the same active-query prerequisite. Previously accepted Plus Screens and exact-item lock behavior were not reopened.
+
+## AT. Token cleanup
+
+- No token was created in this pass. No token temp file, report value, screenshot value, git change, or log value exists from this closure.
+
+## AU. Final runtime health
+
+- Migration/function/grant verification: PASS.
+- Gym Challenge real planner publication/reuse: PASS.
+- No orphan maintained build leases: PASS (`building=0`).
+- Maintained currentness: FAIL (`ready_and_current=0`, approved watermark two days ahead of caches and one day ahead of V1/V2 coverage minimum).
+- Premium-price current-date computation: FAIL (Supabase REST origin HTTP 520).
+
+## AV. Final decision
+
+`MARKET_EXPLORER_REFINEMENT_BLOCKED`
+
+Cache publication correctness and bounded build-base transport are repaired and deployed, but the original Premium-price build still does not return HTTP 200 and maintained caches are not current. Consequently the authenticated lifecycle, constituent paging/movement, and active-query keyboard/network gates cannot be truthfully accepted.
