@@ -1,8 +1,8 @@
-"""Validate the review-only scoped publication coordinator on exact restored source SQL.
+"""Validate scoped publication and V2 serving cutover on exact restored source SQL.
 
 Uses the same bounded Evolving Skies / Crown Zenith+Gallery / Celebrations+Classic
 fixture as the exact-source contract suite. No Supabase DSN or production credential
-is accepted. The coordinator proposal itself contains no cron attachment.
+is accepted. Neither proposal may attach a cron or enable the operator release gate.
 """
 from __future__ import annotations
 
@@ -30,6 +30,15 @@ def service_cycle_sql(values=ROOTS) -> str:
     return (
         "SET ROLE service_role; "
         f"SELECT public.run_price_storage_v2_scoped_publication_cycle('{DAY}',{root_array(values)}); "
+        "RESET ROLE;"
+    )
+
+
+def atomic_sql(run_id: int, root_id: str) -> str:
+    return (
+        "SET ROLE service_role; "
+        "SELECT public.publish_price_storage_v2_scoped_run_atomic_v2("
+        f"{run_id},'{root_id}'::uuid,'{DAY}'::date); "
         "RESET ROLE;"
     )
 
@@ -94,11 +103,12 @@ SELECT jsonb_build_object(
  'stage_runs',(SELECT count(*) FROM public.price_storage_v2_scope_stage_runs),
  'candidate_rows',(SELECT count(*) FROM public.price_storage_v2_scoped_value_candidates),
  'member_rows',(SELECT count(*) FROM public.pokemon_member_set_value_daily_history_v2),
- 'root_rows',(SELECT count(*) FROM public.pokemon_root_set_value_daily_history_v2));
+ 'root_rows',(SELECT count(*) FROM public.pokemon_root_set_value_daily_history_v2),
+ 'legacy_rows',(SELECT count(*) FROM public.pokemon_set_value_daily_history));
 """)
 
     before = counts()
-    if before != {"stage_runs":0,"candidate_rows":0,"member_rows":0,"root_rows":0}:
+    if before != {"stage_runs":0,"candidate_rows":0,"member_rows":0,"root_rows":0,"legacy_rows":0}:
         raise AssertionError(f"unexpected clean-fixture state: {before}")
 
     # Gate is disabled by default and rejection occurs before staging writes.
@@ -118,7 +128,7 @@ SELECT jsonb_build_object(
            for row in first.get("results") or []):
         raise AssertionError(first)
     published = counts()
-    if published != {"stage_runs":3,"candidate_rows":24,"member_rows":15,"root_rows":9}:
+    if published != {"stage_runs":3,"candidate_rows":24,"member_rows":15,"root_rows":9,"legacy_rows":0}:
         raise AssertionError(published)
     print("coordinator_first_atomic_publication: ok", flush=True)
 
@@ -153,16 +163,69 @@ SELECT jsonb_build_object(
     )
     print("coordinator_mixed_block_rolls_back: ok", flush=True)
 
-    # Public roles cannot execute the coordinator even when the admin gate is enabled.
+    # Install the serving cutover on this same exact-source fixture. The new one-root
+    # writer must revalidate the staged preview ONCE and must not touch legacy/public
+    # compatibility until the all-roots finalizer (which is post-cutover only).
+    serving_proposal = REPO_ROOT / "backend/db/proposals/price_storage_v2_serving_cutover.sql"
+    serving_sql = serving_proposal.read_text(encoding="utf-8")
+    if "cron.schedule" in serving_sql or "cron.unschedule" in serving_sql:
+        raise AssertionError("serving cutover proposal must not attach or mutate a scheduler")
+    if "UPDATE public.price_storage_v2_scoped_release_gate SET enabled" in serving_sql:
+        raise AssertionError("serving cutover must never enable its own operator gate")
+    cls.run(serving_sql)
+    print("serving_cutover_proposal_installs: ok", flush=True)
+
+    run_id = int(cls.run(
+        f"SELECT id FROM public.price_storage_v2_scope_stage_runs "
+        f"WHERE root_set_id='{ROOTS[0]}' AND market_date='{DAY}' ORDER BY id DESC LIMIT 1;"
+    ).stdout.strip())
+
+    # Disabled kill switch rejects the atomic writer without changing any destination.
+    cls.run("UPDATE public.price_storage_v2_scoped_release_gate SET enabled=false;")
+    atomic_before = counts()
+    atomic_denied = cls.run(atomic_sql(run_id, ROOTS[0]), check=False)
+    if atomic_denied.returncode == 0 or counts() != atomic_before:
+        raise AssertionError("atomic serving writer ignored disabled release gate")
+    print("serving_atomic_gate_disabled: ok", flush=True)
+
+    # Re-enable only in disposable CI. Existing exact V2 rows make the new atomic writer
+    # a no-op, proving it accepts the old staged run without mutating legacy history.
+    cls.run("UPDATE public.price_storage_v2_scoped_release_gate SET enabled=true;")
+    atomic = cls.value(atomic_sql(run_id, ROOTS[0]))
+    if atomic.get("status") != "noop" or atomic.get("root_rows_verified") != 3:
+        raise AssertionError(atomic)
+    if counts() != atomic_before:
+        raise AssertionError("pre-cutover atomic V2 verification mutated history")
+    print("serving_atomic_exact_repeat_noop: ok", flush=True)
+
+    # The public compatibility finalizer has a hard post-cutover boundary. The Sep 6
+    # exact-source fixture must be rejected and legacy history must remain untouched.
+    pre_finalize = counts()
+    finalizer = cls.run(
+        "SET ROLE service_role; "
+        f"SELECT public.finalize_price_storage_v2_serving_compatibility_v1('{DAY}',{root_array()});",
+        check=False,
+    )
+    if finalizer.returncode == 0 or counts() != pre_finalize:
+        raise AssertionError("pre-cutover compatibility finalization must fail closed")
+    print("serving_pre_cutover_finalize_blocked: ok", flush=True)
+
+    # Public roles cannot execute either old coordinator or new atomic serving writer.
     denied = cls.run(
         f"SET ROLE anon; SELECT public.run_price_storage_v2_scoped_publication_cycle('{DAY}',{root_array()});",
         check=False,
     )
     if denied.returncode == 0:
         raise AssertionError("anon unexpectedly executed scoped coordinator")
-    print("coordinator_public_role_denied: ok", flush=True)
+    denied_atomic = cls.run(
+        f"SET ROLE anon; SELECT public.publish_price_storage_v2_scoped_run_atomic_v2({run_id},'{ROOTS[0]}','{DAY}');",
+        check=False,
+    )
+    if denied_atomic.returncode == 0:
+        raise AssertionError("anon unexpectedly executed atomic V2 serving writer")
+    print("serving_public_roles_denied: ok", flush=True)
 
-    print("SCOPED_COORDINATOR_CONTRACTS=6 passed", flush=True)
+    print("SCOPED_COORDINATOR_AND_SERVING_CONTRACTS=10 passed", flush=True)
     return 0
 
 
