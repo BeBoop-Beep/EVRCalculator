@@ -76,11 +76,16 @@ class SnapshotReplayTests(unittest.TestCase):
             with self.subTest(row=row), self.assertRaises(ReplayError):
                 apply_overrides(self.histories(),[row],market_date=DAY,allowed_set_ids=self.histories())
 
-    def test_production_builder_defaults_to_no_override(self):
+    def test_production_builder_uses_finalized_compatibility_not_ad_hoc_override(self):
         source=(ROOT/"backend/scripts/build_pokemon_explore_set_value_snapshot.py").read_text(encoding="utf-8")
-        self.assertIn("current_standard_overrides=None",source)
-        self.assertIn("if current_standard_overrides is not None:",source)
+        # The old research-only override hook must not become a second serving path.
+        self.assertNotIn("current_standard_overrides",source)
         self.assertNotIn("PRICE_STORAGE_V2_SCOPED",source)
+        # Post-cutover the V2 all-roots finalizer has already projected the exact
+        # current day into the existing history reader before this builder runs.
+        self.assertIn('client.table("pokemon_set_value_daily_history")',source)
+        self.assertIn("post_cutover = limit_date >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE",source)
+        self.assertIn("if not post_cutover:",source)
 
 
 if __name__ == "__main__":
