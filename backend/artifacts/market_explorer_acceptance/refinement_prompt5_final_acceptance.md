@@ -293,6 +293,8 @@ The personal-market foundation is source-ready and secure, responsive review pas
 - No orphan maintained build leases: PASS (`building=0`).
 - Maintained currentness: FAIL (`ready_and_current=0`, approved watermark two days ahead of caches and one day ahead of V1/V2 coverage minimum).
 - Premium-price current-date computation: FAIL (Supabase REST origin HTTP 520).
+- Regression suites: 236 focused backend tests and 148 Market Explorer/access frontend tests passed.
+- Next.js 15.5.15 production build passed; only pre-existing lint/cache and unavailable-local-backend prerender warnings were emitted.
 
 ## AV. Final decision
 
