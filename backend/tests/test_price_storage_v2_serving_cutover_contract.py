@@ -14,6 +14,10 @@ class PriceStorageV2ServingCutoverContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.orchestrator = ORCHESTRATOR.read_text(encoding="utf-8")
         cls.wrapper = WRAPPER.read_text(encoding="utf-8")
+        cls.wrapper_code = "\n".join(
+            line for line in cls.wrapper.splitlines()
+            if not line.lstrip().startswith("#")
+        )
         cls.sql = PROPOSAL.read_text(encoding="utf-8")
 
     def test_stage_batches_are_bounded_to_proven_envelope(self):
@@ -46,12 +50,15 @@ class PriceStorageV2ServingCutoverContractTests(unittest.TestCase):
         self.assertNotIn("price_storage_v2_scoped_release_gate SET enabled", self.sql)
 
     def test_wrapper_runs_v2_before_any_public_snapshot_refresh(self):
-        v2 = self.wrapper.index("run_price_storage_v2_serving_cutover.py")
-        refresh = self.wrapper.index("backend/scripts/refresh_stale_public_snapshots.py")
-        audit = self.wrapper.index("backend/scripts/audit_pokemon_market_publication.py")
+        # Compare executable shell commands only. The header intentionally documents
+        # refresh_stale_public_snapshots.py before the command body, and comments must
+        # never be mistaken for execution order.
+        v2 = self.wrapper_code.index("run_price_storage_v2_serving_cutover.py")
+        refresh = self.wrapper_code.index("backend/scripts/refresh_stale_public_snapshots.py")
+        audit = self.wrapper_code.index("backend/scripts/audit_pokemon_market_publication.py")
         self.assertLess(v2, refresh)
         self.assertLess(refresh, audit)
-        between = self.wrapper[v2:refresh]
+        between = self.wrapper_code[v2:refresh]
         self.assertIn('if [[ "${V2_STATUS}" -eq 3 ]]; then', between)
         self.assertIn('if [[ "${V2_STATUS}" -ne 0 ]]; then', between)
 
