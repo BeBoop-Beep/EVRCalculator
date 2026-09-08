@@ -70,28 +70,58 @@ def _previous_constituents(row: Mapping[str, Any] | None) -> dict[str, dict[str,
 def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[dict[str, Any]]:
     """Build only the promoted date, preserving prior index history verbatim.
 
-    Membership changes never become price performance. Roots entering the
-    current authority join the new basket but are absent from the day's return;
-    roots that genuinely exit are likewise outside both sides of the common
-    cohort. The return therefore uses only identities present on both dates.
-
-    Legacy explicit rollout transitions remain a second signal for pre-cutover
-    Set Value definition changes that kept the same root id.
+    All database reads happen here; the economic/index math lives in
+    ``build_rollout_index_from_inputs`` so the V2 parity suite can exercise the
+    exact production algorithm without importing a network client.
     """
     day = str(market_date)[:10]
     sets = resolve_market_root_cohort(client, market_date=day)
     if not sets:
         raise RuntimeError("eligible Pokemon Market cohort is empty")
+    set_ids = sorted(str(row["id"]) for row in sets)
+    return build_rollout_index_from_inputs(
+        market_date=day,
+        sets=sets,
+        source_rows=_current_source_rows(client, set_ids, day),
+        previous=_latest_previous_by_key(client, day),
+        transition_ids=rollout_transition_set_ids(client, day),
+    )
+
+
+def build_rollout_index_from_inputs(
+    *,
+    market_date: str,
+    sets: Sequence[Mapping[str, Any]],
+    source_rows: Sequence[Mapping[str, Any]],
+    previous: Mapping[str, Mapping[str, Any]],
+    transition_ids: Sequence[str],
+) -> list[dict[str, Any]]:
+    """Canonical common-cohort Market index math shared with V2 parity tests.
+
+    Membership changes never become price performance. Roots entering the
+    current authority join the new basket but are absent from the day's return;
+    roots that genuinely exit are likewise outside both sides of the common
+    cohort. Explicit legacy rollout transitions remain a second neutralization
+    signal for Set Value definition changes that kept the same root id.
+    """
+    day = str(market_date)[:10]
+    if not sets:
+        raise RuntimeError("eligible Pokemon Market cohort is empty")
     set_by_id = {str(row["id"]): row for row in sets}
     set_ids = sorted(set_by_id)
-    source_rows = _current_source_rows(client, set_ids, day)
-    by_scope_set = {
-        (str(row.get("value_scope")), str(row.get("set_id"))): row
-        for row in source_rows
-    }
-    previous = _latest_previous_by_key(client, day)
-    explicit_transition_ids = rollout_transition_set_ids(client, day)
 
+    by_scope_set: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for source in source_rows:
+        key = (str(source.get("value_scope")), str(source.get("set_id")))
+        if key[1] not in set_by_id or key[0] not in {"standard", "top10"}:
+            continue
+        if str(source.get("snapshot_date"))[:10] != day:
+            raise RuntimeError("rollout source date does not match requested market date")
+        if key in by_scope_set:
+            raise RuntimeError("duplicate rollout source scope/set key")
+        by_scope_set[key] = source
+
+    explicit_transition_ids = set(str(value) for value in transition_ids)
     built: list[dict[str, Any]] = []
     for index_key in INDEX_KEYS:
         scope = "standard" if index_key == RAW_INDEX_KEY else "top10"
@@ -130,10 +160,8 @@ def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[di
         membership_exited_ids = (
             set(previous_values) - set(current_values) if previous_row is not None else set()
         )
-        neutralized_ids = set(explicit_transition_ids) | membership_entered_ids
-        authority_transition = bool(
-            neutralized_ids or membership_exited_ids
-        )
+        neutralized_ids = explicit_transition_ids | membership_entered_ids
+        authority_transition = bool(neutralized_ids or membership_exited_ids)
 
         if previous_row is None:
             daily_return = None
@@ -143,7 +171,7 @@ def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[di
         else:
             previous_market_date = str(previous_row.get("market_date"))[:10]
             common_ids = sorted(
-                (set(previous_values) & set(current_values)) - set(explicit_transition_ids)
+                (set(previous_values) & set(current_values)) - explicit_transition_ids
             )
             if not common_ids:
                 raise RuntimeError(
