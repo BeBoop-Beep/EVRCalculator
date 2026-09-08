@@ -1,5 +1,5 @@
 -- REVIEW-ONLY PROPOSAL: not installed and deliberately NOT scheduled.
--- Requires price_storage_v2_scoped_publication.sql and the existing scope-stage functions.
+-- Requires price_storage_v2_scope_stage_v2.sql and price_storage_v2_scoped_publication.sql.
 -- This coordinator is atomic per invocation: if any requested root blocks, all stage/publish
 -- writes in this invocation roll back. The existing release gate must be explicitly enabled.
 BEGIN;
@@ -45,7 +45,7 @@ BEGIN
       MESSAGE='Scoped publication cycle is disabled pending live acceptance';
   END IF;
 
-  v_stage := public.stage_price_storage_v2_scoped_values(v_root_ids,p_market_date);
+  v_stage := public.stage_price_storage_v2_scoped_values_v2(v_root_ids,p_market_date);
 
   IF EXISTS(
     SELECT 1
@@ -91,6 +91,7 @@ BEGIN
   RETURN jsonb_build_object(
     'status','complete',
     'market_date',p_market_date,
+    'definition_version','canonical_asof_scope_split_v2',
     'root_count',cardinality(v_root_ids),
     'results',v_results,
     'public_routing_changed',false,
@@ -105,6 +106,6 @@ GRANT EXECUTE ON FUNCTION public.run_price_storage_v2_scoped_publication_cycle(d
 TO service_role;
 
 COMMENT ON FUNCTION public.run_price_storage_v2_scoped_publication_cycle(date,uuid[])
-IS 'Review-only scoped coordinator. Requires explicit enabled release gate; no cron attachment. Atomic invocation stages and publishes independent member/root destinations or rolls back.';
+IS 'Review-only scoped coordinator using date-safe v2 staging. Requires explicit enabled release gate; no cron attachment. Atomic invocation stages and publishes independent member/root destinations or rolls back.';
 
 COMMIT;
