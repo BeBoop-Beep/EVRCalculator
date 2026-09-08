@@ -75,4 +75,4 @@ Not ready to start Prompt 2. Prompt 1 requires DB-side review/deployment followe
 
 ## Q. Commit SHA
 
-Recorded in the final handoff after the scoped implementation commit is created.
+Implementation commit: `102e92ca8aff6058d0513b645641d4734872cd5e`.
