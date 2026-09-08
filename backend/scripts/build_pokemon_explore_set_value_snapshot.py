@@ -203,12 +203,29 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 "set_value": row.get("set_value"),
             })
 
+    if current_standard_overrides is not None:
+        replayed = apply_current_standard_root_overrides(
+            grouped,
+            current_standard_overrides,
+            market_date=limit_date,
+            allowed_set_ids=set_ids,
+        )
+        grouped = defaultdict(list, replayed)
+
     for rows in grouped.values():
         rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
     return grouped
 
 
-def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
+def build(
+    *,
+    client,
+    market_date: str,
+    commit: bool,
+    market_index_history=None,
+    market_overview=None,
+    current_standard_overrides=None,
+) -> dict:
     sets = _load_sets(client, market_date=market_date)
     set_ids = [str(row["id"]) for row in sets]
     if not set_ids:
@@ -224,7 +241,12 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
             .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
         dashboards.extend(result.data or [])
 
-    histories = _load_canonical_histories(client, set_ids, through_date=market_date)
+    histories = _load_canonical_histories(
+        client,
+        set_ids,
+        through_date=market_date,
+        current_standard_overrides=current_standard_overrides,
+    )
 
     overview = market_overview
     if overview is None:
