@@ -1097,8 +1097,13 @@
      * proportional rail resolved to 243px at 1280, and anything wider than
      * that would have taken width away from the chart at exactly the width
      * where it has the least to spare. */
-    grid-template-columns: 15rem minmax(0, 1fr);
+    grid-template-columns: 18rem minmax(0, 1fr);
+    grid-template-areas:
+      "rail signals"
+      "rail active"
+      "rail chart";
     align-items: stretch;
+    column-gap: 1rem;
   }
 }
 
@@ -1106,32 +1111,49 @@
  * reading measure — and stops there. Every pixel beyond this is the chart's. */
 @media (min-width: 1440px) {
   .marketExplorerAnalysis {
-    grid-template-columns: 17rem minmax(0, 1fr);
+    grid-template-columns: 20rem minmax(0, 1fr);
   }
 }
 
 @media (min-width: 1536px) {
   .marketExplorerAnalysis {
-    grid-template-columns: 19rem minmax(0, 1fr);
+    grid-template-columns: 21rem minmax(0, 1fr);
   }
 }
 
 @media (min-width: 1200px) {
 
   .marketExplorerAnalysis > [data-market-explorer-chart-pane] {
-    order: 2;
-    border-left: 1px solid var(--ex-line);
+    grid-area: chart;
   }
 
   .marketExplorerAnalysis > [data-market-explorer-filters] {
-    order: 1;
+    grid-area: rail;
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+    min-height: 100%;
+    border: 1px solid var(--ex-line);
+    border-radius: 0.75rem;
+    background: rgba(2, 6, 23, 0.58);
+    backdrop-filter: blur(14px);
   }
+
+  .marketExplorerAnalysis > [data-market-explorer-signals] { grid-area: signals; }
+  .marketExplorerAnalysis > [data-market-explorer-active-strip] { grid-area: active; }
 }
 
 @media (max-width: 1199.98px) {
+  .marketExplorerAnalysis { display: flex; flex-direction: column; gap: 0.75rem; }
   .marketExplorerAnalysis > [data-market-explorer-filters] {
-    border-top: 1px solid var(--ex-line);
+    order: 4;
+    border: 1px solid var(--ex-line);
+    border-radius: 0.75rem;
+    background: rgba(2, 6, 23, 0.5);
   }
+  .marketExplorerAnalysis > [data-market-explorer-signals] { order: 1; overflow-x: auto; }
+  .marketExplorerAnalysis > [data-market-explorer-active-strip] { order: 2; overflow-x: auto; }
+  .marketExplorerAnalysis > [data-market-explorer-chart-pane] { order: 3; }
 }
 
 :global([data-theme="light"]) .marketExplorerAnalysis > [data-market-explorer-chart-pane],

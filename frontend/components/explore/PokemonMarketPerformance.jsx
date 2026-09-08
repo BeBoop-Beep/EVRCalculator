@@ -112,7 +112,7 @@ export default function PokemonMarketPerformance({ overview, options = [], selec
       </div>
       <div className="min-w-0 flex-1 px-3 py-3 sm:px-4">
         {visibleModel?.available
-          ? <MarketPerformanceChart model={visibleModel} plotClassName="h-40 desk:h-[13.5rem]" />
+          ? <MarketPerformanceChart model={visibleModel} timeframe={selectedWindow} plotClassName="h-40 desk:h-[13.5rem]" />
           : (
             <p role="status" data-market-performance-unavailable className="py-10 text-center text-sm text-[var(--text-secondary)]">
               {selectedLabel ? describeUnavailableWindow(selectedLabel) : "Market performance history is unavailable."}

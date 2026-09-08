@@ -2,27 +2,38 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildMarketPerformanceDomain } from "./marketPerformanceDomain.mjs";
 
-function assertContainsReference(values) {
-  const [domainMin, domainMax] = buildMarketPerformanceDomain(
-    values.map((value) => ({ value }))
-  );
-  assert.ok(domainMin < 100, `${domainMin} should be below 100`);
-  assert.ok(domainMax > 100, `${domainMax} should be above 100`);
-}
+const domain = (values, timeframe) => buildMarketPerformanceDomain(values.map((value) => ({ value })), timeframe);
 
-test("keeps Index 100 visible when all active values are above it", () => {
-  assertContainsReference([104, 105, 106, 107]);
+test("7D and 30D scale to visible data instead of blindly forcing 100", () => {
+  for (const timeframe of ["7D", "30D"]) {
+    const [minimum, maximum] = domain([102.2, 102.8], timeframe);
+    assert.ok(minimum > 100);
+    assert.ok(minimum < 102.2 && maximum > 102.8);
+    assert.ok(maximum - minimum < 2);
+  }
 });
 
-test("keeps Index 100 visible when all active values are below it", () => {
-  assertContainsReference([96, 93]);
+test("flat short-window data retains a restrained minimum-span guard", () => {
+  const [minimum, maximum] = domain([102.45, 102.5], "1D");
+  assert.ok(maximum - minimum >= 0.75);
+  assert.ok(maximum - minimum < 1.5);
 });
 
-test("keeps Index 100 visible for mixed values", () => {
-  assertContainsReference([97, 101, 106]);
+test("all visible series contribute to the shared domain", () => {
+  const [minimum, maximum] = domain([98.5, 99, 104, 105.5], "3M");
+  assert.ok(minimum < 98.5);
+  assert.ok(maximum > 105.5);
 });
 
-test("keeps Index 100 visible as visibility leaves one series on either side", () => {
-  assertContainsReference([106, 107]);
-  assertContainsReference([97, 98]);
+test("long windows retain Index 100 reference context", () => {
+  for (const timeframe of ["6M", "1Y", "All"]) {
+    const [minimum, maximum] = domain([104, 107], timeframe);
+    assert.ok(minimum < 100 && maximum > 100);
+  }
+});
+
+test("domain calculation never changes point values", () => {
+  const values = [102.47, 102.52];
+  domain(values, "7D");
+  assert.deepEqual(values, [102.47, 102.52]);
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatIndexValue } from "@/lib/explore/marketOverviewPresentation.mjs";
+import { formatChangePercent, formatIndexValue, getPricePerformanceChange } from "@/lib/explore/marketOverviewPresentation.mjs";
 
 // ---------------------------------------------------------------------------
 // ACTIVE MARKETS — the ONE answer to "what is on this chart right now".
@@ -40,6 +40,7 @@ export default function MarketExplorerActiveMarkets({
   onToggleVisibility,
   onShowAll,
   onHideAll,
+  timeframe = "7D",
 }) {
   if (!series.length) return null;
   const hidden = hiddenSeriesKeys instanceof Set ? hiddenSeriesKeys : new Set();
@@ -78,7 +79,7 @@ export default function MarketExplorerActiveMarkets({
           </div>
         ) : null}
       </div>
-      <ul className="flex min-w-0 flex-wrap gap-1.5">
+      <ul className="flex min-w-max flex-nowrap gap-1.5 desk:min-w-0 desk:flex-wrap">
         {series.map((entry) => {
           const isActive = entry.key === activeSeriesId;
           const isHidden = hidden.has(entry.key);
@@ -86,6 +87,7 @@ export default function MarketExplorerActiveMarkets({
           // their index level rides on the chip. Prepared markets already have
           // a card and would only be repeating themselves.
           const showsIndexValue = Boolean(entry.queryKey) && entry.indexValue !== undefined;
+          const periodChange = getPricePerformanceChange(entry, timeframe);
           return (
             <li key={entry.key}>
               <span
@@ -129,6 +131,7 @@ export default function MarketExplorerActiveMarkets({
                     {formatIndexValue(entry.indexValue)}
                   </span>
                 ) : null}
+                <span data-market-explorer-active-return={entry.key} className="flex-none text-[10px] tabular-nums text-[var(--text-secondary)]">{formatChangePercent(periodChange)}</span>
                 {entry.instanceId ? (
                   <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${entry.label}`} onClick={() => onEdit?.(entry)} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
                 ) : null}

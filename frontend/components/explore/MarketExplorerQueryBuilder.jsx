@@ -60,6 +60,8 @@ export default function MarketExplorerQueryBuilder({
   optionsStatus = "loading",
   optionsMessage = "",
   currentPlan = null,
+  accessMode = "basic",
+  coverageSummary = [],
   isAuthenticated = false,
   preparedSeries = [],
   activeSeries = [],
@@ -194,8 +196,8 @@ export default function MarketExplorerQueryBuilder({
     return (
       <div className="mt-2 space-y-2">
         <div data-market-builder-membership-mode role="radiogroup" aria-label="Build from" className="grid grid-cols-2 gap-2">
-          <button type="button" role="radio" aria-checked={draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_FILTERS)} className="min-h-11 rounded-md border border-[var(--border-subtle)] px-2 text-xs">Filters</button>
-          <button type="button" role="radio" aria-checked={draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_EXPLICIT)} className="min-h-11 rounded-md border border-[var(--border-subtle)] px-2 text-xs">Exact Items <span className="text-[10px] text-[var(--text-secondary)]">Premium</span></button>
+          <button type="button" role="radio" aria-checked={draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_FILTERS)} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Filters</button>
+          <button type="button" role="radio" aria-checked={draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_EXPLICIT)} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Exact Items <span className="text-[9px] opacity-75">Premium</span></button>
         </div>
         {draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? (
           <ExplorerDisclosure id={`${asset}ExactItems`} title="Exact Items" open summary={`${draft.exactItems?.length || 0} selected`}>
@@ -531,14 +533,16 @@ export default function MarketExplorerQueryBuilder({
       </div>
       <div
         data-current-market
+        data-market-builder-editing={editing ? "true" : "false"}
         className="sticky bottom-0 border-t border-[var(--border-subtle)] bg-[var(--surface-page)]/95 px-3 py-3 backdrop-blur sm:px-4"
       >
         <p className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
           {editing ? "Unsaved edits" : "Current Market"}
         </p>
         <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-          {draft.asset === QUERY_ASSET_SEALED ? "Sealed" : "Raw Cards"}
+          {editing ? `Editing: ${editingSeries.shortLabel || editingSeries.label}` : draft.asset === QUERY_ASSET_SEALED ? "Sealed" : "Raw Cards"}
         </p>
+        {editing && !noChanges ? <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[rgb(251,191,36)]">Unsaved changes · active line unchanged</p> : null}
         <p
           data-current-market-preview
           className="mt-0.5 text-[11px] leading-snug text-[var(--text-secondary)]"
@@ -602,17 +606,22 @@ export default function MarketExplorerQueryBuilder({
       className="flex min-w-0 flex-col desk:max-h-[42rem]"
       aria-labelledby="market-builder-heading"
     >
-      <div className="flex items-center gap-2 px-3 py-3 sm:px-4">
+      <div className="flex items-start gap-2 border-b border-[var(--border-subtle)] px-3 py-3 sm:px-4">
         <div>
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[rgb(45,212,191)]">inDex</p>
+          <div className="flex flex-wrap items-center gap-2">
           <h2
             id="market-builder-heading"
             className="text-[16px] font-semibold text-[var(--text-primary)]"
           >
-            Market Builder
+            Market Explorer
           </h2>
+          <span data-market-explorer-plan-badge data-market-explorer-plan={accessMode} className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">{accessMode === "premium" ? "Index Premium" : accessMode === "plus" ? "Index Plus" : "Basic"}</span>
+          </div>
           <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
-            Define a market, preview it, then build.
+            Build, compare, and inspect markets.
           </p>
+          {coverageSummary.length ? <p data-market-coverage-summary className="mt-1 text-[9px] leading-tight text-[var(--text-secondary)]">{coverageSummary.join(" · ")}</p> : null}
         </div>
         <button
           type="button"
