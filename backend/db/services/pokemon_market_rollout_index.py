@@ -68,34 +68,48 @@ def _previous_constituents(row: Mapping[str, Any] | None) -> dict[str, dict[str,
 
 
 def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[dict[str, Any]]:
-    """Production entrypoint: existing source, cohort, and publication behavior unchanged."""
+    """Build only the promoted date, preserving prior index history verbatim.
+
+    All database reads happen here; the economic/index math lives in
+    ``build_rollout_index_from_inputs`` so the V2 parity suite can exercise the
+    exact production algorithm without importing a network client.
+    """
     day = str(market_date)[:10]
     sets = resolve_market_root_cohort(client, market_date=day)
     if not sets:
         raise RuntimeError("eligible Pokemon Market cohort is empty")
+    set_ids = sorted(str(row["id"]) for row in sets)
     return build_rollout_index_from_inputs(
-        market_date=day, sets=sets,
-        source_rows=_current_source_rows(client, sorted(str(row["id"]) for row in sets), day),
+        market_date=day,
+        sets=sets,
+        source_rows=_current_source_rows(client, set_ids, day),
         previous=_latest_previous_by_key(client, day),
         transition_ids=rollout_transition_set_ids(client, day),
     )
 
 
 def build_rollout_index_from_inputs(
-    *, market_date: str, sets: Sequence[Mapping[str, Any]],
+    *,
+    market_date: str,
+    sets: Sequence[Mapping[str, Any]],
     source_rows: Sequence[Mapping[str, Any]],
-    previous: Mapping[str, Mapping[str, Any]], transition_ids: Sequence[str],
+    previous: Mapping[str, Mapping[str, Any]],
+    transition_ids: Sequence[str],
 ) -> list[dict[str, Any]]:
-    """The production index math, shared by the read-only V2 comparison runner.
+    """Canonical common-cohort Market index math shared with V2 parity tests.
 
-    Both sides of a comparison receive the same frozen cohort and previous rows.
-    Never publish a diagnostic sub-cohort as a global Market index.
+    Membership changes never become price performance. Roots entering the
+    current authority join the new basket but are absent from the day's return;
+    roots that genuinely exit are likewise outside both sides of the common
+    cohort. Explicit legacy rollout transitions remain a second neutralization
+    signal for Set Value definition changes that kept the same root id.
     """
     day = str(market_date)[:10]
     if not sets:
         raise RuntimeError("eligible Pokemon Market cohort is empty")
     set_by_id = {str(row["id"]): row for row in sets}
     set_ids = sorted(set_by_id)
+
     by_scope_set: dict[tuple[str, str], Mapping[str, Any]] = {}
     for source in source_rows:
         key = (str(source.get("value_scope")), str(source.get("set_id")))
@@ -107,6 +121,7 @@ def build_rollout_index_from_inputs(
             raise RuntimeError("duplicate rollout source scope/set key")
         by_scope_set[key] = source
 
+    explicit_transition_ids = set(str(value) for value in transition_ids)
     built: list[dict[str, Any]] = []
     for index_key in INDEX_KEYS:
         scope = "standard" if index_key == RAW_INDEX_KEY else "top10"
@@ -133,10 +148,21 @@ def build_rollout_index_from_inputs(
             raise RuntimeError(
                 f"{scope} rollout source is incomplete for {len(missing)} sets: {missing[:5]}"
             )
+
         previous_row = previous.get(index_key)
         previous_values = _previous_constituents(previous_row)
         current_values = {str(item["setId"]): item for item in constituents}
         basket_value = sum(float(item["setValue"]) for item in constituents)
+
+        membership_entered_ids = (
+            set(current_values) - set(previous_values) if previous_row is not None else set()
+        )
+        membership_exited_ids = (
+            set(previous_values) - set(current_values) if previous_row is not None else set()
+        )
+        neutralized_ids = explicit_transition_ids | membership_entered_ids
+        authority_transition = bool(neutralized_ids or membership_exited_ids)
+
         if previous_row is None:
             daily_return = None
             normalized_index_value = 100.0
@@ -144,34 +170,57 @@ def build_rollout_index_from_inputs(
             common_ids: list[str] = []
         else:
             previous_market_date = str(previous_row.get("market_date"))[:10]
-            common_ids = sorted((set(previous_values) & set(current_values)) - set(transition_ids))
+            common_ids = sorted(
+                (set(previous_values) & set(current_values)) - explicit_transition_ids
+            )
             if not common_ids:
-                raise RuntimeError(f"{index_key} has no non-rollout common cohort with {previous_market_date}")
+                raise RuntimeError(
+                    f"{index_key} has no non-transition common cohort with {previous_market_date}"
+                )
             previous_common = sum(float(previous_values[key]["setValue"]) for key in common_ids)
             current_common = sum(float(current_values[key]["setValue"]) for key in common_ids)
             if previous_common <= 0:
                 raise RuntimeError("previous common-cohort basket must be positive")
             daily_return = current_common / previous_common - 1.0
             normalized_index_value = float(previous_row["normalized_index_value"]) * (1.0 + daily_return)
+
         cohort_fp = deterministic_fingerprint([item["setId"] for item in constituents])
         source_fp = deterministic_fingerprint([
-            {key: item.get(key) for key in (
-                "setId", "setValue", "includedCardCount", "sourceSnapshotDate", "source", "sourceUpdatedAt"
-            )} for item in constituents
+            {
+                key: item.get(key)
+                for key in (
+                    "setId", "setValue", "includedCardCount", "sourceSnapshotDate",
+                    "source", "sourceUpdatedAt"
+                )
+            }
+            for item in constituents
         ])
         built.append({
-            "tcg": "pokemon", "index_key": index_key, "market_date": day,
+            "tcg": "pokemon",
+            "index_key": index_key,
+            "market_date": day,
             "contract_version": MARKET_INDEX_CONTRACT_VERSION,
             "methodology_version": MARKET_INDEX_METHODOLOGY_VERSION,
-            "basket_value": basket_value, "normalized_index_value": normalized_index_value,
-            "daily_return": daily_return, "previous_market_date": previous_market_date,
+            "basket_value": basket_value,
+            "normalized_index_value": normalized_index_value,
+            "daily_return": daily_return,
+            "previous_market_date": previous_market_date,
             "set_count": len(constituents),
             "card_count": sum(int(item["includedCardCount"]) for item in constituents),
-            "cohort_fingerprint": cohort_fp, "source_generation_fingerprint": source_fp,
+            "cohort_fingerprint": cohort_fp,
+            "source_generation_fingerprint": source_fp,
             "constituents_json": constituents,
             "diagnostics_json": {
-                "commonSetIds": common_ids, "rolloutNeutralizedSetIds": sorted(transition_ids),
-                "rolloutTransition": bool(transition_ids),
+                "commonSetIds": common_ids,
+                # Existing key retained for compatibility. It is the roots whose
+                # current-day values are deliberately neutralized at entry or
+                # because an explicit legacy rollout corrected their definition.
+                "rolloutNeutralizedSetIds": sorted(neutralized_ids),
+                "rolloutTransition": bool(neutralized_ids),
+                "authorityTransition": authority_transition,
+                "membershipEnteredSetIds": sorted(membership_entered_ids),
+                "membershipExitedSetIds": sorted(membership_exited_ids),
+                "explicitRolloutNeutralizedSetIds": sorted(explicit_transition_ids),
             },
         })
     return built
