@@ -5,7 +5,7 @@ import json
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -94,6 +94,15 @@ def audit_payloads(
         ("cards", "top_chase"),
         ("movers", "top_chase"),
     )
+    # The identity-ownership subset check below relies on "top_chase" only
+    # ever appearing as the RIGHT-hand element of a comparison pair (it is
+    # the one subset surface among the three). If a future edit reorders
+    # comparisons so top_chase appears on the left, the subset direction
+    # would silently invert and weaken the gate — guard that invariant here.
+    assert all(left != "top_chase" for left, _right in comparisons), (
+        "top_chase must never be the left-hand surface in `comparisons`; "
+        "the identity subset check assumes it is always the subset side"
+    )
     mismatches: List[Dict[str, Any]] = []
 
     def _context(record: Any) -> Dict[str, Any]:
@@ -140,35 +149,62 @@ def audit_payloads(
     for left_name, right_name in comparisons:
         left_rows = surfaces[left_name]
         right_rows = surfaces[right_name]
-        left_by_market_identity = {
-            (
+
+        # Market identity (variant + condition + window) is one-to-MANY with
+        # canonical identity: production legitimately has multiple canonical
+        # checklist cards sharing one selected card_variant_id+condition_id
+        # (see the PR #166 fan-out fix). Collect every canonical owner per
+        # market identity on each surface rather than keeping only the last
+        # one seen — a plain dict comprehension here would silently overwrite
+        # earlier owners and make the mismatch verdict depend on row order.
+        left_owners_by_market_identity: Dict[Tuple[Any, Any, str], Set[str]] = {}
+        for key, record in left_rows.items():
+            market_identity = (
                 _value(record, "cardVariantId", "card_variant_id"),
                 _value(record, "conditionId", "condition_id"),
                 key[1],
-            ): key[0]
-            for key, record in left_rows.items()
-        }
-        right_by_market_identity = {
-            (
+            )
+            left_owners_by_market_identity.setdefault(market_identity, set()).add(key[0])
+        right_owners_by_market_identity: Dict[Tuple[Any, Any, str], Set[str]] = {}
+        for key, record in right_rows.items():
+            market_identity = (
                 _value(record, "cardVariantId", "card_variant_id"),
                 _value(record, "conditionId", "condition_id"),
                 key[1],
-            ): key[0]
-            for key, record in right_rows.items()
-        }
-        for market_identity in set(left_by_market_identity).intersection(right_by_market_identity):
-            left_card_id = left_by_market_identity[market_identity]
-            right_card_id = right_by_market_identity[market_identity]
-            if left_card_id != right_card_id:
+            )
+            right_owners_by_market_identity.setdefault(market_identity, set()).add(key[0])
+
+        # Top Chase is a subset surface (only the chase-worthy cards make the
+        # cut), so it is never required to enumerate every canonical owner
+        # that Cards/Movers carry for a shared market identity — only that
+        # whatever owners it DOES carry are genuine (a subset), not relabeled.
+        # Cards vs Movers are both full movement surfaces, so their owner
+        # sets must match exactly.
+        right_is_subset_surface = right_name == "top_chase"
+
+        for market_identity in set(left_owners_by_market_identity).intersection(
+            right_owners_by_market_identity
+        ):
+            left_owners = left_owners_by_market_identity[market_identity]
+            right_owners = right_owners_by_market_identity[market_identity]
+            if right_is_subset_surface:
+                identity_diverges = not right_owners.issubset(left_owners)
+            else:
+                identity_diverges = left_owners != right_owners
+            if identity_diverges:
+                sorted_left_owners = sorted(left_owners)
+                sorted_right_owners = sorted(right_owners)
+                sample_left_id = sorted_left_owners[0]
+                sample_right_id = sorted_right_owners[0]
                 report(
                     "identity mismatch",
                     left_name,
                     right_name,
-                    (left_card_id, market_identity[2]),
-                    left_card_id,
-                    right_card_id,
-                    left_record=left_rows.get((left_card_id, market_identity[2])),
-                    right_record=right_rows.get((right_card_id, market_identity[2])),
+                    (sample_left_id, market_identity[2]),
+                    sorted_left_owners,
+                    sorted_right_owners,
+                    left_record=left_rows.get((sample_left_id, market_identity[2])),
+                    right_record=right_rows.get((sample_right_id, market_identity[2])),
                 )
         for key in sorted(set(left_rows).intersection(right_rows)):
             left = left_rows[key]
