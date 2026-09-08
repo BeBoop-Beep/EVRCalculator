@@ -15,21 +15,22 @@
 #      current. Its audit runs in the default (full) phase, where OPvC is required.
 #
 # The single most important rule here: this wrapper does NOT reimplement the
-# publication order. backend/scripts/refresh_stale_public_snapshots.py is the
-# canonical orchestrator and already rebuilds, in order, Sealed Market (from
-# sealed ingestion alone), coordinated Cards + Market Dashboard, Explore card
-# movers, Explore rankings, set pages, and desirability validation. Calling the
-# individual builders from here is what let surfaces advance out of step and
-# leave Explore/Sealed a day behind a promoted set page.
+# public snapshot order. backend/scripts/refresh_stale_public_snapshots.py is the
+# canonical snapshot orchestrator. Beginning with the 2026-09-09 Market authority
+# cutover, Price Storage V2 is one fail-closed prerequisite immediately before
+# that orchestrator: the entire canonical root cohort must be present in isolated
+# V2 history and the compatibility projection must finalize atomically before any
+# public Market snapshot is allowed to advance.
 #
 # Deliberately absent, and deliberately NOT to be added:
 #   * git pull            - deployment is a separate, reviewed step
-#   * --force-publish     - never publish around the batch-cohort gate
+#   * --force-publish     - never publish around a quality/cohort gate
 #   * --strict            - it would fail on the intentionally-stale OPvC that
 #                           this phase is defined to allow; the stricter surface
 #                           validation is the post-scrape audit below, and the
 #                           refresh already exits nonzero on real builder failures
 #   * individual builders - see above
+#   * a separate V2 cron  - the existing lock/timing authority owns this phase
 
 set -euo pipefail
 
@@ -37,7 +38,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/.venv/bin/python}"
 
-# Single-publisher lock: covers the ENTIRE refresh + post-scrape audit below.
+# Single-publisher lock: covers V2 serving publication + refresh + audit.
 # Prevents the immediate post-scrape trigger, the 6:00 AM fallback, and an
 # accidental manual invocation from ever running concurrent publishers. A
 # held lock is a safe NO-OP (exit 0), never a failure — the caller (scrape
@@ -97,6 +98,33 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
 fi
 
 cd "${REPO_ROOT}"
+
+# Price Storage V2 is a post-cutover publication prerequisite, not a separate
+# scheduler. The command itself is a pre-cutover no-op, so the wrapper does not
+# need a second date-policy implementation. It persists Market Date Quality,
+# stages in <=5-root batches, respects (never mutates) the operator release gate,
+# writes isolated roots one at a time, then flips compatibility once after the
+# entire cohort reconciles.
+V2_CMD=(
+  "${PYTHON_BIN}" backend/scripts/run_price_storage_v2_serving_cutover.py
+  --commit
+  --market-date "${MARKET_DATE}"
+)
+log "command: ${V2_CMD[*]}"
+V2_STATUS=0
+"${V2_CMD[@]}" || V2_STATUS=$?
+log "price_storage_v2 exit_status=${V2_STATUS}"
+
+if [[ "${V2_STATUS}" -eq 3 ]]; then
+  log "Price Storage V2 serving gate is CLOSED; preserving previous public Market authority"
+  log "final exit_status=3 (deferred)"
+  exit 3
+fi
+if [[ "${V2_STATUS}" -ne 0 ]]; then
+  log "Price Storage V2 serving publication FAILED; public snapshot refresh will not run"
+  log "final exit_status=${V2_STATUS}"
+  exit "${V2_STATUS}"
+fi
 
 # `set -e` would abort before the exit status could be logged and classified, so
 # each stage captures its own status explicitly.
