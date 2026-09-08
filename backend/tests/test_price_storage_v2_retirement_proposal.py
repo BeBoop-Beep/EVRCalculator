@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from pglast import parse_sql
+
 ROOT = Path(__file__).resolve().parents[2]
 PROPOSAL = ROOT / "backend/db/proposals/price_storage_v2_retire_legacy_derived_storage.sql"
 GATE = ROOT / "docs/price_storage_v2/FRESH_CYCLE_RETIREMENT_GATE.sql"
@@ -7,6 +9,11 @@ GATE = ROOT / "docs/price_storage_v2/FRESH_CYCLE_RETIREMENT_GATE.sql"
 
 def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def test_retirement_sql_parses_as_postgresql():
+    assert parse_sql(_text(PROPOSAL))
+    assert parse_sql(_text(GATE))
 
 
 def test_retirement_requires_a_real_post_sep8_fresh_cycle():
