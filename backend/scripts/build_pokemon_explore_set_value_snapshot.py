@@ -29,6 +29,9 @@ from backend.db.services.canonical_market_overview import (
     build_canonical_market_overview,
     resolve_canonical_overview_sets,
 )
+from backend.db.services.price_storage_v2_snapshot_replay import (
+    apply_current_standard_root_overrides,
+)
 from backend.scripts.pokemon_snapshot_builders import get_client
 
 MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
@@ -112,13 +115,21 @@ def _load_sets(client, *, market_date: str):
     ]
 
 
-def _load_canonical_histories(client, set_ids, *, through_date: str):
-    """Canonical parent/subset Set Value history plus staged current-day overlay.
+def _load_canonical_histories(
+    client,
+    set_ids,
+    *,
+    through_date: str,
+    current_standard_overrides=None,
+):
+    """Canonical parent/subset Set Value history plus current-day overlay.
 
     Historical points retain the strict per-day canonical certification rule.
-    For an activated rollout era, the current Market value is the materialized
-    latest-known canonical basket, which may carry a small number of stale NM
-    constituents while still meeting the explicit >=95% rollout threshold.
+    Production behavior is unchanged when ``current_standard_overrides`` is
+    omitted: the current point comes from the existing rollout row. Diagnostic
+    replay callers may explicitly replace selected roots' current Standard point
+    with a validated combined-root candidate; all other sets retain production
+    history. No supplied override is persisted here.
     """
     grouped = defaultdict(list)
     limit_date = str(through_date)[:10]
@@ -167,12 +178,29 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 "set_value": row.get("set_value"),
             })
 
+    if current_standard_overrides is not None:
+        replayed = apply_current_standard_root_overrides(
+            grouped,
+            current_standard_overrides,
+            market_date=limit_date,
+            allowed_set_ids=set_ids,
+        )
+        grouped = defaultdict(list, replayed)
+
     for rows in grouped.values():
         rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
     return grouped
 
 
-def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
+def build(
+    *,
+    client,
+    market_date: str,
+    commit: bool,
+    market_index_history=None,
+    market_overview=None,
+    current_standard_overrides=None,
+) -> dict:
     sets = _load_sets(client, market_date=market_date)
     set_ids = [str(row["id"]) for row in sets]
     if not set_ids:
@@ -188,7 +216,12 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
             .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
         dashboards.extend(result.data or [])
 
-    histories = _load_canonical_histories(client, set_ids, through_date=market_date)
+    histories = _load_canonical_histories(
+        client,
+        set_ids,
+        through_date=market_date,
+        current_standard_overrides=current_standard_overrides,
+    )
 
     overview = market_overview
     if overview is None:

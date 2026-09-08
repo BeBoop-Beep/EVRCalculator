@@ -1,0 +1,30 @@
+name: Price Storage V2 source reconciliation
+on:
+  push:
+    branches:
+      - 'codex/price-storage-v2-scope-integration-10176be'
+    paths:
+      - '.github/workflows/price-storage-v2-source-reconciliation.yml'
+      - 'backend/scripts/recover_price_storage_v2_repository_sources.py'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Fetch pinned public repository sources only
+        run: |
+          git fetch --no-tags --depth=1 origin a3efb5e8ebde199a58d42d90ff8a27e1e4701544 7d7ae88565a66607f2b727b12530580d1a816bf6
+      - name: Recover checksum-exact originals and export three-way inputs
+        run: |
+          python3 backend/scripts/recover_price_storage_v2_repository_sources.py --main-ref a3efb5e8ebde199a58d42d90ff8a27e1e4701544 --base-ref 7d7ae88565a66607f2b727b12530580d1a816bf6 --output /tmp/price-storage-v2-source-reconciliation
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: price-storage-v2-source-reconciliation
+          path: /tmp/price-storage-v2-source-reconciliation
+          retention-days: 7
+          if-no-files-found: error
