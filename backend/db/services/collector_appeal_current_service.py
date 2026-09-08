@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional
 
+from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
+
 from backend.db.clients.supabase_client import service_read_client
 
 PUBLIC_CONTRACT_KEY = "publicCollectorAppealContractV1"
@@ -84,6 +86,34 @@ def load_set_collector_appeal_for_model(
             "roster_diagnostics_json": d_row.get("diagnostics_json"),
         }
     return rows
+
+
+def load_canonical_v5_collector_appeal(set_ids: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+    """Load canonical V5 without inventing an append-only model-run UUID."""
+    from backend.db.services.collector_appeal_service import get_collector_appeal_bundle
+    bundle = get_collector_appeal_bundle()
+    identity = dict(bundle.get("identity") or {})
+    if identity.get("collectorAppealVersion") != COLLECTOR_APPEAL_V5_VERSION:
+        raise RuntimeError("canonical Collector bundle is not Collector Appeal V5")
+    wanted = {str(value) for value in (set_ids or [])}
+    payloads = {str(k): v for k, v in (bundle.get("payloads") or {}).items() if not wanted or str(k) in wanted}
+    return {"payloads": payloads, "identity": identity}
+
+
+def build_public_collector_appeal_contract_from_v5(payload: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Adapt the existing canonical V5 bundle to the standalone contract."""
+    if not payload: return None
+    appeal = dict(payload.get("collectorAppeal") or {})
+    if appeal.get("version") != COLLECTOR_APPEAL_V5_VERSION:
+        raise RuntimeError("refusing non-V5 payload in canonical V5 adapter")
+    score = appeal.get("score")
+    return {
+        "contractVersion": PUBLIC_CONTRACT_VERSION,
+        "collectorAppeal": {"score": score, "absoluteScore": score, "rank": appeal.get("rank"), "rankedSetCount": 22, "tier": None, "status": payload.get("status"), "statusReason": payload.get("statusReason"), "version": appeal.get("version"), "modelVersion": appeal.get("version"), "modelRunId": None, "asOfDate": payload.get("asOf")},
+        "components": {"rosterDesirability": dict(payload.get("rosterDesirability") or {}), "desirableOutcomeFrequency": dict(payload.get("desirableOutcomeFrequency") or {})},
+        "definition": "Collector Appeal measures how compelling a set's collectible roster is and how often a modeled pack can deliver a desirable card.",
+        "financialDistinction": "A desirable outcome can still be worth less than the pack price.",
+    }
 
 
 def load_current_card_collector_appeal(card_ids: Iterable[str], *, client=None) -> Dict[str, Dict[str, Any]]:

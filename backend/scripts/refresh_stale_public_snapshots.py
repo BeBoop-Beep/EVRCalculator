@@ -1590,11 +1590,24 @@ def _global_snapshot_staleness(client: Any, *, family: str) -> FreshnessResult:
         cohort = meta.get("publicAnalyticsCohort") or {}
         ranked_count = int((cohort.get("overallRanked") or {}).get("rankedSetCount") or 0)
         targets = list(payload.get("targets") or [])
+        from backend.db.services.public_rip_publication_contract import (
+            canonical_overall_rip_target_key,
+        )
+
+        # BUG (Sept-8 zero rankings-publication-attempt rows): this used to
+        # hardcode "overallRipV10". The canonical Overall RIP model cut over to
+        # V12 (targets are now keyed "overallRipV12"), so the hardcoded V10 read
+        # here always found the field absent/stale-shaped and could misjudge the
+        # freshness verdict relative to what the publisher actually writes.
+        # Route through the SAME single canonical-target-key authority the
+        # publisher and readiness/lifecycle gate use, so this check can never
+        # silently drift onto a retired version's key again.
+        canonical_target_key = canonical_overall_rip_target_key()
         ranked_targets = [
             target
             for target in targets
             if isinstance(target, dict)
-            and (target.get("overallRipV10") or {}).get("rank") is not None
+            and (target.get(canonical_target_key) or {}).get("rank") is not None
         ]
         if any(not snapshot_meta.get(key) for key in ("publicationId", "marketDate", "builtAt")):
             return FreshnessResult(family, True, "canonical publication metadata missing", snapshot_updated_at, dependency_updated_at, checks)

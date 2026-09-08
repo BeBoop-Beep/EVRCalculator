@@ -41,16 +41,16 @@ export async function generateMetadata({ params }) {
     return buildRouteMetadata({
       path: canonicalPath,
       title: "Pokémon Set Overall RIP & Opening Analysis — inDex",
-      description: "Overall RIP, Financial RIP, Collector Appeal and modeled opening outcomes for this Pokémon set.",
+      description: "Overall RIP, Financial RIP, Chase Accessibility, Collector Appeal and modeled opening outcomes for this Pokémon set.",
     });
   }
 
   return buildRouteMetadata({
     path: canonicalPath,
     title: `${setName} Overall RIP, Expected Value & Opening Analysis — inDex`,
-    description: `Is ${setName} worth ripping? See its Overall RIP, Financial RIP, Collector Appeal, expected value and modeled opening outcomes on inDex.`,
+    description: `Is ${setName} worth ripping? See its Overall RIP, Financial RIP, Chase Accessibility, Collector Appeal, expected value and modeled opening outcomes on inDex.`,
     ogTitle: `${setName} — Overall RIP & Opening Analysis`,
-    ogDescription: `Overall RIP, Financial RIP, Collector Appeal and modeled pack outcomes for ${setName}.`,
+    ogDescription: `Overall RIP, Financial RIP, Chase Accessibility, Collector Appeal and modeled pack outcomes for ${setName}.`,
   });
 }
 

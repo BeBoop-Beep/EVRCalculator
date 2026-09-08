@@ -510,6 +510,11 @@ def _merge_canonical_rip_contract_into_set_payload(
         # remain valid history.
         "overallRipV10",
         "publicRipContractV10",
+        # Current three-pillar authority. These remain additive to V10 history
+        # and are lifted verbatim from the same ranked target.
+        "financialRipV4",
+        "overallRipV12",
+        "publicRipContractV11",
         "setRipV1",
         "openingExperience",
         "publicAnalyticsStatus",
@@ -1333,25 +1338,49 @@ def _load_snapshot_completeness_diagnostics(
     payload: Dict[str, Any],
     built_at: str,
 ) -> Dict[str, Any]:
-    explore_row = _first_row(
-        client,
-        "explore_rip_statistics_latest",
+    def timed(source: str, operation):
+        started = time.perf_counter()
+        logger.info("snapshot completeness query start source=%s set_id=%s", source, set_id)
+        try:
+            value = operation()
+        except Exception:
+            logger.exception(
+                "snapshot completeness query failed source=%s set_id=%s elapsed_ms=%.2f",
+                source, set_id, (time.perf_counter() - started) * 1000.0,
+            )
+            raise
+        row_count = 0 if value is None else (value if isinstance(value, int) else 1)
+        logger.info(
+            "snapshot completeness query complete source=%s set_id=%s elapsed_ms=%.2f rows=%s",
+            source, set_id, (time.perf_counter() - started) * 1000.0, row_count,
+        )
+        return value
+
+    explore_row = timed("explore_rip_statistics_latest", lambda: _first_row(
+        client, "explore_rip_statistics_latest",
         lambda query: query.select("set_id,calculation_run_id,run_at").eq("set_id", set_id),
-    )
-    latest_row = _first_row(
-        client,
-        "simulation_latest_by_target",
+    ))
+    latest_row = timed("simulation_latest_by_target", lambda: _first_row(
+        client, "simulation_latest_by_target",
         lambda query: query.select("target_type,target_id,calculation_run_id,run_at").eq("target_type", "set").eq("target_id", set_id),
-    )
+    ))
     run_id = (
         _snapshot_payload_run_id(payload)
         or first_non_empty((explore_row or {}).get("calculation_run_id"))
         or first_non_empty((latest_row or {}).get("calculation_run_id"))
     )
-    rankings_updated_at = _load_rankings_snapshot_updated_at(client)
-    input_count = _count_rows(client, "simulation_input_cards", field="calculation_run_id", value=run_id) if run_id else None
+    rankings_updated_at = timed(
+        "pokemon_explore_rankings_snapshot_latest", lambda: _load_rankings_snapshot_updated_at(client)
+    )
+    input_count = timed(
+        "simulation_input_cards.exact_count",
+        lambda: _count_rows(client, "simulation_input_cards", field="calculation_run_id", value=run_id),
+    ) if run_id else None
     near_mint_count = (
-        _count_rows(client, "simulation_input_cards_with_near_mint_price", field="calculation_run_id", value=run_id)
+        timed(
+            "simulation_input_cards_with_near_mint_price.exact_count",
+            lambda: _count_rows(client, "simulation_input_cards_with_near_mint_price", field="calculation_run_id", value=run_id),
+        )
         if run_id
         else None
     )

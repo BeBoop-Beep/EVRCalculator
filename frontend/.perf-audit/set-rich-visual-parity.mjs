@@ -15,6 +15,7 @@ if (MODE === "verify" && !existsSync(SNAPSHOT_FILE)) throw new Error(`Missing ba
 
 const viewports = [
   ["desktop", { width: 1440, height: 900 }],
+  ["tablet", { width: 768, height: 1024 }],
   ["below-boundary", { width: 1199, height: 900 }],
   ["boundary", { width: 1200, height: 900 }],
   ["above-boundary", { width: 1201, height: 900 }],

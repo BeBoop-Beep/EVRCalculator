@@ -18,7 +18,7 @@ from backend.db.services.budget_product_ranking_authority import (
 )
 from backend.scripts.build_budget_normalized_product_rankings import (
     V12_ROW_PUBLICATION_FIELDS, V12_SNAPSHOT_PUBLICATION_FIELDS,
-    merge_v12_publication_fields, publish_rankings,
+    materialize_publication_payload, merge_v12_publication_fields, publish_rankings,
 )
 
 
@@ -168,6 +168,19 @@ def test_v12_never_copies_v10_score_into_v12_field():
     _, v12_rows = merge_v12_publication_fields(snapshot, rows, _v12_results())
     for row in v12_rows:
         assert row["overall_rip_v12_score"] != row["overall_rip_v10_score"]
+
+
+def test_dry_run_and_commit_share_one_materialized_v12_shape():
+    import backend.scripts.build_budget_normalized_product_rankings as mod
+    original = mod.to_publication_payload
+    mod.to_publication_payload = lambda _results: (_v10_snapshot(), _v10_rows())
+    try:
+        materialized = materialize_publication_payload({}, _v12_results())
+        client = _FakeClient()
+        publish_rankings(client, {}, _v12_results(), materialized_payload=materialized)
+    finally:
+        mod.to_publication_payload = original
+    assert client.calls[0][1] == {"p_snapshot": materialized[0], "p_rows": materialized[1]}
 
 
 def test_chase_accessibility_raw_matches_gate_f_builder_value_exactly():

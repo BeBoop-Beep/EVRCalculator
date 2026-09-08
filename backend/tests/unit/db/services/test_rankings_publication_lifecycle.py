@@ -14,7 +14,7 @@ def candidate():
         run_id = f"run-{index}"
         targets.append({
             "set_id": set_id, "canonical_key": key, "calculation_run_id": run_id,
-            "overallRipV10": {"rank": index},
+            lifecycle.canonical_overall_rip_target_key(): {"rank": index},
             "setRipV1": {"rankable": True, "rank": index, "score": 80 - index,
                          "participatingFamilyCount": 2, "methodologyVersion": METHODOLOGY_VERSION},
         })
@@ -182,7 +182,8 @@ class Client:
 
 def parity_client(report, *, market_date="2026-08-27", run_ids=None, versions=None):
     run_ids = run_ids or report.source_run_ids
-    targets = [{"canonical_key": key, "calculation_run_id": run_id, "overallRipV10": {"rank": index}}
+    targets = [{"canonical_key": key, "calculation_run_id": run_id,
+                lifecycle.canonical_overall_rip_target_key(): {"rank": index}}
                for index, (key, run_id) in enumerate(run_ids.items(), 1)]
     canonical_versions = versions or report.contract_versions
     payload = {"targets": targets, "meta": {"snapshot": {"marketDate": market_date},
