@@ -126,6 +126,13 @@ export function resolveCanonicalRipV7(...sources) {
   for (const source of sources) {
     if (isCanonicalRipBundle(source)) return source;
   }
+  const standaloneContract = sources.map(toObject).map(
+    (source) => toObject(source.publicCollectorAppealContractV1)
+  ).find(hasContent) || {};
+  const standaloneAppeal = toObject(standaloneContract.collectorAppeal);
+  if (hasContent(standaloneAppeal)) {
+    standaloneAppeal.components = toObject(standaloneContract.components);
+  }
 
   // Version parsing support ONLY. Reading a newer contract is not a promotion:
   // the backend decides which contract it serves, and this reader must be able
@@ -140,7 +147,7 @@ export function resolveCanonicalRipV7(...sources) {
         "publicRipContractV10",
         toObject(contract.overallRip),
         { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
-        toObject(contract.collectorAppeal)
+        hasContent(standaloneAppeal) ? standaloneAppeal : toObject(contract.collectorAppeal)
       );
     }
   }
@@ -153,7 +160,7 @@ export function resolveCanonicalRipV7(...sources) {
         "publicRipContractV9",
         toObject(contract.overallRip),
         { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
-        toObject(contract.collectorAppeal)
+        hasContent(standaloneAppeal) ? standaloneAppeal : toObject(contract.collectorAppeal)
       );
     }
   }
@@ -167,7 +174,7 @@ export function resolveCanonicalRipV7(...sources) {
         "publicRipContractV8",
         toObject(contract.overallRip),
         { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
-        toObject(contract.collectorAppeal)
+        hasContent(standaloneAppeal) ? standaloneAppeal : toObject(contract.collectorAppeal)
       );
     }
   }
@@ -183,7 +190,7 @@ export function resolveCanonicalRipV7(...sources) {
       ? toObject(safeSource.financialRipV4)
       : toObject(safeSource.financialRipV3);
     if (hasContent(overall)) {
-      return bundle("topLevelV10", overall, financial, {});
+      return bundle("topLevelV10", overall, financial, standaloneAppeal);
     }
   }
 
@@ -192,7 +199,7 @@ export function resolveCanonicalRipV7(...sources) {
     const overall = toObject(safeSource.overallRipV9);
     const financial = toObject(safeSource.financialRipV3);
     if (hasContent(overall) || hasContent(financial)) {
-      return bundle("topLevelV9", overall, financial, {});
+      return bundle("topLevelV9", overall, financial, standaloneAppeal);
     }
   }
 
@@ -204,11 +211,11 @@ export function resolveCanonicalRipV7(...sources) {
       // Not derivable from any top-level object. See the module note: an
       // absent Collector Appeal renders unavailable rather than being rebuilt
       // from the service payload or borrowed from V6/V2/CA7.
-      return bundle("topLevelV8", overall, financial, {});
+      return bundle("topLevelV8", overall, financial, standaloneAppeal);
     }
   }
 
-  return bundle(null, {}, {}, {});
+  return bundle(hasContent(standaloneAppeal) ? "publicCollectorAppealContractV1" : null, {}, {}, standaloneAppeal);
 }
 
 /**

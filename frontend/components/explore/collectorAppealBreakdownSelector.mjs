@@ -93,13 +93,14 @@ function readScoreLayers(block = {}) {
   const safe = toObject(block);
   const modelScore = toOptionalNumber(safe.absoluteScore ?? safe.score);
   const relativeScore = toOptionalNumber(safe.relativeScore);
+  const standalone = safe.version === "collector_appeal";
   return {
     // INTERNAL. Fixed-anchor model output; never rendered on a normal surface.
     modelScore,
     relativeScore,
     // THE public value.
-    publicScore: relativeScore,
-    publicAvailable: relativeScore !== UNAVAILABLE,
+    publicScore: standalone ? modelScore : relativeScore,
+    publicAvailable: standalone ? modelScore !== UNAVAILABLE : relativeScore !== UNAVAILABLE,
   };
 }
 
@@ -132,7 +133,7 @@ export const DESIRABLE_OUTCOME_DISCLAIMER =
   "A desirable outcome can still be worth less than the pack price.";
 
 const SUBJECT_SCOPE_NOTE =
-  "Trainer and artist desirability are not yet modeled and are not counted.";
+  "Pokémon, Trainers, and eligible functional cards are modeled. Artist is not modeled; Treatment and Energy are excluded.";
 
 function selectRosterPokemonMetrics(roster = {}) {
   // The backend owns membership and authoritative scores/ranks. The visible
@@ -199,9 +200,17 @@ function selectRosterPokemonMetrics(roster = {}) {
  * card and never zeroes it, and never suppresses the other two.
  */
 export function selectCollectorAppealBreakdown(...sources) {
+  const standaloneSource = sources.map(toObject).find(
+    (source) => Object.keys(toObject(source.publicCollectorAppealContractV1)).length
+  );
+  const standalone = toObject(standaloneSource?.publicCollectorAppealContractV1);
   const resolved = resolveCanonicalRipV7(...sources);
-  const appeal = toObject(resolved.collectorAppeal);
-  const components = toObject(appeal.components);
+  const appeal = Object.keys(standalone).length
+    ? toObject(standalone.collectorAppeal)
+    : toObject(resolved.collectorAppeal);
+  const components = Object.keys(standalone).length
+    ? toObject(standalone.components)
+    : toObject(appeal.components);
   const roster = toObject(components.rosterDesirability);
   const frequency = toObject(components.desirableOutcomeFrequency);
 
@@ -210,12 +219,18 @@ export function selectCollectorAppealBreakdown(...sources) {
   const frequencyRaw = toOptionalNumber(frequency.rawValue);
   const rosterRelative = toOptionalNumber(roster.relativeScore);
   const frequencyRelative = toOptionalNumber(frequency.relativeScore);
-  const rosterPokemon = selectRosterPokemonMetrics(roster);
+  const groupRows = Array.isArray(roster.topCollectorGroups)
+    ? roster.topCollectorGroups.map((group, index) => ({
+        label: `#${index + 1} ${group.name}`,
+        value: `${group.type === "pokemon" ? "Pokémon" : group.type === "trainer" ? "Trainer" : "Functional"} · Collector score: ${formatScore(group.score)}`,
+      }))
+    : null;
+  const rosterPokemon = groupRows ? { metrics: groupRows, statusReason: null } : selectRosterPokemonMetrics(roster);
 
   const rows = [
     {
       key: "rosterDesirability",
-      title: "Roster Desirability",
+      title: "Collector Roster Desirability",
       // D is published 0-100; the other two are 0-1 shares. Each row carries its
       // own formatted value so the surface never rescales one into the other.
       value: formatScore(rosterScore),
@@ -228,7 +243,7 @@ export function selectCollectorAppealBreakdown(...sources) {
       cohortSize: toOptionalNumber(roster.rankedSetCount ?? roster.cohortSize),
       tier: roster.tier ?? UNAVAILABLE,
       interpretation:
-        "How desirable the Pokémon roster is before pull difficulty is considered.",
+        "How compelling the set's hit-eligible Pokémon, Trainers, and collectible functional cards are.",
       metrics: rosterPokemon.metrics,
       statusReason: rosterPokemon.statusReason,
     },
@@ -244,7 +259,7 @@ export function selectCollectorAppealBreakdown(...sources) {
       cohortSize: toOptionalNumber(frequency.rankedSetCount ?? frequency.cohortSize),
       tier: frequency.tier ?? UNAVAILABLE,
       interpretation:
-        "How often the modeled pack can deliver at least one card tied to a currently desirable Pokémon.",
+        "How often the modeled pack contains at least one hit-eligible card with positive Collector Appeal.",
       disclaimer: DESIRABLE_OUTCOME_DISCLAIMER,
       isFinancialMetric: false,
       metrics: [
@@ -305,11 +320,11 @@ export function selectCollectorAppealBreakdown(...sources) {
     // The backend carries the same statement on the contract; its wording wins
     // when present so the note cannot drift from the model.
     subjectScope: {
-      modeled: Array.isArray(scope.modeled) ? scope.modeled : ["Pokémon"],
-      notYetModeled: Array.isArray(scope.notYetModeled) ? scope.notYetModeled : ["Trainer", "Artist"],
+      modeled: Array.isArray(scope.modeled) ? scope.modeled : ["Pokémon", "Trainers", "eligible neutral functional cards"],
+      notYetModeled: Array.isArray(scope.notYetModeled) ? scope.notYetModeled : ["Artist", "Treatment", "Energy"],
       note: scope.note || SUBJECT_SCOPE_NOTE,
     },
     note: FINANCIAL_VS_COLLECTOR_NOTE,
-    sourceShape: resolved.shape,
+    sourceShape: Object.keys(standalone).length ? "publicCollectorAppealContractV1" : resolved.shape,
   };
 }

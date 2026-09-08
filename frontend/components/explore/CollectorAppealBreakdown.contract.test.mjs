@@ -119,7 +119,7 @@ test("Collector Appeal shows Roster Desirability and Desirable Outcome Frequency
   );
   assert.deepEqual(
     appeal.rows.map((row) => row.title),
-    ["Roster Desirability", "Desirable Outcome Frequency"]
+    ["Collector Roster Desirability", "Desirable Outcome Frequency"]
   );
 });
 

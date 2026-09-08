@@ -144,6 +144,16 @@ function redactPublicRipContract(contract) {
   };
 }
 
+function redactPublicCollectorAppealContract(contract) {
+  if (!contract || typeof contract !== "object") return contract;
+  return {
+    contractVersion: contract.contractVersion,
+    collectorAppeal: headlineBlock(contract.collectorAppeal),
+    components: null,
+    premiumDetailIncluded: false,
+  };
+}
+
 function publicOutcomeProfile(profile) {
   if (
     !profile ||
@@ -220,6 +230,8 @@ function redactNode(value) {
       result[key] = publicOutcomeProfile(child);
     } else if (/^publicRipContractV\d+$/.test(key)) {
       result[key] = redactPublicRipContract(child);
+    } else if (key === "publicCollectorAppealContractV1") {
+      result[key] = redactPublicCollectorAppealContract(child);
     } else {
       result[key] = redactNode(child);
     }

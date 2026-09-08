@@ -22,6 +22,12 @@ from backend.db.services.explore_page_service import (
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.db.services.ev_representativeness_public_service import attach_public_v1_to_targets
 from backend.db.services import rip_decision_service
+from backend.db.services.collector_appeal_current_service import (
+    PUBLIC_CONTRACT_KEY,
+    attach_public_collector_appeal_contracts,
+    build_public_collector_appeal_contract,
+    load_current_set_collector_appeal,
+)
 from backend.db.services.product_family_rankings_service import build_product_family_rankings
 from backend.db.services.set_rip_service import attach_set_rip_to_targets, build_set_rip
 from backend.db.services.era_set_strength_service import attach_era_set_strength
@@ -1865,6 +1871,10 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         meta["warnings"] = warnings
         payload["meta"] = meta
     payload = _merge_card_appeal_snapshot_payload(payload, set_id=set_id, client=client)
+    current_collector = load_current_set_collector_appeal([set_id], client=client or get_client()).get(set_id)
+    public_collector = build_public_collector_appeal_contract(current_collector)
+    if public_collector is not None:
+        payload[PUBLIC_CONTRACT_KEY] = public_collector
     decision_required = _current_decision_contract_is_required(
         canonical_simulation_support=canonical_simulation_support,
         matching_rankings_target=matching_rankings_target,
@@ -4201,6 +4211,7 @@ def build_explore_rankings_snapshot_row(
     opening_targets = [target for target in targets if is_opening_set_row(target)]
     service_client = get_client()
     opening_targets = attach_public_v1_to_targets(service_client, opening_targets)
+    opening_targets = attach_public_collector_appeal_contracts(opening_targets, client=service_client)
     meta = dict(payload.get("meta") or {})
     opening_set_audit = build_opening_set_audit(targets)
     meta["snapshot"] = {
