@@ -1,85 +1,143 @@
 # Price Storage V2 integration — draft, no production cutover
 
-## Current milestone: source reconciliation is complete for the frozen window
+## Current milestone: live canary defect understood; forward-only date-safe v2 passes
 
-The owner supplied the full migration-ledger export. All **89** records in
-`20260905235956`–`20260906233651` pass their original SQL checksums and the
-independent manifest `d988d2e6e877d3373f613d2351e86339`.
+The frozen migration-source window `20260905235956`–`20260906233651` remains
+fully reconciled: all **89** applied records match their original SQL checksums and
+the independent manifest `d988d2e6e877d3373f613d2351e86339`. The exact historical
+migration SQL remains unchanged and must not be replayed merely because its source
+files are now present.
 
-The remaining **81** originals have been restored to both migration directories
-and the archive without changing existing SQL or version IDs. The source import
-commit is `6ef09bcba773c5fa4319ce9ab00c08c031d2d399`; workflow `34155095653`
-verified all 267 SQL copies and passed the strict 89-record gate before committing.
-There are **zero missing originals and zero source conflicts within this window**.
+## Live September 6 canary result
 
-Read `FULL_LEDGER_RECONCILIATION_2026-09-07.md` and the machine-readable
-`FULL_LEDGER_IMPORT_2026-09-07.json` for exact provenance and limitations. The earlier
-`SOURCE_RECONCILIATION_2026-09-07.md` records the preceding eight-original checkpoint
-and is historical, not the current remaining-work inventory.
+The production read-only canary for **Evolving Skies**, **Crown Zenith + Galarian
+Gallery**, and **Celebrations + Classic Collection** showed strong Price Storage V2
+as-of health but exposed one flaw in the original scope acceptance contract.
 
-The import caught and fixed a name-matching bug in the audit: `fix_foo` must not
-be treated as another timestamped copy of `foo`. No SQL content or hash was relaxed.
-The temporary write-enabled importer and compressed transport have been removed.
-The standard CI workflow now enforces `--strict` and contains no DB credentials.
+For all three roots:
 
-## Proposed application integration remains unpublished
+- raw-only rows = `0`;
+- V2-only rows = `0`;
+- missing prices = `0`;
+- canonical review-required rows = `0`;
+- scrape and shadow receipts were complete and had matching source completion timestamps.
 
-- Member/root coordinator defaults to dry-run and uses separate publisher RPCs.
-- `backend/db/proposals/price_storage_v2_scoped_publication.sql` specifies separate
-  destinations, a disabled release gate, exact source-generation revalidation,
-  candidate comparison, and immutable/conflict-rejecting publication.
-- The public source check distinguishes combined public-root publication from
-  member-only or generic rollout rows; no cohort expansion is implied.
-- The production index math is shared with a read-only three-set comparison CLI.
-- Existing scheduled writers have NOT been connected to these new destinations.
-- No legacy history is retired by this PR or by source reconciliation.
+Accepted Sep 6 combined-root candidates remained:
 
-## Validation coverage and limits
+- Evolving Skies Standard `$8,305.06` / 237, Top10 `$6,596.25` / 10;
+- Crown Zenith Standard `$2,634.47` / 230, including 70 subset cards, Top10 `$1,432.66` / 10;
+- Celebrations Standard `$624.16` / 50, including 25 subset cards, Top10 `$512.14` / 10.
 
-The existing suite consists of 40 pure unit tests, seven original-source regressions
-and 20 PostgreSQL 17.6 transaction/permission/concurrency tests. New full-window tests
-check all89 originals in allthree locations, import provenance, strict positive and
-negative gates, full-name alias semantics and zero-write repeated reconciliation.
+However the historical `canonical_asof_scope_split_v1` preview blocked all three with
+`live_root_contract_mismatch`. Its `live_root_only_rows` / `proposed_root_only_rows`
+were `237/237`, `229/229`, and `48/48` respectively.
 
-The PostgreSQL test executes the publisher proposal unchanged on a disposable service
-with synthetic prerequisite tables and a controlled preview. It has proven writer-order
-independence, independent destinations, retries/noops, conflicts and rollback, source
-and candidate rejection, and role restrictions. It is NOT a restored production schema,
-real pricing selection test, or scraper/simulator/snapshot end-to-end replay.
+The reason is architectural rather than price-compression corruption: v1 compares an
+**approved-date as-of reconstruction** against the moving
+`get_pokemon_market_root_set_card_prices_latest_v1` contract, including latest
+captured dates and storage provenance. Once that moving latest projection advances
+past the approved Market date, every otherwise-correct approved-date row can appear
+different.
 
-```sh
-python backend/scripts/audit_price_storage_v2_migration_sources.py --strict
-python backend/tests/run_price_storage_v2_unit.py
-python -m unittest backend.tests.test_price_storage_v2_migration_reconciliation backend.tests.test_price_storage_v2_full_ledger backend.tests.test_price_storage_v2_reimport -v
-```
+## Forward-only date-safe v2
 
-`compare_price_storage_v2_pipeline.py` remains read-only. It freezes index cohort/prior
-inputs, compares source paths through the same index math, fingerprints existing
-snapshot payloads, optionally compares specified simulator runs, and detects concurrent
-input changes. Existing payload fingerprints are not a replacement for replaying actual
-snapshot builders. Missing simulator run IDs remain `not_run`; full E2E remains false.
+The already-applied v1 migration remains untouched for auditability. New review-only
+proposal `backend/db/proposals/price_storage_v2_scope_stage_v2.sql` adds:
 
-## Historical live evidence — not refreshed by this file import
+- `preview_price_storage_v2_scoped_values_v2(uuid,date)`;
+- `stage_price_storage_v2_scoped_values_v2(uuid[],date)`.
 
-The September 6 canary previews matched on 517 raw/V2 canonical prices and root baskets.
-Stored member-only Crown Zenith and Celebrations rows nevertheless differed from their
-combined-root candidates. They were not overwritten to manufacture publication parity.
-The earlier 42 historical constituent exceptions remain a separate acceptance question.
-No current scraper completion, publication approval, or DB health is certified by the
-uploaded migration ledger. This continuation performed no production DB statements.
+`canonical_asof_scope_split_v2` preserves the existing fail-closed checks for:
 
-## Remaining integration gates
+- approved Market date;
+- edition-split roots;
+- raw/V2 as-of resolver definition hashes;
+- exact source scrape + V2 shadow receipts;
+- raw↔V2 as-of row parity;
+- duplicate price identities;
+- missing prices;
+- review-required canonical cards;
+- root identity `(canonical_card_id, member_set_id)`.
 
-1. Review migration ordering and dependencies outside the now-complete frozen window;
-   incorporate concurrent main changes without overwriting unrelated work.
-2. Execute against real prerequisite schema and source functions with representative
-   data, rather than only the controlled preview used for writer-transaction tests.
-3. Connect scheduled member and combined-root producers under explicit release control.
-4. Replay actual snapshot/index builders and simulator price readers, preserving subset,
-   edition, partial-coverage, freshness, and historical-publication semantics.
-5. Approve a bounded production cutover with rollback; retire legacy structures only
-   after all direct readers, rebuild scripts and historical fallbacks are replaced.
+It changes only the invalid moving-latest portion:
 
-No new Supabase branch, production SQL apply, database push, source-job state repair,
-raw-price deletion, snapshot publication or simulator run was performed for this import.
-Do not reapply recovered SQL to production or treat source completeness as release approval.
+- storage provenance `source` is not treated as an economic field;
+- if the latest root contract has **not** advanced past the approved date, normalized
+  latest-root economic rows must still match exactly;
+- if the latest root contract **has** advanced past the approved date, newer latest
+  economics are diagnostic rather than evidence that the approved-date reconstruction
+  is wrong;
+- root identity and raw↔V2 approved-date parity must still be exact before v2 can pass.
+
+The separated immutable writers now require v2 staged evidence and re-run the v2
+preview before insertion. The producer coordinator uses v2 staging and still contains
+**no scheduler attachment**.
+
+## Exact PostgreSQL acceptance
+
+GitHub Actions run `34183532432`, job `101927253176`, succeeds on PostgreSQL 17.6.
+The suite now contains **95 passing checks**:
+
+- **42** integration/unit checks;
+- **13** migration/source/full-ledger checks;
+- **6** Set Value snapshot replay safeguards;
+- **20** writer/permission/concurrency checks;
+- **8** exact restored-source SQL checks;
+- **6** fail-closed coordinator checks.
+
+Pattern Overlay Guardrails also pass on feature head
+`2efcefa2862001d216d7983d49087fe8166214f0`.
+
+The new exact-source regression reproduces the production failure mode by advancing
+the actual modern standard-root latest projection (`pokemon_canonical_card_market_prices_latest`)
+to Sep 7 while leaving Sep 6 historical V2 events/ranges unchanged. It proves:
+
+1. the actual root latest reader changes;
+2. historical v1 blocks with `live_root_contract_mismatch`;
+3. Sep 6 raw↔V2 as-of parity remains exact;
+4. root identity remains exact;
+5. v2 marks moving-latest economics non-applicable to Sep 6 acceptance and passes;
+6. identity or approved-date as-of differences would still block.
+
+## Snapshot replay and coordinator
+
+The production Set Value snapshot builder has an internal diagnostic-only current-day
+root override. Normal production calls still default to no override. Six safeguards
+prove only explicitly supplied current-day roots change in memory; history and unrelated
+roots remain unchanged; child/subset IDs, duplicate roots, wrong dates/scopes and invalid
+values fail closed.
+
+The review-only producer coordinator:
+
+- checks the disabled release gate before staging;
+- stages through v2;
+- publishes member/root destinations atomically per invocation;
+- rolls back the whole invocation if one requested root blocks;
+- is idempotent on exact repeat;
+- denies public roles;
+- has no cron attachment and reports `public_routing_changed=false`.
+
+## Production safety
+
+No v2 proposal has been installed in production. No release gate has been enabled.
+No cron has been attached. No public reader has been switched. No scrape, simulation or
+snapshot publication was launched by this work. No historical/raw price rows were
+rewritten or deleted.
+
+## Remaining release gates
+
+1. Run a small **live read-only diagnostic** to confirm the production moving latest
+   root projection is newer than approved Sep 6 for the three canaries and that the
+   observed v1 mismatch is the same date-boundary condition proven in PostgreSQL.
+2. If confirmed, convert only the forward v2 stage + separate destination/writer/
+   coordinator proposals into **new** executable migrations, with the release gate
+   still disabled and no scheduler attachment.
+3. Run Supabase security/performance advisors and explicit ACL/RLS verification.
+4. Run the actual live dry snapshot/index replay using v2 root candidates; persist nothing.
+5. Approve a bounded producer cutover with rollback; only afterward consider scheduling.
+6. Observe stable daily cycles before retiring legacy direct-reader, rebuild-script and
+   fallback dependencies.
+7. Reclaim physical storage only after destructive-retirement acceptance; logical delete
+   alone does not shrink the database files.
+
+Do not merge this PR yet.
