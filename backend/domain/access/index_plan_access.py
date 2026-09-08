@@ -166,6 +166,7 @@ _PLUS_TARGET_FIELDS = _BASE_TARGET_FIELDS | frozenset({
     "overallRipV10", "publicRipContractV10",
     # CURRENT canonical Overall RIP model + public contract.
     "overallRipV12", "publicRipContractV11", "chaseAccessibility",
+    "publicCollectorAppealContractV1",
     "setRipV1", "openingExperience", "rankingsChase",
     "collector_appeal_score", "collector_appeal_rank", "opening_desirability_score",
     "opening_desirability_rank", "opening_desirability_summary",
@@ -499,6 +500,8 @@ def project_card_detail_response(payload: Mapping[str, Any], plan: Any) -> dict[
     }))
     if has_index_feature_access(plan, FEATURE_PRODUCT_RIP) and "intelligence" in payload:
         result["intelligence"] = payload["intelligence"]
+    if has_index_feature_access(plan, FEATURE_PRODUCT_RIP) and "collectorAppeal" in payload:
+        result["collectorAppeal"] = payload["collectorAppeal"]
     if has_index_feature_access(plan, FEATURE_PRODUCT_RIP) and "treatmentMarketPrestige" in payload:
         result["treatmentMarketPrestige"] = payload["treatmentMarketPrestige"]
     if has_index_feature_access(plan, FEATURE_CARD_CHASE_EFFICIENCY) and "chase" in payload:

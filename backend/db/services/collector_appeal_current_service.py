@@ -37,6 +37,12 @@ def load_current_card_collector_appeal(card_ids: Iterable[str], *, client=None) 
     return {str(row["pokemon_canonical_card_id"]): row for row in rows}
 
 
+def build_public_card_collector_appeal(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not row: return None
+    components=row.get("component_inputs_json") or {}
+    return {"score":row.get("collector_card_appeal_score"),"status":row.get("score_status"),"subject":{"policy":row.get("subject_policy"),"type":components.get("subjectType"),"identity":components.get("subjectIdentity") or components.get("functionalName"),"baselineScore":row.get("subject_baseline_score"),"neutralBaseline":components.get("neutralBaseline") is True},"playability":{"score":row.get("playability_score") if components.get("playabilityStatus") not in ("unknown","insufficient") else None,"status":components.get("playabilityStatus"),"confidence":row.get("confidence"),"positiveLift":row.get("playability_lift")},"artistModeled":False,"treatmentExcluded":bool(row.get("treatment_input_excluded")),"hitEligibilityIndependent":bool(row.get("hit_eligibility_independent")),"modelRunId":row.get("model_run_id"),"modelVersion":row.get("model_version"),"explanation":"A high Card Collector Appeal does not by itself mean the card counts as a pack hit."}
+
+
 def build_public_collector_appeal_contract(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not row: return None
     scored = row.get("score_status") == "scored"
