@@ -57,8 +57,15 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path='' AS $$
  SELECT payload FROM test_support.previews
  WHERE root_id=p_root_set_id AND payload#>>'{context,market_date}'=p_market_date::text;
 $$;
-REVOKE ALL ON FUNCTION public.preview_price_storage_v2_scoped_values(uuid,date) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.preview_price_storage_v2_scoped_values(uuid,date) TO service_role;
+CREATE FUNCTION public.preview_price_storage_v2_scoped_values_v2(p_root_set_id uuid,p_market_date date)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path='' AS $$
+ SELECT payload FROM test_support.previews
+ WHERE root_id=p_root_set_id AND payload#>>'{context,market_date}'=p_market_date::text;
+$$;
+REVOKE ALL ON FUNCTION public.preview_price_storage_v2_scoped_values(uuid,date),
+ public.preview_price_storage_v2_scoped_values_v2(uuid,date) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.preview_price_storage_v2_scoped_values(uuid,date),
+ public.preview_price_storage_v2_scoped_values_v2(uuid,date) TO service_role;
 -- Sentinels model protected data. The proposal must not reference or modify them.
 CREATE TABLE public.pokemon_set_value_daily_history(id integer PRIMARY KEY, payload jsonb);
 CREATE TABLE public.pokemon_set_page_snapshot_latest(id integer PRIMARY KEY, payload jsonb);
@@ -125,14 +132,14 @@ class PostgresScopeTests(unittest.TestCase):
  public.pokemon_root_set_value_daily_history_v2,public.price_storage_v2_scoped_value_candidates,
  public.price_storage_v2_scope_stage_runs,test_support.previews;
  UPDATE public.price_storage_v2_scoped_release_gate SET enabled=false;""")
-        preview=dict(status="parity_passed",reason="exact_source_gated_scope_parity",publication_authorized=False,
-            context=dict(root_set_id=ROOT_ID,market_date=DAY,source_generation="fixture-generation-1"),
+        preview=dict(status="parity_passed",reason="exact_source_gated_scope_parity_v2",publication_authorized=False,
+            context=dict(root_set_id=ROOT_ID,market_date=DAY,definition_version="canonical_asof_scope_split_v2",source_generation="fixture-generation-1"),
             candidate_values=candidates())
         encoded=sql_literal(json.dumps(preview))
         self.raw(f"""INSERT INTO test_support.previews VALUES('{ROOT_ID}',{encoded}::jsonb);
  INSERT INTO public.price_storage_v2_scope_stage_runs(id,root_set_id,market_date,definition_version,
  status,reason,evidence_signature,evidence) OVERRIDING SYSTEM VALUE
- SELECT 1001,'{ROOT_ID}','{DAY}','fixture-v1','parity_passed','accepted',md5(payload::text),payload-'candidate_values'
+ SELECT 1001,'{ROOT_ID}','{DAY}','canonical_asof_scope_split_v2','parity_passed','accepted',md5(payload::text),payload-'candidate_values'
  FROM test_support.previews;
  INSERT INTO public.price_storage_v2_scoped_value_candidates
  SELECT 1001,r.* FROM test_support.previews p CROSS JOIN LATERAL jsonb_to_recordset(p.payload->'candidate_values') AS r(
