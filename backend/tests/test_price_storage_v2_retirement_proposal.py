@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from pglast import parse_sql
 
@@ -9,6 +10,10 @@ GATE = ROOT / "docs/price_storage_v2/FRESH_CYCLE_RETIREMENT_GATE.sql"
 
 def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _without_line_comments(sql: str) -> str:
+    return "\n".join(re.sub(r"--.*$", "", line) for line in sql.splitlines())
 
 
 def test_retirement_sql_parses_as_postgresql():
@@ -28,11 +33,12 @@ def test_retirement_requires_a_real_post_sep8_fresh_cycle():
 
 def test_retirement_only_drops_derived_legacy_market_explorer_storage():
     sql = _text(PROPOSAL)
-    assert "DROP TABLE public.pokemon_market_explorer_card_daily_states;" in sql
-    assert "DROP TABLE public.pokemon_card_variant_market_price_intervals;" in sql
-    assert "DROP TABLE public.card_variant_price_observations" not in sql
-    assert "DROP TABLE public.card_variant_price_monthly_rollups" not in sql
-    assert " CASCADE" not in sql.upper()
+    executable = _without_line_comments(sql)
+    assert "DROP TABLE public.pokemon_market_explorer_card_daily_states;" in executable
+    assert "DROP TABLE public.pokemon_card_variant_market_price_intervals;" in executable
+    assert "DROP TABLE public.card_variant_price_observations" not in executable
+    assert "DROP TABLE public.card_variant_price_monthly_rollups" not in executable
+    assert " CASCADE" not in executable.upper()
 
 
 def test_old_rpc_signatures_are_rebound_to_v2_before_drop():
