@@ -1217,6 +1217,8 @@ def _attach_public_rip_contract(
         # rather than re-deriving it. Distinct in scale from `overallRipV12`'s
         # internal A_score - see that contract's module docstring.
         target["chaseAccessibility"] = project_chase_accessibility(accessibility_row)
+        chase_component = (overall_v12.get("components") or {}).get("chaseAccessibility") or {}
+        target["chaseAccessibility"]["modelScore"] = chase_component.get("score")
         target["publicAnalyticsStatus"] = public_analytics_status(
             {"name": target.get("name"), "era_id": target.get("era_id"), "era": target.get("era")}
         )
@@ -1379,6 +1381,8 @@ def _attach_cohort_fingerprint(cohort_rows: List[Dict[str, Any]]) -> None:
     fingerprint = supported_cohort_fingerprint([key for key in keys if key])
     for row in cohort_rows:
         row["cohortFingerprint"] = fingerprint["fingerprint"]
+        if isinstance(row.get("chaseAccessibility"), dict):
+            row["chaseAccessibility"]["cohortId"] = fingerprint["fingerprint"]
 
 
 def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
@@ -1396,6 +1400,27 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
     (``rip.score`` / ``ripCore.score``), never a blend of already-relative
     inputs — the extractors read the authoritative absolute scores directly.
     """
+    # Chase uses the same backend leader-normalized public presentation as the
+    # other headline scores. Keep it separate from both the raw metric and the
+    # transformed model score.
+    chase_scratch = [
+        {"target_id": row.get("target_id"), "_score": (row.get("chaseAccessibility") or {}).get("modelScore")}
+        for row in cohort_rows
+    ]
+    chase_public = _compute_leader_scores(chase_scratch, "_score")
+    chase_ranked = _calculate_score_ranks_and_tiers(chase_scratch, "_score")
+    chase_size = sum(1 for row in chase_scratch if row.get("_score") is not None)
+    for row in cohort_rows:
+        set_id = str(row.get("target_id"))
+        block = row.get("chaseAccessibility")
+        if not isinstance(block, dict):
+            continue
+        public = chase_public.get(set_id)
+        standing = chase_ranked.get(set_id) or {}
+        block["publicScore"] = round(public, 2) if public is not None else None
+        block["setRank"] = standing.get("rank")
+        block["setCohortSize"] = chase_size if public is not None else None
+
     # V3/V5 relative scores are DIAGNOSTIC ONLY. `financialRipV3.score` stays the
     # absolute fixed-anchor score; the cohort-relative number lives under a
     # separate, explicitly named field so nothing can mistake one for the other.

@@ -1163,6 +1163,7 @@ def get_product_chase_intelligence(
     budget: Optional[float] = Query(default=None, ge=0),
     price_as_of: Optional[str] = Query(default=None),
     sealed_product_id: Optional[str] = Query(default=None),
+    set_id: Optional[str] = Query(default=None, alias="set"),
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
@@ -1209,11 +1210,13 @@ def get_product_chase_intelligence(
         if sealed_product_id:
             cohort = [row for row in cohort if str(row.get("sealed_product_id")) == str(sealed_product_id)]
             scoped = True
-            if not cohort:
+            if isinstance(set_id, str) and set_id:
+                cohort = [row for row in cohort if str(row.get("set_id")) == str(set_id)]
+            if len(cohort) != 1:
                 return JSONResponse(
-                    content={"message": "Product not found in the current Chase Access cohort",
-                             "code": "PRODUCT_CHASE_INTELLIGENCE_PRODUCT_NOT_FOUND", "products": []},
-                    status_code=404,
+                    content={"message": "Product identity is missing, duplicated, or does not match its set",
+                             "code": "PRODUCT_CHASE_INTELLIGENCE_IDENTITY_MISMATCH", "products": []},
+                    status_code=404 if not cohort else 409,
                 )
         resolved = resolve_product_chase_access(service_read_client, cohort, budget=budget)
         if scoped:

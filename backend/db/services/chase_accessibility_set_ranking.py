@@ -70,6 +70,10 @@ from backend.desirability.chase_accessibility import (
     MIN_MAPPED_HC_MASS,
     STATUS_READY,
 )
+from backend.desirability.chase_accessibility_overall_score import (
+    chase_accessibility_overall_score,
+)
+from backend.rankings.public_relative import compute_leader_normalized_scores
 
 
 def _text(value: Any) -> str:
@@ -134,6 +138,7 @@ def compute_chase_accessibility_set_ranks(
 def load_chase_accessibility_set_authority(
     *, set_ids: Sequence[Any], client: Any,
     expected_run_by_set: Optional[Mapping[str, str]] = None,
+    cohort_key_by_set: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     """Batch-load raw rows for the cohort ONCE and compute the rank map ONCE.
 
@@ -147,12 +152,41 @@ def load_chase_accessibility_set_authority(
         rows_by_set_id, list(rows_by_set_id.keys()) or [str(s) for s in set_ids],
         expected_run_by_set=expected_run_by_set,
     )
-    return {"rowsBySetId": rows_by_set_id, "rankBySetId": rank_map}
+    eligible_ids = list(rank_map)
+    model_scores = {
+        set_id: chase_accessibility_overall_score(rows_by_set_id[set_id].get("accessibility"))
+        for set_id in eligible_ids
+    }
+    public_scores = compute_leader_normalized_scores(
+        [{"setId": set_id, "modelScore": model_scores[set_id]} for set_id in eligible_ids],
+        id_getter=lambda row: row.get("setId"),
+        score_getter=lambda row: row.get("modelScore"),
+    )
+    from backend.db.services.public_rip_publication_contract import supported_cohort_fingerprint
+    cohort_keys = [
+        str((cohort_key_by_set or {}).get(set_id) or set_id)
+        for set_id in eligible_ids
+    ]
+    cohort_id = supported_cohort_fingerprint(cohort_keys)["fingerprint"] if cohort_keys else None
+    presentation_map = {
+        set_id: {
+            "modelScore": model_scores[set_id],
+            "publicScore": public_scores.get(set_id),
+            "cohortId": cohort_id,
+        }
+        for set_id in eligible_ids
+    }
+    return {
+        "rowsBySetId": rows_by_set_id,
+        "rankBySetId": rank_map,
+        "presentationBySetId": presentation_map,
+    }
 
 
 def project_chase_accessibility_for_set(
     set_id: Any, *, rows_by_set_id: Mapping[str, Mapping[str, Any]],
     rank_by_set_id: Mapping[str, Mapping[str, Any]],
+    presentation_by_set_id: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """The per-row Chase Accessibility presentation contract (Phase 4 shape).
 
@@ -167,6 +201,7 @@ def project_chase_accessibility_for_set(
     row = rows_by_set_id.get(resolved)
     base = project_chase_accessibility(row)
     rank_info = rank_by_set_id.get(resolved)
+    presentation = (presentation_by_set_id or {}).get(resolved) or {}
     return {
         "value": base.get("chaseAccessibility"),
         "percent": base.get("chaseAccessibilityPct"),
@@ -174,6 +209,9 @@ def project_chase_accessibility_for_set(
         "version": base.get("chaseAccessibilityVersion"),
         "chaseDepth": base.get("chaseDepth"),
         "mappedHcMass": base.get("mappedHcMass"),
+        "modelScore": presentation.get("modelScore"),
+        "publicScore": presentation.get("publicScore"),
         "setRank": rank_info.get("setRank") if rank_info else None,
         "setCohortSize": rank_info.get("setCohortSize") if rank_info else None,
+        "cohortId": presentation.get("cohortId"),
     }

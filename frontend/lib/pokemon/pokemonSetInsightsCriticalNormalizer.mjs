@@ -51,6 +51,9 @@ export function normalizePokemonSetInsightsCriticalPayload(payload) {
     overallRipV12: toPlainObject(payload?.overallRipV12),
     overallRipV12Composition: toPlainObject(payload?.overallRipV12Composition),
     publicRipContractV11: toPlainObject(payload?.publicRipContractV11),
+    chaseAccessibilityPresentation: toNullablePlainObject(
+      payload?.chaseAccessibilityPresentation ?? payload?.publicRipContractV11?.chaseAccessibility,
+    ),
     // Chase Accessibility V1. Additive, pass-through only, and independent of
     // Overall RIP - never derived from any RIP block above. Null/status is
     // preserved exactly (never coerced to 0) so an unavailable set never

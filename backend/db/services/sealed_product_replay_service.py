@@ -14,7 +14,7 @@ def replay_sealed_products_for_run(client: Any, calculation_run_id: Any, *, scor
     run_id = str(calculation_run_id)
     response = (
         client.table("calculation_runs")
-        .select("id,target_type,target_id,calculation_config_id")
+        .select("id,target_type,target_id,calculation_config_id,market_date")
         .eq("id", run_id).limit(1).execute()
     )
     rows = response.data if response and response.data else []
@@ -44,4 +44,5 @@ def replay_sealed_products_for_run(client: Any, calculation_run_id: Any, *, scor
         sim_results={"values": vector}, set_id=run["target_id"],
         canonical_set_key=set_rows[0]["canonical_key"], calculation_run_id=run_id,
         run_fingerprint=str(config_rows[0]["config_hash"]),
+        market_date=run.get("market_date"),
     )

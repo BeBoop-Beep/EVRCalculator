@@ -670,6 +670,7 @@ class EVRRunOrchestrator:
                 canonical_set_key=canonical_key,
                 calculation_run_id=run_id,
                 run_fingerprint=str(persisted_parent.get("config_hash") or ""),
+                market_date=metadata.get("market_date"),
             )
         else:
             # Sealed products are discovered by set id. Without one there is

@@ -525,6 +525,31 @@ def test_persisted_rows_are_one_per_run_and_product_with_full_provenance():
     assert 0.0 <= row["chance_to_recover_cost"] <= 1.0
 
 
+def test_stage1_threads_requested_market_date_to_snapshot_reader():
+    captured = {}
+
+    def _read(_set_id, *, market_date=None):
+        captured["market_date"] = market_date
+        return _snapshot([{
+            "sealedProductId": "101", "name": "A Booster Box",
+            "productFamily": "booster_box", "currentPrice": 140.0,
+            "priceAsOf": "2026-09-07", "source": "TCGPLAYER",
+        }])
+
+    rows = []
+    result = service.run_stage1_sealed_product_rip(
+        sim_results={"distribution": _pack_vector()}, set_id="set-uuid",
+        canonical_set_key="setA", calculation_run_id="run-uuid",
+        market_date="2026-09-07", read_snapshot_fn=_read,
+        persist_fn=lambda values: rows.extend(values) or values,
+        collector_appeal_fn=lambda _set_id: _APPEAL,
+        stage2_compositions_fn=lambda _ids: [],
+    )
+    assert result["status"] == "ok"
+    assert captured["market_date"] == "2026-09-07"
+    assert rows[0]["price_as_of"] == "2026-09-07"
+
+
 def test_repeated_skus_share_a_distribution_but_persist_separate_costs_and_scores():
     captured = []
     _run_stage1(

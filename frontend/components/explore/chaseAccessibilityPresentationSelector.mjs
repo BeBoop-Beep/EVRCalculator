@@ -112,6 +112,8 @@ export function selectChaseAccessibilityPresentation(...sources) {
 
   const chaseDepth = toNumber(block.chaseDepth);
   const mappedHcMass = toNumber(block.mappedHcMass);
+  const modelScore = toNumber(block.modelScore);
+  const publicScore = toNumber(block.publicScore);
 
   return {
     available,
@@ -128,8 +130,11 @@ export function selectChaseAccessibilityPresentation(...sources) {
 
     // Rank/tier — NEVER fabricated. Always null until a canonical backend
     // Chase Accessibility ranking contract exists (Phase 8).
-    rank: null,
-    cohortSize: null,
+    modelScore,
+    publicScore,
+    rank: toNumber(block.setRank),
+    cohortSize: toNumber(block.setCohortSize),
+    cohortId: block.cohortId ?? null,
     tier: null,
 
     // Diagnostics — explanatory only, NOT additional Overall RIP scoring

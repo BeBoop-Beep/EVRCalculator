@@ -1687,10 +1687,12 @@ def build_set_rip_read_models(payload: Dict[str, Any], *, set_id: str, built_at:
     """Derive the three small Set RIP transports from one canonical payload."""
     identity = _rip_publication_identity(payload, set_id=set_id, built_at=built_at)
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
-    contract = payload.get("publicRipContractV10") if isinstance(payload.get("publicRipContractV10"), dict) else {}
+    contract_v11 = payload.get("publicRipContractV11") if isinstance(payload.get("publicRipContractV11"), dict) else {}
+    contract = contract_v11 or (payload.get("publicRipContractV10") if isinstance(payload.get("publicRipContractV10"), dict) else {})
     collector = contract.get("collectorAppeal") if isinstance(contract.get("collectorAppeal"), dict) else {}
     financial = contract.get("financialRip") if isinstance(contract.get("financialRip"), dict) else {}
     overall = contract.get("overallRip") if isinstance(contract.get("overallRip"), dict) else {}
+    chase = contract_v11.get("chaseAccessibility") if isinstance(contract_v11.get("chaseAccessibility"), dict) else {}
     opening = payload.get("openingExperience") if isinstance(payload.get("openingExperience"), dict) else {}
     subjects = collector.get("topSubjects") or opening.get("topSubjects") or []
     summary_fields = (
@@ -1716,6 +1718,7 @@ def build_set_rip_read_models(payload: Dict[str, Any], *, set_id: str, built_at:
             "financial": _rip_headline(financial or payload.get("financialRipV4")),
             "collector": _rip_headline(collector),
         },
+        "chaseAccessibilityPresentation": dict(chase),
         "summary": bootstrap_summary,
         "ripDecision": payload.get("ripDecision") if isinstance(payload.get("ripDecision"), dict) else {},
         "collectorSubjects": subjects if isinstance(subjects, list) else [],

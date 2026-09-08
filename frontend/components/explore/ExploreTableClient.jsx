@@ -53,6 +53,7 @@ import {
   getRankedSetCountForMode,
   getTierForMode,
   formatModeScore,
+  formatPublicRipScore,
   SCORE_KIND_PUBLIC,
 } from "@/constants/exploreRankingConfig";
 import { PUBLIC_SCORE_SCALE_NOTE } from "./canonicalRipV7.mjs";
@@ -132,16 +133,15 @@ function TopChaseCell({ target, compact = false }) {
  * chase card rather than measuring set-level pull accessibility.
  */
 function ChaseAccessibilityCell({ target, compact = false }) {
-  const { primary, detail } = chaseAccessibilityDisplay(target?.setRipV1?.chaseAccessibility, {
-    setLabel: false,
-  });
-  if (primary === "Unavailable") {
+  const block = target?.setRipV1?.chaseAccessibility;
+  const publicScore = Number.isFinite(Number(block?.publicScore)) ? Number(block.publicScore) : null;
+  if (publicScore === null) {
     return <span className="text-[11px] font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>;
   }
   return (
     <span className={`flex flex-col ${compact ? "items-end" : "items-center"} leading-tight`}>
-      <span className="text-[13px] font-semibold text-[var(--text-primary)]">{primary}</span>
-      {detail ? <span className="mt-0.5 text-[10px] text-[var(--text-secondary)]">{detail}</span> : null}
+      <span className="text-[13px] font-semibold text-[var(--text-primary)]">{formatPublicRipScore(publicScore)} / 10</span>
+      {block?.setRank && block?.setCohortSize ? <span className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Set #{block.setRank} of {block.setCohortSize}</span> : null}
     </span>
   );
 }
@@ -908,16 +908,12 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                     ProductFamilyRankingsClient.jsx). Collector Appeal stays a
                     separate, ungrouped column.
                   */}
-                  <th scope="colgroup" colSpan={2} className="text-center" data-market-based-header title={MARKET_BASED_HELP}>
-                    Market-Based Opening Quality
-                  </th>
+                  <SortableHeader columnId="financial" label="Financial RIP" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} />
+                  <SortableHeader columnId="chaseAccessibility" label="Chase Accessibility" sort={sort} onSort={handleSort} note={sortNote} infoText={CHASE_ACCESSIBILITY_HELP} rowSpan={2} />
                   <SortableHeader columnId="collectorAppeal" label="Collector Appeal" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} />
                   <th scope="col" rowSpan={2}>Format Strength</th>
                 </tr>
-                <tr>
-                  <SortableHeader columnId="financial" label="Financial RIP" sort={sort} onSort={handleSort} note={sortNote} />
-                  <SortableHeader columnId="chaseAccessibility" label="Chase Accessibility" sort={sort} onSort={handleSort} note={sortNote} infoText={CHASE_ACCESSIBILITY_HELP} />
-                </tr>
+                <tr />
               </thead>
               <tbody>
                 {displayedTargets.map((target, index) => {
@@ -994,15 +990,12 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                         Appeal — same grouping the desktop grouped header
                         signals, using the same one-field-by-kind cells.
                       */}
-                      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[var(--border-subtle)] pt-2" title={MARKET_BASED_HELP}>
-                        <p className="col-span-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Market-Based Opening Quality</p>
+                      <div className="mt-2 grid grid-cols-3 gap-x-3 gap-y-2 border-t border-[var(--border-subtle)] pt-2">
                         <MobileScoreBlock target={target} modeId="financial" label="Financial RIP" />
                         <div data-chase-accessibility-mobile>
                           <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Chase Accessibility</div>
                           <div className="mt-0.5"><ChaseAccessibilityCell target={target} compact /></div>
                         </div>
-                      </div>
-                      <div className="mt-2 border-t border-[var(--border-subtle)] pt-2">
                         <MobileScoreBlock target={target} modeId={COLLECTOR_APPEAL_COLUMN} label="Collector Appeal" />
                       </div>
                       <p className="pt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Format Strength</p>

@@ -1,0 +1,67 @@
+{
+  "manifestVersion": "pokemon_collector_c2_6_readiness_v1",
+  "limitless": {
+    "sourceRunId": "9947aaf7-8647-484f-8c9c-2cec59792cdb",
+    "readyForC3A": true,
+    "unresolvedClassification": "canonical_coverage_gap",
+    "canonicalCoverageGap": {"sourceSet": "MEP", "observationCount": 11, "forcedMappings": 0}
+  },
+  "trainerSubjectBaseline": {
+    "classifierVersion": "trainer_title_denominator_v1",
+    "readyForC3A": true,
+    "allSupporterCards": 1164,
+    "uniqueNormalizedSupporterTitles": 454,
+    "oldNamedCandidateCards": 1033,
+    "explicitNamedSubjectCards": 865,
+    "resolvedExplicitNamedSubjectCards": 865,
+    "premiumExplicitNamedSubjectCards": 421,
+    "premiumResolved": 421,
+    "hitEligibleExplicitNamedSubjectCards": 451,
+    "hitEligibleResolved": 451,
+    "genericRoleOrClassCards": 234,
+    "variableCharacterGenericCards": 25,
+    "teamOrOrganizationCards": 39,
+    "manualReviewCards": 1
+  },
+  "artistCurrentInterest": {
+    "role": "artist_current_interest",
+    "classification": "experimental_auxiliary_signal",
+    "readyForIsolatedC3A": true,
+    "positiveOnly": true,
+    "zeroPenalty": false,
+    "missingPenalty": false,
+    "runs": {
+      "today12m": {
+        "sourceRunId": "1806d3a4-ae67-46fb-9e42-0bf64e7af6cb",
+        "retrievalCoverage": 1.0,
+        "observableSignalCoverage": 0.38333333333333336,
+        "confirmedZeroShare": 0.6166666666666667,
+        "missingOrFailedShare": 0.0,
+        "cardWeightedObservableSignalCoverage": 0.3839722353683546,
+        "anchorBridgeRatio": 0.049763028301953
+      },
+      "today5y": {
+        "sourceRunId": "25a9ffbf-5069-44eb-9939-643dc297326f",
+        "retrievalCoverage": 1.0,
+        "observableSignalCoverage": 0.7166666666666667,
+        "confirmedZeroShare": 0.2833333333333333,
+        "missingOrFailedShare": 0.0,
+        "cardWeightedObservableSignalCoverage": 0.5987274543829205,
+        "anchorBridgeRatio": 0.0411105588202307
+      }
+    },
+    "stability": {
+      "nonzeroBothHorizons": 23,
+      "spearmanRankCorrelationOnNonzeroIntersection": 0.8863636363636364,
+      "nonzeroZeroSwitchShare": 0.3333333333333333,
+      "topFiveScoreConcentration12m": 0.8366695809493894,
+      "topFiveScoreConcentration5y": 0.7082782067171121,
+      "queryPhraseSensitivity": "not_tested_single_disambiguated_template_only"
+    }
+  },
+  "artistRecognition": {
+    "enduringEvidenceReady": false,
+    "overallFactorReady": false,
+    "artistRecognitionEnabled": false
+  }
+}

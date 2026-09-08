@@ -220,3 +220,25 @@ def test_budget_below_one_unit_is_ineligible_not_zero_faked():
     assert by_id["p2"]["quantity"] == 0
     assert by_id["p2"]["oBudget"] is None
     assert by_id["p2"]["oBudgetStatus"] == "unavailable_budget_below_one_unit"
+
+
+def test_loose_pack_budget_uses_whole_units_and_preserves_remainder():
+    client, cohort = _three_product_two_set_fixture()
+    cohort[0]["product_market_cost"] = 13.17
+    cohort[0]["random_pack_count"] = 1
+    result = resolve_product_chase_access(client, [cohort[0]], budget=100.0)
+    row = result["products"][0]
+    assert row["quantity"] == 7
+    assert row["actualCommittedCapital"] == 92.19
+    assert row["unusedCapital"] == pytest.approx(7.81)
+    assert row["oBudgetStatus"] != "unavailable_budget_below_one_unit"
+
+
+def test_explicit_zero_random_pack_count_is_not_replaced_by_pack_count():
+    client, cohort = _three_product_two_set_fixture()
+    cohort[0]["random_pack_count"] = 0
+    cohort[0]["pack_count"] = 1
+    row = resolve_product_chase_access(client, [cohort[0]], budget=100.0)["products"][0]
+    assert row["randomPackCount"] == 0
+    assert row["effectivePackCost"] is None
+    assert row["oBudget"] is None

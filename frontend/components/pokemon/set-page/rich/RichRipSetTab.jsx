@@ -19,6 +19,7 @@ export default function RichRipSetTab({
   productImage,
   initialProductId,
   familyFilter,
+  chaseAccessibilityPresentation,
 }) {
   const {
     rankContextState,
@@ -76,6 +77,7 @@ export default function RichRipSetTab({
       onAdvancedRetry={() => loadAdvanced({ force: true })}
       initialProductId={initialProductId}
       familyFilter={familyFilter}
+      chaseAccessibilityPresentation={chaseAccessibilityPresentation}
     />
   );
 }

@@ -10,13 +10,7 @@ import RankBadge from "@/components/ui/RankBadge";
 import RipScoreSurface from "@/components/explore/RipScoreSurface.jsx";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { publicLeaderScoreTier } from "@/components/explore/ripTierPresentation.mjs";
-import OverallRipExplanationHierarchy from "@/components/explore/OverallRipExplanationHierarchy";
 import { selectChaseAccessibilityPresentation } from "@/components/explore/chaseAccessibilityPresentationSelector.mjs";
-import {
-  MARKET_BASED_LABEL,
-  MARKET_BASED_PUBLIC_QUESTION,
-  MARKET_BASED_EXPLANATORY_NOTE,
-} from "@/components/explore/overallRipExplanationHierarchySelector.mjs";
 import {
   finite,
   formatStrength,
@@ -146,8 +140,8 @@ function ChaseAccessibilityCard({ chase }) {
         </span>
       </div>
       <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">{chase.publicQuestion}</p>
-      <dd className="mt-3 text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-        {chase.available ? formatChasePercent(chase.displayAccessibility) : "Unavailable"}
+      <dd className="mt-3 text-right text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+        {chase.publicScore === null ? "Unavailable" : <>{formatPublicRipScore(chase.publicScore)} <span className="text-xs text-[var(--text-secondary)]">/10</span></>}
       </dd>
       {!chase.available ? (
         <p className="mt-2 text-xs text-[var(--text-secondary)]">
@@ -155,9 +149,7 @@ function ChaseAccessibilityCard({ chase }) {
         </p>
       ) : (
         <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
-          Context — not an additional scoring input.
-          {chase.chaseDepthAvailable ? ` Chase Depth ${chase.chaseDepth.toFixed(2)}.` : ""}
-          {chase.mappedHcMassAvailable ? ` Mapped coverage ${formatChasePercent(chase.mappedHcMass)}.` : ""}
+          {chase.rank && chase.cohortSize ? `Set rank #${chase.rank} of ${chase.cohortSize}.` : "Parent-set rank unavailable."}
         </p>
       )}
     </div>
@@ -226,37 +218,15 @@ export function ProductRipSection({ detail }) {
           </div>
         </ScoreCard>
       </dl>
-      {/* ONE shared, version-aware Overall RIP explanation. Renders the V10
-          90/10 explanation from this product's own persisted V10 ranking
-          when no V12 contract data is present, or the V12 86/4/10 explanation
-          when `rip.publicRipContractV11` carries it - the SAME component
-          Set RIP / Set Analysis already use, never a second implementation
-          or a hardcoded formula string here. Overall RIP V12 is now the
-          canonical Overall RIP model. */}
       <div data-product-rip-formula className="my-3">
-        <OverallRipExplanationHierarchy sources={[rip]} />
+        <p className="text-sm text-[var(--text-secondary)]">Overall RIP considers financial outcomes, chase accessibility, and collector appeal.</p>
       </div>
-      {/* MARKET-BASED OPENING QUALITY (Phase 6/7/8) — the same locked
-          explanatory grouping Set RIP renders: Financial RIP (this exact
-          product) + Chase Accessibility (inherited from the parent set,
-          identical across every product of the same set/run). Never an
-          independent third pillar, never persisted as its own score - see
-          `MARKET_BASED_EXPLANATORY_NOTE`. */}
       <section
-        data-market-based-opening-quality="compact"
-        aria-label={MARKET_BASED_LABEL}
-        className="mt-1 rounded-2xl border border-[var(--border-subtle)] bg-white/[.02] p-4 sm:p-5"
+        data-three-pillar-summary="product"
+        aria-label="Product RIP supporting scores"
+        className="mt-1"
       >
-        <p className="text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-primary)]">
-          {MARKET_BASED_LABEL}
-        </p>
-        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-          {MARKET_BASED_PUBLIC_QUESTION}
-        </p>
-        <p className="mt-1 text-[10px] italic text-[var(--text-secondary)]">
-          {MARKET_BASED_EXPLANATORY_NOTE}
-        </p>
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        <dl className="mt-3 grid auto-rows-fr gap-3 sm:grid-cols-3">
           <div
             data-product-rip-score="financial-rip"
             className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.38)] p-4 sm:p-5"
@@ -288,22 +258,9 @@ export function ProductRipSection({ detail }) {
             </dd>
           </div>
           <ChaseAccessibilityCard chase={chase} />
+          <ScoreCard label="Collector Appeal" value={rip.collectorAppealScore} tier={collectorTier} info="Collector Appeal reflects the collector-facing appeal of the product's parent set."><p className="mt-3 text-[11px] text-[var(--text-secondary)]"><span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 font-semibold uppercase tracking-[.06em]">Parent set</span></p></ScoreCard>
         </dl>
       </section>
-      <dl className="mt-3 grid gap-3">
-        <ScoreCard
-          label="Collector Appeal"
-          value={rip.collectorAppealScore}
-          tier={collectorTier}
-          info="Collector Appeal reflects the collector-facing appeal of the product's parent set. It is not recalculated simply because this product contains more packs."
-        >
-          <p className="mt-3 text-[11px] text-[var(--text-secondary)]">
-            <span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 font-semibold uppercase tracking-[.06em]">
-              Parent set
-            </span>
-          </p>
-        </ScoreCard>
-      </dl>
     </section>
   );
 }

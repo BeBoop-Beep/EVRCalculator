@@ -228,6 +228,7 @@
    Collector Appeal. Market-Based never renders its own score/rank/tier — it
    is a visual container for its two real children. */
 .overallScoreRow { display: flex; justify-content: center; margin-top: .9rem; }
+.pillarCardRow { display:grid; min-width:0; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; margin-top:.75rem; align-items:stretch; }
 .marketBasedRow { display: grid; min-width: 0; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: .75rem; margin-top: .75rem; align-items: stretch; }
 .marketBasedGroup { display: flex; min-width: 0; flex-direction: column; gap: .6rem; border: 1px solid var(--border-subtle); border-radius: .875rem; background: rgba(2,8,23,.32); padding: .85rem .85rem .95rem; }
 .marketBasedGroupLabel { display: flex; align-items: center; gap: .4rem; color: var(--text-primary); font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
@@ -242,6 +243,7 @@
 .chaseAccessDiagnosticNote { margin: 0; color: var(--text-secondary); font-size: .68rem; line-height: 1.4; font-style: italic; }
 
 @media (max-width: 640px) {
+  .pillarCardRow { grid-template-columns:minmax(0,1fr); }
   .marketBasedRow { grid-template-columns: minmax(0,1fr); }
 }
 

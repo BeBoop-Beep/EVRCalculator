@@ -12,11 +12,7 @@ import {
 } from "./financialRipV3Selector.mjs";
 import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
-import MarketBasedOpeningQualityBreakdown from "./MarketBasedOpeningQualityBreakdown.jsx";
-import {
-  MARKET_BASED_LABEL,
-  MARKET_BASED_PUBLIC_QUESTION,
-} from "./overallRipExplanationHierarchySelector.mjs";
+import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import RipDistributionChart from "./RipDistributionChart";
 import SimulationFullReport, {
   SimulationDiagnostics,
@@ -146,26 +142,13 @@ function ScoreSurface({
       className={`${styles.scoreSurface} ${prominent ? styles.scoreSurfaceOverall : ""}`}
     >
       <div className={styles.scoreContent}>
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">
-          <IconCue name={metric.icon} />
-          {metric.label}
-          <Help
-            text={metric.help}
-            href={metric.href}
-            label={`How ${metric.label} works`}
-          />
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]"><IconCue name={metric.icon} />{metric.label}<Help text={metric.help} href={metric.href} label={`How ${metric.label} works`} /></div>
+          <p className={`${prominent ? "text-4xl" : "text-3xl"} flex-none text-right font-semibold leading-none tabular-nums text-[var(--text-primary)]`}>
+            {score(metric.score)}{metric.score === null ? null : <span className="ml-1 text-xs text-[var(--text-secondary)]">/10</span>}
+          </p>
         </div>
         <div className={styles.scoreFacts}>
-          <p
-            className={`${prominent ? "text-4xl" : "text-3xl"} font-semibold leading-none tabular-nums text-[var(--text-primary)]`}
-          >
-            {score(metric.score)}
-            {metric.score === null ? null : (
-              <span className="ml-1 text-xs text-[var(--text-secondary)]">
-                /10
-              </span>
-            )}
-          </p>
           <p className="text-xs tabular-nums text-[var(--text-secondary)]">
             {rank(metric.rank, metric.cohortSize)}
           </p>
@@ -209,19 +192,10 @@ function ScoreSurface({
 function ChaseAccessibilitySnapshotCard({ chase, onActivate }) {
   return (
     <div data-chase-accessibility-snapshot className={styles.chaseAccessSummary}>
-      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">
-        <IconCue name="trend" />
-        {chase.label}
-      </div>
+      <div className="flex min-w-0 items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]"><IconCue name="trend" />{chase.label}</div><span className={styles.chaseAccessMetricValue}>{chase.publicScore === null ? "—" : <>{score(chase.publicScore)} <small>/10</small></>}</span></div>
       {chase.available ? (
         <>
-          <div className={styles.chaseAccessMetricRow}>
-            <span className={styles.chaseAccessMetricValue}>
-              {chase.displayAccessibility === null
-                ? "—"
-                : `${chase.displayAccessibility.toFixed(2)}%`}
-            </span>
-          </div>
+          <p className="text-xs tabular-nums text-[var(--text-secondary)]">{rank(chase.rank, chase.cohortSize)}</p>
           <p className="text-xs text-[var(--text-secondary)]">
             {chase.publicQuestion}
           </p>
@@ -233,7 +207,7 @@ function ChaseAccessibilitySnapshotCard({ chase, onActivate }) {
         </p>
       )}
       <button type="button" onClick={onActivate} className={styles.chaseAccessCta}>
-        View Market-Based breakdown
+        View Chase Accessibility breakdown
         <span aria-hidden="true">→</span>
       </button>
     </div>
@@ -908,6 +882,7 @@ export default function RipDecisionPage({
   rankContextError = null,
   onRankContextRetry = null,
   canViewProductRipIntelligence = false,
+  chaseAccessibilityPresentation = null,
 }) {
   const [overallOpen, setOverallOpen] = useState(false);
   const [financialDeepDiveOpen, setFinancialDeepDiveOpen] = useState(false);
@@ -941,6 +916,7 @@ export default function RipDecisionPage({
   const model = buildRipDecisionModel({
     canonical,
     summary,
+    chaseAccessibilityPresentation,
   });
   const analyticalCanonical = useMemo(() => advancedEvidence ? {
     publicRipContractV10: {
@@ -1045,7 +1021,7 @@ export default function RipDecisionPage({
       score: model.financial.publicScore,
       rank: model.financial.rank,
       cohortSize: model.financial.cohortSize,
-      cta: "View Market-Based breakdown",
+      cta: "View Financial RIP breakdown",
       href: "/Articles/how-financial-rip-works",
       help: "Opening economics across typical outcomes, losses, upside, and efficiency.",
     },
@@ -1129,36 +1105,12 @@ export default function RipDecisionPage({
             id="overall-rip-explanation"
             className={styles.overallDisclosure}
           >
-            Overall RIP combines Market-Based Opening Quality with Collector
-            Appeal.
+            Overall RIP considers financial outcomes, chase accessibility, and collector appeal.
           </div>
         ) : null}
-        <div className={styles.marketBasedRow}>
-          <div
-            data-market-based-summary-group
-            role="group"
-            aria-label={MARKET_BASED_LABEL}
-            className={styles.marketBasedGroup}
-          >
-            <p className={styles.marketBasedGroupLabel}>
-              <IconCue name="shield" />
-              {MARKET_BASED_LABEL}
-            </p>
-            <p className={styles.marketBasedGroupNote}>
-              {MARKET_BASED_PUBLIC_QUESTION} Explanatory grouping only — never
-              its own persisted score.
-            </p>
-            <div className={styles.marketBasedChildren}>
-              <ScoreSurface
-                metric={metrics.financial}
-                onActivate={() => scrollToSection("set-detail-market-based")}
-              />
-              <ChaseAccessibilitySnapshotCard
-                chase={model.chaseAccessibility}
-                onActivate={() => scrollToSection("set-detail-market-based")}
-              />
-            </div>
-          </div>
+        <div className={styles.pillarCardRow} data-three-pillar-summary>
+          <ScoreSurface metric={metrics.financial} onActivate={() => scrollToSection("set-detail-financial-rip")} />
+          <ChaseAccessibilitySnapshotCard chase={model.chaseAccessibility} onActivate={() => scrollToSection("set-detail-chase-accessibility")} />
           <ScoreSurface
             metric={metrics.collector}
             onActivate={() => scrollToSection("set-detail-collector-appeal")}
@@ -1592,8 +1544,7 @@ export default function RipDecisionPage({
             <strong>Advanced research with Index Plus</strong>
             <p>
               Unlock EV composition, opening break-even analytics, downside and
-              tail diagnostics, plus Market-Based Opening Quality and Collector Appeal factor
-              breakdowns.
+              tail diagnostics, plus Financial RIP, Chase Accessibility, and Collector Appeal breakdowns.
             </p>
             <a href="/terms">Index Plus is not yet available</a>
           </div>
@@ -1648,22 +1599,16 @@ export default function RipDecisionPage({
             </DeepDiveRow>
 
             <div
-              id="set-detail-market-based"
+              id="set-detail-financial-rip"
               tabIndex={-1}
               data-rip-section="financial-explanation"
-              data-rip-section-alt="market-based-explanation"
               className="scroll-mt-24 md:scroll-mt-28"
             >
               <DeepDiveRow
                 id="deep-dive-financial-rip"
-                title={`${MARKET_BASED_LABEL} — Financial RIP details (${score(model.financial.publicScore)})`}
+                title={`Financial RIP Breakdown — ${score(model.financial.publicScore)}`}
                 defaultOpen={financialDeepDiveOpen}
               >
-                <p className="text-sm text-[var(--text-secondary)]">
-                  {MARKET_BASED_LABEL} combines the modeled financial profile
-                  of opening this set with how reachable its most important
-                  collectible value is.
-                </p>
                 <SectionMeta metric={model.financial} />
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
                   Six dimensions explain this set&apos;s modeled opening
@@ -1671,13 +1616,17 @@ export default function RipDecisionPage({
                 </p>
                 <FinancialDriverSummary drivers={financialDrivers} />
                 <div className="mt-3">
-                  <MarketBasedOpeningQualityBreakdown
-                    canonical={analyticalCanonical}
-                    sources={[analyticalCanonical, canonical]}
-                    depth="full"
-                    requestTimeout={false}
-                  />
+                  <FinancialRipV3Breakdown canonical={analyticalCanonical} requestTimeout={false} />
                 </div>
+              </DeepDiveRow>
+            </div>
+
+            <div id="set-detail-chase-accessibility" tabIndex={-1} data-rip-section="chase-accessibility-explanation" className="scroll-mt-24 md:scroll-mt-28">
+              <DeepDiveRow id="deep-dive-chase-accessibility" title={`Chase Accessibility Breakdown — ${score(model.chaseAccessibility.publicScore)}`}>
+                <SectionMeta metric={{ publicScore: model.chaseAccessibility.publicScore, rank: model.chaseAccessibility.rank, cohortSize: model.chaseAccessibility.cohortSize, tier: null }} />
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">{model.chaseAccessibility.publicQuestion}</p>
+                {model.chaseAccessibility.displayAccessibility !== null ? <p className="mt-3 text-sm"><strong>Raw Accessibility:</strong> {model.chaseAccessibility.displayAccessibility.toFixed(2)}%</p> : null}
+                {(model.chaseAccessibility.chaseDepthAvailable || model.chaseAccessibility.mappedHcMassAvailable) ? <details className="mt-3 rounded-xl border border-[var(--border-subtle)] p-3"><summary className="cursor-pointer font-semibold">Diagnostic context</summary>{model.chaseAccessibility.chaseDepthAvailable ? <p className="mt-2 text-sm">Chase Depth: {model.chaseAccessibility.chaseDepth.toFixed(2)}</p> : null}{model.chaseAccessibility.mappedHcMassAvailable ? <p className="mt-1 text-sm">Mapped coverage: {(model.chaseAccessibility.mappedHcMass * 100).toFixed(1)}%</p> : null}</details> : null}
               </DeepDiveRow>
             </div>
 

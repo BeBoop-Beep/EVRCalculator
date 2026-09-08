@@ -141,11 +141,13 @@ function buildMarketBasedGrouping({ financial, chaseAccessibility }) {
   };
 }
 
-export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumptions = null } = {}) {
+export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumptions = null, chaseAccessibilityPresentation = null } = {}) {
   const overall = readCanonicalBlock(canonical?.overall);
   const financial = readCanonicalBlock(canonical?.financialRip);
   const collector = readCanonicalBlock(canonical?.collectorAppeal);
-  const chaseAccessibility = selectChaseAccessibilityPresentation(canonical);
+  const chaseAccessibility = selectChaseAccessibilityPresentation(
+    { chaseAccessibility: chaseAccessibilityPresentation }, canonical,
+  );
   const marketBased = buildMarketBasedGrouping({ financial, chaseAccessibility });
   const packCost = number(summary.pack_cost);
   const expectedValue = number(summary.mean_value);

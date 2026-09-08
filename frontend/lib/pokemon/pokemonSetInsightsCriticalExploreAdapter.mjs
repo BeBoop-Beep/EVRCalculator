@@ -34,6 +34,7 @@ export function adaptCriticalInsightsToExplorePayload(critical) {
     overallRipV12: critical?.overallRipV12 || null,
     overallRipV12Composition: critical?.overallRipV12Composition || null,
     publicRipContractV11: critical?.publicRipContractV11 || null,
+    chaseAccessibilityPresentation: critical?.chaseAccessibilityPresentation || null,
     // Chase Accessibility V1. Independent of every RIP block above; carried
     // verbatim including null/status so an unsupported/insufficient-coverage
     // set never renders as a measured 0%.

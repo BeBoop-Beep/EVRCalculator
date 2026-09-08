@@ -1,0 +1,49 @@
+{
+  "scoringVersion": "collector_c3a_component_research_v1",
+  "status": "research_shadow",
+  "formulaFingerprint": "49276d2c3c36a0706627552675a3425e7bf3812fc8fcaed192ecb2c228f75f5f",
+  "sourceRuns": {
+    "trainerTrends272": "a0d52164-f6a5-4016-8b1b-8f01740db5f9",
+    "trainerTrends52Repeat": "4f1fdb9d-863c-430c-a9ff-ddef0966155d",
+    "officialTrainerPoll": "3953772b-ce72-4e8c-9848-4973047ede6c",
+    "limitlessPlayability": "9947aaf7-8647-484f-8c9c-2cec59792cdb",
+    "artistTrends12m": "1806d3a4-ae67-46fb-9e42-0bf64e7af6cb",
+    "artistTrends5y": "25a9ffbf-5069-44eb-9939-643dc297326f"
+  },
+  "trainerAppeal": {
+    "recommendedResearchCandidate": "A_trends_only_log_positive_percentile",
+    "pollPolicy": "sensitivity annotation only; missing poll is not zero",
+    "pollContext": "Preference among eligible Pokemon Masters EX Sync Pairs for a 6-star EX upgrade, not universal Trainer popularity.",
+    "pollRepresentedEntities": 7,
+    "repeatCaptureRankStability": 0.984421914340725,
+    "directPollBlendMaxRankMovement": 15.93915343915343,
+    "shrunkenPollMaxRankMovement": 2.066186556927292,
+    "recommendedDistribution": {"count":272,"min":0.0,"p10":0.0,"p25":6.944444444444445,"median":36.80555555555556,"p75":68.28703703703704,"p90":87.03703703703704,"p95":93.51851851851852,"max":100.0,"mean":39.88970588235295}
+  },
+  "playability": {
+    "recommendedResearchCandidate": "C_confidence_shrunk_B",
+    "functionalUniverse": 14965,
+    "functionsWithEvidence": 791,
+    "unknownShare": 0.9471433344470431,
+    "candidateRankStability": {"A_vs_B":0.9913536301743544,"B_vs_C":0.9930167431425492,"B_vsEqualEvent":0.99594829392517,"B_vs30DayRecency":0.9947404950038172,"largestEventRemoved":0.992206418040155},
+    "copiesVsInclusionRankCorrelation": 0.05965784551311439,
+    "confidencePolicy": {"knownMinimum":"at least 3 events or 20 using decks","belowMinimum":"unknown/insufficient","negativePenalty":false},
+    "temporalPolicy": "Store 30-day momentum and 90-day stability separately after sufficient longitudinal runs.",
+    "limitations": ["Archetype breadth and HHI are unavailable from accepted aggregate event-card observations.","Deeper-than-Top-32 performance is unavailable.","One capture cannot validate biweekly temporal stability."]
+  },
+  "artistCurrentInterest": {
+    "classification": "experimental_auxiliary_signal",
+    "recommendation": "defer_from_V1_keep_research_only",
+    "horizonRankStability": 0.7683298636186419,
+    "zeroNonzeroSwitchShare": 0.3333333333333333,
+    "candidateTransform": "positive-only percentile after saturation; 40-percent 12m plus 60-percent 5y tested only in shadow",
+    "failureCases": ["Entity/query named 'match' ranks near the top and is semantically ambiguous.","Top-five concentration and horizon switching remain high."],
+    "artistRecognitionEnabled": false
+  },
+  "c3bReadiness": {
+    "trainerAppeal": "ready_for_component_candidate_freeze_after_horizon_limitation_acceptance",
+    "playability": "ready_for_component_candidate_freeze_with_confidence_policy",
+    "artistCurrentInterest": "not_ready_for_v1_positive_lift",
+    "overallArtistRecognition": "blocked"
+  }
+}

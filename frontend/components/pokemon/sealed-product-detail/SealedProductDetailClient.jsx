@@ -12,13 +12,18 @@ import { ProductOpeningProfile, ProductRipLock, ProductRipSection } from "./Prod
 import ProductChaseIntelligenceSection, { ProductChaseIntelligenceLock } from "./ProductChaseIntelligenceSection";
 import { buildProductParentSetHref, finite, selectSetEvRealizationHeadline } from "./productDetailModel.mjs";
 import EvRealizationCard from "../../explore/EvRealizationCard.jsx";
+import { resolveLooseBoosterPackArtwork } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
 
 const dateLabel = (value) => value ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(value).slice(0, 10)}T00:00:00Z`)) : "Unavailable";
 
-function ProductVisual({ product }) {
+export function ProductVisual({ product, set }) {
+  const loosePack = product.productFamily === "loose_booster_pack" || product.productFamily === "booster_pack";
+  const artwork = loosePack
+    ? resolveLooseBoosterPackArtwork({ productImageUrl: product.imageUrl, setCanonicalKey: set?.canonicalKey ?? set?.canonical_key })
+    : (product.imageUrl ? { src: product.imageUrl, source: "product" } : null);
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [product.imageUrl]);
-  if (product.imageUrl && !failed) return <img data-product-image src={product.imageUrl} alt={`${product.name} sealed product`} onError={() => setFailed(true)} className="h-full max-h-[390px] w-full object-contain drop-shadow-[0_24px_40px_rgba(0,0,0,.5)]" />;
+  useEffect(() => setFailed(false), [product.id, artwork?.src]);
+  if (artwork?.src && !failed) return <img data-product-image data-product-image-source={artwork.source} src={artwork.src} alt={`${product.name} sealed product`} onError={() => setFailed(true)} className="h-full max-h-[390px] w-full object-contain drop-shadow-[0_24px_40px_rgba(0,0,0,.5)]" />;
   return <div data-product-image-placeholder role="img" aria-label="Product image unavailable" className="flex h-full min-h-[280px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[linear-gradient(145deg,rgba(255,255,255,.04),rgba(2,8,23,.24))] px-6 text-center"><span aria-hidden="true" className="relative h-32 w-24 rounded-xl border border-white/15 bg-[linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.015))] shadow-[14px_10px_0_rgba(255,255,255,.025),0_24px_40px_rgba(0,0,0,.35)]"><span className="absolute inset-x-4 top-5 h-px bg-white/15" /><span className="absolute inset-x-5 bottom-6 h-10 rounded border border-white/10" /></span><strong className="mt-5 text-sm font-semibold">Product image unavailable</strong><span className="mt-1 text-xs text-[var(--text-secondary)]">Image coming soon</span></div>;
 }
 
@@ -39,7 +44,7 @@ export default function SealedProductDetailClient({ initialDetail }) {
         <section data-product-detail-hero className="grid gap-4 md:grid-cols-[minmax(260px,36%)_minmax(0,1fr)] md:items-stretch lg:gap-7">
           <div className="order-1 flex min-w-0 md:h-full md:min-h-0"><div className="grid h-full min-h-0 w-full gap-4 md:grid-rows-[auto_minmax(0,1fr)]">
             <header data-product-identity className="min-w-0 text-left"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">{detail.set.name}</p><h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{detail.product.name}</h1><p className="mt-1.5 text-sm text-[var(--text-secondary)]">{detail.product.productFamilyLabel}{packCount ? ` · ${packCount} ${packCount === 1 ? "Pack" : "Packs"}` : ""}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{detail.market.marketDate ? `Market Price As Of ${dateLabel(detail.market.marketDate)}` : "Market Price Date Unavailable"}</p></header>
-            <div data-product-visual-frame className="flex min-h-[280px] w-full items-center justify-center md:min-h-0 md:items-end"><ProductVisual product={detail.product} /></div>
+            <div data-product-visual-frame className="flex min-h-[280px] w-full items-center justify-center md:min-h-0 md:items-end"><ProductVisual product={detail.product} set={detail.set} /></div>
           </div></div>
           <div className="order-2 min-w-0 md:h-full"><SealedProductMarketPanel market={detail.market} productName={detail.product.name} /></div>
         </section>
