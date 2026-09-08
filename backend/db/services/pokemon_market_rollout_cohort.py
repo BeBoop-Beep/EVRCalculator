@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
+from backend.domain.pokemon.market_index import MARKET_INDEX_METHODOLOGY_VERSION
 
 # Historical public Market rollout authority. It remains the source of truth for
 # dates before the canonical global-market cutover so already-published history
@@ -11,14 +12,15 @@ ROLLOUT_VIEW = "pokemon_market_public_rollout_root_sets_v1"
 
 # Current canonical Market-domain authorities created by the Set Value / Top-10
 # certification work. These are deliberately independent of RIP/opening
-# eligibility and are the one root universe for Set Market, Raw/Top-10 Market,
-# and the eligible Sealed root universe after the controlled cutover.
+# eligibility and are the basis for the one root universe shared by Set Market,
+# Raw/Top-10 Market, and the eligible Sealed root universe after the cutover.
 MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
 MARKET_CERTIFICATION_VIEW = "pokemon_market_root_set_publication_current_certification_v1"
+MARKET_INDEX_HISTORY_TABLE = "pokemon_market_index_daily_history"
 
-# Sep 8 was already published with the staged 39-root basket. Never rewrite it.
-# The next market date uses the canonical 106-root authority and chain-links
-# through the common prior cohort.
+# Sep 8 was already published with the staged headline basket. Never rewrite it.
+# The next market date resolves the canonical authority and chain-links through
+# the common prior cohort.
 MARKET_ROOT_AUTHORITY_CUTOVER_DATE = "2026-09-09"
 
 _CORE_SET_COLUMNS = (
@@ -104,36 +106,103 @@ def _legacy_market_root_cohort(client: Any, *, market_date: str | None = None) -
     )
 
 
+def _latest_persisted_root_ids(client: Any, *, before_date: str | None) -> set[str]:
+    """Root identities in the immediately preceding persisted Raw basket.
+
+    This continuity seed is Market history, not RIP eligibility. It prevents a
+    post-cutover authority view from silently deleting a structurally valid root
+    merely because same-day freshness policy differs between current and rollout
+    rows.
+    """
+    if not before_date:
+        return set()
+    rows = list(
+        client.table(MARKET_INDEX_HISTORY_TABLE)
+        .select("constituents_json,market_date")
+        .eq("tcg", "pokemon")
+        .eq("methodology_version", MARKET_INDEX_METHODOLOGY_VERSION)
+        .eq("index_key", "raw")
+        .lt("market_date", str(before_date)[:10])
+        .order("market_date", desc=True)
+        .limit(1)
+        .execute().data or []
+    )
+    if not rows:
+        return set()
+    return {
+        str(item.get("setId") or item.get("set_id"))
+        for item in (rows[0].get("constituents_json") or [])
+        if item.get("setId") or item.get("set_id")
+    }
+
+
+def _load_set_metadata(client: Any, set_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+    ids = sorted({str(value) for value in set_ids if value})
+    if not ids:
+        return {}
+    rows: list[dict[str, Any]] = []
+    for offset in range(0, len(ids), 100):
+        rows.extend(
+            dict(row)
+            for row in (
+                client.table("sets")
+                .select(
+                    "id,name,canonical_key,era_id,release_date,logo_image_url,"
+                    "symbol_image_url,catalog_only,parent_opening_set_id"
+                )
+                .in_("id", ids[offset:offset + 100])
+                .execute().data or []
+            )
+        )
+    era_ids = sorted({str(row.get("era_id")) for row in rows if row.get("era_id")})
+    era_names = {
+        str(row.get("id")): str(row.get("name") or "")
+        for row in (
+            client.table("eras").select("id,name").in_("id", era_ids).execute().data or []
+        )
+    } if era_ids else {}
+    return {
+        str(row["id"]): {**row, "era": era_names.get(str(row.get("era_id")))}
+        for row in rows
+        if row.get("id")
+    }
+
+
 def _canonical_market_root_cohort(
     client: Any, *, market_date: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Canonical post-cutover roots, gated on Standard + Top-10 structure.
+    """Post-cutover roots gated on Standard + Top-10 structural correctness.
 
-    ``market_publication_ready`` intentionally permits a carried-forward last
-    trustworthy observation. Same-day price freshness remains visible
-    provenance, but it does not redefine the canonical root universe.
+    The canonical publication cohort supplies newly approved roots. The prior
+    persisted Raw basket supplies continuity candidates. A prior root continues
+    only while the current canonical certification still proves Standard Set
+    Value + canonical Top 10 and the set remains a real root. This keeps trusted
+    last-known observations without allowing RIP/simulation eligibility to
+    define the Market universe.
     """
+    day = str(market_date)[:10] if market_date else None
     query = (
         client.table(MARKET_READY_VIEW)
         .select(
-            "set_id,set_name,canonical_key,era_id,era_name,release_date,"
-            "logo_image_url,symbol_image_url,market_scope,canonical_market_date,"
+            "set_id,set_name,canonical_key,era_name,release_date,logo_image_url,"
+            "symbol_image_url,market_scope,canonical_market_date,"
             "market_publication_ready,current_certification_status"
         )
         .eq("market_scope", "standard")
         .eq("market_publication_ready", True)
     )
-    if market_date:
-        query = query.eq("canonical_market_date", str(market_date)[:10])
+    if day:
+        query = query.eq("canonical_market_date", day)
     ready_rows = [dict(row) for row in (query.order("release_date").execute().data or [])]
-    ready_ids = sorted({str(row.get("set_id")) for row in ready_rows if row.get("set_id")})
+    ready_ids = {str(row.get("set_id")) for row in ready_rows if row.get("set_id")}
     if not ready_ids:
-        day = str(market_date)[:10] if market_date else "current"
-        raise RuntimeError(f"canonical Market root authority is empty for {day}")
+        raise RuntimeError(f"canonical Market root authority is empty for {day or 'current'}")
+
+    prior_ids = _latest_persisted_root_ids(client, before_date=day)
+    candidate_ids = sorted(ready_ids | prior_ids)
 
     certification_rows: list[dict[str, Any]] = []
-    for offset in range(0, len(ready_ids), 100):
-        batch = ready_ids[offset:offset + 100]
+    for offset in range(0, len(candidate_ids), 100):
         cert_query = (
             client.table(MARKET_CERTIFICATION_VIEW)
             .select(
@@ -142,10 +211,10 @@ def _canonical_market_root_cohort(
                 "current_market_scope_certified,current_certification_status"
             )
             .eq("market_scope", "standard")
-            .in_("set_id", batch)
+            .in_("set_id", candidate_ids[offset:offset + 100])
         )
-        if market_date:
-            cert_query = cert_query.eq("canonical_market_date", str(market_date)[:10])
+        if day:
+            cert_query = cert_query.eq("canonical_market_date", day)
         certification_rows.extend(dict(row) for row in (cert_query.execute().data or []))
 
     cert_by_id = {
@@ -153,46 +222,67 @@ def _canonical_market_root_cohort(
         for row in certification_rows
         if row.get("set_id")
     }
-    structurally_blocked = sorted(
-        set_id
-        for set_id in ready_ids
-        if set_id not in cert_by_id
-        or cert_by_id[set_id].get("set_value_certified") is not True
-        or cert_by_id[set_id].get("top10_certified") is not True
-        or cert_by_id[set_id].get("market_scope_certified") is not True
-    )
-    if structurally_blocked:
-        raise RuntimeError(
-            "canonical Market authority failed Standard + Top-10 certification "
-            f"for {len(structurally_blocked)} root(s): {structurally_blocked[:5]}"
+    metadata_by_id = _load_set_metadata(client, candidate_ids)
+
+    def structurally_certified(set_id: str) -> bool:
+        cert = cert_by_id.get(set_id) or {}
+        meta = metadata_by_id.get(set_id) or {}
+        return (
+            cert.get("set_value_certified") is True
+            and cert.get("top10_certified") is True
+            and cert.get("market_scope_certified") is True
+            and meta.get("catalog_only") is not True
+            and not meta.get("parent_opening_set_id")
         )
 
-    by_id = {str(row["set_id"]): row for row in ready_rows if row.get("set_id")}
-    return sorted(
-        [
-            {
-                "id": set_id,
-                "name": by_id[set_id].get("set_name"),
-                "canonical_key": by_id[set_id].get("canonical_key"),
-                "era_id": by_id[set_id].get("era_id"),
-                "era": by_id[set_id].get("era_name"),
-                "release_date": by_id[set_id].get("release_date"),
-                "logo_image_url": by_id[set_id].get("logo_image_url"),
-                "symbol_image_url": by_id[set_id].get("symbol_image_url"),
-                "market_publication_ready": True,
-                "market_structural_certified": True,
-                "market_price_freshness_certified": bool(
-                    cert_by_id[set_id].get("price_freshness_certified")
-                ),
-                "market_current_certification_status": cert_by_id[set_id].get(
-                    "current_certification_status"
-                ),
-                "canonical_market_date": by_id[set_id].get("canonical_market_date"),
-            }
-            for set_id in ready_ids
-        ],
-        key=lambda row: str(row.get("id") or ""),
-    )
+    blocked_ready = sorted(set_id for set_id in ready_ids if not structurally_certified(set_id))
+    if blocked_ready:
+        raise RuntimeError(
+            "canonical Market authority failed Standard + Top-10 certification "
+            f"for {len(blocked_ready)} approved root(s): {blocked_ready[:5]}"
+        )
+
+    continued_ids = {
+        set_id for set_id in (prior_ids - ready_ids) if structurally_certified(set_id)
+    }
+    final_ids = sorted(ready_ids | continued_ids)
+
+    ready_by_id = {
+        str(row["set_id"]): row for row in ready_rows if row.get("set_id")
+    }
+    return [
+        {
+            "id": set_id,
+            "name": (ready_by_id.get(set_id) or {}).get("set_name")
+                    or (metadata_by_id.get(set_id) or {}).get("name"),
+            "canonical_key": (ready_by_id.get(set_id) or {}).get("canonical_key")
+                             or (metadata_by_id.get(set_id) or {}).get("canonical_key"),
+            "era_id": (metadata_by_id.get(set_id) or {}).get("era_id"),
+            "era": (ready_by_id.get(set_id) or {}).get("era_name")
+                   or (metadata_by_id.get(set_id) or {}).get("era"),
+            "release_date": (ready_by_id.get(set_id) or {}).get("release_date")
+                            or (metadata_by_id.get(set_id) or {}).get("release_date"),
+            "logo_image_url": (ready_by_id.get(set_id) or {}).get("logo_image_url")
+                              or (metadata_by_id.get(set_id) or {}).get("logo_image_url"),
+            "symbol_image_url": (ready_by_id.get(set_id) or {}).get("symbol_image_url")
+                                or (metadata_by_id.get(set_id) or {}).get("symbol_image_url"),
+            "market_publication_ready": set_id in ready_ids,
+            "market_continuity_carried": set_id in continued_ids,
+            "market_structural_certified": True,
+            "market_price_freshness_certified": bool(
+                (cert_by_id.get(set_id) or {}).get("price_freshness_certified")
+            ),
+            "market_current_certification_status": (
+                cert_by_id.get(set_id) or {}
+            ).get("current_certification_status"),
+            "canonical_market_date": (
+                ready_by_id.get(set_id) or {}
+            ).get("canonical_market_date") or (cert_by_id.get(set_id) or {}).get(
+                "canonical_market_date"
+            ),
+        }
+        for set_id in final_ids
+    ]
 
 
 def resolve_market_root_cohort(client: Any, *, market_date: str | None = None) -> list[dict[str, Any]]:
@@ -200,8 +290,8 @@ def resolve_market_root_cohort(client: Any, *, market_date: str | None = None) -
 
     Dates before 2026-09-09 reconstruct the exact staged basket that was
     actually published. The cutover date and every date after it resolve from
-    the canonical Market-domain Set Value + Top-10 authority, never from
-    ``supports_opening_simulation`` or RIP/public-analytics eligibility.
+    canonical Market certification plus structurally valid prior-basket
+    continuity, never from ``supports_opening_simulation`` or RIP eligibility.
     """
     if market_date and str(market_date)[:10] < MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
         return _legacy_market_root_cohort(client, market_date=market_date)
