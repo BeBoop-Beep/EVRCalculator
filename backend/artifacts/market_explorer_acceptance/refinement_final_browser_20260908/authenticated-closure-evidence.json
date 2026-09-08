@@ -1,0 +1,52 @@
+{
+  "auth": {
+    "status": 200,
+    "authenticated": true,
+    "plan": "plus"
+  },
+  "screens": {
+    "rarity-leaders": "results",
+    "momentum-leaders": "results",
+    "largest-drawdowns": "results",
+    "obtainable-market": "applied",
+    "intermediate-market": "applied",
+    "premium-market": "applied",
+    "new-release-market": "applied",
+    "established-market": "applied",
+    "sealed": [
+      "sealed-format-leaders",
+      "momentum-leaders",
+      "largest-drawdowns"
+    ]
+  },
+  "exact": {
+    "searchRequests": 1,
+    "resultCount": 20,
+    "distinctFirstFiveLabels": 5,
+    "selectedBeforeLock": 5,
+    "duplicatePrevented": true,
+    "keyboardRemove": true,
+    "buildDisabled": true,
+    "queryRequestsFromLockedBuild": 0
+  },
+  "lifecycle": {
+    "oneAxisBuildAttempted": true,
+    "oneAxisBuildStatus": 500,
+    "result": "blocked_before_active_instance_by_cache_publish_failure"
+  },
+  "keyboard": {},
+  "network": {
+    "optionsGets": 1,
+    "searchGets": 1,
+    "summaryPosts": 1,
+    "constituentPosts": 0,
+    "note": "Counts for the final isolated run; lifecycle stopped on the first failed summary build."
+  },
+  "constituents": {},
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  ],
+  "failures": [
+    "page.waitForFunction: Timeout 120000ms exceeded."
+  ]
+}

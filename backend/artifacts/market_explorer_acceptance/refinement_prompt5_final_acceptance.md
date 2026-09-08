@@ -157,11 +157,75 @@ Required paid-only screenshots (Exact search/selection/edit and paid Screens) co
 
 ## Y. Final decision
 
-`MARKET_EXPLORER_REFINEMENT_BROWSER_QA_BLOCKED`
+`MARKET_EXPLORER_REFINEMENT_AUTH_QA_BLOCKED`
 
-The personal-market foundation is source-ready and secure, and anonymous responsive browser review passed. The prompt explicitly forbids `COMPLETE` when authenticated browser acceptance cannot be performed.
+The personal-market foundation is source-ready and secure, responsive review passed, and authenticated Plus Screens/Exact-lock review now passes. A reproducible cache build/publish failure prevents the required custom-market lifecycle and query-constituent browser acceptance.
 
 ## Z. Commit SHA
 
 - Implementation and browser evidence: `85923a43`
 - Final report commit: populated by the enclosing git commit; use repository HEAD containing this file.
+
+## AA. Auth mechanism and safety
+
+- The user explicitly approved one local QA token for their own existing account.
+- The account resolved uniquely from the canonical `users` profile as real plan `plus`; no profile, subscription, or plan field was changed.
+- The token was minted with `backend.db.services.frontend_proxy_service.issue_token`, written only to a uniquely named OS-temp file, and used only against `127.0.0.1` local backend/frontend services.
+- Normal cookie authentication and all application/API authorization remained active. Local `/api/auth/me` returned 200 and Market Explorer rendered `Index Plus`.
+- The token value was never printed, serialized into evidence, included in screenshots, written to this report, or staged in git.
+
+## AB. Plus Screens browser QA
+
+- PASS in real Chromium with the authenticated Plus session.
+- Cards: Rarity Leaders, Momentum Leaders, Largest Drawdowns, Obtainable, Intermediate, Premium, New Release, and Established all acted immediately. Ranked Screens exposed results; template Screens visibly applied their definition.
+- “Top 10 in Selected Set” remained Premium-locked. No obsolete “Use in Market Builder” handoff appeared.
+- Sealed exposed only Sealed Format Leaders, Momentum Leaders, and Largest Drawdowns. Card-only Screens did not leak into the Sealed Builder.
+- Evidence: `16-auth-plus-cards-screens.png` and `17-auth-plus-sealed-screens.png`.
+
+## AC. Exact Items Plus-lock browser QA
+
+- Initial live QA exposed and fixed two narrow entitlement defects: the backend search endpoint incorrectly required Premium for discovery, while the frontend access mirror failed to classify explicit execution as Premium.
+- After the fix, authenticated `Charizard` discovery returned 20 canonical instruments with one debounced request and no catalog preload. The first five labels represented five distinguishable physical identities.
+- Keyboard Enter selected and removed items; the counter reached 5 of 25; duplicate selection was disabled; removal and reselection worked.
+- The Plus Build control remained disabled with a clear Index Premium message. The five selected items stayed visible and the attempted keyboard activation issued zero market query requests, so no accidental Global market was created.
+- Evidence: `18-auth-plus-exact-populated-lock.png` and `authenticated-closure-evidence.json`.
+
+## AD. Generic edit/update/save-as-new browser QA
+
+- BLOCKED before an active custom instance could be created.
+- A Plus-allowed one-axis Premium-price Screen definition reached the real summary endpoint and failed HTTP 500 after cache read/build transport errors.
+- A second, narrower one-axis definition (Raw Cards + Gym Challenge set) independently reached the real summary endpoint and failed HTTP 500 at `market_explorer_cache_publish_returned_false`.
+- Because no active query instance was returned, Edit → Update, Save as new, and Cancel could not be truthfully browser-tested. Prompt-3 automated lifecycle evidence remains green, but it cannot substitute for this explicitly required browser gate.
+
+## AE. Keyboard acceptance
+
+- PASS: disclosure controls, Cards/Sealed asset switch, Filters/Exact Items switch, search field, Enter-to-select, and selected-item removal had working keyboard interaction and visible focus treatment.
+- BLOCKED: active custom-market edit/remove/visibility keyboard traversal because the backend could not create the required one-axis market.
+
+## AF. Authenticated network acceptance
+
+- Final isolated run: one options GET, one debounced instrument-search GET, one summary query POST, zero constituent-page POSTs.
+- Screens themselves caused no duplicate market requests. Exact locked Build caused zero query POSTs.
+- The one summary POST failed in the existing cache publication path; therefore visibility/timeframe and edit lifecycle request invariants could not be exercised on a query-built instance.
+
+## AG. Constituent movement acceptance
+
+- Published maintained-market movement remains visible and covered by accepted source tests.
+- Query-sourced 1D/7D/30D/3M client-only switching and one-request paging are BLOCKED because both legitimate Plus one-axis builds failed before returning an active query series.
+
+## AH. Token cleanup proof
+
+- The exact OS-temp token file was deleted immediately after the final QA attempt; `Test-Path` returned `False`.
+- A wildcard check found no remaining `index-market-explorer-qa-*.token` file in the OS temp directory.
+- `git status` contains only product/evidence/report changes plus the pre-existing concurrent scheduler log; no token file is present.
+- Repository search/report inspection contains no token value. Screenshots show only normal account UI and never credentials.
+
+## AI. Final acceptance rationale
+
+- Auth mechanism: PASS.
+- Plus Screens: PASS.
+- Authenticated Exact discovery/selection/Premium lock: PASS after two minimal entitlement-alignment fixes.
+- Generic Plus custom-market creation: FAIL due reproducible live cache build/publish errors on two distinct one-axis definitions.
+- Consequently edit/update/save-as-new, active-query keyboard/network invariants, and query constituent movement/paging remain unaccepted.
+- Focused regression: 66 backend tests and 26 frontend source/unit tests passed. Next production build passed with existing warnings.
+- Final decision remains `MARKET_EXPLORER_REFINEMENT_AUTH_QA_BLOCKED`; the authenticated session itself worked, but a genuine backend product blocker prevents completion of the remaining authenticated scenarios. No broader cache-architecture work was attempted in this closure-only phase.
