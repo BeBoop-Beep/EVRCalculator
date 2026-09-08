@@ -37,13 +37,7 @@ def _current_source_rows(client: Any, set_ids: Sequence[str], market_date: str) 
 
 
 def _latest_previous_by_key(client: Any, market_date: str) -> dict[str, dict[str, Any]]:
-    """Read only the immediately preceding persisted row for each index family.
-
-    The staged daily rollout needs exactly two prior rows (Raw and Top 10).
-    Reading the entire persisted index history just to select those rows was
-    unnecessary and could trip Postgres statement timeouts as history grows.
-    These point lookups are covered by the existing index-key/date indexes.
-    """
+    """Read only the immediately preceding persisted row for each index family."""
     day = str(market_date)[:10]
     latest: dict[str, dict[str, Any]] = {}
     for key in INDEX_KEYS:
@@ -76,11 +70,13 @@ def _previous_constituents(row: Mapping[str, Any] | None) -> dict[str, dict[str,
 def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[dict[str, Any]]:
     """Build only the promoted date, preserving prior index history verbatim.
 
-    On an era's activation date every set in that era is excluded from the
-    common-cohort return calculation. That neutralizes both brand-new set entry
-    and any Set Value definition correction (for example parent + Trainer
-    Gallery) without rewriting historical index performance. The next market
-    date compares the corrected staged cohort normally.
+    Membership changes never become price performance. Roots entering the
+    current authority join the new basket but are absent from the day's return;
+    roots that genuinely exit are likewise outside both sides of the common
+    cohort. The return therefore uses only identities present on both dates.
+
+    Legacy explicit rollout transitions remain a second signal for pre-cutover
+    Set Value definition changes that kept the same root id.
     """
     day = str(market_date)[:10]
     sets = resolve_market_root_cohort(client, market_date=day)
@@ -94,7 +90,7 @@ def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[di
         for row in source_rows
     }
     previous = _latest_previous_by_key(client, day)
-    transition_ids = rollout_transition_set_ids(client, day)
+    explicit_transition_ids = rollout_transition_set_ids(client, day)
 
     built: list[dict[str, Any]] = []
     for index_key in INDEX_KEYS:
@@ -128,6 +124,17 @@ def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[di
         current_values = {str(item["setId"]): item for item in constituents}
         basket_value = sum(float(item["setValue"]) for item in constituents)
 
+        membership_entered_ids = (
+            set(current_values) - set(previous_values) if previous_row is not None else set()
+        )
+        membership_exited_ids = (
+            set(previous_values) - set(current_values) if previous_row is not None else set()
+        )
+        neutralized_ids = set(explicit_transition_ids) | membership_entered_ids
+        authority_transition = bool(
+            neutralized_ids or membership_exited_ids
+        )
+
         if previous_row is None:
             daily_return = None
             normalized_index_value = 100.0
@@ -136,11 +143,11 @@ def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[di
         else:
             previous_market_date = str(previous_row.get("market_date"))[:10]
             common_ids = sorted(
-                (set(previous_values) & set(current_values)) - set(transition_ids)
+                (set(previous_values) & set(current_values)) - set(explicit_transition_ids)
             )
             if not common_ids:
                 raise RuntimeError(
-                    f"{index_key} has no non-rollout common cohort with {previous_market_date}"
+                    f"{index_key} has no non-transition common cohort with {previous_market_date}"
                 )
             previous_common = sum(float(previous_values[key]["setValue"]) for key in common_ids)
             current_common = sum(float(current_values[key]["setValue"]) for key in common_ids)
@@ -177,8 +184,15 @@ def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[di
             "constituents_json": constituents,
             "diagnostics_json": {
                 "commonSetIds": common_ids,
-                "rolloutNeutralizedSetIds": sorted(transition_ids),
-                "rolloutTransition": bool(transition_ids),
+                # Existing key retained for compatibility. It is the roots whose
+                # current-day values are deliberately neutralized at entry or
+                # because an explicit legacy rollout corrected their definition.
+                "rolloutNeutralizedSetIds": sorted(neutralized_ids),
+                "rolloutTransition": bool(neutralized_ids),
+                "authorityTransition": authority_transition,
+                "membershipEnteredSetIds": sorted(membership_entered_ids),
+                "membershipExitedSetIds": sorted(membership_exited_ids),
+                "explicitRolloutNeutralizedSetIds": sorted(explicit_transition_ids),
             },
         })
     return built

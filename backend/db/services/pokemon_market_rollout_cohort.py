@@ -3,13 +3,25 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
+from backend.domain.pokemon.market_index import MARKET_INDEX_METHODOLOGY_VERSION
 
-# Public Market historical-era rollout is intentionally isolated from the
-# older Price Storage V2 per-set/era rollout authorities. Those authorities
-# may contain individually validated older sets, but they must not silently
-# expand the global Raw/Top-10/Sealed Market cohort. New eras enter this view
-# only when we explicitly activate them for public Market rollout.
+# Historical public Market rollout authority. It remains the source of truth for
+# dates before the canonical global-market cutover so already-published history
+# is never reinterpreted under a larger future cohort.
 ROLLOUT_VIEW = "pokemon_market_public_rollout_root_sets_v1"
+
+# Current canonical Market-domain authorities created by the Set Value / Top-10
+# certification work. These are deliberately independent of RIP/opening
+# eligibility and are the basis for the one root universe shared by Set Market,
+# Raw/Top-10 Market, and the eligible Sealed root universe after the cutover.
+MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
+MARKET_CERTIFICATION_VIEW = "pokemon_market_root_set_publication_current_certification_v1"
+MARKET_INDEX_HISTORY_TABLE = "pokemon_market_index_daily_history"
+
+# Sep 8 was already published with the staged headline basket. Never rewrite it.
+# The next market date resolves the canonical authority and chain-links through
+# the common prior cohort.
+MARKET_ROOT_AUTHORITY_CUTOVER_DATE = "2026-09-09"
 
 _CORE_SET_COLUMNS = (
     "id,canonical_key,name,era_id,release_date,logo_image_url,symbol_image_url,"
@@ -18,6 +30,7 @@ _CORE_SET_COLUMNS = (
 
 
 def _core_market_sets(client: Any) -> list[dict[str, Any]]:
+    """Legacy pre-cutover core only; never the post-cutover Market authority."""
     rows = list(client.table("sets").select(_CORE_SET_COLUMNS).execute().data or [])
     return [
         dict(row)
@@ -39,7 +52,7 @@ def _rollout_market_sets(client: Any, *, market_date: str | None = None) -> list
         rows = list(query.execute().data or [])
     except Exception:
         # Compatibility for tests/environments that have not installed the
-        # staged rollout migration yet. Core Market behavior remains unchanged.
+        # staged rollout migration yet. Historical core behavior remains intact.
         return []
 
     return [
@@ -60,14 +73,8 @@ def _rollout_market_sets(client: Any, *, market_date: str | None = None) -> list
     ]
 
 
-def resolve_market_root_cohort(client: Any, *, market_date: str | None = None) -> list[dict[str, Any]]:
-    """Core public Market roots plus explicitly activated historical-era roots.
-
-    Existing public/RIP eligibility remains the core cohort. The public rollout
-    authority can add older eras without changing RIP eligibility. If a rollout
-    set was already in the core cohort, rollout metadata is attached to the same
-    root rather than producing a duplicate.
-    """
+def _legacy_market_root_cohort(client: Any, *, market_date: str | None = None) -> list[dict[str, Any]]:
+    """Reconstruct the staged historical cohort exactly as it was published."""
     core = _core_market_sets(client)
     rollout = _rollout_market_sets(client, market_date=market_date)
     merged = {str(row["id"]): dict(row) for row in core if row.get("id")}
@@ -99,12 +106,208 @@ def resolve_market_root_cohort(client: Any, *, market_date: str | None = None) -
     )
 
 
+def _latest_persisted_root_ids(client: Any, *, before_date: str | None) -> set[str]:
+    """Root identities in the immediately preceding persisted Raw basket.
+
+    This continuity seed is Market history, not RIP eligibility. It prevents a
+    post-cutover authority view from silently deleting a structurally valid root
+    merely because same-day freshness policy differs between current and rollout
+    rows.
+    """
+    if not before_date:
+        return set()
+    rows = list(
+        client.table(MARKET_INDEX_HISTORY_TABLE)
+        .select("constituents_json,market_date")
+        .eq("tcg", "pokemon")
+        .eq("methodology_version", MARKET_INDEX_METHODOLOGY_VERSION)
+        .eq("index_key", "raw")
+        .lt("market_date", str(before_date)[:10])
+        .order("market_date", desc=True)
+        .limit(1)
+        .execute().data or []
+    )
+    if not rows:
+        return set()
+    return {
+        str(item.get("setId") or item.get("set_id"))
+        for item in (rows[0].get("constituents_json") or [])
+        if item.get("setId") or item.get("set_id")
+    }
+
+
+def _load_set_metadata(client: Any, set_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+    ids = sorted({str(value) for value in set_ids if value})
+    if not ids:
+        return {}
+    rows: list[dict[str, Any]] = []
+    for offset in range(0, len(ids), 100):
+        rows.extend(
+            dict(row)
+            for row in (
+                client.table("sets")
+                .select(
+                    "id,name,canonical_key,era_id,release_date,logo_image_url,"
+                    "symbol_image_url,catalog_only,parent_opening_set_id"
+                )
+                .in_("id", ids[offset:offset + 100])
+                .execute().data or []
+            )
+        )
+    era_ids = sorted({str(row.get("era_id")) for row in rows if row.get("era_id")})
+    era_names = {
+        str(row.get("id")): str(row.get("name") or "")
+        for row in (
+            client.table("eras").select("id,name").in_("id", era_ids).execute().data or []
+        )
+    } if era_ids else {}
+    return {
+        str(row["id"]): {**row, "era": era_names.get(str(row.get("era_id")))}
+        for row in rows
+        if row.get("id")
+    }
+
+
+def _canonical_market_root_cohort(
+    client: Any, *, market_date: str | None = None,
+) -> list[dict[str, Any]]:
+    """Post-cutover roots gated on Standard + Top-10 structural correctness.
+
+    The canonical publication cohort supplies newly approved roots. The prior
+    persisted Raw basket supplies continuity candidates. A prior root continues
+    only while the current canonical certification still proves Standard Set
+    Value + canonical Top 10 and the set remains a real root. This keeps trusted
+    last-known observations without allowing RIP/simulation eligibility to
+    define the Market universe.
+    """
+    day = str(market_date)[:10] if market_date else None
+    query = (
+        client.table(MARKET_READY_VIEW)
+        .select(
+            "set_id,set_name,canonical_key,era_name,release_date,logo_image_url,"
+            "symbol_image_url,market_scope,canonical_market_date,"
+            "market_publication_ready,current_certification_status"
+        )
+        .eq("market_scope", "standard")
+        .eq("market_publication_ready", True)
+    )
+    if day:
+        query = query.eq("canonical_market_date", day)
+    ready_rows = [dict(row) for row in (query.order("release_date").execute().data or [])]
+    ready_ids = {str(row.get("set_id")) for row in ready_rows if row.get("set_id")}
+    if not ready_ids:
+        raise RuntimeError(f"canonical Market root authority is empty for {day or 'current'}")
+
+    prior_ids = _latest_persisted_root_ids(client, before_date=day)
+    candidate_ids = sorted(ready_ids | prior_ids)
+
+    certification_rows: list[dict[str, Any]] = []
+    for offset in range(0, len(candidate_ids), 100):
+        cert_query = (
+            client.table(MARKET_CERTIFICATION_VIEW)
+            .select(
+                "set_id,market_scope,canonical_market_date,set_value_certified,"
+                "top10_certified,market_scope_certified,price_freshness_certified,"
+                "current_market_scope_certified,current_certification_status"
+            )
+            .eq("market_scope", "standard")
+            .in_("set_id", candidate_ids[offset:offset + 100])
+        )
+        if day:
+            cert_query = cert_query.eq("canonical_market_date", day)
+        certification_rows.extend(dict(row) for row in (cert_query.execute().data or []))
+
+    cert_by_id = {
+        str(row.get("set_id")): row
+        for row in certification_rows
+        if row.get("set_id")
+    }
+    metadata_by_id = _load_set_metadata(client, candidate_ids)
+
+    def structurally_certified(set_id: str) -> bool:
+        cert = cert_by_id.get(set_id) or {}
+        meta = metadata_by_id.get(set_id) or {}
+        return (
+            cert.get("set_value_certified") is True
+            and cert.get("top10_certified") is True
+            and cert.get("market_scope_certified") is True
+            and meta.get("catalog_only") is not True
+            and not meta.get("parent_opening_set_id")
+        )
+
+    blocked_ready = sorted(set_id for set_id in ready_ids if not structurally_certified(set_id))
+    if blocked_ready:
+        raise RuntimeError(
+            "canonical Market authority failed Standard + Top-10 certification "
+            f"for {len(blocked_ready)} approved root(s): {blocked_ready[:5]}"
+        )
+
+    continued_ids = {
+        set_id for set_id in (prior_ids - ready_ids) if structurally_certified(set_id)
+    }
+    final_ids = sorted(ready_ids | continued_ids)
+
+    ready_by_id = {
+        str(row["set_id"]): row for row in ready_rows if row.get("set_id")
+    }
+    return [
+        {
+            "id": set_id,
+            "name": (ready_by_id.get(set_id) or {}).get("set_name")
+                    or (metadata_by_id.get(set_id) or {}).get("name"),
+            "canonical_key": (ready_by_id.get(set_id) or {}).get("canonical_key")
+                             or (metadata_by_id.get(set_id) or {}).get("canonical_key"),
+            "era_id": (metadata_by_id.get(set_id) or {}).get("era_id"),
+            "era": (ready_by_id.get(set_id) or {}).get("era_name")
+                   or (metadata_by_id.get(set_id) or {}).get("era"),
+            "release_date": (ready_by_id.get(set_id) or {}).get("release_date")
+                            or (metadata_by_id.get(set_id) or {}).get("release_date"),
+            "logo_image_url": (ready_by_id.get(set_id) or {}).get("logo_image_url")
+                              or (metadata_by_id.get(set_id) or {}).get("logo_image_url"),
+            "symbol_image_url": (ready_by_id.get(set_id) or {}).get("symbol_image_url")
+                                or (metadata_by_id.get(set_id) or {}).get("symbol_image_url"),
+            "market_publication_ready": set_id in ready_ids,
+            "market_continuity_carried": set_id in continued_ids,
+            "market_structural_certified": True,
+            "market_price_freshness_certified": bool(
+                (cert_by_id.get(set_id) or {}).get("price_freshness_certified")
+            ),
+            "market_current_certification_status": (
+                cert_by_id.get(set_id) or {}
+            ).get("current_certification_status"),
+            "canonical_market_date": (
+                ready_by_id.get(set_id) or {}
+            ).get("canonical_market_date") or (cert_by_id.get(set_id) or {}).get(
+                "canonical_market_date"
+            ),
+        }
+        for set_id in final_ids
+    ]
+
+
+def resolve_market_root_cohort(client: Any, *, market_date: str | None = None) -> list[dict[str, Any]]:
+    """One global Market root universe with an immutable historical boundary.
+
+    Dates before 2026-09-09 reconstruct the exact staged basket that was
+    actually published. The cutover date and every date after it resolve from
+    canonical Market certification plus structurally valid prior-basket
+    continuity, never from ``supports_opening_simulation`` or RIP eligibility.
+    """
+    if market_date and str(market_date)[:10] < MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
+        return _legacy_market_root_cohort(client, market_date=market_date)
+    return _canonical_market_root_cohort(client, market_date=market_date)
+
+
 def rollout_transition_set_ids(client: Any, market_date: str) -> set[str]:
-    """Root sets whose staged public era activates exactly on ``market_date``."""
+    """Legacy explicitly activated roots; membership transitions are also
+    detected directly by the daily index builder at the persisted-row seam."""
+    day = str(market_date)[:10]
+    if day >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
+        return set()
     return {
         str(row["id"])
-        for row in _rollout_market_sets(client, market_date=market_date)
-        if str(row.get("market_rollout_activated_date") or "")[:10] == str(market_date)[:10]
+        for row in _rollout_market_sets(client, market_date=day)
+        if str(row.get("market_rollout_activated_date") or "")[:10] == day
     }
 
 
