@@ -98,6 +98,33 @@ fi
 
 cd "${REPO_ROOT}"
 
+# Price Storage V2 is a post-cutover publication prerequisite, not a separate
+# scheduler. The command itself is a pre-cutover no-op, so the wrapper does not
+# need a second date-policy implementation. It persists Market Date Quality,
+# stages in <=5-root batches, respects (never mutates) the operator release gate,
+# writes isolated roots one at a time, then flips compatibility once after the
+# entire cohort reconciles.
+V2_CMD=(
+  "${PYTHON_BIN}" backend/scripts/run_price_storage_v2_serving_cutover.py
+  --commit
+  --market-date "${MARKET_DATE}"
+)
+log "command: ${V2_CMD[*]}"
+V2_STATUS=0
+"${V2_CMD[@]}" || V2_STATUS=$?
+log "price_storage_v2 exit_status=${V2_STATUS}"
+
+if [[ "${V2_STATUS}" -eq 3 ]]; then
+  log "Price Storage V2 serving gate is CLOSED; preserving previous public Market authority"
+  log "final exit_status=3 (deferred)"
+  exit 3
+fi
+if [[ "${V2_STATUS}" -ne 0 ]]; then
+  log "Price Storage V2 serving publication FAILED; public snapshot refresh will not run"
+  log "final exit_status=${V2_STATUS}"
+  exit "${V2_STATUS}"
+fi
+
 # `set -e` would abort before the exit status could be logged and classified, so
 # each stage captures its own status explicitly.
 REFRESH_CMD=(
@@ -145,9 +172,9 @@ if [[ "${AUDIT_STATUS}" -ne 0 ]]; then
 fi
 
 # Market Explorer's materialized serving projections must advance only after
-# the canonical market date has been published and audited.  Keeping this in
+# the canonical market date has been published and audited. Keeping this in
 # the authoritative post-scrape handoff avoids a clock race where a fixed cron
-# slot runs before pokemon_market_date_quality approves the day.  This remains
+# slot runs before pokemon_market_date_quality approves the day. This remains
 # projection-only: maintained-cache prewarm is intentionally a separate,
 # resource-guarded process after the P0 memory incident.
 MARKET_EXPLORER_CMD=(
