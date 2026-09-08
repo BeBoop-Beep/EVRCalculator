@@ -56,21 +56,40 @@ SELECT jsonb_build_object(
 
 def _run_latest_drift_contract(cls) -> None:
     root = SETS["Evolving Skies"]
-    # Advance only the moving latest V2 state. Historical events/ranges remain
-    # unchanged, so the approved 2026-09-06 as-of oracle still reconstructs the
-    # exact original state. This reproduces the production canary failure mode.
-    cls.run(f"""
-UPDATE public.card_variant_price_current_v2 cur
-SET last_observed_date='2026-09-07',
-    last_observation_created_at='2026-09-07 12:00:00+00',
-    market_price=cur.market_price+100
-WHERE cur.card_variant_id IN (
-  SELECT v.id
-  FROM public.card_variants v
-  JOIN public.cards c ON c.id=v.card_id
-  WHERE c.set_id='{root}'
-);
+    # Modern standard roots read their moving latest value from the canonical
+    # latest-price projection. Advance exactly that projection to the next day
+    # while leaving historical V2 events/ranges untouched. The approved
+    # 2026-09-06 as-of oracle therefore still reconstructs the original state.
+    before = cls.value(f"""
+SELECT jsonb_agg(jsonb_build_object(
+ 'canonical_card_id',canonical_card_id,
+ 'card_variant_id',card_variant_id,
+ 'market_price',market_price,
+ 'captured_at',captured_at
+) ORDER BY canonical_card_id)
+FROM public.get_pokemon_market_root_set_card_prices_latest_v1('{root}')
+WHERE market_scope='standard';
 """)
+    cls.run(f"""
+UPDATE public.pokemon_canonical_card_market_prices_latest p
+SET captured_at='2026-09-07',
+    market_price=p.market_price+100,
+    source='fixture-newer-latest'
+WHERE p.set_id='{root}';
+""")
+    after = cls.value(f"""
+SELECT jsonb_agg(jsonb_build_object(
+ 'canonical_card_id',canonical_card_id,
+ 'card_variant_id',card_variant_id,
+ 'market_price',market_price,
+ 'captured_at',captured_at
+) ORDER BY canonical_card_id)
+FROM public.get_pokemon_market_root_set_card_prices_latest_v1('{root}')
+WHERE market_scope='standard';
+""")
+    if before == after or not after or any(row.get("captured_at") != "2026-09-07" for row in after):
+        raise AssertionError({"before": before, "after": after})
+
     old = cls.value(
         f"SELECT public.preview_price_storage_v2_scoped_values('{root}','{DAY}');"
     )
