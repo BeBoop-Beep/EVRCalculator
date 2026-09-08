@@ -46,7 +46,7 @@ def test_replay_passes_bit_exact_vector_and_original_run_identity_to_scorer():
     original = np.array([0.0, -0.0, np.nextafter(7.0, 8.0)], dtype=np.float64)
     client = Client({
         "calculation_runs": [{"id": "run", "target_type": "set", "target_id": "set",
-                              "calculation_config_id": "cfg"}],
+                              "calculation_config_id": "cfg", "market_date": "2026-09-07"}],
         "simulation_pack_outcome_artifacts": [_artifact_row(original)],
         "sets": [{"id": "set", "canonical_key": "exampleSet"}],
         "calculation_configs": [{"config_hash": "fingerprint"}],
@@ -60,6 +60,7 @@ def test_replay_passes_bit_exact_vector_and_original_run_identity_to_scorer():
     assert np.array_equal(captured["sim_results"]["values"].view(np.uint64), original.view(np.uint64))
     assert captured["calculation_run_id"] == "run"
     assert captured["run_fingerprint"] == "fingerprint"
+    assert captured["market_date"] == "2026-09-07"
 
 
 def test_artifact_replay_scoring_matches_in_memory_scoring():

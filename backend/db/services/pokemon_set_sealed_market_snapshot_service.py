@@ -636,7 +636,56 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
     }
 
 
-def read_snapshot(client: Any, set_id: str) -> Optional[Dict[str, Any]]:
+def _clip_products_as_of(products: Iterable[Dict[str, Any]], market_date: str) -> List[Dict[str, Any]]:
+    clipped: List[Dict[str, Any]] = []
+    for product in products:
+        history = [
+            dict(point) for point in list(product.get("history") or [])
+            if _date_key(point.get("date")) and str(_date_key(point.get("date"))) <= market_date
+        ]
+        if not history:
+            continue
+        history.sort(key=lambda point: str(point["date"]))
+        current = history[-1]
+        clipped.append({
+            **product,
+            "currentPrice": current["marketPrice"],
+            "priceAsOf": current["date"],
+            "source": current.get("source"),
+            "movements": {key: movement(history, key) for key in MOVEMENT_WINDOWS},
+            "history": history,
+        })
+    return sorted(clipped, key=product_sort_key)
+
+
+def clip_snapshot_as_of(payload: Dict[str, Any], market_date: str) -> Dict[str, Any]:
+    """Reconstruct the existing snapshot contract at or before ``market_date``."""
+    requested = _date_key(market_date)
+    if requested is None:
+        raise ValueError(f"invalid sealed snapshot market_date: {market_date!r}")
+    products = _clip_products_as_of(payload.get("products") or [], requested)
+    consumer_products = _clip_products_as_of(
+        payload.get("setPageConsumerTopProducts") or [], requested
+    )
+    if not products:
+        raise ValueError(
+            f"sealed snapshot cannot be reconstructed as of {requested}: no eligible product history"
+        )
+    clipped = dict(payload)
+    clipped["products"] = products
+    clipped["marketDate"] = max(product["priceAsOf"] for product in products)
+    clipped["defaultProductId"] = products[0]["sealedProductId"]
+    clipped["setMarket"] = build_sealed_segment_history(products, through_date=requested)
+    clipped["setPageConsumerTopProducts"] = consumer_products[:10]
+    clipped["setPageConsumerMarket"] = (
+        build_sealed_segment_history(consumer_products, through_date=requested)
+        if consumer_products else None
+    )
+    clipped.setdefault("meta", {})["priceAuthorityThrough"] = requested
+    return clipped
+
+
+def read_snapshot(client: Any, set_id: str, market_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
     result = client.table("pokemon_set_sealed_market_snapshot_latest").select(
         "set_id,payload_json,market_date,product_count,source_updated_at,source_generation_fingerprint,classification_version,updated_at"
     ).eq("set_id", set_id).limit(1).execute()
@@ -651,6 +700,8 @@ def read_snapshot(client: Any, set_id: str) -> Optional[Dict[str, Any]]:
     # force a republication run this change does not need.
     if payload.get("setMarket") is None:
         payload["setMarket"] = build_sealed_segment_history(list(payload.get("products") or []))
+    if market_date is not None:
+        payload = clip_snapshot_as_of(payload, market_date)
     payload.setdefault("meta", {}).update(
         {"source": "pokemon_set_sealed_market_snapshot_latest", "updatedAt": rows[0].get("updated_at")}
     )

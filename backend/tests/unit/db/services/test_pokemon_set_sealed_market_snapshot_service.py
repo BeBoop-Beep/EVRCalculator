@@ -667,6 +667,48 @@ def test_read_snapshot_backfills_the_lens_for_pre_existing_payloads():
     assert payload.get("setPageConsumerMarket") is None
 
 
+def test_read_snapshot_clips_rollover_prices_to_requested_market_date():
+    class _Client:
+        def table(self, _name): return self
+        def select(self, *_args, **_kwargs): return self
+        def eq(self, *_args, **_kwargs): return self
+        def limit(self, *_args, **_kwargs): return self
+        def execute(self):
+            product = {
+                "sealedProductId": "p", "name": "Pack",
+                "history": [
+                    {"date": "2026-09-07", "marketPrice": 5.0, "source": "TCGPLAYER"},
+                    {"date": "2026-09-08", "marketPrice": 9.0, "source": "TCGPLAYER"},
+                ],
+            }
+            return type("R", (), {"data": [{"payload_json": {
+                "marketDate": "2026-09-08", "products": [product],
+                "setPageConsumerTopProducts": [product],
+            }, "updated_at": "2026-09-08T01:00:00Z"}]})()
+
+    payload = snapshot_service.read_snapshot(_Client(), "s", market_date="2026-09-07")
+    assert payload["marketDate"] == "2026-09-07"
+    assert payload["products"][0]["currentPrice"] == 5.0
+    assert payload["products"][0]["priceAsOf"] == "2026-09-07"
+    assert payload["products"][0]["history"] == [
+        {"date": "2026-09-07", "marketPrice": 5.0, "source": "TCGPLAYER"}
+    ]
+
+
+def test_as_of_snapshot_uses_last_real_observation_without_fabricating_date():
+    payload = {
+        "products": [{"sealedProductId": "p", "name": "Pack", "history": [
+            {"date": "2026-09-05", "marketPrice": 4.0, "source": "TCGPLAYER"},
+            {"date": "2026-09-08", "marketPrice": 9.0, "source": "TCGPLAYER"},
+        ]}],
+        "setPageConsumerTopProducts": [],
+    }
+    clipped = snapshot_service.clip_snapshot_as_of(payload, "2026-09-07")
+    assert clipped["products"][0]["currentPrice"] == 4.0
+    assert clipped["products"][0]["priceAsOf"] == "2026-09-05"
+    assert clipped["marketDate"] == "2026-09-05"
+
+
 def test_sealed_breadth_uses_index_endpoints_and_keeps_missing_baseline_na():
     products = [
         {"sealedProductId": "a", "history": _history([("2026-01-01", 100), ("2026-01-08", 110)])},

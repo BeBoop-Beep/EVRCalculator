@@ -639,6 +639,7 @@ def run_stage1_sealed_product_rip(
     set_id: Any,
     canonical_set_key: Any,
     calculation_run_id: Any,
+    market_date: Optional[str] = None,
     read_snapshot_fn=None,
     persist_fn=None,
     collector_appeal_fn=None,
@@ -660,8 +661,8 @@ def run_stage1_sealed_product_rip(
         from backend.db.clients.supabase_client import supabase
         from backend.db.services.pokemon_set_sealed_market_snapshot_service import read_snapshot
 
-        def read_snapshot_fn(target_set_id):  # type: ignore[misc]
-            return read_snapshot(supabase, target_set_id)
+        def read_snapshot_fn(target_set_id, *, market_date=None):  # type: ignore[misc]
+            return read_snapshot(supabase, target_set_id, market_date=market_date)
 
     if persist_fn is None:
         from backend.db.repositories.sealed_product_results_repository import (
@@ -679,7 +680,10 @@ def run_stage1_sealed_product_rip(
     phase_ms: Dict[str, Any] = {}
 
     snapshot_started = time.perf_counter()
-    snapshot = read_snapshot_fn(str(set_id))
+    snapshot = (
+        read_snapshot_fn(str(set_id), market_date=market_date)
+        if market_date is not None else read_snapshot_fn(str(set_id))
+    )
     phase_ms["sealedSnapshotReadMs"] = round((time.perf_counter() - snapshot_started) * 1000.0, 3)
     if not snapshot:
         return _summary(
