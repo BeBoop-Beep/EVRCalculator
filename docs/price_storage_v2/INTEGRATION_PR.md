@@ -86,8 +86,8 @@ The suite contains **95 passing checks**:
 - **8** exact restored-source SQL checks;
 - **6** fail-closed coordinator checks.
 
-Pattern Overlay Guardrails also passed. Later documentation-only commits do not change
-the validated SQL or code paths.
+Pattern Overlay Guardrails also passed. Current branch commits after `2efcefa` are
+documentation-only status updates and do not change the validated SQL/code paths.
 
 The new exact-source regression reproduces the production failure mode by advancing
 the actual modern standard-root latest projection (`pokemon_canonical_card_market_prices_latest`)
