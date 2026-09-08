@@ -79,11 +79,12 @@ BEGIN
  END IF;
  SELECT * INTO v_run FROM public.price_storage_v2_scope_stage_runs WHERE id=p_run_id;
  IF NOT FOUND OR v_run.root_set_id IS DISTINCT FROM p_root_set_id
-    OR v_run.market_date IS DISTINCT FROM p_market_date OR v_run.status<>'parity_passed' THEN
-  RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='Staged run/root/date is absent or not accepted';
+    OR v_run.market_date IS DISTINCT FROM p_market_date OR v_run.status<>'parity_passed'
+    OR v_run.definition_version IS DISTINCT FROM 'canonical_asof_scope_split_v2' THEN
+  RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='Staged run/root/date is absent, not accepted, or not date-safe v2 evidence';
  END IF;
  -- Re-check the exact source generation and card basket, not just a past pass flag.
- v_preview:=public.preview_price_storage_v2_scoped_values(p_root_set_id,p_market_date);
+ v_preview:=public.preview_price_storage_v2_scoped_values_v2(p_root_set_id,p_market_date);
  IF v_preview->>'status' IS DISTINCT FROM 'parity_passed'
     OR md5(v_preview::text) IS DISTINCT FROM v_run.evidence_signature THEN
   RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='Staged acceptance is stale; restage against current source evidence';
