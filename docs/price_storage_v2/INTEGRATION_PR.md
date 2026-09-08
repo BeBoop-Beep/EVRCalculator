@@ -1,19 +1,15 @@
 # Price Storage V2 integration — draft, no production cutover
 
-## Current milestone: live canary defect understood; forward-only date-safe v2 passes
+## Current milestone
 
-The frozen migration-source window `20260905235956`–`20260906233651` remains fully reconciled. All **89** applied records match their original SQL checksums and the independent manifest `d988d2e6e877d3373f613d2351e86339`. The exact historical migration SQL remains unchanged and must not be replayed merely because its source files are now present.
+A live Sep 6 production read-only canary proved raw↔V2 as-of price parity, complete source/shadow receipts, zero missing prices, zero review-required cards, and correct combined-root candidates for Evolving Skies, Crown Zenith + Galarian Gallery, and Celebrations + Classic Collection. Historical v1 still blocked because it compared those approved-date rows to a moving latest root contract.
 
-The live Sep 6 read-only canary for **Evolving Skies**, **Crown Zenith + Galarian Gallery**, and **Celebrations + Classic Collection** showed raw-only `0`, V2-only `0`, missing prices `0`, review-required `0`, and exact scrape/shadow completion receipts for all three root universes. Accepted root candidates remained Evolving Skies `$8,305.06` / 237, Crown Zenith `$2,634.47` / 230, and Celebrations `$624.16` / 50. Historical v1 nevertheless blocked with `live_root_contract_mismatch`, because it compared approved-date as-of rows against a moving latest root contract.
+Forward-only `canonical_asof_scope_split_v2` is now implemented only in review proposals. It preserves approved-date/raw↔V2/receipt/coverage/review/edition/root-identity gates while treating newer-than-approved latest economics as diagnostic rather than a false approved-date mismatch. Historical v1 SQL remains untouched.
 
-Forward-only review proposal `backend/db/proposals/price_storage_v2_scope_stage_v2.sql` preserves raw↔V2 as-of, receipt, coverage, review, edition and root-identity gates, but treats newer-than-approved latest economics as diagnostic rather than as proof the approved-date reconstruction is wrong. The historical v1 migration remains untouched. Writers require v2 staged evidence; the coordinator stages through v2 and remains unscheduled.
+GitHub Actions run `34183532432`, job `101927253176`, passed PostgreSQL 17.6 with **95 checks**: 42 unit/integration, 13 migration/source/full-ledger, 6 snapshot replay, 20 writer/security/concurrency, 8 exact-source SQL, and 6 coordinator. The new exact-source regression reproduces the real date-drift condition by advancing the actual standard-root latest projection to Sep 7 while preserving Sep 6 historical V2 state; v1 blocks and v2 passes only after exact as-of and root-identity parity.
 
-GitHub Actions run `34183532432`, job `101927253176`, succeeded on PostgreSQL 17.6 for validated implementation commit `2efcefa2862001d216d7983d49087fe8166214f0`: **42** unit/integration + **13** source/full-ledger + **6** snapshot replay + **20** writer/security/concurrency + **8** exact-source SQL + **6** coordinator = **95 passing checks**. Pattern Overlay Guardrails also passed.
+No v2 proposal is installed in production. No release gate is enabled. No cron is attached. No public reader is switched. No historical/raw rows were rewritten or deleted.
 
-The new exact-source regression advances the actual modern standard-root latest projection to Sep 7 while leaving Sep 6 historical V2 events/ranges unchanged. It proves the actual root latest reader changes, v1 blocks, Sep 6 raw↔V2 and root identity remain exact, and v2 passes only because the newer latest economics are outside the approved-date acceptance boundary. Identity/as-of differences still block.
-
-No v2 proposal is installed in production. No release gate is enabled. No cron is attached. No public reader is switched. No historical/raw price rows were rewritten or deleted.
-
-Remaining gates: confirm the same latest-date drift with a small live read-only diagnostic; install only new forward migrations with the release gate off; run advisors/ACL checks; perform live dry snapshot/index replay; approve bounded cutover; observe stable cycles; only then retire legacy dependencies and reclaim physical storage.
+Remaining gates: small live read-only latest-date confirmation; install only new forward migrations with gate off; advisors/ACL checks; live dry snapshot/index replay; bounded producer cutover; stable-cycle observation; then dependency retirement and physical storage reclamation.
 
 **Do not merge this PR yet.**
