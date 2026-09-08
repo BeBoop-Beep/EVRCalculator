@@ -13,11 +13,18 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence
 
-from backend.db.services.pokemon_market_rollout_cohort import resolve_market_root_cohort
-from backend.domain.pokemon.market_index import deterministic_fingerprint
+from backend.db.services.pokemon_market_rollout_cohort import (
+    MARKET_ROOT_AUTHORITY_CUTOVER_DATE,
+    resolve_market_root_cohort,
+)
+from backend.domain.pokemon.market_index import (
+    MARKET_INDEX_METHODOLOGY_VERSION,
+    deterministic_fingerprint,
+)
 
 QUALITY_TABLE = "pokemon_market_date_quality"
 SOURCE_TABLE = "pokemon_set_value_daily_history"
+INDEX_TABLE = "pokemon_market_index_daily_history"
 PAGE_SIZE = 1000
 IN_CHUNK_SIZE = 100
 
@@ -133,18 +140,51 @@ def _paged(query_factory) -> list[dict[str, Any]]:
         offset += PAGE_SIZE
 
 
+def _persisted_raw_cohort_for_date(client: Any, market_date: str) -> list[str]:
+    """Exact root cohort that the headline Raw index actually published.
+
+    For pre-cutover history this is stronger than reconstructing membership from
+    release dates or today's eligibility flags: it freezes the authoritative
+    basket that existed on that date. It also makes historical quality fully
+    independent of the old simulation-derived entry-date resolver.
+    """
+    day = str(market_date)[:10]
+    rows = list(
+        client.table(INDEX_TABLE)
+        .select("constituents_json")
+        .eq("tcg", "pokemon")
+        .eq("methodology_version", MARKET_INDEX_METHODOLOGY_VERSION)
+        .eq("index_key", "raw")
+        .eq("market_date", day)
+        .limit(1)
+        .execute().data or []
+    )
+    if not rows:
+        return []
+    return sorted({
+        str(item.get("setId") or item.get("set_id"))
+        for item in (rows[0].get("constituents_json") or [])
+        if item.get("setId") or item.get("set_id")
+    })
+
+
 def cohort_set_ids_for_date(
     client: Any, market_date: str, *, market_entry_dates: Mapping[str, str] | None = None,
 ) -> list[str]:
     """Canonical Market roots for a date - the SAME authority the index uses.
 
     ``market_entry_dates`` remains accepted only so older callers do not break;
-    it is intentionally ignored. Pre-cutover dates are reconstructed by the
-    historical authority boundary in ``resolve_market_root_cohort``; post-
-    cutover dates resolve directly from Standard + Top-10 Market certification.
+    it is intentionally ignored. For pre-cutover history, an existing persisted
+    Raw row is the exact membership authority. If a historical date has no
+    persisted row, the immutable staged resolver is the fallback. Sep 9+ uses
+    canonical Standard + Top-10 authority plus continuity directly.
     """
     del market_entry_dates
     day = str(market_date)[:10]
+    if day < MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
+        persisted = _persisted_raw_cohort_for_date(client, day)
+        if persisted:
+            return persisted
     return sorted(
         str(row["id"])
         for row in resolve_market_root_cohort(client, market_date=day)
