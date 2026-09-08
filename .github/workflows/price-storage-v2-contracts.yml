@@ -6,27 +6,33 @@ on:
       - '.github/workflows/price-storage-v2-contracts.yml'
       - 'backend/db/proposals/price_storage_v2_scoped_publication*.sql'
       - 'backend/db/proposals/price_storage_v2_scope_stage_v2.sql'
+      - 'backend/db/proposals/price_storage_v2_serving_cutover.sql'
       - 'backend/db/services/price_storage_v2_integration.py'
       - 'backend/db/services/price_storage_v2_snapshot_replay.py'
       - 'backend/db/services/pokemon_market_rollout_index.py'
       - 'backend/scripts/build_pokemon_explore_set_value_snapshot.py'
       - 'backend/scripts/*price_storage_v2*'
+      - 'backend/scripts/rebuild_snapshots_after_scrape.sh'
       - 'backend/tests/*price_storage_v2*'
       - 'docs/price_storage_v2/**'
       - 'supabase/migrations/**'
       - 'backend/db/migrations/**'
   # Test this draft's head even when unrelated changes on main prevent a PR merge ref.
   push:
-    branches: ['codex/price-storage-v2-scope-integration-10176be']
+    branches:
+      - 'codex/price-storage-v2-scope-integration-10176be'
+      - 'fix/price-storage-v2-serving-cutover-20260908'
     paths:
       - '.github/workflows/price-storage-v2-contracts.yml'
       - 'backend/db/proposals/price_storage_v2_scoped_publication*.sql'
       - 'backend/db/proposals/price_storage_v2_scope_stage_v2.sql'
+      - 'backend/db/proposals/price_storage_v2_serving_cutover.sql'
       - 'backend/db/services/price_storage_v2_integration.py'
       - 'backend/db/services/price_storage_v2_snapshot_replay.py'
       - 'backend/db/services/pokemon_market_rollout_index.py'
       - 'backend/scripts/build_pokemon_explore_set_value_snapshot.py'
       - 'backend/scripts/*price_storage_v2*'
+      - 'backend/scripts/rebuild_snapshots_after_scrape.sh'
       - 'backend/tests/*price_storage_v2*'
       - 'docs/price_storage_v2/**'
       - 'supabase/migrations/**'
@@ -66,8 +72,9 @@ jobs:
       - name: Unit, exact-source and full-ledger checks
         run: |
           python3 backend/tests/run_price_storage_v2_unit.py
-          python3 -m unittest backend.tests.test_price_storage_v2_migration_reconciliation backend.tests.test_price_storage_v2_full_ledger backend.tests.test_price_storage_v2_reimport backend.tests.test_price_storage_v2_snapshot_replay -v
-          python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py backend/tests/test_price_storage_v2_real_source_sql.py backend/tests/run_price_storage_v2_real_source_sql.py backend/tests/run_price_storage_v2_coordinator_sql.py backend/scripts/compare_price_storage_v2_pipeline.py backend/scripts/recover_price_storage_v2_repository_sources.py
+          python3 -m unittest backend.tests.test_price_storage_v2_migration_reconciliation backend.tests.test_price_storage_v2_full_ledger backend.tests.test_price_storage_v2_reimport backend.tests.test_price_storage_v2_snapshot_replay backend.tests.test_price_storage_v2_serving_cutover_contract -v
+          python3 -m py_compile backend/tests/test_price_storage_v2_postgres.py backend/tests/test_price_storage_v2_real_source_sql.py backend/tests/run_price_storage_v2_real_source_sql.py backend/tests/run_price_storage_v2_coordinator_sql.py backend/scripts/compare_price_storage_v2_pipeline.py backend/scripts/recover_price_storage_v2_repository_sources.py backend/scripts/run_price_storage_v2_serving_cutover.py
+          bash -n backend/scripts/rebuild_snapshots_after_scrape.sh
       - name: Require complete byte-exact migration sources for the frozen window
         run: |
           python3 backend/scripts/audit_price_storage_v2_migration_sources.py --strict > /tmp/price-storage-v2-migration-audit.json
