@@ -408,8 +408,42 @@ def publication_contract(row):
     problems.extend(score_problems[:40])
     if len(score_problems) > 40:
         problems.append(f"...and {len(score_problems) - 40} further missing canonical score values")
+
+    # SIMULATION SOURCE MARKET DATE PROVENANCE. `market_date` above is the
+    # PUBLICATION / market-as-of date (driven by the newest complete, promoted
+    # scrape batch). It must NEVER be substituted as the simulation source date
+    # for `pokemon_public_rip_leaderboard_rows.source_market_date` - that field
+    # must describe the date actually carried by each target's OWN
+    # `calculation_runs.market_date`, paired with its own `calculation_run_id`.
+    # A ranked target with a calculation_run_id but no resolvable source-run
+    # market date FAILS CLOSED rather than silently borrowing the publication
+    # date. The canonical cohort is also required to share ONE coherent source
+    # date; no existing contract permits publishing a mixed-run cohort.
+    source_market_dates_by_target: Dict[str, str] = {}
+    for target in targets:
+        label = str(target.get("canonical_key") or target.get("set_id") or target.get("target_id"))
+        run_id = target.get("calculation_run_id")
+        source_date = str(target.get("calculation_run_market_date") or "")[:10]
+        if not run_id:
+            problems.append(f"{label}: missing simulation calculation_run_id")
+            continue
+        if not source_date:
+            problems.append(
+                f"{label}: missing simulation source market date for calculation_run_id={run_id} "
+                "(refusing to substitute the publication market date)"
+            )
+            continue
+        source_market_dates_by_target[label] = source_date
+    distinct_source_dates = sorted(set(source_market_dates_by_target.values()))
+    if len(distinct_source_dates) > 1:
+        problems.append(
+            "canonical ranked cohort has multiple simulation source market dates "
+            f"{distinct_source_dates}; no contract permits a mixed-run publication"
+        )
     if problems:
         raise RuntimeError("Refusing to publish Explore RIP leaderboard: " + "; ".join(problems))
+
+    canonical_source_market_date = distinct_source_dates[0] if distinct_source_dates else None
 
     ids = sorted(str(target.get("set_id") or target.get("target_id")) for target in targets)
     source_run_ids = {
@@ -432,6 +466,10 @@ def publication_contract(row):
         "diagnostics": build_publication_diagnostics(
             set_ids=ids, cohort=supported, source_run_ids=source_run_ids
         ),
+        # Coherent simulation source market date across the canonical cohort.
+        # Distinct from `market_date` (publication/market-as-of date) above -
+        # see the provenance block preceding this function's raise.
+        "simulation_source_market_date": canonical_source_market_date,
     }
     rows = [{
         "set_id": target.get("set_id") or target.get("target_id"),
@@ -449,7 +487,10 @@ def publication_contract(row):
         "overall_ranked_cohort_count": ranked_count,
         "financial_ranked_cohort_count": financial_count,
         "simulation_calculation_run_id": target.get("calculation_run_id"),
-        "source_market_date": market_date, "pack_price": target.get("pack_cost"),
+        "source_market_date": source_market_dates_by_target[
+            str(target.get("canonical_key") or target.get("set_id") or target.get("target_id"))
+        ],
+        "pack_price": target.get("pack_cost"),
     } for target in targets]
     return snapshot, rows
 
@@ -472,7 +513,16 @@ def attach_publication_metadata(row: Dict[str, Any], snapshot: Dict[str, Any]) -
     payload = row["ranking_payload_json"]
     payload.setdefault("meta", {}).setdefault("snapshot", {}).update({
         "publicationId": snapshot["id"],
+        # PUBLICATION / market-as-of date. Unchanged public field - the current
+        # complete promoted market snapshot identity.
         "marketDate": snapshot["market_date"],
+        # SIMULATION SOURCE MARKET DATE. Distinct concept, added alongside
+        # `marketDate` rather than replacing it: the single coherent date
+        # actually carried by every canonical ranked target's own
+        # `calculation_runs.market_date`. `publication_contract()` already
+        # required the canonical cohort to share one such date before this
+        # snapshot could be built, so this is never a mixed-date value here.
+        "simulationSourceMarketDate": snapshot.get("simulation_source_market_date"),
         "setValueContract": evaluate_set_value_coverage(
             payload.get("targets") or [], market_date=snapshot["market_date"]
         ),

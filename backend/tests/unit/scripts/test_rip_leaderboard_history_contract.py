@@ -131,12 +131,19 @@ def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
          overall_version=CANONICAL["overallRipVersion"],
          financial_version=CANONICAL["financialRipVersion"],
          contract_version=CANONICAL["publicRipContractVersion"],
-         ranked_count=None):
+         ranked_count=None, source_market_date="2026-08-01"):
     targets = [{
         "set_id": f"00000000-0000-0000-0000-{index:012d}",
         "canonical_key": f"set-{index}",
         # The CANONICAL objects the publisher now reads.
         "overallRipV12": {"score": 80 - index, "rank": index + 1},
+        # SIMULATION SOURCE MARKET DATE: this target's OWN
+        # `calculation_runs.market_date`, paired with `calculation_run_id`
+        # below. Distinct from `meta.comparisonSnapshots.currentMarketDate`
+        # (the publication/scrape market date) - the happy-path fixture keeps
+        # them equal by default, but several tests below diverge them
+        # deliberately.
+        "calculation_run_market_date": source_market_date,
         "setRipV1": {"score": 95 - index, "rank": index + 1, "rankable": True,
                      "methodologyVersion": SET_RIP_VERSION, "participatingFamilyCount": 2,
                      "participatingFamilies": ["loose_booster_pack", "booster_bundle"],
@@ -450,6 +457,12 @@ def test_production_code_has_no_direct_latest_writer_outside_canonical_rpc():
             # a forward-only CREATE OR REPLACE of the same function, repointed at
             # `{overallRipV10,rank}` and the Financial RIP V4 identity strings.
             "072_update_public_rip_rpc_to_v10.sql",
+            # The canonical V12 revision, and the writer in force today after the
+            # Overall RIP V12 (Chase Accessibility) canonical cutover. Same
+            # pattern: a forward-only CREATE OR REPLACE of the same function,
+            # repointed at `{overallRipV12,rank}` and the public_rip_contract_v11
+            # identity string. Financial RIP stays V4.
+            "078_update_public_rip_rpc_to_v12.sql",
         }
         if writes and not approved:
             offenders.append(str(path.relative_to(root)))
@@ -753,3 +766,123 @@ def test_publication_preflight_rejects_a_stripped_set_value_marker():
     row["ranking_payload_json"]["meta"]["snapshot"].pop("setValueContract", None)
     with pytest.raises(RuntimeError, match="set value contract marker"):
         command.validate_publication_payload(row, snapshot, history)
+
+
+# ---------------------------------------------------------------------------
+# Simulation source market date provenance.
+#
+# `meta.comparisonSnapshots.currentMarketDate` (the PUBLICATION / market-as-of
+# date, driven by the newest complete promoted SCRAPE batch) and each target's
+# OWN `calculation_runs.market_date` (the SIMULATION SOURCE MARKET DATE) are
+# two different concepts. The publisher must never let the former stand in
+# for the latter on `pokemon_public_rip_leaderboard_rows.source_market_date`.
+# ---------------------------------------------------------------------------
+
+
+def test_publication_date_ahead_of_simulation_source_date_is_reported_truthfully():
+    """THE regression this section exists for.
+
+    Publication/current market context can legitimately be a day ahead of the
+    simulations that produced the scores (scraping ran, simulations did not,
+    yet). The publication market date must still surface as requested, but the
+    persisted history row must carry the SIMULATION's own date, not the
+    publication date.
+    """
+    row = _row(source_market_date="2026-09-04")
+    row["ranking_payload_json"]["meta"]["comparisonSnapshots"]["currentMarketDate"] = "2026-09-05"
+    for field in SET_VALUE_AS_OF_FIELDS:
+        row["ranking_payload_json"]["targets"][0][field] = "2026-09-05"
+    snapshot, rows = command.publication_contract(row)
+    assert snapshot["market_date"] == "2026-09-05"
+    assert rows[0]["source_market_date"] == "2026-09-04"
+    assert snapshot["simulation_source_market_date"] == "2026-09-04"
+
+
+def test_source_market_date_stays_paired_with_its_own_calculation_run_id():
+    row = _row(target_count=2, source_market_date="2026-09-04")
+    snapshot, rows = command.publication_contract(row)
+    for row_ in rows:
+        target = next(
+            t for t in row["ranking_payload_json"]["targets"]
+            if t.get("set_id") == row_["set_id"]
+        )
+        assert row_["simulation_calculation_run_id"] == target["calculation_run_id"]
+        assert row_["source_market_date"] == target["calculation_run_market_date"]
+
+
+def test_missing_simulation_source_market_date_fails_closed():
+    """A ranked target with a calculation_run_id but no resolvable source-run
+    market date must refuse publication - never silently borrow the
+    publication market date."""
+    row = _row()
+    row["ranking_payload_json"]["targets"][0]["calculation_run_market_date"] = None
+    with pytest.raises(RuntimeError, match="missing simulation source market date"):
+        command.publication_contract(row)
+
+
+def test_missing_calculation_run_id_fails_closed():
+    row = _row()
+    row["ranking_payload_json"]["targets"][0]["calculation_run_id"] = None
+    with pytest.raises(RuntimeError, match="missing simulation calculation_run_id"):
+        command.publication_contract(row)
+
+
+def test_mixed_calculation_run_source_dates_fail_closed():
+    """No existing contract permits publishing a cohort whose canonical ranked
+    targets come from simulations run on different market dates."""
+    row = _row(target_count=2, source_market_date="2026-09-04")
+    row["ranking_payload_json"]["targets"][1]["calculation_run_market_date"] = "2026-09-03"
+    with pytest.raises(RuntimeError, match="multiple simulation source market dates"):
+        command.publication_contract(row)
+
+
+def test_source_date_is_never_substituted_from_the_publication_market_date():
+    """Regression test for the exact original bug: even when a target's own
+    source date is missing, the publisher must NOT fall back to
+    `meta.comparisonSnapshots.currentMarketDate` - it must fail closed
+    instead. This is the assertion that would have caught the original
+    defect had it existed before the fix."""
+    row = _row(source_market_date=None)
+    with pytest.raises(RuntimeError, match="missing simulation source market date"):
+        snapshot, rows = command.publication_contract(row)
+        # If this line were ever reached, the historical bug would show up as
+        # source_market_date silently equalling the publication market date.
+        assert rows[0]["source_market_date"] != snapshot["market_date"]
+
+
+def test_same_date_case_behaves_normally():
+    """When simulation and publication happen to share one date, nothing about
+    the provenance separation changes normal behaviour."""
+    row = _row(source_market_date="2026-08-01")
+    snapshot, rows = command.publication_contract(row)
+    assert snapshot["market_date"] == "2026-08-01"
+    assert rows[0]["source_market_date"] == "2026-08-01"
+    assert snapshot["simulation_source_market_date"] == "2026-08-01"
+
+
+def test_daily_rank_movement_previous_day_lookup_uses_publication_dates():
+    """`previous_calendar_day_payload` is the rank-movement comparison lookup.
+    It must key strictly on the PUBLICATION market_date column (unchanged),
+    never on a simulation source date - two publications on the same
+    publication date being compared is the existing, intended contract."""
+    calls = []
+
+    class Client:
+        def table(self, _name):
+            return self
+
+        def select(self, _fields):
+            return self
+
+        def eq(self, field, value):
+            calls.append((field, value))
+            return self
+
+        def limit(self, _value):
+            return self
+
+        def execute(self):
+            return type("Result", (), {"data": []})()
+
+    command.previous_calendar_day_payload(Client(), "2026-09-05")
+    assert ("market_date", "2026-09-04") in calls
