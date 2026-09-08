@@ -33,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode_group.add_argument("--dry-run", action="store_true", help="Build and log without writing")
     mode_group.add_argument("--commit", action="store_true", help="Upsert snapshot row")
     parser.add_argument("--limit", type=int, default=DEFAULT_RANKINGS_LIMIT)
+    parser.add_argument("--set-page-generation-id", help="Validated set-page generation to publish atomically with Rankings")
     add_publication_gate_args(parser)
     return parser
 
@@ -56,7 +57,8 @@ def main() -> None:
         raise SystemExit(gate.exit_code)
 
     publish_explore_rip_rankings_snapshot(
-        client, limit=args.limit, market_date=args.market_date, commit=commit
+        client, limit=args.limit, market_date=args.market_date, commit=commit,
+        set_page_generation_id=args.set_page_generation_id,
     )
 
 

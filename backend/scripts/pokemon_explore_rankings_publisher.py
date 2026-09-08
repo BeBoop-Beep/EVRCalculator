@@ -697,9 +697,28 @@ def publish_explore_rip_rankings_snapshot(
     market_date: Optional[str] = None, commit: bool = True,
     sealed_product_finalization_status: Optional[str] = None,
     sealed_product_finalization_report: Optional[Dict[str, Any]] = None,
+    set_page_generation_id: Optional[str] = None,
+    source_rankings_payload: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build, validate, enrich, and atomically publish the canonical RIP leaderboard."""
-    row = build_explore_rankings_snapshot_row(limit=limit)
+    staged_set_pages = None
+    if set_page_generation_id:
+        staged_set_pages = []
+        start = 0
+        while True:
+            page = list((client.table("pokemon_set_page_snapshot_generation_rows")
+                .select("set_id,payload_json").eq("generation_id", set_page_generation_id)
+                .order("set_id").range(start, start + 7).execute()).data or [])
+            staged_set_pages.extend(page)
+            if len(page) < 8:
+                break
+            start += 8
+    build_kwargs = {"limit": limit}
+    if staged_set_pages is not None:
+        build_kwargs["rankings_top_chase_snapshot_rows"] = staged_set_pages
+    if source_rankings_payload is not None:
+        build_kwargs["source_rankings_payload"] = source_rankings_payload
+    row = build_explore_rankings_snapshot_row(**build_kwargs)
     snapshot, history_rows = publication_contract(row)
     if market_date and snapshot["market_date"] != market_date:
         raise RuntimeError(
@@ -768,9 +787,12 @@ def publish_explore_rip_rankings_snapshot(
                     snapshot["market_date"], len(history_rows))
         return row
     try:
-        client.rpc("publish_pokemon_public_rip_leaderboard", {
-            "p_snapshot": snapshot, "p_rows": history_rows, "p_latest": latest_row,
-        }).execute()
+        rpc_name = ("publish_pokemon_public_rip_leaderboard_with_set_pages"
+                    if set_page_generation_id else "publish_pokemon_public_rip_leaderboard")
+        rpc_args = {"p_snapshot": snapshot, "p_rows": history_rows, "p_latest": latest_row}
+        if set_page_generation_id:
+            rpc_args["p_generation_id"] = set_page_generation_id
+        client.rpc(rpc_name, rpc_args).execute()
     except Exception as exc:
         if attempt_id:
             finish_rankings_publication_attempt(

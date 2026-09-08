@@ -1760,7 +1760,10 @@ def build_set_rip_read_models(payload: Dict[str, Any], *, set_id: str, built_at:
     return {"bootstrap": bootstrap, "simulation": simulation, "advanced": advanced}
 
 
-def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any] = None) -> Dict[str, Any]:
+def build_set_page_snapshot_row(
+    set_row: Dict[str, Any], *, client: Optional[Any] = None,
+    rankings_payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
     simulation_available = True
@@ -1815,7 +1818,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
             # market prices, set value, market dashboard, card appeal) are merged
             # outside this block and still publish normally.
             raise _SkipSimulationDerivedEnrichment()
-        rankings_payload = get_rip_statistics_targets_payload(
+        rankings_payload = rankings_payload or get_rip_statistics_targets_payload(
             limit=DEFAULT_RANKINGS_LIMIT, include_rankings_top_chase=False
         )
         target_rows = attach_public_v1_to_targets(client or get_client(), rankings_payload.get("targets") or [])
@@ -4206,10 +4209,15 @@ def attach_daily_rip_rank_movements(
 
 
 def build_explore_rankings_snapshot_row(
-    *, limit: int = DEFAULT_RANKINGS_LIMIT, previous_payload: Optional[Dict[str, Any]] = None
+    *, limit: int = DEFAULT_RANKINGS_LIMIT, previous_payload: Optional[Dict[str, Any]] = None,
+    rankings_top_chase_snapshot_rows: Optional[List[Dict[str, Any]]] = None,
+    source_rankings_payload: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     built_at = utc_now_iso()
-    payload = get_rip_statistics_targets_payload(limit=limit)
+    target_kwargs = {"limit": limit}
+    if rankings_top_chase_snapshot_rows is not None:
+        target_kwargs["rankings_top_chase_snapshot_rows"] = rankings_top_chase_snapshot_rows
+    payload = source_rankings_payload or get_rip_statistics_targets_payload(**target_kwargs)
     targets = list(payload.get("targets") or [])
     opening_targets = [target for target in targets if is_opening_set_row(target)]
     service_client = get_client()

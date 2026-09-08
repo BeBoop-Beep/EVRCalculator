@@ -1821,7 +1821,8 @@ def _build_opening_experience(
 
 
 def _load_rankings_top_chase_lookup(
-    ranked_rows: Iterable[Mapping[str, Any]], *, sources: Dict[str, str], warnings: List[str]
+    ranked_rows: Iterable[Mapping[str, Any]], *, sources: Dict[str, str], warnings: List[str],
+    snapshot_rows: Optional[Iterable[Mapping[str, Any]]] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Copy canonical set-page Top Chases for the ranked cohort in one read.
 
@@ -1840,12 +1841,12 @@ def _load_rankings_top_chase_lookup(
         return {}
 
     try:
-        snapshot_rows = []
+        authority_rows = list(snapshot_rows) if snapshot_rows is not None else []
         # payload_json is a large TOASTed document. Keep each authority read
         # below the hosted statement timeout instead of requesting the whole
         # ranked cohort in one cold query.
-        for chunk in _chunks(set_ids, 8):
-            snapshot_rows.extend(list((
+        for chunk in (_chunks(set_ids, 8) if snapshot_rows is None else []):
+            authority_rows.extend(list((
                 service_read_client.table("pokemon_set_page_snapshot_latest")
                 .select("set_id,payload_json")
                 .in_("set_id", chunk)
@@ -1859,7 +1860,7 @@ def _load_rankings_top_chase_lookup(
 
     lookup: Dict[str, Dict[str, Any]] = {}
     missing: List[str] = []
-    for row in snapshot_rows:
+    for row in authority_rows:
         set_id = _to_optional_str(row.get("set_id"))
         payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
         decision = payload.get("ripDecision") if isinstance(payload.get("ripDecision"), dict) else {}
@@ -1870,7 +1871,11 @@ def _load_rankings_top_chase_lookup(
             continue
         target_run = target_runs.get(set_id)
         chase_run = _to_optional_str(chase.get("sourceCalculationRunId"))
-        if target_run and chase_run and target_run != chase_run:
+        if not chase_run:
+            raise RuntimeError(
+                f"Refusing Rankings Top Chase publication without source lineage for set_id={set_id}"
+            )
+        if target_run and target_run != chase_run:
             raise RuntimeError(
                 "Refusing stale Rankings Top Chase publication for set_id="
                 f"{set_id}: target run {target_run} != set-page chase run {chase_run}"
@@ -1897,7 +1902,7 @@ def _load_rankings_top_chase_lookup(
             "sourceCalculationRunId": chase_run,
         }
 
-    missing.extend(sorted(set(set_ids) - {str(row.get("set_id")) for row in snapshot_rows}))
+    missing.extend(sorted(set(set_ids) - {str(row.get("set_id")) for row in authority_rows}))
     if missing:
         warnings.append(
             "Canonical Rankings Top Chase unavailable for set_ids: "
@@ -1911,6 +1916,7 @@ def get_rip_statistics_targets_payload(
     limit: Any = DEFAULT_TARGETS_LIMIT,
     *,
     include_rankings_top_chase: bool = True,
+    rankings_top_chase_snapshot_rows: Optional[Iterable[Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Return available RIP targets and the best default target from persisted data."""
     total_started = time.perf_counter()
@@ -1963,6 +1969,7 @@ def get_rip_statistics_targets_payload(
             ranked_rows,
             sources=sources,
             warnings=warnings,
+            snapshot_rows=rankings_top_chase_snapshot_rows,
         )
     else:
         # Targeted ripDecision repair is itself the producer of the canonical
