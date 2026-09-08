@@ -910,3 +910,45 @@ GRANT EXECUTE ON FUNCTION public.get_pokemon_market_explorer_filtered_cohort_v2_
 GRANT EXECUTE ON FUNCTION public.get_pokemon_market_explorer_filtered_cohort_v2_interval_shadow(
   uuid[],date,date,uuid[],text[],bigint[],text[],text[],integer,uuid[]
 ) TO service_role;
+BEGIN;
+DROP FUNCTION IF EXISTS public.get_pokemon_market_explorer_filtered_cohort_v2_hybrid_shadow(uuid[],date,date,uuid[],text[],bigint[],text[],text[],integer);
+CREATE OR REPLACE FUNCTION public.get_pokemon_market_explorer_filtered_cohort_v2_hybrid_shadow(p_set_ids uuid[], p_start_date date, p_end_date date, p_card_ids uuid[] DEFAULT NULL::uuid[], p_segment_ids text[] DEFAULT NULL::text[], p_pokemon_ids bigint[] DEFAULT NULL::bigint[], p_price_segment_ids text[] DEFAULT NULL::text[], p_release_age_cohort_ids text[] DEFAULT NULL::text[], p_top_n integer DEFAULT NULL::integer, p_card_variant_ids uuid[] DEFAULT NULL::uuid[])
+ RETURNS TABLE(market_date date, constituent_count bigint, eligible_universe_count bigint, basket_value numeric, common_count bigint, common_current_value numeric, common_previous_value numeric, current_constituents jsonb)
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+ SET statement_timeout TO '300s'
+AS $function$
+begin
+  if public.pokemon_market_explorer_daily_v2_shadow_covers(p_set_ids,p_start_date,p_end_date) then
+    return query
+    select * from public.get_pokemon_market_explorer_filtered_cohort_v2_shadow(
+      p_set_ids,p_start_date,p_end_date,p_card_ids,p_segment_ids,p_pokemon_ids,p_price_segment_ids,p_release_age_cohort_ids,p_top_n,p_card_variant_ids
+    );
+  else
+    return query
+    select * from public.get_pokemon_market_explorer_filtered_cohort_v2_interval_shadow(
+      p_set_ids,p_start_date,p_end_date,p_card_ids,p_segment_ids,p_pokemon_ids,p_price_segment_ids,p_release_age_cohort_ids,p_top_n,p_card_variant_ids
+    );
+  end if;
+end;
+$function$
+;
+REVOKE ALL ON FUNCTION public.get_pokemon_market_explorer_filtered_cohort_v2_hybrid_shadow(uuid[],date,date,uuid[],text[],bigint[],text[],text[],integer,uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_pokemon_market_explorer_filtered_cohort_v2_hybrid_shadow(uuid[],date,date,uuid[],text[],bigint[],text[],text[],integer,uuid[]) TO service_role;
+COMMIT;
+
+BEGIN;
+DROP FUNCTION IF EXISTS public.get_pokemon_market_explorer_filtered_cohort(uuid[],date,date,uuid[],text[],bigint[],text[],text[],integer);
+CREATE OR REPLACE FUNCTION public.get_pokemon_market_explorer_filtered_cohort(p_set_ids uuid[], p_start_date date, p_end_date date, p_card_ids uuid[] DEFAULT NULL::uuid[], p_segment_ids text[] DEFAULT NULL::text[], p_pokemon_ids bigint[] DEFAULT NULL::bigint[], p_price_segment_ids text[] DEFAULT NULL::text[], p_release_age_cohort_ids text[] DEFAULT NULL::text[], p_top_n integer DEFAULT NULL::integer, p_card_variant_ids uuid[] DEFAULT NULL::uuid[])
+RETURNS TABLE(market_date date, constituent_count bigint, eligible_universe_count bigint, basket_value numeric, common_count bigint, common_current_value numeric, common_previous_value numeric, current_constituents jsonb)
+LANGUAGE sql STABLE SET search_path TO ''
+AS $function$
+  SELECT * FROM public.get_pokemon_market_explorer_filtered_cohort_v2_hybrid_shadow(
+    p_set_ids,p_start_date,p_end_date,p_card_ids,p_segment_ids,p_pokemon_ids,
+    p_price_segment_ids,p_release_age_cohort_ids,p_top_n,p_card_variant_ids
+  )
+$function$;
+REVOKE ALL ON FUNCTION public.get_pokemon_market_explorer_filtered_cohort(uuid[],date,date,uuid[],text[],bigint[],text[],text[],integer,uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_pokemon_market_explorer_filtered_cohort(uuid[],date,date,uuid[],text[],bigint[],text[],text[],integer,uuid[]) TO service_role;
+COMMIT;

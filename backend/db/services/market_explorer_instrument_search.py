@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.db.services.pokemon_global_sealed_market_service import collect_global_sealed_products
-
 MIN_QUERY_LENGTH = 2
 MAX_RESULTS = 50
 
@@ -39,34 +37,20 @@ def search_market_explorer_instruments(client: Any, *, q: str, asset: str = "all
         } for row in rows)
 
     if asset in ("all", "sealed"):
-        snapshots = list((client.table("pokemon_set_sealed_market_snapshot_latest")
-                          .select("set_id,market_date,payload_json").eq("tcg", "pokemon")
-                          .order("set_id").execute()).data or [])
-        latest = max((str(row.get("market_date") or "")[:10] for row in snapshots), default="")
-        products, _ = collect_global_sealed_products(
-            [row.get("payload_json") or {} for row in snapshots], market_date=latest,
-        )
-        set_names = {str((row.get("payload_json") or {}).get("set", {}).get("id") or row.get("set_id")):
-                     (row.get("payload_json") or {}).get("set", {}).get("name") for row in snapshots}
-        set_id_by_product = {}
-        for row in snapshots:
-            payload = row.get("payload_json") or {}
-            owning_set_id = str(payload.get("set", {}).get("id") or row.get("set_id") or "")
-            for product in payload.get("products") or []:
-                set_id_by_product[str(product.get("sealedProductId") or "")] = owning_set_id
+        products = list((client.rpc("search_pokemon_market_explorer_sealed_instruments", {
+            "p_query": needle, "p_limit": cap,
+        }).execute()).data or [])
         for product in products:
-            name = str(product.get("name") or "")
-            if needle.casefold() not in name.casefold():
-                continue
-            product_id = str(product.get("sealedProductId") or "")
-            set_id = set_id_by_product.get(product_id, "")
+            name = str(product.get("product_name") or "")
+            product_id = str(product.get("sealed_product_id") or "")
+            set_id = str(product.get("set_id") or "")
             results.append({
                 "asset": "sealed", "instrumentId": product_id,
                 "name": name, "label": name, "setId": set_id,
-                "setName": set_names.get(set_id), "imageUrl": product.get("imageUrl"),
-                "productType": product.get("productFamily"),
-                "productFamily": product.get("productFamily"),
-                "variantLabel": product.get("variantLabel"),
+                "setName": product.get("set_name"), "imageUrl": product.get("image_url"),
+                "productType": product.get("product_family"),
+                "productFamily": product.get("product_family"),
+                "variantLabel": product.get("variant_label"),
             })
 
     results = [row for row in results if row.get("instrumentId")]

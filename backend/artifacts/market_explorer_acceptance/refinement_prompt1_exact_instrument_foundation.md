@@ -65,14 +65,50 @@ Explicit membership is a canonical filter axis and maps to the new `market_explo
 
 ## O. Genuine blockers
 
-1. Forward migration deployment was not authorized.
-2. Consequently, post-index production EXPLAIN evidence and real cold/warm 1/5/25 acceptance timings are unavailable.
+1. Direct production HTTP entitlement checks require real Plus and Premium test credentials, which were not supplied.
+2. The migration mechanism recorded the foundation as version `20260908052614` with the requested filename/version embedded in its name, rather than ledger version `20260907200000`; migration history was not rewritten ad hoc.
 3. Frontend dependencies are absent for the Next route contract test.
 
 ## P. Prompt-2 readiness
 
-Not ready to start Prompt 2. Prompt 1 requires DB-side review/deployment followed by plan and performance acceptance.
+Do not start Prompt 2 until the two remaining production-closure decisions above are accepted or resolved.
 
 ## Q. Commit SHA
 
 Implementation commit: `102e92ca8aff6058d0513b645641d4734872cd5e`.
+
+## R. Production migration deployment
+
+Applied through the Supabase migration mechanism. Ledger: `20260908052614 / 20260907200000_add_market_explorer_exact_instrument_foundation`. Live acceptance found and corrected missing V2 predicates with `20260908054000_fix_market_explorer_v2_exact_variant_predicates`. Bounded sealed search was added by `20260908060000_add_bounded_sealed_instrument_search_rpc`. No history deletion; V2 remains at 100-day retention.
+
+## S. RPC overload/signature verification
+
+Production has exactly one signature each for original, daily candidate, V2 daily, V2 interval, V2 hybrid, and materialized-series RPCs. All include `p_card_variant_ids`; all are executable only by `service_role`. Pre-deploy catalog dependency count was zero.
+
+## T. Cache generic-ID backfill proof
+
+`158,204 / 158,204` rows populated; unresolved `0`; duplicate fingerprint/instrument pairs `0`; card mismatches `0`; sealed mismatches `0`. New 1/5/25 caches are ready with detail, non-null, unique, and rank `1..N` invariants all exact.
+
+## U. 1/5/25 query-plan evidence
+
+All are index-only scans. V1 index `pokemon_market_explorer_daily_states_variant_date_idx`: 1 = 2.568 ms/147 rows/6 hits/5 reads; 5 = 8.212 ms/735 rows/43 hits/12 reads; 25 = 26.533 ms/3,675 rows/242 hits/34 reads. V2 index `pokemon_market_explorer_daily_states_v2_variant_date_idx`: 1 = 61.984 ms/94 rows/0 hits/100 reads; 5 = 115.433 ms/470 rows/316 hits/180 reads; 25 = 77.691 ms/2,350 rows/1,516 hits/112 reads. No Global sequential scan.
+
+## V. 1/5/25 live timings
+
+Materialized hybrid, 147 points: 1 cold 4.803 s/repeat 4.260 s; 5 cold 4.790 s/persistent 0.276 s; 25 cold 4.507 s/persistent 0.228 s. Counts exactly 1/5/25. Order and duplicate canonicalization passed. Empty/26 rejected. Set, rarity, price, and Top-N intersections behaved filter-first.
+
+## W. Sealed exact acceptance
+
+Fossil Booster Pack First Edition returned 1/127 points; First Edition plus Unlimited returned 2/127. IDs remained distinct. Generic IDs equal sealed product IDs and `card_variant_id` remains nullable.
+
+## X. Search acceptance
+
+`charizard`, `booster`, and `Abra` returned deterministic capped results from canonical card metadata and prepared sealed snapshots; no graded results. After replacing bulk snapshot transport with bounded SQL filtering, latency was 0.471/0.403/0.351 s. No `pg_trgm`.
+
+## Y. Entitlement acceptance
+
+Backend contract/API tests prove Plus denial and Premium allowance, with server-side plan resolution before reads. Direct production HTTP identity testing remains blocked by unavailable test credentials.
+
+## Z. Production health
+
+V1 and V2: 165/165 current through 2026-09-06; V2 retained from 2026-05-30. Maintained: 37 ready/current, 0 stale/failed/building. All caches: 0 building and 0 orphan leases; three pre-existing failed non-maintained custom rows remain.
