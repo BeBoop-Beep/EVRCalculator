@@ -1,0 +1,22 @@
+{
+  "scoringVersion": "collector_c4_collector_roster_research_v1",
+  "status": "research_shadow_frozen",
+  "decision": "COLLECTOR_ROSTER_READY",
+  "formulaFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+  "sourceC3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+  "eligibleCohort": "pokemon_collector_c3b_eligible_cohort_v1 intersect pokemon_card_desirability_hit_policy_v2_coverage_cleanup",
+  "groupContractVersion": "collector_group_contract_v1",
+  "taxonomy": {
+    "pokemon": "named Pokemon collector subject",
+    "trainer": "named Trainer collector entity",
+    "neutralFunctional": "verified functional identity or explicitly reviewed neutral non-species exception"
+  },
+  "representative": "maximum frozen Card Collector Appeal among hit-eligible cards in the set/group",
+  "formula": "100 * (1 - exp(-sum(sqrt(max((groupAppeal - 50) / 50, 0))) / 6.0))",
+  "saturationK": 6.0,
+  "neutralHandling": "50 contributes zero mass; a positive Playability lift above 50 contributes",
+  "energy": "excluded_v1_reported_separately",
+  "excludedInputs": ["pull_probability", "market_price", "artist", "treatment"],
+  "shadowArtifact": "backend/artifacts/collector_c4_set_components_shadow_v1.json",
+  "promotion": false
+}

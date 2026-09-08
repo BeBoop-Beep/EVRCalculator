@@ -1,0 +1,18 @@
+{
+  "scoringVersion": "collector_c4_generalized_desirable_frequency_research_v1",
+  "status": "research_shadow_frozen",
+  "decision": "GENERALIZED_DESIRABLE_FREQUENCY_READY",
+  "formulaFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+  "sourceC3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+  "eligibleCohort": "pokemon_collector_c3b_eligible_cohort_v1 intersect pokemon_card_desirability_hit_policy_v2_coverage_cleanup",
+  "eligibilityPolicy": "card-level frozen Card Collector Appeal > 50",
+  "groupEligibilityPolicy": "researched sensitivity only; not selected",
+  "probabilityContract": "globally deduplicate canonical card IDs; add probabilities within mutually-exclusive slots; multiply miss probabilities across independent slots",
+  "coveragePolicy": "available only when modeled cards cover at least 25% of desirable appeal mass",
+  "missingPullProbability": "unavailable_not_zero",
+  "appealMagnitudeUse": "eligibility_only",
+  "energy": "excluded_v1_reported_separately",
+  "excludedInputs": ["market_price", "artist", "treatment"],
+  "shadowArtifact": "backend/artifacts/collector_c4_set_components_shadow_v1.json",
+  "promotion": false
+}

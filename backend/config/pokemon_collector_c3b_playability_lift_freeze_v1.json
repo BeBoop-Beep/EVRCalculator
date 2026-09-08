@@ -1,0 +1,42 @@
+{
+  "scoringVersion": "collector_c3b_bounded_playability_lift_research_v1",
+  "status": "research_shadow_frozen",
+  "decision": "PLAYABILITY_LIFT_READY",
+  "formulaFingerprint": "669287b9a5b48c4bbc5c8f68372995406f6b39576e8bb2ab541c9eb0223d0a52",
+  "formula": "C = B + (100 - B) * 0.20 * (P / 100)",
+  "lambdaPlayability": 0.20,
+  "lambdaSelection": "Pre-registered discrete grid; preserves subject authority while producing a visible lift without the double-digit frequency and rank churn of 0.25-0.40.",
+  "subjectAppeal": {
+    "contract": "within-domain percentile standing on a 0-100 scale",
+    "sourceFingerprint": "0773b4d23fd4f50ceaab2598c5f33de12ba2a60f3f04d902e4c7720e5ac8d4af",
+    "neutralFunctionalBaseline": 50,
+    "missingSubject": "unavailable; no card score is constructed"
+  },
+  "playabilityCandidateC": {
+    "sourceRun": "9947aaf7-8647-484f-8c9c-2cec59792cdb",
+    "weights": {
+      "deckInclusion": 0.45,
+      "copiesPerUsingDeck": 0.15,
+      "eventBreadth": 0.15,
+      "top32Inclusion": 0.15,
+      "weightedCopiesAcrossField": 0.10
+    },
+    "confidenceFormula": "(1 - exp(-usingDecks / 20)) * (0.5 + 0.5 * min(events / 3, 1))",
+    "scoreable": "events >= 3 OR usingDecks >= 20",
+    "insufficient": "no lift",
+    "unknown": "no lift"
+  },
+  "invariants": [
+    "C >= B",
+    "C <= 100",
+    "unknown or insufficient P returns B exactly",
+    "P = 0 returns B exactly",
+    "B = 100 returns 100 exactly"
+  ],
+  "excludedInputs": ["market_price", "artist_recognition", "treatment"],
+  "shadowArtifact": "backend/artifacts/collector_c3b_card_appeal_shadow_v1.json",
+  "shadowRows": 18293,
+  "subjectUnavailableRows": 1,
+  "cardsReceivingNonzeroLift": 1012,
+  "promotion": false
+}

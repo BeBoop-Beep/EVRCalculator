@@ -1,0 +1,13 @@
+{
+  "version": "pokemon_collector_neutral_subject_exceptions_v1",
+  "policy": "Only explicitly reviewed canonical identities may bypass named-subject linkage. Missing Pokedex data alone never qualifies.",
+  "exceptions": {
+    "ecard3-47": {
+      "cardName": "Buried Fossil",
+      "classification": "mechanical_pokemon_non_species_neutral_subject",
+      "subjectAppeal": 50,
+      "reviewBasis": "Historical object/fossil gameplay Pokemon with no legitimate named Pokemon identity; evolves into Omanyte, Kabuto, or Aerodactyl.",
+      "requiredFacts": ["supertype=Pokemon", "subtype=Basic", "no legitimate named Pokemon subject", "explicit card identity review"]
+    }
+  }
+}

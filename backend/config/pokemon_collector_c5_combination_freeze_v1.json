@@ -1,0 +1,25 @@
+{
+  "scoringVersion": "collector_appeal_c5_generalized_d_f_research_v1",
+  "status": "research_shadow_frozen",
+  "decision": "COLLECTOR_APPEAL_COMBINATION_READY",
+  "formulaFingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf",
+  "formula": "sF = clamp01((log2(F)-log2(1/16))/(log2(1/4)-log2(1/16))); z=2*sF-1; m=2*z when z>=0 else 1*z; CA=clamp(D+m,0,100)",
+  "frequencySemantics": {
+    "zero": "one desirable card per 16 packs or worse",
+    "neutral": "one desirable card per 8 packs",
+    "one": "one desirable card per 4 packs or better"
+  },
+  "modifierCaps": {"positivePoints": 2, "negativePoints": -1},
+  "collectorRosterFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+  "generalizedFrequencyFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+  "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+  "supportedCohort": "sets whose frozen C4 generalized F status is available",
+  "supportedSetCount": 22,
+  "unavailableSetCount": 106,
+  "missingReason": "collector_appeal_unavailable_no_generalized_frequency",
+  "dualPathDepth": "diagnostic_only_not_scored",
+  "separateSetPlayabilityTerm": false,
+  "excludedInputs": ["price", "artist", "treatment", "energy"],
+  "shadowArtifact": "backend/artifacts/collector_c5_combination_shadow_v1.json",
+  "promotion": false
+}

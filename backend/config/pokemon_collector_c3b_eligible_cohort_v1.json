@@ -1,0 +1,13 @@
+{
+  "version": "pokemon_collector_c3b_eligible_cohort_v1",
+  "sourceTable": "pokemon_canonical_cards",
+  "requiredPredicates": {
+    "catalog_role": "main",
+    "opening_eligible": true,
+    "canonical_review_status": "approved",
+    "supertype": ["Pokemon", "Trainer"]
+  },
+  "excludedSupertypes": ["Energy"],
+  "meaning": "Approved main-catalog canonical Pokemon and Trainer cards eligible to occur in opening analysis; identical authority must be consumed by C4.",
+  "missingSubjectPolicy": "unavailable unless an explicit reviewed neutral-subject exception exists"
+}

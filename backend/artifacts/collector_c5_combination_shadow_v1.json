@@ -1,0 +1,3450 @@
+{
+  "decision": "COLLECTOR_APPEAL_COMBINATION_READY",
+  "configuration": {
+    "version": "collector_appeal_c5_generalized_d_f_research_v1",
+    "winner": "signed_up2_down1",
+    "formula": "sF = canonical V4 fixed log2 frequency index; z = 2*sF-1; m = 2*z if z>=0 else 1*z; CA = clamp(D+m,0,100)",
+    "frequencyTransformSource": "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))); z = 2*sH - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)",
+    "frequencyTransform": {
+      "zero": "one desirable hit per 16 packs or worse",
+      "neutral": "one per 8 packs",
+      "one": "one per 4 packs or better"
+    },
+    "modifier": {
+      "up": 2,
+      "down": 1
+    },
+    "dFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+    "fFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+    "supported": "C4 F status available only",
+    "missingReason": "collector_appeal_unavailable_no_generalized_frequency",
+    "dualPath": false,
+    "playabilitySeparateTerm": false,
+    "price": false,
+    "artist": false,
+    "treatment": false,
+    "energy": false
+  },
+  "formulaFingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf",
+  "candidateMetrics": {
+    "d_only": {
+      "distribution": {
+        "count": 22,
+        "min": 66.09846335816398,
+        "p10": 85.7252566998928,
+        "p25": 91.53643111110365,
+        "median": 93.97809488069522,
+        "p75": 97.5366511094211,
+        "p90": 97.79703319944221,
+        "p95": 98.4619103353421,
+        "max": 99.98189530753997,
+        "mean": 93.1729310624574
+      },
+      "spearmanVsD": 1.0,
+      "spearmanVsF": 0.15753811405985318,
+      "rankMovement": {
+        "medianAbsolute": 0.0,
+        "maximum": 0.0,
+        "atLeast3": 0,
+        "atLeast5": 0,
+        "atLeast10": 0,
+        "topGainers": [
+          {
+            "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "ranksGained": 0.0
+          },
+          {
+            "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "ranksGained": 0.0
+          },
+          {
+            "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "ranksGained": 0.0
+          },
+          {
+            "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "ranksGained": 0.0
+          },
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 0.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "ranksLost": 0.0
+          },
+          {
+            "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "ranksLost": 0.0
+          },
+          {
+            "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "ranksLost": 0.0
+          },
+          {
+            "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "ranksLost": 0.0
+          },
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksLost": 0.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 0,
+      "ceilingCount": 0,
+      "floorCount": 0
+    },
+    "v4_signed_up4_down2": {
+      "distribution": {
+        "count": 22,
+        "min": 64.934529974075,
+        "p10": 87.16095187398876,
+        "p25": 94.08686821935508,
+        "median": 97.74062540170875,
+        "p75": 100.0,
+        "p90": 100.0,
+        "p95": 100.0,
+        "max": 100.0,
+        "mean": 95.24434921340475
+      },
+      "spearmanVsD": 0.9289781642551516,
+      "spearmanVsF": 0.3643614171105751,
+      "rankMovement": {
+        "medianAbsolute": 1.0,
+        "maximum": 6.0,
+        "atLeast3": 5,
+        "atLeast5": 2,
+        "atLeast10": 0,
+        "topGainers": [
+          {
+            "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "ranksGained": 5.0
+          },
+          {
+            "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+            "ranksGained": 4.0
+          },
+          {
+            "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 2.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "ranksLost": 6.0
+          },
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 4.0
+          },
+          {
+            "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+            "ranksLost": 3.0
+          },
+          {
+            "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "ranksLost": 2.0
+          },
+          {
+            "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "ranksLost": 1.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 5,
+      "ceilingCount": 7,
+      "floorCount": 0
+    },
+    "positive_headroom_0.10": {
+      "distribution": {
+        "count": 22,
+        "min": 66.80706193352208,
+        "p10": 86.60028083721632,
+        "p25": 92.22943205757952,
+        "median": 94.4927242458804,
+        "p75": 97.70886165605815,
+        "p90": 97.98346836976083,
+        "p95": 98.54014028375028,
+        "max": 99.98370577678597,
+        "mean": 93.650247973281
+      },
+      "spearmanVsD": 0.9977413890457371,
+      "spearmanVsF": 0.18464144551101078,
+      "rankMovement": {
+        "medianAbsolute": 0.0,
+        "maximum": 1.0,
+        "atLeast3": 0,
+        "atLeast5": 0,
+        "atLeast10": 0,
+        "topGainers": [
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 1.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 1.0
+          },
+          {
+            "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "ranksGained": 0.0
+          },
+          {
+            "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "ranksGained": 0.0
+          },
+          {
+            "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "ranksGained": 0.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "ranksLost": 0.0
+          },
+          {
+            "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "ranksLost": 0.0
+          },
+          {
+            "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "ranksLost": 0.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 2,
+      "ceilingCount": 0,
+      "floorCount": 0
+    },
+    "positive_headroom_0.20": {
+      "distribution": {
+        "count": 22,
+        "min": 67.51566050888016,
+        "p10": 87.47530497453984,
+        "p25": 92.92243300405538,
+        "median": 95.1046437741159,
+        "p75": 97.94380314227092,
+        "p90": 98.17164258289304,
+        "p95": 98.61837023215844,
+        "max": 99.98551624603198,
+        "mean": 94.12756488410459
+      },
+      "spearmanVsD": 0.9887069452286846,
+      "spearmanVsF": 0.23433088650479955,
+      "rankMovement": {
+        "medianAbsolute": 0.0,
+        "maximum": 3.0,
+        "atLeast3": 1,
+        "atLeast5": 0,
+        "atLeast10": 0,
+        "topGainers": [
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 1.0
+          },
+          {
+            "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "ranksGained": 1.0
+          },
+          {
+            "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "ranksGained": 1.0
+          },
+          {
+            "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+            "ranksGained": 1.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 3.0
+          },
+          {
+            "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "ranksLost": 0.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 4,
+      "ceilingCount": 0,
+      "floorCount": 0
+    },
+    "positive_headroom_0.30": {
+      "distribution": {
+        "count": 22,
+        "min": 68.22425908423824,
+        "p10": 88.35032911186335,
+        "p25": 93.61543395053124,
+        "median": 95.71656330235142,
+        "p75": 98.1567776679168,
+        "p90": 98.38365321117467,
+        "p95": 98.69660018056662,
+        "max": 99.98732671527799,
+        "mean": 94.60488179492818
+      },
+      "spearmanVsD": 0.9830604178430267,
+      "spearmanVsF": 0.25127046866177305,
+      "rankMovement": {
+        "medianAbsolute": 0.0,
+        "maximum": 4.0,
+        "atLeast3": 1,
+        "atLeast5": 0,
+        "atLeast10": 0,
+        "topGainers": [
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 1.0
+          },
+          {
+            "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "ranksGained": 1.0
+          },
+          {
+            "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "ranksGained": 1.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 4.0
+          },
+          {
+            "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "ranksLost": 0.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 4,
+      "ceilingCount": 0,
+      "floorCount": 0
+    },
+    "positive_headroom_0.40": {
+      "distribution": {
+        "count": 22,
+        "min": 68.93285765959634,
+        "p10": 89.72781935324593,
+        "p25": 94.3084348970071,
+        "median": 96.32848283058692,
+        "p75": 98.36249202632294,
+        "p90": 98.59566383945631,
+        "p95": 98.77483012897478,
+        "max": 99.98913718452398,
+        "mean": 95.08219870575176
+      },
+      "spearmanVsD": 0.979672501411632,
+      "spearmanVsF": 0.277244494635799,
+      "rankMovement": {
+        "medianAbsolute": 1.0,
+        "maximum": 4.0,
+        "atLeast3": 1,
+        "atLeast5": 0,
+        "atLeast10": 0,
+        "topGainers": [
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "ranksGained": 1.0
+          },
+          {
+            "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "ranksGained": 1.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 1.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 4.0
+          },
+          {
+            "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "ranksLost": 2.0
+          },
+          {
+            "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "ranksLost": 1.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 5,
+      "ceilingCount": 0,
+      "floorCount": 0
+    },
+    "signed_up2_down1": {
+      "distribution": {
+        "count": 22,
+        "min": 65.5164966661195,
+        "p10": 86.1772073064356,
+        "p25": 92.81164966522937,
+        "median": 95.88080471764488,
+        "p75": 98.88408672644468,
+        "p90": 99.42975392783866,
+        "p95": 99.5127187455158,
+        "max": 100.0,
+        "mean": 94.31399398376178
+      },
+      "spearmanVsD": 0.9534030315231344,
+      "spearmanVsF": 0.3563965123762427,
+      "rankMovement": {
+        "medianAbsolute": 0.5,
+        "maximum": 5.0,
+        "atLeast3": 4,
+        "atLeast5": 1,
+        "atLeast10": 0,
+        "topGainers": [
+          {
+            "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+            "ranksGained": 4.0
+          },
+          {
+            "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "ranksGained": 3.0
+          },
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 1.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "ranksLost": 5.0
+          },
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 4.0
+          },
+          {
+            "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "ranksLost": 2.0
+          },
+          {
+            "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "ranksLost": 1.0
+          },
+          {
+            "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "ranksLost": 1.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 5,
+      "ceilingCount": 2,
+      "floorCount": 0
+    },
+    "signed_up4_down2": {
+      "distribution": {
+        "count": 22,
+        "min": 64.934529974075,
+        "p10": 87.16095187398878,
+        "p25": 94.08686821935508,
+        "median": 97.74062540170877,
+        "p75": 100.0,
+        "p90": 100.0,
+        "p95": 100.0,
+        "max": 100.0,
+        "mean": 95.24434921340475
+      },
+      "spearmanVsD": 0.9289781642551516,
+      "spearmanVsF": 0.3643614171105751,
+      "rankMovement": {
+        "medianAbsolute": 1.0,
+        "maximum": 6.0,
+        "atLeast3": 5,
+        "atLeast5": 2,
+        "atLeast10": 0,
+        "topGainers": [
+          {
+            "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "ranksGained": 5.0
+          },
+          {
+            "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+            "ranksGained": 4.0
+          },
+          {
+            "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 2.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 2.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "ranksLost": 6.0
+          },
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 4.0
+          },
+          {
+            "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+            "ranksLost": 3.0
+          },
+          {
+            "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "ranksLost": 2.0
+          },
+          {
+            "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "ranksLost": 1.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 5,
+      "ceilingCount": 7,
+      "floorCount": 0
+    },
+    "signed_up6_down3": {
+      "distribution": {
+        "count": 22,
+        "min": 64.35256328203053,
+        "p10": 88.73844159201033,
+        "p25": 95.30371260612552,
+        "median": 99.19269456957848,
+        "p75": 100.0,
+        "p90": 100.0,
+        "p95": 100.0,
+        "max": 100.0,
+        "mean": 95.9962586056215
+      },
+      "spearmanVsD": 0.841760943151518,
+      "spearmanVsF": 0.5158439590274129,
+      "rankMovement": {
+        "medianAbsolute": 1.0,
+        "maximum": 11.0,
+        "atLeast3": 9,
+        "atLeast5": 4,
+        "atLeast10": 1,
+        "topGainers": [
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 5.0
+          },
+          {
+            "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "ranksGained": 5.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 4.0
+          },
+          {
+            "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "ranksGained": 4.0
+          },
+          {
+            "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+            "ranksGained": 4.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "ranksLost": 11.0
+          },
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 5.0
+          },
+          {
+            "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "ranksLost": 3.0
+          },
+          {
+            "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+            "ranksLost": 3.0
+          },
+          {
+            "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "ranksLost": 2.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 6,
+      "ceilingCount": 7,
+      "floorCount": 0
+    },
+    "weighted_90_10": {
+      "distribution": {
+        "count": 22,
+        "min": 61.57878356212515,
+        "p10": 84.54909948920499,
+        "p25": 90.57083438530756,
+        "median": 93.98301127904669,
+        "p75": 96.14680146779426,
+        "p90": 97.38560274166187,
+        "p95": 97.6867785350548,
+        "max": 99.98370577678598,
+        "mean": 92.08913282086203
+      },
+      "spearmanVsD": 0.8565782044042914,
+      "spearmanVsF": 0.5381140598531904,
+      "rankMovement": {
+        "medianAbsolute": 1.0,
+        "maximum": 11.0,
+        "atLeast3": 8,
+        "atLeast5": 3,
+        "atLeast10": 1,
+        "topGainers": [
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 5.0
+          },
+          {
+            "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+            "ranksGained": 5.0
+          },
+          {
+            "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "ranksGained": 4.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 4.0
+          },
+          {
+            "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "ranksGained": 4.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "ranksLost": 11.0
+          },
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 4.0
+          },
+          {
+            "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "ranksLost": 3.0
+          },
+          {
+            "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "ranksLost": 2.0
+          },
+          {
+            "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "ranksLost": 1.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 7,
+      "ceilingCount": 0,
+      "floorCount": 0
+    },
+    "weighted_80_20": {
+      "distribution": {
+        "count": 22,
+        "min": 57.05910376608633,
+        "p10": 85.09222654046431,
+        "p25": 88.94188040166799,
+        "median": 92.01114435522886,
+        "p75": 95.1046437741159,
+        "p90": 97.65234692649186,
+        "p95": 97.94380314227094,
+        "max": 99.98551624603198,
+        "mean": 91.00533457926669
+      },
+      "spearmanVsD": 0.7289666854884247,
+      "spearmanVsF": 0.719932241671372,
+      "rankMovement": {
+        "medianAbsolute": 2.0,
+        "maximum": 14.0,
+        "atLeast3": 11,
+        "atLeast5": 8,
+        "atLeast10": 1,
+        "topGainers": [
+          {
+            "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+            "ranksGained": 6.0
+          },
+          {
+            "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "ranksGained": 6.0
+          },
+          {
+            "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "ranksGained": 6.0
+          },
+          {
+            "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "ranksGained": 5.0
+          },
+          {
+            "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+            "ranksGained": 5.0
+          }
+        ],
+        "topDecliners": [
+          {
+            "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "ranksLost": 14.0
+          },
+          {
+            "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "ranksLost": 7.0
+          },
+          {
+            "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "ranksLost": 5.0
+          },
+          {
+            "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "ranksLost": 4.0
+          },
+          {
+            "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "ranksLost": 3.0
+          }
+        ]
+      },
+      "nearestDNeighborInversions": 8,
+      "ceilingCount": 0,
+      "floorCount": 0
+    }
+  },
+  "dominanceAndPairs": {
+    "grid": {
+      "50": {
+        "low": {
+          "F": 0.0625,
+          "index": 0.0,
+          "v4": 48.0,
+          "preferred": 49.0,
+          "preferredModifier": -1.0,
+          "positive20": 50.0,
+          "weighted90_10": 45.0
+        },
+        "neutral": {
+          "F": 0.125,
+          "index": 0.5,
+          "v4": 50.0,
+          "preferred": 50.0,
+          "preferredModifier": 0.0,
+          "positive20": 55.0,
+          "weighted90_10": 50.0
+        },
+        "high": {
+          "F": 0.25,
+          "index": 1.0,
+          "v4": 54.0,
+          "preferred": 52.0,
+          "preferredModifier": 2.0,
+          "positive20": 60.0,
+          "weighted90_10": 55.0
+        }
+      },
+      "70": {
+        "low": {
+          "F": 0.0625,
+          "index": 0.0,
+          "v4": 68.0,
+          "preferred": 69.0,
+          "preferredModifier": -1.0,
+          "positive20": 70.0,
+          "weighted90_10": 63.0
+        },
+        "neutral": {
+          "F": 0.125,
+          "index": 0.5,
+          "v4": 70.0,
+          "preferred": 70.0,
+          "preferredModifier": 0.0,
+          "positive20": 73.0,
+          "weighted90_10": 68.0
+        },
+        "high": {
+          "F": 0.25,
+          "index": 1.0,
+          "v4": 74.0,
+          "preferred": 72.0,
+          "preferredModifier": 2.0,
+          "positive20": 76.0,
+          "weighted90_10": 73.0
+        }
+      },
+      "80": {
+        "low": {
+          "F": 0.0625,
+          "index": 0.0,
+          "v4": 78.0,
+          "preferred": 79.0,
+          "preferredModifier": -1.0,
+          "positive20": 80.0,
+          "weighted90_10": 72.0
+        },
+        "neutral": {
+          "F": 0.125,
+          "index": 0.5,
+          "v4": 80.0,
+          "preferred": 80.0,
+          "preferredModifier": 0.0,
+          "positive20": 82.0,
+          "weighted90_10": 77.0
+        },
+        "high": {
+          "F": 0.25,
+          "index": 1.0,
+          "v4": 84.00000000000001,
+          "preferred": 82.0,
+          "preferredModifier": 2.0,
+          "positive20": 84.0,
+          "weighted90_10": 82.0
+        }
+      },
+      "90": {
+        "low": {
+          "F": 0.0625,
+          "index": 0.0,
+          "v4": 88.0,
+          "preferred": 89.0,
+          "preferredModifier": -1.0,
+          "positive20": 90.0,
+          "weighted90_10": 81.0
+        },
+        "neutral": {
+          "F": 0.125,
+          "index": 0.5,
+          "v4": 90.0,
+          "preferred": 90.0,
+          "preferredModifier": 0.0,
+          "positive20": 91.0,
+          "weighted90_10": 86.0
+        },
+        "high": {
+          "F": 0.25,
+          "index": 1.0,
+          "v4": 94.0,
+          "preferred": 92.0,
+          "preferredModifier": 2.0,
+          "positive20": 92.0,
+          "weighted90_10": 91.0
+        }
+      },
+      "95": {
+        "low": {
+          "F": 0.0625,
+          "index": 0.0,
+          "v4": 93.0,
+          "preferred": 94.0,
+          "preferredModifier": -1.0,
+          "positive20": 95.0,
+          "weighted90_10": 85.5
+        },
+        "neutral": {
+          "F": 0.125,
+          "index": 0.5,
+          "v4": 95.0,
+          "preferred": 95.0,
+          "preferredModifier": 0.0,
+          "positive20": 95.5,
+          "weighted90_10": 90.5
+        },
+        "high": {
+          "F": 0.25,
+          "index": 1.0,
+          "v4": 99.0,
+          "preferred": 97.0,
+          "preferredModifier": 2.0,
+          "positive20": 96.0,
+          "weighted90_10": 95.5
+        }
+      },
+      "99": {
+        "low": {
+          "F": 0.0625,
+          "index": 0.0,
+          "v4": 97.0,
+          "preferred": 98.0,
+          "preferredModifier": -1.0,
+          "positive20": 99.0,
+          "weighted90_10": 89.10000000000001
+        },
+        "neutral": {
+          "F": 0.125,
+          "index": 0.5,
+          "v4": 99.0,
+          "preferred": 99.0,
+          "preferredModifier": 0.0,
+          "positive20": 99.1,
+          "weighted90_10": 94.10000000000001
+        },
+        "high": {
+          "F": 0.25,
+          "index": 1.0,
+          "v4": 100.0,
+          "preferred": 100.0,
+          "preferredModifier": 1.0,
+          "positive20": 99.2,
+          "weighted90_10": 99.10000000000001
+        }
+      }
+    },
+    "pairs": [
+      {
+        "case": "sameD",
+        "a": {
+          "D": 90,
+          "F": 0.0625,
+          "score": 89.0
+        },
+        "b": {
+          "D": 90,
+          "F": 0.25,
+          "score": 92.0
+        }
+      },
+      {
+        "case": "strongerRosterModeratelyLowerF",
+        "a": {
+          "D": 92,
+          "F": 0.125,
+          "score": 92.0
+        },
+        "b": {
+          "D": 88,
+          "F": 0.25,
+          "score": 90.0
+        }
+      },
+      {
+        "case": "excellentTerrible",
+        "a": {
+          "D": 98,
+          "F": 0.03125,
+          "score": 97.0
+        },
+        "b": {
+          "D": 90,
+          "F": 0.125,
+          "score": 90.0
+        }
+      },
+      {
+        "case": "moderateExcellent",
+        "a": {
+          "D": 70,
+          "F": 0.25,
+          "score": 72.0
+        },
+        "b": {
+          "D": 90,
+          "F": 0.125,
+          "score": 90.0
+        }
+      }
+    ]
+  },
+  "perturbationSensitivity": {
+    "F-20%": {
+      "scoreDelta": {
+        "count": 22,
+        "min": -0.6438561897747235,
+        "p10": -0.6438561897747235,
+        "p25": -0.6438561897747235,
+        "median": -0.5721028878059826,
+        "p75": -0.17910986004912388,
+        "p90": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "mean": -0.41249453649009643
+      },
+      "rankSpearman": 0.9932203389830508,
+      "maxAbsoluteRankMove": 2.0
+    },
+    "F-10%": {
+      "scoreDelta": {
+        "count": 22,
+        "min": -0.3040061868901063,
+        "p10": -0.3040061868901063,
+        "p25": -0.3040061868901063,
+        "median": -0.30400618689009207,
+        "p75": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "mean": -0.1909803876287322
+      },
+      "rankSpearman": 0.9977401129943503,
+      "maxAbsoluteRankMove": 1.0
+    },
+    "F+10%": {
+      "scoreDelta": {
+        "count": 22,
+        "min": 0.0,
+        "p10": 0.0,
+        "p25": 0.0,
+        "median": 0.2750070474998694,
+        "p75": 0.2750070474998694,
+        "p90": 0.2750070474998694,
+        "p95": 0.2750070474998694,
+        "max": 0.2750070474998836,
+        "mean": 0.16693139429828882
+      },
+      "rankSpearman": 0.9977401129943501,
+      "maxAbsoluteRankMove": 1.0
+    },
+    "F+20%": {
+      "scoreDelta": {
+        "count": 22,
+        "min": 0.0,
+        "p10": 0.0,
+        "p25": 0.0,
+        "median": 0.42251028197844676,
+        "p75": 0.5260688116675851,
+        "p90": 0.5260688116675851,
+        "p95": 0.5260688116675851,
+        "max": 0.5260688116675993,
+        "mean": 0.30487291804407524
+      },
+      "rankSpearman": 0.9977401129943501,
+      "maxAbsoluteRankMove": 1.0
+    },
+    "D-2": {
+      "scoreDelta": {
+        "count": 22,
+        "min": -2.0,
+        "p10": -2.0,
+        "p25": -2.0,
+        "median": -2.0,
+        "p75": -2.0,
+        "p90": -2.0,
+        "p95": -2.0,
+        "max": -0.018104692460028105,
+        "mean": -1.8212119439876566
+      },
+      "rankSpearman": 0.9997176337653721,
+      "maxAbsoluteRankMove": 0.5
+    },
+    "D-1": {
+      "scoreDelta": {
+        "count": 22,
+        "min": -1.0,
+        "p10": -1.0,
+        "p25": -1.0,
+        "median": -1.0,
+        "p75": -1.0,
+        "p90": -1.0,
+        "p95": -1.0,
+        "max": 0.0,
+        "mean": -0.9090909090909091
+      },
+      "rankSpearman": 1.0,
+      "maxAbsoluteRankMove": 0.0
+    },
+    "D+1": {
+      "scoreDelta": {
+        "count": 22,
+        "min": 0.0,
+        "p10": 0.487281254484202,
+        "p25": 0.9345663418851871,
+        "median": 1.0,
+        "p75": 1.0,
+        "p90": 1.0,
+        "p95": 1.0,
+        "max": 1.0,
+        "mean": 0.8549952340827986
+      },
+      "rankSpearman": 0.9903489084418569,
+      "maxAbsoluteRankMove": 2.5
+    },
+    "D+2": {
+      "scoreDelta": {
+        "count": 22,
+        "min": 0.0,
+        "p10": 0.487281254484202,
+        "p25": 0.9345663418851871,
+        "median": 2.0,
+        "p75": 2.0,
+        "p90": 2.0,
+        "p95": 2.0,
+        "max": 2.0,
+        "mean": 1.504382357199838
+      },
+      "rankSpearman": 0.9657993381556651,
+      "maxAbsoluteRankMove": 4.0
+    }
+  },
+  "thresholdCarryThrough": {
+    "50": {
+      "spearmanVsPrimary": 1.0,
+      "scoreDelta": {
+        "count": 22,
+        "min": 0.0,
+        "p10": 0.0,
+        "p25": 0.0,
+        "median": 0.0,
+        "p75": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      "maxAbsoluteRankMove": 0.0
+    },
+    "55": {
+      "spearmanVsPrimary": 0.9988700564971752,
+      "scoreDelta": {
+        "count": 22,
+        "min": -0.43162225780010033,
+        "p10": -0.41910428366995234,
+        "p25": -0.2753322739293509,
+        "median": -0.07743586732684093,
+        "p75": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "mean": -0.13910835986706227
+      },
+      "maxAbsoluteRankMove": 1.0
+    },
+    "60": {
+      "spearmanVsPrimary": 0.9932203389830508,
+      "scoreDelta": {
+        "count": 22,
+        "min": -0.8305679057074542,
+        "p10": -0.7047523931368858,
+        "p25": -0.5896364426343155,
+        "median": -0.1879203548256072,
+        "p75": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "mean": -0.302590062608091
+      },
+      "maxAbsoluteRankMove": 2.0
+    }
+  },
+  "dualPathConclusion": "not_scored_not_required; D+F represents roster quality and delivery frequency without an identified residual construct requiring P",
+  "supportedCount": 22,
+  "unavailableCount": 106,
+  "rows": [
+    {
+      "set_id": "3f3c7677-b876-4353-821e-6bdd610fd683",
+      "set_name": "Ancient Origins",
+      "generalizedD": 92.09765924320628,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+      "set_name": "Aquapolis",
+      "generalizedD": 96.27061725136687,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6",
+      "set_name": "Arceus",
+      "generalizedD": 71.03579776373941,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "set_name": "Ascended Heroes",
+      "generalizedD": 99.95144192473158,
+      "generalizedF": 0.29627923577783255,
+      "frequencyIndex": 1.0,
+      "collectorAppeal": 100.0,
+      "modifierPoints": 0.048558075268417156,
+      "rank": 1.5,
+      "dRank": 2.0,
+      "fRank": 5.0,
+      "candidates": {
+        "d_only": 99.95144192473158,
+        "v4_signed_up4_down2": 100.0,
+        "positive_headroom_0.10": 99.95629773225842,
+        "positive_headroom_0.20": 99.96115353978527,
+        "positive_headroom_0.30": 99.96600934731211,
+        "positive_headroom_0.40": 99.97086515483895,
+        "signed_up2_down1": 100.0,
+        "signed_up4_down2": 100.0,
+        "signed_up6_down3": 100.0,
+        "weighted_90_10": 99.95629773225842,
+        "weighted_80_20": 99.96115353978527
+      },
+      "oldUniversalD": 95.4809,
+      "oldPokemonOnlyF": 0.23379807598069657,
+      "reconstructedOldV4": 99.09423985003099,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+      "set_name": "Astral Radiance",
+      "generalizedD": 97.36598839084843,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "4de777b3-396e-4f19-9d78-c054b296bedb",
+      "set_name": "BREAKpoint",
+      "generalizedD": 91.09981006907925,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+      "set_name": "BREAKthrough",
+      "generalizedD": 93.75628180658883,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+      "set_name": "Base",
+      "generalizedD": 84.54917540942269,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "6c82fb37-b9b9-4961-a528-12556bd15417",
+      "set_name": "Base Set 2",
+      "generalizedD": 89.68910181569694,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+      "set_name": "Battle Styles",
+      "generalizedD": 90.45928396791535,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "591a2b3e-2dc8-4e80-b42d-aec4f4b786e4",
+      "set_name": "Black & White",
+      "generalizedD": 72.56998588444225,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "set_name": "Black Bolt",
+      "generalizedD": 96.7653541029934,
+      "generalizedF": 0.1603154734969321,
+      "frequencyIndex": 0.6794927924389536,
+      "collectorAppeal": 97.48332527274921,
+      "modifierPoints": 0.7179711697558133,
+      "rank": 10.0,
+      "dRank": 10.0,
+      "fRank": 18.0,
+      "candidates": {
+        "d_only": 96.7653541029934,
+        "v4_signed_up4_down2": 98.20129644250503,
+        "positive_headroom_0.10": 96.98514596030422,
+        "positive_headroom_0.20": 97.20493781761505,
+        "positive_headroom_0.30": 97.42472967492587,
+        "positive_headroom_0.40": 97.64452153223668,
+        "signed_up2_down1": 97.48332527274921,
+        "signed_up4_down2": 98.20129644250503,
+        "signed_up6_down3": 98.91926761226084,
+        "weighted_90_10": 93.8837466170836,
+        "weighted_80_20": 91.00213913117379
+      },
+      "oldUniversalD": 84.0138,
+      "oldPokemonOnlyF": 0.1254179655080777,
+      "reconstructedOldV4": 84.03306370816046,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+      "set_name": "Boundaries Crossed",
+      "generalizedD": 93.83800572061767,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+      "set_name": "Brilliant Stars",
+      "generalizedD": 96.98889310123306,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+      "set_name": "Burning Shadows",
+      "generalizedD": 93.96131494045893,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+      "set_name": "Call of Legends",
+      "generalizedD": 94.10981429787272,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "be7c981b-c55e-4f60-a1b8-be922531452d",
+      "set_name": "Celebrations",
+      "generalizedD": 51.13645616361938,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+      "set_name": "Celestial Storm",
+      "generalizedD": 92.7761704701026,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+      "set_name": "Champion's Path",
+      "generalizedD": 90.7135134886736,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+      "set_name": "Chaos Rising",
+      "generalizedD": 84.00597243794566,
+      "generalizedF": 0.21594635330474954,
+      "frequencyIndex": 0.8943724295053892,
+      "collectorAppeal": 85.58346215596721,
+      "modifierPoints": 1.5774897180215532,
+      "rank": 21.0,
+      "dRank": 21.0,
+      "fRank": 10.0,
+      "candidates": {
+        "d_only": 84.00597243794566,
+        "v4_signed_up4_down2": 87.16095187398876,
+        "positive_headroom_0.10": 85.43643416677072,
+        "positive_headroom_0.20": 86.8668958955958,
+        "positive_headroom_0.30": 88.29735762442087,
+        "positive_headroom_0.40": 89.72781935324593,
+        "signed_up2_down1": 85.58346215596721,
+        "signed_up4_down2": 87.16095187398878,
+        "signed_up6_down3": 88.73844159201033,
+        "weighted_90_10": 84.54909948920499,
+        "weighted_80_20": 85.09222654046431
+      },
+      "oldUniversalD": 69.8947,
+      "oldPokemonOnlyF": 0.18034089504495188,
+      "reconstructedOldV4": 72.00989396823203,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+      "set_name": "Chilling Reign",
+      "generalizedD": 96.38436128284302,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+      "set_name": "Cosmic Eclipse",
+      "generalizedD": 99.85858720494296,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "212383a2-ed84-4a5e-af37-50814247a437",
+      "set_name": "Crimson Invasion",
+      "generalizedD": 87.29414818392436,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+      "set_name": "Crown Zenith",
+      "generalizedD": 97.94037914353034,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "93050f21-b805-41fc-a49d-b5afcb9c41dc",
+      "set_name": "Crystal Guardians",
+      "generalizedD": 91.98025778036256,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "7a87a5b5-17dc-43e6-9eac-3de88beab0e7",
+      "set_name": "Dark Explorers",
+      "generalizedD": 84.6046366684678,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "3836457c-77dc-44b0-a72f-779b6dd78884",
+      "set_name": "Darkness Ablaze",
+      "generalizedD": 96.65889466119813,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "1b3250bb-f123-47d8-b090-499e5879eda7",
+      "set_name": "Delta Species",
+      "generalizedD": 95.21740527424961,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "388dd649-960b-4fd8-a8df-e56b3730972e",
+      "set_name": "Deoxys",
+      "generalizedD": 89.97346446103582,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "set_name": "Destined Rivals",
+      "generalizedD": 97.53963459269839,
+      "generalizedF": 0.19919123441754738,
+      "frequencyIndex": 0.8361130334365716,
+      "collectorAppeal": 98.88408672644468,
+      "modifierPoints": 1.3444521337462874,
+      "rank": 7.0,
+      "dRank": 6.0,
+      "fRank": 14.0,
+      "candidates": {
+        "d_only": 97.53963459269839,
+        "v4_signed_up4_down2": 100.0,
+        "positive_headroom_0.10": 97.74534895110453,
+        "positive_headroom_0.20": 97.95106330951066,
+        "positive_headroom_0.30": 98.1567776679168,
+        "positive_headroom_0.40": 98.36249202632294,
+        "signed_up2_down1": 98.88408672644468,
+        "signed_up4_down2": 100.0,
+        "signed_up6_down3": 100.0,
+        "weighted_90_10": 96.14680146779426,
+        "weighted_80_20": 94.75396834289016
+      },
+      "oldUniversalD": 87.928,
+      "oldPokemonOnlyF": 0.14100826374540676,
+      "reconstructedOldV4": 88.62340647563238,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+      "set_name": "Detective Pikachu",
+      "generalizedD": 48.32938872756862,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "7a1b8de0-331f-4635-8512-b737da431f7d",
+      "set_name": "Diamond & Pearl",
+      "generalizedD": 81.59062328491864,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "806b7046-4fd5-4259-be17-54b28381f034",
+      "set_name": "Double Crisis",
+      "generalizedD": 47.88387816807784,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "4c0902e8-fc57-4e07-82e1-e4bdb9fe9990",
+      "set_name": "Dragon",
+      "generalizedD": 90.23091249944754,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "c56fe006-6d9a-4b26-a4e0-6726138edecb",
+      "set_name": "Dragon Frontiers",
+      "generalizedD": 95.83122656105066,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+      "set_name": "Dragon Majesty",
+      "generalizedD": 90.93803622904491,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+      "set_name": "Dragon Vault",
+      "generalizedD": 71.95247912580962,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+      "set_name": "Dragons Exalted",
+      "generalizedD": 91.90412893503103,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+      "set_name": "Emerald",
+      "generalizedD": 86.1368452127935,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "34a48f79-1bd3-4f1d-9e3c-758955be70ee",
+      "set_name": "Emerging Powers",
+      "generalizedD": 24.782300039795867,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "75cc9ef9-1099-4e47-8d09-17f416606865",
+      "set_name": "Evolutions",
+      "generalizedD": 93.75633190726533,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "93212749-ce0e-498e-975e-7d947a3448ce",
+      "set_name": "Evolving Skies",
+      "generalizedD": 99.29828684720428,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "7ceb2e94-7968-4394-95cb-742b01804974",
+      "set_name": "Expedition Base Set",
+      "generalizedD": 96.89695679887714,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+      "set_name": "Fates Collide",
+      "generalizedD": 88.32461136039461,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "50c5370b-a5e7-4fbc-98fe-efc35e05ff80",
+      "set_name": "FireRed & LeafGreen",
+      "generalizedD": 95.21236067359915,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+      "set_name": "Flashfire",
+      "generalizedD": 66.09566711238361,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+      "set_name": "Forbidden Light",
+      "generalizedD": 92.44980433066252,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+      "set_name": "Fossil",
+      "generalizedD": 81.03424660894362,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+      "set_name": "Furious Fists",
+      "generalizedD": 71.83390328294652,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+      "set_name": "Fusion Strike",
+      "generalizedD": 97.88982247580587,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+      "set_name": "Generations",
+      "generalizedD": 87.58965600016246,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "15fd93a2-82e3-4a5f-9f11-112cee192c95",
+      "set_name": "Great Encounters",
+      "generalizedD": 74.31528510425993,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+      "set_name": "Guardians Rising",
+      "generalizedD": 96.32581770483112,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+      "set_name": "Gym Challenge",
+      "generalizedD": 86.97454868952143,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "537d3312-9622-4015-9ef2-66e16a27287c",
+      "set_name": "Gym Heroes",
+      "generalizedD": 55.26777561979035,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "965b3000-c483-4110-bb21-ff5ffe120564",
+      "set_name": "HS—Triumphant",
+      "generalizedD": 89.88805373628772,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+      "set_name": "HS—Undaunted",
+      "generalizedD": 84.77505126362216,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+      "set_name": "HS—Unleashed",
+      "generalizedD": 87.84210484101612,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+      "set_name": "HeartGold & SoulSilver",
+      "generalizedD": 89.5152989924017,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+      "set_name": "Hidden Fates",
+      "generalizedD": 80.93888523280901,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "846787ce-2e12-4dab-b941-886f95cd16f8",
+      "set_name": "Hidden Legends",
+      "generalizedD": 83.91682521102935,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "4099fc11-a3f6-4034-8208-fbf82bd89de5",
+      "set_name": "Holon Phantoms",
+      "generalizedD": 88.55224608444537,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+      "set_name": "Journey Together",
+      "generalizedD": 93.40853614467363,
+      "generalizedF": 0.2562948955723334,
+      "frequencyIndex": 1.0,
+      "collectorAppeal": 95.40853614467363,
+      "modifierPoints": 2.0,
+      "rank": 14.0,
+      "dRank": 16.0,
+      "fRank": 8.0,
+      "candidates": {
+        "d_only": 93.40853614467363,
+        "v4_signed_up4_down2": 97.40853614467365,
+        "positive_headroom_0.10": 94.06768253020627,
+        "positive_headroom_0.20": 94.7268289157389,
+        "positive_headroom_0.30": 95.38597530127154,
+        "positive_headroom_0.40": 96.04512168680418,
+        "signed_up2_down1": 95.40853614467363,
+        "signed_up4_down2": 97.40853614467363,
+        "signed_up6_down3": 99.40853614467363,
+        "weighted_90_10": 94.06768253020627,
+        "weighted_80_20": 94.7268289157389
+      },
+      "oldUniversalD": 87.4598,
+      "oldPokemonOnlyF": 0.2116677258485663,
+      "reconstructedOldV4": 90.49929286206861,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+      "set_name": "Jungle",
+      "generalizedD": 74.21725284441769,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+      "set_name": "Legend Maker",
+      "generalizedD": 86.67989283456043,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+      "set_name": "Legendary Collection",
+      "generalizedD": 92.54876727250186,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+      "set_name": "Legendary Treasures",
+      "generalizedD": 97.15633951297261,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "2262c6e4-3f9a-4364-b03a-d811cd604739",
+      "set_name": "Legends Awakened",
+      "generalizedD": 88.03700518937957,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+      "set_name": "Lost Origin",
+      "generalizedD": 96.46614796376136,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "7c998bc2-6073-4461-8873-64d1b3e78930",
+      "set_name": "Lost Thunder",
+      "generalizedD": 97.78866275177387,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "bd54a027-2b93-4cfb-b118-687bd0481def",
+      "set_name": "Majestic Dawn",
+      "generalizedD": 80.46415172749793,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+      "set_name": "Mega Evolution",
+      "generalizedD": 97.06543365811481,
+      "generalizedF": 0.3170463134211363,
+      "frequencyIndex": 1.0,
+      "collectorAppeal": 99.06543365811481,
+      "modifierPoints": 2.0,
+      "rank": 6.0,
+      "dRank": 9.0,
+      "fRank": 3.0,
+      "candidates": {
+        "d_only": 97.06543365811481,
+        "v4_signed_up4_down2": 100.0,
+        "positive_headroom_0.10": 97.35889029230333,
+        "positive_headroom_0.20": 97.65234692649184,
+        "positive_headroom_0.30": 97.94580356068037,
+        "positive_headroom_0.40": 98.23926019486889,
+        "signed_up2_down1": 99.06543365811481,
+        "signed_up4_down2": 100.0,
+        "signed_up6_down3": 100.0,
+        "weighted_90_10": 97.35889029230333,
+        "weighted_80_20": 97.65234692649186
+      },
+      "oldUniversalD": 87.1998,
+      "oldPokemonOnlyF": 0.1903612544741634,
+      "reconstructedOldV4": 89.62704708826415,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "ca43d96a-ad90-4717-a4f6-253fb26a6d53",
+      "set_name": "Mysterious Treasures",
+      "generalizedD": 83.38629985972234,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "42a3740d-4778-4857-9c28-e116f34b51f3",
+      "set_name": "Neo Destiny",
+      "generalizedD": 94.84774909627282,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2",
+      "set_name": "Neo Discovery",
+      "generalizedD": 78.7195401703698,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "3562f9c9-f879-4d49-9d69-d0ab511230f9",
+      "set_name": "Neo Genesis",
+      "generalizedD": 81.921962905958,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "89e710d1-c378-4b4e-aaea-5994d8441f45",
+      "set_name": "Neo Revelation",
+      "generalizedD": 81.94794917715997,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+      "set_name": "Next Destinies",
+      "generalizedD": 90.3024721596991,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "5361a918-eb23-447e-a00e-e21493bc4320",
+      "set_name": "Noble Victories",
+      "generalizedD": 64.17269206032036,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+      "set_name": "Obsidian Flames",
+      "generalizedD": 91.34927443874092,
+      "generalizedF": 0.1783908174750629,
+      "frequencyIndex": 0.7565566303532021,
+      "collectorAppeal": 92.37550096015373,
+      "modifierPoints": 1.0262265214128092,
+      "rank": 18.0,
+      "dRank": 18.0,
+      "fRank": 16.0,
+      "candidates": {
+        "d_only": 91.34927443874092,
+        "v4_signed_up4_down2": 93.40172748156654,
+        "positive_headroom_0.10": 92.00375081681457,
+        "positive_headroom_0.20": 92.65822719488821,
+        "positive_headroom_0.30": 93.31270357296187,
+        "positive_headroom_0.40": 93.96717995103552,
+        "signed_up2_down1": 92.37550096015373,
+        "signed_up4_down2": 93.40172748156654,
+        "signed_up6_down3": 94.42795400297935,
+        "weighted_90_10": 89.77991329839885,
+        "weighted_80_20": 88.21055215805679
+      },
+      "oldUniversalD": 87.315,
+      "oldPokemonOnlyF": 0.10292679629040569,
+      "reconstructedOldV4": 86.75438106414595,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "set_name": "Paldea Evolved",
+      "generalizedD": 97.5366511094211,
+      "generalizedF": 0.16473081349726437,
+      "frequencyIndex": 0.6990911733845988,
+      "collectorAppeal": 98.3330158029595,
+      "modifierPoints": 0.7963646935383935,
+      "rank": 9.0,
+      "dRank": 7.0,
+      "fRank": 17.0,
+      "candidates": {
+        "d_only": 97.5366511094211,
+        "v4_signed_up4_down2": 99.12938049649789,
+        "positive_headroom_0.10": 97.70886165605815,
+        "positive_headroom_0.20": 97.8810722026952,
+        "positive_headroom_0.30": 98.05328274933224,
+        "positive_headroom_0.40": 98.22549329596929,
+        "signed_up2_down1": 98.3330158029595,
+        "signed_up4_down2": 99.12938049649789,
+        "signed_up6_down3": 99.92574519003628,
+        "weighted_90_10": 94.77389773232498,
+        "weighted_80_20": 92.01114435522886
+      },
+      "oldUniversalD": 90.3742,
+      "oldPokemonOnlyF": 0.09331524687602999,
+      "reconstructedOldV4": 89.53071326803477,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "set_name": "Paldean Fates",
+      "generalizedD": 99.98189530753997,
+      "generalizedF": 0.2690387368853454,
+      "frequencyIndex": 1.0,
+      "collectorAppeal": 100.0,
+      "modifierPoints": 0.018104692460028105,
+      "rank": 1.5,
+      "dRank": 1.0,
+      "fRank": 7.0,
+      "candidates": {
+        "d_only": 99.98189530753997,
+        "v4_signed_up4_down2": 100.0,
+        "positive_headroom_0.10": 99.98370577678597,
+        "positive_headroom_0.20": 99.98551624603198,
+        "positive_headroom_0.30": 99.98732671527799,
+        "positive_headroom_0.40": 99.98913718452398,
+        "signed_up2_down1": 100.0,
+        "signed_up4_down2": 100.0,
+        "signed_up6_down3": 100.0,
+        "weighted_90_10": 99.98370577678598,
+        "weighted_80_20": 99.98551624603198
+      },
+      "oldUniversalD": 95.3301,
+      "oldPokemonOnlyF": 0.1791090629800306,
+      "reconstructedOldV4": 97.40574098059,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "set_name": "Paradox Rift",
+      "generalizedD": 97.79703319944221,
+      "generalizedF": 0.20202176823443718,
+      "frequencyIndex": 0.8462913298167354,
+      "collectorAppeal": 99.18219851870916,
+      "modifierPoints": 1.385165319266946,
+      "rank": 5.0,
+      "dRank": 4.0,
+      "fRank": 12.0,
+      "candidates": {
+        "d_only": 97.79703319944221,
+        "v4_signed_up4_down2": 100.0,
+        "positive_headroom_0.10": 97.98346836976083,
+        "positive_headroom_0.20": 98.16990354007945,
+        "positive_headroom_0.30": 98.35633871039806,
+        "positive_headroom_0.40": 98.54277388071668,
+        "signed_up2_down1": 99.18219851870916,
+        "signed_up4_down2": 100.0,
+        "signed_up6_down3": 100.0,
+        "weighted_90_10": 96.48024317766534,
+        "weighted_80_20": 95.16345315588848
+      },
+      "oldUniversalD": 86.6458,
+      "oldPokemonOnlyF": 0.13839490885168315,
+      "reconstructedOldV4": 87.23325110594656,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+      "set_name": "Perfect Order",
+      "generalizedD": 93.88080471764488,
+      "generalizedF": 0.35698738711228195,
+      "frequencyIndex": 1.0,
+      "collectorAppeal": 95.88080471764488,
+      "modifierPoints": 2.0,
+      "rank": 12.0,
+      "dRank": 13.0,
+      "fRank": 1.0,
+      "candidates": {
+        "d_only": 93.88080471764488,
+        "v4_signed_up4_down2": 97.88080471764489,
+        "positive_headroom_0.10": 94.4927242458804,
+        "positive_headroom_0.20": 95.1046437741159,
+        "positive_headroom_0.30": 95.71656330235142,
+        "positive_headroom_0.40": 96.32848283058692,
+        "signed_up2_down1": 95.88080471764488,
+        "signed_up4_down2": 97.88080471764488,
+        "signed_up6_down3": 99.88080471764488,
+        "weighted_90_10": 94.4927242458804,
+        "weighted_80_20": 95.1046437741159
+      },
+      "oldUniversalD": 81.6048,
+      "oldPokemonOnlyF": 0.265907613990063,
+      "reconstructedOldV4": 85.6048,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "set_name": "Phantasmal Flames",
+      "generalizedD": 93.61401011623153,
+      "generalizedF": 0.32721429623339415,
+      "frequencyIndex": 1.0,
+      "collectorAppeal": 95.61401011623153,
+      "modifierPoints": 2.0,
+      "rank": 13.0,
+      "dRank": 14.0,
+      "fRank": 2.0,
+      "candidates": {
+        "d_only": 93.61401011623153,
+        "v4_signed_up4_down2": 97.61401011623153,
+        "positive_headroom_0.10": 94.25260910460837,
+        "positive_headroom_0.20": 94.89120809298522,
+        "positive_headroom_0.30": 95.52980708136207,
+        "positive_headroom_0.40": 96.16840606973892,
+        "signed_up2_down1": 95.61401011623153,
+        "signed_up4_down2": 97.61401011623153,
+        "signed_up6_down3": 99.61401011623153,
+        "weighted_90_10": 94.25260910460838,
+        "weighted_80_20": 94.89120809298522
+      },
+      "oldUniversalD": 90.7445,
+      "oldPokemonOnlyF": 0.24270520496110903,
+      "reconstructedOldV4": 94.5736078136331,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "d38ee646-382d-45c0-9463-e9302aa2471a",
+      "set_name": "Phantom Forces",
+      "generalizedD": 84.53930173898657,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+      "set_name": "Pitch Black",
+      "generalizedD": 87.59570460305916,
+      "generalizedF": 0.29839703554163466,
+      "frequencyIndex": 1.0,
+      "collectorAppeal": 89.59570460305916,
+      "modifierPoints": 2.0,
+      "rank": 19.0,
+      "dRank": 19.0,
+      "fRank": 4.0,
+      "candidates": {
+        "d_only": 87.59570460305916,
+        "v4_signed_up4_down2": 91.59570460305918,
+        "positive_headroom_0.10": 88.83613414275325,
+        "positive_headroom_0.20": 90.07656368244733,
+        "positive_headroom_0.30": 91.3169932221414,
+        "positive_headroom_0.40": 92.5574227618355,
+        "signed_up2_down1": 89.59570460305916,
+        "signed_up4_down2": 91.59570460305916,
+        "signed_up6_down3": 93.59570460305916,
+        "weighted_90_10": 88.83613414275325,
+        "weighted_80_20": 90.07656368244733
+      },
+      "oldUniversalD": 79.9029,
+      "oldPokemonOnlyF": 0.23232461427022544,
+      "reconstructedOldV4": 83.47975567060392,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+      "set_name": "Plasma Blast",
+      "generalizedD": 85.57000285642908,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "ddbc1691-ea68-4775-8343-7b8fddbf81e6",
+      "set_name": "Plasma Freeze",
+      "generalizedD": 93.1021658358852,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "65ee8536-af5a-4242-8a1f-9928c81f501b",
+      "set_name": "Plasma Storm",
+      "generalizedD": 86.68990046117398,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "98301e8a-8aa3-43d8-a85b-908883264721",
+      "set_name": "Platinum",
+      "generalizedD": 80.7412240687879,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+      "set_name": "Pokémon GO",
+      "generalizedD": 92.70316001458278,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "30396643-190c-416d-92a4-e8414c8b4980",
+      "set_name": "Power Keepers",
+      "generalizedD": 93.32289314433744,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+      "set_name": "Primal Clash",
+      "generalizedD": 93.02438439239513,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "set_name": "Prismatic Evolutions",
+      "generalizedD": 97.74762132632976,
+      "generalizedF": 0.23045367983124332,
+      "frequencyIndex": 0.9412743547965079,
+      "collectorAppeal": 99.5127187455158,
+      "modifierPoints": 1.7650974191860342,
+      "rank": 3.0,
+      "dRank": 5.0,
+      "fRank": 9.0,
+      "candidates": {
+        "d_only": 97.74762132632976,
+        "v4_signed_up4_down2": 100.0,
+        "positive_headroom_0.10": 97.9596319546114,
+        "positive_headroom_0.20": 98.17164258289304,
+        "positive_headroom_0.30": 98.38365321117467,
+        "positive_headroom_0.40": 98.59566383945631,
+        "signed_up2_down1": 99.5127187455158,
+        "signed_up4_down2": 100.0,
+        "signed_up6_down3": 100.0,
+        "weighted_90_10": 97.38560274166187,
+        "weighted_80_20": 97.02358415699398
+      },
+      "oldUniversalD": 93.2775,
+      "oldPokemonOnlyF": 0.19949685534591188,
+      "reconstructedOldV4": 95.9752516425796,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "759c09f8-8a1b-4212-be89-66088afa6893",
+      "set_name": "Rebel Clash",
+      "generalizedD": 92.32391685376868,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+      "set_name": "Rising Rivals",
+      "generalizedD": 89.07152003569426,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+      "set_name": "Roaring Skies",
+      "generalizedD": 86.90409483616752,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "b0d7bd6a-4e57-4495-b975-e132417cc071",
+      "set_name": "Ruby & Sapphire",
+      "generalizedD": 86.41834559941726,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "27f3eb48-9964-4a3f-9861-a434ae244697",
+      "set_name": "Sandstorm",
+      "generalizedD": 86.8838288669058,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+      "set_name": "Scarlet and Violet 151",
+      "generalizedD": 97.42975392783866,
+      "generalizedF": 0.29369144867308894,
+      "frequencyIndex": 1.0,
+      "collectorAppeal": 99.42975392783866,
+      "modifierPoints": 2.0,
+      "rank": 4.0,
+      "dRank": 8.0,
+      "fRank": 6.0,
+      "candidates": {
+        "d_only": 97.42975392783866,
+        "v4_signed_up4_down2": 100.0,
+        "positive_headroom_0.10": 97.6867785350548,
+        "positive_headroom_0.20": 97.94380314227092,
+        "positive_headroom_0.30": 98.20082774948706,
+        "positive_headroom_0.40": 98.4578523567032,
+        "signed_up2_down1": 99.42975392783866,
+        "signed_up4_down2": 100.0,
+        "signed_up6_down3": 100.0,
+        "weighted_90_10": 97.6867785350548,
+        "weighted_80_20": 97.94380314227094
+      },
+      "oldUniversalD": 93.6143,
+      "oldPokemonOnlyF": 0.20715561229402457,
+      "reconstructedOldV4": 96.52944724676514,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "set_name": "Scarlet and Violet Base Set",
+      "generalizedD": 85.7252566998928,
+      "generalizedF": 0.1461959553343194,
+      "frequencyIndex": 0.6129876516357022,
+      "collectorAppeal": 86.1772073064356,
+      "modifierPoints": 0.45195060654280894,
+      "rank": 20.0,
+      "dRank": 20.0,
+      "fRank": 19.0,
+      "candidates": {
+        "d_only": 85.7252566998928,
+        "v4_signed_up4_down2": 86.62915791297841,
+        "positive_headroom_0.10": 86.60028083721632,
+        "positive_headroom_0.20": 87.47530497453984,
+        "positive_headroom_0.30": 88.35032911186335,
+        "positive_headroom_0.40": 89.22535324918687,
+        "signed_up2_down1": 86.1772073064356,
+        "signed_up4_down2": 86.62915791297841,
+        "signed_up6_down3": 87.08110851952122,
+        "weighted_90_10": 83.28260754626055,
+        "weighted_80_20": 80.83995839262829
+      },
+      "oldUniversalD": 75.6024,
+      "oldPokemonOnlyF": 0.10289977071526268,
+      "reconstructedOldV4": 75.04102334537276,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "8f78267f-493b-4d60-a19e-587ae1f60f69",
+      "set_name": "Secret Wonders",
+      "generalizedD": 91.01138745744304,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "03764ded-825a-45c0-8b15-ce100cff9552",
+      "set_name": "Shining Fates",
+      "generalizedD": 85.77909561398924,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+      "set_name": "Shining Legends",
+      "generalizedD": 91.8247472286875,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "set_name": "Shrouded Fable",
+      "generalizedD": 66.09846335816398,
+      "generalizedF": 0.08350655781936878,
+      "frequencyIndex": 0.20901665397775693,
+      "collectorAppeal": 65.5164966661195,
+      "modifierPoints": -0.5819666920444888,
+      "rank": 22.0,
+      "dRank": 22.0,
+      "fRank": 22.0,
+      "candidates": {
+        "d_only": 66.09846335816398,
+        "v4_signed_up4_down2": 64.934529974075,
+        "positive_headroom_0.10": 66.80706193352208,
+        "positive_headroom_0.20": 67.51566050888016,
+        "positive_headroom_0.30": 68.22425908423824,
+        "positive_headroom_0.40": 68.93285765959634,
+        "signed_up2_down1": 65.5164966661195,
+        "signed_up4_down2": 64.934529974075,
+        "signed_up6_down3": 64.35256328203053,
+        "weighted_90_10": 61.57878356212515,
+        "weighted_80_20": 57.05910376608633
+      },
+      "oldUniversalD": 51.0746,
+      "oldPokemonOnlyF": 0.02777777777777779,
+      "reconstructedOldV4": 49.07459999999999,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "2d6ec108-70b2-4698-a21a-1af39828004f",
+      "set_name": "Silver Tempest",
+      "generalizedD": 96.42994953926049,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "set_name": "Skyridge",
+      "generalizedD": 96.6812573632935,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "69d6d1be-f610-421b-b29c-c3348fe19518",
+      "set_name": "Steam Siege",
+      "generalizedD": 79.71600274474105,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "set_name": "Stellar Crown",
+      "generalizedD": 91.53643111110365,
+      "generalizedF": 0.19446861936134263,
+      "frequencyIndex": 0.8188046385314283,
+      "collectorAppeal": 92.81164966522937,
+      "modifierPoints": 1.2752185541257148,
+      "rank": 17.0,
+      "dRank": 17.0,
+      "fRank": 15.0,
+      "candidates": {
+        "d_only": 91.53643111110365,
+        "v4_signed_up4_down2": 94.08686821935508,
+        "positive_headroom_0.10": 92.22943205757952,
+        "positive_headroom_0.20": 92.92243300405538,
+        "positive_headroom_0.30": 93.61543395053124,
+        "positive_headroom_0.40": 94.3084348970071,
+        "signed_up2_down1": 92.81164966522937,
+        "signed_up4_down2": 94.08686821935508,
+        "signed_up6_down3": 95.3620867734808,
+        "weighted_90_10": 90.57083438530756,
+        "weighted_80_20": 89.60523765951149
+      },
+      "oldUniversalD": 86.3548,
+      "oldPokemonOnlyF": 0.10806763792321206,
+      "reconstructedOldV4": 85.93481292301772,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "77bde285-03f8-4a48-b6a5-2f548225c3eb",
+      "set_name": "Stormfront",
+      "generalizedD": 81.90300005586067,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "8938c853-2282-46d8-ba44-87584fa2c168",
+      "set_name": "Sun & Moon",
+      "generalizedD": 93.39921297058993,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+      "set_name": "Supreme Victors",
+      "generalizedD": 85.47986095989302,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+      "set_name": "Surging Sparks",
+      "generalizedD": 94.83648706596934,
+      "generalizedF": 0.20676079847101536,
+      "frequencyIndex": 0.8630172919674288,
+      "collectorAppeal": 96.28855623383905,
+      "modifierPoints": 1.452069167869709,
+      "rank": 11.0,
+      "dRank": 11.0,
+      "fRank": 11.0,
+      "candidates": {
+        "d_only": 94.83648706596934,
+        "v4_signed_up4_down2": 97.74062540170875,
+        "positive_headroom_0.10": 95.28210716090594,
+        "positive_headroom_0.20": 95.72772725584252,
+        "positive_headroom_0.30": 96.17334735077912,
+        "positive_headroom_0.40": 96.61896744571571,
+        "signed_up2_down1": 96.28855623383905,
+        "signed_up4_down2": 97.74062540170877,
+        "signed_up6_down3": 99.19269456957848,
+        "weighted_90_10": 93.98301127904669,
+        "weighted_80_20": 93.12953549212405
+      },
+      "oldUniversalD": 88.8548,
+      "oldPokemonOnlyF": 0.12436210706043638,
+      "reconstructedOldV4": 88.84003774123035,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+      "set_name": "Sword & Shield",
+      "generalizedD": 90.27650326524291,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "a69e4091-5b33-499d-85a5-a8f0b7ecaddc",
+      "set_name": "Team Magma vs Team Aqua",
+      "generalizedD": 87.11611609425222,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+      "set_name": "Team Rocket",
+      "generalizedD": 78.89798001012728,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+      "set_name": "Team Rocket Returns",
+      "generalizedD": 95.16528443842974,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+      "set_name": "Team Up",
+      "generalizedD": 99.32043534795206,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "set_name": "Temporal Forces",
+      "generalizedD": 93.97809488069522,
+      "generalizedF": 0.14568621581697339,
+      "frequencyIndex": 0.6104681437858579,
+      "collectorAppeal": 94.41996745583866,
+      "modifierPoints": 0.44187257514343514,
+      "rank": 16.0,
+      "dRank": 12.0,
+      "fRank": 20.0,
+      "candidates": {
+        "d_only": 93.97809488069522,
+        "v4_signed_up4_down2": 94.8618400309821,
+        "positive_headroom_0.10": 94.34571300471887,
+        "positive_headroom_0.20": 94.71333112874254,
+        "positive_headroom_0.30": 95.08094925276619,
+        "positive_headroom_0.40": 95.44856737678984,
+        "signed_up2_down1": 94.41996745583866,
+        "signed_up4_down2": 94.86184003098208,
+        "signed_up6_down3": 95.30371260612552,
+        "weighted_90_10": 90.68496683048427,
+        "weighted_80_20": 87.39183878027335
+      },
+      "oldUniversalD": 86.0349,
+      "oldPokemonOnlyF": 0.09604865263449935,
+      "reconstructedOldV4": 85.27471837241414,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+      "set_name": "Twilight Masquerade",
+      "generalizedD": 93.49871831549,
+      "generalizedF": 0.19959810708474812,
+      "frequencyIndex": 0.8375849719309896,
+      "collectorAppeal": 94.84905820321396,
+      "modifierPoints": 1.3503398877239619,
+      "rank": 15.0,
+      "dRank": 15.0,
+      "fRank": 13.0,
+      "candidates": {
+        "d_only": 93.49871831549,
+        "v4_signed_up4_down2": 96.1993980909379,
+        "positive_headroom_0.10": 94.04325589921358,
+        "positive_headroom_0.20": 94.58779348293714,
+        "positive_headroom_0.30": 95.13233106666073,
+        "positive_headroom_0.40": 95.6768686503843,
+        "signed_up2_down1": 94.84905820321396,
+        "signed_up4_down2": 96.1993980909379,
+        "signed_up6_down3": 97.54973797866187,
+        "weighted_90_10": 92.5246962032509,
+        "weighted_80_20": 91.5506740910118
+      },
+      "oldUniversalD": 81.1802,
+      "oldPokemonOnlyF": 0.13839882674276693,
+      "reconstructedOldV4": 81.76781447155238,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "8158d0ae-0255-48f0-b189-d134035b72b0",
+      "set_name": "Ultra Prism",
+      "generalizedD": 96.59855456287553,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+      "set_name": "Unbroken Bonds",
+      "generalizedD": 98.66920578041606,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+      "set_name": "Unified Minds",
+      "generalizedD": 99.40456669500452,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "126093d8-50e7-4a7c-891d-8cffd5733eeb",
+      "set_name": "Unseen Forces",
+      "generalizedD": 96.46861559424802,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "26fedb88-87d7-487a-9f01-528d603c682e",
+      "set_name": "Vivid Voltage",
+      "generalizedD": 98.66033747356117,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "set_name": "White Flare",
+      "generalizedD": 98.4619103353421,
+      "generalizedF": 0.12650227305683548,
+      "frequencyIndex": 0.5086176066697152,
+      "collectorAppeal": 98.49638076202096,
+      "modifierPoints": 0.03447042667886535,
+      "rank": 8.0,
+      "dRank": 3.0,
+      "fRank": 21.0,
+      "candidates": {
+        "d_only": 98.4619103353421,
+        "v4_signed_up4_down2": 98.53085118869981,
+        "positive_headroom_0.10": 98.54014028375028,
+        "positive_headroom_0.20": 98.61837023215844,
+        "positive_headroom_0.30": 98.69660018056662,
+        "positive_headroom_0.40": 98.77483012897478,
+        "signed_up2_down1": 98.49638076202096,
+        "signed_up4_down2": 98.53085118869981,
+        "signed_up6_down3": 98.56532161537868,
+        "weighted_90_10": 93.70189536850503,
+        "weighted_80_20": 88.94188040166799
+      },
+      "oldUniversalD": 87.3,
+      "oldPokemonOnlyF": 0.08997306862631171,
+      "reconstructedOldV4": 86.3512740772535,
+      "status": "available",
+      "reason": null,
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    },
+    {
+      "set_id": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+      "set_name": "XY",
+      "generalizedD": 89.50496056908057,
+      "generalizedF": null,
+      "frequencyIndex": null,
+      "collectorAppeal": null,
+      "status": "unavailable",
+      "reason": "collector_appeal_unavailable_no_generalized_frequency",
+      "c3bFingerprint": "a8e810765b7450349bbbc5ad99361a69976fb56798d2b4ad81f1041bc7277b98",
+      "c4DFingerprint": "e1b1c4310642d86ec505a3c6df0f1b7b668f12f48b887cd0d4dfa5e86efd97f6",
+      "c4FFingerprint": "b6264e7ee06a30f46c282c189ec763af40936209ae68f1dab9105a1e8ae1bc58",
+      "c5Fingerprint": "2793fa52e46a7e6b64f1665df88a4700110f5c37f57a97a2f0d99d91024b6adf"
+    }
+  ]
+}
