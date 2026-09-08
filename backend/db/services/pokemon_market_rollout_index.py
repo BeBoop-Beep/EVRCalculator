@@ -37,12 +37,7 @@ def _current_source_rows(client: Any, set_ids: Sequence[str], market_date: str) 
 
 
 def _latest_previous_by_key(client: Any, market_date: str) -> dict[str, dict[str, Any]]:
-    """Read only the immediately preceding persisted row for each index family.
-
-    The daily cutover needs exactly two prior rows (Raw and Top 10). Reading the
-    entire persisted index history just to select those rows is unnecessary and
-    can trip Postgres statement timeouts as history grows.
-    """
+    """Read only the immediately preceding persisted row for each index family."""
     day = str(market_date)[:10]
     latest: dict[str, dict[str, Any]] = {}
     for key in INDEX_KEYS:
@@ -75,14 +70,13 @@ def _previous_constituents(row: Mapping[str, Any] | None) -> dict[str, dict[str,
 def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[dict[str, Any]]:
     """Build only the promoted date, preserving prior index history verbatim.
 
-    Any root that exists in the current authority but not in the immediately
-    preceding persisted basket is a membership transition. It joins the new
-    basket but contributes zero to that day's price return. The return is
-    calculated only over the common prior cohort, so a 39 -> 106 authority
-    expansion cannot masquerade as market appreciation.
+    Membership changes never become price performance. Roots entering the
+    current authority join the new basket but are absent from the day's return;
+    roots that genuinely exit are likewise outside both sides of the common
+    cohort. The return therefore uses only identities present on both dates.
 
-    Legacy explicit rollout transitions remain supported as a second signal for
-    pre-cutover Set Value definition changes that kept the same root id.
+    Legacy explicit rollout transitions remain a second signal for pre-cutover
+    Set Value definition changes that kept the same root id.
     """
     day = str(market_date)[:10]
     sets = resolve_market_root_cohort(client, market_date=day)
@@ -133,7 +127,13 @@ def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[di
         membership_entered_ids = (
             set(current_values) - set(previous_values) if previous_row is not None else set()
         )
-        transition_ids = set(explicit_transition_ids) | membership_entered_ids
+        membership_exited_ids = (
+            set(previous_values) - set(current_values) if previous_row is not None else set()
+        )
+        neutralized_ids = set(explicit_transition_ids) | membership_entered_ids
+        authority_transition = bool(
+            neutralized_ids or membership_exited_ids
+        )
 
         if previous_row is None:
             daily_return = None
@@ -184,12 +184,14 @@ def build_rollout_market_index_rows(client: Any, *, market_date: str) -> list[di
             "constituents_json": constituents,
             "diagnostics_json": {
                 "commonSetIds": common_ids,
-                # Preserve the existing diagnostic key while broadening its
-                # meaning from explicit staged rollout to any authority entry.
-                "rolloutNeutralizedSetIds": sorted(transition_ids),
-                "rolloutTransition": bool(transition_ids),
-                "authorityTransition": bool(transition_ids),
+                # Existing key retained for compatibility. It is the roots whose
+                # current-day values are deliberately neutralized at entry or
+                # because an explicit legacy rollout corrected their definition.
+                "rolloutNeutralizedSetIds": sorted(neutralized_ids),
+                "rolloutTransition": bool(neutralized_ids),
+                "authorityTransition": authority_transition,
                 "membershipEnteredSetIds": sorted(membership_entered_ids),
+                "membershipExitedSetIds": sorted(membership_exited_ids),
                 "explicitRolloutNeutralizedSetIds": sorted(explicit_transition_ids),
             },
         })
