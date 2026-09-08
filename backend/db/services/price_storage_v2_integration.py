@@ -15,7 +15,7 @@ MEMBER_HISTORY = "pokemon_member_set_value_daily_history_v2"
 ROOT_HISTORY = "pokemon_root_set_value_daily_history_v2"
 MEMBER_RPC = "publish_price_storage_v2_member_run"
 ROOT_RPC = "publish_price_storage_v2_root_run"
-PREVIEW_RPC = "preview_price_storage_v2_scoped_values"
+PREVIEW_RPC = "preview_price_storage_v2_scoped_values_v2"
 PUBLIC_ROOT_SOURCES = {
     "standard": frozenset({"canonical_root_set_public_rollout_v1"}),
     "top10": frozenset({"canonical_root_top10_public_rollout_v1"}),
@@ -120,6 +120,8 @@ def root_source_rows(preview: Mapping[str, Any], root_id: str, day: str) -> list
     context = preview.get("context") or {}
     if preview.get("status") != "parity_passed":
         raise ScopeContractError(str(preview.get("reason") or "preview not accepted"))
+    if context.get("definition_version") != "canonical_asof_scope_split_v2":
+        raise ScopeContractError("date-safe scope preview v2 is required")
     if context.get("root_set_id") != root_id or context.get("market_date") != day:
         raise ScopeContractError("preview root/date mismatch")
     if preview.get("publication_authorized") is not False:
@@ -137,10 +139,20 @@ def root_source_rows(preview: Mapping[str, Any], root_id: str, day: str) -> list
                 or row.get("source_completed_at") != row.get("shadow_source_completed_at")):
             raise ScopeContractError("incomplete or superseded source receipt")
     comparison = preview.get("comparison") or {}
-    zero_fields = ("raw_only_rows", "v2_only_rows", "duplicate_raw_keys", "duplicate_v2_keys",
-                   "live_root_only_rows", "proposed_root_only_rows", "missing_prices", "needs_review_cards")
+    zero_fields = (
+        "raw_only_rows", "v2_only_rows", "duplicate_raw_keys", "duplicate_v2_keys",
+        "missing_prices", "needs_review_cards", "root_identity_live_only_rows",
+        "root_identity_proposed_only_rows",
+    )
     if any(type(comparison.get(field)) is not int or comparison[field] != 0 for field in zero_fields):
         raise ScopeContractError("preview comparison is missing or has differences")
+    economic_applicable = comparison.get("live_root_economic_comparison_applicable")
+    if type(economic_applicable) is not bool:
+        raise ScopeContractError("latest-root economic comparison applicability is missing")
+    if economic_applicable:
+        economic_fields = ("root_economic_live_only_rows", "root_economic_proposed_only_rows")
+        if any(type(comparison.get(field)) is not int or comparison[field] != 0 for field in economic_fields):
+            raise ScopeContractError("date-compatible latest-root economics differ")
     output: dict[str, dict[str, Any]] = {}
     for row in preview.get("candidate_values") or []:
         if row.get("universe_scope") != "root":
