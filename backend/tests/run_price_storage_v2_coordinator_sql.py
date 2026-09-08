@@ -41,6 +41,13 @@ def main() -> int:
     cls = RealSourceContractTests
     cls.setUpClass()
 
+    # Install the forward-only date-safe stage successor after the exact historical v1 source.
+    stage_v2 = REPO_ROOT / "backend/db/proposals/price_storage_v2_scope_stage_v2.sql"
+    stage_v2_sql = stage_v2.read_text(encoding="utf-8")
+    if "cron.schedule" in stage_v2_sql or "cron.unschedule" in stage_v2_sql:
+        raise AssertionError("date-safe stage proposal must not attach or mutate a scheduler")
+    cls.run(stage_v2_sql)
+
     # The minimal exact-source fixture creates its source tables as postgres and does not
     # replay every older Supabase ACL migration. Mirror the backend read posture explicitly.
     # This grants SELECT only: service_role still cannot UPDATE the release gate or rewrite
@@ -104,6 +111,8 @@ SELECT jsonb_build_object(
     cls.run("UPDATE public.price_storage_v2_scoped_release_gate SET enabled=true;")
     first = cls.value(service_cycle_sql())
     if first.get("status") != "complete" or first.get("root_count") != 3:
+        raise AssertionError(first)
+    if first.get("definition_version") != "canonical_asof_scope_split_v2":
         raise AssertionError(first)
     if any(row.get("member_status") != "complete" or row.get("root_status") != "complete"
            for row in first.get("results") or []):
