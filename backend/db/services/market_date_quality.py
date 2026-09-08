@@ -1,9 +1,10 @@
 """Market Date Quality - the Market surface's own publication authority.
 
-Deliberately independent of ``public.pokemon_scrape_batches``. The 167-set
-batch gate answers "is the whole scrape cohort complete"; this module answers
-"is the canonical Market cohort trustworthy for this date". A Market date is
-never held hostage by a failure outside the Market cohort.
+Deliberately independent of ``public.pokemon_scrape_batches`` and of RIP /
+opening-simulation eligibility. The batch gate answers "is the whole scrape
+cohort complete"; this module answers "is the canonical Market cohort
+trustworthy for this date". A Market date is never held hostage by a failure
+outside the Market root universe or by whether a set supports simulations.
 """
 
 from __future__ import annotations
@@ -12,10 +13,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence
 
-from backend.db.services.market_run_evidence import qualifying_set_ids_for_date
-from backend.db.services.pokemon_market_index_service import (
-    resolve_eligible_sets, resolve_market_entry_dates_for_client,
-)
+from backend.db.services.pokemon_market_rollout_cohort import resolve_market_root_cohort
 from backend.domain.pokemon.market_index import deterministic_fingerprint
 
 QUALITY_TABLE = "pokemon_market_date_quality"
@@ -64,13 +62,19 @@ def classify_market_date(
     has_later_accepted_date: bool,
     legacy_allowlist: Iterable[str],
 ) -> dict[str, Any]:
-    """Classify one market date. Pure - no I/O, fully determined by its inputs."""
+    """Classify one market date. Pure - no I/O, fully determined by inputs.
+
+    ``qualifying_set_ids`` is retained as a compatibility field name in the
+    durable v1 schema, but it now means roots qualified by the canonical Market
+    authority. Production evaluation passes the resolved Market cohort itself;
+    simulation / RIP run evidence is not consulted.
+    """
     day = str(market_date)[:10]
     cohort = {str(value) for value in cohort_set_ids}
     qualifying = {str(value) for value in qualifying_set_ids}
     allowlist = {str(value)[:10] for value in legacy_allowlist}
 
-    missing_runs = sorted(cohort - qualifying)
+    missing_authority = sorted(cohort - qualifying)
     missing_valuation: dict[str, list[str]] = {}
     for scope in REQUIRED_VALUE_SCOPES:
         present = {str(value) for value in (valuation_set_ids.get(scope) or ())}
@@ -79,7 +83,7 @@ def classify_market_date(
             missing_valuation[scope] = absent
 
     market_index_satisfied = bool(cohort) and not missing_valuation
-    cohort_satisfied = market_index_satisfied and not missing_runs
+    cohort_satisfied = market_index_satisfied and not missing_authority
 
     if cohort_satisfied:
         status = STATUS_READY
@@ -98,11 +102,15 @@ def classify_market_date(
         "status": status,
         "contractVersion": MARKET_QUALITY_CONTRACT_VERSION,
         "cohortSetCount": len(cohort),
+        # Column/contract name retained for storage compatibility. This is now
+        # canonical Market-authority qualification, not scrape/simulation runs.
         "qualifyingSetCount": len(cohort & qualifying),
-        "missingSetIds": missing_runs,
+        "missingSetIds": missing_authority,
         "cohortFingerprint": deterministic_fingerprint(sorted(cohort)),
         "evidence": {
-            "missingQualifyingRunSetIds": missing_runs,
+            "qualificationAuthority": "canonical_market_root_authority",
+            "simulationEligibilityRequired": False,
+            "missingMarketAuthoritySetIds": missing_authority,
             "missingValuationSetIds": missing_valuation,
             "marketIndexAccepted": market_index_satisfied,
             "enforcementStart": MARKET_QUALITY_ENFORCEMENT_START,
@@ -128,11 +136,20 @@ def _paged(query_factory) -> list[dict[str, Any]]:
 def cohort_set_ids_for_date(
     client: Any, market_date: str, *, market_entry_dates: Mapping[str, str] | None = None,
 ) -> list[str]:
-    """Canonical Market cohort for a date - the SAME eligibility Market/index uses."""
+    """Canonical Market roots for a date - the SAME authority the index uses.
+
+    ``market_entry_dates`` remains accepted only so older callers do not break;
+    it is intentionally ignored. Pre-cutover dates are reconstructed by the
+    historical authority boundary in ``resolve_market_root_cohort``; post-
+    cutover dates resolve directly from Standard + Top-10 Market certification.
+    """
+    del market_entry_dates
     day = str(market_date)[:10]
-    entries = (dict(market_entry_dates) if market_entry_dates is not None
-               else resolve_market_entry_dates_for_client(client))
-    return sorted(set_id for set_id, entry_day in entries.items() if entry_day <= day)
+    return sorted(
+        str(row["id"])
+        for row in resolve_market_root_cohort(client, market_date=day)
+        if row.get("id")
+    )
 
 
 def valuation_set_ids_for_date(
@@ -173,13 +190,13 @@ def evaluate_market_date_quality(
     has_later_accepted_date: bool = False,
     legacy_allowlist: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-    """Evaluate one market date from live evidence. Read-only."""
+    """Evaluate one market date from Market-domain evidence only. Read-only."""
     day = str(market_date)[:10]
     cohort = cohort_set_ids_for_date(client, day)
     return classify_market_date(
         market_date=day,
         cohort_set_ids=cohort,
-        qualifying_set_ids=qualifying_set_ids_for_date(client, day),
+        qualifying_set_ids=cohort,
         valuation_set_ids=valuation_set_ids_for_date(client, day, cohort),
         has_later_accepted_date=has_later_accepted_date,
         legacy_allowlist=resolve_legacy_allowlist(legacy_allowlist),
@@ -212,7 +229,7 @@ def persist_market_date_quality(client: Any, evaluation: Mapping[str, Any]) -> i
 def read_market_date_quality_history(
     client: Any, *, through_date: str | None = None
 ) -> list[dict[str, Any]]:
-    """Read persisted quality history with BOUNDED PAGINATION (Blocker 2).
+    """Read persisted quality history with BOUNDED PAGINATION.
 
     PostgREST caps rows per response. An unpaginated read silently truncates
     older dates, which would let a DEGRADED date reappear as unknown-and-
