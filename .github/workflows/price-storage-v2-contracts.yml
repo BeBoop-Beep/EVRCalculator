@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/price-storage-v2-contracts.yml'
       - 'backend/db/proposals/price_storage_v2_scoped_publication*.sql'
+      - 'backend/db/proposals/price_storage_v2_scope_stage_v2.sql'
       - 'backend/db/services/price_storage_v2_integration.py'
       - 'backend/db/services/price_storage_v2_snapshot_replay.py'
       - 'backend/db/services/pokemon_market_rollout_index.py'
@@ -20,6 +21,7 @@ on:
     paths:
       - '.github/workflows/price-storage-v2-contracts.yml'
       - 'backend/db/proposals/price_storage_v2_scoped_publication*.sql'
+      - 'backend/db/proposals/price_storage_v2_scope_stage_v2.sql'
       - 'backend/db/services/price_storage_v2_integration.py'
       - 'backend/db/services/price_storage_v2_snapshot_replay.py'
       - 'backend/db/services/pokemon_market_rollout_index.py'
