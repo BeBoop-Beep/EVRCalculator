@@ -1,19 +1,16 @@
 """Materialize Market Date Quality verdicts for the Pokemon Market surface.
 
-Operator tool around the already-approved Market quality service. It computes
-nothing itself: every status comes from ``classify_market_date`` and every write
-goes through ``persist_market_date_quality``.
+Operator tool around the canonical Market quality service. Every status comes
+from ``classify_market_date`` and every write goes through
+``persist_market_date_quality``. Current quality is intentionally independent
+of RIP/opening-simulation eligibility and of the broader scrape batch.
 
 Why this exists
 ---------------
-The 2026-08-20 rollout drove this workflow from an ad-hoc script and surfaced a
-hazard worth encoding permanently. Once the read/build paths enforce quality, a
-date with NO quality row is not accepted. So materializing only recent dates in
-an environment whose older history has never been evaluated silently drops that
-older history out of the accepted chain - the index would restart from its
-earliest surviving accepted date. This CLI refuses to create that state: a
-partial run that would leave persisted Market history uncovered fails closed and
-tells the operator to use ``--all-history``.
+Once the read/build paths enforce quality, a date with NO quality row is not
+accepted. A partial materialization that leaves persisted index history without
+a verdict can therefore break the accepted chain. This CLI refuses that state
+and directs the operator to ``--all-history`` when necessary.
 
 Two things the service cannot do per-date, which this driver supplies:
 
@@ -22,8 +19,7 @@ Two things the service cannot do per-date, which this driver supplies:
   evaluated, so evaluation runs in two passes.
 * The explicit historical verification path. Pre-cutoff dates are OFFERED to the
   legacy allowlist; the service still independently requires complete Market
-  valuation evidence before granting LEGACY_VERIFIED, so an offered date with
-  bad evidence is still refused.
+  valuation evidence before granting LEGACY_VERIFIED.
 
 This tool never publishes Market artifacts, never consults the 167-set scrape
 batch, and has no force/override flag.
@@ -57,10 +53,7 @@ from backend.db.services.market_date_quality import (
     read_market_date_quality_history,
     valuation_set_ids_for_date,
 )
-from backend.db.services.market_run_evidence import qualifying_set_ids_for_date
-from backend.db.services.pokemon_market_index_service import (
-    read_raw_index_history_for_audit, resolve_market_entry_dates_for_client,
-)
+from backend.db.services.pokemon_market_index_service import read_raw_index_history_for_audit
 from backend.scripts.pokemon_snapshot_builders import get_client
 
 logger = logging.getLogger(__name__)
@@ -75,7 +68,7 @@ EXIT_UNSAFE_PARTIAL = 2
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Evaluate and persist Market Date Quality verdicts (service-computed).")
+        description="Evaluate and persist Market Date Quality verdicts (Market authority only).")
     scope = parser.add_mutually_exclusive_group(required=True)
     scope.add_argument("--market-date", help="Evaluate one America/Phoenix market date (YYYY-MM-DD)")
     scope.add_argument("--all-history", action="store_true",
@@ -128,21 +121,27 @@ def evaluate_dates(
     *,
     legacy_allowlist: Iterable[str],
 ) -> dict[str, dict[str, Any]]:
-    """Two-pass evaluation. Every verdict is produced by the service."""
-    market_entry_dates = resolve_market_entry_dates_for_client(client)
+    """Two-pass evaluation from Market authority + valuation evidence only."""
     evidence: dict[str, tuple] = {}
     for day in days:
-        cohort = cohort_set_ids_for_date(client, day, market_entry_dates=market_entry_dates)
-        evidence[day] = (cohort,
-                         qualifying_set_ids_for_date(client, day),
-                         valuation_set_ids_for_date(client, day, cohort))
+        cohort = cohort_set_ids_for_date(client, day)
+        evidence[day] = (
+            cohort,
+            valuation_set_ids_for_date(client, day, cohort),
+        )
 
     def classify(day: str, later: bool) -> dict[str, Any]:
-        cohort, qualifying, valuation = evidence[day]
+        cohort, valuation = evidence[day]
         return classify_market_date(
-            market_date=day, cohort_set_ids=cohort, qualifying_set_ids=qualifying,
-            valuation_set_ids=valuation, has_later_accepted_date=later,
-            legacy_allowlist=legacy_allowlist)
+            market_date=day,
+            cohort_set_ids=cohort,
+            # The resolved cohort is already the canonical Market-qualified
+            # root universe. No simulation/scrape-run qualification exists here.
+            qualifying_set_ids=cohort,
+            valuation_set_ids=valuation,
+            has_later_accepted_date=later,
+            legacy_allowlist=legacy_allowlist,
+        )
 
     # Pass 1: provisional, with no knowledge of later dates.
     provisional = {day: classify(day, False)["status"] for day in days}
@@ -207,22 +206,27 @@ def _row(day: str, verdict: Mapping[str, Any]) -> dict[str, Any]:
     evidence = verdict.get("evidence") or {}
     missing = list(verdict.get("missingSetIds") or [])
     if verdict["status"] in ACCEPTED_STATUSES:
-        reason = ("full cohort qualified" if verdict["status"] == STATUS_READY
+        reason = ("full Market authority ready" if verdict["status"] == STATUS_READY
                   else "pre-enforcement date verified through the legacy path")
     elif verdict["status"] == STATUS_DEGRADED:
-        reason = f"terminal: {len(missing)} set(s) unqualified and a later date is accepted"
+        reason = f"terminal: {len(missing)} Market root(s) unqualified and a later date is accepted"
     else:
-        reason = f"recoverable: {len(missing)} set(s) not yet qualified"
+        reason = f"recoverable: {len(missing)} Market root(s) not yet qualified"
     return {
         "market_date": day,
         "status": verdict["status"],
+        # Storage field remains qualifyingSetCount for v1 compatibility; surface
+        # it honestly as Market-ready roots in the operator report.
+        "ready_count": verdict["qualifyingSetCount"],
         "qualifying_count": verdict["qualifyingSetCount"],
         "expected_count": verdict["cohortSetCount"],
         "accepted": verdict["status"] in ACCEPTED_STATUSES,
         "market_index_accepted": evidence.get("marketIndexAccepted") is True,
-        "market_index_reason": ("complete tracked-cohort standard/top10 valuations"
+        "market_index_reason": ("complete canonical standard/top10 valuations"
                                 if evidence.get("marketIndexAccepted") is True
-                                else "tracked-cohort valuation incomplete"),
+                                else "canonical standard/top10 valuation incomplete"),
+        "qualification_authority": evidence.get("qualificationAuthority"),
+        "simulation_eligibility_required": bool(evidence.get("simulationEligibilityRequired")),
         "reason": reason,
         "pre_enforcement": bool(evidence.get("preEnforcement")),
         "has_later_accepted_date": bool(evidence.get("hasLaterAcceptedDate")),
@@ -271,6 +275,8 @@ def run(client: Any, args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         "status": "committed" if commit else "dry_run",
         "mode": "commit" if commit else "dry-run",
         "enforcementStart": MARKET_QUALITY_ENFORCEMENT_START,
+        "qualityAuthority": "canonical_market_root_authority",
+        "simulationEligibilityRequired": False,
         "coverage": coverage_message,
         "summary": _summarize(results),
         "dates": [_row(day, results[day]) for day in selected],
@@ -287,14 +293,22 @@ def run(client: Any, args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         try:
             from backend.alerts.pipeline_alerts import alert_market_quality
             verdict = results[day]
+            evidence = verdict.get("evidence") or {}
+            missing_valuation = evidence.get("missingValuationSetIds") or {}
             alert_market_quality(
-                market_date=day, status=str(verdict["status"]),
+                market_date=day,
+                status=str(verdict["status"]),
                 qualifying_set_count=int(verdict["qualifyingSetCount"]),
                 cohort_set_count=int(verdict["cohortSetCount"]),
-                missing_canonical_keys=list(verdict.get("missingCanonicalKeys") or
-                                            verdict.get("missingSetIds") or []),
-                missing_valuation_sets=list(verdict.get("missingValuationSetIds") or []),
-                missing_run_evidence=list(verdict.get("missingRunEvidenceSetIds") or []),
+                missing_canonical_keys=list(verdict.get("missingSetIds") or []),
+                missing_valuation_sets=sorted({
+                    str(set_id)
+                    for values in missing_valuation.values()
+                    for set_id in values
+                }),
+                # Retained alert API field; Market Date Quality no longer has
+                # run-evidence blockers.
+                missing_run_evidence=[],
                 previous_accepted_market_date=report["summary"].get("lastAccepted"),
             )
         except Exception:  # pragma: no cover - persistence remains authoritative
@@ -322,13 +336,14 @@ def main() -> int:
         return exit_code
 
     print(f"{TAG} mode={report['mode']} enforcementStart={report['enforcementStart']}")
+    print(f"{TAG} authority={report['qualityAuthority']} simulationRequired=False")
     print(f"{TAG} {report['coverage']}")
-    header = f"{'market_date':<12} {'status':<16} {'qual':>6} {'exp':>5} {'accepted':>9}  reason"
+    header = f"{'market_date':<12} {'status':<16} {'ready':>6} {'exp':>5} {'accepted':>9}  reason"
     print(header)
     print("-" * len(header))
     for row in report["dates"]:
         print(f"{row['market_date']:<12} {row['status']:<16} "
-              f"{row['qualifying_count']:>6} {row['expected_count']:>5} "
+              f"{row['ready_count']:>6} {row['expected_count']:>5} "
               f"{str(row['accepted']):>9}  {row['reason']}")
     summary = report["summary"]
     print(f"\n{TAG} totalDates={summary['totalDates']} READY={summary['readyCount']} "
