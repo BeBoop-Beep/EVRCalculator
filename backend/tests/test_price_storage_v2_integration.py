@@ -59,10 +59,17 @@ def accepted_preview(root="cz", members=("cz", "gg")):
              "set_value": value, "priced_card_count": count, "expected_card_count": count}
             for scope, value, count in (("standard", "2634.47", 230), ("hits", "2466.72", 107), ("top10", "1432.66", 10))]
     vals.append(dict(vals[0], universe_scope="member", set_value="254.87", priced_card_count=160, expected_card_count=160))
-    return {"status": "parity_passed", "publication_authorized": False,
-            "context": {"root_set_id": root, "market_date": DAY, "member_set_ids": list(members), "source_evidence": evidence},
-            "comparison": {name: 0 for name in ("raw_only_rows", "v2_only_rows", "duplicate_raw_keys", "duplicate_v2_keys",
-                           "live_root_only_rows", "proposed_root_only_rows", "missing_prices", "needs_review_cards")},
+    comparison = {name: 0 for name in (
+        "raw_only_rows", "v2_only_rows", "duplicate_raw_keys", "duplicate_v2_keys",
+        "live_root_only_rows", "proposed_root_only_rows", "missing_prices", "needs_review_cards",
+        "root_identity_live_only_rows", "root_identity_proposed_only_rows",
+        "root_economic_live_only_rows", "root_economic_proposed_only_rows",
+    )}
+    comparison["live_root_economic_comparison_applicable"] = True
+    return {"status": "parity_passed", "reason": "exact_source_gated_scope_parity_v2", "publication_authorized": False,
+            "context": {"root_set_id": root, "market_date": DAY, "definition_version": "canonical_asof_scope_split_v2",
+                        "member_set_ids": list(members), "source_evidence": evidence},
+            "comparison": comparison,
             "candidate_values": vals}
 
 
@@ -129,6 +136,18 @@ class PreviewTests(unittest.TestCase):
         for value in (1, False):
             p = accepted_preview(); p["comparison"]["raw_only_rows"] = value
             with self.subTest(value=value), self.assertRaises(ScopeContractError): root_source_rows(p, "cz", DAY)
+
+    def test_identity_mismatch_rejected_even_when_latest_is_newer(self):
+        p = accepted_preview(); p["comparison"]["live_root_economic_comparison_applicable"] = False
+        p["comparison"]["root_identity_live_only_rows"] = 1
+        with self.assertRaises(ScopeContractError): root_source_rows(p, "cz", DAY)
+
+    def test_newer_latest_economic_mismatch_is_not_treated_as_approved_date_failure(self):
+        p = accepted_preview(); p["comparison"]["live_root_economic_comparison_applicable"] = False
+        p["comparison"]["root_economic_live_only_rows"] = 230
+        p["comparison"]["root_economic_proposed_only_rows"] = 230
+        rows = root_source_rows(p, "cz", DAY)
+        self.assertEqual(next(r for r in rows if r["value_scope"] == "standard")["set_value"], "2634.47")
 
     def test_duplicate_root_scope_rejected(self):
         p = accepted_preview(); p["candidate_values"].append(p["candidate_values"][0])
@@ -294,6 +313,8 @@ class SqlProposalContractTests(unittest.TestCase):
         self.assertNotIn("UPDATE public.pokemon_set_value_daily_history", sql)
         self.assertIn("v_candidates IS DISTINCT FROM v_preview->'candidate_values'", sql)
         self.assertIn("md5(v_preview::text) IS DISTINCT FROM v_run.evidence_signature", sql)
+        self.assertIn("canonical_asof_scope_split_v2", sql)
+        self.assertIn("preview_price_storage_v2_scoped_values_v2", sql)
 
     def test_writer_destinations_cannot_cross(self):
         sql = (ROOT / "db/proposals/price_storage_v2_scoped_publication.sql").read_text()
