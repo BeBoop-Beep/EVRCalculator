@@ -144,6 +144,28 @@ if [[ "${AUDIT_STATUS}" -ne 0 ]]; then
   exit "${AUDIT_STATUS}"
 fi
 
+# Market Explorer's materialized serving projections must advance only after
+# the canonical market date has been published and audited.  Keeping this in
+# the authoritative post-scrape handoff avoids a clock race where a fixed cron
+# slot runs before pokemon_market_date_quality approves the day.  This remains
+# projection-only: maintained-cache prewarm is intentionally a separate,
+# resource-guarded process after the P0 memory incident.
+MARKET_EXPLORER_CMD=(
+  "${PYTHON_BIN}" -m backend.scripts.run_market_explorer_daily_publication
+  --commit
+  --market-date "${MARKET_DATE}"
+)
+log "command: ${MARKET_EXPLORER_CMD[*]}"
+MARKET_EXPLORER_STATUS=0
+"${MARKET_EXPLORER_CMD[@]}" || MARKET_EXPLORER_STATUS=$?
+log "market explorer projection exit_status=${MARKET_EXPLORER_STATUS}"
+
+if [[ "${MARKET_EXPLORER_STATUS}" -ne 0 ]]; then
+  log "Market Explorer V1/V2 advancement FAILED for market_date=${MARKET_DATE}"
+  log "final exit_status=${MARKET_EXPLORER_STATUS}"
+  exit "${MARKET_EXPLORER_STATUS}"
+fi
+
 log "post-scrape publication COMPLETE for market_date=${MARKET_DATE}"
 log "Opening Profit vs Cost remains on the previous simulation date by design;"
 log "the later coordinated publication runs simulations and audits the full contract."
