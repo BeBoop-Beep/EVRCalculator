@@ -129,7 +129,7 @@ try {
   const customChip = page.locator('[data-market-explorer-active-chip-source="query"]').last();
   const originalKey = await customChip.getAttribute("data-market-explorer-active-chip");
   const originalStyle = await customChip.locator("span[aria-hidden=true]").first().getAttribute("style");
-  check(countPath("/api/market/explorer/query", buildStart) >= 1, "Custom Build issued no query request");
+  check(countPath("/api/market/explorer/query", buildStart) === 1, "Custom Build did not issue exactly one summary request");
   evidence.lifecycle.buildRequests = requests.slice(buildStart).filter((item) => item.path === "/api/market/explorer/query" && item.method === "POST").length;
 
   // Visibility and timeframe are client-only.
@@ -137,7 +137,7 @@ try {
   await page.locator(`[data-market-explorer-active-visibility="${originalKey}"]`).focus(); await page.keyboard.press("Enter");
   await page.locator("[data-market-explorer-active-hide-all]").click();
   await page.locator("[data-market-explorer-active-show-all]").click();
-  await page.locator('[data-market-explorer-timeframe="30D"]').click();
+  await page.locator('[data-market-window-value="30D"]').click();
   check(requests.slice(noRequestStart).filter((item) => item.path.includes("/api/market/explorer/query")).length === 0, "Visibility/timeframe caused a market request");
   evidence.keyboard.visibilityFocused = await page.locator(`[data-market-explorer-active-visibility="${originalKey}"]`).evaluate((node) => node.matches(":focus-visible") || document.activeElement === node);
 
@@ -146,6 +146,10 @@ try {
   check(await page.locator("[data-market-builder-editing=true]").count() === 1, "Edit mode did not open");
   await selectSet("Gym Heroes");
   check(await page.locator(`[data-market-explorer-active-chip="${originalKey}"]`).count() === 1, "Old active line changed before Update success");
+  // Exercise the real paid-abuse boundary at human interaction cadence. The
+  // options/search/build/constituent calls above intentionally share the same
+  // bounded policy; an automated click burst is not a product lifecycle.
+  await page.waitForTimeout(11000);
   const updateStart = requests.length;
   await page.locator("[data-market-builder-build]").click();
   await page.waitForFunction((key) => document.querySelector(`[data-market-explorer-active-chip="${key}"]`) && !document.querySelector("[data-market-builder-editing=true]"), originalKey, { timeout: 120000 });
@@ -153,16 +157,21 @@ try {
   check(await updatedChip.count() === 1, "Update replaced the query instance key");
   check(await updatedChip.locator("span[aria-hidden=true]").first().getAttribute("style") === originalStyle, "Update changed series color");
   evidence.lifecycle.updateRequests = requests.slice(updateStart).filter((item) => item.path === "/api/market/explorer/query" && item.method === "POST").length;
+  check(evidence.lifecycle.updateRequests === 1, "Update did not issue exactly one summary request");
 
   // Save as new from a third distinct one-axis definition.
   await page.locator(`[data-market-explorer-active-edit="${originalKey}"]`).click();
   await selectSet("Team Rocket");
   const beforeSaveCount = await page.locator('[data-market-explorer-active-chip-source="query"]').count();
+  await page.waitForTimeout(11000);
+  const saveAsNewStart = requests.length;
   await page.locator("[data-market-builder-save-as-new]").click();
   await page.waitForFunction((count) => document.querySelectorAll('[data-market-explorer-active-chip-source="query"]').length > count, beforeSaveCount, { timeout: 120000 });
   const keysAfterSave = await page.locator('[data-market-explorer-active-chip-source="query"]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-market-explorer-active-chip")));
   check(keysAfterSave.includes(originalKey) && new Set(keysAfterSave).size === keysAfterSave.length, "Save as new did not preserve distinct instances");
   evidence.lifecycle.saveAsNew = { before: beforeSaveCount, after: keysAfterSave.length, distinctKeys: new Set(keysAfterSave).size };
+  evidence.lifecycle.saveAsNewRequests = requests.slice(saveAsNewStart).filter((item) => item.path === "/api/market/explorer/query" && item.method === "POST").length;
+  check(evidence.lifecycle.saveAsNewRequests === 1, "Save as new did not issue exactly one summary request");
   await screenshot("19-auth-plus-edit-save-lifecycle.png");
 
   // Cancel edits is local-only and preserves active results.
