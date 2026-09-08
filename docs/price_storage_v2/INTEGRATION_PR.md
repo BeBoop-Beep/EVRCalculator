@@ -75,8 +75,9 @@ preview before insertion. The producer coordinator uses v2 staging and still con
 
 ## Exact PostgreSQL acceptance
 
-GitHub Actions run `34183532432`, job `101927253176`, succeeds on PostgreSQL 17.6.
-The suite now contains **95 passing checks**:
+GitHub Actions run `34183532432`, job `101927253176`, succeeded on PostgreSQL 17.6
+for validated implementation commit `2efcefa2862001d216d7983d49087fe8166214f0`.
+The suite contains **95 passing checks**:
 
 - **42** integration/unit checks;
 - **13** migration/source/full-ledger checks;
@@ -85,7 +86,8 @@ The suite now contains **95 passing checks**:
 - **8** exact restored-source SQL checks;
 - **6** fail-closed coordinator checks.
 
-Pattern Overlay Guardrails also pass on the validated feature implementation.
+Pattern Overlay Guardrails also passed. Later documentation-only commits do not change
+the validated SQL or code paths.
 
 The new exact-source regression reproduces the production failure mode by advancing
 the actual modern standard-root latest projection (`pokemon_canonical_card_market_prices_latest`)
