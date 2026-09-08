@@ -129,17 +129,16 @@ ROLLBACK;
     if mismatch.get("status") != "blocked" or mismatch.get("reason") != "raw_v2_price_contract_mismatch":
         raise AssertionError(mismatch)
 
-    # Root identity is derived from canonical cards even when the latest price row is
-    # missing, so deleting a price row is not an identity drift. Instead, mutate the
-    # exact root-reader definition transactionally to omit one canonical identity.
-    # The DDL is rolled back immediately after the assertion.
+    # The promoted root entrypoint is a thin wrapper around the exact V2 shadow
+    # implementation. Mutate that underlying implementation transactionally to
+    # simulate a true root-contract identity drift, then roll the DDL back.
     identity = cls.value(f"""
 BEGIN;
 DO $do$
 DECLARE
   v_def text;
 BEGIN
-  SELECT pg_get_functiondef('public.get_pokemon_market_root_set_card_prices_latest_v1(uuid)'::regprocedure)
+  SELECT pg_get_functiondef('public.get_pokemon_market_root_set_card_prices_latest_v1_v2_shadow(uuid)'::regprocedure)
     INTO v_def;
   v_def := replace(
     v_def,
