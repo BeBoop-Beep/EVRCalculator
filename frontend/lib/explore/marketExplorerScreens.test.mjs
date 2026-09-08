@@ -56,3 +56,15 @@ test("selected-set Top 10 retains only scope before applying point-in-time ranki
   assert.equal(draft.mode, "chase");
   assert.equal(draft.topN, 10);
 });
+
+test("ordinary templates preserve multi-scope and Prompt-1 explicit membership", () => {
+  const screen = MARKET_EXPLORER_SCREENS.find((entry) => entry.id === "obtainable-market");
+  const draft = draftForScreenResult(screen, null, {
+    asset: "cards", eraIds: ["era-a", "era-b"], setIds: ["set-a", "set-b"],
+    membershipMode: "explicit", instrumentIds: ["variant-a", "variant-b"],
+  });
+  assert.deepEqual(draft.eraIds, ["era-a", "era-b"]);
+  assert.deepEqual(draft.setIds, ["set-a", "set-b"]);
+  assert.equal(draft.membershipMode, "explicit");
+  assert.deepEqual(draft.instrumentIds, ["variant-a", "variant-b"]);
+});

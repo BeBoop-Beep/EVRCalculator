@@ -16,6 +16,7 @@ import {
 import { MARKET_EXPLORER_DETAIL_WINDOWS } from "@/lib/explore/marketExplorerState.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import styles from "./explore.module.css";
+import { describeRelativePerformance } from "@/lib/explore/marketExplorerComparison.mjs";
 
 // The selected-market detail strip — parent markets and Sealed submarkets in
 // the same table, because a submarket is a market.
@@ -99,8 +100,8 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
         <>
           {spread !== null ? (
             <p data-market-relative-performance className="border-b border-[var(--border-subtle)] px-3 py-2 text-[11px] text-[var(--text-secondary)] sm:px-4">
-              <span className="font-semibold text-[var(--text-primary)]">Relative Performance · {timeframe}:</span>{" "}
-              {leader.entry.label} leads {laggard.entry.label} by {spread.toFixed(1)} percentage points.
+              <span className="font-semibold text-[var(--text-primary)]">Relative Performance:</span>{" "}
+              {describeRelativePerformance(timeframe, leader.entry.label, leader.value, laggard.entry.label, laggard.value)}
             </p>
           ) : null}
           <div data-market-explorer-details-table className="hidden overflow-x-auto desk:block">

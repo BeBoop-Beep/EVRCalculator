@@ -16,7 +16,6 @@ test("editing the builder does not commit", () => {
   let preparedCalls = 0; let queryCalls = 0;
   const renderer = mount({ onAddPrepared: () => { preparedCalls += 1; }, onAddQuery: async () => { queryCalls += 1; } });
   openDisclosure(renderer, "sealedBuilder");
-  act(() => byData(renderer, "data-builder-all-sealed").props.onClick());
   assert.equal(preparedCalls + queryCalls, 0);
   assert.equal(renderer.root.findByProps({ "data-market-explorer-filters": true }).props["data-market-builder-asset"], "sealed");
 });
@@ -34,7 +33,7 @@ test("an already-active parent is a clear non-action", () => {
 });
 
 test("Clear resets the canonical draft", () => {
-  const renderer = mount(); openDisclosure(renderer, "sealedBuilder"); act(() => byData(renderer, "data-builder-all-sealed").props.onClick()); act(() => byData(renderer, "data-market-builder-clear").props.onClick());
+  const renderer = mount(); openDisclosure(renderer, "sealedBuilder"); act(() => byData(renderer, "data-market-builder-clear").props.onClick());
   assert.equal(renderer.root.findByProps({ "data-market-explorer-filters": true }).props["data-market-builder-asset"], "cards");
 });
 
@@ -46,7 +45,7 @@ test("mobile disclosure exposes the same builder", () => {
 
 test("Top 10 in Selected Set refuses to apply with no set chosen, rather than silently becoming Global Top 10", () => {
   const renderer = mount({ currentPlan: "premium" });
-  openDisclosure(renderer, "screens");
+  openDisclosure(renderer, "cardsScreens");
   act(() => byData(renderer, "data-market-screen").find(
     (node) => node.props["data-market-screen"] === "set-top-ten"
   ) ? null : null);
@@ -63,9 +62,47 @@ test("Top 10 in Selected Set refuses to apply with no set chosen, rather than si
   );
 });
 
+test("Raw Cards starts active and open; asset headers switch and close in one click", () => {
+  const renderer = mount();
+  assert.equal(renderer.root.findByProps({ "data-explorer-disclosure": "rawCardsBuilder" }).props["data-explorer-disclosure-open"], "true");
+  assert.equal(renderer.root.findByProps({ "data-explorer-disclosure": "sealedBuilder" }).props["data-explorer-disclosure-open"], "false");
+  openDisclosure(renderer, "sealedBuilder");
+  assert.equal(renderer.root.findByProps({ "data-market-explorer-filters": true }).props["data-market-builder-asset"], "sealed");
+  assert.equal(renderer.root.findByProps({ "data-explorer-disclosure": "rawCardsBuilder" }).props["data-explorer-disclosure-open"], "false");
+  assert.equal(renderer.root.findByProps({ "data-explorer-disclosure": "sealedBuilder" }).props["data-explorer-disclosure-open"], "true");
+  openDisclosure(renderer, "rawCardsBuilder");
+  assert.equal(renderer.root.findByProps({ "data-market-explorer-filters": true }).props["data-market-builder-asset"], "cards");
+});
+
+test("loading options is intentional inside the initially-open Raw Cards section", () => {
+  const renderer = mount({ options: null, optionsStatus: "loading" });
+  assert.match(renderer.root.findByProps({ role: "status" }).children.join(""), /Loading canonical filters/);
+});
+
+test("template Screen applies immediately and preserves multi-set scope", () => {
+  const renderer = mount({ options: { ...OPTIONS, sets: [
+    ...OPTIONS.sets, { id: "sv2", label: "Paldea Evolved", eraId: "sv", assets: ["cards"] },
+  ] } });
+  openDisclosure(renderer, "cardsEraSets");
+  act(() => renderer.root.find((node) => node.props?.name === "cards-set").props.onChange(["sv1", "sv2"]));
+  openDisclosure(renderer, "cardsScreens");
+  act(() => renderer.root.findByProps({ "data-market-screen": "obtainable-market" }).props.onClick());
+  assert.ok(renderer.root.findByProps({ "data-market-screen-applied": true }));
+  assert.match(byData(renderer, "data-current-market-preview").children.join(""), /Obtainable/);
+});
+
+test("Sealed context excludes card-only Screens and uses asset-specific composition", () => {
+  const renderer = mount();
+  openDisclosure(renderer, "sealedBuilder");
+  openDisclosure(renderer, "sealedScreens");
+  assert.equal(renderer.root.findAllByProps({ "data-market-screen": "rarity-leaders" }).length, 0);
+  assert.ok(renderer.root.findByProps({ "data-market-screen": "sealed-format-leaders" }));
+  openDisclosure(renderer, "sealedComposition");
+  assert.ok(renderer.root.find((node) => node.props?.ariaLabel === "Market Mode").props.options.some((row) => row.label === "Top N by Price"));
+});
+
 test("Top 10 in Selected Set applies once a set is already chosen in the draft", () => {
   const renderer = mount({ currentPlan: "premium" });
-  openDisclosure(renderer, "rawCardsBuilder");
   openDisclosure(renderer, "cardsEraSets");
   act(() => byData(renderer, "data-market-builder-scroll-region"));
   // Select the one available set directly via the MultiSelectFilter's onChange.
@@ -73,22 +110,20 @@ test("Top 10 in Selected Set applies once a set is already chosen in the draft",
     (node) => node.props?.name === "cards-set"
   );
   act(() => setFilter.props.onChange(["sv1"]));
-  openDisclosure(renderer, "screens");
+  openDisclosure(renderer, "cardsScreens");
   act(() => renderer.root.find(
     (node) => node.props?.["data-market-screen"] === "set-top-ten"
   ).props.onClick());
-  assert.ok(renderer.root.findByProps({ "data-market-screen-apply": "set-top-ten" }));
+  assert.ok(renderer.root.findByProps({ "data-market-screen-applied": true }));
 });
 
 test("toggling a benchmark never touches the Builder draft", () => {
   let toggled = null;
   const benchmark = { key: "topChase", label: "Per-Set Chase Market", selected: false };
   const renderer = mount({ benchmarkEntries: [benchmark], onToggleBenchmark: (key) => { toggled = key; } });
-  openDisclosure(renderer, "sealedBuilder");
-  act(() => byData(renderer, "data-builder-all-sealed").props.onClick());
   const draftAssetBefore = renderer.root.findByProps({ "data-market-explorer-filters": true }).props["data-market-builder-asset"];
 
-  openDisclosure(renderer, "benchmarks");
+  openDisclosure(renderer, "cardsReference");
   const benchmarkOption = renderer.root.find(
     (node) => node.props?.entry?.key === "topChase"
   );

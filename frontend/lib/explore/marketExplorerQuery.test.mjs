@@ -102,6 +102,13 @@ test("an explicit set is more specific than its era and wins the scope label", (
   );
 });
 
+test("Pokemon market names are concise while identity remains query-key based", () => {
+  const spec = { mode: QUERY_MODE_ALL, pokemonIds: ["149"] };
+  const before = buildQueryKey(spec);
+  assert.equal(buildQueryLabel(spec, { ...NAMES, pokemonNames: { "149": "Dragonite" } }), "All Dragonite Cards");
+  assert.equal(buildQueryKey(spec), before);
+});
+
 test("a chase query benchmarks against its own universe in ALL mode", () => {
   const benchmark = resolveBenchmarkSpec({
     mode: QUERY_MODE_CHASE, eraIds: ["era-sv"], segmentIds: ["specialIllustrationRare"],

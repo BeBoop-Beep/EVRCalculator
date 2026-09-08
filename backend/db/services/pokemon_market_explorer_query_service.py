@@ -1150,9 +1150,14 @@ def describe_query(spec: Mapping[str, Any], *, era_names: Mapping[str, str] | No
 
     labels = {str(d["key"]): str(d["label"]) for d in RAW_CARD_SEGMENT_DEFINITIONS}
     segment = ", ".join(labels.get(value, value) for value in spec["segmentIds"]) or "All rarities"
+    pokemon = " + ".join((pokemon_names or {}).get(value, value) for value in spec["pokemonIds"])
+    if pokemon and scope == "Global" and segment == "All rarities" and not spec["priceSegmentIds"] and not spec["releaseAgeCohortIds"] and spec["mode"] == MODE_ALL:
+        return f"All {pokemon} Cards"
+    if pokemon and segment == "All rarities" and not spec["priceSegmentIds"] and not spec["releaseAgeCohortIds"] and spec["mode"] == MODE_ALL:
+        return f"{pokemon} Â· {scope}"
     dimensions = [scope, segment]
     if spec["pokemonIds"]:
-        dimensions.append(", ".join((pokemon_names or {}).get(value, value) for value in spec["pokemonIds"]))
+        dimensions.append(pokemon)
     labels_by_axis = {
         "priceSegmentIds": {"obtainable": "Obtainable", "intermediate": "Intermediate", "premium": "Premium"},
         "releaseAgeCohortIds": {"new": "New", "recent": "Recent", "established": "Established", "legacy": "Legacy"},

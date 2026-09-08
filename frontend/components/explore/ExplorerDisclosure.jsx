@@ -27,18 +27,21 @@ export default function ExplorerDisclosure({
   info = null,
   badge = null,
   defaultOpen = false,
+  open = undefined,
+  onToggle = null,
   openSignal = null,
   summary = null,
   children,
 }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen === true);
+  const [localOpen, setLocalOpen] = useState(defaultOpen === true);
+  const isOpen = open === undefined ? localOpen : open;
 
   // A caller can OPEN this group in response to an explicit user action
   // elsewhere on the page — the Era & Sets scope hand-off does exactly that.
   // It only ever opens: nothing outside may collapse a group the user opened.
   useEffect(() => {
-    if (openSignal !== null && openSignal !== undefined) setIsOpen(true);
-  }, [openSignal]);
+    if (open === undefined && openSignal !== null && openSignal !== undefined) setLocalOpen(true);
+  }, [open, openSignal]);
   const generatedId = useId();
   const panelId = `explorer-disclosure-${id || generatedId}`;
 
@@ -54,7 +57,7 @@ export default function ExplorerDisclosure({
           data-explorer-disclosure-toggle={id || undefined}
           aria-expanded={isOpen}
           aria-controls={panelId}
-          onClick={() => setIsOpen((current) => !current)}
+          onClick={() => onToggle ? onToggle() : setLocalOpen((current) => !current)}
           className="flex min-w-0 flex-1 items-center gap-2 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
         >
           <span

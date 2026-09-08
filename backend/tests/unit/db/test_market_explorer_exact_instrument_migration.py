@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 SQL = (Path(__file__).parents[4] / "backend/db/migrations" /
-       "20260907200000_add_market_explorer_exact_instrument_foundation.sql").read_text().lower()
+       "20260908052614_20260907200000_add_market_explorer_exact_instrument_foundation.sql").read_text().lower()
 
 
 def test_generic_cache_identity_is_backfilled_written_and_finalized():

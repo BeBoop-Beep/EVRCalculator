@@ -12,7 +12,8 @@ test("the left rail is the only market builder", async () => {
 
 test("asset-first hierarchy owns repeated canonical scope controls", async () => {
   const source = await read("./MarketExplorerQueryBuilder.jsx");
-  for (const required of ['title="Raw Cards"', "All Raw Cards", 'title="Era & Set"', 'title={asset === QUERY_ASSET_CARDS ? "Rarity" : "Product Family"}', 'title="Sealed"', "All Sealed", 'title="Graded"', 'badge="Unavailable"', 'title="Benchmarks"', "assetControls(QUERY_ASSET_CARDS)", "assetControls(QUERY_ASSET_SEALED)"]) assert.ok(source.includes(required), `missing ${required}`);
+  for (const required of ['title="Raw Cards"', 'title="Era & Set"', 'title={asset === QUERY_ASSET_CARDS ? "Rarity" : "Product Family"}', 'title="Sealed"', 'title="Graded"', 'badge="Unavailable"', 'title="Composition"', 'title="Reference Market"', "assetControls(QUERY_ASSET_CARDS)", "assetControls(QUERY_ASSET_SEALED)"]) assert.ok(source.includes(required), `missing ${required}`);
+  for (const removed of ["Edit this asset", "All Raw Cards", "All Sealed", "Use in Market Builder"]) assert.ok(!source.includes(removed), `obsolete handoff remains: ${removed}`);
 });
 
 test("draft, commit, duplicate, and mobile controls are explicit", async () => {
@@ -27,8 +28,9 @@ test("active markets and existing analysis remain mounted", async () => {
   assert.ok(source.includes("...querySeries"));
 });
 
-test("comparison analysis precedes one-market constituent inspection", async () => {
+test("comparison analysis and one-market constituent inspection remain distinct", async () => {
   const source = await read("./MarketExplorerClient.jsx");
-  assert.ok(source.indexOf("<MarketExplorerDetails") < source.indexOf("<MarketExplorerConstituents"));
+  assert.ok(source.includes("<MarketExplorerDetails"));
+  assert.ok(source.includes("<MarketExplorerConstituents"));
   assert.ok(source.includes("timeframe={timeframe}"));
 });

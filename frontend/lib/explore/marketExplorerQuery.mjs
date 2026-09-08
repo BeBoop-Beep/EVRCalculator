@@ -240,8 +240,17 @@ export function buildQueryLabel(spec, { eraNames, setNames, segmentNames, pokemo
     ? normalized.segmentIds.map((id) => nameFor(segmentNames, id)).join(", ")
     : allSegments;
   const mode = normalized.mode === QUERY_MODE_CHASE ? `Top ${normalized.topN}` : "All";
+  const pokemon = normalized.pokemonIds.map((id) => nameFor(pokemonNames, id)).join(" + ");
+  const hasOnlyPokemon = normalized.asset === QUERY_ASSET_CARDS && pokemon &&
+    !normalized.eraIds.length && !normalized.setIds.length && !normalized.segmentIds.length &&
+    !normalized.priceSegmentIds.length && !normalized.releaseAgeCohortIds.length && normalized.mode === QUERY_MODE_ALL;
+  if (hasOnlyPokemon) return `All ${pokemon} Cards`;
   const dimensions = [scope, segment];
-  if (normalized.pokemonIds.length) dimensions.push(normalized.pokemonIds.map((id) => nameFor(pokemonNames, id)).join(", "));
+  if (pokemon) {
+    if (segment === allSegments && normalized.mode === QUERY_MODE_ALL &&
+        !normalized.priceSegmentIds.length && !normalized.releaseAgeCohortIds.length) return `${pokemon} Â· ${scope}`;
+    dimensions.push(pokemon);
+  }
   if (normalized.priceSegmentIds.length) dimensions.push(normalized.priceSegmentIds.map((id) => nameFor(priceSegmentNames, id)).join(", "));
   if (normalized.releaseAgeCohortIds.length) dimensions.push(normalized.releaseAgeCohortIds.map((id) => nameFor(releaseAgeNames, id)).join(", "));
   dimensions.push(mode);

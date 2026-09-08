@@ -48,9 +48,18 @@ export function resolveScreenResults(screen, preparedSeries = []) {
 }
 
 export function draftForScreenResult(screen, result, currentDraft = {}) {
-  const clean = { asset: screen.asset || currentDraft.asset || "cards", eraIds: [], setIds: [], segmentIds: [], pokemonIds: [], priceSegmentIds: [], releaseAgeCohortIds: [], mode: "all", topN: null };
+  const clean = {
+    asset: screen.asset || currentDraft.asset || "cards",
+    eraIds: [], setIds: [], segmentIds: [], pokemonIds: [], priceSegmentIds: [],
+    releaseAgeCohortIds: [], mode: "all", topN: null,
+    membershipMode: currentDraft.membershipMode || "filter",
+    instrumentIds: currentDraft.instrumentIds || [],
+  };
   if (screen.type === "builderTemplate") {
-    const selectedScope = screen.id === "set-top-ten" ? { eraIds: currentDraft.eraIds || [], setIds: currentDraft.setIds || [] } : {};
+    // Templates refine the scope the user is already editing. A Set is only a
+    // hard prerequisite for set-top-ten; ordinary templates remain valid for
+    // Global, multi-Era and multi-Set drafts.
+    const selectedScope = { eraIds: currentDraft.eraIds || [], setIds: currentDraft.setIds || [] };
     return { ...clean, ...selectedScope, ...screen.template };
   }
   const series = result?.series;

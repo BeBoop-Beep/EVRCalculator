@@ -1516,6 +1516,9 @@ def post_market_explorer_query_constituents(
     if page is None:
         return JSONResponse(content={"message": "Market summary must be built first",
                                      "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+    if normalized.get("asset") == "cards":
+        from backend.db.services.market_explorer_constituent_movement import enrich_card_constituent_page
+        page = enrich_card_constituent_page(service_read_client, page)
     return _tiered_response(page)
 
 

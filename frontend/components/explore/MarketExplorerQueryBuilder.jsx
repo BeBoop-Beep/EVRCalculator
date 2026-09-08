@@ -109,24 +109,12 @@ export default function MarketExplorerQueryBuilder({
   const screenResults = useMemo(
     () =>
       selectedScreen
-        ? resolveScreenResults(selectedScreen, preparedSeries)
+        ? resolveScreenResults(selectedScreen, preparedSeries.filter((series) =>
+            series?.group === (draft.asset === QUERY_ASSET_CARDS ? "card" : "sealed")
+          ))
         : [],
-    [selectedScreen, preparedSeries],
+    [selectedScreen, preparedSeries, draft.asset],
   );
-  const chooseAll = (asset) => {
-    builder.replace({
-      asset,
-      eraIds: [],
-      setIds: [],
-      segmentIds: [],
-      pokemonIds: [],
-      priceSegmentIds: [],
-      releaseAgeCohortIds: [],
-      mode: QUERY_MODE_ALL,
-      topN: null,
-    });
-    setMessage("");
-  };
   const build = async () => {
     if (alreadyActive) return;
     if (!prepared && !access.allowed) {
@@ -180,16 +168,7 @@ export default function MarketExplorerQueryBuilder({
               "The canonical market filters are temporarily unavailable."}
         </p>
       );
-    if (draft.asset !== asset)
-      return (
-        <button
-          type="button"
-          onClick={() => builder.setAsset(asset)}
-          className="mt-2 min-h-11 w-full rounded-md border border-[var(--border-subtle)] px-3 text-left text-xs text-[var(--text-primary)] desk:min-h-0"
-        >
-          Edit this asset
-        </button>
-      );
+    if (draft.asset !== asset) return null;
     const presentation = presentationFor(asset);
     return (
       <div className="mt-2 space-y-2">
@@ -308,6 +287,73 @@ export default function MarketExplorerQueryBuilder({
             emptyMessage="No published release cohorts."
           />
         </ExplorerDisclosure>
+        <ExplorerDisclosure
+          id={`${asset}Composition`}
+          title="Composition"
+          summary={draft.mode === QUERY_MODE_CHASE ? `Top ${draft.topN || 10}` : "All"}
+        >
+          <DarkSelect
+            ariaLabel="Market Mode"
+            value={draft.mode}
+            onChange={builder.setMode}
+            options={marketModeOptions(asset).map((entry) => ({
+              value: entry.id,
+              label: asset === QUERY_ASSET_SEALED && entry.id === QUERY_MODE_CHASE ? "Top N by Price" : entry.label,
+            }))}
+          />
+          <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
+            {asset === QUERY_ASSET_SEALED ? "All Products or the highest-priced products in this scope." : "All Cards or a Top N chase composition in this scope."}
+          </p>
+        </ExplorerDisclosure>
+        <ExplorerDisclosure id={`${asset}Screens`} title="Screens" summary={selectedScreen?.asset === asset || selectedScreen?.asset == null ? selectedScreen?.label : null}>
+          <div className="space-y-1">
+            {MARKET_EXPLORER_SCREENS.filter((screen) => screen.asset === asset || screen.asset == null).map((screen) => {
+              const unlocked = canUseScreen(screen, currentPlan);
+              const lockTone = planPresentation(screen.requiredPlan === "premium" ? INDEX_PLAN_PREMIUM : INDEX_PLAN_PLUS);
+              return <button type="button" key={screen.id} data-market-screen={screen.id}
+                data-market-screen-locked={unlocked ? "false" : "true"}
+                aria-pressed={selectedScreenId === screen.id}
+                onClick={() => {
+                  if (!unlocked) return setMessage(`This Screen requires Index ${screen.requiredPlan === "premium" ? "Premium" : "Plus"}.`);
+                  setSelectedScreenId(screen.id);
+                  setMessage("");
+                  if (screen.type === "builderTemplate" && screen.id !== "set-top-ten") {
+                    builder.replace(draftForScreenResult(screen, null, draft));
+                  } else if (screen.id === "set-top-ten" && draft.setIds.length === 1) {
+                    builder.replace(draftForScreenResult(screen, null, draft));
+                  }
+                }}
+                className={`min-h-11 w-full rounded-md border px-3 text-left focus-visible:outline-none focus-visible:ring-2 desk:min-h-0 ${unlocked ? "border-[var(--border-subtle)]" : lockTone.compactClassName}`}>
+                <span className="block text-xs font-semibold text-[var(--text-primary)]">{screen.label}{unlocked ? "" : ` ðŸ”’ ${lockTone.label}`}</span>
+                <span className="block text-[10px] text-[var(--text-secondary)]">{screen.description}</span>
+              </button>;
+            })}
+          </div>
+          {selectedScreen && (selectedScreen.asset === asset || selectedScreen.asset == null) && canUseScreen(selectedScreen, currentPlan) ? (
+            <div data-market-screen-results className="mt-2 space-y-1">
+              {selectedScreen.id === "set-top-ten" && draft.setIds.length !== 1 ? (
+                <p data-market-screen-requires-set className="rounded-md border border-[var(--border-subtle)] px-2 py-2 text-[11px] text-[var(--text-secondary)]">
+                  {draft.setIds.length === 0 ? "Choose one set to use Top 10 in Selected Set." : "Choose one set for this Screen."}
+                </p>
+              ) : screenResults.length ? screenResults.map((result, index) => (
+                <button type="button" key={result.series.key} data-market-screen-result={result.series.key}
+                  onClick={() => onAddPrepared?.(result.series.key)}
+                  className="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-left text-[11px] text-[var(--text-primary)]">
+                  {index + 1}. {result.series.shortLabel || result.series.label} <span className="text-[var(--text-secondary)]">{result.value.toFixed(1)}%</span>
+                </button>
+              )) : (
+                <p data-market-screen-applied className="rounded-md border border-[var(--border-subtle)] px-2 py-2 text-[11px] text-[var(--text-secondary)]">
+                  Applied to the current {asset === QUERY_ASSET_CARDS ? "Raw Cards" : "Sealed"} draft. Build Market when ready.
+                </p>
+              )}
+            </div>
+          ) : null}
+        </ExplorerDisclosure>
+        {asset === QUERY_ASSET_CARDS ? (
+          <ExplorerDisclosure id="cardsReference" title="Reference Market">
+            {paid ? <PreparedOptionList entries={benchmarkEntries} onToggle={onToggleBenchmark} selectedSeriesCount={selectedSeriesCount} /> : accessPanel("Add the Per-Set Chase reference market with Index Plus.")}
+          </ExplorerDisclosure>
+        ) : null}
       </div>
     );
   };
@@ -317,26 +363,10 @@ export default function MarketExplorerQueryBuilder({
         data-market-builder-scroll-region
         className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 sm:px-4"
       >
-        <ExplorerDisclosure id="rawCardsBuilder" title="Raw Cards" defaultOpen>
-          <button
-            type="button"
-            data-builder-all-raw-cards
-            onClick={() => chooseAll(QUERY_ASSET_CARDS)}
-            className="min-h-11 w-full rounded-md border border-[var(--border-subtle)] px-3 text-left text-xs font-semibold text-[var(--text-primary)] desk:min-h-0"
-          >
-            All Raw Cards
-          </button>
+        <ExplorerDisclosure id="rawCardsBuilder" title="Raw Cards" open={draft.asset === QUERY_ASSET_CARDS} onToggle={() => { builder.setAsset(QUERY_ASSET_CARDS); setSelectedScreenId(null); setMessage(""); }} summary={draft.asset === QUERY_ASSET_CARDS ? "Editing" : null}>
           {assetControls(QUERY_ASSET_CARDS)}
         </ExplorerDisclosure>
-        <ExplorerDisclosure id="sealedBuilder" title="Sealed">
-          <button
-            type="button"
-            data-builder-all-sealed
-            onClick={() => chooseAll(QUERY_ASSET_SEALED)}
-            className="min-h-11 w-full rounded-md border border-[var(--border-subtle)] px-3 text-left text-xs font-semibold text-[var(--text-primary)] desk:min-h-0"
-          >
-            All Sealed
-          </button>
+        <ExplorerDisclosure id="sealedBuilder" title="Sealed" open={draft.asset === QUERY_ASSET_SEALED} onToggle={() => { builder.setAsset(QUERY_ASSET_SEALED); setSelectedScreenId(null); setMessage(""); }} summary={draft.asset === QUERY_ASSET_SEALED ? "Editing" : null}>
           {assetControls(QUERY_ASSET_SEALED)}
         </ExplorerDisclosure>
         <ExplorerDisclosure
@@ -348,7 +378,7 @@ export default function MarketExplorerQueryBuilder({
             No authoritative graded market is published.
           </p>
         </ExplorerDisclosure>
-        <ExplorerDisclosure id="screens" title="Screens">
+        {false ? <ExplorerDisclosure id="screens" title="Screens">
           <div className="space-y-1">
             {MARKET_EXPLORER_SCREENS.map((screen) => {
               const unlocked = canUseScreen(screen, currentPlan);
@@ -428,13 +458,13 @@ export default function MarketExplorerQueryBuilder({
                   }
                   className="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-left text-[11px] text-[var(--text-primary)]"
                 >
-                  Use in Market Builder
+                  Legacy handoff removed
                 </button>
               )}
             </div>
           ) : null}
-        </ExplorerDisclosure>
-        <ExplorerDisclosure id="benchmarks" title="Benchmarks">
+        </ExplorerDisclosure> : null}
+        {false ? <ExplorerDisclosure id="benchmarks" title="Benchmarks">
           {paid ? (
             <PreparedOptionList
               entries={benchmarkEntries}
@@ -444,8 +474,8 @@ export default function MarketExplorerQueryBuilder({
           ) : (
             accessPanel("Add prepared comparison benchmarks with Index Plus.")
           )}
-        </ExplorerDisclosure>
-        {paid ? (
+        </ExplorerDisclosure> : null}
+        {false && paid ? (
           <ExplorerDisclosure
             id="marketComposition"
             title="Composition"

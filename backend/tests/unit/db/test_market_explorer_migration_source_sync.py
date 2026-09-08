@@ -13,6 +13,7 @@ service-role boundaries are present. It never rewrites or "fixes" the
 historical SQL -- these files are frozen historical record.
 """
 from pathlib import Path
+import hashlib
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -33,6 +34,28 @@ MIRRORED_VERSIONS = [
     "20260907075615_stage_market_explorer_cache_from_detail",
     "20260907174821_add_market_explorer_materialized_series_rpc",
 ]
+
+PROMPT1_LEDGER_MIRRORS = {
+    "20260908052614_20260907200000_add_market_explorer_exact_instrument_foundation":
+        "23d8c00501dcfa10a9c7a5f8344b35ac03fd8ef392b0c84e70f7c8fded04ae4b",
+    "20260908053032_20260908054000_fix_market_explorer_v2_exact_variant_predicates":
+        "abffbb9c3b3ed958a23545f1a016afbab579821dc55e8d4dfe4133c2e0a64a83",
+    "20260908053340_20260908060000_add_bounded_sealed_instrument_search_rpc":
+        "8a9bc6cb215d5352d3836ea92f67c7503ea9925d92646714f5a9e2766c46ae91",
+}
+
+
+def test_prompt1_sources_use_actual_ledger_versions_and_match_statement_bytes():
+    """apply_migration stored the submitted SQL with one trailing CRLF."""
+    for stem, ledger_sha256 in PROMPT1_LEDGER_MIRRORS.items():
+        source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        assert hashlib.sha256(source + b"\r\n").hexdigest() == ledger_sha256
+    for obsolete in (
+        "20260907200000_add_market_explorer_exact_instrument_foundation.sql",
+        "20260908054000_fix_market_explorer_v2_exact_variant_predicates.sql",
+        "20260908060000_add_bounded_sealed_instrument_search_rpc.sql",
+    ):
+        assert not (MIGRATIONS_DIR / obsolete).exists()
 
 
 def test_recent_production_mirrors_are_text_identical_to_supabase_lineage():
