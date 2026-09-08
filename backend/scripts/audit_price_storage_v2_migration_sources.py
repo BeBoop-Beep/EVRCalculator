@@ -2,7 +2,9 @@
 
 A successful integrity check is NOT a completed migration sync. Use --strict to
 require all 89 originals in both executable migration directories with no aliases.
-Archive sources remain outside executable folders until ordering is reconciled.
+The independently checkpointed manifest covers only FIRST..LAST; later/earlier
+archive entries are outside this frozen audit and must not be misclassified as
+corrupt members of the 89-record window.
 """
 from __future__ import annotations
 import argparse
@@ -36,9 +38,19 @@ def audit(repo: Path) -> dict:
                               md5=hashlib.md5(path.read_bytes()).hexdigest()))
     archive=directory/'applied_migrations'
     known={f"{r['version']}_{r['name']}.sql":r for r in records}
+    out_of_window_archive_files=[]
     for path in archive.glob('*.sql'):
-        if path.name not in known or hashlib.md5(path.read_bytes()).hexdigest()!=known[path.name]['md5']:
-            raise ValueError(f'archive is not an exact original: {path.name}')
+        if path.name in known:
+            if hashlib.md5(path.read_bytes()).hexdigest()!=known[path.name]['md5']:
+                raise ValueError(f'archive is not an exact original: {path.name}')
+            continue
+        match=re.fullmatch(r'(\d{14})_([a-z0-9_]+)\.sql',path.name)
+        if not match:
+            raise ValueError(f'invalid archive migration filename: {path.name}')
+        version=match.group(1)
+        if FIRST <= version <= LAST:
+            raise ValueError(f'unknown archive migration inside frozen window: {path.name}')
+        out_of_window_archive_files.append(path.relative_to(repo).as_posix())
     result=[]
     for record in records:
         name=f"{record['version']}_{record['name']}.sql"
@@ -57,10 +69,12 @@ def audit(repo: Path) -> dict:
             exact_content_other_paths=other_exact,exact_original_archived=archived))
     counts=Counter(r['status'] for r in result)
     return dict(manifest_records=89,manifest_md5=signature,
+        frozen_window_first=FIRST,frozen_window_last=LAST,
         integrity_check='pass',migration_sync_complete=counts.get('reconciled',0)==89,
         status_counts=dict(sorted(counts.items())),
         originals_archived=sum(r['exact_original_archived'] for r in result),
         originals_not_archived=sum(not r['exact_original_archived'] for r in result),
+        out_of_window_archive_files=sorted(out_of_window_archive_files),
         database_writes=0,files_modified=0,records=result)
 
 
