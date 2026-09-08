@@ -196,6 +196,13 @@ def _chase_accessibility_contract(
     snapshot_run_id = _text(projected.get("chaseAccessibilityCalculationRunId"))
 
     block = _chase_accessibility_block({"chaseAccessibility": projected})
+    # The published product-family row carries the cohort presentation fields
+    # produced by the one set-level ranking authority. The snapshot read above
+    # authenticates raw/run identity; these fields are copied only from that
+    # same ranking row and are never recomputed by the detail reader.
+    ranked_chase = (ranking or {}).get("chaseAccessibility") or {}
+    for key in ("modelScore", "publicScore", "setRank", "setCohortSize", "cohortId"):
+        block[key] = ranked_chase.get(key)
     # Presentation-safe addition beyond the Set RIP shape (Phase 3): the exact
     # run this Chase Accessibility row was authenticated against, so a
     # frontend/test consumer can audit authority without a second read.

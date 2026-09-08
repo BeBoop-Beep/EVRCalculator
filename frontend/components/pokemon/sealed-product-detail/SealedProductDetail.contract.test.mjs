@@ -51,7 +51,7 @@ test("sealed market is public, has all approved windows, and no card mode toggle
 
 test("Product RIP uses Plus entitlement and only leader-normalized ranking fields", () => {
   assert.match(client, /hasIndexPlusAccess\(user\?\.index_plan\)/);
-  assert.match(client, /entitled \? <><ProductRipSection/);
+  assert.match(client, /detail\.rip && entitled \? <ProductRipSection/);
   assert.match(rip, /rip\.overallRipLeaderScore/);
   assert.match(rip, /rip\.financialRipLeaderScore/);
   assert.match(rip, /rip\.publicTier/);
@@ -66,8 +66,8 @@ test("Product RIP uses Plus entitlement and only leader-normalized ranking field
   // present), sourced from `rip.overallRipV10`/`rip.financialRipV4`/
   // `rip.publicRipContractV11` rather than re-authored per surface.
   assert.doesNotMatch(rip, /Overall RIP = 90% Financial RIP \+ 10% Collector Appeal/);
-  assert.match(rip, /OverallRipExplanationHierarchy/);
-  assert.match(rip, /sources=\{\[rip\]\}/);
+  assert.match(rip, /data-three-pillar-summary/);
+  assert.doesNotMatch(rip, /<MarketBasedOpeningQualityBreakdown/);
   assert.match(rip, /publicLeaderScoreTier\(rip\.financialRipLeaderScore\)/);
   assert.match(rip, /const collectorTier = rip\.collectorAppealTier/);
   assert.doesNotMatch(

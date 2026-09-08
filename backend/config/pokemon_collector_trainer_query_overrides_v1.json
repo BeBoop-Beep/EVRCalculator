@@ -1,0 +1,31 @@
+{
+  "registryVersion": "pokemon_trainer_query_overrides_v1",
+  "selectionRule": "Use '<name> Pokemon trainer' only for pre-registered semantic collision risks; never select wording from rank direction.",
+  "canonicalTemplate": "{name} Pokemon",
+  "overrideTemplate": "{name} Pokemon trainer",
+  "overrides": {
+    "Aaron":"common personal name / celebrity collision", "Avery":"common personal name / fictional-character collision",
+    "Barry":"common personal name / celebrity collision", "Bianca":"common personal name / celebrity collision",
+    "Bill":"common English personal name / person collision", "Blue":"color and unrelated-media collision",
+    "Brendan":"common personal name / person collision", "Brock":"common personal name / celebrity collision",
+    "Bruno":"common personal name / celebrity and fictional-character collision", "Clay":"common English word and personal name",
+    "Dawn":"common English word and personal name", "Emma":"common personal name / celebrity collision",
+    "Flint":"common English word and place collision", "Gloria":"common personal name / music collision",
+    "Green":"color and unrelated-media collision", "Honey":"common English word / product and title collision",
+    "Hugh":"common personal name / celebrity collision", "Iris":"common personal name, flower, and product collision",
+    "James":"common personal name / celebrity collision", "Jasmine":"common personal name and plant collision",
+    "Jessie":"common personal name / celebrity collision", "Jim":"common personal name / celebrity collision",
+    "Karen":"common personal name and internet-meme collision", "Katy":"common personal name / celebrity collision",
+    "Larry":"common personal name / celebrity collision", "Leon":"common personal name, place, and fictional-character collision",
+    "Mars":"planet, brand, and mythology collision", "Mary":"common personal name / religious and celebrity collision",
+    "May":"common English word, month, and personal name", "Misty":"common English adjective and personal name",
+    "Morgan":"common personal name / institution and celebrity collision", "N":"single-letter query with extreme collision risk",
+    "Norman":"common personal name / place collision", "Olivia":"common personal name / celebrity collision",
+    "Penny":"common English noun and personal name", "Rachel":"common personal name / celebrity collision",
+    "Red":"color and unrelated-media collision", "Rose":"common English noun, personal name, and entertainment collision",
+    "Sabrina":"common personal name / unrelated fictional-character collision", "Silver":"color/material and unrelated-media collision",
+    "Steven":"common personal name / celebrity collision", "Valerie":"common personal name / celebrity collision",
+    "Viola":"instrument and common personal name", "Wallace":"common personal name / fictional-character collision",
+    "Whitney":"common personal name / celebrity collision", "Will":"common English word and common personal name"
+  }
+}

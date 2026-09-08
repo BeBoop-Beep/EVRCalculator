@@ -1,0 +1,18 @@
+{
+  "polls": [{
+    "pollKey": "masters_ex_6star_poll_2020",
+    "title": "6-star EX Sync Pair Poll Rally",
+    "sourceUrl": "https://pokemonmasters-game.com/en-US/announcements/Other_2100_1W_1",
+    "context": "Preference for which eligible story Sync Pair should receive a 6-star EX upgrade; not universal Trainer popularity.",
+    "capturedAt": "2020-11-17T11:00:00Z",
+    "results": [
+      {"trainer":"Barry","rank":2,"percent":8.36},
+      {"trainer":"Korrina","rank":3,"percent":8.22},
+      {"trainer":"Iris","rank":10,"percent":4.18},
+      {"trainer":"Misty","rank":11,"percent":3.43},
+      {"trainer":"Clair","rank":12,"percent":2.79},
+      {"trainer":"Flannery","rank":13,"percent":2.67},
+      {"trainer":"Brock","rank":21,"percent":0.75}
+    ]
+  }]
+}

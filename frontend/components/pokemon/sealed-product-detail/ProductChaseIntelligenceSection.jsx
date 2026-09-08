@@ -113,6 +113,7 @@ export default function ProductChaseIntelligenceSection({ sealedProductId, setId
     const params = new URLSearchParams();
     params.set("budget", String(budget));
     params.set("sealed_product_id", String(sealedProductId));
+    params.set("set", String(setId));
     fetch(`/api/explore/product-chase-intelligence?${params.toString()}`, {
       signal: controller.signal,
       credentials: "include",
@@ -132,9 +133,11 @@ export default function ProductChaseIntelligenceSection({ sealedProductId, setId
       })
       .then((payload) => {
         if (!active) return;
-        const row = (payload.products || []).find(
-          (product) => product.sealedProductId === sealedProductId && product.setId === setId,
-        ) || (payload.products || [])[0] || null;
+        const matches = (payload.products || []).filter(
+          (product) => String(product.sealedProductId) === String(sealedProductId)
+            && String(product.setId) === String(setId),
+        );
+        const row = matches.length === 1 ? matches[0] : null;
         setState({ status: row ? "ready" : "unavailable", row });
       })
       .catch((error) => {

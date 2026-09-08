@@ -17,6 +17,21 @@ def _payload():
             "collectorAppeal": {"relativeScore": 85, "rank": 3, "components": {"rosterDesirability": {"score": 90}},
                                 "topSubjects": [{"name": "Pikachu"}]},
         },
+        "publicRipContractV11": {
+            "overallRip": {"leaderNormalizedScore": 100, "relativeScore": 90, "rank": 1},
+            "financialRip": {"leaderNormalizedScore": 80, "rank": 2,
+                             "components": {"jackpotUpside": {"score": 70}}},
+            "collectorAppeal": {"relativeScore": 85, "rank": 3,
+                                "components": {"rosterDesirability": {"score": 90}},
+                                "topSubjects": [{"name": "Pikachu"}]},
+            "chaseAccessibility": {
+                "value": 0.00079058618012113, "percent": 0.079058618012113,
+                "modelScore": 28.3305, "publicScore": 64.2,
+                "setRank": 21, "setCohortSize": 22, "status": "ready",
+                "version": "chase_accessibility_v1_hc_value_squared_modeled_probability",
+                "calculationRunId": "run-1", "cohortId": "cohort-fixture",
+            },
+        },
         "ripDecision": {"sourceCalculationRunId": "run-1", "sealedProducts": {"products": [{"name": "ETB"}]}},
         "percentiles": [{"percentile": 95, "value": 20}],
         "distribution_bins": [{"bin_floor": 0}],
@@ -36,6 +51,11 @@ def test_read_models_are_same_run_allowlisted_and_current_v10():
     assert "components" not in bootstrap["canonicalRip"]["overall"]
     assert bootstrap["ripDecision"]["sourceCalculationRunId"] == "run-1"
     assert bootstrap["collectorSubjects"] == [{"name": "Pikachu"}]
+    chase = bootstrap["chaseAccessibilityPresentation"]
+    assert (chase["value"], chase["modelScore"], chase["publicScore"]) == (
+        0.00079058618012113, 28.3305, 64.2,
+    )
+    assert (chase["setRank"], chase["setCohortSize"]) == (21, 22)
     assert "private" not in bootstrap["summary"]
     assert "overallRipV9" not in json.dumps(bootstrap)
     assert models["simulation"]["distributionBins"] == [{"bin_floor": 0}]

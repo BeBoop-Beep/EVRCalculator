@@ -134,7 +134,9 @@ def resolve_product_chase_access(
         set_id = str(row.get("set_id"))
         sealed_product_id = str(row.get("sealed_product_id"))
         product_cost = row.get("product_market_cost")
-        random_pack_count = row.get("random_pack_count") or row.get("pack_count")
+        random_pack_count = row.get("random_pack_count")
+        if random_pack_count is None:
+            random_pack_count = row.get("pack_count")
         run_id = str(row.get("calculation_run_id")) if row.get("calculation_run_id") is not None else None
 
         access_entry = (accessibility.get("bySet") or {}).get(set_id) or {}
@@ -201,7 +203,9 @@ def _score_budget_for_product(
     set_ready: bool, universe_by_set: Mapping[str, List[Dict[str, Any]]],
 ) -> Dict[str, Any]:
     product_cost = row.get("product_market_cost")
-    random_pack_count = row.get("random_pack_count") or row.get("pack_count")
+    random_pack_count = row.get("random_pack_count")
+    if random_pack_count is None:
+        random_pack_count = row.get("pack_count")
 
     try:
         price = float(product_cost)
@@ -211,6 +215,15 @@ def _score_budget_for_product(
         return {"quantity": None, "actualCommittedCapital": None, "unusedCapital": None,
                 "effectivePacks": None, "oBudget": None,
                 "oBudgetStatus": "unavailable_no_product_price"}
+
+    try:
+        has_random_packs = float(random_pack_count) > 0
+    except (TypeError, ValueError):
+        has_random_packs = False
+    if not has_random_packs:
+        return {"quantity": None, "actualCommittedCapital": None, "unusedCapital": None,
+                "effectivePacks": None, "oBudget": None,
+                "oBudgetStatus": "unavailable_unsupported_pack_composition"}
 
     allocation = whole_unit_allocation(target_budget=budget, product_market_price=price)
     if not allocation["eligible"]:

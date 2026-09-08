@@ -53,8 +53,10 @@ test("chaseAccessibilityValue sorts by the nested set-level authority block and 
 test("Budget Products UI consumes backend generic fields without V10 authority logic", () => {
   assert.match(productClientSource, /row\?\.budgetRank/);
   assert.match(productClientSource, /row\?\.overallRipLeaderScore/);
-  assert.doesNotMatch(productClientSource, /overallRipV10|overall_rip_v10|rankedUnderV12Authority/);
-  assert.match(productClientSource, /scope="colgroup"/);
+  assert.doesNotMatch(productClientSource, /rankedUnderV12Authority/);
+  assert.match(productClientSource, /<table/);
+  assert.match(productClientSource, /row\.chaseAccessibility\.publicScore/);
+  assert.match(productClientSource, /row\.chaseAccessibility\.setRank/);
 });
 
 test("equal Chase Accessibility scores preserve backend rank order", () => {

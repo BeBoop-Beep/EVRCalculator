@@ -23,11 +23,25 @@ import { fileURLToPath } from "node:url";
 
 import { normalizePokemonSetInsightsCriticalPayload } from "../../lib/pokemon/pokemonSetInsightsCriticalNormalizer.mjs";
 import { adaptCriticalInsightsToExplorePayload } from "../../lib/pokemon/pokemonSetInsightsCriticalExploreAdapter.mjs";
+import { selectChaseAccessibilityPresentation } from "./chaseAccessibilityPresentationSelector.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Mixed CRLF/LF lives in this directory; normalize before any source assertion.
 const readSource = (name) =>
   fs.readFileSync(path.join(here, name), "utf8").replace(/\r\n/g, "\n");
+
+test("raw, model, and public Chase scores remain distinct and backend rank survives", () => {
+  const selected = selectChaseAccessibilityPresentation({ chaseAccessibility: {
+    value: 0.00079058618012113, percent: 0.079058618012113,
+    modelScore: 28.3305, publicScore: 64.2,
+    setRank: 21, setCohortSize: 22, status: "ready",
+  }});
+  assert.equal(selected.rawAccessibility, 0.00079058618012113);
+  assert.equal(selected.displayAccessibility, 0.079058618012113);
+  assert.equal(selected.modelScore, 28.3305);
+  assert.equal(selected.publicScore, 64.2);
+  assert.deepEqual([selected.rank, selected.cohortSize], [21, 22]);
+});
 
 const pageSource = readSource("RipStatisticsPageClient.jsx");
 

@@ -1,0 +1,50 @@
+{
+  "scoringVersion": "collector_c3a5_subject_appeal_freeze_v1",
+  "status": "research_shadow_frozen",
+  "decision": "trainer_appeal_ready",
+  "formulaFingerprint": "0773b4d23fd4f50ceaab2598c5f33de12ba2a60f3f04d902e4c7720e5ac8d4af",
+  "trainerAppeal": {
+    "sourceRuns": {
+      "corrected12m": "b3997343-1363-45aa-b1b0-9a6de1ce3793",
+      "fiveYear": "648e5375-47cb-4972-b01d-faceb6348d1d",
+      "supersededContaminated12m": "a0d52164-f6a5-4016-8b1b-8f01740db5f9"
+    },
+    "horizons": { "today 12-m": 0.4, "today 5-y": 0.6 },
+    "transformation": "positive-only within-horizon percentile, followed by weighted arithmetic blend",
+    "queryOverrideRegistry": "pokemon_trainer_query_overrides_v1",
+    "zeroTreatment": "confirmed genuine zero maps to 0 before blending",
+    "missingTreatment": "unavailable; never a negative adjustment",
+    "constructMeaning": "relative Trainer subject appeal proxy combining recent and sustained Pokemon-specific search interest; not enduring fandom",
+    "officialPollEvidence": "contextual_only_not_weighted"
+  },
+  "subjectAppeal": {
+    "contract": "within-domain percentile standing on a 0-100 scale",
+    "meaning": "approximately the subject's percentile position within its own eligible named-subject class",
+    "pokemonMapping": "percentile-rank pokemon_desirability_composite_v1 raw scores from fan snapshot 2",
+    "trainerMapping": "the frozen Trainer blend is already expressed as within-domain percentile standing",
+    "rawFieldsPreserved": ["pokemon_appeal_raw", "trainer_appeal_raw"],
+    "rankPreservation": "monotonic within each domain, with average ranks for ties",
+    "knownLimitation": "domain percentiles do not assert equal absolute fandom strength across Pokemon and Trainers"
+  },
+  "neutralSubject": {
+    "value": 50.0,
+    "policy": "semantic midpoint",
+    "meaning": "no inherent named Pokemon or Trainer preference is credited or penalized; it does not mean undesirable",
+    "appliesTo": ["item", "pokemon_tool", "stadium", "other_non_character_functional"],
+    "energy": "neutral_disabled_for_collector_appeal_v1"
+  },
+  "playability": {
+    "candidate": "C",
+    "weights": { "deckInclusion": 0.45, "copiesPerUsingDeck": 0.15, "eventBreadth": 0.15, "top32Inclusion": 0.15, "weightedCopiesAcrossField": 0.10 },
+    "confidence": "shrink using event and using-deck evidence",
+    "scoreableThreshold": "at least 3 observed events OR at least 20 using decks",
+    "belowThreshold": "insufficient",
+    "noEvidence": "unknown",
+    "nonReductionRule": "insufficient and unknown never reduce Collector Appeal",
+    "liftCoefficient": null
+  },
+  "artistRecognitionEnabled": false,
+  "marketPriceUsed": false,
+  "readiness": "C3B_READY",
+  "c3bScope": "Subject Baseline + bounded positive-only Playability lift"
+}

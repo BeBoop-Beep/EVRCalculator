@@ -7703,6 +7703,11 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         if isinstance(payload_json.get("publicRipContractV10"), dict)
         else {}
     )
+    public_rip_contract_v11 = (
+        payload_json.get("publicRipContractV11")
+        if isinstance(payload_json.get("publicRipContractV11"), dict)
+        else {}
+    )
     # Rolling-publication repair: early V10 snapshots carried the canonical
     # rank/tier/cohort contract before leaderNormalizedScore was added to the
     # packaged headline blocks. The same snapshot already contains the
@@ -7765,7 +7770,14 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         else {}
     )
 
-    chase_accessibility = _read_chase_accessibility_for_set(resolved_set_id)
+    # Use the block published with this displayed snapshot. A newer live Chase
+    # row may belong to another calculation run and must never be spliced into
+    # an older Overall result.
+    chase_presentation = (
+        public_rip_contract_v11.get("chaseAccessibility")
+        if isinstance(public_rip_contract_v11.get("chaseAccessibility"), dict)
+        else {}
+    )
 
     warnings: List[str] = []
     if not summary_camel:
@@ -7821,14 +7833,16 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         "overallRipV10": overall_rip_v10,
         "financialRipV4": financial_rip_v4,
         "publicRipContractV10": public_rip_contract_v10,
+        "publicRipContractV11": public_rip_contract_v11,
+        "chaseAccessibilityPresentation": chase_presentation or None,
         # Chase Accessibility V1 - independent of Overall RIP, zero product-price
         # dependency. Null + status, never a fabricated 0, when unavailable.
-        "chaseAccessibility": chase_accessibility.get("chaseAccessibility"),
-        "chaseAccessibilityPct": chase_accessibility.get("chaseAccessibilityPct"),
-        "chaseAccessibilityStatus": chase_accessibility.get("chaseAccessibilityStatus"),
-        "chaseAccessibilityVersion": chase_accessibility.get("chaseAccessibilityVersion"),
-        "chaseDepth": chase_accessibility.get("chaseDepth"),
-        "mappedHcMass": chase_accessibility.get("mappedHcMass"),
+        "chaseAccessibility": chase_presentation.get("value"),
+        "chaseAccessibilityPct": chase_presentation.get("percent"),
+        "chaseAccessibilityStatus": chase_presentation.get("status"),
+        "chaseAccessibilityVersion": chase_presentation.get("version"),
+        "chaseDepth": chase_presentation.get("chaseDepth"),
+        "mappedHcMass": chase_presentation.get("mappedHcMass"),
         "openingExperience": opening_experience,
         "publicAnalyticsCohort": public_cohort,
         "publicAnalyticsStatus": _to_optional_str(payload_json.get("publicAnalyticsStatus")),

@@ -119,7 +119,7 @@ function ProductRows({ rows, overall, entitled }) {
         <table className={styles.table}>
           <thead className={styles.head}>
             <tr>
-              <th scope="col" rowSpan={2}>Rank</th><th scope="col" rowSpan={2}>Product / Set</th><th scope="col" rowSpan={2}>Overall RIP</th><th scope="col" rowSpan={2}>Tier</th>
+              <th scope="col">Rank</th><th scope="col">Product / Set</th><th scope="col">Overall RIP</th><th scope="col">Tier</th>
               {/*
                 Market-Based Opening Quality is an explanatory GROUPING
                 header only — it carries no score/rank/tier/sort of its own.
@@ -128,14 +128,11 @@ function ProductRows({ rows, overall, entitled }) {
                 ProductFamilyRankingsClient.jsx / ExploreTableClient.jsx).
                 Collector Appeal stays a separate, ungrouped column.
               */}
-              <th scope="colgroup" colSpan={2} className="text-center" data-market-based-header title={MARKET_BASED_HELP}>Market-Based Opening Quality</th>
-              <th scope="col" rowSpan={2}>Collector Appeal</th>
-              <th scope="col" rowSpan={2}>{overall ? "Unit Price" : "Market Price"}</th>
-              <th scope="col" rowSpan={2}>Expected Value</th><th scope="col" rowSpan={2}>Chance to Recover Cost</th><th scope="col" rowSpan={2}>Format Strength</th>
-            </tr>
-            <tr>
               <th scope="col">Financial RIP</th>
               <th scope="col" data-chase-accessibility-header title={CHASE_ACCESSIBILITY_HELP}>Chase Accessibility</th>
+              <th scope="col">Collector Appeal</th>
+              <th scope="col">{overall ? "Unit Price" : "Market Price"}</th>
+              <th scope="col">Expected Value</th><th scope="col">Chance to Recover Cost</th><th scope="col">Format Strength</th>
             </tr>
           </thead>
           <tbody>
@@ -160,8 +157,8 @@ function ProductRows({ rows, overall, entitled }) {
                   <td className={styles.numeric} data-chase-accessibility-cell>
                     {entitled ? (
                       <span className="inline-flex flex-col items-end">
-                        <span>{chase.primary}</span>
-                        {chase.detail ? <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-secondary)]">{chase.detail}</span> : null}
+                        <span>{numeric(row?.chaseAccessibility?.publicScore) === null ? "Unavailable" : `${formatPublicRipScore(row.chaseAccessibility.publicScore)} / 10`}</span>
+                        {row?.chaseAccessibility?.setRank && row?.chaseAccessibility?.setCohortSize ? <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-secondary)]">Set #{row.chaseAccessibility.setRank} of {row.chaseAccessibility.setCohortSize}</span> : null}
                       </span>
                     ) : <PremiumMetricLock />}
                   </td>
@@ -191,13 +188,12 @@ function ProductRows({ rows, overall, entitled }) {
                 </RankedProductIdentity>
                 <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
                 {/*
-                  Mobile shape: Overall RIP (right, below) / Market-Based
-                  (Financial RIP, Chase Accessibility) / Collector Appeal.
+                  Peer supporting scores beneath Overall RIP.
                 */}
                 {entitled ? (
-                  <span className="mt-1 block text-[10px] text-[var(--text-secondary)]" title={MARKET_BASED_HELP}>
-                    Market-Based: {numeric(row?.financialRipLeaderScore) !== null ? `${formatPublicRipScore(row.financialRipLeaderScore)} Financial` : "Financial Unavailable"} ·{" "}
-                    {chase.primary} Chase{chase.detail ? ` (${chase.detail})` : ""}
+                  <span className="mt-1 block text-[10px] text-[var(--text-secondary)]">
+                    {numeric(row?.financialRipLeaderScore) !== null ? `${formatPublicRipScore(row.financialRipLeaderScore)} Financial` : "Financial Unavailable"} ·{" "}
+                    {numeric(row?.chaseAccessibility?.publicScore) !== null ? `${formatPublicRipScore(row.chaseAccessibility.publicScore)} Chase` : "Chase Unavailable"}
                     {numeric(row?.collectorAppealScore) !== null ? ` · ${formatPublicRipScore(row.collectorAppealScore)} Collector` : ""}
                   </span>
                 ) : null}

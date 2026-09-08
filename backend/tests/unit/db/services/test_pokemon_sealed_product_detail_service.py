@@ -37,6 +37,11 @@ def ranking(product_id="p1", run_id="run-current", rank=2, family="booster_box",
         "collectorAppealScore": 80, "collectorAppealTier": "A", "overallRipVersion": "overall-rip-v10",
         "financialRipVersion": "financial-rip-v4", "collectorAppealVersion": "collector-v4",
         "setEvRepresentativeness": set_ev_representativeness,
+        "chaseAccessibility": {
+            "value": 0.0021, "percent": 0.21, "modelScore": 51.2195,
+            "publicScore": 73.4, "setRank": 7, "setCohortSize": 22,
+            "cohortId": "fixture-cohort-22", "status": "ready",
+        },
     }
 
 
@@ -379,6 +384,10 @@ def test_A_product_detail_projects_exact_run_chase_accessibility():
     assert chase["chaseDepth"] == 3.4
     assert chase["mappedHcMass"] == 0.62
     assert chase["calculationRunId"] == "run-current"
+    assert chase["modelScore"] == 51.2195
+    assert chase["publicScore"] == 73.4
+    assert (chase["setRank"], chase["setCohortSize"]) == (7, 22)
+    assert chase["cohortId"] == "fixture-cohort-22"
 
 
 def test_B_wrong_run_is_rejected_not_shown_as_latest_available():

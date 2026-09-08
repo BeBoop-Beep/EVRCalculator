@@ -398,7 +398,8 @@ def build_artist_entity_plan(
                 "entity_type": "artist",
                 "canonical_key": key,
                 "display_name": display,
-                "normalized_name": key.removeprefix("artist:"),
+                # Python 3.8 is still supported by the backend runtime.
+                "normalized_name": key[len("artist:") :],
                 "active": True,
                 "identity_metadata_json": {
                     "source": "pokemon_canonical_cards.artist",

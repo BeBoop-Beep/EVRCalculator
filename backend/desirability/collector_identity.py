@@ -37,6 +37,7 @@ TRAINER_EXACT = "trainer_exact_name_v1"
 TRAINER_POSSESSIVE = "trainer_possessive_name_v1"
 TRAINER_COMPOUND = "trainer_compound_exact_v1"
 TRAINER_OVERRIDE = "trainer_card_override_v1"
+TRAINER_EXPLICIT_TITLE = "trainer_explicit_title_subject_v1"
 
 FUNCTIONAL_SIGNATURE = "gameplay_signature_v1"
 FUNCTIONAL_EXACT_FALLBACK = "exact_card_fallback_v1"
@@ -165,6 +166,31 @@ def match_trainer_subjects(
                 confidence=1.0,
             )
         ]
+
+    explicit_subject = None
+    parenthetical = re.match(r"^(Boss's Orders|Professor's Research)\s*\((.+)\)$", raw_name, re.IGNORECASE)
+    if parenthetical:
+        explicit_subject = parenthetical.group(2)
+    else:
+        explicit_aliases = {
+            "team galactic s mars": "Mars", "team rocket s archer": "Archer",
+            "team rocket s ariana": "Ariana", "team rocket s giovanni": "Giovanni",
+            "team rocket s petrel": "Petrel", "team rocket s proton": "Proton",
+            "rapid strike style mustard": "Mustard", "single strike style mustard": "Mustard",
+        }
+        explicit_subject = explicit_aliases.get(normalized)
+    if explicit_subject:
+        subject = entities.get(normalize_identity_text(explicit_subject))
+        if subject is not None:
+            return [TrainerSubjectMatch(entity_id=subject.id, display_name=subject.display_name,
+                                        method=TRAINER_EXPLICIT_TITLE, confidence=1.0)]
+
+    if normalized == "hooligans jim and cas":
+        resolved = [entities.get(normalize_identity_text(name)) for name in ("Jim", "Cas")]
+        if all(resolved):
+            return [TrainerSubjectMatch(entity_id=entity.id, display_name=entity.display_name,
+                                        method=TRAINER_EXPLICIT_TITLE, confidence=.98,
+                                        contribution_weight=.5) for entity in resolved]
 
     # Match possessive syntax against the raw title so the apostrophe is an
     # explicit boundary.  Do not treat arbitrary substring containment as a

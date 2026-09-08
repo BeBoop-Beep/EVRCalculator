@@ -300,6 +300,12 @@ def build_product_family_rankings(
     chase_authority = load_chase_accessibility_set_authority(
         set_ids=list(run_id_by_set_id.keys()), client=client,
         expected_run_by_set=run_id_by_set_id,
+        cohort_key_by_set={
+            _text(target.get("set_id") or target.get("target_id")): _text(
+                target.get("canonical_key") or target.get("set_id") or target.get("target_id")
+            )
+            for target in set_targets
+        },
     )
 
     loose_ids = sorted({
@@ -351,6 +357,7 @@ def build_product_family_rankings(
                          row.get("set_id"),
                          rows_by_set_id=chase_authority["rowsBySetId"],
                          rank_by_set_id=chase_authority["rankBySetId"],
+                         presentation_by_set_id=chase_authority["presentationBySetId"],
                      ))
             for index, row in enumerate(ordered, 1)
         ]

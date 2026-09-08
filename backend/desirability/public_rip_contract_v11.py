@@ -103,6 +103,15 @@ def _chase_accessibility_block(target: Mapping[str, Any]) -> Dict[str, Any]:
         # research closure and per compute_overall_rip_v12's own signature.
         "chaseDepth": raw.get("chaseDepth"),
         "mappedHcMass": raw.get("mappedHcMass"),
+        # Presentation scores are produced/ranked by the backend.  They are
+        # deliberately separate from the raw probability-like metric above.
+        "modelScore": raw.get("modelScore"),
+        "publicScore": raw.get("publicScore"),
+        "setRank": raw.get("setRank"),
+        "setCohortSize": raw.get("setCohortSize"),
+        "cohortId": raw.get("cohortId"),
+        "calculationRunId": raw.get("chaseAccessibilityCalculationRunId"),
+        "marketDate": raw.get("chaseAccessibilityMarketDate"),
         "publicQuestion": CHASE_ACCESSIBILITY_PUBLIC_QUESTION,
         "technicalTooltip": CHASE_ACCESSIBILITY_TECHNICAL_TOOLTIP,
     }

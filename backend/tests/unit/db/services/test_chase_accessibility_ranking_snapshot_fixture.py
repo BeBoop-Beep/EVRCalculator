@@ -106,16 +106,20 @@ def test_product_family_rankings_snapshot_fixture_carries_full_chase_block(monke
     for product in all_products:
         block = product["chaseAccessibility"]
         for key in ("value", "percent", "status", "version", "chaseDepth", "mappedHcMass",
-                    "setRank", "setCohortSize"):
+                    "modelScore", "publicScore", "setRank", "setCohortSize", "cohortId"):
             assert key in block, f"missing {key} in chaseAccessibility block"
 
     set_a_blocks = [p["chaseAccessibility"] for p in all_products if p["setId"] == "set-a"]
     assert set_a_blocks[0] == set_a_blocks[1]  # both set-a products share identical block
     assert set_a_blocks[0]["setRank"] == 1  # set-a has the higher raw accessibility
     assert set_a_blocks[0]["setCohortSize"] == 2
+    assert set_a_blocks[0]["modelScore"] != set_a_blocks[0]["value"]
+    assert set_a_blocks[0]["publicScore"] == 100.0
+    assert set_a_blocks[0]["cohortId"]
 
     set_b_block = next(p["chaseAccessibility"] for p in all_products if p["setId"] == "set-b")
     assert set_b_block["setRank"] == 2
+    assert 0 < set_b_block["publicScore"] < 100
 
     # Feed straight into Set RIP - proves the same block survives the
     # product-family -> set-level projection without a second computation.
@@ -124,3 +128,5 @@ def test_product_family_rankings_snapshot_fixture_carries_full_chase_block(monke
     ])
     for row in set_rip["sets"]:
         assert row["chaseAccessibility"]["setCohortSize"] == 2
+        assert row["chaseAccessibility"]["publicScore"] is not None
+        assert row["chaseAccessibility"]["cohortId"] == set_a_blocks[0]["cohortId"]

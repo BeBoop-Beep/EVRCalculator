@@ -42,7 +42,9 @@ def test_every_production_collector_appeal_migration_has_repo_mirror():
 
 def test_mirrored_sql_is_byte_identical_to_live_ledger_at_mirror_time():
     for stem, expected_md5 in MIRRORED.items():
-        payload = _path(stem).read_bytes()
+        # Git may materialize text files with CRLF on Windows.  The integrity
+        # fingerprints represent the canonical LF-normalized repository bytes.
+        payload = _path(stem).read_bytes().replace(b"\r\n", b"\n")
         assert hashlib.md5(payload).hexdigest() == expected_md5, stem  # noqa: S324 -- historical integrity fingerprint
 
 

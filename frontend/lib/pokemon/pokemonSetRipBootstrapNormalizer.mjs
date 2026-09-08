@@ -11,20 +11,25 @@ export function normalizePokemonSetRipBootstrap(payload) {
   const overall = object(canonical.overall);
   const financial = object(canonical.financial);
   const collector = { ...object(canonical.collector), topSubjects: collectorSubjects };
+  const chaseAccessibilityPresentation = object(source.chaseAccessibilityPresentation);
   return {
     contractVersion: source.contractVersion || null,
     available: source.contractVersion === CONTRACT_VERSION,
     set: object(source.set),
     calculationRunId: source.calculationRunId || null,
     marketDate: source.marketDate || null,
-    canonical: { overall, financial, collector },
+    canonical: { overall, financial, collector, chaseAccessibility: chaseAccessibilityPresentation },
     canonicalSource: {
       publicRipContractV10: {
         overallRip: overall,
         financialRip: financial,
         collectorAppeal: collector,
       },
+      publicRipContractV11: {
+        chaseAccessibility: chaseAccessibilityPresentation,
+      },
     },
+    chaseAccessibilityPresentation,
     summary: object(source.summary),
     ripDecision: object(source.ripDecision),
     collectorSubjects,

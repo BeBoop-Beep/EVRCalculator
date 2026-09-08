@@ -43,7 +43,7 @@
         "x": 16,
         "y": 251,
         "width": 1408,
-        "height": 2428.7,
+        "height": 2573.2,
         "display": "grid",
         "position": "static",
         "gridTemplateColumns": "1408px",
@@ -58,7 +58,7 @@
       "Market Value Trend": false,
       "Set Signals": false
     },
-    "screenshotSha256": "13c0687f315b69f8d2072c35d4529316a1b29915fc19ec5115cc4247793482d1"
+    "screenshotSha256": "00375d5fb402c907f2320701cf587564241d5f15f22e52f264288bca8e2ed596"
   },
   "prismatic-evolutions__desktop__market": {
     "geometry": {
@@ -335,7 +335,7 @@
         "x": 135.5,
         "y": 257,
         "width": 928,
-        "height": 3162.7,
+        "height": 3328.3,
         "display": "grid",
         "position": "static",
         "gridTemplateColumns": "928px",
@@ -350,7 +350,7 @@
       "Market Value Trend": false,
       "Set Signals": false
     },
-    "screenshotSha256": "4baea029408650c63eef9a5ef280af09d245390e11f07c43097634e80767b82f"
+    "screenshotSha256": "ad6d3e4493093b2677910d24eb1210fd7decdd60bb3b6a44529ae95a5836df32"
   },
   "prismatic-evolutions__below-boundary__market": {
     "geometry": {
@@ -1211,7 +1211,7 @@
         "x": 12,
         "y": 247,
         "width": 388,
-        "height": 4523.5,
+        "height": 4645.3,
         "display": "grid",
         "position": "static",
         "gridTemplateColumns": "388px",
@@ -1226,7 +1226,7 @@
       "Market Value Trend": false,
       "Set Signals": false
     },
-    "screenshotSha256": "18df18ded3579f0de3e50f90a2399fe0eda2c9c700a08db9068e26231f2ee749"
+    "screenshotSha256": "eabfa9ce860338523578f779eb7219dba658ece6c5f0c37455cf2f8306ff42ca"
   },
   "prismatic-evolutions__mobile__market": {
     "geometry": {

@@ -116,7 +116,7 @@ const BLOCK_LEAVES = Object.freeze({
   // off the target row, so this client boundary must not silently strip them.
   overallRipV12: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason", "score", "components"],
   overallRipV12Composition: ["version", "inputs", "weights", "effectiveWeights"],
-  chaseAccessibility: ["value", "percent", "status", "statusReason", "version", "chaseDepth", "mappedHcMass", "publicQuestion", "technicalTooltip"],
+  chaseAccessibility: ["value", "percent", "status", "statusReason", "version", "chaseDepth", "mappedHcMass", "publicScore", "modelScore", "setRank", "setCohortSize", "cohortId", "publicQuestion", "technicalTooltip"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],
   financialRipV4: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
   universalSetDesirability: ["score", "rank", "rankedSetCount"],
