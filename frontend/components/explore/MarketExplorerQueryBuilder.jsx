@@ -411,6 +411,22 @@ export default function MarketExplorerQueryBuilder({
             No authoritative graded market is published.
           </p>
         </ExplorerDisclosure>
+        <ExplorerDisclosure id="myMarkets" title="My Markets" badge="Foundation">
+          <div data-market-personal-foundation className="space-y-2">
+            <div className="rounded-md border border-[var(--border-subtle)] px-3 py-2">
+              <p className="text-xs font-semibold text-[var(--text-primary)]">Portfolio</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-[var(--text-secondary)]">
+                Total, Raw, Sealed, and Graded collection value comparisons are being prepared. Value history is not Market Index performance.
+              </p>
+            </div>
+            <div aria-disabled="true" className="px-3 py-1 opacity-70">
+              <p className="text-xs font-semibold text-[var(--text-secondary)]">Wishlist · Unavailable</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-[var(--text-secondary)]">
+                Wishlist market history becomes available once saved Wishlist membership is published.
+              </p>
+            </div>
+          </div>
+        </ExplorerDisclosure>
         {false ? <ExplorerDisclosure id="screens" title="Screens">
           <div className="space-y-1">
             {MARKET_EXPLORER_SCREENS.map((screen) => {
