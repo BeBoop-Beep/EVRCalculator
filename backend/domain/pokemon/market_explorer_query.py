@@ -45,6 +45,7 @@ from backend.domain.pokemon.market_index import (
 )
 
 MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v3-variant"
+MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1-explicit-instrument"
 MARKET_EXPLORER_FINGERPRINT_VERSION = "market-explorer-fingerprint-v1"
 MARKET_EXPLORER_SERVICE_VERSIONS = {
     "cards": "pokemon-market-explorer-query-service-v2-variant",
@@ -60,6 +61,12 @@ FILTER_AXIS_SEGMENT = "segment"
 FILTER_AXIS_POKEMON = "pokemon"
 FILTER_AXIS_PRICE_SEGMENT = "priceSegment"
 FILTER_AXIS_RELEASE_AGE = "releaseAge"
+FILTER_AXIS_INSTRUMENT = "instrument"
+
+MEMBERSHIP_FILTERS = "filters"
+MEMBERSHIP_EXPLICIT = "explicit"
+SUPPORTED_MEMBERSHIP_MODES = (MEMBERSHIP_FILTERS, MEMBERSHIP_EXPLICIT)
+MAX_EXPLICIT_INSTRUMENTS = 25
 
 ASSET_CARDS = "cards"
 ASSET_SEALED = "sealed"
@@ -141,6 +148,8 @@ def normalize_query_spec(
     price_segment_ids: Iterable[Any] | None = None,
     release_age_cohort_ids: Iterable[Any] | None = None,
     top_n: int | None = None,
+    membership_mode: str | None = None,
+    instrument_ids: Iterable[Any] | None = None,
 ) -> dict[str, Any]:
     """The canonical form of a Market Explorer query.
 
@@ -152,6 +161,16 @@ def normalize_query_spec(
     asset_key = str(asset or "").strip()
     if asset_key not in SUPPORTED_ASSETS:
         raise MarketExplorerQueryError(f"unsupported asset: {asset!r}")
+
+    membership = str(membership_mode or MEMBERSHIP_FILTERS).strip().lower()
+    if membership not in SUPPORTED_MEMBERSHIP_MODES:
+        raise MarketExplorerQueryError(f"unsupported membership mode: {membership_mode!r}")
+    explicit_ids = _clean_ids(instrument_ids)
+    if membership == MEMBERSHIP_EXPLICIT:
+        if not explicit_ids:
+            raise MarketExplorerQueryError("explicit membership requires at least one instrumentId")
+        if len(explicit_ids) > MAX_EXPLICIT_INSTRUMENTS:
+            raise MarketExplorerQueryError("explicit membership supports at most 25 instrumentIds")
 
     mode_key = str(mode or "").strip()
     if mode_key not in SUPPORTED_MODES:
@@ -190,7 +209,7 @@ def normalize_query_spec(
     if unknown_release:
         raise MarketExplorerQueryError(f"unknown release-age cohort(s): {unknown_release}")
 
-    return {
+    normalized = {
         "contractVersion": MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
         "asset": asset_key,
         "eraIds": _clean_ids(era_ids),
@@ -202,6 +221,14 @@ def normalize_query_spec(
         "mode": mode_key,
         "topN": resolved_top_n,
     }
+    # Preserve the byte-for-byte v3 normalized representation for every
+    # existing filter query. Explicit membership alone opts into a distinct,
+    # collision-proof contract and adds its two new identity fields.
+    if membership == MEMBERSHIP_EXPLICIT:
+        normalized["contractVersion"] = MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION
+        normalized["membershipMode"] = MEMBERSHIP_EXPLICIT
+        normalized["instrumentIds"] = explicit_ids
+    return normalized
 
 
 def segment_vocabulary(asset: str) -> frozenset[str]:
@@ -230,6 +257,8 @@ def active_filter_axes(spec: Mapping[str, Any]) -> tuple[str, ...]:
     endpoint or component how to count filters.
     """
     axes = []
+    if spec.get("membershipMode") == MEMBERSHIP_EXPLICIT:
+        axes.append(FILTER_AXIS_INSTRUMENT)
     if spec.get("eraIds") or spec.get("setIds"):
         axes.append(FILTER_AXIS_SCOPE)
     if spec.get("segmentIds"):
@@ -253,7 +282,7 @@ def query_key(spec: Mapping[str, Any]) -> str:
     This is for logs, cache keys a human has to recognise, and debugging. The
     opaque query_fingerprint is the machine identity.
     """
-    return "|".join((
+    parts = [
         str(spec["asset"]),
         _key_part("era", spec["eraIds"]),
         _key_part("set", spec["setIds"]),
@@ -263,7 +292,11 @@ def query_key(spec: Mapping[str, Any]) -> str:
         _key_part("releaseAge", spec["releaseAgeCohortIds"]),
         f"mode={spec['mode']}",
         f"topN={spec['topN'] if spec['topN'] is not None else 'na'}",
-    ))
+    ]
+    if spec.get("membershipMode") == MEMBERSHIP_EXPLICIT:
+        parts.insert(1, _key_part("instrument", spec["instrumentIds"]))
+        parts.insert(1, "membership=explicit")
+    return "|".join(parts)
 
 
 def fingerprint_payload(
@@ -274,7 +307,7 @@ def fingerprint_payload(
 ) -> dict[str, Any]:
     """Canonical, versioned semantic identity used by every cache layer."""
     asset = str(spec["asset"])
-    return {
+    payload = {
         "fingerprintVersion": MARKET_EXPLORER_FINGERPRINT_VERSION,
         "queryContractVersion": spec["contractVersion"],
         "serviceVersion": service_version or MARKET_EXPLORER_SERVICE_VERSIONS[asset],
@@ -294,6 +327,10 @@ def fingerprint_payload(
             "topN": spec["topN"],
         },
     }
+    if spec.get("membershipMode") == MEMBERSHIP_EXPLICIT:
+        payload["spec"]["membershipMode"] = MEMBERSHIP_EXPLICIT
+        payload["spec"]["instrumentIds"] = list(spec["instrumentIds"])
+    return payload
 
 
 def query_fingerprint(

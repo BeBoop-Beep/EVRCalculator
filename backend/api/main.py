@@ -68,6 +68,7 @@ from backend.domain.access.index_plan_access import (
     evaluate_market_query_access,
     filter_set_market_signal_access,
     has_index_plus_access,
+    has_index_premium_access,
     has_index_feature_access,
     project_card_detail_response,
     project_insights_critical_response,
@@ -170,6 +171,9 @@ from backend.db.services.market_explorer_query_planner import (
     PersistentMarketExplorerCache,
     resolve_canonical_through,
 )
+from backend.db.services.market_explorer_instrument_search import (
+    search_market_explorer_instruments,
+)
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
 from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
 from backend.domain.pokemon.market_explorer_query import (
@@ -256,6 +260,8 @@ class WaitlistVerifyRequest(BaseModel):
 
 class MarketExplorerQueryRequest(BaseModel):
     asset: str = "cards"
+    membershipMode: str = "filters"
+    instrumentIds: List[str] = Field(default_factory=list, max_length=25)
     eraIds: List[str] = Field(default_factory=list)
     setIds: List[str] = Field(default_factory=list)
     segmentIds: List[str] = Field(default_factory=list)
@@ -1373,6 +1379,33 @@ def get_market_explorer_query_options(
         return JSONResponse(content={"message": "Unable to load Market Explorer filters", "code": "MARKET_EXPLORER_OPTIONS_FAILED"}, status_code=500)
 
 
+@app.get("/market/explorer/instruments/search")
+def get_market_explorer_instrument_search(
+    request: Request,
+    q: str = Query(min_length=2, max_length=120),
+    asset: str = Query(default="all"),
+    limit: int = Query(default=20, ge=1, le=50),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """Search canonical eligible physical cards and sealed products."""
+    user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if not has_index_premium_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(status_code=403, detail={
+            "message": "Exact-instrument markets require Index Premium.",
+            "code": "MARKET_EXPLORER_PLAN_REQUIRED", "requiredPlan": "premium",
+            "requiredFeature": "market_explorer_explicit_instruments",
+        })
+    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+                        route="/market/explorer/instruments/search")
+    try:
+        return _tiered_response(search_market_explorer_instruments(
+            service_read_client, q=q, asset=asset, limit=limit,
+        ))
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_SEARCH_INVALID"}, status_code=400)
+
+
 @app.post("/market/explorer/query")
 def post_market_explorer_query(
     request: Request,
@@ -1401,6 +1434,7 @@ def post_market_explorer_query(
             set_ids=payload.setIds, segment_ids=payload.segmentIds,
             pokemon_ids=payload.pokemonIds, price_segment_ids=payload.priceSegmentIds,
             release_age_cohort_ids=payload.releaseAgeCohortIds, top_n=payload.topN,
+            membership_mode=payload.membershipMode, instrument_ids=payload.instrumentIds,
         )
         user_id = _require_market_explorer_query_access(
             normalized, authorization=authorization, token_cookie=token_cookie
@@ -1425,6 +1459,8 @@ def post_market_explorer_query(
                 price_segment_ids=normalized["priceSegmentIds"],
                 release_age_cohort_ids=normalized["releaseAgeCohortIds"],
                 top_n=normalized["topN"],
+                membership_mode=normalized.get("membershipMode"),
+                instrument_ids=normalized.get("instrumentIds", ()),
                 # A forward refresh includes the cached anchor date. The
                 # planner rescales/appends and drops that duplicate point.
                 start_date=previous_through or "1999-01-01",
@@ -1467,6 +1503,7 @@ def post_market_explorer_query_constituents(
         set_ids=payload.setIds, segment_ids=payload.segmentIds,
         pokemon_ids=payload.pokemonIds, price_segment_ids=payload.priceSegmentIds,
         release_age_cohort_ids=payload.releaseAgeCohortIds, top_n=payload.topN,
+        membership_mode=payload.membershipMode, instrument_ids=payload.instrumentIds,
     )
     user_id = _require_market_explorer_query_access(
         normalized, authorization=authorization, token_cookie=token_cookie,

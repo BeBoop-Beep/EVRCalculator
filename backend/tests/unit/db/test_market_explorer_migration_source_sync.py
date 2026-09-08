@@ -29,7 +29,17 @@ MIRRORED_VERSIONS = [
     "20260904174801_canonical_market_root_set_daily_history_v1",
     "20260905040740_add_batched_market_explorer_cache_publication",
     "20260906003840_harden_market_explorer_reproject_authority_boundary",
+    "20260907055306_market_explorer_v2_daily_advance_and_cache_lease_heartbeat",
+    "20260907075615_stage_market_explorer_cache_from_detail",
+    "20260907174821_add_market_explorer_materialized_series_rpc",
 ]
+
+
+def test_recent_production_mirrors_are_text_identical_to_supabase_lineage():
+    for stem in MIRRORED_VERSIONS[-3:]:
+        backend_text = (MIGRATIONS_DIR / f"{stem}.sql").read_text(encoding="utf-8")
+        lineage_text = (ROOT / "supabase/migrations" / f"{stem}.sql").read_text(encoding="utf-8")
+        assert backend_text == lineage_text
 
 
 def _sql(stem: str) -> str:

@@ -385,6 +385,8 @@ def run_sealed_market_explorer_query(
     price_segment_ids: Sequence[str] = (),
     release_age_cohort_ids: Sequence[str] = (),
     top_n: int | None = None,
+    membership_mode: str | None = None,
+    instrument_ids: Sequence[str] = (),
     start_date: str,
     end_date: str,
 ) -> dict[str, Any]:
@@ -398,6 +400,7 @@ def run_sealed_market_explorer_query(
         era_ids=era_ids, set_ids=set_ids, segment_ids=segment_ids,
         pokemon_ids=pokemon_ids, price_segment_ids=price_segment_ids,
         release_age_cohort_ids=release_age_cohort_ids, top_n=top_n,
+        membership_mode=membership_mode, instrument_ids=instrument_ids,
     )
     started = time.perf_counter()
 
@@ -441,6 +444,12 @@ def run_sealed_market_explorer_query(
         for product in payload.get("products") or []:
             set_id_by_product[str(product.get(SEALED_ID_FIELD) or "")] = owning_set_id
 
+    # Exact membership intersects the canonical prepared-snapshot universe;
+    # it never opens a second catalogue or pricing path.
+    if spec.get("membershipMode") == "explicit":
+        wanted_instruments = set(spec["instrumentIds"])
+        products = [product for product in products
+                    if str(product.get(SEALED_ID_FIELD) or "") in wanted_instruments]
     families = families_for_segments(spec["segmentIds"])
     eligible = filter_products_by_family(products, families)
     if not eligible:

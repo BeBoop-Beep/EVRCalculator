@@ -46,6 +46,16 @@ test("equivalent multi-selections collapse to one identity", () => {
   );
 });
 
+test("explicit physical instruments are non-empty, bounded, sorted, and order-stable", () => {
+  assert.throws(() => normalizeQuerySpec({ membershipMode: "explicit", instrumentIds: [] }), RangeError);
+  assert.throws(() => normalizeQuerySpec({ membershipMode: "explicit", instrumentIds: Array.from({ length: 26 }, (_, i) => `id-${i}`) }), RangeError);
+  const left = normalizeQuerySpec({ membershipMode: "explicit", instrumentIds: ["b", "a", "b", " "] });
+  const right = normalizeQuerySpec({ membershipMode: "explicit", instrumentIds: ["a", "b"] });
+  assert.deepEqual(left.instrumentIds, ["a", "b"]);
+  assert.equal(buildQueryKey(left), buildQueryKey(right));
+  assert.notEqual(left.contractVersion, "pokemon-market-explorer-query-v3-variant");
+});
+
 test("differing markets do not collide", () => {
   assert.notEqual(
     buildQueryKey({ mode: QUERY_MODE_CHASE, segmentIds: ["sir"] }),

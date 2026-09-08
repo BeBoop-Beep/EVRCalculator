@@ -26,6 +26,7 @@ FEATURE_MARKET_EXPLORER_SINGLE_AXIS = "market_explorer_single_axis"
 FEATURE_MARKET_EXPLORER_COMPOUND = "market_explorer_compound"
 FEATURE_MARKET_EXPLORER_CUSTOM_RANKED = "market_explorer_custom_ranked"
 FEATURE_MARKET_EXPLORER_POKEMON = "market_explorer_pokemon"
+FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS = "market_explorer_explicit_instruments"
 FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency"
 FEATURE_MARKET_BREADTH = "market_breadth"
 FEATURE_PRODUCT_RIP = "product_rip"
@@ -66,6 +67,7 @@ _PREMIUM_FEATURES = frozenset({
     FEATURE_MARKET_EXPLORER_COMPOUND,
     FEATURE_MARKET_EXPLORER_CUSTOM_RANKED,
     FEATURE_MARKET_EXPLORER_POKEMON,
+    FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS,
     FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_CHASE_OPENING_ROUTE,
     FEATURE_CHASE_VS_BUY,
@@ -105,7 +107,10 @@ def evaluate_market_query_access(plan: Any, spec: Mapping[str, Any]) -> dict[str
 
     axes = active_filter_axes(spec)
     ranked = spec.get("mode") == MODE_CHASE
-    if spec.get("pokemonIds"):
+    if spec.get("membershipMode") == "explicit":
+        required_plan, capability = INDEX_PLAN_PREMIUM, FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS
+        reason = "exact-instrument markets require Index Premium"
+    elif spec.get("pokemonIds"):
         required_plan, capability = INDEX_PLAN_PREMIUM, FEATURE_MARKET_EXPLORER_POKEMON
         reason = "Pokemon market research requires Index Premium"
     elif ranked:

@@ -26,6 +26,10 @@
 import { colorForSeriesFingerprint, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
 
 export const MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v3-variant";
+export const MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1-explicit-instrument";
+export const QUERY_MEMBERSHIP_FILTERS = "filters";
+export const QUERY_MEMBERSHIP_EXPLICIT = "explicit";
+export const MAX_EXPLICIT_INSTRUMENTS = 25;
 
 export const QUERY_ASSET_CARDS = "cards";
 export const QUERY_ASSET_SEALED = "sealed";
@@ -108,9 +112,20 @@ export function normalizeQuerySpec({
   priceSegmentIds = [],
   releaseAgeCohortIds = [],
   topN = null,
+  membershipMode = QUERY_MEMBERSHIP_FILTERS,
+  instrumentIds = [],
 } = {}) {
   const resolvedMode = mode === QUERY_MODE_CHASE ? QUERY_MODE_CHASE : QUERY_MODE_ALL;
-  return {
+  const membership = membershipMode === QUERY_MEMBERSHIP_EXPLICIT
+    ? QUERY_MEMBERSHIP_EXPLICIT : QUERY_MEMBERSHIP_FILTERS;
+  const explicitIds = cleanIds(instrumentIds);
+  if (membership === QUERY_MEMBERSHIP_EXPLICIT && !explicitIds.length) {
+    throw new RangeError("explicit membership requires at least one instrumentId");
+  }
+  if (membership === QUERY_MEMBERSHIP_EXPLICIT && explicitIds.length > MAX_EXPLICIT_INSTRUMENTS) {
+    throw new RangeError("explicit membership supports at most 25 instrumentIds");
+  }
+  const normalized = {
     contractVersion: MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
     asset: normalizeAsset(asset),
     eraIds: cleanIds(eraIds),
@@ -126,6 +141,12 @@ export function normalizeQuerySpec({
       ? (Number.isFinite(Number(topN)) && Number(topN) > 0 ? Number(topN) : DEFAULT_CHASE_TOP_N)
       : null,
   };
+  if (membership === QUERY_MEMBERSHIP_EXPLICIT) {
+    normalized.contractVersion = MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION;
+    normalized.membershipMode = membership;
+    normalized.instrumentIds = explicitIds;
+  }
+  return normalized;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +196,7 @@ function keyPart(label, values) {
  */
 export function buildQueryKey(spec) {
   const normalized = normalizeQuerySpec(spec);
-  return [
+  const parts = [
     normalized.asset,
     keyPart("era", normalized.eraIds),
     keyPart("set", normalized.setIds),
@@ -185,7 +206,11 @@ export function buildQueryKey(spec) {
     keyPart("releaseAge", normalized.releaseAgeCohortIds),
     `mode=${normalized.mode}`,
     `topN=${normalized.topN ?? "na"}`,
-  ].join("|");
+  ];
+  if (normalized.membershipMode === QUERY_MEMBERSHIP_EXPLICIT) {
+    parts.splice(1, 0, "membership=explicit", keyPart("instrument", normalized.instrumentIds));
+  }
+  return parts.join("|");
 }
 
 function nameFor(lookup, id) {

@@ -502,6 +502,7 @@ def load_filtered_daily_cohort_rows(
     start_date: str,
     end_date: str,
     card_ids: Sequence[str] | None,
+    card_variant_ids: Sequence[str] | None = None,
     segment_ids: Sequence[str] = (),
     pokemon_ids: Sequence[str] = (),
     price_segment_ids: Sequence[str] = (),
@@ -577,6 +578,8 @@ def load_filtered_daily_cohort_rows(
             "p_release_age_cohort_ids": list(release_age_cohort_ids) or None,
             "p_top_n": int(top_n) if top_n else None,
         }
+        if card_variant_ids is not None:
+            payload["p_card_variant_ids"] = [str(value) for value in card_variant_ids]
         # An unranked market is exactly additive across disjoint set batches:
         # basket/common values and all counts sum, while the current basket is
         # the union of the batch baskets. This keeps broad V2 reads below the
@@ -1172,6 +1175,8 @@ def run_market_explorer_query(
     price_segment_ids: Sequence[str] = (),
     release_age_cohort_ids: Sequence[str] = (),
     top_n: int | None = None,
+    membership_mode: str | None = None,
+    instrument_ids: Sequence[str] = (),
     start_date: str,
     end_date: str,
 ) -> dict[str, Any]:
@@ -1184,6 +1189,7 @@ def run_market_explorer_query(
         mode=mode, era_ids=era_ids, set_ids=set_ids, segment_ids=segment_ids,
         pokemon_ids=pokemon_ids, price_segment_ids=price_segment_ids,
         release_age_cohort_ids=release_age_cohort_ids, top_n=top_n,
+        membership_mode=membership_mode, instrument_ids=instrument_ids,
     )
     started = time.perf_counter()
 
@@ -1213,6 +1219,8 @@ def run_market_explorer_query(
     )
     load_kwargs = {
         "card_ids": card_ids,
+        "card_variant_ids": (spec.get("instrumentIds")
+                             if spec.get("membershipMode") == "explicit" else None),
         "segment_ids": spec["segmentIds"], "pokemon_ids": spec["pokemonIds"],
         "price_segment_ids": spec["priceSegmentIds"],
         "release_age_cohort_ids": spec["releaseAgeCohortIds"], "top_n": spec["topN"],
