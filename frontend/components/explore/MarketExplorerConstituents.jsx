@@ -323,6 +323,7 @@ export default function MarketExplorerConstituents({
   selectedSeries = [],
   activeSeriesId = null,
   onSelectSeries,
+  onEditSeries,
 }) {
   // Local, unpersisted: which window you are reading is a posture, not
   // research, and it does not belong in the URL beside the chart's timeframe.
@@ -386,6 +387,9 @@ export default function MarketExplorerConstituents({
           <div className="ml-auto">
             <MovementWindowSelector value={model.movementWindow} onChange={setMovementWindow} />
           </div>
+        ) : null}
+        {active?.instanceId && active?.spec?.membershipMode === "explicit" ? (
+          <button type="button" data-market-constituents-edit-items onClick={() => onEditSeries?.(active)} className="min-h-9 rounded-md border border-[var(--border-subtle)] px-3 text-[11px] font-semibold text-[var(--text-secondary)]">Edit Items</button>
         ) : null}
       </div>
 

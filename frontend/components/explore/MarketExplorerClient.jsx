@@ -91,7 +91,8 @@ export default function MarketExplorerClient({
   // ONE detail target at a time. Four selected markets must not produce four
   // constituent tables; the user names the one they are inspecting.
   const [requestedDetailSeriesId, setRequestedDetailSeriesId] = useState(null);
-  const { querySeries, addQuery, removeQuery, clearAll: clearAllQueries } = useMarketExplorerQueries();
+  const { querySeries, addQuery, updateQuery, removeQuery, clearAll: clearAllQueries } = useMarketExplorerQueries();
+  const [editingSeriesId, setEditingSeriesId] = useState(null);
   // VISIBILITY IS NOT REMOVAL. A hidden series is still an Active Market — it
   // still counts toward "what is built", it is still inspectable in
   // Constituents, and un-hiding it never refetches or rebuilds anything. Only
@@ -113,6 +114,7 @@ export default function MarketExplorerClient({
     clearAllSelection();
     clearAllQueries();
     setHiddenSeriesKeys(new Set());
+    setEditingSeriesId(null);
   }, [clearAllSelection, clearAllQueries]);
 
   // Era & Sets and Build a Market read the SAME canonical option payload, in
@@ -167,6 +169,8 @@ export default function MarketExplorerClient({
     () => resolveActiveDetailSeriesId(selectedSeries, requestedDetailSeriesId),
     [selectedSeries, requestedDetailSeriesId]
   );
+  const editingSeries = useMemo(() => querySeries.find((series) => series.instanceId === editingSeriesId) || null, [querySeries, editingSeriesId]);
+  const beginEdit = useCallback((series) => { setEditingSeriesId(series.instanceId); setRequestedDetailSeriesId(series.key); }, []);
 
   // Only the PUBLISHED asset-class cards get a top-level card; the graded
   // placeholder is a disabled rail option, not a card with no numbers in it.
@@ -240,6 +244,9 @@ export default function MarketExplorerClient({
           activeSeries={selectedSeries}
           onAddPrepared={addPrepared}
           onAddQuery={addQuery}
+          onUpdateQuery={updateQuery}
+          editingSeries={editingSeries}
+          onCancelEdit={() => setEditingSeriesId(null)}
           onToggleBenchmark={toggleMarket}
           selectedSeriesCount={selectedSeries.length}
           isAuthenticated={isAuthenticated}
@@ -260,7 +267,8 @@ export default function MarketExplorerClient({
           series={selectedSeries}
           activeSeriesId={activeDetailSeriesId}
           onInspect={setRequestedDetailSeriesId}
-          onRemove={toggleSeries}
+          onRemove={(key) => { if (editingSeries?.key === key) setEditingSeriesId(null); toggleSeries(key); }}
+          onEdit={beginEdit}
           canRemove={selectedSeries.length > 1}
           hiddenSeriesKeys={hiddenSeriesKeys}
           onToggleVisibility={toggleSeriesVisibility}
@@ -281,6 +289,7 @@ export default function MarketExplorerClient({
           selectedSeries={selectedSeries}
           activeSeriesId={activeDetailSeriesId}
           onSelectSeries={setRequestedDetailSeriesId}
+          onEditSeries={beginEdit}
         />
       </section>
 

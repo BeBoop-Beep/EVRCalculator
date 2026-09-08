@@ -34,6 +34,7 @@ export default function MarketExplorerActiveMarkets({
   activeSeriesId = null,
   onInspect,
   onRemove,
+  onEdit,
   canRemove = true,
   hiddenSeriesKeys = null,
   onToggleVisibility,
@@ -127,6 +128,9 @@ export default function MarketExplorerActiveMarkets({
                   <span data-market-explorer-active-chip-index={entry.key} className="flex-none tabular-nums text-[10px] text-[var(--text-secondary)]">
                     {formatIndexValue(entry.indexValue)}
                   </span>
+                ) : null}
+                {entry.instanceId ? (
+                  <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${entry.label}`} onClick={() => onEdit?.(entry)} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
                 ) : null}
                 <button
                   type="button"
