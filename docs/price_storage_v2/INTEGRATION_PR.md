@@ -85,8 +85,7 @@ The suite now contains **95 passing checks**:
 - **8** exact restored-source SQL checks;
 - **6** fail-closed coordinator checks.
 
-Pattern Overlay Guardrails also pass on feature head
-`2efcefa2862001d216d7983d49087fe8166214f0`.
+Pattern Overlay Guardrails also pass on the validated feature implementation.
 
 The new exact-source regression reproduces the production failure mode by advancing
 the actual modern standard-root latest projection (`pokemon_canonical_card_market_prices_latest`)
