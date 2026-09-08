@@ -1,0 +1,23 @@
+name: Price Storage V2 retirement prep
+
+on:
+  push:
+    paths:
+      - 'backend/db/proposals/price_storage_v2_retire_legacy_derived_storage.sql'
+      - 'docs/price_storage_v2/FRESH_CYCLE_RETIREMENT_GATE.sql'
+      - 'backend/tests/test_price_storage_v2_retirement_proposal.py'
+      - '.github/workflows/price-storage-v2-retirement-prep.yml'
+  pull_request:
+    paths:
+      - 'backend/db/proposals/price_storage_v2_retire_legacy_derived_storage.sql'
+      - 'docs/price_storage_v2/FRESH_CYCLE_RETIREMENT_GATE.sql'
+      - 'backend/tests/test_price_storage_v2_retirement_proposal.py'
+      - '.github/workflows/price-storage-v2-retirement-prep.yml'
+
+jobs:
+  retirement-contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate retirement proposal contracts
+        run: python -m pytest backend/tests/test_price_storage_v2_retirement_proposal.py -q
