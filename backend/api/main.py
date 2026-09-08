@@ -1393,11 +1393,16 @@ def get_market_explorer_instrument_search(
 ):
     """Search canonical eligible physical cards and sealed products."""
     user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
-    if not has_index_premium_access(_resolve_index_plan(authorization, token_cookie)):
+    # Discovery is part of the Plus Builder surface: a Plus user may compose
+    # and retain an exact-item draft, while the query endpoint independently
+    # enforces Premium before any exact market executes. Keeping search behind
+    # Premium made the honest locked-draft UX impossible and did not strengthen
+    # the execution boundary.
+    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
         raise HTTPException(status_code=403, detail={
-            "message": "Exact-instrument markets require Index Premium.",
-            "code": "MARKET_EXPLORER_PLAN_REQUIRED", "requiredPlan": "premium",
-            "requiredFeature": "market_explorer_explicit_instruments",
+            "message": "Exact-instrument discovery requires Index Plus.",
+            "code": "MARKET_EXPLORER_PLAN_REQUIRED", "requiredPlan": "plus",
+            "requiredFeature": FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
         })
     _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
                         route="/market/explorer/instruments/search")

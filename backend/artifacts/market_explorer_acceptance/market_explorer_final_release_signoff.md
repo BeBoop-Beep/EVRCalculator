@@ -1,6 +1,6 @@
 # Market Explorer Final Release Sign-off
 
-QA date: 2026-09-07 (America/Phoenix)  
+QA date: 2026-09-07 (America/Phoenix)
 Production application: `https://www.inthedex.io/Market/Explorer`
 
 ## A. Main/deployed SHA

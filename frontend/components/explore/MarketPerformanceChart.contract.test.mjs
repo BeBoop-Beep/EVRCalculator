@@ -14,8 +14,9 @@ test("renders one semantic Index 100 reference at its scaled y coordinate", () =
   assert.doesNotMatch(source, /PLOT_TOP \+ fraction \* \(PLOT_BOTTOM - PLOT_TOP\)/);
 });
 
-test("labels and accessibly describes the Index 100 reference", () => {
+test("labels Index 100 only when the timeframe-aware domain includes it", () => {
   assert.match(source, /data-market-performance-reference-label/);
   assert.match(source, />\s*100\s*<\/span>/);
-  assert.match(source, /Reference line represents Market Index 100\./);
+  assert.match(source, /referenceVisible \? <line/);
+  assert.match(source, /referenceVisible \? <span/);
 });

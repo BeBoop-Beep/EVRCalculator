@@ -18,7 +18,7 @@ import {
 
 test("locked commercial capability sets fail closed and Premium inherits Plus", () => {
   assert.equal(PLUS_FEATURES.size, 10);
-  assert.equal(PREMIUM_FEATURES.size, 7);
+  assert.equal(PREMIUM_FEATURES.size, 9);
   for (const feature of PLUS_FEATURES) {
     assert.equal(hasIndexFeatureAccess(null, feature), false);
     assert.equal(hasIndexFeatureAccess("plus", feature), true);
@@ -148,4 +148,14 @@ test("the plan hierarchy is not duplicated — the ladder reuses the shared help
 test("plan labels use the exact product language", () => {
   assert.equal(INDEX_PLAN_LABELS.plus, "Index Plus");
   assert.equal(INDEX_PLAN_LABELS.premium, "Index Premium");
+});
+
+test("exact-instrument execution is Premium even when discovery is visible to Plus", () => {
+  const explicit = { membershipMode: "explicit", instrumentIds: ["variant-a"] };
+  const plus = evaluateMarketQueryAccess("plus", explicit);
+  const premium = evaluateMarketQueryAccess("premium", explicit);
+  assert.equal(plus.allowed, false);
+  assert.equal(plus.requiredPlan, "premium");
+  assert.equal(plus.capability, "market_explorer_explicit_instruments");
+  assert.equal(premium.allowed, true);
 });

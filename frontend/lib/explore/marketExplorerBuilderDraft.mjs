@@ -1,4 +1,4 @@
-import { QUERY_ASSET_CARDS, QUERY_MODE_ALL } from "./marketExplorerQuery.mjs";
+import { QUERY_ASSET_CARDS, QUERY_MODE_ALL, QUERY_MEMBERSHIP_FILTERS } from "./marketExplorerQuery.mjs";
 
 export const INITIAL_MARKET_EXPLORER_BUILDER_DRAFT = Object.freeze({
   asset: QUERY_ASSET_CARDS,
@@ -10,11 +10,14 @@ export const INITIAL_MARKET_EXPLORER_BUILDER_DRAFT = Object.freeze({
   releaseAgeCohortIds: [],
   mode: QUERY_MODE_ALL,
   topN: null,
+  membershipMode: QUERY_MEMBERSHIP_FILTERS,
+  instrumentIds: [],
+  exactItems: [],
 });
 
 export function marketExplorerBuilderDraftReducer(state, action) {
   if (action.type === "clear") return { ...INITIAL_MARKET_EXPLORER_BUILDER_DRAFT };
-  if (action.type === "asset") return { ...state, asset: action.asset, setIds: action.setIds, segmentIds: [], pokemonIds: [] };
+  if (action.type === "asset") return { ...state, asset: action.asset, setIds: action.setIds, segmentIds: [], pokemonIds: [], instrumentIds: [], exactItems: [], membershipMode: QUERY_MEMBERSHIP_FILTERS };
   if (action.type === "replace") return { ...INITIAL_MARKET_EXPLORER_BUILDER_DRAFT, ...action.draft };
   if (action.type === "field") return { ...state, [action.field]: action.value };
   return state;

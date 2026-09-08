@@ -45,7 +45,9 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
   const pokemonOptions = useMemo(() => draft.asset === QUERY_ASSET_CARDS ? (options?.pokemon || []) : [], [options, draft.asset]);
   const priceSegments = useMemo(() => options?.priceSegments?.[draft.asset] || [], [options, draft.asset]);
   const releaseAgeCohorts = useMemo(() => options?.releaseAgeCohorts || [], [options]);
-  const spec = useMemo(() => normalizeQuerySpec(draft), [draft]);
+  const spec = useMemo(() => {
+    try { return normalizeQuerySpec(draft); } catch { return null; }
+  }, [draft]);
   const labels = useMemo(() => ({
     eraNames: Object.fromEntries(eraOptions.map((entry) => [entry.id, entry.label])),
     setNames: Object.fromEntries(assetSets.map((entry) => [entry.id, entry.label])),
@@ -54,13 +56,13 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     priceSegmentNames: Object.fromEntries(priceSegments.map((entry) => [entry.id, entry.label])),
     releaseAgeNames: Object.fromEntries(releaseAgeCohorts.map((entry) => [entry.id, entry.label])),
   }), [eraOptions, assetSets, segments, pokemonOptions, priceSegments, releaseAgeCohorts]);
-  const preview = useMemo(() => buildQueryLabel(spec, labels), [spec, labels]);
-  const access = useMemo(() => evaluateMarketQueryAccess(currentPlan, spec), [currentPlan, spec]);
-  const prepared = useMemo(() => resolvePreparedSeriesForSpec(spec, preparedSeries), [spec, preparedSeries]);
-  const queryKey = useMemo(() => buildQueryKey(spec), [spec]);
+  const preview = useMemo(() => spec ? buildQueryLabel(spec, labels) : "Select at least one exact item", [spec, labels]);
+  const access = useMemo(() => spec ? evaluateMarketQueryAccess(currentPlan, spec) : { allowed: false, requiredPlan: "premium" }, [currentPlan, spec]);
+  const prepared = useMemo(() => spec ? resolvePreparedSeriesForSpec(spec, preparedSeries) : null, [spec, preparedSeries]);
+  const queryKey = useMemo(() => spec ? buildQueryKey(spec) : null, [spec]);
   const alreadyActive = useMemo(() => (activeSeries || []).some((series) =>
     (prepared && series.key === prepared.key) ||
-    (series.spec && buildQueryKey(series.spec) === queryKey)
+    (queryKey && series.spec && buildQueryKey(series.spec) === queryKey)
   ), [activeSeries, prepared, queryKey]);
 
   const setAsset = useCallback((asset) => {
@@ -105,6 +107,12 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     setPriceSegmentIds: (value) => setField("priceSegmentIds", value),
     setReleaseAgeCohortIds: (value) => setField("releaseAgeCohortIds", value),
     setMode: (value) => setField("mode", value),
+    setMembershipMode: (value) => setField("membershipMode", value),
+    setExactItems: (value) => {
+      const items = Array.isArray(value) ? value : [];
+      dispatch({ type: "field", field: "exactItems", value: items });
+      dispatch({ type: "field", field: "instrumentIds", value: items.map((item) => item.instrumentId) });
+    },
     replace: (value) => dispatch({ type: "replace", draft: value }),
     clear: () => dispatch({ type: "clear" }),
   };

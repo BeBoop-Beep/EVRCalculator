@@ -20,6 +20,7 @@ from backend.domain.pokemon.sealed_product_classifier import classify_sealed_pro
 from backend.db.services.treatment_market_prestige_v3_service import (
     resolve_card_treatment_market_prestige,
 )
+from backend.db.services.collector_appeal_current_service import build_public_card_collector_appeal,load_current_card_collector_appeal
 
 
 class PokemonCardDetailError(Exception):
@@ -591,6 +592,9 @@ def get_pokemon_card_detail_payload(
         set_id=resolved_set_id, era_id=_text(set_row.get("era_id")),
         rarity=card.get("rarity"), client=active,
     )
+    collector_appeal = build_public_card_collector_appeal(
+        load_current_card_collector_appeal([str(card_id)], client=active).get(str(card_id))
+    )
 
     return {
         "set": {"id": resolved_set_id, "targetId": _text(set_row.get("canonical_key")), "name": _text(set_row.get("name")), "slug": canonical_set_route_slug(_text(set_row.get("name")) or ""),
@@ -612,6 +616,7 @@ def get_pokemon_card_detail_payload(
         "market": market,
         "chase": chase,
         "intelligence": intelligence,
+        "collectorAppeal": collector_appeal,
         "treatmentMarketPrestige": treatment_market_prestige,
         "meta": {
             "contractVersion": "pokemon_card_detail_v3",

@@ -244,7 +244,7 @@ def test_rankings_without_canonical_metadata_is_stale(monkeypatch):
 def _canonical_rankings_payload():
     return {
         "targets": [{
-            "overallRipV10": {"rank": 1},
+            "overallRipV12": {"rank": 1},
             "overallRipRankComparisonStatus1d": "unavailable",
         }],
         "meta": {
@@ -287,7 +287,7 @@ def _rankings_payload_with_cohort(*, ranked_targets, ranked_set_count=22):
     payload["targets"] = [
         {
             "targetId": f"ranked-{index}",
-            "overallRipV10": {"rank": index + 1},
+            "overallRipV12": {"rank": index + 1},
             "overallRipRankComparisonStatus1d": "unavailable",
         }
         for index in range(ranked_targets)
@@ -312,7 +312,7 @@ def test_rankings_allows_34_total_targets_when_only_22_are_canonically_ranked(mo
     assert result.stale is False
     assert len(payload["targets"]) == 34
     assert payload["targets"] is original_targets
-    assert all("overallRipV10" not in target for target in payload["targets"][22:])
+    assert all("overallRipV12" not in target for target in payload["targets"][22:])
 
 
 @pytest.mark.parametrize("ranked_targets", [21, 23])
@@ -347,6 +347,44 @@ def test_canonical_rankings_shape_is_fresh(monkeypatch):
     )
     result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
     assert result.stale is False
+
+
+def test_legacy_v10_keyed_targets_are_stale_not_silently_fresh(monkeypatch):
+    """Regression: Sept-8 zero rankings-publication-attempt rows.
+
+    The stored `pokemon_explore_rankings_snapshot_latest` payload can, on any
+    given day, still carry targets keyed by a RETIRED canonical version (here,
+    `overallRipV10` from before the V12 cutover) if the row was last written
+    before a canonical-version cutover. This freshness check used to hardcode
+    `overallRipV10` when counting `ranked_targets`, so a row shaped like the
+    CURRENT canonical contract (V12) but never actually rebuilt under it would
+    fail the ranked-target-key match and someone might assume that always
+    forces a rebuild. It does not save you the other direction: a genuinely
+    STALE V10-shaped row that still happens to satisfy the (wrong) V10 key
+    check reads as "fresh" and `_maybe_rebuild_rankings` returns without ever
+    calling `publish_explore_rip_rankings_snapshot` - so NO rankings
+    publication attempt row is ever created, silently. This is the exact
+    "zero rows in pokemon_rankings_publication_attempts" failure mode: not a
+    persisted deferral, not an exception, just a freshness check that agreed
+    with a version key nothing still writes.
+
+    The fix routes the ranked-target lookup through
+    `canonical_overall_rip_target_key()` - the SAME single authority the
+    publisher and the readiness/lifecycle gate use - so this check can never
+    again drift onto a retired version's key while the publisher has moved on.
+    """
+    payload = _rankings_payload_with_cohort(ranked_targets=22)
+    # Simulate the drift directly: rewrite the canonical-shaped fixture back
+    # onto the retired V10 key, as a row genuinely last built pre-cutover would
+    # be shaped.
+    for target in payload["targets"][:22]:
+        target["overallRipV10"] = target.pop("overallRipV12")
+    _stub_rankings_payload(monkeypatch, payload)
+
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+
+    assert result.stale is True
+    assert result.reason == "complete public ranked cohort marker/count invalid"
 
 
 def test_a_structurally_perfect_snapshot_on_an_obsolete_contract_is_stale(monkeypatch):

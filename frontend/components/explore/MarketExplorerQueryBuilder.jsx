@@ -1,16 +1,20 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
 import DarkSelect from "@/components/ui/DarkSelect";
 import ExplorerDisclosure from "./ExplorerDisclosure";
 import ExplorerMarketOption from "./ExplorerMarketOption";
 import ExplorerPlanLockPanel from "./ExplorerPlanLockPanel";
+import MarketExplorerExactItemPicker from "./MarketExplorerExactItemPicker";
 import useMarketExplorerBuilderDraft from "@/hooks/explore/useMarketExplorerBuilderDraft";
 import {
   QUERY_ASSET_CARDS,
   QUERY_ASSET_SEALED,
   QUERY_MODE_ALL,
   QUERY_MODE_CHASE,
+  QUERY_MEMBERSHIP_EXPLICIT,
+  QUERY_MEMBERSHIP_FILTERS,
+  buildQueryKey,
   marketModeOptions,
   presentationFor,
 } from "@/lib/explore/marketExplorerQuery.mjs";
@@ -56,12 +60,17 @@ export default function MarketExplorerQueryBuilder({
   optionsStatus = "loading",
   optionsMessage = "",
   currentPlan = null,
+  accessMode = "basic",
+  coverageSummary = [],
   isAuthenticated = false,
   preparedSeries = [],
   activeSeries = [],
   benchmarkEntries = [],
   selectedSeriesCount = 0,
   onAddQuery,
+  onUpdateQuery,
+  editingSeries = null,
+  onCancelEdit,
   onAddPrepared,
   onToggleBenchmark,
 }) {
@@ -80,6 +89,17 @@ export default function MarketExplorerQueryBuilder({
     activeSeries,
   });
   const { draft, spec, access, prepared, alreadyActive } = builder;
+  const editing = Boolean(editingSeries?.instanceId);
+  const noChanges = Boolean(editing && spec && buildQueryKey(editingSeries.spec) === buildQueryKey(spec));
+  useEffect(() => {
+    if (!editingSeries?.spec) return;
+    builder.replace({ ...editingSeries.spec, exactItems: editingSeries.exactItems || [] });
+    setMobileOpen(true);
+    setMessage("");
+    // The instance id is the edit-session boundary. Draft field changes must
+    // never reload the active result back over the user's unsaved edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingSeries?.instanceId]);
   const paid = currentPlan === "plus" || currentPlan === "premium";
   const segmentOptions = builder.segments.map((entry) => ({
     id: entry.key,
@@ -115,8 +135,8 @@ export default function MarketExplorerQueryBuilder({
         : [],
     [selectedScreen, preparedSeries, draft.asset],
   );
-  const build = async () => {
-    if (alreadyActive) return;
+  const build = async (saveAsNew = false) => {
+    if (!spec || (!editing && alreadyActive)) return;
     if (!prepared && !access.allowed) {
       setMessage(
         `This market requires Index ${access.requiredPlan === "premium" ? "Premium" : "Plus"}.`,
@@ -126,12 +146,15 @@ export default function MarketExplorerQueryBuilder({
     setLoading(true);
     setMessage("");
     try {
-      const outcome = prepared
-        ? onAddPrepared?.(prepared.key)
-        : await onAddQuery?.(spec);
+      const outcome = editing && !saveAsNew
+        ? await onUpdateQuery?.(editingSeries.instanceId, spec, { exactItems: draft.exactItems })
+        : prepared
+          ? onAddPrepared?.(prepared.key)
+          : await onAddQuery?.(spec, { exactItems: draft.exactItems });
       setMessage(
-        outcome === "duplicate" ? "Already active." : "Added to comparison.",
+        outcome === "duplicate" ? "This market is already in the comparison." : outcome === "updated" ? "Market updated." : outcome === "unchanged" ? "No changes." : "Added to comparison.",
       );
+      if (outcome === "updated") onCancelEdit?.();
     } catch (error) {
       setMessage(
         error?.message ||
@@ -172,6 +195,16 @@ export default function MarketExplorerQueryBuilder({
     const presentation = presentationFor(asset);
     return (
       <div className="mt-2 space-y-2">
+        <div data-market-builder-membership-mode role="radiogroup" aria-label="Build from" className="grid grid-cols-2 gap-2">
+          <button type="button" role="radio" aria-checked={draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_FILTERS)} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Filters</button>
+          <button type="button" role="radio" aria-checked={draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_EXPLICIT)} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Exact Items <span className="text-[9px] opacity-75">Premium</span></button>
+        </div>
+        {draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? (
+          <ExplorerDisclosure id={`${asset}ExactItems`} title="Exact Items" open summary={`${draft.exactItems?.length || 0} selected`}>
+            <MarketExplorerExactItemPicker asset={asset} selectedItems={draft.exactItems || []} onChange={builder.setExactItems} />
+            <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Filters below narrow the selected exact items; they never add other items.</p>
+          </ExplorerDisclosure>
+        ) : null}
         <ExplorerDisclosure
           id={`${asset}EraSets`}
           title="Era & Set"
@@ -378,6 +411,22 @@ export default function MarketExplorerQueryBuilder({
             No authoritative graded market is published.
           </p>
         </ExplorerDisclosure>
+        <ExplorerDisclosure id="myMarkets" title="My Markets" badge="Foundation">
+          <div data-market-personal-foundation className="space-y-2">
+            <div className="rounded-md border border-[var(--border-subtle)] px-3 py-2">
+              <p className="text-xs font-semibold text-[var(--text-primary)]">Portfolio</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-[var(--text-secondary)]">
+                Total, Raw, Sealed, and Graded collection value comparisons are being prepared. Value history is not Market Index performance.
+              </p>
+            </div>
+            <div aria-disabled="true" className="px-3 py-1 opacity-70">
+              <p className="text-xs font-semibold text-[var(--text-secondary)]">Wishlist · Unavailable</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-[var(--text-secondary)]">
+                Wishlist market history becomes available once saved Wishlist membership is published.
+              </p>
+            </div>
+          </div>
+        </ExplorerDisclosure>
         {false ? <ExplorerDisclosure id="screens" title="Screens">
           <div className="space-y-1">
             {MARKET_EXPLORER_SCREENS.map((screen) => {
@@ -500,14 +549,16 @@ export default function MarketExplorerQueryBuilder({
       </div>
       <div
         data-current-market
+        data-market-builder-editing={editing ? "true" : "false"}
         className="sticky bottom-0 border-t border-[var(--border-subtle)] bg-[var(--surface-page)]/95 px-3 py-3 backdrop-blur sm:px-4"
       >
         <p className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
-          Current Market
+          {editing ? "Unsaved edits" : "Current Market"}
         </p>
         <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-          {draft.asset === QUERY_ASSET_SEALED ? "Sealed" : "Raw Cards"}
+          {editing ? `Editing: ${editingSeries.shortLabel || editingSeries.label}` : draft.asset === QUERY_ASSET_SEALED ? "Sealed" : "Raw Cards"}
         </p>
+        {editing && !noChanges ? <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[rgb(251,191,36)]">Unsaved changes · active line unchanged</p> : null}
         <p
           data-current-market-preview
           className="mt-0.5 text-[11px] leading-snug text-[var(--text-secondary)]"
@@ -527,32 +578,32 @@ export default function MarketExplorerQueryBuilder({
           <button
             type="button"
             data-market-builder-clear
-            onClick={() => {
-              builder.clear();
-              setMessage("");
-            }}
+            onClick={() => { if (editing) onCancelEdit?.(); else builder.clear(); setMessage(""); }}
             className="min-h-11 rounded-md border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-secondary)] desk:min-h-0"
           >
-            Clear
+            {editing ? "Cancel" : "Clear"}
           </button>
           <button
             type="button"
             data-market-builder-build
-            onClick={build}
-            disabled={
-              loading || alreadyActive || (!prepared && !access.allowed)
-            }
+            onClick={() => build(false)}
+            disabled={loading || !spec || noChanges || (!editing && alreadyActive) || (!prepared && !access.allowed)}
             className="min-h-11 rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-3 text-xs font-semibold text-[rgb(45,212,191)] disabled:opacity-50 desk:min-h-0"
           >
-            {alreadyActive
+            {noChanges ? "No changes" : !editing && alreadyActive
               ? "Already Active"
               : loading
                 ? "Building…"
                 : !prepared && !access.allowed
                   ? "Build Market 🔒"
-                  : "Build Market"}
+                  : editing ? "Update Market" : "Build Market"}
           </button>
         </div>
+        {editing && !noChanges ? (
+          <button type="button" data-market-builder-save-as-new disabled={loading || !spec || (!prepared && !access.allowed)} onClick={() => build(true)} className="mt-2 min-h-11 w-full rounded-md border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-secondary)]">
+            Save as new
+          </button>
+        ) : null}
         {message ? (
           <p
             role="status"
@@ -571,17 +622,22 @@ export default function MarketExplorerQueryBuilder({
       className="flex min-w-0 flex-col desk:max-h-[42rem]"
       aria-labelledby="market-builder-heading"
     >
-      <div className="flex items-center gap-2 px-3 py-3 sm:px-4">
+      <div className="flex items-start gap-2 border-b border-[var(--border-subtle)] px-3 py-3 sm:px-4">
         <div>
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[rgb(45,212,191)]">inDex</p>
+          <div className="flex flex-wrap items-center gap-2">
           <h2
             id="market-builder-heading"
             className="text-[16px] font-semibold text-[var(--text-primary)]"
           >
-            Market Builder
+            Market Explorer
           </h2>
+          <span data-market-explorer-plan-badge data-market-explorer-plan={accessMode} className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">{accessMode === "premium" ? "Index Premium" : accessMode === "plus" ? "Index Plus" : "Basic"}</span>
+          </div>
           <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
-            Define a market, preview it, then build.
+            Build, compare, and inspect markets.
           </p>
+          {coverageSummary.length ? <p data-market-coverage-summary className="mt-1 text-[9px] leading-tight text-[var(--text-secondary)]">{coverageSummary.join(" · ")}</p> : null}
         </div>
         <button
           type="button"

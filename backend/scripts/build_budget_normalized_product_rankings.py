@@ -717,6 +717,7 @@ def publish_rankings(
     client: Any,
     results: Dict[str, Any],
     v12_results: Optional[Dict[str, Any]] = None,
+    materialized_payload: Optional[tuple] = None,
 ) -> str:
     """Publish once through the canonical atomic RPC and return its UUID.
 
@@ -727,14 +728,20 @@ def publish_rankings(
     follow-up ``UPDATE`` issued from Python. When omitted, this is the
     unchanged V10 publication path.
     """
-    snapshot, rows = to_publication_payload(results)
-    if v12_results is not None:
-        snapshot, rows = merge_v12_publication_fields(snapshot, rows, v12_results)
+    snapshot, rows = materialized_payload or materialize_publication_payload(results, v12_results)
     response = client.rpc(
         "publish_budget_product_ranking_snapshot",
         {"p_snapshot": snapshot, "p_rows": rows},
     ).execute()
     return str(response.data)
+
+
+def materialize_publication_payload(results: Dict[str, Any], v12_results: Optional[Dict[str, Any]] = None) -> tuple:
+    """Build the single logical payload used by both dry-run and commit."""
+    snapshot, rows = to_publication_payload(results)
+    if v12_results is not None:
+        snapshot, rows = merge_v12_publication_fields(snapshot, rows, v12_results)
+    return snapshot, rows
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -750,6 +757,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     client = get_client()
     results = build_all_rankings(client, args.price_as_of)
+    v12_results = results.get("v12Results")
+    materialized = materialize_publication_payload(results, v12_results)
+    results["publicationPayload"] = {"snapshot": materialized[0], "rows": materialized[1]}
 
     out = Path(args.json)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -818,10 +828,10 @@ def main(argv: Sequence[str] | None = None) -> int:
               "the V12 candidate is genuinely ready, never by silently falling back to V10.")
         return 1
 
-    snapshot, rows = to_publication_payload(results)
+    snapshot, rows = materialized
     print("publishing %d rows under snapshot market_date=%s (authority=%s) ..."
           % (len(rows), snapshot["market_date"], results["overallRipSortAuthority"]))
-    snapshot_id = publish_rankings(client, results, v12_results=v12_results)
+    snapshot_id = publish_rankings(client, results, v12_results=v12_results, materialized_payload=materialized)
     print("published snapshot id: %s" % snapshot_id)
     return 0
 

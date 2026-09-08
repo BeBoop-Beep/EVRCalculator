@@ -3,7 +3,7 @@ import { getLandingPageData } from "@/lib/landing/landingHeroServer";
 import { ARTICLE_PATHS, articleByKey, related } from "@/lib/articles/articleData.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 const title = "How the RIP Score Works";
-const description = "Why Expected Value alone was not enough to rank Pokémon sets, how current Overall RIP combines Financial RIP with Collector Appeal, and what the score can and cannot tell you.";
+const description = "How Overall RIP synthesizes Financial RIP, Chase Accessibility, and Collector Appeal into a relative comparison of Pokémon pack openings.";
 const registeredArticle = articleByKey("rip");
 const references = [
   { id: "ref-openstax-statistics", href: "https://openstax.org/books/introductory-statistics-2e/pages/4-key-terms", citation: "OpenStax. Introductory Statistics 2e. Chapter 4: Key Terms.", note: "Supports the Expected Value and probability-distribution definitions used in the opening analysis." },
@@ -12,7 +12,7 @@ const references = [
 export const metadata = buildRouteMetadata({ path: "/Articles/how-rip-score-works", title: `${title} | inDex`, description, ogTitle: title });
 export default async function HowRipScoreWorksArticle() {
   const data = await getLandingPageData();
-  return <ArticleShell category="Methodology" title={title} deck="Overall RIP compares modeled opening economics and collector desirability. It is a relative ranking tool, not a promise that your next pack makes money." lastUpdated={registeredArticle.lastUpdated} related={related("financial", "collector", "simulation", "validation")}>
+  return <ArticleShell category="Methodology" title={title} deck="Overall RIP brings financial outcomes, chase accessibility, and collector appeal into one relative comparison. It is not a promise that your next pack makes money." lastUpdated={registeredArticle.lastUpdated} related={related("financial", "chaseAccessibility", "collector", "simulation")}>
     <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.rip} lastUpdated={registeredArticle.lastUpdated} />
     <EditorialSplit media={<PackArt />}>
       <p>Expected Value—the long-run mean of a probability distribution as defined by <Citation href="https://openstax.org/books/introductory-statistics-2e/pages/4-key-terms">OpenStax</Citation>—was the first thing I calculated because it is the obvious way to measure a pack financially. It was also the first thing that showed me why EV was not going to be enough.</p>
@@ -20,8 +20,8 @@ export default async function HowRipScoreWorksArticle() {
       <p className="mt-4">I would not call those the same opening, so inDex cannot treat them as equivalent.</p>
     </EditorialSplit>
     <H2>Overall RIP</H2>
-    <p>The current canonical score is Overall RIP V10 under Public RIP Contract V10. Overall RIP V10 combines Financial RIP V4, which measures the modeled outcome profile relative to pack cost, with Collector Appeal V5, which measures contextual Pokémon desirability and modeled access to desirable outcomes under the existing canonical weighting. The financial side asks how favorable the opening economics are. The collector side asks whether those outcomes are things collectors tend to care about.</p>
-    <MetricStory items={[{ label: "Overall RIP", text: "The headline comparison against other supported sets." }, { label: "Financial RIP", text: "What the modeled wins, losses, and upside look like against pack cost." }, { label: "Collector Appeal", text: "Whether the set contains desirable Pokémon and how often the model can reach them." }]} />
+    <p>The current canonical score is Overall RIP V12. It synthesizes three peer pillars without treating their equal visual presentation as equal weighting: Financial RIP V4 asks, “How good are the money outcomes when you open this product?” Chase Accessibility asks, “How reachable are this set&apos;s most important collectible values from a pack?” Collector Appeal describes how compelling the collectible roster is and supplies desirable-outcome context. Exact model weights and transform constants are not published.</p>
+    <MetricStory items={[{ label: "Overall RIP", text: "The headline comparison against other supported openings." }, { label: "Financial RIP", text: "How good the modeled money outcomes are when you open this product." }, { label: "Chase Accessibility", text: "How reachable this set's most important collectible values are from one modeled pack." }, { label: "Collector Appeal", text: "How compelling the collectible roster is, with desirable-outcome context." }]} />
     <p>The canonical ranking authority is normalized on a 0–100 basis internally, while the current inDex product presents that result as a 0–10 RIP score. A displayed 9.2 does not mean a 92% chance of profit, 92% value retention, or an objectively excellent product. It means the set compares strongly with the eligible cohort under the current model.</p>
     <p>A displayed 10.0 means the strongest current relative comparison, not a perfect or guaranteed opening. Because the presentation is cohort-relative, a displayed score can move when the comparison group changes even if the set’s fixed model score does not. The backend retains the underlying authority values for audit while product surfaces show the 0–10 presentation.</p>
     <H2>Financial RIP</H2>
@@ -32,6 +32,9 @@ export default async function HowRipScoreWorksArticle() {
     <p>Collector Appeal V5 uses a contextual Pokémon desirability baseline and a Desirable Outcome Frequency adjustment. Market price, Expected Value, profitability, pack cost, and Financial RIP are not directly added to its score arithmetic. However, same-run card EV contribution provides contextual evidence for which Pokémon meaningfully represent the set’s chase roster. EV establishes relevance; it is not multiplied into Pokémon desirability or treated as a financial score.</p>
     <p>Dual-Path Depth remains visible as a diagnostic, but it is not a Collector Appeal V5 score input.</p>
     <p>This is narrower than “what people like.” It currently models Pokémon subjects, not trainers, artists, or personal favorites. Missing coverage makes the result unavailable instead of forcing an absent signal to zero.</p>
+    <H2>Chase Accessibility</H2>
+    <p>Raw Accessibility is the underlying modeled collectible-value accessibility measurement. The public Chase Accessibility score is a comparative presentation of that measurement across the eligible set cohort, and the set rank is a separate comparison again. A displayed 6.4 / 10 therefore does not mean a 64% pull probability.</p>
+    <p>The metric considers modeled pack probabilities and concentrates value significance toward the set&apos;s more important collectible values instead of choosing one arbitrary top card. Read the separate <a href={ARTICLE_PATHS.chaseAccessibility} className="font-semibold text-[var(--accent)]">Chase Accessibility methodology</a> for its boundaries and diagnostics.</p>
     <H2>The simulation underneath it</H2>
     <p>Supported sets run through one million modeled openings using repeated random sampling in the general Monte Carlo tradition described by <Citation href="https://doi.org/10.1080/01621459.1949.10483310">Metropolis and Ulam</Citation>. The project-specific pack states, card pools, pull assumptions, and current calculation values produce the distribution that supplies P50, P95, P99, break-even behavior, loss behavior, and the Financial RIP inputs.</p>
     <LiveDistributionFigure distribution={data.openingDistribution} setName={data.openingSpotlightSet?.name || "the featured set"} simulationCount={data.openingDistribution?.simulationCount} />
@@ -40,7 +43,7 @@ export default async function HowRipScoreWorksArticle() {
     <p>Displayed card value is not guaranteed cash in hand. Liquidity, seller fees, taxes, shipping, grading, and regional price differences can all separate modeled value from realized proceeds. Markets and pack costs also move, so each result belongs to a calculation snapshot rather than being a permanent property of the set.</p>
     <p>Overall RIP is useful for one job: ordering the supported choices in front of you using a consistent opening model. It is not financial advice, a forecast, or a prediction of your next pack.</p>
     <H2>References</H2>
-    <p>Overall RIP and its combination of Financial RIP with Collector Appeal are original inDex methodology. These references support the standard Expected Value, probability-distribution, and Monte Carlo concepts underneath the analysis; they do not externally validate the RIP score or disclose its protected construction.</p>
+    <p>Overall RIP and its synthesis of Financial RIP, Chase Accessibility, and Collector Appeal are original inDex methodology. These references support the standard Expected Value, probability-distribution, and Monte Carlo concepts underneath the analysis; they do not externally validate the RIP score or disclose its protected construction.</p>
     <ReferenceList items={references} />
   </ArticleShell>;
 }

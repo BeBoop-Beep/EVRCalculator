@@ -52,6 +52,9 @@ const server = createServer(async (request, response) => {
   const key = canonicalUrl(request.url || "/");
   if (key === "/__fixture__/health") return json(response, 200, { ok: true, mode: MODE });
   if (key === "/__fixture__/report") return json(response, 200, report());
+  // Anonymous visual acceptance is intentional. Keep auth deterministic without
+  // requiring a recorded user fixture or treating the expected probe as noise.
+  if (request.method === "GET" && key === "/auth/me") return json(response, 401, { user: null });
   if (request.method !== "GET" || !allowed(key)) {
     unexpected.push(`${request.method} ${key}`);
     return json(response, 501, { error: "unexpected_fixture_request", method: request.method, route: key });

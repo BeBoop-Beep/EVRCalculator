@@ -81,8 +81,8 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
   return (
     <section data-market-explorer-details className="flex min-w-0 flex-col" aria-labelledby="market-explorer-details-heading">
       <div className={`${styles.divider} flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-3 sm:px-4`}>
-        <h2 id="market-explorer-details-heading" className="text-[16px] font-semibold text-[var(--text-primary)]">
-          Market Comparison Analysis
+        <h2 id="market-explorer-details-heading" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+          Comparison detail
         </h2>
         <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
           Tracked Value<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValue} />

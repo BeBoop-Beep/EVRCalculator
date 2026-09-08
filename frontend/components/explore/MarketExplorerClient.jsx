@@ -68,6 +68,7 @@ export default function MarketExplorerClient({
   initialState,
   /** The canonical session user, or null. Server-resolved; never a client flag. */
   user = null,
+  coverageSummary = [],
 }) {
   const timeframeOptions = useMemo(() => buildExplorerTimeframeOptions(overview), [overview]);
   // ACCESS ARRIVES AS A PROP, RESOLVED ON THE SERVER from the session cookie.
@@ -91,7 +92,8 @@ export default function MarketExplorerClient({
   // ONE detail target at a time. Four selected markets must not produce four
   // constituent tables; the user names the one they are inspecting.
   const [requestedDetailSeriesId, setRequestedDetailSeriesId] = useState(null);
-  const { querySeries, addQuery, removeQuery, clearAll: clearAllQueries } = useMarketExplorerQueries();
+  const { querySeries, addQuery, updateQuery, removeQuery, clearAll: clearAllQueries } = useMarketExplorerQueries();
+  const [editingSeriesId, setEditingSeriesId] = useState(null);
   // VISIBILITY IS NOT REMOVAL. A hidden series is still an Active Market — it
   // still counts toward "what is built", it is still inspectable in
   // Constituents, and un-hiding it never refetches or rebuilds anything. Only
@@ -113,6 +115,7 @@ export default function MarketExplorerClient({
     clearAllSelection();
     clearAllQueries();
     setHiddenSeriesKeys(new Set());
+    setEditingSeriesId(null);
   }, [clearAllSelection, clearAllQueries]);
 
   // Era & Sets and Build a Market read the SAME canonical option payload, in
@@ -167,13 +170,12 @@ export default function MarketExplorerClient({
     () => resolveActiveDetailSeriesId(selectedSeries, requestedDetailSeriesId),
     [selectedSeries, requestedDetailSeriesId]
   );
+  const editingSeries = useMemo(() => querySeries.find((series) => series.instanceId === editingSeriesId) || null, [querySeries, editingSeriesId]);
+  const beginEdit = useCallback((series) => { setEditingSeriesId(series.instanceId); setRequestedDetailSeriesId(series.key); }, []);
 
   // Only the PUBLISHED asset-class cards get a top-level card; the graded
   // placeholder is a disabled rail option, not a card with no numbers in it.
-  const assetCards = useMemo(
-    () => assetEntries.filter((entry) => entry.available === true),
-    [assetEntries]
-  );
+  const assetCards = assetEntries;
 
   if (!overview || !overview.families?.length) {
     return (
@@ -199,25 +201,30 @@ export default function MarketExplorerClient({
     >
       {/* 1 — the ASSET CLASS selector cards. Submarkets and benchmarks
              deliberately do not become top-level cards. */}
-      <div data-market-explorer-cards className="grid grid-cols-1 gap-2.5 tab:grid-cols-2 desk:gap-3">
-        {assetCards.map((entry) => (
-          <MarketExplorerSeriesCard
-            key={entry.key}
-            entry={entry}
-            timeframe={timeframe}
-            timeframeLabel={timeframeLabel}
-            onToggle={toggleMarket}
-            isOnlySelection={selectedSeriesIds.length <= 1}
-          />
-        ))}
-      </div>
-
       {/* 2 — Explore Segments beside the Market Comparison chart. */}
       <section
         data-market-explorer-analysis
-        className={`${styles.surfaceQuiet} ${styles.marketExplorerAnalysis} set-glass-surface`}
+        className={styles.marketExplorerAnalysis}
         aria-label="Market comparison and segment filters"
       >
+        <div data-market-explorer-signals className="grid grid-cols-3 gap-2 desk:gap-3">
+          {assetCards.map((entry) => <MarketExplorerSeriesCard key={entry.key} entry={entry} timeframe={timeframe} timeframeLabel={timeframeLabel} />)}
+        </div>
+        <div data-market-explorer-active-strip className="min-w-0 overflow-x-auto border-y border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
+          <MarketExplorerActiveMarkets
+            series={selectedSeries}
+            activeSeriesId={activeDetailSeriesId}
+            onInspect={setRequestedDetailSeriesId}
+            onRemove={(key) => { if (editingSeries?.key === key) setEditingSeriesId(null); toggleSeries(key); }}
+            onEdit={beginEdit}
+            canRemove={selectedSeries.length > 1}
+            hiddenSeriesKeys={hiddenSeriesKeys}
+            onToggleVisibility={toggleSeriesVisibility}
+            onShowAll={showAllSeries}
+            onHideAll={hideAllActiveSeries}
+            timeframe={timeframe}
+          />
+        </div>
         <MarketExplorerChart
           overview={overview}
           selectedSeries={visibleSeries}
@@ -226,10 +233,7 @@ export default function MarketExplorerClient({
           timeframeLabel={timeframeLabel}
           timeframeOptions={timeframeOptions}
           onTimeframeChange={setRequestedTimeframe}
-          onToggleSeries={toggleSeriesVisibility}
           onClearGraph={clearGraph}
-          onShowAll={showAllSeries}
-          onHideAll={hideAllActiveSeries}
         />
         <MarketExplorerQueryBuilder
           options={options}
@@ -240,10 +244,15 @@ export default function MarketExplorerClient({
           activeSeries={selectedSeries}
           onAddPrepared={addPrepared}
           onAddQuery={addQuery}
+          onUpdateQuery={updateQuery}
+          editingSeries={editingSeries}
+          onCancelEdit={() => setEditingSeriesId(null)}
           onToggleBenchmark={toggleMarket}
           selectedSeriesCount={selectedSeries.length}
           isAuthenticated={isAuthenticated}
           currentPlan={indexPlan}
+          accessMode={accessMode}
+          coverageSummary={coverageSummary}
         />
       </section>
 
@@ -255,20 +264,6 @@ export default function MarketExplorerClient({
              queries used to render their own duplicate row, which showed the
              same markets twice and let the two disagree. Their one unique
              contribution, the index level, moved onto the chip. */}
-      <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Active markets">
-        <MarketExplorerActiveMarkets
-          series={selectedSeries}
-          activeSeriesId={activeDetailSeriesId}
-          onInspect={setRequestedDetailSeriesId}
-          onRemove={toggleSeries}
-          canRemove={selectedSeries.length > 1}
-          hiddenSeriesKeys={hiddenSeriesKeys}
-          onToggleVisibility={toggleSeriesVisibility}
-          onShowAll={showAllSeries}
-          onHideAll={hideAllActiveSeries}
-        />
-      </section>
-
       {/* ACCEPTED LOWER-PAGE ORDER: Active Markets -> Constituents -> Market
           Comparison Analysis -> Methodology. Constituents answers "what is
           inside the one market I'm inspecting" right after Active Markets
@@ -281,6 +276,7 @@ export default function MarketExplorerClient({
           selectedSeries={selectedSeries}
           activeSeriesId={activeDetailSeriesId}
           onSelectSeries={setRequestedDetailSeriesId}
+          onEditSeries={beginEdit}
         />
       </section>
 

@@ -22,6 +22,7 @@ SCRIPT = REPO_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh"
 
 REFRESH = "backend/scripts/refresh_stale_public_snapshots.py"
 AUDIT = "backend/scripts/audit_pokemon_market_publication.py"
+MARKET_EXPLORER = "backend.scripts.run_market_explorer_daily_publication"
 
 
 @pytest.fixture(scope="module")
@@ -75,6 +76,7 @@ def test_logs_the_required_run_identity(script_text):
         assert anchor in script_text, f"missing log anchor {anchor}"
     assert "command: ${REFRESH_CMD[*]}" in script_text
     assert "command: ${AUDIT_CMD[*]}" in script_text
+    assert "command: ${MARKET_EXPLORER_CMD[*]}" in script_text
 
 
 def test_invokes_the_canonical_refresh_orchestrator(script_text):
@@ -141,6 +143,28 @@ def test_a_failed_audit_fails_the_whole_run(script_text):
 
     assert 'if [[ "${AUDIT_STATUS}" -ne 0 ]]; then' in tail
     assert 'exit "${AUDIT_STATUS}"' in tail
+
+
+def test_advances_market_explorer_only_after_the_canonical_audit(script_text):
+    audit_at = script_text.index(AUDIT)
+    explorer_at = script_text.index(MARKET_EXPLORER)
+    assert audit_at < explorer_at
+    between = script_text[audit_at:explorer_at]
+    assert 'if [[ "${AUDIT_STATUS}" -ne 0 ]]; then' in between
+    assert 'exit "${AUDIT_STATUS}"' in between
+    tail = script_text[explorer_at:]
+    assert '--market-date "${MARKET_DATE}"' in tail
+    assert "--commit" in tail
+
+
+def test_market_explorer_failure_fails_the_authoritative_chain(script_text):
+    tail = script_text[script_text.index(MARKET_EXPLORER):]
+    assert 'if [[ "${MARKET_EXPLORER_STATUS}" -ne 0 ]]; then' in tail
+    assert 'exit "${MARKET_EXPLORER_STATUS}"' in tail
+
+
+def test_heavy_market_explorer_prewarm_is_not_in_this_process(script_text):
+    assert "run_market_explorer_maintained_cache_prewarm" not in script_text
 
 
 def test_documents_that_opvc_is_intentionally_deferred(script_text):

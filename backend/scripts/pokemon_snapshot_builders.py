@@ -510,6 +510,11 @@ def _merge_canonical_rip_contract_into_set_payload(
         # remain valid history.
         "overallRipV10",
         "publicRipContractV10",
+        # Current three-pillar authority. These remain additive to V10 history
+        # and are lifted verbatim from the same ranked target.
+        "financialRipV4",
+        "overallRipV12",
+        "publicRipContractV11",
         "setRipV1",
         "openingExperience",
         "publicAnalyticsStatus",
@@ -1333,25 +1338,49 @@ def _load_snapshot_completeness_diagnostics(
     payload: Dict[str, Any],
     built_at: str,
 ) -> Dict[str, Any]:
-    explore_row = _first_row(
-        client,
-        "explore_rip_statistics_latest",
+    def timed(source: str, operation):
+        started = time.perf_counter()
+        logger.info("snapshot completeness query start source=%s set_id=%s", source, set_id)
+        try:
+            value = operation()
+        except Exception:
+            logger.exception(
+                "snapshot completeness query failed source=%s set_id=%s elapsed_ms=%.2f",
+                source, set_id, (time.perf_counter() - started) * 1000.0,
+            )
+            raise
+        row_count = 0 if value is None else (value if isinstance(value, int) else 1)
+        logger.info(
+            "snapshot completeness query complete source=%s set_id=%s elapsed_ms=%.2f rows=%s",
+            source, set_id, (time.perf_counter() - started) * 1000.0, row_count,
+        )
+        return value
+
+    explore_row = timed("explore_rip_statistics_latest", lambda: _first_row(
+        client, "explore_rip_statistics_latest",
         lambda query: query.select("set_id,calculation_run_id,run_at").eq("set_id", set_id),
-    )
-    latest_row = _first_row(
-        client,
-        "simulation_latest_by_target",
+    ))
+    latest_row = timed("simulation_latest_by_target", lambda: _first_row(
+        client, "simulation_latest_by_target",
         lambda query: query.select("target_type,target_id,calculation_run_id,run_at").eq("target_type", "set").eq("target_id", set_id),
-    )
+    ))
     run_id = (
         _snapshot_payload_run_id(payload)
         or first_non_empty((explore_row or {}).get("calculation_run_id"))
         or first_non_empty((latest_row or {}).get("calculation_run_id"))
     )
-    rankings_updated_at = _load_rankings_snapshot_updated_at(client)
-    input_count = _count_rows(client, "simulation_input_cards", field="calculation_run_id", value=run_id) if run_id else None
+    rankings_updated_at = timed(
+        "pokemon_explore_rankings_snapshot_latest", lambda: _load_rankings_snapshot_updated_at(client)
+    )
+    input_count = timed(
+        "simulation_input_cards.exact_count",
+        lambda: _count_rows(client, "simulation_input_cards", field="calculation_run_id", value=run_id),
+    ) if run_id else None
     near_mint_count = (
-        _count_rows(client, "simulation_input_cards_with_near_mint_price", field="calculation_run_id", value=run_id)
+        timed(
+            "simulation_input_cards_with_near_mint_price.exact_count",
+            lambda: _count_rows(client, "simulation_input_cards_with_near_mint_price", field="calculation_run_id", value=run_id),
+        )
         if run_id
         else None
     )
@@ -1760,7 +1789,10 @@ def build_set_rip_read_models(payload: Dict[str, Any], *, set_id: str, built_at:
     return {"bootstrap": bootstrap, "simulation": simulation, "advanced": advanced}
 
 
-def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any] = None) -> Dict[str, Any]:
+def build_set_page_snapshot_row(
+    set_row: Dict[str, Any], *, client: Optional[Any] = None,
+    rankings_payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
     simulation_available = True
@@ -1815,7 +1847,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
             # market prices, set value, market dashboard, card appeal) are merged
             # outside this block and still publish normally.
             raise _SkipSimulationDerivedEnrichment()
-        rankings_payload = get_rip_statistics_targets_payload(
+        rankings_payload = rankings_payload or get_rip_statistics_targets_payload(
             limit=DEFAULT_RANKINGS_LIMIT, include_rankings_top_chase=False
         )
         target_rows = attach_public_v1_to_targets(client or get_client(), rankings_payload.get("targets") or [])
@@ -4206,10 +4238,15 @@ def attach_daily_rip_rank_movements(
 
 
 def build_explore_rankings_snapshot_row(
-    *, limit: int = DEFAULT_RANKINGS_LIMIT, previous_payload: Optional[Dict[str, Any]] = None
+    *, limit: int = DEFAULT_RANKINGS_LIMIT, previous_payload: Optional[Dict[str, Any]] = None,
+    rankings_top_chase_snapshot_rows: Optional[List[Dict[str, Any]]] = None,
+    source_rankings_payload: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     built_at = utc_now_iso()
-    payload = get_rip_statistics_targets_payload(limit=limit)
+    target_kwargs = {"limit": limit}
+    if rankings_top_chase_snapshot_rows is not None:
+        target_kwargs["rankings_top_chase_snapshot_rows"] = rankings_top_chase_snapshot_rows
+    payload = source_rankings_payload or get_rip_statistics_targets_payload(**target_kwargs)
     targets = list(payload.get("targets") or [])
     opening_targets = [target for target in targets if is_opening_set_row(target)]
     service_client = get_client()

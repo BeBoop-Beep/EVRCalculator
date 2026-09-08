@@ -16,7 +16,7 @@ export const metadata = buildRouteMetadata({
   // /Articles/how-rip-score-works and the set page verdict card); the retired "RIP Score" label
   // must not come back through metadata.
   description:
-    "Current Pokémon set rankings by Overall RIP, with Financial RIP, Collector Appeal and modeled opening economics for every ranked set.",
+    "Current Pokémon set rankings by Overall RIP, with peer Financial RIP, Chase Accessibility, Collector Appeal, and modeled opening economics fields.",
   ogTitle: "Best Pokémon Sets to Rip Right Now",
   ogDescription:
     "See which Pokémon sets rank strongest to open right now, ranked by Overall RIP with opening economics and collector appeal.",

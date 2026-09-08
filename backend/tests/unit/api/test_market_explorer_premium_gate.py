@@ -97,6 +97,16 @@ def test_full_prepared_snapshot_is_server_gated_to_plus_and_never_public():
     assert "status_code=403" in snapshot
 
 
+def test_exact_instrument_discovery_is_plus_but_execution_remains_spec_gated():
+    search = _function_source("get_market_explorer_instrument_search")
+    query = _function_source("post_market_explorer_query")
+    assert "_require_authenticated_user_id" in search
+    assert "has_index_plus_access" in search
+    assert "has_index_premium_access" not in search
+    assert '"requiredPlan": "plus"' in search
+    assert "_require_market_explorer_query_access" in query
+
+
 @pytest.mark.parametrize("route", [
     "post_market_explorer_query",
     "get_market_explorer_query_options",

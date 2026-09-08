@@ -26,8 +26,8 @@ function toneOf(direction) {
   return "var(--text-secondary)";
 }
 
-export default function MarketExplorerSeriesCard({ entry, timeframe, timeframeLabel = "", onToggle, isOnlySelection = false }) {
-  const { key, label, color, family, available, selected } = entry;
+export default function MarketExplorerSeriesCard({ entry, timeframe, timeframeLabel = "" }) {
+  const { key, label, color, family, available } = entry;
 
   if (!available) {
     return (
@@ -41,7 +41,7 @@ export default function MarketExplorerSeriesCard({ entry, timeframe, timeframeLa
           {label}
         </span>
         <p role="status" className="mt-2 text-xs text-[var(--text-secondary)]">
-          Not published in the current market snapshot.
+          Coming soon
         </p>
       </div>
     );
@@ -49,29 +49,11 @@ export default function MarketExplorerSeriesCard({ entry, timeframe, timeframeLa
 
   const change = getPricePerformanceChange(family, timeframe);
   const direction = changeDirection(change);
-  // Locking the last active market is a real interaction rule, not a bug: an
-  // empty chart is never a state the user should be able to reach by clicking.
-  const isLocked = selected && isOnlySelection;
-
   return (
-    <button
-      type="button"
+    <div
       data-market-explorer-card={key}
       data-market-explorer-card-available="true"
-      data-market-explorer-card-selected={selected ? "true" : "false"}
-      data-market-explorer-card-locked={isLocked ? "true" : "false"}
-      aria-pressed={selected}
-      aria-label={`${label}${selected ? ", shown on the comparison chart" : ", hidden from the comparison chart"}${isLocked ? ". At least one market must stay selected." : ""}`}
-      onClick={() => { if (!isLocked) onToggle?.(key); }}
-      className={[
-        "flex min-w-0 flex-col rounded-lg border px-3 py-2.5 text-left transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65",
-        selected
-          ? "border-[var(--border-subtle)] bg-[var(--surface-page)]/55"
-          : "border-[var(--border-subtle)] bg-[var(--surface-page)]/25 opacity-55 hover:opacity-80",
-        isLocked ? "cursor-default" : "cursor-pointer",
-      ].join(" ")}
-      style={selected ? { borderColor: color.replace("0.95", "0.42"), boxShadow: `inset 0 0 0 1px ${color.replace("0.95", "0.12")}` } : undefined}
+      className="flex min-w-0 flex-col rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-2.5 text-left"
     >
       <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
         <span aria-hidden="true" className="inline-block h-2.5 w-2.5 flex-none rounded-[3px]" style={{ backgroundColor: color }} />
@@ -100,6 +82,6 @@ export default function MarketExplorerSeriesCard({ entry, timeframe, timeframeLa
         </span>
         <span aria-hidden="true"> {timeframeLabel}</span>
       </p>
-    </button>
+    </div>
   );
 }

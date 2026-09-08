@@ -48,6 +48,7 @@ export const FEATURE_MARKET_EXPLORER_SINGLE_AXIS = "market_explorer_single_axis"
 export const FEATURE_MARKET_EXPLORER_COMPOUND = "market_explorer_compound";
 export const FEATURE_MARKET_EXPLORER_CUSTOM_RANKED = "market_explorer_custom_ranked";
 export const FEATURE_MARKET_EXPLORER_POKEMON = "market_explorer_pokemon";
+export const FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS = "market_explorer_explicit_instruments";
 export const FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency";
 export const FEATURE_PRODUCT_RIP = "product_rip";
 export const FEATURE_DETAILED_OPENING_ECONOMICS = "detailed_opening_economics";
@@ -77,7 +78,8 @@ export const PREMIUM_FEATURES = Object.freeze(new Set([
   FEATURE_CARD_CHASE_EFFICIENCY, FEATURE_CHASE_OPENING_ROUTE,
   FEATURE_CHASE_VS_BUY, FEATURE_CHASE_RANKINGS,
   FEATURE_MARKET_EXPLORER_COMPOUND, FEATURE_MARKET_EXPLORER_CUSTOM_RANKED,
-  FEATURE_MARKET_EXPLORER_POKEMON, FEATURE_PRODUCT_CHASE_INTELLIGENCE,
+  FEATURE_MARKET_EXPLORER_POKEMON, FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS,
+  FEATURE_PRODUCT_CHASE_INTELLIGENCE,
 ]));
 
 export function hasIndexFeatureAccess(plan, feature) {
@@ -100,8 +102,11 @@ export function evaluateMarketQueryAccess(plan, spec) {
   const activeFilterAxes = activeMarketFilterAxes(spec);
   const ranked = spec?.mode === "chase";
   const pokemon = Boolean(spec?.pokemonIds?.length);
-  const requiredPlan = pokemon || ranked || activeFilterAxes.length > 1 ? INDEX_PLAN_PREMIUM : INDEX_PLAN_PLUS;
-  const capability = pokemon
+  const explicit = spec?.membershipMode === "explicit";
+  const requiredPlan = explicit || pokemon || ranked || activeFilterAxes.length > 1 ? INDEX_PLAN_PREMIUM : INDEX_PLAN_PLUS;
+  const capability = explicit
+    ? FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS
+    : pokemon
     ? FEATURE_MARKET_EXPLORER_POKEMON
     : ranked
       ? FEATURE_MARKET_EXPLORER_CUSTOM_RANKED
