@@ -2,8 +2,8 @@
 
 The historical fixture class intentionally exposes a class-level SQL helper named
 `run`, so this runner calls its test methods directly. The already-applied v1
-stage remains unmodified; this runner installs the review-only v2 successor and
-proves publication uses v2 evidence.
+stage remains unmodified; this runner installs the v2 successor and proves both
+current-date publication and historical retry safety.
 """
 from __future__ import annotations
 
@@ -56,10 +56,6 @@ SELECT jsonb_build_object(
 
 def _run_latest_drift_contract(cls) -> None:
     root = SETS["Evolving Skies"]
-    # Modern standard roots read their moving latest value from the canonical
-    # latest-price projection. Advance exactly that projection to the next day
-    # while leaving historical V2 events/ranges untouched. The approved
-    # 2026-09-06 as-of oracle therefore still reconstructs the original state.
     before = cls.value(f"""
 SELECT jsonb_agg(jsonb_build_object(
  'canonical_card_id',canonical_card_id,
@@ -76,6 +72,8 @@ SET captured_at='2026-09-07',
     market_price=p.market_price+100,
     source='fixture-newer-latest'
 WHERE p.set_id='{root}';
+INSERT INTO public.pokemon_market_date_quality(market_date,tcg,status)
+VALUES('2026-09-07','pokemon','READY');
 """)
     after = cls.value(f"""
 SELECT jsonb_agg(jsonb_build_object(
@@ -90,11 +88,12 @@ WHERE market_scope='standard';
     if before == after or not after or any(row.get("captured_at") != "2026-09-07" for row in after):
         raise AssertionError({"before": before, "after": after})
 
-    old = cls.value(
-        f"SELECT public.preview_price_storage_v2_scoped_values('{root}','{DAY}');"
+    old = cls.run(
+        f"SELECT public.preview_price_storage_v2_scoped_values('{root}','{DAY}');",
+        check=False,
     )
-    if old.get("status") != "blocked" or old.get("reason") != "live_root_contract_mismatch":
-        raise AssertionError(old)
+    if old.returncode == 0 or "latest approved market date" not in old.stderr:
+        raise AssertionError({"stdout": old.stdout, "stderr": old.stderr})
 
     new = cls.value(
         f"SELECT public.preview_price_storage_v2_scoped_values_v2('{root}','{DAY}');"
@@ -113,6 +112,39 @@ WHERE market_scope='standard';
     if comparison.get("root_economic_live_only_rows", 0) <= 0 or comparison.get("root_economic_proposed_only_rows", 0) <= 0:
         raise AssertionError(comparison)
 
+    mismatch = cls.value(f"""
+BEGIN;
+UPDATE public.card_variant_price_observations
+SET market_price=market_price+1
+WHERE card_variant_id=(
+  SELECT card_variant_id
+  FROM public.pokemon_canonical_card_market_prices_latest
+  WHERE set_id='{root}'
+  ORDER BY canonical_card_id
+  LIMIT 1
+);
+SELECT public.preview_price_storage_v2_scoped_values_v2('{root}','{DAY}');
+ROLLBACK;
+""")
+    if mismatch.get("status") != "blocked" or mismatch.get("reason") != "raw_v2_price_contract_mismatch":
+        raise AssertionError(mismatch)
+
+    identity = cls.value(f"""
+BEGIN;
+DELETE FROM public.pokemon_canonical_card_market_prices_latest
+WHERE canonical_card_id=(
+  SELECT canonical_card_id
+  FROM public.pokemon_canonical_card_market_prices_latest
+  WHERE set_id='{root}'
+  ORDER BY canonical_card_id
+  LIMIT 1
+);
+SELECT public.preview_price_storage_v2_scoped_values_v2('{root}','{DAY}');
+ROLLBACK;
+""")
+    if identity.get("status") != "blocked" or identity.get("reason") != "live_root_identity_mismatch":
+        raise AssertionError(identity)
+
 
 def main() -> int:
     if not os.environ.get("PRICE_STORAGE_V2_TEST_CONTAINER"):
@@ -120,7 +152,6 @@ def main() -> int:
     cls = RealSourceContractTests
     cls.setUpClass()
 
-    # Forward-only v2 proposal is applied after the exact historical v1 sources.
     cls.run((REPO_ROOT / "backend/db/proposals/price_storage_v2_scope_stage_v2.sql").read_text(encoding="utf-8"))
 
     names = sorted(
@@ -139,7 +170,7 @@ def main() -> int:
         print(f"{name}: ok", flush=True)
 
     _run_latest_drift_contract(cls)
-    print("test_08_date_safe_v2_tolerates_newer_latest_only_after_identity_and_asof_parity: ok", flush=True)
+    print("test_08_date_safe_v2_survives_market_date_advance_and_stays_fail_closed: ok", flush=True)
     print(f"REAL_SOURCE_SQL_CONTRACTS={len(names)+1} passed", flush=True)
     return 0
 
