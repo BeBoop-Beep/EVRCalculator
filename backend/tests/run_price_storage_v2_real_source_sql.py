@@ -129,21 +129,37 @@ ROLLBACK;
     if mismatch.get("status") != "blocked" or mismatch.get("reason") != "raw_v2_price_contract_mismatch":
         raise AssertionError(mismatch)
 
+    # Root identity is derived from canonical cards even when the latest price row is
+    # missing, so deleting a price row is not an identity drift. Instead, mutate the
+    # exact root-reader definition transactionally to omit one canonical identity.
+    # The DDL is rolled back immediately after the assertion.
     identity = cls.value(f"""
 BEGIN;
-DELETE FROM public.pokemon_canonical_card_market_prices_latest
-WHERE canonical_card_id=(
-  SELECT canonical_card_id
-  FROM public.pokemon_canonical_card_market_prices_latest
-  WHERE set_id='{root}'
-  ORDER BY canonical_card_id
-  LIMIT 1
-);
+DO $do$
+DECLARE
+  v_def text;
+BEGIN
+  SELECT pg_get_functiondef('public.get_pokemon_market_root_set_card_prices_latest_v1(uuid)'::regprocedure)
+    INTO v_def;
+  v_def := replace(
+    v_def,
+    'AND pcc.set_value_eligible = true',
+    'AND pcc.set_value_eligible = true AND pcc.id <> ''30000000-0000-4000-8000-000000000001''::uuid'
+  );
+  IF v_def NOT LIKE '%30000000-0000-4000-8000-000000000001%' THEN
+    RAISE EXCEPTION 'fixture failed to alter root identity contract';
+  END IF;
+  EXECUTE v_def;
+END
+$do$;
 SELECT public.preview_price_storage_v2_scoped_values_v2('{root}','{DAY}');
 ROLLBACK;
 """)
     if identity.get("status") != "blocked" or identity.get("reason") != "live_root_identity_mismatch":
         raise AssertionError(identity)
+    identity_comparison = identity.get("comparison") or {}
+    if identity_comparison.get("root_identity_proposed_only_rows") != 1:
+        raise AssertionError(identity_comparison)
 
 
 def main() -> int:
