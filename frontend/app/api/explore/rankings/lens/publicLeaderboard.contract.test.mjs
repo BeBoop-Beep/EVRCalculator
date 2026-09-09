@@ -5,9 +5,9 @@ import test from "node:test";
 const route = fs.readFileSync(new URL("./route.js", import.meta.url), "utf8");
 const lazy = fs.readFileSync(new URL("../../../../../components/explore/RankingsLazyClient.jsx", import.meta.url), "utf8");
 
-test("Set lens always applies the narrow public leaderboard projection", () => {
+test("Set lens applies the entitlement-aware Set Rankings projection", () => {
   const sets = route.slice(route.indexOf('if (lens === "sets")'), route.indexOf('if (lens === "eras")'));
-  assert.match(sets, /projectRankingsClientPublicSetLeaderboard\(rankTargets\(eligible\)\)/);
+  assert.match(sets, /projectSetRankingsLensTargets\(rankTargets\(eligible\), payload\?\.access\)/);
   assert.doesNotMatch(sets, /canViewRankingsIntelligence:/);
 });
 

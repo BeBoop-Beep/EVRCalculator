@@ -1,0 +1,9 @@
+{
+  "products": [{
+    "sealedProductId": "c29f8489-22db-4ad0-9022-c1a40e503f14", "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+    "chaseAccessibilityReady": true, "chaseAccessibilityReasons": [], "oBudgetStatus": "ready", "oBudget": 0.214,
+    "quantity": 7, "effectivePacks": 7, "actualCommittedCapital": 92.68, "unusedCapital": 7.32,
+    "aRaw": 0.3837, "effectivePackCost": 13.24, "ece": 0.02898
+  }],
+  "meta": { "budget": 100, "marketDate": "2026-09-08" }
+}

@@ -187,6 +187,13 @@ function projectTarget(target) {
   // sourced from the top-level fields above (the same objects, unwrapped).
   const contractV11 = projectContract(target.publicRipContractV11);
   if (contractV11 !== undefined) out.publicRipContractV11 = contractV11;
+  const collectorAppeal = projectLeaves(
+    target?.publicCollectorAppealContractV1?.collectorAppeal,
+    CONTRACT_LEAVES,
+  );
+  if (collectorAppeal !== undefined) {
+    out.publicCollectorAppealContractV1 = { collectorAppeal };
+  }
 
   return out;
 }

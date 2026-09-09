@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "capturedAt": "2026-09-08T00:00:00Z",
+  "routes": {
+    "/tcgs/pokemon/sealed-products/c29f8489-22db-4ad0-9022-c1a40e503f14": { "file": "ascended-pack-detail.json", "status": 200, "contentType": "application/json", "critical": true },
+    "/explore/product-chase-intelligence?budget=100&sealed_product_id=c29f8489-22db-4ad0-9022-c1a40e503f14&set=75cd439d-aaa2-41cb-86f3-2fefa5b26e29": { "file": "ascended-pack-chase-100.json", "status": 200, "contentType": "application/json", "critical": true }
+  }
+}

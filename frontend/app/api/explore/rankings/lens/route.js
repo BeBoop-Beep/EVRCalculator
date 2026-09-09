@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
-import { projectRankingsClientPublicSetLeaderboard } from "@/lib/explore/rankingsClientProjection.mjs";
+import { projectSetRankingsLensTargets } from "@/lib/explore/setRankingsLensProjection.mjs";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +64,7 @@ export async function GET(request) {
     return NextResponse.json(
       {
         status: "available",
-        targets: projectRankingsClientPublicSetLeaderboard(rankTargets(eligible)),
+        targets: projectSetRankingsLensTargets(rankTargets(eligible), payload?.access),
         access: payload?.access || { rankingsIntelligence: false, requiredPlan: "plus" },
         marketDate: marketDate(payload),
       },
