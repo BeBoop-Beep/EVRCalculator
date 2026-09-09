@@ -151,17 +151,21 @@ export default function MarketExplorerQueryBuilder({
       .every((key) => JSON.stringify(draft[key] ?? null) === JSON.stringify(expected[key] ?? null));
   })?.id || null, [draft]);
   const narrowingSummary = useMemo(() => [
-    draft.eraIds.length ? `${draft.eraIds.length} era${draft.eraIds.length === 1 ? "" : "s"}` : null,
-    draft.setIds.length ? `${draft.setIds.length} set${draft.setIds.length === 1 ? "" : "s"}` : null,
-    draft.segmentIds.length ? `${draft.segmentIds.length} ${draft.asset === "cards" ? "rarity" : "family"} filter${draft.segmentIds.length === 1 ? "" : "s"}` : null,
-    draft.pokemonIds.length ? `${draft.pokemonIds.length} Pokémon` : null,
-    draft.priceSegmentIds.length ? `${draft.priceSegmentIds.length} price filter${draft.priceSegmentIds.length === 1 ? "" : "s"}` : null,
-    draft.releaseAgeCohortIds.length ? `${draft.releaseAgeCohortIds.length} release filter${draft.releaseAgeCohortIds.length === 1 ? "" : "s"}` : null,
-  ].filter(Boolean), [draft]);
-  const closeExactWorkspace = (cancelEdit = false) => {
+    ...draft.eraIds.map((id) => builder.eraOptions.find((entry) => entry.id === id)?.label || id),
+    ...draft.setIds.map((id) => builder.assetSets.find((entry) => entry.id === id)?.label || id),
+    ...draft.segmentIds.map((id) => builder.segments.find((entry) => entry.key === id)?.label || id),
+    ...draft.pokemonIds.map((id) => builder.pokemonOptions.find((entry) => entry.id === id)?.label || id),
+    ...draft.priceSegmentIds.map((id) => builder.priceSegments.find((entry) => entry.id === id)?.label || id),
+    ...draft.releaseAgeCohortIds.map((id) => builder.releaseAgeCohorts.find((entry) => entry.id === id)?.label || id),
+    draft.mode === QUERY_MODE_CHASE ? `Composition: Top ${draft.topN || 10}` : null,
+  ].filter(Boolean), [builder.assetSets, builder.eraOptions, builder.pokemonOptions, builder.priceSegments, builder.releaseAgeCohorts, builder.segments, draft]);
+  const closeExactWorkspace = () => {
     setExactOpen(false);
-    if (cancelEdit && editing) onCancelEdit?.();
     setTimeout(() => exactTriggerRef.current?.focus(), 0);
+  };
+  const cancelExactEdits = () => {
+    closeExactWorkspace();
+    onCancelEdit?.();
   };
   const build = async (saveAsNew = false) => {
     if (!spec || (!editing && alreadyActive)) return;
@@ -185,8 +189,10 @@ export default function MarketExplorerQueryBuilder({
         outcome === "duplicate" ? "This market is already in the comparison." : outcome === "updated" ? "Market updated." : outcome === "unchanged" ? "No changes." : "Added to comparison.",
       );
       setBuildStatus("success");
-      closeExactWorkspace(false);
-      if (editing && outcome !== "duplicate" && outcome !== "unchanged") onCancelEdit?.();
+      if (outcome !== "duplicate" && outcome !== "unchanged") {
+        closeExactWorkspace();
+        if (editing) onCancelEdit?.();
+      }
     } catch (error) {
       setMessage(
         error?.message ||
@@ -611,12 +617,14 @@ export default function MarketExplorerQueryBuilder({
       open={exactOpen && draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT}
       selectedItems={draft.exactItems || []}
       onChange={builder.setExactItems}
-      onClose={() => closeExactWorkspace(true)}
+      onClose={closeExactWorkspace}
+      onCancelEdit={editing ? cancelExactEdits : null}
       onBuild={() => build(false)}
       onSaveAsNew={editing ? () => build(true) : null}
       buildLabel={editing ? "Update Market" : "Build Market"}
       buildStatus={buildStatus}
       buildMessage={message}
+      executionLocked={!access.allowed && !prepared}
       narrowingSummary={narrowingSummary}
       onClearNarrowing={() => builder.replace({ ...draft, eraIds: [], setIds: [], segmentIds: [], pokemonIds: [], priceSegmentIds: [], releaseAgeCohortIds: [] })}
     />

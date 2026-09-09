@@ -15,8 +15,33 @@ test("selection rejects duplicates and explains the 25-item ceiling", async () =
   let changed = false;
   let renderer;
   await act(async () => { renderer = TestRenderer.create(<MarketExplorerExactItemPicker asset="cards" selectedItems={selected} onChange={() => { changed = true; }} />); });
-  assert.match(renderer.root.findByProps({ role: "status" }).children.join(""), /Maximum 25 items/);
+  assert.match(renderer.root.findByProps({ role: "status" }).children.join(""), /25 \/ 25 selected/);
   assert.equal(changed, false);
+});
+
+test("Close preserves selection while explicit Cancel edits is a separate action", async () => {
+  const selected = [{ asset: "cards", instrumentId: "v1", name: "Charizard", edition: "Unlimited" }];
+  const calls = [];
+  let renderer;
+  await act(async () => { renderer = TestRenderer.create(<MarketExplorerExactItemPicker asset="cards" selectedItems={selected} onChange={() => calls.push("change")} onClose={() => calls.push("close")} onCancelEdit={() => calls.push("cancel-edit")} />); });
+  await act(async () => { renderer.root.findByProps({ "aria-label": "Close exact item workspace" }).props.onClick(); });
+  assert.deepEqual(calls, ["close"]);
+  assert.equal(renderer.root.findByProps({ "data-exact-selected-items": true }).children.length, 1);
+  await act(async () => { renderer.root.findAllByType("button").find((node) => node.children.includes("Cancel edits")).props.onClick(); });
+  assert.deepEqual(calls, ["close", "cancel-edit"]);
+});
+
+test("execution lock leaves selection usable and locks only the semantic build", async () => {
+  const item = { asset: "sealed", instrumentId: "sealed-1", name: "Elite Trainer Box", productFamily: "ETB" };
+  let selected = [];
+  let renderer;
+  await act(async () => { renderer = TestRenderer.create(<MarketExplorerExactItemPicker asset="sealed" selectedItems={selected} executionLocked onChange={(items) => { selected = items; }} onBuild={() => {}} />); });
+  await act(async () => { renderer.update(<MarketExplorerExactItemPicker asset="sealed" selectedItems={[item]} executionLocked onChange={(items) => { selected = items; }} onBuild={() => {}} />); });
+  const build = renderer.root.findAllByType("button").find((node) => String(node.children.join(" ")).includes("Requires Index Premium"));
+  assert.equal(build.props.disabled, false);
+  const remove = renderer.root.findByProps({ "aria-label": `Remove ${exactItemLabel(item)}` });
+  await act(async () => remove.props.onClick());
+  assert.deepEqual(selected, []);
 });
 
 test("search is debounced and asset-bounded", async () => {

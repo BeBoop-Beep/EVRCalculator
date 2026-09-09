@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder.jsx";
+import MarketExplorerExactItemPicker from "./MarketExplorerExactItemPicker.jsx";
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const OPTIONS = { eras: [{ id: "sv", label: "Scarlet & Violet", sortOrder: 1 }], sets: [{ id: "sv1", label: "Temporal Forces", eraId: "sv", assets: ["cards", "sealed"] }], cardSegments: { segments: [{ key: "sir", label: "Special Illustration Rare" }] }, sealedProductFamilies: { segments: [{ key: "bundle", label: "Booster Bundles" }] } };
@@ -19,6 +20,85 @@ const CARD_PREPARED = [
 const SEALED_PREPARED = [
   { key: "booster-box", label: "Booster Box", group: "sealed", available: true, changes: { "30D": { percent: 7.1 } }, trend: [{ value: 100 }, { value: 107.1 }] },
 ];
+const EDIT_ITEM = { asset: "cards", instrumentId: "card-v1", name: "Charizard", setName: "Base Set", edition: "Unlimited" };
+const EDIT_SERIES = { instanceId: "instance-1", key: "query:one", label: "Exact Charizard", spec: { asset: "cards", membershipMode: "explicit", instrumentIds: ["card-v1"], mode: "all" }, exactItems: [EDIT_ITEM] };
+
+async function changeExactEdit(renderer) {
+  const next = { asset: "cards", instrumentId: "card-v2", name: "Blastoise", setName: "Base Set", edition: "Unlimited" };
+  await act(async () => renderer.root.findByType(MarketExplorerExactItemPicker).props.onChange([EDIT_ITEM, next]));
+}
+
+test("closing Exact workspace preserves edit session while explicit Cancel edits exits it", async () => {
+  let cancels = 0;
+  const renderer = mount({ editingSeries: EDIT_SERIES, onCancelEdit: () => { cancels += 1; } });
+  await act(async () => renderer.root.findByProps({ "aria-label": "Close exact item workspace" }).props.onClick());
+  assert.equal(cancels, 0);
+  await act(async () => renderer.root.findByProps({ "data-market-exact-open": true }).props.onClick());
+  await act(async () => renderer.root.findAllByType("button").find((node) => node.children.includes("Cancel edits")).props.onClick());
+  assert.equal(cancels, 1);
+});
+
+for (const outcome of ["duplicate", "unchanged"]) {
+  test(`${outcome} update keeps Exact workspace and selected definition open`, async () => {
+    const renderer = mount({ editingSeries: EDIT_SERIES, onUpdateQuery: async () => outcome });
+    await changeExactEdit(renderer);
+    await act(async () => renderer.root.findAllByType("button").find((node) => node.children.includes("Update Market")).props.onClick());
+    assert.ok(renderer.root.findByProps({ "data-market-explorer-exact-workspace": true }));
+    assert.equal(renderer.root.findAllByProps({ "data-exact-selected-items": true })[0].findAllByType("li").length, 2);
+  });
+}
+
+test("successful update closes workspace and exits the same edit instance", async () => {
+  const calls = []; let cancels = 0;
+  const renderer = mount({ editingSeries: EDIT_SERIES, onUpdateQuery: async (instanceId) => { calls.push(instanceId); return "updated"; }, onCancelEdit: () => { cancels += 1; } });
+  await changeExactEdit(renderer);
+  await act(async () => renderer.root.findAllByType("button").find((node) => node.children.includes("Update Market")).props.onClick());
+  assert.deepEqual(calls, ["instance-1"]);
+  assert.equal(cancels, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-market-explorer-exact-workspace": true }).length, 0);
+});
+
+test("failed update keeps workspace and exact selections intact", async () => {
+  const renderer = mount({ editingSeries: EDIT_SERIES, onUpdateQuery: async () => { throw new Error("Canonical update failed"); } });
+  await changeExactEdit(renderer);
+  await act(async () => renderer.root.findAllByType("button").find((node) => node.children.includes("Update Market")).props.onClick());
+  assert.ok(renderer.root.findByProps({ "data-market-explorer-exact-workspace": true }));
+  assert.match(textOf(renderer.root), /Canonical update failed/);
+  assert.equal(renderer.root.findAllByProps({ "data-exact-selected-items": true })[0].findAllByType("li").length, 2);
+});
+
+test("successful new exact Build closes after one semantic query", async () => {
+  const calls = [];
+  const renderer = mount({ onAddQuery: async (spec, detail) => { calls.push({ spec, detail }); return "added"; } });
+  await act(async () => renderer.root.findAll((node) => node.props?.role === "radio").find((node) => textOf(node).includes("Exact Items")).props.onClick());
+  await act(async () => renderer.root.findByType(MarketExplorerExactItemPicker).props.onChange([EDIT_ITEM]));
+  await act(async () => renderer.root.findByType(MarketExplorerExactItemPicker).findAllByType("button").find((node) => node.children.includes("Build Market")).props.onClick());
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].spec.instrumentIds, ["card-v1"]);
+  assert.equal(renderer.root.findAllByProps({ "data-market-explorer-exact-workspace": true }).length, 0);
+});
+
+test("Save as new uses one add request, keeps the edited instance untouched, and closes", async () => {
+  const addCalls = []; let updateCalls = 0;
+  const renderer = mount({ editingSeries: EDIT_SERIES, onAddQuery: async (spec) => { addCalls.push(spec); return "added"; }, onUpdateQuery: async () => { updateCalls += 1; } });
+  await changeExactEdit(renderer);
+  await act(async () => renderer.root.findByType(MarketExplorerExactItemPicker).findAllByType("button").find((node) => node.children.includes("Save as new")).props.onClick());
+  assert.equal(addCalls.length, 1);
+  assert.equal(updateCalls, 0);
+  assert.equal(renderer.root.findAllByProps({ "data-market-explorer-exact-workspace": true }).length, 0);
+});
+
+test("Clear narrowing preserves asset, explicit mode, and selected exact items", async () => {
+  const scopedEdit = { ...EDIT_SERIES, spec: { ...EDIT_SERIES.spec, setIds: ["sv1"] } };
+  const renderer = mount({ editingSeries: scopedEdit });
+  const picker = renderer.root.findByType(MarketExplorerExactItemPicker);
+  assert.match(picker.props.narrowingSummary.join(" "), /Temporal Forces/);
+  await act(async () => picker.props.onClearNarrowing());
+  const next = renderer.root.findByType(MarketExplorerExactItemPicker);
+  assert.equal(next.props.asset, "cards");
+  assert.deepEqual(next.props.selectedItems.map((item) => item.instrumentId), ["card-v1"]);
+  assert.deepEqual(next.props.narrowingSummary, []);
+});
 
 test("Screen selection is immediate, transfers visibly, and leaves Builder output unchanged", () => {
   const renderer = mount({ preparedSeries: [...CARD_PREPARED, ...SEALED_PREPARED] });
