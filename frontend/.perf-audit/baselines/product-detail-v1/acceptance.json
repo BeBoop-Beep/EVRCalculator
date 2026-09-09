@@ -1,0 +1,137 @@
+{
+  "product-rip__desktop": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "screenshotPath": "D:\\EVRCalculator\\frontend\\.perf-audit\\baselines\\product-detail-v1\\product-rip__desktop.png",
+    "overflow": 0,
+    "image": {
+      "exists": true,
+      "src": "/images/pokemon/booster-packs/ascendedHeroes.webp",
+      "alt": "Ascended Heroes Booster Pack sealed product",
+      "source": "local"
+    },
+    "network": {
+      "mode": "playback",
+      "expectedRequests": 2,
+      "preflightRequests": [
+        {
+          "route": "/tcgs/pokemon/sealed-products/c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-chase-intelligence?budget=100&sealed_product_id=c29f8489-22db-4ad0-9022-c1a40e503f14&set=75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "count": 1
+        }
+      ],
+      "browserRequests": [
+        {
+          "route": "/auth/me",
+          "count": 2
+        },
+        {
+          "route": "/tcgs/pokemon/sealed-products/c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-chase-intelligence?budget=100&sealed_product_id=c29f8489-22db-4ad0-9022-c1a40e503f14&set=75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "count": 1
+        }
+      ],
+      "unexpectedPreflightRequests": [],
+      "unexpectedBrowserRequests": [],
+      "unusedBrowserCriticalFixtures": []
+    }
+  },
+  "product-rip__tablet": {
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "screenshotPath": "D:\\EVRCalculator\\frontend\\.perf-audit\\baselines\\product-detail-v1\\product-rip__tablet.png",
+    "overflow": 0,
+    "image": {
+      "exists": true,
+      "src": "/images/pokemon/booster-packs/ascendedHeroes.webp",
+      "alt": "Ascended Heroes Booster Pack sealed product",
+      "source": "local"
+    },
+    "network": {
+      "mode": "playback",
+      "expectedRequests": 2,
+      "preflightRequests": [
+        {
+          "route": "/tcgs/pokemon/sealed-products/c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-chase-intelligence?budget=100&sealed_product_id=c29f8489-22db-4ad0-9022-c1a40e503f14&set=75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "count": 1
+        }
+      ],
+      "browserRequests": [
+        {
+          "route": "/auth/me",
+          "count": 2
+        },
+        {
+          "route": "/tcgs/pokemon/sealed-products/c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-chase-intelligence?budget=100&sealed_product_id=c29f8489-22db-4ad0-9022-c1a40e503f14&set=75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "count": 1
+        }
+      ],
+      "unexpectedPreflightRequests": [],
+      "unexpectedBrowserRequests": [],
+      "unusedBrowserCriticalFixtures": []
+    }
+  },
+  "product-rip__mobile": {
+    "viewport": {
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "D:\\EVRCalculator\\frontend\\.perf-audit\\baselines\\product-detail-v1\\product-rip__mobile.png",
+    "overflow": 0,
+    "image": {
+      "exists": true,
+      "src": "/images/pokemon/booster-packs/ascendedHeroes.webp",
+      "alt": "Ascended Heroes Booster Pack sealed product",
+      "source": "local"
+    },
+    "network": {
+      "mode": "playback",
+      "expectedRequests": 2,
+      "preflightRequests": [
+        {
+          "route": "/tcgs/pokemon/sealed-products/c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-chase-intelligence?budget=100&sealed_product_id=c29f8489-22db-4ad0-9022-c1a40e503f14&set=75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "count": 1
+        }
+      ],
+      "browserRequests": [
+        {
+          "route": "/auth/me",
+          "count": 2
+        },
+        {
+          "route": "/tcgs/pokemon/sealed-products/c29f8489-22db-4ad0-9022-c1a40e503f14",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-chase-intelligence?budget=100&sealed_product_id=c29f8489-22db-4ad0-9022-c1a40e503f14&set=75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "count": 1
+        }
+      ],
+      "unexpectedPreflightRequests": [],
+      "unexpectedBrowserRequests": [],
+      "unusedBrowserCriticalFixtures": []
+    }
+  }
+}

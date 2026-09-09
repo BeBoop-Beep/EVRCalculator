@@ -1,60 +1,51 @@
 "use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MAX_EXPLICIT_INSTRUMENTS } from "@/lib/explore/marketExplorerQuery.mjs";
 
 export function exactItemLabel(item) {
-  if (item.asset === "sealed") return [item.name, item.setName, item.productFamily || item.productType, item.variantLabel].filter(Boolean).join(" · ");
-  return [item.name, item.setName, item.cardNumber ? `#${item.cardNumber}` : null, item.rarity, item.edition, item.printingType, item.specialType].filter(Boolean).join(" · ");
+  const parts = item.asset === "sealed"
+    ? [item.name, item.setName, item.productFamily || item.productType, item.variantLabel]
+    : [item.name, item.setName, item.cardNumber ? `#${item.cardNumber}` : null, item.rarity, item.edition, item.printingType, item.specialType];
+  return parts.filter(Boolean).join(" · ");
 }
 
-export default function MarketExplorerExactItemPicker({ asset, selectedItems = [], onChange, disabled = false }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [status, setStatus] = useState("idle");
-  const [message, setMessage] = useState("");
-  const requestId = useRef(0);
+export default function MarketExplorerExactItemPicker({ asset, selectedItems = [], onChange, disabled = false, open = true, onClose, onBuild, onSaveAsNew, buildLabel = "Build Market", buildStatus = "idle", buildMessage = "", narrowingSummary = [], onClearNarrowing }) {
+  const [query, setQuery] = useState(""); const [results, setResults] = useState([]); const [status, setStatus] = useState("idle"); const [message, setMessage] = useState("");
+  const requestId = useRef(0); const dialogRef = useRef(null); const searchRef = useRef(null);
   const selectedIds = useMemo(() => new Set(selectedItems.map((item) => item.instrumentId)), [selectedItems]);
   const atMaximum = selectedItems.length >= MAX_EXPLICIT_INSTRUMENTS;
-
   useEffect(() => {
-    const needle = query.trim();
-    requestId.current += 1;
-    const token = requestId.current;
+    if (!open || typeof document === "undefined") return undefined; searchRef.current?.focus();
+    const key = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); onClose?.(); return; }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const nodes = [...dialogRef.current.querySelectorAll("button:not([disabled]),input:not([disabled])")];
+      if (event.shiftKey && document.activeElement === nodes[0]) { event.preventDefault(); nodes.at(-1)?.focus(); }
+      else if (!event.shiftKey && document.activeElement === nodes.at(-1)) { event.preventDefault(); nodes[0]?.focus(); }
+    };
+    document.addEventListener("keydown", key); return () => document.removeEventListener("keydown", key);
+  }, [onClose, open]);
+  useEffect(() => {
+    const needle = query.trim(); requestId.current += 1; const token = requestId.current;
     if (needle.length < 2) { setResults([]); setStatus("idle"); setMessage(""); return undefined; }
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
+    const controller = new AbortController(); const timer = setTimeout(async () => {
       setStatus("loading"); setMessage("");
       try {
         const response = await fetch(`/api/market/explorer/instruments/search?q=${encodeURIComponent(needle)}&asset=${asset}&limit=20`, { signal: controller.signal, credentials: "include" });
-        const payload = await response.json().catch(() => null);
-        if (token !== requestId.current) return;
+        const payload = await response.json().catch(() => null); if (token !== requestId.current) return;
         if (!response.ok) throw new Error(payload?.detail?.message || payload?.message || "Unable to search exact items.");
-        setResults((payload?.items || []).filter((item) => item.asset === asset));
-        setStatus("ready");
-      } catch (error) {
-        if (error?.name === "AbortError" || token !== requestId.current) return;
-        setResults([]); setStatus("error"); setMessage(error?.message || "Unable to search exact items.");
-      }
-    }, 300);
-    return () => { clearTimeout(timer); controller.abort(); };
+        setResults((payload?.items || []).filter((item) => item.asset === asset)); setStatus("ready");
+      } catch (error) { if (error?.name !== "AbortError" && token === requestId.current) { setResults([]); setStatus("error"); setMessage(error?.message || "Unable to search exact items."); } }
+    }, 300); return () => { clearTimeout(timer); controller.abort(); };
   }, [asset, query]);
-
-  const add = (item) => {
-    if (disabled || atMaximum || selectedIds.has(item.instrumentId) || item.asset !== asset) return;
-    onChange?.([...selectedItems, item]);
-  };
-  return <div data-market-explorer-exact-picker className="space-y-2">
-    <label className="block text-[11px] font-semibold text-[var(--text-primary)]" htmlFor={`exact-item-search-${asset}`}>Search exact items</label>
-    <input id={`exact-item-search-${asset}`} type="search" value={query} disabled={disabled}
-      placeholder={asset === "sealed" ? "Search sealed products…" : "Search cards…"}
-      onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { setQuery(""); setResults([]); } if (event.key === "Enter" && results.length) { event.preventDefault(); add(results[0]); } }}
-      className="min-h-11 w-full rounded-md border border-[var(--border-subtle)] bg-transparent px-3 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] desk:min-h-0" />
-    <p data-exact-item-count className="text-[10px] text-[var(--text-secondary)]">{selectedItems.length} of {MAX_EXPLICIT_INSTRUMENTS} selected</p>
-    {atMaximum ? <p role="status" className="text-[11px] text-[var(--text-secondary)]">Maximum 25 items per custom basket.</p> : null}
-    {selectedItems.length ? <ul data-exact-selected-items className="space-y-1">{selectedItems.map((item) => <li key={item.instrumentId} className="flex items-center gap-2 rounded-md border border-[var(--border-subtle)] px-2 py-1.5 text-[11px]"><span className="min-w-0 flex-1 text-[var(--text-primary)]">{exactItemLabel(item)}</span><button type="button" aria-label={`Remove ${item.name}`} onClick={() => onChange?.(selectedItems.filter((entry) => entry.instrumentId !== item.instrumentId))} className="min-h-8 px-2 text-[var(--text-secondary)]">×</button></li>)}</ul> : null}
-    {status === "loading" ? <p role="status" className="text-[11px] text-[var(--text-secondary)]">Searching…</p> : null}
-    {message ? <p role="status" className="text-[11px] text-[var(--text-secondary)]">{message}</p> : null}
-    {status === "ready" ? <ul role="listbox" aria-label="Exact item search results" className="max-h-56 space-y-1 overflow-y-auto">{results.length ? results.map((item) => { const selected = selectedIds.has(item.instrumentId); return <li key={`${item.asset}:${item.instrumentId}`}><button type="button" role="option" aria-selected={selected} disabled={disabled || selected || atMaximum} onClick={() => add(item)} className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11px] hover:bg-white/5 disabled:opacity-45">{item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" className="h-9 w-7 flex-none rounded object-cover" /> : null}<span className="min-w-0 flex-1"><span className="block font-medium text-[var(--text-primary)]">{item.name}</span><span className="block text-[10px] text-[var(--text-secondary)]">{exactItemLabel({ ...item, name: null })}{selected ? " · Selected" : ""}</span></span><span className="flex-none text-[10px] font-semibold text-[rgb(45,212,191)]">{selected ? "Added" : "Add"}</span></button></li>; }) : <li className="text-[11px] text-[var(--text-secondary)]">No exact items found.</li>}</ul> : null}
-  </div>;
+  const add = (item) => { if (!disabled && !atMaximum && !selectedIds.has(item.instrumentId) && item.asset === asset) onChange?.([...selectedItems, item]); };
+  if (!open) return null;
+  const imageClass = asset === "sealed" ? "h-24 w-24" : "h-28 w-20";
+  return <div data-market-explorer-exact-workspace className="fixed inset-0 z-[90] flex bg-slate-950/80 backdrop-blur-sm desk:items-center desk:justify-center desk:p-6"><div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`exact-title-${asset}`} className="flex h-full w-full flex-col overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-2xl desk:max-h-[86vh] desk:max-w-5xl desk:rounded-2xl">
+    <header className="flex items-center gap-4 border-b border-[var(--border-subtle)] px-4 py-3 sm:px-6"><div className="flex-1"><h2 id={`exact-title-${asset}`} className="text-lg font-semibold text-[var(--text-primary)]">Select Exact {asset === "sealed" ? "Sealed Products" : "Cards"}</h2><p data-exact-item-count className="text-xs text-[var(--text-secondary)]">{selectedItems.length} / 25 selected</p></div><button type="button" aria-label="Close exact item workspace" onClick={onClose} className="min-h-11 min-w-11 rounded-full border border-[var(--border-subtle)] text-xl">×</button></header>
+    <div className="sticky top-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-4 py-3 sm:px-6"><label className="text-xs font-semibold" htmlFor={`exact-search-${asset}`}>Search exact items</label><input ref={searchRef} id={`exact-search-${asset}`} type="search" value={query} placeholder={asset === "sealed" ? "Search sealed products…" : "Search cards…"} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && results.length) { e.preventDefault(); add(results[0]); } }} className="mt-1 min-h-12 w-full rounded-lg border border-[var(--border-subtle)] bg-transparent px-4 text-base" />{narrowingSummary.length ? <div data-exact-narrowing className="mt-2 flex justify-between gap-3 rounded-lg border border-amber-400/30 p-2 text-xs"><span><strong>Additional Builder filters:</strong> {narrowingSummary.join(" · ")}</span><button type="button" onClick={onClearNarrowing} className="text-[rgb(45,212,191)]">Clear narrowing filters</button></div> : null}</div>
+    <div className="grid min-h-0 flex-1 desk:grid-cols-[1.8fr_1fr]"><section aria-label="Search results" className="min-h-0 overflow-y-auto p-4 sm:p-6">{atMaximum ? <p role="status">Maximum 25 items per custom basket.</p> : null}{status === "loading" ? <p role="status">Searching…</p> : null}{message ? <p role="alert" className="text-red-200">{message}</p> : null}{status === "ready" ? <ul role="listbox" aria-label="Exact item search results" className="space-y-2">{results.length ? results.map((item) => { const selected = selectedIds.has(item.instrumentId); return <li key={item.instrumentId}><button type="button" role="option" aria-selected={selected} disabled={disabled || selected || atMaximum} onClick={() => add(item)} className="flex min-h-28 w-full items-center gap-4 rounded-xl border border-[var(--border-subtle)] p-3 text-left disabled:opacity-55">{item.imageUrl ? <img src={item.imageUrl} alt={`${item.name} artwork`} className={`${imageClass} flex-none rounded object-contain`} /> : <span className={`${imageClass} flex-none rounded bg-white/5`} />}<span className="min-w-0 flex-1"><strong className="block">{item.name}</strong><span className="mt-1 block text-xs text-[var(--text-secondary)]">{exactItemLabel({ ...item, name: null })}</span></span><b className="text-xs text-[rgb(45,212,191)]">{selected ? "Added" : "Add"}</b></button></li>; }) : <li className="py-10 text-center text-sm">No exact items found.</li>}</ul> : null}</section>
+    <aside className="min-h-0 overflow-y-auto border-t border-[var(--border-subtle)] p-4 desk:border-l desk:border-t-0 sm:p-6"><h3 className="font-semibold">Selected basket</h3>{selectedItems.length ? <ul data-exact-selected-items className="mt-2 space-y-2">{selectedItems.map((item) => <li key={item.instrumentId} className="flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] p-2 text-xs"><span className="flex-1">{exactItemLabel(item)}</span><button type="button" aria-label={`Remove ${item.name}`} onClick={() => onChange?.(selectedItems.filter((row) => row.instrumentId !== item.instrumentId))} className="min-h-9 px-2">×</button></li>)}</ul> : <p className="mt-2 text-xs text-[var(--text-secondary)]">Search and add 1–25 items.</p>}</aside></div>
+    <footer className="sticky bottom-0 border-t border-[var(--border-subtle)] bg-[var(--surface-page)] p-3 sm:px-6">{buildMessage ? <p role={buildStatus === "error" ? "alert" : "status"} className={`mb-2 rounded-lg border p-2 text-xs ${buildStatus === "error" ? "border-red-400/40 text-red-200" : "border-[var(--border-subtle)]"}`}>{buildStatus === "error" ? <strong className="block uppercase">Could not build market</strong> : null}{buildMessage}</p> : null}<div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="min-h-11 rounded-lg border px-5">Cancel</button>{onSaveAsNew ? <button type="button" disabled={!selectedItems.length || buildStatus === "building"} onClick={onSaveAsNew} className="min-h-11 rounded-lg border px-5">Save as new</button> : null}<button type="button" disabled={!selectedItems.length || buildStatus === "building" || disabled} onClick={onBuild} className="min-h-11 rounded-lg border border-[rgb(45,212,191)] bg-[rgba(45,212,191,.16)] px-5 font-semibold text-[rgb(45,212,191)] disabled:opacity-45">{buildStatus === "building" ? "Building…" : buildLabel}</button></div></footer>
+  </div></div>;
 }

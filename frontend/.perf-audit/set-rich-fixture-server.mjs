@@ -2,18 +2,19 @@ import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createFixtureConsumption } from "./fixture-consumption.mjs";
 
 const PORT = Number(process.env.FIXTURE_PORT || 8011);
 const MODE = process.env.FIXTURE_MODE || "playback";
 const LIVE_BASE = process.env.LIVE_BACKEND_BASE || "http://127.0.0.1:8001";
-const ROOT = join(process.cwd(), ".perf-audit", "fixtures", "set-rich-v1");
+const SUITE = process.env.FIXTURE_SUITE || "set-rich-v1";
+const ROOT = join(process.cwd(), ".perf-audit", "fixtures", SUITE);
 const MANIFEST_PATH = join(ROOT, "manifest.json");
 const DEBUG = process.env.SET_FIXTURE_DEBUG === "1";
 const manifest = existsSync(MANIFEST_PATH)
   ? JSON.parse(readFileSync(MANIFEST_PATH, "utf8"))
   : { version: 1, capturedAt: null, routes: {} };
-const observed = new Map();
-const unexpected = [];
+const consumption = createFixtureConsumption(manifest);
 
 function canonicalUrl(requestUrl) {
   const url = new URL(requestUrl, `http://127.0.0.1:${PORT}`);
@@ -29,7 +30,7 @@ function allowed(key) {
   const path = new URL(key, "http://fixture").pathname;
   // Recording is deliberately limited to the public Pokemon read namespace;
   // playback is stricter still and serves only exact manifest entries.
-  return path.startsWith("/tcgs/pokemon/");
+  return path.startsWith("/tcgs/pokemon/") || path.startsWith("/explore/");
 }
 
 function json(response, status, payload) {
@@ -38,28 +39,36 @@ function json(response, status, payload) {
 }
 
 function report() {
-  const critical = Object.entries(manifest.routes).filter(([, entry]) => entry.critical !== false);
   return {
     mode: MODE,
     expectedRequests: Object.keys(manifest.routes).length,
-    observedRequests: [...observed.entries()].map(([route, count]) => ({ route, count })),
-    unexpectedRequests: unexpected,
-    unusedCriticalFixtures: critical.filter(([route]) => !observed.has(route)).map(([route]) => route),
+    ...consumption.report(),
   };
 }
 
 const server = createServer(async (request, response) => {
   const key = canonicalUrl(request.url || "/");
+  const phase = request.headers["x-fixture-preflight"] === "1" ? "preflight" : "browser";
   if (key === "/__fixture__/health") return json(response, 200, { ok: true, mode: MODE });
   if (key === "/__fixture__/report") return json(response, 200, report());
+  if (key === "/__fixture__/reset-browser" && request.method === "POST") {
+    consumption.resetBrowser();
+    return json(response, 200, { ok: true });
+  }
   // Anonymous visual acceptance is intentional. Keep auth deterministic without
   // requiring a recorded user fixture or treating the expected probe as noise.
-  if (request.method === "GET" && key === "/auth/me") return json(response, 401, { user: null });
+  if (request.method === "GET" && key === "/auth/me") {
+    consumption.record(key, { phase, expected: true, method: request.method });
+    if (String(request.headers.cookie || "").includes("fixture-premium")) {
+      return json(response, 200, { user: { id: "fixture-user", email: "fixture@example.test", index_plan: "premium" } });
+    }
+    return json(response, 401, { user: null });
+  }
   if (request.method !== "GET" || !allowed(key)) {
-    unexpected.push(`${request.method} ${key}`);
+    consumption.record(key, { phase, expected: false, method: request.method });
     return json(response, 501, { error: "unexpected_fixture_request", method: request.method, route: key });
   }
-  observed.set(key, (observed.get(key) || 0) + 1);
+  consumption.record(key, { phase, expected: Boolean(manifest.routes[key]), method: request.method });
   if (DEBUG) console.log(`[set-fixture:${MODE}] ${request.method} ${key}`);
 
   if (MODE === "record") {
@@ -77,7 +86,6 @@ const server = createServer(async (request, response) => {
 
   const entry = manifest.routes[key];
   if (!entry) {
-    unexpected.push(`GET ${key}`);
     return json(response, 404, { error: "missing_fixture", route: key });
   }
   response.writeHead(entry.status, { "content-type": entry.contentType, "cache-control": "no-store" });

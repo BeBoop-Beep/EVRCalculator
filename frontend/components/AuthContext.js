@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useState, useEffect, useContext, useCallback, useRef } from "react";
+import { createContext, createElement, useState, useEffect, useContext, useCallback, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   AUTH_RESOLUTION,
@@ -9,7 +9,7 @@ import {
   resolveCurrentUser,
 } from "@/lib/auth/clientAuthLifecycle.mjs";
 
-const AuthContext = createContext();
+const AuthContext = createContext({ user: null, authStatus: "resolved", authRevision: 0 });
 
 export function AuthProvider({ children, initialUser = null }) {
   const [user, setUser] = useState(initialUser); // Track the user state
@@ -132,11 +132,7 @@ export function AuthProvider({ children, initialUser = null }) {
     router.refresh();
   };
 
-  return (
-    <AuthContext.Provider value={{ user, login, logout, refreshUser, syncUser, authStatus, authRevision }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return createElement(AuthContext.Provider, { value: { user, login, logout, refreshUser, syncUser, authStatus, authRevision } }, children);
 }
 
 export const useAuth = () => useContext(AuthContext);

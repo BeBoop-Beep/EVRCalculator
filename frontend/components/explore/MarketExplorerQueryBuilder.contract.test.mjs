@@ -7,7 +7,7 @@ test("the left rail is the only market builder", async () => {
   const [client, builder] = await Promise.all([read("./MarketExplorerClient.jsx"), read("./MarketExplorerQueryBuilder.jsx")]);
   assert.ok(client.includes("<MarketExplorerQueryBuilder"));
   for (const obsolete of ['id="buildAMarket"', "scopeHandoff", "handOffToBuilder", "Use in Build a Market", "<MarketExplorerFilters"]) assert.ok(!client.includes(obsolete));
-  assert.match(builder, />\s*Market Builder\s*<\/h2>/);
+  assert.match(builder, />\s*Market Explorer\s*<\/h2>/);
 });
 
 test("asset-first hierarchy owns repeated canonical scope controls", async () => {
@@ -18,7 +18,7 @@ test("asset-first hierarchy owns repeated canonical scope controls", async () =>
 
 test("draft, commit, duplicate, and mobile controls are explicit", async () => {
   const source = await read("./MarketExplorerQueryBuilder.jsx");
-  for (const marker of ["useMarketExplorerBuilderDraft", "data-current-market-preview", "data-market-builder-clear", "data-market-builder-build", "Already Active", "onAddPrepared?.(prepared.key)", "onAddQuery?.(spec)", "data-market-builder-mobile-toggle", "data-market-builder-scroll-region"]) assert.ok(source.includes(marker), `missing ${marker}`);
+  for (const marker of ["useMarketExplorerBuilderDraft", "data-current-market-preview", "data-market-builder-clear", "data-market-builder-build", "Already Active", "onAddPrepared?.(prepared.key)", "onAddQuery?.(spec,", "data-market-builder-mobile-toggle", "data-market-builder-scroll-region"]) assert.ok(source.includes(marker), `missing ${marker}`);
   assert.ok(!source.includes("marketPrice"));
 });
 

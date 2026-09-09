@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildMarketPerformanceDomain } from "./marketPerformanceDomain.mjs";
+import { buildMarketPerformanceDomain, buildRelativePerformanceDomain, toSelectedWindowPerformance } from "./marketPerformanceDomain.mjs";
 
 const domain = (values, timeframe) => buildMarketPerformanceDomain(values.map((value) => ({ value })), timeframe);
 
@@ -36,4 +36,17 @@ test("domain calculation never changes point values", () => {
   const values = [102.47, 102.52];
   domain(values, "7D");
   assert.deepEqual(values, [102.47, 102.52]);
+});
+
+test("selected-window performance anchors each series at its first non-null point", () => {
+  const values = toSelectedWindowPerformance([null, 98, 99.96, null]);
+  assert.deepEqual(values.slice(0, 2), [null, 0]);
+  assert.ok(Math.abs(values[2] - 2) < 1e-9);
+  assert.equal(values[3], null);
+});
+
+test("relative domain includes zero and uses an honest 0.75 point minimum span", () => {
+  const [minimum, maximum] = buildRelativePerformanceDomain([{ value: 0 }, { value: 0.03 }]);
+  assert.ok(minimum <= 0 && maximum >= 0.03);
+  assert.ok(maximum - minimum >= 0.75 && maximum - minimum < 1);
 });

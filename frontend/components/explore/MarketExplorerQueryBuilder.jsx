@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
 import DarkSelect from "@/components/ui/DarkSelect";
 import ExplorerDisclosure from "./ExplorerDisclosure";
@@ -31,6 +31,7 @@ import {
 import useMarketExplorerFilterOptions from "@/hooks/explore/useMarketExplorerFilterOptions";
 import {
   MARKET_EXPLORER_SCREENS,
+  MARKET_EXPLORER_QUICK_PRESETS,
   canUseScreen,
   draftForScreenResult,
   resolveScreenResults,
@@ -56,7 +57,7 @@ function PreparedOptionList({ entries, onToggle, selectedSeriesCount }) {
 }
 
 export default function MarketExplorerQueryBuilder({
-  options = null,
+  options,
   optionsStatus = "loading",
   optionsMessage = "",
   currentPlan = null,
@@ -77,8 +78,11 @@ export default function MarketExplorerQueryBuilder({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [buildStatus, setBuildStatus] = useState("idle");
+  const [exactOpen, setExactOpen] = useState(false);
+  const exactTriggerRef = useRef(null);
   const [selectedScreenId, setSelectedScreenId] = useState(null);
-  const loadedOptions = useMarketExplorerFilterOptions();
+  const loadedOptions = useMarketExplorerFilterOptions({ enabled: options === undefined });
   const canonicalOptions = options || loadedOptions.options;
   const canonicalStatus = options ? optionsStatus : loadedOptions.status;
   const canonicalMessage = options ? optionsMessage : loadedOptions.message;
@@ -95,6 +99,7 @@ export default function MarketExplorerQueryBuilder({
     if (!editingSeries?.spec) return;
     builder.replace({ ...editingSeries.spec, exactItems: editingSeries.exactItems || [] });
     setMobileOpen(true);
+    if (editingSeries.spec.membershipMode === QUERY_MEMBERSHIP_EXPLICIT) setExactOpen(true);
     setMessage("");
     // The instance id is the edit-session boundary. Draft field changes must
     // never reload the active result back over the user's unsaved edits.
@@ -135,15 +140,31 @@ export default function MarketExplorerQueryBuilder({
         : [],
     [selectedScreen, preparedSeries, draft.asset],
   );
+  const selectedPresetId = useMemo(() => MARKET_EXPLORER_QUICK_PRESETS.find((preset) => {
+    if (draft.asset !== "cards" || draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT) return false;
+    const expected = draftForScreenResult(preset, null, draft);
+    return ["segmentIds", "pokemonIds", "priceSegmentIds", "releaseAgeCohortIds", "mode", "topN"]
+      .every((key) => JSON.stringify(draft[key] ?? null) === JSON.stringify(expected[key] ?? null));
+  })?.id || null, [draft]);
+  const narrowingSummary = useMemo(() => [
+    draft.eraIds.length ? `${draft.eraIds.length} era${draft.eraIds.length === 1 ? "" : "s"}` : null,
+    draft.setIds.length ? `${draft.setIds.length} set${draft.setIds.length === 1 ? "" : "s"}` : null,
+    draft.segmentIds.length ? `${draft.segmentIds.length} ${draft.asset === "cards" ? "rarity" : "family"} filter${draft.segmentIds.length === 1 ? "" : "s"}` : null,
+    draft.pokemonIds.length ? `${draft.pokemonIds.length} Pokémon` : null,
+    draft.priceSegmentIds.length ? `${draft.priceSegmentIds.length} price filter${draft.priceSegmentIds.length === 1 ? "" : "s"}` : null,
+    draft.releaseAgeCohortIds.length ? `${draft.releaseAgeCohortIds.length} release filter${draft.releaseAgeCohortIds.length === 1 ? "" : "s"}` : null,
+  ].filter(Boolean), [draft]);
   const build = async (saveAsNew = false) => {
     if (!spec || (!editing && alreadyActive)) return;
     if (!prepared && !access.allowed) {
       setMessage(
         `This market requires Index ${access.requiredPlan === "premium" ? "Premium" : "Plus"}.`,
       );
+      setBuildStatus("locked");
       return;
     }
     setLoading(true);
+    setBuildStatus("building");
     setMessage("");
     try {
       const outcome = editing && !saveAsNew
@@ -154,12 +175,15 @@ export default function MarketExplorerQueryBuilder({
       setMessage(
         outcome === "duplicate" ? "This market is already in the comparison." : outcome === "updated" ? "Market updated." : outcome === "unchanged" ? "No changes." : "Added to comparison.",
       );
+      setBuildStatus("success");
+      setExactOpen(false);
       if (outcome === "updated") onCancelEdit?.();
     } catch (error) {
       setMessage(
         error?.message ||
           "The market query service is temporarily unavailable.",
       );
+      setBuildStatus("error");
     } finally {
       setLoading(false);
     }
@@ -197,14 +221,9 @@ export default function MarketExplorerQueryBuilder({
       <div className="mt-2 space-y-2">
         <div data-market-builder-membership-mode role="radiogroup" aria-label="Build from" className="grid grid-cols-2 gap-2">
           <button type="button" role="radio" aria-checked={draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_FILTERS)} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Filters</button>
-          <button type="button" role="radio" aria-checked={draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_EXPLICIT)} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Exact Items <span className="text-[9px] opacity-75">Premium</span></button>
+          <button ref={exactTriggerRef} type="button" role="radio" aria-checked={draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT} onClick={() => { builder.setMembershipMode(QUERY_MEMBERSHIP_EXPLICIT); setExactOpen(true); setBuildStatus("idle"); setMessage(""); }} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Exact Items <span className="text-[9px] opacity-75">Premium</span></button>
         </div>
-        {draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? (
-          <ExplorerDisclosure id={`${asset}ExactItems`} title="Exact Items" open summary={`${draft.exactItems?.length || 0} selected`}>
-            <MarketExplorerExactItemPicker asset={asset} selectedItems={draft.exactItems || []} onChange={builder.setExactItems} />
-            <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Filters below narrow the selected exact items; they never add other items.</p>
-          </ExplorerDisclosure>
-        ) : null}
+        {draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? <button type="button" data-market-exact-open onClick={() => setExactOpen(true)} className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-left text-xs"><strong className="block text-[var(--text-primary)]">Exact Items</strong><span className="text-[var(--text-secondary)]">{draft.exactItems?.length || 0} selected · Open selection workspace</span></button> : null}
         <ExplorerDisclosure
           id={`${asset}EraSets`}
           title="Era & Set"
@@ -339,6 +358,7 @@ export default function MarketExplorerQueryBuilder({
           </p>
         </ExplorerDisclosure>
         <ExplorerDisclosure id={`${asset}Screens`} title="Screens" summary={selectedScreen?.asset === asset || selectedScreen?.asset == null ? selectedScreen?.label : null}>
+          <p className="mb-2 text-[10px] leading-snug text-[var(--text-secondary)]">Pre-built market scans. Choose a Screen to see matching published markets, then add any result to the chart.</p>
           <div className="space-y-1">
             {MARKET_EXPLORER_SCREENS.filter((screen) => screen.asset === asset || screen.asset == null).map((screen) => {
               const unlocked = canUseScreen(screen, currentPlan);
@@ -350,13 +370,9 @@ export default function MarketExplorerQueryBuilder({
                   if (!unlocked) return setMessage(`This Screen requires Index ${screen.requiredPlan === "premium" ? "Premium" : "Plus"}.`);
                   setSelectedScreenId(screen.id);
                   setMessage("");
-                  if (screen.type === "builderTemplate" && screen.id !== "set-top-ten") {
-                    builder.replace(draftForScreenResult(screen, null, draft));
-                  } else if (screen.id === "set-top-ten" && draft.setIds.length === 1) {
-                    builder.replace(draftForScreenResult(screen, null, draft));
-                  }
                 }}
-                className={`min-h-11 w-full rounded-md border px-3 text-left focus-visible:outline-none focus-visible:ring-2 desk:min-h-0 ${unlocked ? "border-[var(--border-subtle)]" : lockTone.compactClassName}`}>
+                className={`min-h-11 w-full rounded-md border px-3 text-left focus-visible:outline-none focus-visible:ring-2 desk:min-h-0 ${selectedScreenId === screen.id ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)]" : unlocked ? "border-[var(--border-subtle)]" : lockTone.compactClassName}`}>
+                {selectedScreenId === screen.id ? <span aria-hidden="true" className="float-right text-[rgb(45,212,191)]">✓</span> : null}
                 <span className="block text-xs font-semibold text-[var(--text-primary)]">{screen.label}{unlocked ? "" : ` ðŸ”’ ${lockTone.label}`}</span>
                 <span className="block text-[10px] text-[var(--text-secondary)]">{screen.description}</span>
               </button>;
@@ -364,24 +380,31 @@ export default function MarketExplorerQueryBuilder({
           </div>
           {selectedScreen && (selectedScreen.asset === asset || selectedScreen.asset == null) && canUseScreen(selectedScreen, currentPlan) ? (
             <div data-market-screen-results className="mt-2 space-y-1">
-              {selectedScreen.id === "set-top-ten" && draft.setIds.length !== 1 ? (
-                <p data-market-screen-requires-set className="rounded-md border border-[var(--border-subtle)] px-2 py-2 text-[11px] text-[var(--text-secondary)]">
-                  {draft.setIds.length === 0 ? "Choose one set to use Top 10 in Selected Set." : "Choose one set for this Screen."}
-                </p>
-              ) : screenResults.length ? screenResults.map((result, index) => (
+              {screenResults.length ? screenResults.map((result, index) => (
                 <button type="button" key={result.series.key} data-market-screen-result={result.series.key}
+                  aria-label={`${activeSeries.some((series) => series.key === result.series.key) ? "Active" : "Add"} ${result.series.shortLabel || result.series.label}`}
+                  disabled={activeSeries.some((series) => series.key === result.series.key)}
                   onClick={() => onAddPrepared?.(result.series.key)}
                   className="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-left text-[11px] text-[var(--text-primary)]">
                   {index + 1}. {result.series.shortLabel || result.series.label} <span className="text-[var(--text-secondary)]">{result.value.toFixed(1)}%</span>
+                  <strong className="float-right text-[rgb(45,212,191)]">{activeSeries.some((series) => series.key === result.series.key) ? "Active" : "Add"}</strong>
                 </button>
               )) : (
-                <p data-market-screen-applied className="rounded-md border border-[var(--border-subtle)] px-2 py-2 text-[11px] text-[var(--text-secondary)]">
-                  Applied to the current {asset === QUERY_ASSET_CARDS ? "Raw Cards" : "Sealed"} draft. Build Market when ready.
+                <p role="status" className="rounded-md border border-[var(--border-subtle)] px-2 py-2 text-[11px] text-[var(--text-secondary)]">
+                  No prepared markets currently qualify for this Screen.
                 </p>
               )}
             </div>
           ) : null}
         </ExplorerDisclosure>
+        {asset === QUERY_ASSET_CARDS ? <ExplorerDisclosure id="cardsQuickPresets" title="Quick Presets" summary={MARKET_EXPLORER_QUICK_PRESETS.find((preset) => preset.id === selectedPresetId)?.label || null}>
+          <p className="mb-2 text-[10px] leading-snug text-[var(--text-secondary)]">One-click Builder setups. Apply a preset, adjust filters if you want, then Build Market.</p>
+          <div className="space-y-1">{MARKET_EXPLORER_QUICK_PRESETS.map((preset) => <button type="button" key={preset.id} data-market-preset={preset.id} aria-pressed={selectedPresetId === preset.id} onClick={() => {
+            if (!canUseScreen(preset, currentPlan)) { setBuildStatus("locked"); setMessage(`This preset requires Index ${preset.requiredPlan === "premium" ? "Premium" : "Plus"}.`); return; }
+            if (preset.id === "set-top-ten" && draft.setIds.length !== 1) { setBuildStatus("error"); setMessage(draft.setIds.length ? "Choose exactly one set." : "Choose one set first."); return; }
+            builder.replace(draftForScreenResult(preset, null, draft)); setBuildStatus("idle"); setMessage("");
+          }} className={`w-full rounded-md border px-3 py-2 text-left text-xs ${selectedPresetId === preset.id ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)]" : "border-[var(--border-subtle)]"}`}><strong className="block">{preset.label}</strong><span className="text-[10px] text-[var(--text-secondary)]">{preset.description}</span></button>)}</div>
+        </ExplorerDisclosure> : null}
         {asset === QUERY_ASSET_CARDS ? (
           <ExplorerDisclosure id="cardsReference" title="Reference Market">
             {paid ? <PreparedOptionList entries={benchmarkEntries} onToggle={onToggleBenchmark} selectedSeriesCount={selectedSeriesCount} /> : accessPanel("Add the Per-Set Chase reference market with Index Plus.")}
@@ -606,8 +629,8 @@ export default function MarketExplorerQueryBuilder({
         ) : null}
         {message ? (
           <p
-            role="status"
-            className="mt-2 text-[11px] text-[var(--text-secondary)]"
+            role={buildStatus === "error" ? "alert" : "status"}
+            className={`mt-2 rounded-md border px-2 py-1 text-[11px] ${buildStatus === "error" ? "border-red-400/40 text-red-200" : "border-transparent text-[var(--text-secondary)]"}`}
           >
             {message}
           </p>
@@ -615,7 +638,7 @@ export default function MarketExplorerQueryBuilder({
       </div>
     </div>
   );
-  return (
+  return (<>
     <section
       data-market-explorer-filters
       data-market-builder-asset={draft.asset}
@@ -659,5 +682,19 @@ export default function MarketExplorerQueryBuilder({
         {body}
       </div>
     </section>
-  );
+    <MarketExplorerExactItemPicker
+      asset={draft.asset}
+      open={exactOpen && draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT}
+      selectedItems={draft.exactItems || []}
+      onChange={builder.setExactItems}
+      onClose={() => { setExactOpen(false); setTimeout(() => exactTriggerRef.current?.focus(), 0); }}
+      onBuild={() => build(false)}
+      onSaveAsNew={editing ? () => build(true) : null}
+      buildLabel={editing ? "Update Market" : "Build Market"}
+      buildStatus={buildStatus}
+      buildMessage={message}
+      narrowingSummary={narrowingSummary}
+      onClearNarrowing={() => builder.replace({ ...draft, eraIds: [], setIds: [], segmentIds: [], pokemonIds: [], priceSegmentIds: [], releaseAgeCohortIds: [] })}
+    />
+  </>);
 }

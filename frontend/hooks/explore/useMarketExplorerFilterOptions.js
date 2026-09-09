@@ -73,17 +73,18 @@ export function __resetMarketExplorerFilterOptionsCache() {
   inFlight = null;
 }
 
-export default function useMarketExplorerFilterOptions() {
+export default function useMarketExplorerFilterOptions({ isAuthenticated = false, authRevision = 0, enabled = true } = {}) {
   const [state, setState] = useState(() => cached || { status: OPTIONS_STATUS.loading, options: null, message: "" });
 
   useEffect(() => {
-    if (state.status === OPTIONS_STATUS.ready) return undefined;
+    if (!enabled || state.status === OPTIONS_STATUS.ready) return undefined;
     let live = true;
     loadOptions().then((result) => { if (live) setState(result); });
     return () => { live = false; };
-    // Intentionally mount-only: the option list is canonical, not reactive.
+    // Retry only when live auth changes (not when a failed state is committed),
+    // preventing a signed-out request loop while still healing same-page login.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authRevision, enabled, isAuthenticated]);
 
   return state;
 }
