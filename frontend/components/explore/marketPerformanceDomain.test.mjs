@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildMarketPerformanceDomain, buildRelativePerformanceDomain, toSelectedWindowPerformance } from "./marketPerformanceDomain.mjs";
+import {
+  buildMarketPerformanceDomain,
+  buildRelativePerformanceDomain,
+  isMarketIndexReferenceVisible,
+  MARKET_CHART_VIEW_INDEX,
+  MARKET_CHART_VIEW_PERFORMANCE,
+  projectMarketChartValues,
+  toSelectedWindowPerformance,
+} from "./marketPerformanceDomain.mjs";
 
 const domain = (values, timeframe) => buildMarketPerformanceDomain(values.map((value) => ({ value })), timeframe);
 
@@ -57,4 +65,30 @@ test("7D and 30D display endpoints equal the published start/end return formula"
     const published = (values.at(-1) / values[0] - 1) * 100;
     assert.ok(Math.abs(display.at(-1) - published) < 1e-12);
   }
+});
+
+test("each selected timeframe gets an independent performance baseline", () => {
+  const sevenDay = projectMarketChartValues([108.2, 108.05, 108.01], MARKET_CHART_VIEW_PERFORMANCE);
+  const thirtyDay = projectMarketChartValues([114.39, 110, 108.01], MARKET_CHART_VIEW_PERFORMANCE);
+  assert.equal(sevenDay[0], 0);
+  assert.equal(thirtyDay[0], 0);
+  assert.notEqual(sevenDay.at(-1), thirtyDay.at(-1));
+});
+
+test("All independently rebases each series and preserves leading nulls", () => {
+  assert.deepEqual(projectMarketChartValues([100, 105], MARKET_CHART_VIEW_PERFORMANCE), [0, 5.000000000000004]);
+  assert.deepEqual(projectMarketChartValues([null, null, 80, 84], MARKET_CHART_VIEW_PERFORMANCE), [null, null, 0, 5.000000000000004]);
+});
+
+test("Index projection returns canonical levels without mutating the source", () => {
+  const raw = [108.2, 108.05, 108.01];
+  const display = projectMarketChartValues(raw, MARKET_CHART_VIEW_INDEX);
+  assert.deepEqual(display, raw);
+  assert.notEqual(display, raw);
+  assert.deepEqual(raw, [108.2, 108.05, 108.01]);
+});
+
+test("Index 100 reference is visible only when the raw domain contains it", () => {
+  assert.equal(isMarketIndexReferenceVisible([99, 102]), true);
+  assert.equal(isMarketIndexReferenceVisible([107.5, 108.5]), false);
 });

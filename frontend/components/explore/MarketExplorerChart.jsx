@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import MarketExplorerTimeframeSelector from "./MarketOverviewWindowSelector";
+import MarketChartViewToggle from "./MarketChartViewToggle";
 import MarketPerformanceChart from "./MarketPerformanceChart";
+import { MARKET_CHART_VIEW_INDEX, MARKET_CHART_VIEW_PERFORMANCE } from "./marketPerformanceDomain.mjs";
 import {
   describeUnavailableWindow,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
@@ -24,7 +26,8 @@ import { buildExplorerChartModel } from "@/lib/explore/marketExplorerSeries.mjs"
 // The legend names each ACTIVE series and its return over the selected window.
 // Series identity is the market's own color; the return's green/red is
 // performance semantics only.
-const CHART_NOTE = "Selected-window performance. Each market starts at 0% at its first available observation; canonical Market Index remains available in the tooltip.";
+const PERFORMANCE_NOTE = "Selected-window performance. Each market starts at 0% at its first available observation; canonical Market Index remains available in the tooltip.";
+const INDEX_NOTE = "Canonical Market Index. Timeframe changes which dates are shown; index levels remain based on each market's lifetime chain-linked history.";
 
 export default function MarketExplorerChart({
   overview,
@@ -36,6 +39,7 @@ export default function MarketExplorerChart({
   onTimeframeChange,
   onClearGraph,
 }) {
+  const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_PERFORMANCE);
   const visibleModel = useMemo(
     () => (timeframe ? buildExplorerChartModel(overview, selectedSeries, timeframe) : null),
     [overview, selectedSeries, timeframe]
@@ -51,7 +55,7 @@ export default function MarketExplorerChart({
       <div className="flex flex-col gap-3 px-3 py-3 sm:px-4 desk:flex-row desk:items-start desk:justify-between desk:gap-6">
         <div className="min-w-0">
           <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
-          <p className="text-[10px] text-[var(--text-secondary)]">{CHART_NOTE}</p>
+          <p className="text-[10px] text-[var(--text-secondary)]">{viewMode === MARKET_CHART_VIEW_INDEX ? INDEX_NOTE : PERFORMANCE_NOTE}</p>
           {timeframe === "All" ? (
             <p data-market-explorer-all-span-note className="mt-1 text-[11px] text-[var(--text-secondary)]">
               All shows each selected market since its own tracking start, so lines may begin on different dates.
@@ -59,6 +63,7 @@ export default function MarketExplorerChart({
           ) : null}
         </div>
         <div className="flex flex-col items-stretch gap-2 desk:flex-none desk:items-end">
+          <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
           <MarketExplorerTimeframeSelector
             options={timeframeOptions}
             value={timeframe}
@@ -111,6 +116,7 @@ export default function MarketExplorerChart({
             <MarketPerformanceChart
               model={visibleModel}
               timeframe={timeframe}
+              viewMode={viewMode}
               plotClassName="h-[24rem] tab:h-[30rem] desk:h-[38rem] 2xl:h-[42rem]"
             />
           )

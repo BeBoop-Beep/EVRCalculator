@@ -7,16 +7,16 @@ const source = fs
   .replace(/\r\n/g, "\n");
 
 test("renders one semantic zero-performance reference at its scaled y coordinate", () => {
-  assert.match(source, /const referenceY = yAt\(0\);/);
-  assert.match(source, /data-market-performance-reference="0"[^>]*y1=\{referenceY\}[^>]*y2=\{referenceY\}/);
-  assert.equal((source.match(/data-market-performance-reference="0"/g) || []).length, 1);
+  assert.match(source, /const referenceValue = isIndexView \? MARKET_INDEX_REFERENCE_VALUE : 0;/);
+  assert.match(source, /const referenceY = yAt\(referenceValue\);/);
+  assert.match(source, /data-market-performance-reference=\{referenceValue\}[^>]*y1=\{referenceY\}[^>]*y2=\{referenceY\}/);
   assert.doesNotMatch(source, /\[0, 0\.5, 1\]\.map/);
   assert.doesNotMatch(source, /PLOT_TOP \+ fraction \* \(PLOT_BOTTOM - PLOT_TOP\)/);
 });
 
 test("labels zero percent and preserves raw Market Index in the tooltip", () => {
   assert.match(source, /data-market-performance-reference-label/);
-  assert.match(source, />\s*0%\s*<\/span>/);
+  assert.match(source, /isIndexView \? formatIndexValue\(referenceValue\) : "0%"/);
   assert.match(source, /Market Index \{reading\.rawValue/);
   assert.match(source, /referenceVisible \? <line/);
   assert.match(source, /referenceVisible \? <span/);

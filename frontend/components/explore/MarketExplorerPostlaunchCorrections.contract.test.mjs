@@ -34,11 +34,11 @@ test("shared relative chart preserves raw values, labels performance, and powers
   const chart = read("./MarketPerformanceChart.jsx");
   const explorer = read("./MarketExplorerChart.jsx");
   const market = read("./PokemonMarketPerformance.jsx");
-  assert.ok(chart.includes("toSelectedWindowPerformance(entry.values || [])"));
+  assert.ok(chart.includes("projectMarketChartValues(entry.values || [], viewMode)"));
   assert.ok(chart.includes("rawValues: entry.values || []"));
   assert.ok(chart.includes("Market Index {reading.rawValue"));
   assert.ok(chart.includes("{timeframe} performance"));
-  assert.ok(chart.includes('data-market-performance-reference="0"'));
+  assert.ok(chart.includes("data-market-performance-reference={referenceValue}"));
   assert.ok(explorer.includes("<MarketPerformanceChart"));
   assert.ok(market.includes("<MarketPerformanceChart"));
 });

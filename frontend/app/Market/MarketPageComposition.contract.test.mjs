@@ -88,13 +88,14 @@ test("Market Overview and Market Performance are ONE surface, not two cards", ()
 });
 
 test("ONE timeframe state drives the overview period column and the chart", () => {
-  // The state lives in the parent; neither pane may keep its own.
+  // Timeframe state lives in the parent. The performance pane may own an
+  // independent presentation-mode state, but never another window state.
   assert.match(analysis, /const \[requestedWindow, setRequestedWindow\] = useState\(null\)/);
   assert.match(analysis, /resolveDefaultMarketWindow\(overview, "7D"\)/);
   assert.match(analysis, /selectedWindow=\{selectedWindow\}/);
   assert.match(analysis, /onWindowChange=\{setRequestedWindow\}/);
   assert.doesNotMatch(overview, /useState/);
-  assert.doesNotMatch(performance, /useState/);
+  assert.doesNotMatch(performance, /useState\([^)]*(?:7D|30D|selectedWindow|requestedWindow)/);
   // Both panes read the SAME prop, so they cannot disagree.
   assert.match(overview, /getPricePerformanceChange\(family, selectedWindow\)/);
   assert.match(performance, /buildMarketPerformanceSeries\(overview, selectedWindow\)/);
