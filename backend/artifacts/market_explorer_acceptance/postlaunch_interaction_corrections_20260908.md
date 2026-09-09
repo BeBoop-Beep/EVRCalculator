@@ -42,11 +42,11 @@ Build state distinguishes idle, building, success, error, and locked outcomes. E
 
 ## K. Desktop QA
 
-Production compilation passed. A new authenticated desktop browser run remains pending because the previously approved one-time local token was consumed and deleted during the prior closure; this pass did not reuse or mint credentials without renewed authorization.
+Production compilation passed. Authenticated desktop browser QA was intentionally deferred at the user's direction. The user will perform manual verification. No additional QA token was created.
 
 ## L. Mobile QA
 
-Static responsive contract and production compilation pass: the exact workspace is full viewport below desktop, has independently scrolling results/basket regions and a sticky footer. Real 390×844 authenticated browser evidence remains coupled to the credential blocker above.
+Static responsive contract and production compilation pass: the exact workspace is full viewport below desktop, has independently scrolling results/basket regions and a sticky footer. The user will manually verify the authenticated 390×844 experience.
 
 ## M. Network QA
 
@@ -61,8 +61,10 @@ Implementation preserves debounced bounded exact search; Screen and preset selec
 
 ## O. Genuine blockers
 
-Authenticated same-page-login and responsive browser evidence requires a new credential mechanism. The earlier authorization explicitly allowed one token only; it was deleted and no matching temp token remains. No database change was required or made.
+None for source readiness. Authenticated desktop/mobile browser QA was intentionally deferred at the user's direction and is user-owned manual testing, not an implementation blocker. The earlier one-time token remains deleted, and no additional credential was created. No database change was required or made.
 
 ## P. Commit SHA
 
 Implementation commit: `d78f7719`.
+
+Final status: `MARKET_EXPLORER_POSTLAUNCH_INTERACTIONS_SOURCE_READY_USER_QA_PENDING`.
