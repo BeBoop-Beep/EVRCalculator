@@ -50,3 +50,11 @@ test("relative domain includes zero and uses an honest 0.75 point minimum span",
   assert.ok(minimum <= 0 && maximum >= 0.03);
   assert.ok(maximum - minimum >= 0.75 && maximum - minimum < 1);
 });
+
+test("7D and 30D display endpoints equal the published start/end return formula", () => {
+  for (const values of [[100, 99.09], [98.52, 101.31]]) {
+    const display = toSelectedWindowPerformance(values);
+    const published = (values.at(-1) / values[0] - 1) * 100;
+    assert.ok(Math.abs(display.at(-1) - published) < 1e-12);
+  }
+});
