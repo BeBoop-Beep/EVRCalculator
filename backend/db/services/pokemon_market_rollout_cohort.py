@@ -171,14 +171,20 @@ def _load_set_metadata(client: Any, set_ids: Sequence[str]) -> dict[str, dict[st
 def _canonical_market_root_cohort(
     client: Any, *, market_date: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Post-cutover roots gated on Standard + Top-10 structural correctness.
+    """Post-cutover roots: the full canonical Standard root universe.
 
-    The canonical publication cohort supplies newly approved roots. The prior
-    persisted Raw basket supplies continuity candidates. A prior root continues
-    only while the current canonical certification still proves Standard Set
-    Value + canonical Top 10 and the set remains a real root. This keeps trusted
-    last-known observations without allowing RIP/simulation eligibility to
-    define the Market universe.
+    MEMBERSHIP != CERTIFICATION. Every canonical Standard root set belongs to
+    this cohort regardless of whether its Set Value / Top-10 certification is
+    currently passing, stale or missing price identity — mirroring the same
+    separation already enforced for the Pokemon Sets catalog
+    (`pokemon_sets_catalog_service.py`) and the canonical set route directory
+    (`20260909030411_decouple_pokemon_set_route_directory_from_rip_publication`).
+    A set that fails certification simply carries that status forward as
+    metadata (`market_publication_ready`, `market_structural_certified`,
+    `market_current_certification_status`, price-freshness dates) so the Set
+    Value publisher can render it honestly (current/stale/unavailable) instead
+    of it silently vanishing from the Market page. Row-DROPPING on
+    certification failure must never happen here again.
     """
     day = str(market_date)[:10] if market_date else None
     query = (
@@ -186,22 +192,21 @@ def _canonical_market_root_cohort(
         .select(
             "set_id,set_name,canonical_key,era_name,release_date,logo_image_url,"
             "symbol_image_url,market_scope,canonical_market_date,"
-            "market_publication_ready,current_certification_status"
+            "market_publication_ready,current_certification_status,"
+            "oldest_component_price_date,newest_component_price_date,"
+            "top10_certified,coverage_pct"
         )
         .eq("market_scope", "standard")
-        .eq("market_publication_ready", True)
     )
     if day:
         query = query.eq("canonical_market_date", day)
-    ready_rows = [dict(row) for row in (query.order("release_date").execute().data or [])]
-    ready_ids = {str(row.get("set_id")) for row in ready_rows if row.get("set_id")}
-    if not ready_ids:
+    universe_rows = [dict(row) for row in (query.order("release_date").execute().data or [])]
+    universe_ids = {str(row.get("set_id")) for row in universe_rows if row.get("set_id")}
+    if not universe_ids:
         raise RuntimeError(f"canonical Market root authority is empty for {day or 'current'}")
 
-    prior_ids = _latest_persisted_root_ids(client, before_date=day)
-    candidate_ids = sorted(ready_ids | prior_ids)
-
     certification_rows: list[dict[str, Any]] = []
+    candidate_ids = sorted(universe_ids)
     for offset in range(0, len(candidate_ids), 100):
         cert_query = (
             client.table(MARKET_CERTIFICATION_VIEW)
@@ -235,53 +240,53 @@ def _canonical_market_root_cohort(
             and not meta.get("parent_opening_set_id")
         )
 
-    blocked_ready = sorted(set_id for set_id in ready_ids if not structurally_certified(set_id))
-    if blocked_ready:
-        raise RuntimeError(
-            "canonical Market authority failed Standard + Top-10 certification "
-            f"for {len(blocked_ready)} approved root(s): {blocked_ready[:5]}"
-        )
-
-    continued_ids = {
-        set_id for set_id in (prior_ids - ready_ids) if structurally_certified(set_id)
-    }
-    final_ids = sorted(ready_ids | continued_ids)
-
-    ready_by_id = {
-        str(row["set_id"]): row for row in ready_rows if row.get("set_id")
+    universe_by_id = {
+        str(row["set_id"]): row for row in universe_rows if row.get("set_id")
     }
     return [
         {
             "id": set_id,
-            "name": (ready_by_id.get(set_id) or {}).get("set_name")
+            "name": (universe_by_id.get(set_id) or {}).get("set_name")
                     or (metadata_by_id.get(set_id) or {}).get("name"),
-            "canonical_key": (ready_by_id.get(set_id) or {}).get("canonical_key")
+            "canonical_key": (universe_by_id.get(set_id) or {}).get("canonical_key")
                              or (metadata_by_id.get(set_id) or {}).get("canonical_key"),
             "era_id": (metadata_by_id.get(set_id) or {}).get("era_id"),
-            "era": (ready_by_id.get(set_id) or {}).get("era_name")
+            "era": (universe_by_id.get(set_id) or {}).get("era_name")
                    or (metadata_by_id.get(set_id) or {}).get("era"),
-            "release_date": (ready_by_id.get(set_id) or {}).get("release_date")
+            "release_date": (universe_by_id.get(set_id) or {}).get("release_date")
                             or (metadata_by_id.get(set_id) or {}).get("release_date"),
-            "logo_image_url": (ready_by_id.get(set_id) or {}).get("logo_image_url")
+            "logo_image_url": (universe_by_id.get(set_id) or {}).get("logo_image_url")
                               or (metadata_by_id.get(set_id) or {}).get("logo_image_url"),
-            "symbol_image_url": (ready_by_id.get(set_id) or {}).get("symbol_image_url")
+            "symbol_image_url": (universe_by_id.get(set_id) or {}).get("symbol_image_url")
                                 or (metadata_by_id.get(set_id) or {}).get("symbol_image_url"),
-            "market_publication_ready": set_id in ready_ids,
-            "market_continuity_carried": set_id in continued_ids,
-            "market_structural_certified": True,
+            # Annotation only, never a membership filter from this point forward.
+            "market_publication_ready": bool(
+                (universe_by_id.get(set_id) or {}).get("market_publication_ready")
+            ),
+            "market_continuity_carried": False,
+            "market_structural_certified": structurally_certified(set_id),
             "market_price_freshness_certified": bool(
                 (cert_by_id.get(set_id) or {}).get("price_freshness_certified")
             ),
             "market_current_certification_status": (
-                cert_by_id.get(set_id) or {}
-            ).get("current_certification_status"),
+                universe_by_id.get(set_id) or {}
+            ).get("current_certification_status") or (cert_by_id.get(set_id) or {}).get(
+                "current_certification_status"
+            ),
+            "market_oldest_component_price_date": (
+                universe_by_id.get(set_id) or {}
+            ).get("oldest_component_price_date"),
+            "market_newest_component_price_date": (
+                universe_by_id.get(set_id) or {}
+            ).get("newest_component_price_date"),
+            "market_coverage_pct": (universe_by_id.get(set_id) or {}).get("coverage_pct"),
             "canonical_market_date": (
-                ready_by_id.get(set_id) or {}
+                universe_by_id.get(set_id) or {}
             ).get("canonical_market_date") or (cert_by_id.get(set_id) or {}).get(
                 "canonical_market_date"
             ),
         }
-        for set_id in final_ids
+        for set_id in sorted(universe_ids)
     ]
 
 

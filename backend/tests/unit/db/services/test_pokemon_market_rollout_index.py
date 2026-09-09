@@ -109,15 +109,26 @@ def _set_rows(set_ids):
     ]
 
 
-def _ready_rows(set_ids, day):
+def _ready_rows(set_ids, day, *, not_ready=()):
+    """Mock of pokemon_market_root_set_market_ready_v1: the FULL root
+    universe (ready and not-ready alike), matching the real view which joins
+    every canonical root set to its certification status rather than
+    filtering on it."""
+    not_ready = set(not_ready)
     return [
         {
             "set_id": set_id, "set_name": set_id, "canonical_key": set_id,
             "era_name": "Era", "release_date": "2018-01-01",
             "logo_image_url": None, "symbol_image_url": None,
             "market_scope": "standard", "canonical_market_date": day,
-            "market_publication_ready": True,
-            "current_certification_status": "CERTIFIED_CURRENT",
+            "market_publication_ready": set_id not in not_ready,
+            "current_certification_status": (
+                "PRICE_FRESHNESS_STALE" if set_id in not_ready else "CERTIFIED_CURRENT"
+            ),
+            "oldest_component_price_date": day,
+            "newest_component_price_date": day,
+            "top10_certified": set_id not in not_ready,
+            "coverage_pct": 100.0,
         }
         for set_id in set_ids
     ]
@@ -178,7 +189,9 @@ def _post_cutover_fixture(day="2026-09-09", previous_day="2026-09-08"):
     final_ids = previous_ids + entered_ids  # 111 continuity-safe roots
 
     rows = {
-        "pokemon_market_set_value_publication_cohort_v1": _ready_rows(ready_ids, day),
+        "pokemon_market_set_value_publication_cohort_v1": _ready_rows(
+            final_ids, day, not_ready=prior_only_ids
+        ),
         "pokemon_market_root_set_publication_current_certification_v1": _cert_rows(final_ids, day),
         "sets": _set_rows(final_ids),
         "eras": [{"id": "era", "name": "Era"}],
@@ -208,6 +221,9 @@ def test_pre_cutover_history_still_reconstructs_the_staged_39_roots():
 
 
 def test_post_cutover_authority_preserves_structurally_valid_prior_roots():
+    """Membership != certification: the cohort is the full canonical root
+    universe. A prior-only root that is currently not-ready still belongs to
+    the cohort -- annotated, never dropped."""
     client, previous_ids, ready_ids, prior_only_ids, entered_ids, final_ids = _post_cutover_fixture()
 
     cohort = resolve_market_root_cohort(client, market_date="2026-09-09")
@@ -218,8 +234,8 @@ def test_post_cutover_authority_preserves_structurally_valid_prior_roots():
     assert len(final_ids) == 111
     assert len(cohort) == 111
     assert set(by_id) == set(final_ids)
-    assert all(by_id[set_id]["market_continuity_carried"] for set_id in prior_only_ids)
-    assert all(not by_id[set_id]["market_continuity_carried"] for set_id in ready_ids)
+    assert all(by_id[set_id]["market_publication_ready"] is False for set_id in prior_only_ids)
+    assert all(by_id[set_id]["market_publication_ready"] is True for set_id in ready_ids)
     assert len(entered_ids) == 72
 
 
@@ -264,7 +280,9 @@ def test_day_after_cutover_uses_all_111_as_the_common_cohort():
     assert len(entered_ids) == 72
 
 
-def test_structurally_invalid_prior_only_root_is_not_carried_forward():
+def test_structurally_invalid_prior_only_root_is_annotated_not_dropped():
+    """A structurally-invalid root stays in the cohort (membership != certification);
+    it is only annotated as not-structurally-certified."""
     client, previous_ids, ready_ids, prior_only_ids, entered_ids, final_ids = _post_cutover_fixture()
     blocked = prior_only_ids[0]
     client.rows["pokemon_market_root_set_publication_current_certification_v1"] = _cert_rows(
@@ -272,22 +290,30 @@ def test_structurally_invalid_prior_only_root_is_not_carried_forward():
     )
 
     cohort = resolve_market_root_cohort(client, market_date="2026-09-09")
-    assert blocked not in {row["id"] for row in cohort}
-    assert len(cohort) == 110
+    by_id = {row["id"]: row for row in cohort}
+    assert blocked in by_id
+    assert len(cohort) == 111
+    assert by_id[blocked]["market_structural_certified"] is False
     assert blocked in previous_ids
     assert blocked not in ready_ids
     assert len(entered_ids) == 72
 
 
-def test_approved_ready_root_fails_closed_if_standard_or_top10_is_not_certified():
+def test_approved_ready_root_with_failed_certification_is_annotated_not_blocked():
+    """A previously-ready root that fails certification stays discoverable
+    on the Market page, carrying its failed certification as annotation
+    metadata instead of raising and blocking the whole cohort."""
     client, _previous_ids, ready_ids, _prior_only_ids, _entered_ids, final_ids = _post_cutover_fixture()
     blocked = ready_ids[0]
     client.rows["pokemon_market_root_set_publication_current_certification_v1"] = _cert_rows(
         final_ids, "2026-09-09", blocked=[blocked]
     )
 
-    with pytest.raises(RuntimeError, match="Standard \+ Top-10 certification"):
-        resolve_market_root_cohort(client, market_date="2026-09-09")
+    cohort = resolve_market_root_cohort(client, market_date="2026-09-09")
+    by_id = {row["id"]: row for row in cohort}
+    assert blocked in by_id
+    assert len(cohort) == 111
+    assert by_id[blocked]["market_structural_certified"] is False
 
 
 def test_persist_rollout_rows_uses_market_index_table():

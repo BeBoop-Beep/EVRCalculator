@@ -156,14 +156,21 @@ def compact_trend(points: Sequence[Mapping[str, Any]], limit: int = MAX_TREND_PO
 
 
 def _select_eligible_sets(sets: Iterable[Mapping[str, Any]]) -> tuple[List[Dict[str, Any]], bool]:
-    """Return eligible rows and whether the explicit market-authority path is active."""
+    """Return eligible rows and whether the explicit market-authority path is active.
+
+    MARKET PAGE MEMBERSHIP != MARKET VALUE CERTIFICATION. In market-authority
+    mode, `market_publication_ready` (and the rest of the certification
+    metadata carried on each row) is annotation only -- it must never remove a
+    canonical Standard root set from this cohort. Certification failure is
+    rendered downstream as a `valueStatus` of "stale" or "unavailable" on the
+    published row, never as a dropped row.
+    """
     rows = [dict(row) for row in sets]
     market_authority_mode = any("market_publication_ready" in row for row in rows)
     if market_authority_mode:
         eligible = [
             row for row in rows
-            if row.get("market_publication_ready") is True
-            and str(row.get("market_scope") or "standard") == "standard"
+            if str(row.get("market_scope") or "standard") == "standard"
         ]
     else:
         eligible = [
@@ -172,6 +179,35 @@ def _select_eligible_sets(sets: Iterable[Mapping[str, Any]]) -> tuple[List[Dict[
             and is_public_analytics_eligible(row)
         ]
     return eligible, market_authority_mode
+
+
+def _unavailable_set_value_row(pokemon_set: Mapping[str, Any], set_id: str) -> Dict[str, Any]:
+    """A canonical Standard root set with no computable Set Value at all.
+
+    Renders honestly as "unavailable" -- never a fabricated or borrowed
+    number -- while remaining present (discoverable/searchable) on the
+    Market page, per the membership/certification separation this module
+    enforces.
+    """
+    return {
+        "setId": set_id,
+        "canonicalKey": pokemon_set.get("canonical_key"),
+        "name": pokemon_set.get("name") or pokemon_set.get("set_name"),
+        "era": pokemon_set.get("era") or pokemon_set.get("era_name"),
+        "logoUrl": pokemon_set.get("logo_image_url"),
+        "symbolUrl": pokemon_set.get("symbol_image_url"),
+        "currentSetValue": None,
+        "setValueAsOf": None,
+        "windows": {},
+        "trend": [],
+        "recentDailyTrend": [],
+        "historyStartDate": None,
+        "historyEndDate": None,
+        "historyPointCount": 0,
+        "valueStatus": "unavailable",
+        "lastUpdated": None,
+        "certificationStatus": pokemon_set.get("market_current_certification_status"),
+    }
 
 
 def build_global_set_value_row(
@@ -202,15 +238,21 @@ def build_global_set_value_row(
         dashboard = dashboard_by_set.get(set_id)
         prepared_index = None
 
+        value_status = "current"
         if market_authority_mode:
-            # New production contract: certification + canonical root-set history
-            # are Set Value authority. Dashboard data is optional enrichment only.
+            # MEMBERSHIP != CERTIFICATION. Certification/readiness is annotated
+            # on the published row (valueStatus, certificationStatus) below; it
+            # must never remove this set from the Market page's result set. A
+            # set with no canonical history at all is genuinely unable to be
+            # valued -- that (and only that) renders as "unavailable" rather
+            # than a fabricated or borrowed number.
             if not canonical:
                 missing.append(set_id)
+                published.append(_unavailable_set_value_row(pokemon_set, set_id))
                 continue
             if canonical[-1]["date"] != target_market_date:
                 stale.append({"setId": set_id, "canonicalDate": canonical[-1]["date"]})
-                continue
+                value_status = "stale"
             if dashboard:
                 dashboard_date = _text(dashboard.get("latest_market_date"))
                 if dashboard_date == target_market_date:
@@ -275,6 +317,10 @@ def build_global_set_value_row(
             "historyEndDate": current["date"],
             "historyPointCount": len(canonical),
         }
+        if market_authority_mode:
+            published_row["valueStatus"] = value_status
+            published_row["lastUpdated"] = current["date"]
+            published_row["certificationStatus"] = pokemon_set.get("market_current_certification_status")
         if prepared_index is not None:
             published_row["marketIndex"] = {
                 "currentValue": prepared_index.get("currentValue"),
@@ -304,8 +350,12 @@ def build_global_set_value_row(
     }
 
     if market_authority_mode:
-        blocked = bool(missing or stale or mismatched or len(published) != len(eligible))
-        error_message = "certified Market Set Value histories are incomplete or stale"
+        # Missing/stale sets are now PUBLISHED with an honest valueStatus
+        # annotation (see the per-set loop above) rather than dropped, so they
+        # no longer block the whole snapshot. The only remaining failure mode
+        # is a pipeline defect: some eligible set produced no row at all.
+        blocked = bool(mismatched or len(published) != len(eligible))
+        error_message = "certified Market Set Value histories failed to publish for one or more eligible sets"
     else:
         blocked = bool(
             missing or stale or mismatched or missing_market_index_ids
@@ -316,7 +366,13 @@ def build_global_set_value_row(
     if blocked:
         raise ExploreSetValueUnavailable(error_message, diagnostics=diagnostics)
 
-    published.sort(key=lambda row: (-row["currentSetValue"], str(row["name"] or row["setId"])))
+    published.sort(
+        key=lambda row: (
+            row.get("currentSetValue") is None,
+            -(row["currentSetValue"] or 0),
+            str(row["name"] or row["setId"]),
+        )
+    )
     built_at = built_at or datetime.now(timezone.utc).isoformat()
     index_generation = str((market_overview or {}).get("sourceGenerationFingerprint") or "")
     fingerprint = hashlib.sha256("\n".join([target_market_date, *sorted(generation), index_generation]).encode()).hexdigest()
