@@ -114,7 +114,13 @@ const BLOCK_LEAVES = Object.freeze({
   // through verbatim; ExploreTableClient's ChaseAccessibilityCell reads
   // `target.setRipV1.chaseAccessibility` directly, so this leaf must not be
   // dropped at the client boundary the way it was at the SQL lens boundary.
-  setRipV1: ["score", "tier", "rank", "cohortSize", "rankable", "methodologyVersion", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount", "familyScores", "displayFamilyScores", "chaseAccessibility"],
+  // `score` remains the leader-normalized PUBLIC value (0-100, current
+  // display scale) for backward compatibility with every existing reader.
+  // `modelScore` is the raw pre-curve mean-standing aggregate, preserved
+  // unmutated by the leader curve. `leaderNormalizedScore`/`publicScore` are
+  // explicit aliases of the same public value `score` already carries - see
+  // backend/db/services/set_rip_service.py for the field contract.
+  setRipV1: ["score", "modelScore", "leaderNormalizedScore", "publicScore", "tier", "rank", "cohortSize", "rankable", "methodologyVersion", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount", "familyScores", "displayFamilyScores", "chaseAccessibility"],
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV9: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV10: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],

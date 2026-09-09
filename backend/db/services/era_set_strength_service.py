@@ -15,7 +15,21 @@ from backend.rankings.public_relative import (
 )
 from backend.db.services.set_rip_service import METHODOLOGY_VERSION as SET_RIP_METHODOLOGY_VERSION
 
-METHODOLOGY_VERSION = "era_set_strength_v1_equal_set_mean_of_set_rip_v1"
+#: v2: same field-contract fix as Set RIP v2 - the raw equal-weight era
+#: aggregate is now preserved verbatim under `modelScore` (never overwritten
+#: by the leader curve), and `leaderNormalizedScore` is an explicit 0-100
+#: public curve field. `publicScore` keeps its PRE-EXISTING, DIFFERENT meaning
+#: (the rounded 0-10 display value via `public_rip_display_score`) - it is
+#: NOT reused for the 0-100 leader value, to avoid recreating the exact
+#: one-name-two-scales defect this fix removes elsewhere. `score` keeps its
+#: pre-existing public meaning (the leader-curved value `EraRankings.jsx`'s
+#: `RipScoreBadge` already renders). `minSetRip`/`medianSetRip`/`maxSetRip` are computed from
+#: constituent `setRipV1.score` values, which are THEMSELVES the leader-curved
+#: public Set RIP scale (see set_rip_service.METHODOLOGY_VERSION v2 note) -
+#: so these three fields are on the SAME 0-100 public scale as `score` before
+#: this era's own leader curve is applied, and that scale is documented here
+#: rather than left implicit.
+METHODOLOGY_VERSION = "era_set_strength_v2_equal_set_mean_of_set_rip_v2"
 MINIMUM_RANKABLE_SETS_PER_ERA = 3
 
 
@@ -66,7 +80,13 @@ def build_era_set_strength(set_targets: Sequence[Mapping[str, Any]]) -> dict[str
         strongest = max(valid, key=lambda item: item[1])[0] if available else None
         valid_scores = [value for _, value in valid]
         eras.append({"eraId": era_id, "eraName": era_name, "score": score,
+                     # The raw, pre-leader-curve equal-weight mean of member
+                     # sets' public Set RIP scores. Preserved verbatim under
+                     # its own field - never overwritten by the leader curve
+                     # applied below.
+                     "modelScore": score,
                      "publicScore": public_rip_display_score(score),
+                     "leaderNormalizedScore": None,
                      "tier": public_relative_rip_tier(score), "rank": None,
                      "rankable": available, "status": "available" if available else "unavailable",
                      "statusReason": reason,
@@ -82,20 +102,26 @@ def build_era_set_strength(set_targets: Sequence[Mapping[str, Any]]) -> dict[str
                                   "setName": strongest.get("name"), "score": (strongest.get("setRipV1") or {}).get("score")} if strongest else None),
                      "constituentSets": context})
 
+    # `score_getter` reads `modelScore` - the raw aggregate, which is never
+    # mutated by this curve - rather than the mutable `score` field.
     leader_scores = compute_leader_normalized_scores(
         (era for era in eras if era["rankable"]),
         id_getter=lambda era: era["eraId"],
-        score_getter=lambda era: era["score"],
+        score_getter=lambda era: era["modelScore"],
     )
     for era in eras:
         if era["rankable"]:
-            era["score"] = leader_scores.get(era["eraId"])
-            era["publicScore"] = public_rip_display_score(era["score"])
-            era["tier"] = public_leader_rip_tier(era["score"])
-            era["rankable"] = era["score"] is not None
+            leader = leader_scores.get(era["eraId"])
+            era["leaderNormalizedScore"] = leader
+            era["score"] = leader
+            era["publicScore"] = public_rip_display_score(leader)
+            era["tier"] = public_leader_rip_tier(leader)
+            era["rankable"] = leader is not None
             era["status"] = "available" if era["rankable"] else "unavailable"
             if not era["rankable"]:
                 era["statusReason"] = "leader_curve_unavailable"
+        else:
+            era["leaderNormalizedScore"] = None
 
     ranked = sorted((e for e in eras if e["rankable"]), key=lambda e: (-e["score"], e["eraName"]))
     for rank, era in enumerate(ranked, 1):

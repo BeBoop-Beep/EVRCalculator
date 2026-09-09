@@ -17,7 +17,14 @@ from backend.rankings.public_relative import (
     public_relative_rip_tier,
 )
 
-METHODOLOGY_VERSION = "set_rip_v1_mean_sku_mean_family_unshrunk_cov2_cohort3_missing_omit"
+#: v2: the public contract now carries the raw/model aggregate under its own
+#: explicit `modelScore` field (never overwritten by the leader curve) plus
+#: explicit `leaderNormalizedScore`/`publicScore` fields for the 0-100 public
+#: curve. `score` keeps its pre-existing public meaning (the leader-curved
+#: display value every current reader already expects), but the CONTRACT is
+#: no longer "one field, two silently-swapped meanings" - see
+#: backend/db/services/set_rip_service.py module docstring/comments below.
+METHODOLOGY_VERSION = "set_rip_v2_mean_sku_mean_family_unshrunk_cov2_cohort3_missing_omit"
 MINIMUM_PARTICIPATING_FAMILIES = 2
 MINIMUM_REPRESENTED_SETS_PER_FAMILY = 3
 
@@ -33,9 +40,29 @@ def _text(value: Any) -> str:
 
 
 def _ranked_targets(targets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    return [target for target in targets if
-            (target.get("overallRipV10") or {}).get("rank") is not None or
-            (((target.get("publicRipContractV10") or {}).get("overallRip") or {}).get("rank") is not None)]
+    """The Set RIP owning-target cohort, ranked by the CANONICAL rank authority.
+
+    Precedence: bare `overallRipV12` -> `publicRipContractV11.overallRip`
+    (the same V12 data, packaged) -> `overallRipV10` /
+    `publicRipContractV10.overallRip` as HISTORICAL/COMPATIBILITY FALLBACK
+    ONLY, for a target that never received a V12 rebuild. A target carrying
+    both V12 and V10 ranks is decided by V12 - V10 must never win when a
+    canonical V12 rank is present.
+    """
+    ranked = []
+    for candidate in targets:
+        if (candidate.get("overallRipV12") or {}).get("rank") is not None:
+            ranked.append(candidate)
+            continue
+        if (((candidate.get("publicRipContractV11") or {}).get("overallRip") or {}).get("rank")) is not None:
+            ranked.append(candidate)
+            continue
+        if (candidate.get("overallRipV10") or {}).get("rank") is not None:
+            ranked.append(candidate)
+            continue
+        if (((candidate.get("publicRipContractV10") or {}).get("overallRip") or {}).get("rank")) is not None:
+            ranked.append(candidate)
+    return ranked
 
 
 def build_set_rip(product_family_rankings: Mapping[str, Any], *,
@@ -152,6 +179,10 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
         rankable = len(family_scores) >= MINIMUM_PARTICIPATING_FAMILIES
         score = round(statistics.fmean(item["meanStanding"] for item in family_scores) * 100, 6) if rankable else None
         rows.append({"setId": set_id, "setName": target.get("name"), "score": score,
+                     # The raw, pre-leader-curve mean-standing aggregate.
+                     # Preserved verbatim under its own field - never
+                     # overwritten by the leader curve below.
+                     "modelScore": score,
                      "tier": public_relative_rip_tier(score), "rank": None,
                      "rankable": rankable, "methodologyVersion": METHODOLOGY_VERSION,
                      "participatingFamilyCount": len(family_scores),
@@ -163,16 +194,29 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
                          "chaseDepth": None, "mappedHcMass": None, "setRank": None, "setCohortSize": None,
                      }})
 
+    # `score_getter` reads `modelScore` - the raw aggregate, which is never
+    # mutated by this curve - rather than the mutable `score` field.
     leader_scores = compute_leader_normalized_scores(
         (row for row in rows if row["rankable"]),
         id_getter=lambda row: row["setId"],
-        score_getter=lambda row: row["score"],
+        score_getter=lambda row: row["modelScore"],
     )
     for row in rows:
         if row["rankable"]:
-            row["score"] = leader_scores.get(row["setId"])
-            row["tier"] = public_leader_rip_tier(row["score"])
-            row["rankable"] = row["score"] is not None
+            leader = leader_scores.get(row["setId"])
+            # `leaderNormalizedScore`/`publicScore` are the explicit public
+            # curve fields; `score` keeps carrying the SAME value for every
+            # pre-existing reader of this contract (readPublicSetRip,
+            # ExploreTableClient, the homepage rankings whitelist) - it is not
+            # redefined, only no longer the ONLY place this value is exposed.
+            row["leaderNormalizedScore"] = leader
+            row["publicScore"] = leader
+            row["score"] = leader
+            row["tier"] = public_leader_rip_tier(leader)
+            row["rankable"] = leader is not None
+        else:
+            row["leaderNormalizedScore"] = None
+            row["publicScore"] = None
 
     ranked = sorted((row for row in rows if row["rankable"]), key=lambda row: (-row["score"], row["setId"]))
     cohort_size = len(ranked)
