@@ -1792,13 +1792,35 @@ def _maybe_rebuild_coordinated_market(
 
 
 def _maybe_rebuild_rankings(client: Any, rankings: FreshnessResult, *, commit: bool, summary: RefreshSummary) -> None:
+    """Publish the canonical Rankings leaderboard when it has gone stale.
+
+    ROUTING NOTE (Rankings-only, by design at this call site). This calls
+    `publish_explore_rip_rankings_snapshot` WITHOUT `set_page_generation_id`,
+    which is the explicit `rankings_only` publication mode (see
+    `PUBLICATION_MODE_RANKINGS_ONLY` in `rankings_publication_lifecycle.py`):
+    it advances the Rankings leaderboard alone and does NOT activate a new
+    Set-page snapshot generation. The coordinated mode that atomically
+    advances Rankings together with a Set-page generation lives in
+    `build_atomic_set_page_snapshot_generation.py`, which is a separate,
+    intentionally-not-wired-in-here entry point (its own generation
+    construction/activation guardrails are out of scope for this call site).
+    This function is not the place to change that routing: doing so would
+    mean constructing/activating a Set-page generation from inside a
+    staleness sweep, which is generation-construction territory.
+    """
     if not rankings.stale:
         return
     if not commit:
         summary.global_skipped.append(f"explore_rankings: dry-run {rankings.reason}")
         return
     try:
-        publish_explore_rip_rankings_snapshot(client, commit=True)
+        published_row = publish_explore_rip_rankings_snapshot(client, commit=True)
+        outcome = (published_row or {}).get("_rankingsPublicationOutcome") or {}
+        mode = outcome.get("publication_mode", "rankings_only")
+        logger.info(
+            "[rankings-publish] explore_rankings rebuilt publication_mode=%s attempt_id=%s publication_id=%s",
+            mode, outcome.get("attempt_id"), outcome.get("publication_id"),
+        )
         summary.global_rebuilt.append("explore_rankings")
     except Exception as exc:
         logger.exception("failed explore rankings snapshot refresh")
