@@ -67,4 +67,25 @@ None for source readiness. Authenticated desktop/mobile browser QA was intention
 
 Implementation commit: `d78f7719`.
 
+## Q. Pre-manual-test completeness audit
+
+- **Exact Items — FIXED IN THIS PASS.** The picker remains outside the rail as a full-screen mobile/centered desktop dialog with large card/sealed artwork, bounded debounced search, stale cancellation, keyboard selection, duplicate/25-item guards, removable basket, narrowing disclosure/clear, and sticky Build/Update/Save-as-new/Cancel actions. The audit corrected edit-session closure and focus restoration after successful modal actions; failure and Premium-lock paths retain the workspace and draft.
+- **Screens — PASS.** The registry contains only prepared discovery types. Screen selection is draft- and query-neutral, synchronizes disclosure/visual selected state, uses `aria-pressed`, teal treatment and a check, and immediately exposes ranked Add/Active results or the explicit empty state.
+- **Quick Presets — PASS.** All six templates live separately under Quick Presets, modify draft state without executing, derive selection from the relevant normalized draft axes, clear on conflict, and enforce exactly one set for Top 10 with distinct zero/multiple-set messages.
+- **Chart — FIXED IN THIS PASS.** Every selected window and series independently anchors its first non-null raw index at 0%; nulls remain null. The shared `/Market` and Explorer primitive retains raw values, computes only display percentages, uses a zero-inclusive relative domain with a restrained 0.75-point floor, formats signed percentage ticks, and now explicitly labels the tooltip value as the selected timeframe's performance beside canonical Market Index. Formula tests pin 7D/30D endpoint agreement.
+- **Auth — FIXED IN THIS PASS.** Explorer uses the live AuthContext user with server-prop fallback. The audit restored explicit signed-out `Not authenticated`/Sign in presentation, while live plan changes immediately re-gate controls. The single production options owner retries once after signed-out-to-authenticated revision change, caches success, and does not loop or double-fetch.
+- **Errors — PASS.** Idle/building/success/error/locked states are explicit. Builder and modal failures render adjacent to their CTAs with alert semantics, preserve useful backend text and all draft/selection/active-line state, and remain distinct from a Screen empty result.
+- **Responsive — PASS.** Source contracts keep the dialog viewport-fixed and rail-independent, desktop-bounded, mobile full-screen, with internally scrollable result/basket surfaces, useful artwork, sticky search/action regions, and reachable Screen/Preset buttons. Manual visual validation remains intentionally pending.
+- **Regression — PASS.** The non-toggle signal row, one Active Markets strip, shared large transparent chart, Pokémon environment, left Builder rail, single comparison hierarchy, and Constituents → Comparison Analysis → Methodology order remain intact. Backend trend/storage, query fingerprints, family changes, chain-linking, query/cache engines, constituent paging, and the 37-cache architecture were not changed.
+
+Focused audit suite: 38/38 passed. Next.js 15.5.15 production build passed with the repository's pre-existing lint and webpack-cache warnings. `git diff --check` passed for scoped files.
+
+No browser verification is claimed. Authenticated desktop/mobile manual validation is pending by explicit user direction, and no QA credential was created.
+
+## R. Remaining implementation gaps
+
+None.
+
+Manual validation pending; source implementation complete.
+
 Final status: `MARKET_EXPLORER_POSTLAUNCH_INTERACTIONS_SOURCE_READY_USER_QA_PENDING`.

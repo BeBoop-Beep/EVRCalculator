@@ -248,8 +248,9 @@ export default function MarketPerformanceChart({ model, timeframe = "All", class
                     <li key={reading.key} className="flex items-center justify-between gap-3 text-[11px]">
                       <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
                         <span aria-hidden="true" className="inline-block h-2 w-2 rounded-[2px]" style={{ backgroundColor: reading.color }} />
-                        <span>
-                          {reading.label}
+                          <span>
+                            {reading.label}
+                            <span className="block text-[9px]">{timeframe} performance</span>
                           {reading.point?.isCarriedForward ? (
                             <span data-market-performance-carried-source={reading.key} className="block text-[9px]">
                               Last observed {formatShortDate(reading.point.sourceDate)}
