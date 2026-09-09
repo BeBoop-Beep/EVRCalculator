@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   MARKET_EXPLORER_SCREENS,
+  MARKET_EXPLORER_QUICK_PRESETS,
   canUseScreen,
   draftForScreenResult,
   resolveScreenResults,
@@ -13,7 +14,7 @@ test("the V1 Screen registry is valid, unique, and deterministically entitled", 
   assert.equal(validateScreenRegistry(), true);
   assert.equal(new Set(MARKET_EXPLORER_SCREENS.map((screen) => screen.id)).size, MARKET_EXPLORER_SCREENS.length);
   const plus = MARKET_EXPLORER_SCREENS.find((screen) => screen.id === "rarity-leaders");
-  const premium = MARKET_EXPLORER_SCREENS.find((screen) => screen.id === "set-top-ten");
+  const premium = MARKET_EXPLORER_QUICK_PRESETS.find((screen) => screen.id === "set-top-ten");
   assert.equal(canUseScreen(plus, null), false);
   assert.equal(canUseScreen(plus, "plus"), true);
   assert.equal(canUseScreen(plus, "premium"), true);
@@ -41,7 +42,7 @@ test("Screen handoff produces the same serializable builder definition", () => {
   const draft = draftForScreenResult(rarity, { series: { group: "card", backendKey: "specialIllustrationRare" } });
   assert.deepEqual(draft, { asset: "cards", segmentIds: ["specialIllustrationRare"], mode: "all" });
 
-  const price = MARKET_EXPLORER_SCREENS.find((screen) => screen.id === "premium-market");
+  const price = MARKET_EXPLORER_QUICK_PRESETS.find((screen) => screen.id === "premium-market");
   const clean = draftForScreenResult(price, null, { asset: "sealed", segmentIds: ["boosterBox"], pokemonIds: ["149"] });
   assert.deepEqual(clean.priceSegmentIds, ["premium"]);
   assert.deepEqual(clean.segmentIds, []);
@@ -49,7 +50,7 @@ test("Screen handoff produces the same serializable builder definition", () => {
 });
 
 test("selected-set Top 10 retains only scope before applying point-in-time ranking", () => {
-  const screen = MARKET_EXPLORER_SCREENS.find((entry) => entry.id === "set-top-ten");
+  const screen = MARKET_EXPLORER_QUICK_PRESETS.find((entry) => entry.id === "set-top-ten");
   const draft = draftForScreenResult(screen, null, { asset: "cards", eraIds: ["sv"], setIds: ["sv8"], pokemonIds: ["149"] });
   assert.deepEqual(draft.setIds, ["sv8"]);
   assert.deepEqual(draft.pokemonIds, []);
@@ -58,7 +59,7 @@ test("selected-set Top 10 retains only scope before applying point-in-time ranki
 });
 
 test("ordinary templates preserve multi-scope and Prompt-1 explicit membership", () => {
-  const screen = MARKET_EXPLORER_SCREENS.find((entry) => entry.id === "obtainable-market");
+  const screen = MARKET_EXPLORER_QUICK_PRESETS.find((entry) => entry.id === "obtainable-market");
   const draft = draftForScreenResult(screen, null, {
     asset: "cards", eraIds: ["era-a", "era-b"], setIds: ["set-a", "set-b"],
     membershipMode: "explicit", instrumentIds: ["variant-a", "variant-b"],
@@ -67,4 +68,10 @@ test("ordinary templates preserve multi-scope and Prompt-1 explicit membership",
   assert.deepEqual(draft.setIds, ["set-a", "set-b"]);
   assert.equal(draft.membershipMode, "explicit");
   assert.deepEqual(draft.instrumentIds, ["variant-a", "variant-b"]);
+});
+
+test("Screens are discovery-only and builder templates live in Quick Presets", () => {
+  assert.ok(MARKET_EXPLORER_SCREENS.every((screen) => screen.type !== "builderTemplate"));
+  assert.equal(MARKET_EXPLORER_QUICK_PRESETS.length, 6);
+  assert.ok(MARKET_EXPLORER_QUICK_PRESETS.every((preset) => preset.type === "builderTemplate"));
 });

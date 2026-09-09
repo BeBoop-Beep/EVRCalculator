@@ -18,3 +18,24 @@ export function buildMarketPerformanceDomain(points, timeframe = "All") {
     { valueKey: "value" }
   );
 }
+
+export function toSelectedWindowPerformance(values = []) {
+  const baseline = values.find((value) => Number.isFinite(value));
+  return values.map((value) => Number.isFinite(value) && Number.isFinite(baseline) && baseline !== 0
+    ? ((value / baseline) - 1) * 100
+    : null);
+}
+
+export function buildRelativePerformanceDomain(points) {
+  const values = (points || []).map((point) => Number(point?.value)).filter(Number.isFinite);
+  const low = Math.min(0, ...values);
+  const high = Math.max(0, ...values);
+  const movement = high - low;
+  const span = Math.max(0.75, movement * 1.24);
+  const center = (high + low) / 2;
+  let min = center - span / 2;
+  let max = center + span / 2;
+  if (min > 0) min = 0;
+  if (max < 0) max = 0;
+  return [min, max];
+}

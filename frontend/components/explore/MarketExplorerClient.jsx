@@ -21,6 +21,7 @@ import useMarketExplorerQueries from "@/hooks/explore/useMarketExplorerQueries";
 import useMarketExplorerFilterOptions from "@/hooks/explore/useMarketExplorerFilterOptions";
 import useMarketExplorerSelection from "@/hooks/explore/useMarketExplorerSelection";
 import { resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
+import { useAuth } from "@/components/AuthContext";
 
 // ---------------------------------------------------------------------------
 // Market Explorer — the research workspace.
@@ -70,6 +71,8 @@ export default function MarketExplorerClient({
   user = null,
   coverageSummary = [],
 }) {
+  const auth = useAuth();
+  const liveUser = auth ? auth.user : user;
   const timeframeOptions = useMemo(() => buildExplorerTimeframeOptions(overview), [overview]);
   // ACCESS ARRIVES AS A PROP, RESOLVED ON THE SERVER from the session cookie.
   // Deliberately not read from a client auth context here: the server already
@@ -83,7 +86,7 @@ export default function MarketExplorerClient({
   // closed — while the API enforces the same boundary independently.
   const {
     accessMode, indexPlan, isAuthenticated,
-  } = useMemo(() => resolveMarketExplorerPlanAccess(user), [user]);
+  } = useMemo(() => resolveMarketExplorerPlanAccess(liveUser), [liveUser]);
   const {
     selection: { assetUniverse, sealedFamilyIds, segmentIds },
     selectedSeriesIds, toggleMarket, toggleAny, clearAll: clearAllSelection,
@@ -120,7 +123,7 @@ export default function MarketExplorerClient({
 
   // Era & Sets and Build a Market read the SAME canonical option payload, in
   // one shared request.
-  const { status: optionsStatus, options, message: optionsMessage } = useMarketExplorerFilterOptions();
+  const { status: optionsStatus, options, message: optionsMessage } = useMarketExplorerFilterOptions({ isAuthenticated, authRevision: auth?.authRevision || 0 });
 
   // Era & Sets sets a research SCOPE, never a series — see the hook.
   const timeframe = resolveExplorerTimeframe(overview, requestedTimeframe);

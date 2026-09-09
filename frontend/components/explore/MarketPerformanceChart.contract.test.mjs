@@ -6,17 +6,18 @@ const source = fs
   .readFileSync(new URL("./MarketPerformanceChart.jsx", import.meta.url), "utf8")
   .replace(/\r\n/g, "\n");
 
-test("renders one semantic Index 100 reference at its scaled y coordinate", () => {
-  assert.match(source, /const referenceY = yAt\(MARKET_INDEX_REFERENCE_VALUE\);/);
-  assert.match(source, /data-market-performance-reference="100"[^>]*y1=\{referenceY\}[^>]*y2=\{referenceY\}/);
-  assert.equal((source.match(/data-market-performance-reference="100"/g) || []).length, 1);
+test("renders one semantic zero-performance reference at its scaled y coordinate", () => {
+  assert.match(source, /const referenceY = yAt\(0\);/);
+  assert.match(source, /data-market-performance-reference="0"[^>]*y1=\{referenceY\}[^>]*y2=\{referenceY\}/);
+  assert.equal((source.match(/data-market-performance-reference="0"/g) || []).length, 1);
   assert.doesNotMatch(source, /\[0, 0\.5, 1\]\.map/);
   assert.doesNotMatch(source, /PLOT_TOP \+ fraction \* \(PLOT_BOTTOM - PLOT_TOP\)/);
 });
 
-test("labels Index 100 only when the timeframe-aware domain includes it", () => {
+test("labels zero percent and preserves raw Market Index in the tooltip", () => {
   assert.match(source, /data-market-performance-reference-label/);
-  assert.match(source, />\s*100\s*<\/span>/);
+  assert.match(source, />\s*0%\s*<\/span>/);
+  assert.match(source, /Market Index \{reading\.rawValue/);
   assert.match(source, /referenceVisible \? <line/);
   assert.match(source, /referenceVisible \? <span/);
 });

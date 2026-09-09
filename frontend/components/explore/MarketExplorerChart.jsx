@@ -24,7 +24,7 @@ import { buildExplorerChartModel } from "@/lib/explore/marketExplorerSeries.mjs"
 // The legend names each ACTIVE series and its return over the selected window.
 // Series identity is the market's own color; the return's green/red is
 // performance semantics only.
-const CHART_NOTE = "Chain-linked price performance, base 100. Constituents entering or leaving do not create artificial jumps.";
+const CHART_NOTE = "Selected-window performance. Each market starts at 0% at its first available observation; canonical Market Index remains available in the tooltip.";
 
 export default function MarketExplorerChart({
   overview,

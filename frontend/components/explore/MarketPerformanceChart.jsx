@@ -9,8 +9,8 @@ import {
   clampTooltipX,
 } from "./compactSparklineInteraction.mjs";
 import {
-  MARKET_INDEX_REFERENCE_VALUE,
-  buildMarketPerformanceDomain,
+  buildRelativePerformanceDomain,
+  toSelectedWindowPerformance,
 } from "./marketPerformanceDomain.mjs";
 import { formatIndexValue, formatMarketDate, formatShortDate } from "@/lib/explore/marketOverviewPresentation.mjs";
 
@@ -54,7 +54,8 @@ export default function MarketPerformanceChart({ model, timeframe = "All", class
   const chartId = useId().replace(/:/g, "");
 
   const dates = Array.isArray(model?.dates) ? model.dates : [];
-  const series = Array.isArray(model?.series) ? model.series : [];
+  const rawSeries = Array.isArray(model?.series) ? model.series : [];
+  const series = rawSeries.map((entry) => ({ ...entry, rawValues: entry.values || [], values: toSelectedWindowPerformance(entry.values || []) }));
 
   const clearSelection = () => { setActiveIndex(null); setTooltipX(null); setTooltipAnchor(null); };
   const anchorFromBounds = (bounds) => ({ left: bounds.left, top: bounds.top });
@@ -114,13 +115,13 @@ export default function MarketPerformanceChart({ model, timeframe = "All", class
     );
   }
 
-  const [domainMin, domainMax] = buildMarketPerformanceDomain(allValues, timeframe);
+  const [domainMin, domainMax] = buildRelativePerformanceDomain(allValues);
   const yRange = domainMax - domainMin || 1;
   const xRange = Math.max(dates.length - 1, 1);
   const xAt = (index) => 2 + (index / xRange) * (VIEW_WIDTH - 4);
   const yAt = (value) => PLOT_BOTTOM - ((value - domainMin) / yRange) * (PLOT_BOTTOM - PLOT_TOP);
-  const referenceY = yAt(MARKET_INDEX_REFERENCE_VALUE);
-  const referenceVisible = MARKET_INDEX_REFERENCE_VALUE >= domainMin && MARKET_INDEX_REFERENCE_VALUE <= domainMax;
+  const referenceY = yAt(0);
+  const referenceVisible = true;
   const gridValues = [0.25, 0.5, 0.75].map((ratio) => domainMin + (domainMax - domainMin) * ratio);
   const domainPrecision = domainMax - domainMin < 2 ? 2 : domainMax - domainMin < 10 ? 1 : 0;
 
@@ -143,10 +144,11 @@ export default function MarketPerformanceChart({ model, timeframe = "All", class
         label: entry.label,
         color: entry.color,
         value: entry.values?.[activeIndex] ?? null,
+        rawValue: entry.rawValues?.[activeIndex] ?? null,
         point: entry.pointMeta?.[activeIndex] || null,
       }));
   const spokenReading = activeDate
-    ? `${formatMarketDate(activeDate)}. ${activeReadings.map((reading) => `${reading.label} index ${reading.value === null ? "unavailable" : formatIndexValue(reading.value)}${reading.point?.isCarriedForward ? `, previous close carried from ${formatMarketDate(reading.point.sourceDate)}` : ""}`).join(". ")}.`
+    ? `${formatMarketDate(activeDate)}. ${activeReadings.map((reading) => `${reading.label}, ${timeframe} performance ${reading.value === null ? "unavailable" : `${reading.value.toFixed(2)} percent`}, Market Index ${reading.rawValue === null ? "unavailable" : formatIndexValue(reading.rawValue)}${reading.point?.isCarriedForward ? `, previous close carried from ${formatMarketDate(reading.point.sourceDate)}` : ""}`).join(". ")}.`
     : null;
 
   const gradientPrefix = `market-performance-${chartId}`;
@@ -203,7 +205,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", class
           {drawn.map((entry) => (entry.coordinates.length
             ? <path key={`${entry.key}-area`} data-market-performance-area={entry.key} d={`M ${entry.polyline.replaceAll(" ", " L ")} L ${entry.coordinates[entry.coordinates.length - 1].x.toFixed(2)},${PLOT_BOTTOM} L ${entry.coordinates[0].x.toFixed(2)},${PLOT_BOTTOM} Z`} fill={`url(#${gradientPrefix}-${entry.key})`} />
             : null))}
-          {referenceVisible ? <line data-market-performance-reference="100" x1="2" x2={VIEW_WIDTH - 2} y1={referenceY} y2={referenceY} stroke="rgba(255,255,255,0.16)" strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
+          {referenceVisible ? <line data-market-performance-reference="0" x1="2" x2={VIEW_WIDTH - 2} y1={referenceY} y2={referenceY} stroke="rgba(255,255,255,0.28)" strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
           {drawn.map((entry) => (entry.coordinates.length >= 2
             ? <polyline key={`${entry.key}-line`} data-market-performance-series={entry.key} points={entry.polyline} fill="none" stroke={entry.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             : null))}
@@ -211,14 +213,14 @@ export default function MarketPerformanceChart({ model, timeframe = "All", class
             <line data-market-performance-guide x1={xAt(activeIndex)} x2={xAt(activeIndex)} y1={PLOT_TOP} y2={PLOT_BOTTOM} stroke="rgba(255,255,255,0.2)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           )}
         </svg>
-        {gridValues.map((value) => <span key={value} aria-hidden="true" className="pointer-events-none absolute right-1 text-[9px] tabular-nums text-[var(--text-secondary)]" style={{ top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, transform: "translateY(-50%)" }}>{value.toFixed(domainPrecision)}</span>)}
+        {gridValues.map((value) => <span key={value} aria-hidden="true" className="pointer-events-none absolute right-1 text-[9px] tabular-nums text-[var(--text-secondary)]" style={{ top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, transform: "translateY(-50%)" }}>{value > 0 ? "+" : ""}{value.toFixed(domainPrecision)}%</span>)}
         {referenceVisible ? <span
           data-market-performance-reference-label
           aria-hidden="true"
           className="pointer-events-none absolute left-[2.5%] text-[9px] leading-none text-[var(--text-secondary)]"
           style={{ top: `${(referenceY / VIEW_HEIGHT) * 100}%`, transform: "translateY(-115%)" }}
         >
-          100
+          0%
         </span> : null}
         {activeIndex === null ? null : drawn.map((entry) => {
           const value = entry.values?.[activeIndex] ?? null;
@@ -255,7 +257,10 @@ export default function MarketPerformanceChart({ model, timeframe = "All", class
                           ) : null}
                         </span>
                       </span>
-                      <span className="font-semibold tabular-nums text-[var(--text-primary)]">{reading.value === null ? "—" : formatIndexValue(reading.value)}</span>
+                      <span className="text-right font-semibold tabular-nums text-[var(--text-primary)]">
+                        <span className="block">{reading.value === null ? "—" : `${reading.value > 0 ? "+" : ""}${reading.value.toFixed(2)}%`}</span>
+                        <span className="block text-[9px] font-normal text-[var(--text-secondary)]">Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
+                      </span>
                     </li>
                   ))}
                 </ul>
