@@ -74,12 +74,9 @@ export default function MarketExplorerClient({
   const auth = useAuth();
   const liveUser = auth ? auth.user : user;
   const timeframeOptions = useMemo(() => buildExplorerTimeframeOptions(overview), [overview]);
-  // ACCESS ARRIVES AS A PROP, RESOLVED ON THE SERVER from the session cookie.
-  // Deliberately not read from a client auth context here: the server already
-  // knows the plan when it renders this page, so passing it down means the
-  // first paint is already correct instead of flashing the basic rail and then
-  // unlocking. It also keeps the workspace a pure function of its props, which
-  // is what makes it renderable in a test.
+  // The server user owns the first paint. The sitewide AuthContext user then
+  // becomes canonical so login and profile/plan changes recover on this page
+  // without inventing an Explorer-specific session or requiring a reload.
   //
   // It is still only PRESENTATION. `resolveMarketExplorerPlanAccess` is the one
   // shared hierarchy, and a caller that passes nothing gets basic — failing
@@ -123,7 +120,13 @@ export default function MarketExplorerClient({
 
   // Era & Sets and Build a Market read the SAME canonical option payload, in
   // one shared request.
-  const { status: optionsStatus, options, message: optionsMessage } = useMarketExplorerFilterOptions({ isAuthenticated, authRevision: auth?.authRevision || 0 });
+  const {
+    status: optionsStatus,
+    options,
+    message: optionsMessage,
+    retry: retryOptions,
+    isRetrying: optionsRetrying,
+  } = useMarketExplorerFilterOptions({ isAuthenticated, authRevision: auth?.authRevision || 0 });
 
   // Era & Sets sets a research SCOPE, never a series — see the hook.
   const timeframe = resolveExplorerTimeframe(overview, requestedTimeframe);
@@ -239,9 +242,12 @@ export default function MarketExplorerClient({
           onClearGraph={clearGraph}
         />
         <MarketExplorerQueryBuilder
+          optionsProvided
           options={options}
           optionsStatus={optionsStatus}
           optionsMessage={optionsMessage}
+          onRetryOptions={retryOptions}
+          optionsRetrying={optionsRetrying}
           benchmarkEntries={benchmarkEntries}
           preparedSeries={comparableSeries}
           activeSeries={selectedSeries}

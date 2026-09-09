@@ -9,7 +9,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const OPTIONS = { eras: [{ id: "sv", label: "Scarlet & Violet", sortOrder: 1 }], sets: [{ id: "sv1", label: "Temporal Forces", eraId: "sv", assets: ["cards", "sealed"] }], cardSegments: { segments: [{ key: "sir", label: "Special Illustration Rare" }] }, sealedProductFamilies: { segments: [{ key: "bundle", label: "Booster Bundles" }] } };
 const RAW = { key: "raw", available: true };
-function mount(props = {}) { let renderer; act(() => { renderer = TestRenderer.create(<MarketExplorerQueryBuilder options={OPTIONS} optionsStatus="ready" currentPlan="premium" preparedSeries={[RAW]} activeSeries={[]} benchmarkEntries={[]} onAddPrepared={() => "added"} onAddQuery={async () => "added"} {...props} />); }); return renderer; }
+function mount(props = {}) { let renderer; act(() => { renderer = TestRenderer.create(<MarketExplorerQueryBuilder optionsProvided options={OPTIONS} optionsStatus="ready" currentPlan="premium" preparedSeries={[RAW]} activeSeries={[]} benchmarkEntries={[]} onAddPrepared={() => "added"} onAddQuery={async () => "added"} {...props} />); }); return renderer; }
 const byData = (renderer, key) => renderer.root.find((node) => node.props?.[key] !== undefined);
 const openDisclosure = (renderer, id) => act(() => renderer.root.findByProps({ "data-explorer-disclosure-toggle": id }).props.onClick());
 const textOf = (node) => typeof node === "string" || typeof node === "number" ? String(node) : (node?.children || []).map(textOf).join(" ");
@@ -204,7 +204,7 @@ test("Raw Cards starts active and open; asset headers switch and close in one cl
 
 test("loading options is intentional inside the initially-open Raw Cards section", () => {
   const renderer = mount({ options: null, optionsStatus: "loading" });
-  assert.match(renderer.root.findByProps({ role: "status" }).children.join(""), /Loading canonical filters/);
+  assert.match(textOf(renderer.root.findByProps({ role: "status" })), /Loading canonical filters/);
 });
 
 test("Quick Preset applies immediately and preserves multi-set scope", () => {

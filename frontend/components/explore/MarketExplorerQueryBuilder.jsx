@@ -59,8 +59,11 @@ function PreparedOptionList({ entries, onToggle, selectedSeriesCount }) {
 
 export default function MarketExplorerQueryBuilder({
   options,
+  optionsProvided = false,
   optionsStatus = "loading",
   optionsMessage = "",
+  onRetryOptions,
+  optionsRetrying = false,
   currentPlan = null,
   accessMode = "basic",
   coverageSummary = [],
@@ -83,10 +86,12 @@ export default function MarketExplorerQueryBuilder({
   const [exactOpen, setExactOpen] = useState(false);
   const exactTriggerRef = useRef(null);
   const [selectedScreenId, setSelectedScreenId] = useState(null);
-  const loadedOptions = useMarketExplorerFilterOptions({ enabled: options === undefined });
-  const canonicalOptions = options || loadedOptions.options;
-  const canonicalStatus = options ? optionsStatus : loadedOptions.status;
-  const canonicalMessage = options ? optionsMessage : loadedOptions.message;
+  const loadedOptions = useMarketExplorerFilterOptions({ enabled: !optionsProvided });
+  const canonicalOptions = optionsProvided ? options : loadedOptions.options;
+  const canonicalStatus = optionsProvided ? optionsStatus : loadedOptions.status;
+  const canonicalMessage = optionsProvided ? optionsMessage : loadedOptions.message;
+  const retryCanonicalOptions = optionsProvided ? onRetryOptions : loadedOptions.retry;
+  const canonicalOptionsRetrying = optionsProvided ? optionsRetrying : loadedOptions.isRetrying;
   const builder = useMarketExplorerBuilderDraft({
     options: canonicalOptions,
     currentPlan,
@@ -218,18 +223,40 @@ export default function MarketExplorerQueryBuilder({
           ? "Build card markets by Era, Set and Rarity with Index Plus."
           : "Build sealed markets by Era, Set and Product Family with Index Plus.",
       );
-    if (!canonicalOptions)
+    if (!canonicalOptions) {
+      if (canonicalStatus === OPTIONS_STATUS.forbidden) {
+        return accessPanel("Your current plan does not include these protected Builder filters.");
+      }
+      const canRetry = canonicalStatus === OPTIONS_STATUS.unavailable || canonicalStatus === OPTIONS_STATUS.offline;
       return (
-        <p
+        <div
           role="status"
           data-market-query-options-state={canonicalStatus}
           className="mt-2 text-[11px] text-[var(--text-secondary)]"
         >
-          {canonicalStatus === "loading"
-            ? "Loading canonical filters…"
-            : `The canonical market filters are temporarily unavailable.${canonicalMessage ? ` ${canonicalMessage}` : ""}`}
-        </p>
+          <p>
+            {canonicalStatus === OPTIONS_STATUS.loading
+              ? "Loading canonical filters…"
+              : canonicalStatus === OPTIONS_STATUS.offline
+                ? "Unable to reach the market filter service. Check your connection and try again."
+                : canonicalStatus === OPTIONS_STATUS.signedOut
+                  ? "Your session is no longer authenticated. Sign in to continue."
+                  : `The canonical market filters are temporarily unavailable.${canonicalMessage ? ` ${canonicalMessage}` : ""}`}
+          </p>
+          {canRetry && retryCanonicalOptions ? (
+            <button
+              type="button"
+              data-market-query-options-retry
+              disabled={canonicalOptionsRetrying}
+              onClick={retryCanonicalOptions}
+              className="mt-2 min-h-9 rounded-md border border-[var(--border-subtle)] px-3 font-semibold text-[var(--text-primary)] disabled:opacity-60"
+            >
+              {canonicalOptionsRetrying ? "Retrying filters…" : "Retry filters"}
+            </button>
+          ) : null}
+        </div>
       );
+    }
     if (draft.asset !== asset) return null;
     const presentation = presentationFor(asset);
     return (

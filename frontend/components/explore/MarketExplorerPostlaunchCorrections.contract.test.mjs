@@ -25,9 +25,16 @@ test("Explorer reads live auth and leaves one options owner", () => {
   const builder = read("./MarketExplorerQueryBuilder.jsx");
   const hook = read("../../hooks/explore/useMarketExplorerFilterOptions.js");
   assert.ok(client.includes("const auth = useAuth()"));
+  assert.ok(client.includes("const liveUser = auth ? auth.user : user"));
+  assert.ok(client.includes("resolveMarketExplorerPlanAccess(liveUser)"));
   assert.ok(client.includes("authRevision: auth?.authRevision || 0"));
-  assert.ok(builder.includes("enabled: options === undefined"));
-  assert.ok(hook.includes("[authRevision, enabled, isAuthenticated]"));
+  assert.ok(client.includes("optionsProvided"));
+  assert.ok(builder.includes("enabled: !optionsProvided"));
+  assert.ok(builder.includes("optionsProvided ? options : loadedOptions.options"));
+  assert.ok(hook.includes("authRevision"));
+  assert.ok(hook.includes("OPTIONS_RETRY_DELAYS_MS"));
+  assert.ok(hook.includes("isRetryableOptionsFailure"));
+  assert.ok(hook.includes("if (force && inFlight)"));
 });
 
 test("shared relative chart preserves raw values, labels performance, and powers Market plus Explorer", () => {
