@@ -4,6 +4,7 @@ import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
 import DarkSelect from "@/components/ui/DarkSelect";
 import ExplorerDisclosure from "./ExplorerDisclosure";
 import ExplorerMarketOption from "./ExplorerMarketOption";
+import ExplorerSelectableRow from "./ExplorerSelectableRow";
 import ExplorerPlanLockPanel from "./ExplorerPlanLockPanel";
 import MarketExplorerExactItemPicker from "./MarketExplorerExactItemPicker";
 import useMarketExplorerBuilderDraft from "@/hooks/explore/useMarketExplorerBuilderDraft";
@@ -33,7 +34,7 @@ import {
   MARKET_EXPLORER_SCREENS,
   MARKET_EXPLORER_QUICK_PRESETS,
   canUseScreen,
-  draftForScreenResult,
+  draftForQuickPreset,
   resolveScreenResults,
 } from "@/lib/explore/marketExplorerScreens.mjs";
 export { OPTIONS_STATUS, backendMessage, resolveOptionsStatus };
@@ -131,6 +132,9 @@ export default function MarketExplorerQueryBuilder({
   const selectedScreen =
     MARKET_EXPLORER_SCREENS.find((entry) => entry.id === selectedScreenId) ||
     null;
+  useEffect(() => {
+    if (selectedScreen?.asset && selectedScreen.asset !== draft.asset) setSelectedScreenId(null);
+  }, [draft.asset, selectedScreen]);
   const screenResults = useMemo(
     () =>
       selectedScreen
@@ -142,7 +146,7 @@ export default function MarketExplorerQueryBuilder({
   );
   const selectedPresetId = useMemo(() => MARKET_EXPLORER_QUICK_PRESETS.find((preset) => {
     if (draft.asset !== "cards" || draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT) return false;
-    const expected = draftForScreenResult(preset, null, draft);
+    const expected = draftForQuickPreset(preset, draft);
     return ["segmentIds", "pokemonIds", "priceSegmentIds", "releaseAgeCohortIds", "mode", "topN"]
       .every((key) => JSON.stringify(draft[key] ?? null) === JSON.stringify(expected[key] ?? null));
   })?.id || null, [draft]);
@@ -368,28 +372,29 @@ export default function MarketExplorerQueryBuilder({
             {MARKET_EXPLORER_SCREENS.filter((screen) => screen.asset === asset || screen.asset == null).map((screen) => {
               const unlocked = canUseScreen(screen, currentPlan);
               const lockTone = planPresentation(screen.requiredPlan === "premium" ? INDEX_PLAN_PREMIUM : INDEX_PLAN_PLUS);
-              return <button type="button" key={screen.id} data-market-screen={screen.id}
+              const selected = unlocked && selectedScreenId === screen.id;
+              return <ExplorerSelectableRow key={screen.id} data-market-screen={screen.id}
                 data-market-screen-locked={unlocked ? "false" : "true"}
-                aria-pressed={selectedScreenId === screen.id}
+                selected={selected}
+                locked={!unlocked}
                 onClick={() => {
                   if (!unlocked) return setMessage(`This Screen requires Index ${screen.requiredPlan === "premium" ? "Premium" : "Plus"}.`);
                   setSelectedScreenId(screen.id);
                   setMessage("");
                 }}
-                className={`min-h-11 w-full rounded-md border px-3 text-left focus-visible:outline-none focus-visible:ring-2 desk:min-h-0 ${selectedScreenId === screen.id ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)]" : unlocked ? "border-[var(--border-subtle)]" : lockTone.compactClassName}`}>
-                {selectedScreenId === screen.id ? <span aria-hidden="true" className="float-right text-[rgb(45,212,191)]">✓</span> : null}
+                className={`min-h-11 w-full desk:min-h-0 ${!unlocked ? lockTone.compactClassName : ""}`}>
                 <span className="block text-xs font-semibold text-[var(--text-primary)]">{screen.label}{unlocked ? "" : ` ðŸ”’ ${lockTone.label}`}</span>
                 <span className="block text-[10px] text-[var(--text-secondary)]">{screen.description}</span>
-              </button>;
+              </ExplorerSelectableRow>;
             })}
           </div>
           {selectedScreen && (selectedScreen.asset === asset || selectedScreen.asset == null) && canUseScreen(selectedScreen, currentPlan) ? (
             <div data-market-screen-results className="mt-2 space-y-1">
               {screenResults.length ? screenResults.map((result, index) => (
-                <button type="button" key={result.series.key} data-market-screen-result={result.series.key}
+                <button type="button" key={result.series.key} data-market-screen-result={result.series.key} data-market-screen-result-rank={index + 1} data-market-screen-result-metric={result.value}
                   aria-label={`${activeSeries.some((series) => series.key === result.series.key) ? "Active" : "Add"} ${result.series.shortLabel || result.series.label}`}
-                  disabled={activeSeries.some((series) => series.key === result.series.key)}
-                  onClick={() => onAddPrepared?.(result.series.key)}
+                  aria-current={activeSeries.some((series) => series.key === result.series.key) ? "true" : undefined}
+                  onClick={() => activeSeries.some((series) => series.key === result.series.key) ? undefined : onAddPrepared?.(result.series.key)}
                   className="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-left text-[11px] text-[var(--text-primary)]">
                   {index + 1}. {result.series.shortLabel || result.series.label} <span className="text-[var(--text-secondary)]">{result.value.toFixed(1)}%</span>
                   <strong className="float-right text-[rgb(45,212,191)]">{activeSeries.some((series) => series.key === result.series.key) ? "Active" : "Add"}</strong>
@@ -407,7 +412,7 @@ export default function MarketExplorerQueryBuilder({
           <div className="space-y-1">{MARKET_EXPLORER_QUICK_PRESETS.map((preset) => <button type="button" key={preset.id} data-market-preset={preset.id} aria-pressed={selectedPresetId === preset.id} onClick={() => {
             if (!canUseScreen(preset, currentPlan)) { setBuildStatus("locked"); setMessage(`This preset requires Index ${preset.requiredPlan === "premium" ? "Premium" : "Plus"}.`); return; }
             if (preset.id === "set-top-ten" && draft.setIds.length !== 1) { setBuildStatus("error"); setMessage(draft.setIds.length ? "Choose exactly one set." : "Choose one set first."); return; }
-            builder.replace(draftForScreenResult(preset, null, draft)); setBuildStatus("idle"); setMessage("");
+            builder.replace(draftForQuickPreset(preset, draft)); setBuildStatus("idle"); setMessage("");
           }} className={`w-full rounded-md border px-3 py-2 text-left text-xs ${selectedPresetId === preset.id ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)]" : "border-[var(--border-subtle)]"}`}><strong className="block">{preset.label}</strong><span className="text-[10px] text-[var(--text-secondary)]">{preset.description}</span></button>)}</div>
         </ExplorerDisclosure> : null}
         {asset === QUERY_ASSET_CARDS ? (
@@ -455,92 +460,6 @@ export default function MarketExplorerQueryBuilder({
             </div>
           </div>
         </ExplorerDisclosure>
-        {false ? <ExplorerDisclosure id="screens" title="Screens">
-          <div className="space-y-1">
-            {MARKET_EXPLORER_SCREENS.map((screen) => {
-              const unlocked = canUseScreen(screen, currentPlan);
-              const lockTone = planPresentation(
-                screen.requiredPlan === "premium"
-                  ? INDEX_PLAN_PREMIUM
-                  : INDEX_PLAN_PLUS,
-              );
-              return (
-                <button
-                  type="button"
-                  key={screen.id}
-                  data-market-screen={screen.id}
-                  data-market-screen-locked={unlocked ? "false" : "true"}
-                  onClick={() =>
-                    unlocked
-                      ? setSelectedScreenId(screen.id)
-                      : setMessage(
-                          `This Screen requires Index ${screen.requiredPlan === "premium" ? "Premium" : "Plus"}.`,
-                        )
-                  }
-                  className={`min-h-11 w-full rounded-md border px-3 text-left focus-visible:outline-none focus-visible:ring-2 desk:min-h-0 ${unlocked ? "border-[var(--border-subtle)]" : lockTone.compactClassName}`}
-                >
-                  <span className="block text-xs font-semibold text-[var(--text-primary)]">
-                    {screen.label}
-                    {unlocked ? "" : ` 🔒 ${lockTone.label}`}
-                  </span>
-                  <span className="block text-[10px] text-[var(--text-secondary)]">
-                    {screen.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {selectedScreen && canUseScreen(selectedScreen, currentPlan) ? (
-            <div data-market-screen-results className="mt-2 space-y-1">
-              {screenResults.length ? (
-                screenResults.map((result, index) => (
-                  <button
-                    type="button"
-                    key={result.series.key}
-                    onClick={() => {
-                      builder.replace(
-                        draftForScreenResult(selectedScreen, result, draft),
-                      );
-                      onAddPrepared?.(result.series.key);
-                    }}
-                    className="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-left text-[11px] text-[var(--text-primary)]"
-                  >
-                    {index + 1}.{" "}
-                    {result.series.shortLabel || result.series.label}{" "}
-                    <span className="text-[var(--text-secondary)]">
-                      {result.value.toFixed(1)}%
-                    </span>
-                  </button>
-                ))
-              ) : selectedScreen.id === "set-top-ten" && draft.setIds.length === 0 ? (
-                // "Top 10 in Selected Set" is meaningless with no set: an empty
-                // setIds resolves to "every eligible set" (the canonical
-                // EMPTY-MEANS-ALL rule), silently turning this screen into a
-                // plain Global Top 10 -- a different market the user did not
-                // ask for. Require the set explicitly rather than guess it.
-                <p
-                  data-market-screen-requires-set
-                  className="rounded-md border border-[var(--border-subtle)] px-2 py-2 text-[11px] text-[var(--text-secondary)]"
-                >
-                  Select one set under Raw Cards → Era &amp; Set first, then apply this screen.
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  data-market-screen-apply={selectedScreen.id}
-                  onClick={() =>
-                    builder.replace(
-                      draftForScreenResult(selectedScreen, null, draft),
-                    )
-                  }
-                  className="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-left text-[11px] text-[var(--text-primary)]"
-                >
-                  Legacy handoff removed
-                </button>
-              )}
-            </div>
-          ) : null}
-        </ExplorerDisclosure> : null}
         {false ? <ExplorerDisclosure id="benchmarks" title="Benchmarks">
           {paid ? (
             <PreparedOptionList

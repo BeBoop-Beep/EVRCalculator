@@ -1,6 +1,7 @@
 "use client";
 
 import InfoPopover from "@/components/ui/InfoPopover";
+import { ExplorerSelectionCheck, explorerSelectableRowClassName } from "./ExplorerSelectableRow";
 
 // ---------------------------------------------------------------------------
 // ONE selectable row for the whole Explore Segments rail.
@@ -35,26 +36,6 @@ const ACCENT = "rgb(45,212,191)";
 const ACCENT_SOFT = "rgba(45,212,191,0.12)";
 const ACCENT_RING = "rgba(45,212,191,0.65)";
 
-function CheckIndicator({ checked, disabled }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={[
-        "flex h-4 w-4 flex-none items-center justify-center rounded-[4px] border transition-colors",
-        checked
-          ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.18)] text-[rgb(45,212,191)]"
-          : "border-[var(--border-subtle)] bg-[var(--surface-page)]/60 text-transparent",
-        disabled ? "opacity-40" : "",
-      ].join(" ")}
-    >
-      {/* Drawn rather than a glyph so it is crisp at 16px and inherits color. */}
-      <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 6.4 4.6 9 10 3.2" />
-      </svg>
-    </span>
-  );
-}
-
 export default function ExplorerMarketOption({
   entry,
   onToggle,
@@ -73,16 +54,7 @@ export default function ExplorerMarketOption({
       data-market-explorer-filter-option-available={isAvailable ? "true" : "false"}
       data-market-explorer-filter-option-selected={isSelected ? "true" : "false"}
       data-market-explorer-filter-option-locked={isLocked ? "true" : "false"}
-      className={[
-        "group flex min-h-9 min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors",
-        "focus-within:outline-none focus-within:ring-2 focus-within:ring-[rgba(45,212,191,0.65)]",
-        isSelected
-          ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[var(--text-primary)] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.15)]"
-          : isAvailable
-            ? "border-transparent bg-[var(--surface-page)]/30 text-[var(--text-primary)] hover:border-[rgba(45,212,191,0.38)] hover:bg-[rgba(45,212,191,0.06)]"
-            : "border-transparent bg-[var(--surface-page)]/20 text-[var(--text-secondary)]",
-        disabled ? "cursor-default" : "cursor-pointer",
-      ].join(" ")}
+      className={explorerSelectableRowClassName({ selected: isSelected, available: isAvailable, disabled })}
     >
       {/* The real control, visually replaced but never removed: it keeps the
           label association, keyboard operation and screen-reader state that a
@@ -94,7 +66,7 @@ export default function ExplorerMarketOption({
         onChange={() => onToggle?.(entry.key)}
         className="sr-only"
       />
-      <CheckIndicator checked={isSelected} disabled={disabled} />
+      <ExplorerSelectionCheck selected={isSelected} disabled={disabled} />
 
       {/* IDENTITY, not state. Small, and never the row's background. */}
       <span

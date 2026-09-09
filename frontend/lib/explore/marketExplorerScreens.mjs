@@ -50,7 +50,7 @@ export function resolveScreenResults(screen, preparedSeries = []) {
   return [];
 }
 
-export function draftForScreenResult(screen, result, currentDraft = {}) {
+export function draftForQuickPreset(screen, currentDraft = {}) {
   const clean = {
     asset: screen.asset || currentDraft.asset || "cards",
     eraIds: [], setIds: [], segmentIds: [], pokemonIds: [], priceSegmentIds: [],
@@ -65,8 +65,5 @@ export function draftForScreenResult(screen, result, currentDraft = {}) {
     const selectedScope = { eraIds: currentDraft.eraIds || [], setIds: currentDraft.setIds || [] };
     return { ...clean, ...selectedScope, ...screen.template };
   }
-  const series = result?.series;
-  if (series?.group === "card") return { asset: "cards", segmentIds: [series.backendKey], mode: "all" };
-  if (series?.group === "sealed") return { asset: "sealed", segmentIds: [series.backendKey], mode: "all" };
   return clean;
 }

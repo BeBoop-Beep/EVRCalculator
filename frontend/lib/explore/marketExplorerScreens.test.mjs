@@ -5,7 +5,7 @@ import {
   MARKET_EXPLORER_SCREENS,
   MARKET_EXPLORER_QUICK_PRESETS,
   canUseScreen,
-  draftForScreenResult,
+  draftForQuickPreset,
   resolveScreenResults,
   validateScreenRegistry,
 } from "./marketExplorerScreens.mjs";
@@ -37,13 +37,9 @@ test("momentum and drawdown rankings use canonical prepared series and stable ti
   assert.ok(Math.abs(rows[1].value + 20) < 1e-9);
 });
 
-test("Screen handoff produces the same serializable builder definition", () => {
-  const rarity = MARKET_EXPLORER_SCREENS.find((screen) => screen.id === "rarity-leaders");
-  const draft = draftForScreenResult(rarity, { series: { group: "card", backendKey: "specialIllustrationRare" } });
-  assert.deepEqual(draft, { asset: "cards", segmentIds: ["specialIllustrationRare"], mode: "all" });
-
+test("only Quick Presets produce serializable builder definitions", () => {
   const price = MARKET_EXPLORER_QUICK_PRESETS.find((screen) => screen.id === "premium-market");
-  const clean = draftForScreenResult(price, null, { asset: "sealed", segmentIds: ["boosterBox"], pokemonIds: ["149"] });
+  const clean = draftForQuickPreset(price, { asset: "sealed", segmentIds: ["boosterBox"], pokemonIds: ["149"] });
   assert.deepEqual(clean.priceSegmentIds, ["premium"]);
   assert.deepEqual(clean.segmentIds, []);
   assert.deepEqual(clean.pokemonIds, []);
@@ -51,7 +47,7 @@ test("Screen handoff produces the same serializable builder definition", () => {
 
 test("selected-set Top 10 retains only scope before applying point-in-time ranking", () => {
   const screen = MARKET_EXPLORER_QUICK_PRESETS.find((entry) => entry.id === "set-top-ten");
-  const draft = draftForScreenResult(screen, null, { asset: "cards", eraIds: ["sv"], setIds: ["sv8"], pokemonIds: ["149"] });
+  const draft = draftForQuickPreset(screen, { asset: "cards", eraIds: ["sv"], setIds: ["sv8"], pokemonIds: ["149"] });
   assert.deepEqual(draft.setIds, ["sv8"]);
   assert.deepEqual(draft.pokemonIds, []);
   assert.equal(draft.mode, "chase");
@@ -60,7 +56,7 @@ test("selected-set Top 10 retains only scope before applying point-in-time ranki
 
 test("ordinary templates preserve multi-scope and Prompt-1 explicit membership", () => {
   const screen = MARKET_EXPLORER_QUICK_PRESETS.find((entry) => entry.id === "obtainable-market");
-  const draft = draftForScreenResult(screen, null, {
+  const draft = draftForQuickPreset(screen, {
     asset: "cards", eraIds: ["era-a", "era-b"], setIds: ["set-a", "set-b"],
     membershipMode: "explicit", instrumentIds: ["variant-a", "variant-b"],
   });
