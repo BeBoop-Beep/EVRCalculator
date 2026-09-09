@@ -9,7 +9,7 @@ import {
   resolveCurrentUser,
 } from "@/lib/auth/clientAuthLifecycle.mjs";
 
-const AuthContext = createContext({ user: null, authStatus: "resolved", authRevision: 0 });
+const AuthContext = createContext();
 
 export function AuthProvider({ children, initialUser = null }) {
   const [user, setUser] = useState(initialUser); // Track the user state

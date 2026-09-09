@@ -154,6 +154,11 @@ export default function MarketExplorerQueryBuilder({
     draft.priceSegmentIds.length ? `${draft.priceSegmentIds.length} price filter${draft.priceSegmentIds.length === 1 ? "" : "s"}` : null,
     draft.releaseAgeCohortIds.length ? `${draft.releaseAgeCohortIds.length} release filter${draft.releaseAgeCohortIds.length === 1 ? "" : "s"}` : null,
   ].filter(Boolean), [draft]);
+  const closeExactWorkspace = (cancelEdit = false) => {
+    setExactOpen(false);
+    if (cancelEdit && editing) onCancelEdit?.();
+    setTimeout(() => exactTriggerRef.current?.focus(), 0);
+  };
   const build = async (saveAsNew = false) => {
     if (!spec || (!editing && alreadyActive)) return;
     if (!prepared && !access.allowed) {
@@ -176,8 +181,8 @@ export default function MarketExplorerQueryBuilder({
         outcome === "duplicate" ? "This market is already in the comparison." : outcome === "updated" ? "Market updated." : outcome === "unchanged" ? "No changes." : "Added to comparison.",
       );
       setBuildStatus("success");
-      setExactOpen(false);
-      if (outcome === "updated") onCancelEdit?.();
+      closeExactWorkspace(false);
+      if (editing && outcome !== "duplicate" && outcome !== "unchanged") onCancelEdit?.();
     } catch (error) {
       setMessage(
         error?.message ||
@@ -207,12 +212,12 @@ export default function MarketExplorerQueryBuilder({
       return (
         <p
           role="status"
+          data-market-query-options-state={canonicalStatus}
           className="mt-2 text-[11px] text-[var(--text-secondary)]"
         >
           {canonicalStatus === "loading"
             ? "Loading canonical filters…"
-            : canonicalMessage ||
-              "The canonical market filters are temporarily unavailable."}
+            : `The canonical market filters are temporarily unavailable.${canonicalMessage ? ` ${canonicalMessage}` : ""}`}
         </p>
       );
     if (draft.asset !== asset) return null;
@@ -687,7 +692,7 @@ export default function MarketExplorerQueryBuilder({
       open={exactOpen && draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT}
       selectedItems={draft.exactItems || []}
       onChange={builder.setExactItems}
-      onClose={() => { setExactOpen(false); setTimeout(() => exactTriggerRef.current?.focus(), 0); }}
+      onClose={() => closeExactWorkspace(true)}
       onBuild={() => build(false)}
       onSaveAsNew={editing ? () => build(true) : null}
       buildLabel={editing ? "Update Market" : "Build Market"}

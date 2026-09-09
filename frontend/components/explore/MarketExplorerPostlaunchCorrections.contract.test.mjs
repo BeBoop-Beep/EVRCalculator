@@ -30,3 +30,34 @@ test("Explorer reads live auth and leaves one options owner", () => {
   assert.ok(hook.includes("[authRevision, enabled, isAuthenticated]"));
 });
 
+test("shared relative chart preserves raw values, labels performance, and powers Market plus Explorer", () => {
+  const chart = read("./MarketPerformanceChart.jsx");
+  const explorer = read("./MarketExplorerChart.jsx");
+  const market = read("./PokemonMarketPerformance.jsx");
+  assert.ok(chart.includes("toSelectedWindowPerformance(entry.values || [])"));
+  assert.ok(chart.includes("rawValues: entry.values || []"));
+  assert.ok(chart.includes("Market Index {reading.rawValue"));
+  assert.ok(chart.includes("{timeframe} performance"));
+  assert.ok(chart.includes('data-market-performance-reference="0"'));
+  assert.ok(explorer.includes("<MarketPerformanceChart"));
+  assert.ok(market.includes("<MarketPerformanceChart"));
+});
+
+test("build failures remain beside both CTAs with structured accessible state", () => {
+  const picker = read("./MarketExplorerExactItemPicker.jsx");
+  const builder = read("./MarketExplorerQueryBuilder.jsx");
+  for (const state of ["idle", "building", "success", "error", "locked"]) assert.ok(builder.includes(`\"${state}\"`), state);
+  assert.ok(builder.includes('role={buildStatus === "error" ? "alert" : "status"}'));
+  assert.ok(picker.includes('role={buildStatus === "error" ? "alert" : "status"}'));
+  assert.ok(builder.includes("error?.message ||"), "useful backend messages must survive");
+});
+
+test("accepted chart-first hierarchy remains intact", () => {
+  const client = read("./MarketExplorerClient.jsx");
+  assert.equal((client.match(/<MarketExplorerActiveMarkets/g) || []).length, 1);
+  assert.ok(client.indexOf("<MarketExplorerConstituents") < client.indexOf("<MarketExplorerDetails"));
+  assert.ok(client.indexOf("<MarketExplorerDetails") < client.indexOf("<MarketExplorerMethodology"));
+  assert.ok(client.includes("data-market-explorer-active-strip"));
+  assert.ok(client.includes("data-market-explorer-chart-pane") || read("./MarketExplorerChart.jsx").includes("data-market-explorer-chart-pane"));
+});
+
