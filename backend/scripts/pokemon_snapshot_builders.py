@@ -792,9 +792,9 @@ def _assert_canonical_set_page_contract_complete(
         financial_problems.append(
             f"financialRipV4.rankable is {financial.get('rankable')!r}, not True"
         )
-    if financial.get("version") != identity["financialRipVersion"]:
+    if financial.get("scoreVersion") != identity["financialRipVersion"]:
         financial_problems.append(
-            f"financialRipV4.version is {financial.get('version')!r}; canonical is "
+            f"financialRipV4.scoreVersion is {financial.get('scoreVersion')!r}; canonical is "
             f"{identity['financialRipVersion']!r}"
         )
     if financial_problems:

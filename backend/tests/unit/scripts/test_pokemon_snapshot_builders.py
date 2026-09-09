@@ -1574,7 +1574,7 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
                     # complete`), not just the historical V10 one.
                     "financialRipV4": {
                         "score": 75.0, "rank": 12, "status": "ready", "rankable": True,
-                        "version": _FIXTURE_IDENTITY["financialRipVersion"],
+                        "scoreVersion": _FIXTURE_IDENTITY["financialRipVersion"],
                     },
                     "overallRipV12": {
                         "score": 75.0, "rank": 12, "status": "ready", "rankable": True,
@@ -1818,7 +1818,10 @@ def _canonical_v12_payload(**overrides: Any) -> Dict[str, Any]:
             "rank": 2,
             "status": "ready",
             "rankable": True,
-            "version": identity["financialRipVersion"],
+            # The real Financial RIP V4 contract
+            # (backend/calculations/evr/financial_rip_v4.py) stamps
+            # "scoreVersion" - it never emits a top-level "version" field.
+            "scoreVersion": identity["financialRipVersion"],
         },
         "publicRipContractV11": {
             "contractVersion": identity["publicRipContractVersion"],
@@ -1961,10 +1964,36 @@ def test_missing_financial_v4_authority_fails():
         )
 
 
-def test_wrong_financial_v4_authority_version_fails():
+def test_wrong_financial_v4_authority_score_version_fails():
     payload = _canonical_v12_payload()
-    payload["financialRipV4"]["version"] = "financial_rip_v2"
-    with pytest.raises(RuntimeError, match="financialRipV4.version"):
+    payload["financialRipV4"]["scoreVersion"] = "financial_rip_v2"
+    with pytest.raises(RuntimeError, match="financialRipV4.scoreVersion"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_missing_financial_v4_score_version_fails():
+    # The real Financial RIP V4 contract never emits a top-level "version"
+    # field - only "scoreVersion". A row missing scoreVersion must fail even
+    # if score/rank/status/rankable all look complete.
+    payload = _canonical_v12_payload()
+    del payload["financialRipV4"]["scoreVersion"]
+    with pytest.raises(RuntimeError, match="financialRipV4.scoreVersion"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_financial_v4_top_level_version_field_alone_does_not_satisfy_canonical_check():
+    # A "version" field is not part of the real Financial V4 contract - adding
+    # one (without scoreVersion) must NOT be accepted as a fallback/alias.
+    payload = _canonical_v12_payload()
+    del payload["financialRipV4"]["scoreVersion"]
+    payload["financialRipV4"]["version"] = canonical_publication_identity()[
+        "financialRipVersion"
+    ]
+    with pytest.raises(RuntimeError, match="financialRipV4.scoreVersion"):
         pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
             payload, set_id="set-1"
         )
