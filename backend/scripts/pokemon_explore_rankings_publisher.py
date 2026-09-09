@@ -71,8 +71,13 @@ from backend.scripts.pokemon_snapshot_builders import (
 from backend.db.services.set_rip_service import METHODOLOGY_VERSION as SET_RIP_METHODOLOGY_VERSION
 from backend.db.services.chase_accessibility_service import SNAPSHOT_TABLE as CHASE_ACCESSIBILITY_SNAPSHOT_TABLE
 from backend.db.services.rankings_publication_lifecycle import (
+    CLASSIFICATION_PUBLISHED,
     FAILED_POST_PUBLICATION_PARITY,
+    FAILED_PUBLICATION_CONTRACT,
     FAILED_PUBLICATION_RPC,
+    PUBLICATION_MODE_COORDINATED_SET_PAGES,
+    PUBLICATION_MODE_RANKINGS_ONLY,
+    RankingsPublicationOutcome,
     assert_rankings_publication_parity,
     evaluate_rankings_publication_readiness,
     finish_rankings_publication_attempt,
@@ -737,9 +742,24 @@ def publish_explore_rip_rankings_snapshot(
         sealed_product_finalization_report=sealed_product_finalization_report,
         chase_accessibility_rows=chase_accessibility_rows,
     )
+    # THE ONE explicit publication-mode authority. `set_page_generation_id`
+    # present means this call is routed through the coordinated
+    # `..._with_set_pages` RPC that atomically advances the Rankings
+    # publication together with the Set-page generation it activates; absent
+    # means Rankings-only, which advances the leaderboard without touching
+    # Set-page generation state at all. Every attempt records which one this
+    # was (see `start_rankings_publication_attempt`) so that is never
+    # something that has to be inferred after the fact.
+    publication_mode = (
+        PUBLICATION_MODE_COORDINATED_SET_PAGES if set_page_generation_id
+        else PUBLICATION_MODE_RANKINGS_ONLY
+    )
     lifecycle_persistence = commit and _rankings_lifecycle_persistence_supported(client)
     prior = read_active_publication(client) if lifecycle_persistence else {}
-    attempt_id = start_rankings_publication_attempt(client, readiness, prior=prior) if lifecycle_persistence else None
+    attempt_id = (
+        start_rankings_publication_attempt(client, readiness, prior=prior, publication_mode=publication_mode)
+        if lifecycle_persistence else None
+    )
     enforce_readiness = (not commit) or lifecycle_persistence
     if enforce_readiness and not readiness.ready:
         if attempt_id:
@@ -755,7 +775,7 @@ def publish_explore_rip_rankings_snapshot(
     except Exception as exc:
         if attempt_id:
             finish_rankings_publication_attempt(
-                client, attempt_id, status="failed", reason_code="FAILED_PUBLICATION_CONTRACT",
+                client, attempt_id, status="failed", reason_code=FAILED_PUBLICATION_CONTRACT,
                 detail=str(exc), error=exc,
             )
         raise
@@ -785,6 +805,12 @@ def publish_explore_rip_rankings_snapshot(
     if not commit:
         logger.info("[dry-run] validated complete RIP publication market_date=%s rows=%s",
                     snapshot["market_date"], len(history_rows))
+        row["_rankingsPublicationOutcome"] = RankingsPublicationOutcome(
+            classification=CLASSIFICATION_PUBLISHED, reason_code="READY",
+            reason_detail=f"dry-run validated (not committed): {readiness.detail}",
+            publication_mode=publication_mode, publication_required=True,
+            publication_attempted=False,
+        ).to_dict()
         return row
     try:
         rpc_name = ("publish_pokemon_public_rip_leaderboard_with_set_pages"
@@ -815,4 +841,9 @@ def publish_explore_rip_rankings_snapshot(
             client, attempt_id, status="published", reason_code="READY",
             detail=readiness.detail, publication_id=snapshot["id"],
         )
+    row["_rankingsPublicationOutcome"] = RankingsPublicationOutcome(
+        classification=CLASSIFICATION_PUBLISHED, reason_code="READY", reason_detail=readiness.detail,
+        attempt_id=attempt_id, publication_id=snapshot["id"], publication_mode=publication_mode,
+        publication_required=True, publication_attempted=True,
+    ).to_dict()
     return row

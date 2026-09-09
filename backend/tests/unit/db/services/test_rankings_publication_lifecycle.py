@@ -159,6 +159,7 @@ def test_aug27_v10_candidate_regression_documents_set_rip_wiring():
 class Query:
     def __init__(self, client, name, rows):
         self.client, self.name, self.rows = client, name, list(rows)
+        self._pending_update = None
     def select(self, *_args): return self
     def eq(self, key, value):
         self.rows = [row for row in self.rows if str(row.get(key)) == str(value)]
@@ -170,9 +171,18 @@ class Query:
         self.client.tables[self.name].append(dict(row)); self.rows = [row]
         return self
     def update(self, values):
-        for row in self.rows: row.update(values)
+        # Mirrors real PostgREST-style builders: the filter that follows
+        # `.update(...)` (e.g. `.eq("id", attempt_id)`) narrows the target
+        # rows BEFORE the write commits, so this only records the pending
+        # values and applies them in `execute()` against whatever `self.rows`
+        # has been narrowed to by then.
+        self._pending_update = values
         return self
-    def execute(self): return type("Result", (), {"data": self.rows})()
+    def execute(self):
+        if self._pending_update is not None:
+            for row in self.rows:
+                row.update(self._pending_update)
+        return type("Result", (), {"data": self.rows})()
 
 
 class Client:
@@ -231,3 +241,71 @@ def test_attempt_record_is_written_and_finalized():
     assert row["status"] == "published"
     assert row["source_run_ids"] == report.source_run_ids
     assert row["completed_at"]
+
+
+def test_start_attempt_records_publication_mode_in_diagnostics():
+    report = ready_report()
+    client = Client({"pokemon_rankings_publication_attempts": []})
+    lifecycle.start_rankings_publication_attempt(
+        client, report, publication_mode=lifecycle.PUBLICATION_MODE_COORDINATED_SET_PAGES,
+    )
+    row = client.tables["pokemon_rankings_publication_attempts"][0]
+    assert row["diagnostics"]["publicationMode"] == lifecycle.PUBLICATION_MODE_COORDINATED_SET_PAGES
+
+
+def test_orphaned_evaluating_attempt_is_reconciled_when_a_later_attempt_starts():
+    """Reproduces the Sept-8 incident's root cause directly at the lifecycle
+    layer: an attempt (`fd215ea3-...`-equivalent) that was started but whose
+    owning process never called finish (crash / forced restart) must not stay
+    `evaluating` forever. The very next attempt started for the same market
+    date must close it out as terminal.
+    """
+    report = ready_report()
+    client = Client({"pokemon_rankings_publication_attempts": []})
+    orphan_id = lifecycle.start_rankings_publication_attempt(client, report)
+    # Simulate the process crashing before it ever calls finish: the row
+    # stays exactly as inserted - status "evaluating", completed_at None.
+    orphan_row = client.tables["pokemon_rankings_publication_attempts"][0]
+    assert orphan_row["status"] == "evaluating"
+    assert orphan_row["id"] == orphan_id
+
+    new_attempt_id = lifecycle.start_rankings_publication_attempt(client, report)
+    assert new_attempt_id != orphan_id
+
+    rows_by_id = {row["id"]: row for row in client.tables["pokemon_rankings_publication_attempts"]}
+    assert rows_by_id[orphan_id]["status"] == "failed"
+    assert rows_by_id[orphan_id]["reason_code"] == lifecycle.ORPHANED_ATTEMPT_SUPERSEDED
+    assert rows_by_id[orphan_id]["completed_at"]
+    # The new attempt is untouched by reconciliation.
+    assert rows_by_id[new_attempt_id]["status"] == "evaluating"
+    assert rows_by_id[new_attempt_id].get("completed_at") is None
+
+
+def test_reconcile_orphaned_attempts_ignores_attempts_for_other_market_dates():
+    report = ready_report()
+    client = Client({"pokemon_rankings_publication_attempts": []})
+    other_report = deepcopy(report)
+    other_report.market_date = "2026-08-01"
+    other_id = lifecycle.start_rankings_publication_attempt(client, other_report)
+    reconciled = lifecycle.reconcile_orphaned_rankings_publication_attempts(
+        client, market_date=report.market_date,
+    )
+    assert reconciled == 0
+    other_row = next(row for row in client.tables["pokemon_rankings_publication_attempts"] if row["id"] == other_id)
+    assert other_row["status"] == "evaluating"
+
+
+def test_reconcile_orphaned_attempts_never_touches_a_terminal_attempt():
+    report = ready_report()
+    client = Client({"pokemon_rankings_publication_attempts": []})
+    attempt_id = lifecycle.start_rankings_publication_attempt(client, report)
+    lifecycle.finish_rankings_publication_attempt(
+        client, attempt_id, status="published", reason_code="READY", detail="ok",
+        publication_id="publication",
+    )
+    reconciled = lifecycle.reconcile_orphaned_rankings_publication_attempts(
+        client, market_date=report.market_date,
+    )
+    assert reconciled == 0
+    row = client.tables["pokemon_rankings_publication_attempts"][0]
+    assert row["status"] == "published"
