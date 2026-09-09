@@ -1237,7 +1237,7 @@ def get_product_chase_intelligence(
 
 
 @app.get("/tcgs/pokemon/set-route-directory")
-def get_pokemon_set_route_directory(limit: int = Query(default=150, ge=1, le=200)):
+def get_pokemon_set_route_directory(limit: int = Query(default=200, ge=1, le=200)):
     """Slim set-route membership/identity; never reads Rankings publication JSON."""
     try:
         return get_pokemon_set_route_directory_payload(limit=limit)

@@ -13,7 +13,7 @@ export default async function ExplorePage() {
   // canonical RIP targets cohort is intentionally absent from this route; it
   // is built only after the user asks for Sets, Eras or Products.
   const [directory, openingEconomics] = await Promise.all([
-    getPokemonSetRouteDirectory({ limit: 150 }).catch(() => null),
+    getPokemonSetRouteDirectory({ limit: 200 }).catch(() => null),
     getOpeningEconomics(),
   ]);
 

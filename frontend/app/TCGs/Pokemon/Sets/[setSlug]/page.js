@@ -27,7 +27,7 @@ export async function generateMetadata({ params }) {
     });
   }
 
-  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 150 }).catch(() => null);
+  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 200 }).catch(() => null);
   const selectedTarget = findTargetBySetSlug(
     Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [],
     rawSetSegment,
@@ -70,7 +70,7 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
   // If neither the fresh directory nor its last-known-good snapshot is
   // available, propagate the technical failure. Treating it as an empty
   // authoritative directory would turn a backend outage into a false 404.
-  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 150 });
+  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 200 });
   const targetsMs = Date.now() - targetsStartedAt;
   const targets = Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [];
   const defaultTarget = targetsPayload?.default_target || null;

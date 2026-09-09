@@ -11,7 +11,7 @@ const directoryLkg = createRouteDirectoryLkg();
 // This route therefore has an explicit, bounded 300-second consistency window;
 // it must not be described as immediately coherent with a just-promoted ranking.
 
-const loadDirectory = cache(async (limit = 150) => {
+const loadDirectory = cache(async (limit = 200) => {
   const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/set-route-directory`);
   url.searchParams.set("limit", String(limit));
   try {
@@ -38,6 +38,6 @@ const loadDirectory = cache(async (limit = 150) => {
 });
 
 
-export async function getPokemonSetRouteDirectory({ limit = 150 } = {}) {
+export async function getPokemonSetRouteDirectory({ limit = 200 } = {}) {
   return loadDirectory(limit);
 }

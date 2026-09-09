@@ -52,7 +52,7 @@ test("canonical Set rankings cohort is isolated behind the Sets lens endpoint", 
 
 test("set canonical route uses the slim route directory on every tab", () => {
   const source = read("app/TCGs/Pokemon/Sets/[setSlug]/page.js");
-  assert.ok(source.includes("getPokemonSetRouteDirectory({ limit: 150 })"));
+  assert.ok(source.includes("getPokemonSetRouteDirectory({ limit: 200 })"));
   assert.ok(!source.includes("getRipStatisticsTargets"), "set URL resolution must never build the canonical rankings cohort");
   assert.ok(!source.includes("useSlimSetDirectory"), "tab-specific routing must not regress to heavyweight discovery");
 });

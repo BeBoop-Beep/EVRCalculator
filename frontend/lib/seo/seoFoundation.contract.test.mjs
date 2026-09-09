@@ -187,7 +187,7 @@ test("the set route resolves a real set name through the existing canonical help
   assert.ok(!source.includes("Perfect Order"), "no set name may be hard-coded into metadata");
   // Metadata must reuse the slim cached route directory, not introduce the
   // heavyweight canonical rankings cohort as a second data path.
-  assert.ok(source.includes("getPokemonSetRouteDirectory({ limit: 150 })"));
+  assert.ok(source.includes("getPokemonSetRouteDirectory({ limit: 200 })"));
   assert.ok(!source.includes("getRipStatisticsTargets"));
 });
 
