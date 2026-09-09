@@ -11,7 +11,11 @@ from backend.desirability.scoring_config import (
     CANONICAL_OVERALL_RIP_VERSION,
     canonical_collector_appeal_version,
 )
-from backend.rankings.public_relative import public_relative_rip_tier
+from backend.rankings.public_relative import (
+    compute_leader_normalized_scores,
+    public_leader_rip_tier,
+    public_relative_rip_tier,
+)
 
 METHODOLOGY_VERSION = "set_rip_v1_mean_sku_mean_family_unshrunk_cov2_cohort3_missing_omit"
 MINIMUM_PARTICIPATING_FAMILIES = 2
@@ -158,6 +162,17 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
                          "value": None, "percent": None, "status": None, "version": None,
                          "chaseDepth": None, "mappedHcMass": None, "setRank": None, "setCohortSize": None,
                      }})
+
+    leader_scores = compute_leader_normalized_scores(
+        (row for row in rows if row["rankable"]),
+        id_getter=lambda row: row["setId"],
+        score_getter=lambda row: row["score"],
+    )
+    for row in rows:
+        if row["rankable"]:
+            row["score"] = leader_scores.get(row["setId"])
+            row["tier"] = public_leader_rip_tier(row["score"])
+            row["rankable"] = row["score"] is not None
 
     ranked = sorted((row for row in rows if row["rankable"]), key=lambda row: (-row["score"], row["setId"]))
     cohort_size = len(ranked)

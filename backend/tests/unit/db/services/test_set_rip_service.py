@@ -52,7 +52,9 @@ def test_frozen_formula_distinct_families_multi_sku_equal_votes_and_missing_omit
     }), set_targets=targets)
     a = next(row for row in result["sets"] if row["setId"] == "a")
     # Loose mean=(1 + 2/3)/2=5/6; sleeved=0; bundle=1. Each family gets one equal vote.
-    assert a["score"] == pytest.approx(((5 / 6) + 0 + 1) / 3 * 100)
+    # Raw standing score is then leader-curved to the cohort's best raw score
+    # (a and b are tied leaders at 61.11 raw, so a lands at exactly 100).
+    assert a["score"] == pytest.approx(100.0)
     assert a["skuEvidenceCount"] == 4
     assert a["participatingFamilies"] == ["booster_bundle", "loose_booster_pack", "sleeved_booster_pack"]
     assert {x["family"]: x["skuCount"] for x in a["familyScores"]}["loose_booster_pack"] == 2
@@ -79,7 +81,9 @@ def test_display_family_price_enrichment_preserves_scoring_and_uses_lowest_multi
     loose = next(item for item in a["displayFamilyScores"] if item["family"] == "loose_booster_pack")
     assert (loose["skuCount"], loose["minMarketPrice"], loose["maxMarketPrice"]) == (2, 167.87, 189.42)
     assert len(loose["productIds"]) == 2
-    assert a["score"] == pytest.approx((((5 / 6) + 1) / 2) * 100)
+    # a's raw standing score (91.67) is the cohort leader, so the leader-curved
+    # public score lands at exactly 100.
+    assert a["score"] == pytest.approx(100.0)
     c = next(row for row in result["sets"] if row["setId"] == "c")
     assert all(item["minMarketPrice"] is None for item in c["displayFamilyScores"])
 

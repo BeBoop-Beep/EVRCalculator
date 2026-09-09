@@ -17,9 +17,11 @@ def test_equal_set_mean_rank_tier_and_constituent_context():
         target("b1", "B", 75), target("b2", "B", 74), target("b3", "B", 73),
     ])
     by_name = {row["eraName"]: row for row in result["eras"]}
-    assert by_name["B"]["score"] == pytest.approx(74)
+    # Raw era means are A=73, B=74; the leader curve puts the strongest era
+    # (B) at exactly 100 and scales A proportionally: 100 * 73 / 74.
+    assert by_name["B"]["score"] == pytest.approx(100.0)
     assert by_name["B"]["rank"] == 1
-    assert by_name["A"]["score"] == pytest.approx(73)
+    assert by_name["A"]["score"] == pytest.approx(round(100.0 * 73 / 74, 2))
     assert by_name["A"]["strongestSet"]["setName"] == "a1"
     assert len(by_name["A"]["constituentSets"]) == 3
 

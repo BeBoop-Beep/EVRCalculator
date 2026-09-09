@@ -7,7 +7,12 @@ from collections import defaultdict
 from statistics import fmean, median
 from typing import Any, Mapping, Sequence
 
-from backend.rankings.public_relative import public_relative_rip_tier, public_rip_display_score
+from backend.rankings.public_relative import (
+    compute_leader_normalized_scores,
+    public_leader_rip_tier,
+    public_relative_rip_tier,
+    public_rip_display_score,
+)
 from backend.db.services.set_rip_service import METHODOLOGY_VERSION as SET_RIP_METHODOLOGY_VERSION
 
 METHODOLOGY_VERSION = "era_set_strength_v1_equal_set_mean_of_set_rip_v1"
@@ -76,6 +81,22 @@ def build_era_set_strength(set_targets: Sequence[Mapping[str, Any]]) -> dict[str
                      "topSet": ({"setId": str(strongest.get("set_id") or strongest.get("target_id")),
                                   "setName": strongest.get("name"), "score": (strongest.get("setRipV1") or {}).get("score")} if strongest else None),
                      "constituentSets": context})
+
+    leader_scores = compute_leader_normalized_scores(
+        (era for era in eras if era["rankable"]),
+        id_getter=lambda era: era["eraId"],
+        score_getter=lambda era: era["score"],
+    )
+    for era in eras:
+        if era["rankable"]:
+            era["score"] = leader_scores.get(era["eraId"])
+            era["publicScore"] = public_rip_display_score(era["score"])
+            era["tier"] = public_leader_rip_tier(era["score"])
+            era["rankable"] = era["score"] is not None
+            era["status"] = "available" if era["rankable"] else "unavailable"
+            if not era["rankable"]:
+                era["statusReason"] = "leader_curve_unavailable"
+
     ranked = sorted((e for e in eras if e["rankable"]), key=lambda e: (-e["score"], e["eraName"]))
     for rank, era in enumerate(ranked, 1):
         era["rank"] = rank
