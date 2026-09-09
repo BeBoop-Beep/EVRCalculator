@@ -71,6 +71,8 @@ from backend.scripts.pokemon_snapshot_builders import (
 from backend.db.services.set_rip_service import METHODOLOGY_VERSION as SET_RIP_METHODOLOGY_VERSION
 from backend.db.services.chase_accessibility_service import SNAPSHOT_TABLE as CHASE_ACCESSIBILITY_SNAPSHOT_TABLE
 from backend.db.services.rankings_publication_lifecycle import (
+    CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+    CLASSIFICATION_FAILED_WITH_ATTEMPT,
     CLASSIFICATION_PUBLISHED,
     FAILED_POST_PUBLICATION_PARITY,
     FAILED_PUBLICATION_CONTRACT,
@@ -84,6 +86,22 @@ from backend.db.services.rankings_publication_lifecycle import (
     read_active_publication,
     start_rankings_publication_attempt,
 )
+
+
+class RankingsPublicationError(RuntimeError):
+    """A publication attempt that resolved to a non-PUBLISHED terminal outcome.
+
+    Carries the SAME `RankingsPublicationOutcome` the lifecycle layer already
+    produced (as `.rankings_outcome`, a plain dict from `.to_dict()`) so an
+    in-process caller — e.g. `refresh_stale_public_snapshots.py`'s
+    `_maybe_rebuild_rankings` — can consume the canonical classification,
+    attempt id, and reason directly instead of re-deriving them from the
+    exception's string message.
+    """
+
+    def __init__(self, message: str, *, outcome: Dict[str, Any]):
+        super().__init__(message)
+        self.rankings_outcome = outcome
 
 logger = logging.getLogger(__name__)
 
@@ -767,8 +785,15 @@ def publish_explore_rip_rankings_snapshot(
                 client, attempt_id, status="deferred", reason_code=readiness.reason_code,
                 detail=readiness.detail,
             )
-        raise RuntimeError(
-            f"Rankings publication deferred ({readiness.reason_code}): {readiness.detail}"
+        deferred_outcome = RankingsPublicationOutcome(
+            classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+            reason_code=readiness.reason_code, reason_detail=readiness.detail,
+            attempt_id=attempt_id, publication_mode=publication_mode,
+            publication_required=True, publication_attempted=False,
+        )
+        raise RankingsPublicationError(
+            f"Rankings publication deferred ({readiness.reason_code}): {readiness.detail}",
+            outcome=deferred_outcome.to_dict(),
         )
     try:
         validate_publication_payload(row, snapshot, history_rows)
@@ -778,7 +803,13 @@ def publish_explore_rip_rankings_snapshot(
                 client, attempt_id, status="failed", reason_code=FAILED_PUBLICATION_CONTRACT,
                 detail=str(exc), error=exc,
             )
-        raise
+        failed_outcome = RankingsPublicationOutcome(
+            classification=CLASSIFICATION_FAILED_WITH_ATTEMPT,
+            reason_code=FAILED_PUBLICATION_CONTRACT, reason_detail=str(exc),
+            attempt_id=attempt_id, publication_mode=publication_mode,
+            publication_required=True, publication_attempted=True,
+        )
+        raise RankingsPublicationError(str(exc), outcome=failed_outcome.to_dict()) from exc
 
     # ORDER MATTERS. The projection runs AFTER validation and AFTER movement, so the
     # publication contract, the Set Value coverage check and the 1D rank movement all
@@ -825,7 +856,13 @@ def publish_explore_rip_rankings_snapshot(
                 client, attempt_id, status="failed", reason_code=FAILED_PUBLICATION_RPC,
                 detail=str(exc), error=exc,
             )
-        raise
+        rpc_failed_outcome = RankingsPublicationOutcome(
+            classification=CLASSIFICATION_FAILED_WITH_ATTEMPT,
+            reason_code=FAILED_PUBLICATION_RPC, reason_detail=str(exc),
+            attempt_id=attempt_id, publication_mode=publication_mode,
+            publication_required=True, publication_attempted=True,
+        )
+        raise RankingsPublicationError(str(exc), outcome=rpc_failed_outcome.to_dict()) from exc
     if lifecycle_persistence:
         try:
             assert_rankings_publication_parity(client, readiness, publication_id=snapshot["id"])
@@ -835,7 +872,13 @@ def publish_explore_rip_rankings_snapshot(
                     client, attempt_id, status="failed", reason_code=FAILED_POST_PUBLICATION_PARITY,
                     detail=str(exc), publication_id=snapshot["id"], error=exc,
                 )
-            raise
+            parity_failed_outcome = RankingsPublicationOutcome(
+                classification=CLASSIFICATION_FAILED_WITH_ATTEMPT,
+                reason_code=FAILED_POST_PUBLICATION_PARITY, reason_detail=str(exc),
+                attempt_id=attempt_id, publication_id=snapshot["id"], publication_mode=publication_mode,
+                publication_required=True, publication_attempted=True,
+            )
+            raise RankingsPublicationError(str(exc), outcome=parity_failed_outcome.to_dict()) from exc
     if attempt_id:
         finish_rankings_publication_attempt(
             client, attempt_id, status="published", reason_code="READY",

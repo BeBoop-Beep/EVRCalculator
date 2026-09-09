@@ -92,6 +92,34 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+# THE ONE conversion from a `RankingsPublicationOutcome.classification` to the
+# legacy free-text `rankings_publication_status` string older callers still
+# read. Kept here, next to the classification constants themselves, so no
+# call site ever hand-writes a second decision tree that could drift from
+# this mapping. A successful terminal path must NEVER map to "not_attempted" -
+# see CLASSIFICATION_UNCHANGED_NOT_REQUIRED, which is the explicit "nothing
+# to do" terminal state this mapping resolves to "unchanged", not to
+# "not_attempted".
+_CLASSIFICATION_TO_LEGACY_STATUS: Dict[str, str] = {
+    CLASSIFICATION_PUBLISHED: "published",
+    CLASSIFICATION_DEFERRED_WITH_ATTEMPT: "deferred",
+    CLASSIFICATION_FAILED_WITH_ATTEMPT: "failed",
+    CLASSIFICATION_UNCHANGED_NOT_REQUIRED: "unchanged",
+    CLASSIFICATION_EXPLICIT_OPERATOR_SKIP: "skipped",
+    CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION: "pipeline_failed",
+}
+
+
+def rankings_publication_legacy_status(classification: Optional[str]) -> str:
+    """Legacy `rankings_publication_status` string for one outcome classification.
+
+    Unknown/missing classification maps to "not_attempted" - the ONLY place
+    that legacy sentinel may still originate, and only for a classification
+    this mapping does not recognise (never for one of the six known ones).
+    """
+    return _CLASSIFICATION_TO_LEGACY_STATUS.get(str(classification or ""), "not_attempted")
+
+
 def source_run_fingerprint(source_run_ids: Mapping[str, Any]) -> str:
     canonical = json.dumps(
         {str(key): _text(value) for key, value in sorted(source_run_ids.items())},

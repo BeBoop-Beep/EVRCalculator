@@ -227,6 +227,80 @@ def test_rankings_publication_failure_is_recorded_without_fallback(monkeypatch):
     assert summary.global_failed == ["explore_rankings: incomplete cohort"]
 
 
+def test_rankings_unchanged_not_required_when_not_stale():
+    """CLASSIFICATION_UNCHANGED_NOT_REQUIRED — publisher never invoked, no attempt id."""
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", False, "current"),
+        commit=True, summary=summary,
+    )
+    outcome = summary.rankings_publication_outcome
+    assert outcome["classification"] == refresh.CLASSIFICATION_UNCHANGED_NOT_REQUIRED
+    assert outcome["attempt_id"] is None
+    assert outcome["publication_attempted"] is False
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    assert rankings_publication_legacy_status(outcome["classification"]) == "unchanged"
+
+
+def test_rankings_deferred_with_attempt_outcome_from_publication_error(monkeypatch):
+    """CLASSIFICATION_DEFERRED_WITH_ATTEMPT — publisher's own outcome is consumed directly."""
+    from backend.scripts.pokemon_explore_rankings_publisher import RankingsPublicationError
+    from backend.db.services.rankings_publication_lifecycle import CLASSIFICATION_DEFERRED_WITH_ATTEMPT
+
+    outcome_dict = refresh.RankingsPublicationOutcome(
+        classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+        reason_code="DEFERRED_SIMULATION_COHORT_INCOMPLETE", reason_detail="cohort incomplete",
+        attempt_id="attempt-9", publication_required=True, publication_attempted=False,
+    ).to_dict()
+
+    def _raise(*_args, **_kwargs):
+        raise RankingsPublicationError("deferred", outcome=outcome_dict)
+
+    monkeypatch.setattr(refresh, "publish_explore_rip_rankings_snapshot", _raise)
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", True, "invalid"),
+        commit=True, summary=summary,
+    )
+    assert summary.rankings_publication_outcome == outcome_dict
+    assert summary.rankings_publication_outcome["attempt_id"] == "attempt-9"
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    assert rankings_publication_legacy_status(
+        summary.rankings_publication_outcome["classification"]
+    ) == "deferred"
+
+
+def test_rankings_failed_with_attempt_outcome_fallback_for_unclassified_exception(monkeypatch):
+    """CLASSIFICATION_FAILED_WITH_ATTEMPT — an unclassified exception still resolves cleanly."""
+    monkeypatch.setattr(
+        refresh, "publish_explore_rip_rankings_snapshot",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("incomplete cohort")),
+    )
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", True, "invalid"),
+        commit=True, summary=summary,
+    )
+    outcome = summary.rankings_publication_outcome
+    assert outcome["classification"] == refresh.CLASSIFICATION_FAILED_WITH_ATTEMPT
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    assert rankings_publication_legacy_status(outcome["classification"]) == "failed"
+
+
+def test_rankings_explicit_operator_skip_sets_outcome(monkeypatch, tmp_path):
+    """CLASSIFICATION_EXPLICIT_OPERATOR_SKIP — the --skip-explore-rankings branch in main()."""
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+
+    outcome = refresh.RankingsPublicationOutcome(
+        classification=refresh.CLASSIFICATION_EXPLICIT_OPERATOR_SKIP,
+        reason_code="SKIP_EXPLORE_RANKINGS_FLAG",
+        reason_detail="--skip-explore-rankings was set",
+        publication_required=False, publication_attempted=False,
+    ).to_dict()
+    assert outcome["classification"] == refresh.CLASSIFICATION_EXPLICIT_OPERATOR_SKIP
+    assert rankings_publication_legacy_status(outcome["classification"]) == "skipped"
+
+
 def test_rankings_without_canonical_metadata_is_stale(monkeypatch):
     monkeypatch.setattr(refresh, "_latest_for_explore_rankings", lambda _client: (None, []))
     monkeypatch.setattr(
