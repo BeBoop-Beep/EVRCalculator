@@ -655,3 +655,71 @@ test("a bundle with no canonical data renders unavailable, never zero", () => {
   assert.equal(selectCollectorAppealBreakdown(canonical).available, false);
   assert.equal(selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical)).diagnostics.status, "unavailable");
 });
+
+// --- V11/V12 canonical precedence (Task 3B regression net) ----------------
+//
+// publicRipContractV11 packages the CURRENT model (Overall RIP V12 = 90%
+// Financial RIP V4 + 10% Collector Appeal V5). It must win over
+// publicRipContractV10 whenever both are present on a target, and the
+// top-level overallRipV12 must win over top-level overallRipV10 the same way
+// - never the reverse, and never silently rendering the older model under
+// the current name.
+
+test("publicRipContractV11 wins over publicRipContractV10 when both are present", () => {
+  const source = {
+    publicRipContractV10: {
+      overallRip: { relativeScore: 5, leaderNormalizedScore: 50, rank: 9, tier: "B", rankedSetCount: 22 },
+      financialRip: { relativeScore: 5, leaderNormalizedScore: 50, rank: 9, rankedSetCount: 22 },
+      collectorAppeal: { relativeScore: 40, rank: 9, rankedSetCount: 22 },
+    },
+    publicRipContractV11: {
+      overallRip: { relativeScore: 9.5, leaderNormalizedScore: 95, rank: 1, tier: "S", rankedSetCount: 22 },
+      financialRip: { relativeScore: 9.2, leaderNormalizedScore: 92, rank: 1, rankedSetCount: 22 },
+      collectorAppeal: { relativeScore: 88, rank: 1, rankedSetCount: 22 },
+    },
+  };
+  const canonical = resolveCanonicalRipV7(source);
+  assert.equal(canonical.shape, "publicRipContractV11");
+  assert.equal(readCanonicalBlock(canonical.overall).publicScore, 95);
+  assert.equal(readCanonicalBlock(canonical.financialRip).publicScore, 92);
+});
+
+test("top-level overallRipV12 wins over top-level overallRipV10 when neither contract block is present", () => {
+  const source = {
+    overallRipV10: { relativeScore: 5, leaderNormalizedScore: 50, rank: 9, tier: "B", cohortSize: 22 },
+    financialRipV3: { relativeScore: 40, rank: 9, cohortSize: 22, tier: "B" },
+    overallRipV12: { relativeScore: 9.5, leaderNormalizedScore: 95, rank: 1, tier: "S", cohortSize: 22 },
+    financialRipV4: { relativeScore: 9.2, leaderNormalizedScore: 92, rank: 1, cohortSize: 22, tier: "S" },
+  };
+  const canonical = resolveCanonicalRipV7(source);
+  assert.equal(canonical.shape, "topLevelV12");
+  assert.equal(readCanonicalBlock(canonical.overall).publicScore, 95);
+  assert.equal(readCanonicalBlock(canonical.financialRip).publicScore, 92);
+});
+
+test("a V11/V12-only target (no V10 anywhere) still resolves Financial RIP and Collector Appeal", () => {
+  const source = {
+    publicRipContractV11: {
+      overallRip: { relativeScore: 8.6, leaderNormalizedScore: 86, rank: 3, tier: "A", rankedSetCount: 22 },
+      financialRip: { relativeScore: 8.1, leaderNormalizedScore: 81, rank: 4, rankedSetCount: 22 },
+      collectorAppeal: { relativeScore: 71, rank: 6, rankedSetCount: 22 },
+    },
+  };
+  const canonical = resolveCanonicalRipV7(source);
+  assert.equal(readCanonicalBlock(canonical.overall).available, true);
+  assert.equal(readCanonicalBlock(canonical.financialRip).available, true);
+  assert.equal(selectCollectorAppealBreakdown(canonical).available, true);
+});
+
+test("historical V10-only fallback still behaves (no V11/V12 present anywhere)", () => {
+  const source = {
+    publicRipContractV10: {
+      overallRip: { relativeScore: 6.2, leaderNormalizedScore: 62, rank: 8, tier: "B", rankedSetCount: 22 },
+      financialRip: { relativeScore: 5.8, leaderNormalizedScore: 58, rank: 9, rankedSetCount: 22 },
+      collectorAppeal: { relativeScore: 55, rank: 10, rankedSetCount: 22 },
+    },
+  };
+  const canonical = resolveCanonicalRipV7(source);
+  assert.equal(canonical.shape, "publicRipContractV10");
+  assert.equal(readCanonicalBlock(canonical.overall).publicScore, 62);
+});

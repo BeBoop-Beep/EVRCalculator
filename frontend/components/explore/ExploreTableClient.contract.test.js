@@ -39,3 +39,15 @@ test("rankings sorting is local and missing Chase is never coerced to zero", () 
 test("legacy Market-Based spanning group is absent", () => {
   assert.doesNotMatch(source, />\s*Market-Based\s*</);
 });
+
+test("setRipV1's client leaf list carries chaseAccessibility through to the table", () => {
+  // Task 3 regression: setRipV1.chaseAccessibility was dropped at the SQL lens
+  // boundary (20260906055315_add_v12_v11_to_rankings_sets_lens_rpc.sql), which
+  // made ExploreTableClient's ChaseAccessibilityCell (reading
+  // `target.setRipV1.chaseAccessibility` verbatim) render "Unavailable" for
+  // every set. The client-side allowlist in rankingsClientProjection.mjs must
+  // also carry it, or a SQL-level fix alone would still ship an empty table.
+  const setRipLeavesMatch = /setRipV1:\s*\[([^\]]+)\]/.exec(projection);
+  assert.ok(setRipLeavesMatch, "expected a setRipV1 leaf list in rankingsClientProjection.mjs");
+  assert.match(setRipLeavesMatch[1], /"chaseAccessibility"/);
+});

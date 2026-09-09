@@ -100,6 +100,59 @@
   table-layout: fixed;
 }
 
+/* Products table (RankingsProductLensClient) width contract.
+ *
+ * `table-layout: fixed` sizes every column strictly from its <col> width and
+ * never from cell content, so a colgroup is the ONLY lever for column width
+ * here - per-cell min-w-[Nrem] hacks fight this layout mode instead of
+ * controlling it. The column set intentionally sums to well over 100%: Rank
+ * is narrow (a 1-2 digit number), Product/Set carries a thumbnail + full
+ * product name and gets the largest share, and Format Strength gets enough
+ * room to wrap copy like "#12 of 22 Loose Booster Packs" instead of clipping
+ * it. `.productsTable` pairs with `width: max-content` (below) so the table
+ * renders at its natural, wider-than-viewport size and the existing
+ * `overflow-x-auto` wrapper scrolls it horizontally - the intended outcome
+ * at normal desktop widths, not a bug to fix by crushing columns back down.
+ */
+.productsTable {
+  width: max-content;
+  min-width: 100%;
+}
+
+.colRank {
+  width: 2.75rem;
+}
+
+.colProduct {
+  width: 22rem;
+}
+
+.colOverall,
+.colFinancial,
+.colCollector,
+.colPrice,
+.colEv {
+  width: 6rem;
+}
+
+.colTier {
+  width: 3.5rem;
+}
+
+.colChase,
+.colCommitted,
+.colRecover {
+  width: 7rem;
+}
+
+.colUnits {
+  width: 4rem;
+}
+
+.colFormat {
+  width: 15rem;
+}
+
 /* One shared Product Family Snapshot surface. Family values are unboxed data
    columns; short, quiet dividers organize them without creating mini-cards. */
 .surface :global(.set-rip-family-snapshot) {

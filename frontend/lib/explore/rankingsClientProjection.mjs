@@ -106,7 +106,15 @@ const BASE_SCALAR_FIELDS = Object.freeze([
  * it, and it is the single heaviest thing in the contract.
  */
 const BLOCK_LEAVES = Object.freeze({
-  setRipV1: ["score", "tier", "rank", "cohortSize", "rankable", "methodologyVersion", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount", "familyScores", "displayFamilyScores"],
+  // `score`/`tier`/`rank` are leader-normalized (see
+  // compute_leader_normalized_scores / public_leader_rip_tier in
+  // backend/rankings/public_relative.py, applied in set_rip_service.py) - same
+  // field names, current public scale. `chaseAccessibility` is the SET-level
+  // authority (backend/db/services/chase_accessibility_set_ranking.py) copied
+  // through verbatim; ExploreTableClient's ChaseAccessibilityCell reads
+  // `target.setRipV1.chaseAccessibility` directly, so this leaf must not be
+  // dropped at the client boundary the way it was at the SQL lens boundary.
+  setRipV1: ["score", "tier", "rank", "cohortSize", "rankable", "methodologyVersion", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount", "familyScores", "displayFamilyScores", "chaseAccessibility"],
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV9: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV10: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
