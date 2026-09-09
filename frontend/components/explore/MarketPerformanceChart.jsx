@@ -6,8 +6,8 @@ import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
 import {
   TAP_MOVEMENT_THRESHOLD_PX,
   classifyPointerGesture,
-  clampTooltipX,
 } from "./compactSparklineInteraction.mjs";
+import { positionMarketPerformanceTooltip } from "./marketPerformanceTooltipPosition.mjs";
 import {
   buildMarketPerformanceDomain,
   buildRelativePerformanceDomain,
@@ -51,10 +51,11 @@ export function resolveAreaOpacity(seriesCount) {
 
 export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]" }) {
   const [activeIndex, setActiveIndex] = useState(null);
-  const [tooltipX, setTooltipX] = useState(null);
   const [tooltipAnchor, setTooltipAnchor] = useState(null);
+  const [tooltipSize, setTooltipSize] = useState({ width: 248, height: 160 });
   const pointerMode = usePointerMode();
   const containerRef = useRef(null);
+  const tooltipRef = useRef(null);
   const gestureRef = useRef(null);
   const chartId = useId().replace(/:/g, "");
 
@@ -68,39 +69,45 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
     performanceValues: projectMarketChartValues(entry.values || [], MARKET_CHART_VIEW_PERFORMANCE),
   }));
 
-  const clearSelection = () => { setActiveIndex(null); setTooltipX(null); setTooltipAnchor(null); };
-  const anchorFromBounds = (bounds) => ({ left: bounds.left, top: bounds.top });
-  const selectAtClientX = (clientX) => {
+  const clearSelection = () => { setActiveIndex(null); setTooltipAnchor(null); };
+  const anchorFromBounds = (bounds, source = "keyboard", pointerYRatio = null) => ({
+    bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom, width: bounds.width, height: bounds.height },
+    source,
+    pointerYRatio,
+  });
+  const selectAtPointer = (clientX, clientY) => {
     const element = containerRef.current;
     if (!element || dates.length === 0) return;
     const bounds = element.getBoundingClientRect();
     const ratio = bounds.width > 0 ? (clientX - bounds.left) / bounds.width : 0;
     const clamped = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0));
     setActiveIndex(Math.round(clamped * Math.max(dates.length - 1, 0)));
-    setTooltipX(clampTooltipX({ chartLeft: bounds.left, chartWidth: bounds.width, pointerX: clientX - bounds.left, tooltipWidth: 248, viewportWidth: typeof window === "undefined" ? bounds.width : window.innerWidth, gutter: 8 }));
-    setTooltipAnchor(anchorFromBounds(bounds));
+    const yRatio = bounds.height > 0 ? (clientY - bounds.top) / bounds.height : 0.5;
+    setTooltipAnchor(anchorFromBounds(bounds, "pointer", Math.max(0, Math.min(1, yRatio))));
   };
   const handlePointerMove = (event) => {
-    if (event.pointerType === "mouse") return selectAtClientX(event.clientX);
+    if (event.pointerType === "mouse") return selectAtPointer(event.clientX, event.clientY);
     const gesture = gestureRef.current;
     if (!gesture) return;
     const kind = classifyPointerGesture({ startX: gesture.startX, startY: gesture.startY, currentX: event.clientX, currentY: event.clientY, threshold: TAP_MOVEMENT_THRESHOLD_PX });
     if (kind === "scroll") gestureRef.current = null;
-    if (kind === "scrub") { gesture.moved = true; selectAtClientX(event.clientX); }
+    if (kind === "scrub") { gesture.moved = true; selectAtPointer(event.clientX, event.clientY); }
   };
   const handlePointerUp = (event) => {
     if (event.pointerType === "mouse") return;
     const gesture = gestureRef.current;
     gestureRef.current = null;
     if (!gesture || gesture.moved) return;
-    selectAtClientX(event.clientX);
+    selectAtPointer(event.clientX, event.clientY);
   };
 
   useEffect(() => {
     if (activeIndex === null || typeof window === "undefined") return undefined;
     const reanchor = () => {
       const element = containerRef.current;
-      if (element) setTooltipAnchor(anchorFromBounds(element.getBoundingClientRect()));
+      if (element) setTooltipAnchor((current) => current
+        ? anchorFromBounds(element.getBoundingClientRect(), current.source, current.pointerYRatio)
+        : current);
     };
     window.addEventListener("scroll", reanchor, true);
     window.addEventListener("resize", reanchor);
@@ -109,6 +116,30 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
       window.removeEventListener("resize", reanchor);
     };
   }, [activeIndex]);
+
+  useEffect(() => {
+    const element = tooltipRef.current;
+    if (!element || activeIndex === null) return undefined;
+    const measure = () => {
+      const bounds = element.getBoundingClientRect();
+      setTooltipSize((current) => {
+        const measuredWidth = Number.isFinite(bounds.width) && bounds.width > 0 ? bounds.width : current.width;
+        const heightCandidate = Math.max(
+          Number.isFinite(bounds.height) ? bounds.height : 0,
+          Number.isFinite(element.scrollHeight) ? element.scrollHeight : 0,
+        );
+        const measuredHeight = heightCandidate > 0 ? heightCandidate : current.height;
+        return current.width === measuredWidth && current.height === measuredHeight
+          ? current
+          : { width: measuredWidth, height: measuredHeight };
+      });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [activeIndex, series.length, viewMode]);
 
   const allValues = series.flatMap((entry) => (entry.values || []).filter((value) => value !== null).map((value) => ({ value })));
   if (series.length === 0) {
@@ -165,6 +196,20 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
   const spokenReading = activeDate
     ? `${formatMarketDate(activeDate)}. ${activeReadings.map((reading) => `${reading.label} index ${reading.rawValue === null ? "unavailable" : formatIndexValue(reading.rawValue)}, ${timeframe} performance ${reading.performanceValue === null ? "unavailable" : `${reading.performanceValue.toFixed(2)} percent`}${reading.point?.isCarriedForward ? `, previous close carried from ${formatMarketDate(reading.point.sourceDate)}` : ""}`).join(". ")}.`
     : null;
+  const tooltipPosition = activeIndex === null || !tooltipAnchor
+    ? null
+    : positionMarketPerformanceTooltip({
+        chartBounds: tooltipAnchor.bounds,
+        crosshairX: tooltipAnchor.bounds.width * (xAt(activeIndex) / VIEW_WIDTH),
+        pointerY: tooltipAnchor.pointerYRatio === null
+          ? null
+          : tooltipAnchor.bounds.top + tooltipAnchor.bounds.height * tooltipAnchor.pointerYRatio,
+        tooltipWidth: tooltipSize.width,
+        tooltipHeight: tooltipSize.height,
+        viewportWidth: typeof window === "undefined" ? tooltipAnchor.bounds.right : window.innerWidth,
+        viewportHeight: typeof window === "undefined" ? tooltipAnchor.bounds.bottom : window.innerHeight,
+        interactionSource: tooltipAnchor.source,
+      });
 
   const gradientPrefix = `market-performance-${chartId}`;
   const areaOpacity = resolveAreaOpacity(drawn.length);
@@ -192,8 +237,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
         onFocus={(event) => {
           const bounds = event.currentTarget.getBoundingClientRect();
           setActiveIndex(dates.length - 1);
-          setTooltipX(clampTooltipX({ chartLeft: bounds.left, chartWidth: bounds.width, pointerX: bounds.width / 2, tooltipWidth: 248, viewportWidth: typeof window === "undefined" ? bounds.width : window.innerWidth }));
-          setTooltipAnchor(anchorFromBounds(bounds));
+          setTooltipAnchor(anchorFromBounds(bounds, "keyboard"));
         }}
         onBlur={clearSelection}
         onKeyDown={(event) => {
@@ -202,7 +246,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
             const step = event.key === "ArrowRight" ? 1 : -1;
             const base = activeIndex === null ? dates.length - 1 : activeIndex;
             setActiveIndex(Math.max(0, Math.min(dates.length - 1, base + step)));
-            setTooltipAnchor(anchorFromBounds(event.currentTarget.getBoundingClientRect()));
+            setTooltipAnchor(anchorFromBounds(event.currentTarget.getBoundingClientRect(), "keyboard"));
           } else if (event.key === "Escape") {
             clearSelection();
           }
@@ -251,12 +295,15 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
             />
           );
         })}
-        {activeDate && tooltipX !== null && tooltipAnchor && typeof document !== "undefined"
+        {activeDate && tooltipPosition && typeof document !== "undefined"
           ? createPortal(
               <div
+                ref={tooltipRef}
                 data-market-performance-tooltip
-                className="pointer-events-none fixed z-[80] min-w-[11rem] max-w-[min(16rem,calc(100vw-1rem))] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]"
-                style={{ left: tooltipAnchor.left + tooltipX, top: tooltipAnchor.top - 10, transform: "translate(-50%, -100%)" }}
+                data-market-performance-tooltip-horizontal={tooltipPosition.horizontalPlacement}
+                data-market-performance-tooltip-vertical={tooltipPosition.verticalPlacement}
+                className="pointer-events-none fixed z-[80] overflow-y-auto rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]"
+                style={{ left: tooltipPosition.left, top: tooltipPosition.top, width: tooltipPosition.width, maxHeight: tooltipPosition.maxHeight }}
               >
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatMarketDate(activeDate)}</p>
                 <ul className="mt-1 space-y-0.5">

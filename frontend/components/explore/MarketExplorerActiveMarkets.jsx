@@ -58,10 +58,15 @@ export default function MarketExplorerActiveMarkets({
             Select one to inspect its constituents. The eye toggles whether it is drawn on the chart.
           </p>
         </div>
-        {series.length > 1 ? (
-          <div role="group" aria-label="Visibility, all markets" className="flex flex-none items-center gap-1">
+        <div
+          role="group"
+          aria-label="Visibility, all markets"
+          aria-hidden={series.length <= 1 ? "true" : undefined}
+          className={`flex flex-none items-center gap-1 ${series.length <= 1 ? "invisible pointer-events-none" : ""}`}
+        >
             <button
               type="button"
+              disabled={series.length <= 1}
               data-market-explorer-active-show-all
               onClick={onShowAll}
               className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
@@ -70,16 +75,20 @@ export default function MarketExplorerActiveMarkets({
             </button>
             <button
               type="button"
+              disabled={series.length <= 1}
               data-market-explorer-active-hide-all
               onClick={onHideAll}
               className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
             >
               Hide all
             </button>
-          </div>
-        ) : null}
+        </div>
       </div>
-      <ul className="flex min-w-max flex-nowrap gap-1.5 desk:min-w-0 desk:flex-wrap">
+      {/* Keep one stable row. The parent already owns horizontal overflow; a
+          desktop-only wrap made adding/removing a prepared Reference Market
+          change this grid row's height and let browser scroll anchoring jolt
+          content below it. Selection should change data, not page geometry. */}
+      <ul className="flex min-w-max flex-nowrap gap-1.5">
         {series.map((entry) => {
           const isActive = entry.key === activeSeriesId;
           const isHidden = hidden.has(entry.key);
