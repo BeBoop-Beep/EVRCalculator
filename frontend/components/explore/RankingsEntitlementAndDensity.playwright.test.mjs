@@ -37,6 +37,34 @@ async function openProductsLens(page) {
   await expect(productsRadio).toHaveAttribute("aria-checked", "true");
 }
 
+// The "family-specific product ranking view" is not a separate route: inside
+// the same Products lens, `nav[aria-label="Product family"]`
+// (RankingsProductLensClient.jsx) has an "◇ All Products" tab plus one tab per
+// product family. Clicking any non-"All Products" tab re-renders the SAME
+// table (same styles.colProduct/.colFormat <col> widths) filtered to that
+// family -- this is the density reference Task 9 measured.
+async function waitForRenderedProductRows(page) {
+  // The desktop table and the <768px card list both render
+  // `a[href^="/sealed-products/"]` links at all times; only one of the two is
+  // actually shown per viewport (the other is display:none via CSS), so this
+  // must intersect with :visible rather than trust DOM order via .first().
+  await page
+    .locator('a[href^="/sealed-products/"]')
+    .and(page.locator(":visible"))
+    .first()
+    .waitFor({ state: "visible", timeout: 15000 });
+}
+
+async function openFirstFamilyProductView(page) {
+  await openProductsLens(page);
+  const familyNav = page.getByRole("navigation", { name: "Product family" });
+  await expect(familyNav).toBeVisible({ timeout: 15000 });
+  const familyTabs = familyNav.getByRole("button").filter({ hasNotText: "All Products" });
+  await expect(familyTabs.first()).toBeVisible({ timeout: 15000 });
+  await familyTabs.first().click();
+  await expect(familyTabs.first()).toHaveAttribute("aria-pressed", "true");
+}
+
 test.describe("Set Rankings entitlement", () => {
   test("anonymous desktop: Set RIP visible, family/Financial/Chase/Collector locked", async ({ page }) => {
     await openSetsLens(page);
@@ -89,6 +117,29 @@ test.describe("Set Rankings entitlement", () => {
     await expect(page.getByText(/Unavailable/).filter({ hasText: "Chase" })).toHaveCount(0);
   });
 
+  // Same missing-infrastructure reason as the Chase case above: rendering a
+  // real "entitled=true" pass through ExploreTableClient/RankingsProductLensClient
+  // needs an actual authenticated session, which this repo has no Playwright
+  // fixture for. Covered at the unit level instead by the "entitled=true
+  // renders real value, not lock" cases in
+  // components/explore/ExploreTableClient.contract.test.js and
+  // components/explore/SetRipFamilyBreakdown.test.mjs.
+  test.skip("Index+ authenticated view shows real unlocked scores, not locks", async ({ page }) => {
+    await openSetsLens(page);
+    await expect(page.getByLabel(/Index Plus/i)).toHaveCount(0);
+  });
+
+  // Same missing-infrastructure reason: verifying a logout actually clears
+  // paid values requires logging in first. Covered at the unit level by
+  // components/explore/RankingsLazyClient.authDowngrade.contract.test.mjs,
+  // which asserts the requestKey/cacheIdentity invalidation wiring drops paid
+  // fields on a downgrade -- this spec should not fabricate a fake auth
+  // transition just to re-assert the same regex check in a browser.
+  test.skip("auth downgrade (logout) clears paid values", async ({ page }) => {
+    await openSetsLens(page);
+    await expect(page.getByLabel(/Index Plus/i).first()).toBeVisible();
+  });
+
   test("anonymous Set RIP page for Ascended Heroes still loads (unauth baseline)", async ({ page }) => {
     await page.goto(ASCENDED_HEROES_URL, { waitUntil: "domcontentloaded" });
     // "Ascended Heroes" is rendered in more than one hero variant
@@ -104,7 +155,12 @@ test.describe("All Products layout", () => {
     test(`All Products renders without page-level horizontal overflow at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await openProductsLens(page);
-      await page.waitForTimeout(500);
+      // Wait on an explicit render signal -- a real product row link --
+      // rather than a fixed sleep. A column-header text check is unreliable
+      // here: the desktop table's price header reads "Unit Price" for the
+      // overall view but "Market Price" for a family view, and neither
+      // header exists at all in the <768px card layout.
+      await waitForRenderedProductRows(page);
       const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
       const viewportWidth = await page.evaluate(() => window.innerWidth);
       expect(bodyScrollWidth).toBeLessThanOrEqual(viewportWidth + 1);
@@ -115,5 +171,60 @@ test.describe("All Products layout", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openProductsLens(page);
     await expect(page.getByText("Format Strength")).toBeInViewport();
+  });
+});
+
+test.describe("Family-specific product ranking density", () => {
+  for (const width of [1440, 768, 412]) {
+    test(`family product view renders without page-level horizontal overflow at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await openFirstFamilyProductView(page);
+      await waitForRenderedProductRows(page);
+      const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+      const viewportWidth = await page.evaluate(() => window.innerWidth);
+      expect(bodyScrollWidth).toBeLessThanOrEqual(viewportWidth + 1);
+    });
+  }
+
+  test("family product view keeps product art size consistent and identity column not oversized at 1440px", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openFirstFamilyProductView(page);
+    await waitForRenderedProductRows(page);
+
+    // Task 8/9 fixed .colProduct from an oversized 22rem down to 13rem (see
+    // RankingsProductLensClient.contract.test.jsx). Assert that measured width
+    // directly in the live layout rather than re-reading the CSS text, so a
+    // regression that only shows up after cascade/specificity resolution
+    // (e.g. another rule overriding .colProduct) would still be caught.
+    // The `md:hidden` mobile card list also renders `[data-ranked-product-artwork]`
+    // markup even while display:none at this desktop width, so every
+    // measurement below is filtered to elements with a non-zero rendered box.
+    const identityColumnWidth = await page.evaluate(() => {
+      const cells = Array.from(document.querySelectorAll("td"))
+        .filter((td) => td.querySelector('[data-ranked-product-artwork]'))
+        .map((td) => td.getBoundingClientRect())
+        .filter((rect) => rect.width > 0 && rect.height > 0);
+      return cells.length ? cells[0].width : null;
+    });
+    expect(identityColumnWidth).not.toBeNull();
+    // 13rem @ 16px/rem = 208px; allow slack for cell padding around the <col> width.
+    expect(identityColumnWidth).toBeLessThan(260);
+
+    const artworkSizes = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-ranked-product-artwork] img'))
+        .map((img) => {
+          const rect = img.getBoundingClientRect();
+          return { width: Math.round(rect.width), height: Math.round(rect.height) };
+        })
+        .filter((size) => size.width > 0 && size.height > 0),
+    );
+    expect(artworkSizes.length).toBeGreaterThan(0);
+    const firstSize = artworkSizes[0];
+    for (const size of artworkSizes) {
+      // Same artwork treatment for every row in the family view -- no product
+      // rendering at a wildly different scale than its neighbors.
+      expect(Math.abs(size.width - firstSize.width)).toBeLessThanOrEqual(2);
+      expect(Math.abs(size.height - firstSize.height)).toBeLessThanOrEqual(2);
+    }
   });
 });
