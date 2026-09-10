@@ -115,8 +115,8 @@
  * at normal desktop widths, not a bug to fix by crushing columns back down.
  */
 .productsTable {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  table-layout: fixed;
 }
 
 .colRank {
