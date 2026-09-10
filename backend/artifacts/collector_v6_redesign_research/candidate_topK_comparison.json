@@ -1,0 +1,1026 @@
+[
+  {
+    "set_id": "3f3c7677-b876-4353-821e-6bdd610fd683",
+    "name": "Ancient Origins",
+    "groupCount": 19,
+    "meanAppeal": 82.90372272143775,
+    "D_current": 92.09765924320628,
+    "D_topK": 92.09765924320628
+  },
+  {
+    "set_id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+    "name": "Aquapolis",
+    "groupCount": 33,
+    "meanAppeal": 71.95861049519586,
+    "D_current": 96.27061725136687,
+    "D_topK": 95.81249638543412
+  },
+  {
+    "set_id": "bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6",
+    "name": "Arceus",
+    "groupCount": 14,
+    "meanAppeal": 68.3170731707317,
+    "D_current": 71.03579776373941,
+    "D_topK": 71.03579776373941
+  },
+  {
+    "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+    "name": "Ascended Heroes",
+    "groupCount": 75,
+    "meanAppeal": 68.17071946588965,
+    "D_current": 99.91020653336439,
+    "D_topK": 97.95511122785133
+  },
+  {
+    "set_id": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+    "name": "Astral Radiance",
+    "groupCount": 34,
+    "meanAppeal": 66.58536585365853,
+    "D_current": 96.20490272569518,
+    "D_topK": 96.20490272569518
+  },
+  {
+    "set_id": "4de777b3-396e-4f19-9d78-c054b296bedb",
+    "name": "BREAKpoint",
+    "groupCount": 21,
+    "meanAppeal": 75.41463414634146,
+    "D_current": 89.70797577162432,
+    "D_topK": 89.7079757716243
+  },
+  {
+    "set_id": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+    "name": "BREAKthrough",
+    "groupCount": 23,
+    "meanAppeal": 76.17815482502651,
+    "D_current": 92.62391849721503,
+    "D_topK": 92.62391849721503
+  },
+  {
+    "set_id": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+    "name": "Base",
+    "groupCount": 15,
+    "meanAppeal": 81.09268292682927,
+    "D_current": 84.54917540942269,
+    "D_topK": 84.54917540942269
+  },
+  {
+    "set_id": "6c82fb37-b9b9-4961-a528-12556bd15417",
+    "name": "Base Set 2",
+    "groupCount": 20,
+    "meanAppeal": 76.59512195121951,
+    "D_current": 89.68910181569694,
+    "D_topK": 89.68910181569694
+  },
+  {
+    "set_id": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+    "name": "Battle Styles",
+    "groupCount": 27,
+    "meanAppeal": 61.046070460704605,
+    "D_current": 88.66802223438272,
+    "D_topK": 88.66802223438272
+  },
+  {
+    "set_id": "591a2b3e-2dc8-4e80-b42d-aec4f4b786e4",
+    "name": "Black & White",
+    "groupCount": 10,
+    "meanAppeal": 83.24878048780488,
+    "D_current": 72.56998588444225,
+    "D_topK": 72.56998588444223
+  },
+  {
+    "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+    "name": "Black Bolt",
+    "groupCount": 74,
+    "meanAppeal": 44.94742459679154,
+    "D_current": 96.7653541029934,
+    "D_topK": 95.19940088195436
+  },
+  {
+    "set_id": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+    "name": "Boundaries Crossed",
+    "groupCount": 27,
+    "meanAppeal": 68.51129177958447,
+    "D_current": 92.87437741095998,
+    "D_topK": 92.87437741095998
+  },
+  {
+    "set_id": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+    "name": "Brilliant Stars",
+    "groupCount": 31,
+    "meanAppeal": 69.39417781274587,
+    "D_current": 95.5489841519947,
+    "D_topK": 95.54898415199469
+  },
+  {
+    "set_id": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+    "name": "Burning Shadows",
+    "groupCount": 25,
+    "meanAppeal": 71.56292682926829,
+    "D_current": 92.8585072370271,
+    "D_topK": 92.85850723702711
+  },
+  {
+    "set_id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+    "name": "Call of Legends",
+    "groupCount": 25,
+    "meanAppeal": 77.61170731707317,
+    "D_current": 94.10981429787272,
+    "D_topK": 94.10981429787272
+  },
+  {
+    "set_id": "be7c981b-c55e-4f60-a1b8-be922531452d",
+    "name": "Celebrations",
+    "groupCount": 6,
+    "meanAppeal": 68.86178861788618,
+    "D_current": 43.64403482049467,
+    "D_topK": 43.64403482049467
+  },
+  {
+    "set_id": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+    "name": "Celestial Storm",
+    "groupCount": 31,
+    "meanAppeal": 65.63335955940205,
+    "D_current": 92.7761704701026,
+    "D_topK": 92.7761704701026
+  },
+  {
+    "set_id": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+    "name": "Champion's Path",
+    "groupCount": 20,
+    "meanAppeal": 67.57317073170732,
+    "D_current": 85.83742256887085,
+    "D_topK": 85.83742256887085
+  },
+  {
+    "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+    "name": "Chaos Rising",
+    "groupCount": 21,
+    "meanAppeal": 59.12851714580041,
+    "D_current": 78.24661567411668,
+    "D_topK": 78.24661567411668
+  },
+  {
+    "set_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+    "name": "Chilling Reign",
+    "groupCount": 40,
+    "meanAppeal": 57.22317073170732,
+    "D_current": 94.72635941573235,
+    "D_topK": 94.72635941573235
+  },
+  {
+    "set_id": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+    "name": "Cosmic Eclipse",
+    "groupCount": 50,
+    "meanAppeal": 73.98390243902439,
+    "D_current": 99.49081901568314,
+    "D_topK": 97.3327014932629
+  },
+  {
+    "set_id": "212383a2-ed84-4a5e-af37-50814247a437",
+    "name": "Crimson Invasion",
+    "groupCount": 20,
+    "meanAppeal": 68.53414634146341,
+    "D_current": 84.34852190914842,
+    "D_topK": 84.34852190914842
+  },
+  {
+    "set_id": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+    "name": "Crown Zenith",
+    "groupCount": 30,
+    "meanAppeal": 69.73008130081301,
+    "D_current": 94.61076347406593,
+    "D_topK": 94.61076347406593
+  },
+  {
+    "set_id": "93050f21-b805-41fc-a49d-b5afcb9c41dc",
+    "name": "Crystal Guardians",
+    "groupCount": 25,
+    "meanAppeal": 72.39219512195122,
+    "D_current": 91.98025778036256,
+    "D_topK": 91.98025778036258
+  },
+  {
+    "set_id": "7a87a5b5-17dc-43e6-9eac-3de88beab0e7",
+    "name": "Dark Explorers",
+    "groupCount": 17,
+    "meanAppeal": 74.17790530846484,
+    "D_current": 84.6046366684678,
+    "D_topK": 84.6046366684678
+  },
+  {
+    "set_id": "3836457c-77dc-44b0-a72f-779b6dd78884",
+    "name": "Darkness Ablaze",
+    "groupCount": 34,
+    "meanAppeal": 69.62553802008608,
+    "D_current": 96.24521510548244,
+    "D_topK": 96.24521510548243
+  },
+  {
+    "set_id": "1b3250bb-f123-47d8-b090-499e5879eda7",
+    "name": "Delta Species",
+    "groupCount": 21,
+    "meanAppeal": 88.47386759581882,
+    "D_current": 95.21740527424961,
+    "D_topK": 95.21740527424961
+  },
+  {
+    "set_id": "388dd649-960b-4fd8-a8df-e56b3730972e",
+    "name": "Deoxys",
+    "groupCount": 25,
+    "meanAppeal": 69.95317073170732,
+    "D_current": 89.97346446103582,
+    "D_topK": 89.97346446103582
+  },
+  {
+    "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+    "name": "Destined Rivals",
+    "groupCount": 40,
+    "meanAppeal": 58.655230123983,
+    "D_current": 95.26025710897204,
+    "D_topK": 95.26025710897204
+  },
+  {
+    "set_id": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+    "name": "Detective Pikachu",
+    "groupCount": 4,
+    "meanAppeal": 99.04878048780488,
+    "D_current": 48.32938872756862,
+    "D_topK": 48.32938872756862
+  },
+  {
+    "set_id": "7a1b8de0-331f-4635-8512-b737da431f7d",
+    "name": "Diamond & Pearl",
+    "groupCount": 17,
+    "meanAppeal": 71.57819225251076,
+    "D_current": 81.59062328491864,
+    "D_topK": 81.59062328491864
+  },
+  {
+    "set_id": "806b7046-4fd5-4259-be17-54b28381f034",
+    "name": "Double Crisis",
+    "groupCount": 8,
+    "meanAppeal": 66.04268292682927,
+    "D_current": 47.88387816807784,
+    "D_topK": 47.88387816807784
+  },
+  {
+    "set_id": "4c0902e8-fc57-4e07-82e1-e4bdb9fe9990",
+    "name": "Dragon",
+    "groupCount": 23,
+    "meanAppeal": 72.4729586426299,
+    "D_current": 90.23091249944754,
+    "D_topK": 90.23091249944754
+  },
+  {
+    "set_id": "c56fe006-6d9a-4b26-a4e0-6726138edecb",
+    "name": "Dragon Frontiers",
+    "groupCount": 24,
+    "meanAppeal": 85.0650406504065,
+    "D_current": 95.83122656105066,
+    "D_topK": 95.83122656105066
+  },
+  {
+    "set_id": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+    "name": "Dragon Majesty",
+    "groupCount": 15,
+    "meanAppeal": 84.59837398373983,
+    "D_current": 86.98475641651054,
+    "D_topK": 86.98475641651054
+  },
+  {
+    "set_id": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+    "name": "Dragon Vault",
+    "groupCount": 13,
+    "meanAppeal": 66.14634146341463,
+    "D_current": 71.95247912580962,
+    "D_topK": 71.95247912580962
+  },
+  {
+    "set_id": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+    "name": "Dragons Exalted",
+    "groupCount": 22,
+    "meanAppeal": 77.51219512195122,
+    "D_current": 91.90412893503103,
+    "D_topK": 91.90412893503103
+  },
+  {
+    "set_id": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+    "name": "Emerald",
+    "groupCount": 21,
+    "meanAppeal": 69.84668989547038,
+    "D_current": 86.1368452127935,
+    "D_topK": 86.1368452127935
+  },
+  {
+    "set_id": "34a48f79-1bd3-4f1d-9e3c-758955be70ee",
+    "name": "Emerging Powers",
+    "groupCount": 10,
+    "meanAppeal": 31.590243902439024,
+    "D_current": 24.782300039795867,
+    "D_topK": 24.782300039795867
+  },
+  {
+    "set_id": "75cc9ef9-1099-4e47-8d09-17f416606865",
+    "name": "Evolutions",
+    "groupCount": 23,
+    "meanAppeal": 79.19618239660657,
+    "D_current": 93.75633190726533,
+    "D_topK": 93.75633190726533
+  },
+  {
+    "set_id": "93212749-ce0e-498e-975e-7d947a3448ce",
+    "name": "Evolving Skies",
+    "groupCount": 45,
+    "meanAppeal": 71.5490514905149,
+    "D_current": 99.11040594989528,
+    "D_topK": 97.77224078520273
+  },
+  {
+    "set_id": "7ceb2e94-7968-4394-95cb-742b01804974",
+    "name": "Expedition Base Set",
+    "groupCount": 32,
+    "meanAppeal": 74.21646341463415,
+    "D_current": 96.89695679887714,
+    "D_topK": 96.54571153944212
+  },
+  {
+    "set_id": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+    "name": "Fates Collide",
+    "groupCount": 19,
+    "meanAppeal": 74.44929396662388,
+    "D_current": 88.32461136039461,
+    "D_topK": 88.32461136039463
+  },
+  {
+    "set_id": "50c5370b-a5e7-4fbc-98fe-efc35e05ff80",
+    "name": "FireRed & LeafGreen",
+    "groupCount": 29,
+    "meanAppeal": 72.63582842724979,
+    "D_current": 95.21236067359915,
+    "D_topK": 95.05415605314852
+  },
+  {
+    "set_id": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+    "name": "Flashfire",
+    "groupCount": 12,
+    "meanAppeal": 62.06910569105691,
+    "D_current": 61.36918970885573,
+    "D_topK": 61.36918970885573
+  },
+  {
+    "set_id": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+    "name": "Forbidden Light",
+    "groupCount": 22,
+    "meanAppeal": 69.83370288248337,
+    "D_current": 88.98086586629354,
+    "D_topK": 88.98086586629354
+  },
+  {
+    "set_id": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+    "name": "Fossil",
+    "groupCount": 15,
+    "meanAppeal": 76.03252032520325,
+    "D_current": 81.03424660894362,
+    "D_topK": 81.03424660894362
+  },
+  {
+    "set_id": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+    "name": "Furious Fists",
+    "groupCount": 13,
+    "meanAppeal": 68.87429643527204,
+    "D_current": 69.02049761637473,
+    "D_topK": 69.02049761637473
+  },
+  {
+    "set_id": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+    "name": "Fusion Strike",
+    "groupCount": 35,
+    "meanAppeal": 73.01881533101046,
+    "D_current": 97.62034118788313,
+    "D_topK": 97.00265259037873
+  },
+  {
+    "set_id": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+    "name": "Generations",
+    "groupCount": 15,
+    "meanAppeal": 85.91869918699187,
+    "D_current": 87.58965600016246,
+    "D_topK": 87.58965600016246
+  },
+  {
+    "set_id": "15fd93a2-82e3-4a5f-9f11-112cee192c95",
+    "name": "Great Encounters",
+    "groupCount": 12,
+    "meanAppeal": 76.09349593495935,
+    "D_current": 74.31528510425993,
+    "D_topK": 74.31528510425993
+  },
+  {
+    "set_id": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+    "name": "Guardians Rising",
+    "groupCount": 29,
+    "meanAppeal": 74.12111017661901,
+    "D_current": 95.81010604672409,
+    "D_topK": 95.81010604672409
+  },
+  {
+    "set_id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+    "name": "Gym Challenge",
+    "groupCount": 15,
+    "meanAppeal": 85.71056910569105,
+    "D_current": 86.97454868952143,
+    "D_topK": 86.97454868952143
+  },
+  {
+    "set_id": "537d3312-9622-4015-9ef2-66e16a27287c",
+    "name": "Gym Heroes",
+    "groupCount": 13,
+    "meanAppeal": 55.96622889305816,
+    "D_current": 55.26777561979035,
+    "D_topK": 55.26777561979035
+  },
+  {
+    "set_id": "965b3000-c483-4110-bb21-ff5ffe120564",
+    "name": "HS\u2014Triumphant",
+    "groupCount": 23,
+    "meanAppeal": 70.43266171792152,
+    "D_current": 89.88805373628772,
+    "D_topK": 89.88805373628772
+  },
+  {
+    "set_id": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+    "name": "HS\u2014Undaunted",
+    "groupCount": 16,
+    "meanAppeal": 80.14939024390245,
+    "D_current": 84.77505126362216,
+    "D_topK": 84.77505126362216
+  },
+  {
+    "set_id": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+    "name": "HS\u2014Unleashed",
+    "groupCount": 20,
+    "meanAppeal": 72.0170731707317,
+    "D_current": 87.84210484101612,
+    "D_topK": 87.84210484101612
+  },
+  {
+    "set_id": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+    "name": "HeartGold & SoulSilver",
+    "groupCount": 21,
+    "meanAppeal": 76.35540069686411,
+    "D_current": 89.5152989924017,
+    "D_topK": 89.5152989924017
+  },
+  {
+    "set_id": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+    "name": "Hidden Fates",
+    "groupCount": 13,
+    "meanAppeal": 78.33145716072545,
+    "D_current": 77.4819535889518,
+    "D_topK": 77.4819535889518
+  },
+  {
+    "set_id": "846787ce-2e12-4dab-b941-886f95cd16f8",
+    "name": "Hidden Legends",
+    "groupCount": 23,
+    "meanAppeal": 64.51113467656415,
+    "D_current": 83.91682521102935,
+    "D_topK": 83.91682521102935
+  },
+  {
+    "set_id": "4099fc11-a3f6-4034-8208-fbf82bd89de5",
+    "name": "Holon Phantoms",
+    "groupCount": 19,
+    "meanAppeal": 75.25032092426187,
+    "D_current": 88.55224608444537,
+    "D_topK": 88.55224608444537
+  },
+  {
+    "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+    "name": "Journey Together",
+    "groupCount": 26,
+    "meanAppeal": 69.15455625584448,
+    "D_current": 93.03845305782104,
+    "D_topK": 93.03845305782104
+  },
+  {
+    "set_id": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+    "name": "Jungle",
+    "groupCount": 16,
+    "meanAppeal": 67.23475609756098,
+    "D_current": 74.21725284441769,
+    "D_topK": 74.21725284441769
+  },
+  {
+    "set_id": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+    "name": "Legend Maker",
+    "groupCount": 24,
+    "meanAppeal": 64.73577235772358,
+    "D_current": 86.67989283456043,
+    "D_topK": 86.67989283456043
+  },
+  {
+    "set_id": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+    "name": "Legendary Collection",
+    "groupCount": 19,
+    "meanAppeal": 86.04878048780488,
+    "D_current": 92.54876727250186,
+    "D_topK": 92.54876727250186
+  },
+  {
+    "set_id": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+    "name": "Legendary Treasures",
+    "groupCount": 35,
+    "meanAppeal": 67.57630662020905,
+    "D_current": 97.15633951297261,
+    "D_topK": 96.7119793686407
+  },
+  {
+    "set_id": "2262c6e4-3f9a-4364-b03a-d811cd604739",
+    "name": "Legends Awakened",
+    "groupCount": 22,
+    "meanAppeal": 69.4789356984479,
+    "D_current": 88.03700518937957,
+    "D_topK": 88.03700518937957
+  },
+  {
+    "set_id": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+    "name": "Lost Origin",
+    "groupCount": 36,
+    "meanAppeal": 63.735772357723576,
+    "D_current": 95.5763091651477,
+    "D_topK": 95.42088523737871
+  },
+  {
+    "set_id": "7c998bc2-6073-4461-8873-64d1b3e78930",
+    "name": "Lost Thunder",
+    "groupCount": 36,
+    "meanAppeal": 68.00271002710026,
+    "D_current": 97.12445739493485,
+    "D_topK": 96.90533976066692
+  },
+  {
+    "set_id": "bd54a027-2b93-4cfb-b118-687bd0481def",
+    "name": "Majestic Dawn",
+    "groupCount": 16,
+    "meanAppeal": 69.96646341463415,
+    "D_current": 80.46415172749793,
+    "D_topK": 80.46415172749793
+  },
+  {
+    "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+    "name": "Mega Evolution",
+    "groupCount": 32,
+    "meanAppeal": 62.62736302702145,
+    "D_current": 92.89091310006013,
+    "D_topK": 92.89091310006013
+  },
+  {
+    "set_id": "ca43d96a-ad90-4717-a4f6-253fb26a6d53",
+    "name": "Mysterious Treasures",
+    "groupCount": 20,
+    "meanAppeal": 67.04634146341463,
+    "D_current": 83.38629985972234,
+    "D_topK": 83.38629985972234
+  },
+  {
+    "set_id": "42a3740d-4778-4857-9c28-e116f34b51f3",
+    "name": "Neo Destiny",
+    "groupCount": 22,
+    "meanAppeal": 85.53658536585365,
+    "D_current": 94.84774909627282,
+    "D_topK": 94.84774909627282
+  },
+  {
+    "set_id": "a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2",
+    "name": "Neo Discovery",
+    "groupCount": 17,
+    "meanAppeal": 69.37733142037303,
+    "D_current": 78.7195401703698,
+    "D_topK": 78.71954017036981
+  },
+  {
+    "set_id": "3562f9c9-f879-4d49-9d69-d0ab511230f9",
+    "name": "Neo Genesis",
+    "groupCount": 15,
+    "meanAppeal": 76.91707317073171,
+    "D_current": 81.921962905958,
+    "D_topK": 81.921962905958
+  },
+  {
+    "set_id": "89e710d1-c378-4b4e-aaea-5994d8441f45",
+    "name": "Neo Revelation",
+    "groupCount": 16,
+    "meanAppeal": 74.84756097560975,
+    "D_current": 81.94794917715997,
+    "D_topK": 81.94794917715996
+  },
+  {
+    "set_id": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+    "name": "Next Destinies",
+    "groupCount": 19,
+    "meanAppeal": 79.93838254172016,
+    "D_current": 90.3024721596991,
+    "D_topK": 90.3024721596991
+  },
+  {
+    "set_id": "5361a918-eb23-447e-a00e-e21493bc4320",
+    "name": "Noble Victories",
+    "groupCount": 13,
+    "meanAppeal": 57.02063789868668,
+    "D_current": 64.17269206032036,
+    "D_topK": 64.17269206032034
+  },
+  {
+    "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+    "name": "Obsidian Flames",
+    "groupCount": 33,
+    "meanAppeal": 57.61123429416112,
+    "D_current": 88.26967345519505,
+    "D_topK": 88.26967345519505
+  },
+  {
+    "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+    "name": "Paldea Evolved",
+    "groupCount": 55,
+    "meanAppeal": 51.27716186252771,
+    "D_current": 96.58044370679129,
+    "D_topK": 96.09922106978614
+  },
+  {
+    "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+    "name": "Paldean Fates",
+    "groupCount": 138,
+    "meanAppeal": 50.01590668080594,
+    "D_current": 99.9691924908948,
+    "D_topK": 98.0612783896857
+  },
+  {
+    "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+    "name": "Paradox Rift",
+    "groupCount": 53,
+    "meanAppeal": 50.531063046479524,
+    "D_current": 96.99764198177552,
+    "D_topK": 95.52772456357526
+  },
+  {
+    "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+    "name": "Perfect Order",
+    "groupCount": 20,
+    "meanAppeal": 71.84506505937271,
+    "D_current": 86.73815272952825,
+    "D_topK": 86.73815272952824
+  },
+  {
+    "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+    "name": "Phantasmal Flames",
+    "groupCount": 23,
+    "meanAppeal": 75.6550160029794,
+    "D_current": 91.8600554280795,
+    "D_topK": 91.8600554280795
+  },
+  {
+    "set_id": "d38ee646-382d-45c0-9463-e9302aa2471a",
+    "name": "Phantom Forces",
+    "groupCount": 18,
+    "meanAppeal": 66.73170731707317,
+    "D_current": 79.22396576421082,
+    "D_topK": 79.22396576421082
+  },
+  {
+    "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+    "name": "Pitch Black",
+    "groupCount": 20,
+    "meanAppeal": 65.52805089045118,
+    "D_current": 82.76624988917091,
+    "D_topK": 82.76624988917091
+  },
+  {
+    "set_id": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+    "name": "Plasma Blast",
+    "groupCount": 19,
+    "meanAppeal": 67.49422336328627,
+    "D_current": 85.57000285642908,
+    "D_topK": 85.57000285642908
+  },
+  {
+    "set_id": "ddbc1691-ea68-4775-8343-7b8fddbf81e6",
+    "name": "Plasma Freeze",
+    "groupCount": 23,
+    "meanAppeal": 73.98515376458113,
+    "D_current": 92.72286085072001,
+    "D_topK": 92.72286085072001
+  },
+  {
+    "set_id": "65ee8536-af5a-4242-8a1f-9928c81f501b",
+    "name": "Plasma Storm",
+    "groupCount": 19,
+    "meanAppeal": 73.35044929396662,
+    "D_current": 86.68990046117398,
+    "D_topK": 86.68990046117398
+  },
+  {
+    "set_id": "98301e8a-8aa3-43d8-a85b-908883264721",
+    "name": "Platinum",
+    "groupCount": 17,
+    "meanAppeal": 71.76183644189383,
+    "D_current": 80.7412240687879,
+    "D_topK": 80.7412240687879
+  },
+  {
+    "set_id": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+    "name": "Pok\u00e9mon GO",
+    "groupCount": 21,
+    "meanAppeal": 80.0418118466899,
+    "D_current": 91.49322926663297,
+    "D_topK": 91.49322926663297
+  },
+  {
+    "set_id": "30396643-190c-416d-92a4-e8414c8b4980",
+    "name": "Power Keepers",
+    "groupCount": 24,
+    "meanAppeal": 77.63617886178862,
+    "D_current": 93.32289314433744,
+    "D_topK": 93.32289314433744
+  },
+  {
+    "set_id": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+    "name": "Primal Clash",
+    "groupCount": 26,
+    "meanAppeal": 70.56848030018762,
+    "D_current": 92.47435299351508,
+    "D_topK": 92.47435299351508
+  },
+  {
+    "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+    "name": "Prismatic Evolutions",
+    "groupCount": 33,
+    "meanAppeal": 66.13217975437152,
+    "D_current": 95.7935550133025,
+    "D_topK": 95.7935550133025
+  },
+  {
+    "set_id": "759c09f8-8a1b-4212-be89-66088afa6893",
+    "name": "Rebel Clash",
+    "groupCount": 33,
+    "meanAppeal": 57.13229859571323,
+    "D_current": 89.826717976898,
+    "D_topK": 89.826717976898
+  },
+  {
+    "set_id": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+    "name": "Rising Rivals",
+    "groupCount": 19,
+    "meanAppeal": 78.2413350449294,
+    "D_current": 89.07152003569426,
+    "D_topK": 89.07152003569426
+  },
+  {
+    "set_id": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+    "name": "Roaring Skies",
+    "groupCount": 16,
+    "meanAppeal": 76.04878048780488,
+    "D_current": 85.194294769739,
+    "D_topK": 85.194294769739
+  },
+  {
+    "set_id": "b0d7bd6a-4e57-4495-b975-e132417cc071",
+    "name": "Ruby & Sapphire",
+    "groupCount": 22,
+    "meanAppeal": 68.81152993348115,
+    "D_current": 86.41834559941726,
+    "D_topK": 86.41834559941725
+  },
+  {
+    "set_id": "27f3eb48-9964-4a3f-9861-a434ae244697",
+    "name": "Sandstorm",
+    "groupCount": 21,
+    "meanAppeal": 69.70267131242741,
+    "D_current": 86.8838288669058,
+    "D_topK": 86.8838288669058
+  },
+  {
+    "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+    "name": "Scarlet and Violet 151",
+    "groupCount": 28,
+    "meanAppeal": 76.87630662020906,
+    "D_current": 95.8225134817321,
+    "D_topK": 95.65283315991226
+  },
+  {
+    "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+    "name": "Scarlet and Violet Base Set",
+    "groupCount": 36,
+    "meanAppeal": 43.10569105691057,
+    "D_current": 80.78469830369895,
+    "D_topK": 80.78469830369896
+  },
+  {
+    "set_id": "8f78267f-493b-4d60-a19e-587ae1f60f69",
+    "name": "Secret Wonders",
+    "groupCount": 20,
+    "meanAppeal": 80.0439024390244,
+    "D_current": 91.01138745744304,
+    "D_topK": 91.01138745744304
+  },
+  {
+    "set_id": "03764ded-825a-45c0-8b15-ce100cff9552",
+    "name": "Shining Fates",
+    "groupCount": 18,
+    "meanAppeal": 70.31436314363144,
+    "D_current": 81.51907794213199,
+    "D_topK": 81.51907794213199
+  },
+  {
+    "set_id": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+    "name": "Shining Legends",
+    "groupCount": 22,
+    "meanAppeal": 74.92239467849224,
+    "D_current": 91.8247472286875,
+    "D_topK": 91.82474722868749
+  },
+  {
+    "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+    "name": "Shrouded Fable",
+    "groupCount": 18,
+    "meanAppeal": 44.90009861326736,
+    "D_current": 59.4315520708836,
+    "D_topK": 59.43155207088358
+  },
+  {
+    "set_id": "2d6ec108-70b2-4698-a21a-1af39828004f",
+    "name": "Silver Tempest",
+    "groupCount": 30,
+    "meanAppeal": 68.11382113821138,
+    "D_current": 94.02988264038649,
+    "D_topK": 94.02988264038649
+  },
+  {
+    "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+    "name": "Skyridge",
+    "groupCount": 34,
+    "meanAppeal": 71.94548063127691,
+    "D_current": 96.6812573632935,
+    "D_topK": 96.25495282256658
+  },
+  {
+    "set_id": "69d6d1be-f610-421b-b29c-c3348fe19518",
+    "name": "Steam Siege",
+    "groupCount": 17,
+    "meanAppeal": 68.26398852223817,
+    "D_current": 79.71600274474105,
+    "D_topK": 79.71600274474105
+  },
+  {
+    "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+    "name": "Stellar Crown",
+    "groupCount": 27,
+    "meanAppeal": 63.17765228627752,
+    "D_current": 88.47906749894172,
+    "D_topK": 88.47906749894172
+  },
+  {
+    "set_id": "77bde285-03f8-4a48-b6a5-2f548225c3eb",
+    "name": "Stormfront",
+    "groupCount": 15,
+    "meanAppeal": 77.68455284552846,
+    "D_current": 81.90300005586067,
+    "D_topK": 81.90300005586067
+  },
+  {
+    "set_id": "8938c853-2282-46d8-ba44-87584fa2c168",
+    "name": "Sun & Moon",
+    "groupCount": 27,
+    "meanAppeal": 68.9683830171635,
+    "D_current": 92.23597870627832,
+    "D_topK": 92.23597870627832
+  },
+  {
+    "set_id": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+    "name": "Supreme Victors",
+    "groupCount": 18,
+    "meanAppeal": 74.21951219512195,
+    "D_current": 85.47986095989302,
+    "D_topK": 85.47986095989302
+  },
+  {
+    "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+    "name": "Surging Sparks",
+    "groupCount": 40,
+    "meanAppeal": 56.005786878518535,
+    "D_current": 91.98532723705763,
+    "D_topK": 91.98532723705763
+  },
+  {
+    "set_id": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+    "name": "Sword & Shield",
+    "groupCount": 30,
+    "meanAppeal": 57.74959349593496,
+    "D_current": 87.54598840802781,
+    "D_topK": 87.54598840802781
+  },
+  {
+    "set_id": "a69e4091-5b33-499d-85a5-a8f0b7ecaddc",
+    "name": "Team Magma vs Team Aqua",
+    "groupCount": 21,
+    "meanAppeal": 71.84668989547038,
+    "D_current": 87.11611609425222,
+    "D_topK": 87.11611609425222
+  },
+  {
+    "set_id": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+    "name": "Team Rocket",
+    "groupCount": 15,
+    "meanAppeal": 72.59837398373983,
+    "D_current": 78.89798001012728,
+    "D_topK": 78.89798001012728
+  },
+  {
+    "set_id": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+    "name": "Team Rocket Returns",
+    "groupCount": 29,
+    "meanAppeal": 72.50462573591253,
+    "D_current": 95.16528443842974,
+    "D_topK": 95.04306106604083
+  },
+  {
+    "set_id": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+    "name": "Team Up",
+    "groupCount": 37,
+    "meanAppeal": 80.10283454185893,
+    "D_current": 99.081813350179,
+    "D_topK": 97.73388860920095
+  },
+  {
+    "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+    "name": "Temporal Forces",
+    "groupCount": 37,
+    "meanAppeal": 54.89575350277541,
+    "D_current": 91.42290725132547,
+    "D_topK": 91.42290725132547
+  },
+  {
+    "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+    "name": "Twilight Masquerade",
+    "groupCount": 32,
+    "meanAppeal": 53.48356555963162,
+    "D_current": 86.737645196722,
+    "D_topK": 86.737645196722
+  },
+  {
+    "set_id": "8158d0ae-0255-48f0-b189-d134035b72b0",
+    "name": "Ultra Prism",
+    "groupCount": 26,
+    "meanAppeal": 69.8780487804878,
+    "D_current": 91.71938389456456,
+    "D_topK": 91.71938389456456
+  },
+  {
+    "set_id": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+    "name": "Unbroken Bonds",
+    "groupCount": 37,
+    "meanAppeal": 73.96044825313118,
+    "D_current": 98.0412083839834,
+    "D_topK": 97.34352079265085
+  },
+  {
+    "set_id": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+    "name": "Unified Minds",
+    "groupCount": 42,
+    "meanAppeal": 78.07549361207897,
+    "D_current": 99.31727885414473,
+    "D_topK": 97.95750897224099
+  },
+  {
+    "set_id": "126093d8-50e7-4a7c-891d-8cffd5733eeb",
+    "name": "Unseen Forces",
+    "groupCount": 33,
+    "meanAppeal": 73.56688839615668,
+    "D_current": 96.46861559424802,
+    "D_topK": 96.46861559424802
+  },
+  {
+    "set_id": "26fedb88-87d7-487a-9f01-528d603c682e",
+    "name": "Vivid Voltage",
+    "groupCount": 39,
+    "meanAppeal": 65.59599749843652,
+    "D_current": 97.60945859747595,
+    "D_topK": 96.18485906805859
+  },
+  {
+    "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+    "name": "White Flare",
+    "groupCount": 75,
+    "meanAppeal": 49.208095509195786,
+    "D_current": 98.20258978918002,
+    "D_topK": 96.35846721560235
+  },
+  {
+    "set_id": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+    "name": "XY",
+    "groupCount": 21,
+    "meanAppeal": 74.12543554006969,
+    "D_current": 89.50496056908057,
+    "D_topK": 89.50496056908057
+  }
+]
