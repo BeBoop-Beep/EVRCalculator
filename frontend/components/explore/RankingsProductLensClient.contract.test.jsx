@@ -35,3 +35,24 @@ test("productsTable width is 100%", () => {
   assert.ok(widthLine, "productsTable should have a width property");
   assert.match(widthLine, /width:\s*100%/, "width should be 100%");
 });
+
+// The All Products identity/format columns were deliberately oversized
+// (22rem / 15rem), producing much lower density than the family-specific
+// product ranking view (RipDecisionPage.jsx, `.productIdentityCell`,
+// min-width: 13rem) which reuses the same `RankedProductIdentity`
+// component. Narrow both columns to match that measured density.
+test("colProduct width matches family view density (not the oversized 22rem)", () => {
+  const match = css.match(/\.colProduct\s*\{([^}]*)\}/);
+  assert.ok(match, "colProduct rule not found in CSS");
+  const colProductRule = match[1];
+  assert.doesNotMatch(colProductRule, /22rem/, "colProduct should no longer be 22rem");
+  assert.match(colProductRule, /13rem/, "colProduct should match the family view's measured 13rem identity width");
+});
+
+test("colFormat width is narrowed from the oversized 15rem", () => {
+  const match = css.match(/\.colFormat\s*\{([^}]*)\}/);
+  assert.ok(match, "colFormat rule not found in CSS");
+  const colFormatRule = match[1];
+  assert.doesNotMatch(colFormatRule, /15rem/, "colFormat should no longer be 15rem");
+  assert.match(colFormatRule, /10rem/, "colFormat should be narrowed to a conservative 10rem pending Task 11 visual check");
+});
