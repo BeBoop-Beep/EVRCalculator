@@ -1,0 +1,61 @@
+name: Temporary Market Explorer V2 codemod rerun
+
+on:
+  push:
+    branches:
+      - 'fix/market-explorer-v2-runtime-cutover-20260910'
+    paths:
+      - '.github/workflows/tmp-market-explorer-v2-codemod-rerun.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  codemod:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/market-explorer-v2-runtime-cutover-20260910
+          fetch-depth: 0
+      - name: Reuse exact codemod from first workflow
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('.github/workflows/tmp-market-explorer-v2-codemod.yml').read_text()
+          marker = "          python3 - <<'PY'\n"
+          end = "\n          PY\n\n          python3 -m py_compile"
+          block = src.split(marker, 1)[1].split(end, 1)[0]
+          lines = []
+          for line in block.splitlines():
+              lines.append(line[10:] if line.startswith('          ') else line)
+          Path('/tmp/v2_codemod.py').write_text('\n'.join(lines) + '\n')
+          PY
+          python3 /tmp/v2_codemod.py
+          python3 -m py_compile \
+            backend/db/services/pokemon_market_explorer_query_service.py \
+            backend/db/services/market_explorer_constituent_movement.py \
+            backend/scripts/publish_market_explorer_daily_projection.py \
+            backend/scripts/run_market_explorer_daily_publication.py \
+            backend/scripts/check_market_explorer_maintained_cache_health.py
+          git diff --check
+          grep -n 'V1_DAILY_PROJECTION_RPC\|materialized_hybrid\|"v1_daily"' \
+            backend/db/services/pokemon_market_explorer_query_service.py && exit 1 || true
+      - name: Run focused query-service tests
+        run: |
+          python3 -m pip install --disable-pip-version-check -q pytest supabase==2.28.3 python-dotenv==1.2.2
+          python3 -m pytest -q backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py
+      - name: Commit codemod if clean
+        run: |
+          git config user.name 'inDex V2 Cutover'
+          git config user.email 'actions@users.noreply.github.com'
+          git add backend/db/services/pokemon_market_explorer_query_service.py \
+                  backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py
+          git diff --cached --exit-code && exit 0
+          git commit -m 'Cut Market Explorer query routing to V2 only'
+          git push origin HEAD:fix/market-explorer-v2-runtime-cutover-20260910
