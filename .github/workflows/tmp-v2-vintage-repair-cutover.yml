@@ -21,6 +21,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -q \
+            pytest supabase==2.28.3 python-dotenv==1.2.2
       - name: Cut vintage repair to V2-only
         shell: bash
         run: |
@@ -78,7 +82,6 @@ jobs:
           assert old_scope in s
           s = s.replace(old_scope, 'affected_set_ids = {m.set_id for m in mappings}', 1)
 
-          # Remove stale V1 relation/RPC names even from documentation; V2 names are imported constants.
           for stale in (
               '``pokemon_market_explorer_card_daily_states``',
               '``pokemon_market_explorer_card_daily_coverage``',
@@ -98,15 +101,12 @@ jobs:
           t = t.replace('    COVERAGE_TABLE,\n', '    COVERAGE_TABLE,\n    DAILY_STATES_TABLE,\n')
           t = t.replace('"pokemon_market_explorer_card_daily_states": [],', 'DAILY_STATES_TABLE: [],')
           t = t.replace('"first_market_date":', '"retained_from":')
-          t = t.replace('"set_id": "fossil", "first_market_date": first_market_date,\n            "computed_through": computed_through}',
-                        '"set_id": "fossil", "retained_from": first_market_date,\n            "computed_through": computed_through, "retention_days": 100}')
 
           old_rpc = '''        if self.name == "reproject_pokemon_market_explorer_card_daily_states":\n            return Response(len(self.params["p_set_ids"]))\n'''
           new_rpc = '''        if self.name == "publish_pokemon_market_explorer_daily_v2_for_set":\n            assert self.params["p_force_rebuild"] is True\n            return Response({\n                "status": "verified",\n                "reconciled": True,\n                "mode": "rebuild",\n                "expected_rows": 1,\n                "actual_rows": 1,\n            })\n'''
           assert old_rpc in t
           t = t.replace(old_rpc, new_rpc, 1)
 
-          # V2 covers all affected sets, not the old two-set pilot.
           t, n = re.subn(
               r'def test_pilot_projection_scope_limited_to_fossil_and_neo_genesis_only\(\):.*?\n\ndef test_targeted_cache_invalidation_calls_atomic_scoped_rpc',
               '''def test_v2_projection_rebuild_scope_includes_every_affected_set():\n    sets = [\n        {"id": "fossil", "name": "Fossil"},\n        {"id": "neo-genesis", "name": "Neo Genesis"},\n        {"id": "gym-heroes", "name": "Gym Heroes"},\n    ]\n    cards = [\n        {"id": "c1", "set_id": "fossil", "name": "Zapdos", "card_number": "15"},\n        {"id": "c2", "set_id": "neo-genesis", "name": "Lugia", "card_number": "9"},\n        {"id": "c3", "set_id": "gym-heroes", "name": "Blaine's Charizard", "card_number": "2"},\n    ]\n    variants = [\n        {"id": "v-pred-1", "card_id": "c1", "edition": None},\n        {"id": "v-succ-1", "card_id": "c1", "edition": "first"},\n        {"id": "v-pred-2", "card_id": "c2", "edition": None},\n        {"id": "v-succ-2", "card_id": "c2", "edition": "unlimited"},\n        {"id": "v-pred-3", "card_id": "c3", "edition": None},\n        {"id": "v-succ-3", "card_id": "c3", "edition": "first"},\n    ]\n    coverage_rows = [\n        {"set_id": "fossil", "retained_from": "2026-06-03", "computed_through": "2026-09-10", "retention_days": 100},\n        {"set_id": "neo-genesis", "retained_from": "2026-06-03", "computed_through": "2026-09-10", "retention_days": 100},\n        {"set_id": "gym-heroes", "retained_from": "2026-06-03", "computed_through": "2026-09-10", "retention_days": 100},\n    ]\n    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants, coverage_rows=coverage_rows))\n    report = run_repair(client, commit=False, set_ids=["fossil", "neo-genesis", "gym-heroes"])\n    assert set(report["pilot_projection_rows_touched"]) == {"Fossil", "Neo Genesis", "Gym Heroes"}\n    assert report["pilot_projection_window"] == {"start_date": "2026-06-03", "end_date": "2026-09-10"}\n\n\ndef test_targeted_cache_invalidation_calls_atomic_scoped_rpc''',
@@ -116,19 +116,22 @@ jobs:
           )
           assert n == 1, n
 
-          # Update the commit-path RPC assertions to the verified V2 publisher contract.
           t = t.replace('reproject_pokemon_market_explorer_card_daily_states', 'publish_pokemon_market_explorer_daily_v2_for_set')
           t = re.sub(r'assert reproject_calls\[0\]\[1\]\["p_start_date"\] == date\([^\n]+\)\n', '', t)
           t = re.sub(r'assert reproject_calls\[0\]\[1\]\["p_end_date"\] == date\(([^\n]+)\)\n', r'assert reproject_calls[0][1]["p_through_date"] == str(date(\1))\n    assert reproject_calls[0][1]["p_force_rebuild"] is True\n', t)
           t = t.replace('MIN(first_market_date)', 'MIN(retained_from)')
           t = t.replace('first_market_date)/MAX', 'retained_from)/MAX')
-          t = t.replace("neo-genesis's 2026-04-11", "neo-genesis's 2026-04-11")
 
-          # All V2 manual coverage fixtures need retention_days.
           t = re.sub(
               r'(\{"set_id": "(?:fossil|neo-genesis|gym-heroes)", "retained_from": "[^"]+",\s*"computed_through": "[^"]+"\})(,?)',
               lambda m: m.group(1)[:-1] + ', "retention_days": 100}' + m.group(2),
               t,
+          )
+
+          # Make the common Fossil helper a complete V2 coverage row.
+          t = t.replace(
+              'return {"set_id": "fossil", "retained_from": first_market_date,\n            "computed_through": computed_through}',
+              'return {"set_id": "fossil", "retained_from": first_market_date,\n            "computed_through": computed_through, "retention_days": 100}'
           )
 
           tpath.write_text(t)
@@ -140,7 +143,7 @@ jobs:
           export SUPABASE_URL='https://example.supabase.co'
           export SUPABASE_SERVICE_ROLE_KEY='dummy-service-role-key'
           export SUPABASE_ANON_KEY='dummy-anon-key'
-          pytest -q backend/tests/unit/scripts/test_repair_market_explorer_vintage_predecessor_identities.py
+          python -m pytest -q backend/tests/unit/scripts/test_repair_market_explorer_vintage_predecessor_identities.py
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
