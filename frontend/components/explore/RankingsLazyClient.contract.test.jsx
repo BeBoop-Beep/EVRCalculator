@@ -1,32 +1,5 @@
-import "../../test-support/renderComponentRegister.mjs";
-
 import test from "node:test";
 import assert from "node:assert/strict";
-import React from "react";
-import TestRenderer from "react-test-renderer";
-
-// Mock modules
-const mockExploreTableClientCalls = [];
-const mockUseRankingsAccess = {
-  returnValue: {
-    canViewRankingsIntelligence: false,
-    canViewCardChaseEfficiency: false,
-    authStatus: "anonymous",
-    requestKey: "anon-1",
-  },
-};
-
-// Create a mock that captures calls
-const mockExploreTableClient = React.forwardRef(function MockExploreTableClient(props) {
-  mockExploreTableClientCalls.push(props);
-  return null;
-});
-
-// Patch the modules before importing the component
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-
-// We'll need to use a different approach since we can't easily mock ES modules in node:test
-// Let's use a static analysis approach instead, matching the existing test patterns
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
