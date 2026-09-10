@@ -100,6 +100,7 @@ class PublicationSummary:
     skipped: List[Dict[str, str]] = field(default_factory=list)
     latest_simulation_date_by_set: Dict[str, Optional[str]] = field(default_factory=dict)
     snapshot_publication_status: str = "not_attempted"
+    chase_accessibility_publication_status: str = "not_attempted"
     chase_snapshot_publication_status: str = "not_attempted"
     chase_efficiency_publication_status: str = "not_attempted"
     chase_audit_status: str = "not_attempted"
@@ -180,6 +181,9 @@ class PublicationSummary:
                 f"total_ms={report.get('elapsedMs')}"
             )
         out.append(f"{TAG} snapshot_publication_status={self.snapshot_publication_status}")
+        out.append(
+            f"{TAG} chase_accessibility_publication_status={self.chase_accessibility_publication_status}"
+        )
         out.append(f"{TAG} chase_snapshot_publication_status={self.chase_snapshot_publication_status}")
         out.append(f"{TAG} chase_efficiency_publication_status={self.chase_efficiency_publication_status}")
         out.append(f"{TAG} chase_audit_status={self.chase_audit_status}")
@@ -295,6 +299,28 @@ def refresh_public_snapshots(
         command.insert(2, "--commit")
     if skip_explore_rankings:
         command.append("--skip-explore-rankings")
+    return _run_command(command, dry_run=dry_run)
+
+
+def refresh_chase_accessibility_snapshots(
+    *, python_executable: Optional[str] = None, market_date: str, dry_run: bool = False,
+) -> int:
+    """Rebuild Chase Accessibility V1 from the CURRENT simulation cohort's exact run ids.
+
+    Must run AFTER the current-day simulation cohort is verified and BEFORE
+    sealed-product finalization / public snapshot refresh, because V12 refuses
+    an Accessibility row whose ``calculation_run_id`` does not match the
+    product cohort's own current run. This is intentionally NOT
+    ``refresh_chase_economics_snapshots`` (a different, legacy system keyed on
+    the PUBLISHED Set-page run identity) - see
+    ``rebuild_chase_accessibility_snapshots.py`` for the authority contract.
+    """
+    command = [
+        python_executable or sys.executable,
+        str(REPO_ROOT / "backend" / "scripts" / "rebuild_chase_accessibility_snapshots.py"),
+        "--market-date",
+        market_date,
+    ]
     return _run_command(command, dry_run=dry_run)
 
 
@@ -501,6 +527,64 @@ def _load_post_refresh_rankings_outcome(
     )
 
 
+def _resolve_upstream_refresh_failure_outcome(
+    client: Any, *, market_date: str, reason_code: str,
+) -> RankingsPublicationOutcome:
+    """Classify Rankings after `refresh_public_snapshots` itself failed/deferred.
+
+    Fixes the Sept-9 hole where a `refresh_stale_public_snapshots.py` failure
+    left `rankings_publication_status=not_attempted` / `Rankings: UNKNOWN` even
+    though the pipeline had already failed. Two cases:
+
+    Case A - refresh failed and there is NO same-date Rankings attempt: the
+    failure happened before any Rankings decision was made. Classify as
+    ``CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION`` with
+    ``publication_attempted=False`` and no attempt id.
+
+    Case B - refresh failed but the subprocess DID persist a same-date
+    Rankings attempt before it died (e.g. the publisher ran and reached a
+    terminal state, then a later step in that subprocess failed): read back
+    the real lifecycle result and preserve it verbatim - never overwrite real
+    lifecycle history with the generic upstream-failure classification.
+    """
+    try:
+        rows = list(
+            client.table("pokemon_rankings_publication_attempts")
+            .select(
+                "id,status,reason_code,reason_detail,resulting_publication_id,diagnostics,"
+                "attempted_market_date,completed_at"
+            )
+            .eq("attempted_market_date", market_date)
+            .order("completed_at", desc=True)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+    except Exception as exc:  # fail closed - never silently "published"
+        return RankingsPublicationOutcome(
+            classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+            reason_code=reason_code,
+            reason_detail=f"upstream refresh failed and the attempt lookup itself raised: {exc}",
+            publication_required=True, publication_attempted=False,
+        )
+    if not rows:
+        # Case A: no real Rankings attempt exists for this date - the failure
+        # happened before any Rankings decision was made.
+        return RankingsPublicationOutcome(
+            classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+            reason_code=reason_code,
+            reason_detail=(
+                f"public snapshot refresh failed for {market_date} before any Rankings "
+                "publication attempt was persisted"
+            ),
+            publication_required=True, publication_attempted=False,
+        )
+    # Case B: a same-date attempt DOES exist - preserve its real terminal state.
+    return _load_post_refresh_rankings_outcome(
+        client, market_date=market_date, rankings_branch_ready=True,
+    )
+
+
 def _set_rankings_outcome(summary: "PublicationSummary", outcome: RankingsPublicationOutcome) -> None:
     """The ONE place `rankings_publication_status` is derived, from the outcome.
 
@@ -639,13 +723,56 @@ def orchestrate(
     for line in after.report_lines(entry_point="daily opening publication"):
         print(line)
 
+    # ---- Step 3a2: rebuild Chase Accessibility V1 from the CURRENT run ids ----
+    # Must happen AFTER the current-day simulation cohort is verified (so the
+    # exact calculation_run_id per set is known) and BEFORE sealed-product
+    # finalization / public snapshot refresh, because V12 refuses an
+    # Accessibility row whose calculation_run_id does not match the product
+    # cohort's own current run. This is NOT the legacy Chase Economics system
+    # (see refresh_chase_economics_snapshots, which stays keyed on the
+    # PUBLISHED Set-page run identity and stays where it already was).
+    if after.ok and not summary.simulation_failed:
+        if dry_run:
+            refresh_chase_accessibility_snapshots(
+                python_executable=python_executable,
+                market_date=resolved_market_date,
+                dry_run=True,
+            )
+            summary.chase_accessibility_publication_status = "validated_dry_run"
+        else:
+            accessibility_code = refresh_chase_accessibility_snapshots(
+                python_executable=python_executable,
+                market_date=resolved_market_date,
+                dry_run=False,
+            )
+            if accessibility_code == 0:
+                summary.chase_accessibility_publication_status = "published"
+            else:
+                summary.chase_accessibility_publication_status = f"failed_exit_{accessibility_code}"
+                summary.exit_code = EXIT_FAILED
+                summary.error = (
+                    "Chase Accessibility V1 rebuild failed for the current simulation "
+                    f"cohort at {resolved_market_date}; refusing sealed-product finalization "
+                    "and public snapshot refresh so previous Sept-8-style public state is retained"
+                )
+                _set_rankings_outcome(summary, RankingsPublicationOutcome(
+                    classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+                    reason_code="CHASE_ACCESSIBILITY_REFRESH_FAILED",
+                    reason_detail=summary.error,
+                ))
+                return summary
+    else:
+        summary.chase_accessibility_publication_status = "skipped_cohort_not_verified"
+
     # ---- Step 3b: finalize sealed-product Collector Appeal / Overall RIP ----
     # Placed at the narrowest correct point: AFTER every required simulation has
-    # completed and freshness has been verified (so the cohort is whole), and
-    # BEFORE snapshot publication (so nothing downstream can publish a product
-    # row whose Overall RIP is still pending). It runs in ONE process, which is
-    # the entire reason it exists - the per-set subprocesses no longer build the
-    # Collector Appeal bundle at all, so this is the only build in the day.
+    # completed and freshness has been verified (so the cohort is whole), AFTER
+    # Chase Accessibility V1 has been rebuilt from that exact cohort's run ids
+    # (so V12 authority is current, not stale), and BEFORE snapshot publication
+    # (so nothing downstream can publish a product row whose Overall RIP is
+    # still pending). It runs in ONE process, which is the entire reason it
+    # exists - the per-set subprocesses no longer build the Collector Appeal
+    # bundle at all, so this is the only build in the day.
     summary.sealed_product_finalization_status = _finalize_sealed_products(
         client,
         summary,
@@ -765,15 +892,32 @@ def orchestrate(
         elif refresh_code == GATE_DEFERRED_EXIT_CODE:
             summary.snapshot_publication_status = "deferred_cohort_not_ready"
             summary.exit_code = GATE_DEFERRED_EXIT_CODE
+            if summary.rankings_publication_outcome is None and not dry_run:
+                _set_rankings_outcome(summary, _resolve_upstream_refresh_failure_outcome(
+                    client, market_date=resolved_market_date,
+                    reason_code="SNAPSHOT_REFRESH_DEFERRED_COHORT_NOT_READY",
+                ))
             return summary
         else:
             summary.snapshot_publication_status = f"failed_exit_{refresh_code}"
             summary.exit_code = EXIT_FAILED
+            if summary.rankings_publication_outcome is None and not dry_run:
+                _set_rankings_outcome(summary, _resolve_upstream_refresh_failure_outcome(
+                    client, market_date=resolved_market_date,
+                    reason_code=f"SNAPSHOT_REFRESH_FAILED_EXIT_{refresh_code}",
+                ))
             return summary
 
-        # The set-page rebuild above establishes the authoritative run identity.
-        # Sealed-product finalization already completed in step 3b. This is the
-        # narrow point where all four Chase inputs are authoritative together.
+        # The set-page rebuild above establishes the PUBLISHED Set-page run
+        # identity that this legacy Chase Economics system reads
+        # (`_current_run_id()` in build_pokemon_set_chase_economics_snapshots.py
+        # resolves pokemon_set_page_snapshot_latest.payload_json.ripDecision.
+        # sourceCalculationRunId), which only exists once Set-page publication
+        # has happened above. It is deliberately NOT moved earlier: Chase
+        # Accessibility V1 (the system V12 depends on) already rebuilt from the
+        # current SIMULATION run ids in step 3a2, before sealed-product
+        # finalization - this step is the separate, legacy Chase system and
+        # stays keyed on the published Set-page authority instead.
         chase_code = refresh_chase_economics_snapshots(
             python_executable=python_executable, dry_run=dry_run,
             market_date=resolved_market_date,

@@ -482,6 +482,10 @@ def patched(monkeypatch):
         calls.append(("chase", []))
         return 0
 
+    def fake_accessibility_refresh(**_kwargs):
+        calls.append(("accessibility", []))
+        return 0
+
     import backend.scripts.audit_opening_analytics_publication as audit_module
 
     def fake_audit(_client, **_kwargs):
@@ -503,6 +507,9 @@ def patched(monkeypatch):
     monkeypatch.setattr(orchestrator, "run_simulations_for_sets", fake_run_sims)
     monkeypatch.setattr(orchestrator, "refresh_public_snapshots", fake_refresh)
     monkeypatch.setattr(orchestrator, "refresh_chase_economics_snapshots", fake_chase_refresh)
+    monkeypatch.setattr(
+        orchestrator, "refresh_chase_accessibility_snapshots", fake_accessibility_refresh
+    )
     return calls
 
 
@@ -536,8 +543,11 @@ def test_simulations_run_before_snapshots_are_built(patched):
     client = _client([_history(STALE_DATE), _history(MARKET_DATE)])
     summary = _orchestrate(client)
 
-    assert [step for step, _ in patched] == ["simulate", "refresh", "chase", "audit"], (
-        "simulate and coordinated refresh must precede Chase, then the audit reads the publication"
+    assert [step for step, _ in patched] == [
+        "simulate", "accessibility", "refresh", "chase", "audit",
+    ], (
+        "simulate then Chase Accessibility must precede the coordinated refresh, "
+        "which precedes legacy Chase, then the audit reads the publication"
     )
     assert patched[0][1] == ["alpha"]
     assert summary.exit_code == EXIT_OK
@@ -1384,6 +1394,157 @@ def test_state_pipeline_failed_before_rankings_decision_on_unresolvable_market_d
     assert outcome["classification"] == CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION
     assert summary.rankings_publication_status == "pipeline_failed"
     assert summary.rankings_publication_status != "not_attempted"
+
+
+# ===========================================================================
+# Chase Accessibility V1 sequencing (Sept-9 daily pipeline fix).
+# ===========================================================================
+
+
+def test_accessibility_rebuild_invokes_the_dedicated_script_with_market_date(monkeypatch):
+    captured = []
+    monkeypatch.setattr(orchestrator, "_run_command", lambda command, **_k: captured.append(command) or 0)
+    assert orchestrator.refresh_chase_accessibility_snapshots(
+        python_executable="python", market_date=MARKET_DATE
+    ) == 0
+    command = captured[0]
+    assert "rebuild_chase_accessibility_snapshots.py" in command[1]
+    assert command[command.index("--market-date") + 1] == MARKET_DATE
+    # Must NOT be the legacy Chase Economics script, and must not pass
+    # --current-authorities (that flag belongs to the published-Set-page-run
+    # legacy system, not the current-simulation-run Accessibility rebuild).
+    assert "build_pokemon_set_chase_economics_snapshots.py" not in command[1]
+    assert "--current-authorities" not in command
+
+
+def test_accessibility_dry_run_never_persists(monkeypatch):
+    captured = []
+    monkeypatch.setattr(orchestrator, "_run_command", lambda command, **kw: captured.append(kw) or 0)
+    orchestrator.refresh_chase_accessibility_snapshots(
+        python_executable="python", market_date=MARKET_DATE, dry_run=True
+    )
+    assert captured[0]["dry_run"] is True
+
+
+def test_accessibility_runs_before_sealed_finalization_and_public_refresh(monkeypatch, patched):
+    """Task 9 — call order: simulate -> accessibility -> sealed finalization -> refresh -> chase."""
+    order = []
+    monkeypatch.setattr(
+        orchestrator,
+        "_finalize_sealed_products",
+        lambda *_a, **_k: order.append("finalize_sealed_products") or "ok",
+    )
+
+    def accessibility(**_kwargs):
+        order.append("accessibility")
+        return 0
+
+    def refresh(**_kwargs):
+        order.append("refresh")
+        return 0
+
+    monkeypatch.setattr(orchestrator, "refresh_chase_accessibility_snapshots", accessibility)
+    monkeypatch.setattr(orchestrator, "refresh_public_snapshots", refresh)
+
+    client = _client([_history(MARKET_DATE)])
+    summary = _orchestrate(client)
+
+    assert order.index("accessibility") < order.index("finalize_sealed_products")
+    assert order.index("finalize_sealed_products") < order.index("refresh")
+    assert summary.chase_accessibility_publication_status == "published"
+
+
+def test_accessibility_rebuild_targets_the_current_simulation_run_not_published_set_page_run(
+    monkeypatch, patched
+):
+    """Task 10 — the Accessibility step must be handed the market date whose
+    simulation cohort was just verified current, never a published Set-page
+    run identity (which does not exist yet at this point in the pipeline)."""
+    captured_market_dates = []
+
+    def accessibility(*, market_date, **_kwargs):
+        captured_market_dates.append(market_date)
+        return 0
+
+    monkeypatch.setattr(orchestrator, "refresh_chase_accessibility_snapshots", accessibility)
+    client = _client([_history(MARKET_DATE)])
+    _orchestrate(client)
+
+    assert captured_market_dates == [MARKET_DATE]
+
+
+def test_accessibility_failure_blocks_sealed_finalization_and_public_refresh(monkeypatch, patched):
+    """Task 11 — Accessibility rebuild failure must fail closed."""
+    finalize_called = []
+    refresh_called = []
+    monkeypatch.setattr(
+        orchestrator, "_finalize_sealed_products", lambda *_a, **_k: finalize_called.append(1) or "ok"
+    )
+    monkeypatch.setattr(
+        orchestrator, "refresh_public_snapshots", lambda **_k: refresh_called.append(1) or 0
+    )
+    monkeypatch.setattr(orchestrator, "refresh_chase_accessibility_snapshots", lambda **_k: 9)
+
+    client = _client([_history(MARKET_DATE)])
+    summary = _orchestrate(client)
+
+    assert not finalize_called, "sealed-product finalization must not run after Accessibility failure"
+    assert not refresh_called, "public snapshot refresh must not run after Accessibility failure"
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.chase_accessibility_publication_status == "failed_exit_9"
+    outcome = summary.rankings_publication_outcome
+    assert outcome["classification"] == orchestrator.CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION
+    assert outcome["reason_code"] == "CHASE_ACCESSIBILITY_REFRESH_FAILED"
+    assert summary.rankings_publication_status == "pipeline_failed"
+    assert summary.rankings_publication_status not in {"not_attempted", "UNKNOWN"}
+
+
+# ===========================================================================
+# Rankings early-failure classification when refresh_public_snapshots itself
+# fails or is deferred (Task 8/12) — must never leave the summary reporting
+# not_attempted/UNKNOWN.
+# ===========================================================================
+
+
+def test_refresh_failure_before_any_rankings_attempt_is_pipeline_failed(monkeypatch, patched):
+    """Case A — no same-date Rankings attempt exists."""
+    monkeypatch.setattr(orchestrator, "_finalize_sealed_products", lambda *_a, **_k: "ok")
+    monkeypatch.setattr(orchestrator, "refresh_public_snapshots", lambda **_k: 7)
+    client = _client([_history(MARKET_DATE)])
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    outcome = summary.rankings_publication_outcome
+    assert outcome is not None
+    assert outcome["classification"] == orchestrator.CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION
+    assert outcome["attempt_id"] is None
+    assert summary.rankings_publication_status == "pipeline_failed"
+    assert summary.rankings_publication_status not in {"not_attempted", "UNKNOWN"}
+
+
+def test_refresh_failure_after_persisted_failed_attempt_keeps_real_lifecycle_state(monkeypatch, patched):
+    """Case B — a same-date terminal Rankings attempt exists; preserve it verbatim."""
+    monkeypatch.setattr(orchestrator, "_finalize_sealed_products", lambda *_a, **_k: "ok")
+    monkeypatch.setattr(orchestrator, "refresh_public_snapshots", lambda **_k: 7)
+    client = _client_with_attempts([
+        {
+            "id": "attempt-9", "status": "failed", "reason_code": "FAILED_PUBLICATION_RPC",
+            "reason_detail": "rpc exploded mid-refresh", "resulting_publication_id": None,
+            "diagnostics": {"publicationMode": "rankings_only"},
+            "attempted_market_date": MARKET_DATE, "completed_at": "2026-08-01T00:00:00Z",
+        }
+    ])
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    outcome = summary.rankings_publication_outcome
+    assert outcome["classification"] == orchestrator.CLASSIFICATION_FAILED_WITH_ATTEMPT
+    assert outcome["attempt_id"] == "attempt-9"
+    assert outcome["reason_detail"] == "rpc exploded mid-refresh"
+    assert summary.rankings_publication_status == "failed"
+    assert summary.rankings_publication_status not in {"not_attempted", "UNKNOWN"}
 
 
 def test_a_successful_daily_run_never_reports_not_attempted(monkeypatch, patched):
