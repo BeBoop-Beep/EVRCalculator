@@ -11,6 +11,15 @@ export function __resetExploreSetValueMarketCacheForTests() {
   processCache.clear();
   inFlight = null;
 }
+
+// Test-only: seed the process-local last-known-good cache as an ALREADY WARM
+// entry with an arbitrary expiresAt (in the past, to simulate an expired
+// freshness window without depending on real elapsed time). This lets tests
+// exercise SUCCESS -> (freshness expires) -> FAILURE -> STALE and
+// SUCCESS -> FAILURE -> RECOVERY without the 120s TTL actually elapsing.
+export function __seedExploreSetValueMarketCacheForTests(data, { expiresAt = Date.now() - 1 } = {}) {
+  processCache.set(CACHE_KEY, { data, expiresAt });
+}
 // The snapshot publishes THREE top-level keys: marketOverview (the global Raw /
 // Top 10 Chase / Sealed index families), sets (the Set Value ladder) and meta. The
 // reconstruction below must carry all three — an earlier version rebuilt only
@@ -41,12 +50,16 @@ export function normalizeExploreSetValueMarket(payload) {
 // otherwise be handed the full multi-MB paid publication) just to render the
 // public Market page. Paid Explorer data, when actually needed by the paid
 // Explorer UI, is loaded through its own intentional path elsewhere.
+// Next's `next: { revalidate: 120 }` fetch cache is the single freshness
+// authority here — it decides when a response is fresh vs. stale-while-
+// revalidating. processCache is NOT a second freshness gate; it exists only
+// as (a) an in-process last-known-good fallback for when fetch throws or
+// returns non-ok, and (b) a target for inFlight request coalescing. It must
+// never skip calling fetch, or it can re-pin a stale response Next already
+// served for another full TTL, stacking an extra delay on top of Next's own
+// revalidation window before a newly published snapshot is picked up.
 async function fetchExploreSetValueMarket() {
   const cached = processCache.get(CACHE_KEY);
-  if (cached?.expiresAt > Date.now()) {
-    console.info("[explore-set-value-market] cache_hit", { key: CACHE_KEY });
-    return cached.data;
-  }
   if (inFlight) {
     console.info("[explore-set-value-market] in_flight_join", { key: CACHE_KEY });
     return inFlight;
@@ -54,7 +67,9 @@ async function fetchExploreSetValueMarket() {
   const startedAt = Date.now();
   inFlight = (async () => {
     try {
-      const response = await fetch(`${getBackendApiBaseUrl()}/explore/set-value-market`, { cache: "no-store" });
+      const response = await fetch(`${getBackendApiBaseUrl()}/explore/set-value-market`, {
+        next: { revalidate: 120 },
+      });
       if (!response.ok) {
         console.warn("[explore-set-value-market] backend_error", { status: response.status });
         return unavailableExploreSetValueMarket(cached?.data);

@@ -66,19 +66,21 @@ SOURCE_NAME = "google_trends_pokemon_v2"
 SOURCE_KIND = "search_interest"
 DIMENSION_KEY = "pokemon_search_interest_v2"
 INGEST_CODE_VERSION = "ingest_pokemon_trends_v2_source_run_r1"
+CALIBRATION_VERSION = "pokemon_trends_anchor_ladder_v2_manifest_v1"
 
 EXPECTED_MANIFEST_VERSION = "pokemon_trends_anchor_ladder_manifest_v1"
 EXPECTED_CODE_VERSION = "capture_pokemon_trends_anchor_ladder_v2_r1"
 EXPECTED_TIMEFRAME = "today 1-m"
 EXPECTED_GEO = "US"
 EXPECTED_SUBJECT_COUNT = 1025
+EXPECTED_CLASSIFICATIONS = {"SCORED": 993, "scored_zero_high_confidence": 27, "failed": 5, "missing_evidence": 0, "insufficient_calibration": 0}
 
 KNOWN_ANCHORS = {"Purugly", "Stunky", "Torkoal", "Lucario", "Charizard", "Pikachu"}
 
 # Phase 4 classification semantics -- explicit, versioned treatment. Do not
 # convert FAILED/MISSING to numeric zero anywhere below.
 USABLE_NUMERIC_CLASSIFICATIONS = {"SCORED", "scored_zero_high_confidence"}
-EXPLICIT_UNAVAILABLE_CLASSIFICATIONS = {"failed", "missing_evidence"}
+EXPLICIT_UNAVAILABLE_CLASSIFICATIONS = {"failed", "missing_evidence", "insufficient_calibration"}
 ALL_KNOWN_CLASSIFICATIONS = USABLE_NUMERIC_CLASSIFICATIONS | EXPLICIT_UNAVAILABLE_CLASSIFICATIONS
 
 CHECKPOINT_ROWS_PATH = (
@@ -118,7 +120,7 @@ def load_checkpoint(rows_path: Path, header_path: Path) -> LoadedCheckpoint:
     return LoadedCheckpoint(header=header, rows=rows)
 
 
-def capture_identity(header: dict) -> str:
+def capture_identity(header: dict, rows: Optional[List[dict]] = None) -> str:
     """Immutable capture identity (Phase 8) used for idempotency detection.
 
     Built from fields that uniquely pin *this* completed capture: manifest
@@ -133,8 +135,9 @@ def capture_identity(header: dict) -> str:
         "codeVersion": header.get("code_version"),
         "timeframe": header.get("timeframe"),
         "geo": header.get("geo"),
+        "rows": rows or [],
     }
-    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def validate_checkpoint(loaded: LoadedCheckpoint) -> dict:
@@ -146,7 +149,12 @@ def validate_checkpoint(loaded: LoadedCheckpoint) -> dict:
     header = loaded.header
     rows = loaded.rows
 
-    if header.get("manifest_fingerprint") != "009418a05f6b9631":
+    manifest_path = ROOT / "backend/config/pokemon_trends_anchor_ladder_v1.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    from backend.scripts.capture_pokemon_trends_anchor_ladder_v2 import manifest_fingerprint
+    frozen_fingerprint = manifest_fingerprint(manifest)
+
+    if header.get("manifest_fingerprint") != frozen_fingerprint:
         raise ValidationError(
             f"unexpected manifest_fingerprint={header.get('manifest_fingerprint')!r}; "
             "this ingestion path is pinned to the reviewed capture"
@@ -196,6 +204,10 @@ def validate_checkpoint(loaded: LoadedCheckpoint) -> dict:
         if anchor is not None:
             anchor_distribution[anchor] = anchor_distribution.get(anchor, 0) + 1
 
+        settings = row.get("query_settings")
+        if settings != {"timeframe": EXPECTED_TIMEFRAME, "geo": EXPECTED_GEO, "queryType": "search_term"}:
+            raise ValidationError(f"row {idx} (subject_id={subject_id}) has mixed/invalid query_settings={settings!r}")
+
         if classification in USABLE_NUMERIC_CLASSIFICATIONS:
             gr = row.get("global_relative")
             if gr is None:
@@ -212,6 +224,10 @@ def validate_checkpoint(loaded: LoadedCheckpoint) -> dict:
                 raise ValidationError(
                     f"row {idx} (subject_id={subject_id}) has a non-finite calibrated score {gr!r}"
                 )
+            if gr_f < 0:
+                raise ValidationError(f"row {idx} (subject_id={subject_id}) calibrated score is negative")
+            if row.get("raw_target") is None or row.get("raw_anchor") is None:
+                raise ValidationError(f"row {idx} (subject_id={subject_id}) scored without raw target/anchor")
         else:
             unavailable_count += 1
             if row.get("global_relative") is not None:
@@ -238,6 +254,9 @@ def validate_checkpoint(loaded: LoadedCheckpoint) -> dict:
         raise ValidationError(
             f"expected {EXPECTED_SUBJECT_COUNT} unique subjects, found {len(seen_subjects)}"
         )
+    observed = {key: classifications.get(key, 0) for key in EXPECTED_CLASSIFICATIONS}
+    if observed != EXPECTED_CLASSIFICATIONS:
+        raise ValidationError(f"unexpected terminal state counts: expected {EXPECTED_CLASSIFICATIONS}, found {observed}")
 
     usable = sum(classifications.get(c, 0) for c in USABLE_NUMERIC_CLASSIFICATIONS)
     failed = classifications.get("failed", 0)
@@ -294,7 +313,13 @@ def build_observation_row(source_run_id: Optional[str], entity_id: Optional[str]
             "pokedexNumber": row["pokedex_number"],
             "pokemonName": row["pokemon_name"],
             "assignedAnchor": row.get("assigned_anchor"),
+            "ladderRung": ["Purugly", "Stunky", "Torkoal", "Lucario", "Charizard", "Pikachu"].index(row["assigned_anchor"]),
             "escalated": row.get("escalated"),
+            "retryEscalationPath": {
+                "escalatedToLowerRung": bool(row.get("escalated")),
+                "terminalAnchor": row.get("assigned_anchor"),
+                "providerRetryCount": row.get("retry_count"),
+            },
             "rawTarget": row.get("raw_target"),
             "rawAnchor": row.get("raw_anchor"),
             "globalRelative": global_relative,
@@ -304,7 +329,8 @@ def build_observation_row(source_run_id: Optional[str], entity_id: Optional[str]
             "manifestVersion": row.get("manifest_version"),
             "captureCodeVersion": row.get("code_version"),
             "ingestCodeVersion": INGEST_CODE_VERSION,
-            "calibrationAlgorithm": "pokemon_trends_anchor_ladder_v2",
+            "anchorManifestFingerprint": "009418a05f6b9631",
+            "calibrationVersion": CALIBRATION_VERSION,
             "querySettings": row.get("query_settings"),
             "capturedAt": captured_iso,
         },
@@ -334,7 +360,7 @@ def resolve_entities(supabase, rows: List[dict]) -> Dict[int, dict]:
 def find_existing_source_run(supabase, capture_hash: str) -> Optional[dict]:
     resp = (
         supabase.table("pokemon_collector_source_runs")
-        .select("id,status,source_fingerprint,run_key,completed_at")
+        .select("id,status,source_fingerprint,run_key,completed_at,item_count")
         .eq("source_name", SOURCE_NAME)
         .eq("source_fingerprint", capture_hash)
         .order("started_at", desc=True)
@@ -392,7 +418,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     loaded = load_checkpoint(args.checkpoint, args.header)
     report = validate_checkpoint(loaded)
-    capture_hash = capture_identity(loaded.header)
+    capture_hash = capture_identity(loaded.header, loaded.rows)
 
     result = {
         "captureIdentity": capture_hash,
@@ -413,6 +439,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     plan = plan_ingestion(loaded, report, entity_map)
     result["plan"] = plan
+    if entity_map is not None and plan["entitiesUnmatched"]:
+        raise ValidationError(f"{plan['entitiesUnmatched']} checkpoint Pokemon lack canonical collector entities")
 
     if not args.commit:
         result["mode"] = "dry_run"
@@ -431,6 +459,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     existing = find_existing_source_run(supabase, capture_hash)
     if existing is not None:
+        if existing.get("status") not in ("success", "partial_failure") or existing.get("item_count") != EXPECTED_SUBJECT_COUNT:
+            raise ValidationError(f"matching capture has invalid existing source-run state: {existing}")
         result["mode"] = "idempotent_skip"
         result["existingSourceRunId"] = existing["id"]
         result["mutationsPerformed"] = 0
@@ -439,53 +469,33 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     now = datetime.now(timezone.utc).isoformat()
     run_key = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{capture_hash[:12]}"
-    run = (
-        supabase.table("pokemon_collector_source_runs")
-        .insert(
-            {
-                "source_name": SOURCE_NAME,
-                "source_kind": SOURCE_KIND,
-                "run_key": run_key,
-                "capture_version": EXPECTED_CODE_VERSION,
-                "status": "running",
-                "source_url": "https://trends.google.com/trends/",
-                "geo": EXPECTED_GEO,
-                "anchor_term": None,
-                "source_fingerprint": capture_hash,
-                "raw_payload_json": {
-                    "manifestFingerprint": loaded.header.get("manifest_fingerprint"),
-                    "manifestVersion": report["manifestVersion"],
-                    "timeframe": loaded.header.get("timeframe"),
-                    "geo": loaded.header.get("geo"),
-                    "checkpointStartedAt": loaded.header.get("started_at"),
-                    "ingestCodeVersion": INGEST_CODE_VERSION,
-                },
-            }
-        )
-        .execute()
-        .data[0]
-    )
-    run_id = run["id"]
+    run = {
+        "source_name": SOURCE_NAME, "source_kind": SOURCE_KIND, "run_key": run_key,
+        "capture_version": EXPECTED_CODE_VERSION, "source_url": "https://trends.google.com/trends/",
+        "geo": EXPECTED_GEO, "anchor_term": None, "source_fingerprint": capture_hash,
+        "raw_payload_json": {"manifestFingerprint": loaded.header.get("manifest_fingerprint"),
+            "manifestVersion": report["manifestVersion"], "timeframe": loaded.header.get("timeframe"),
+            "geo": loaded.header.get("geo"), "checkpointStartedAt": loaded.header.get("started_at"),
+            "ingestCodeVersion": INGEST_CODE_VERSION},
+    }
 
     observation_rows = [
-        build_observation_row(run_id, (entity_map or {}).get(row["pokedex_number"], {}).get("id"), row)
+        build_observation_row(None, (entity_map or {}).get(row["pokedex_number"], {}).get("id"), row)
         for row in loaded.rows
     ]
-    supabase.table("pokemon_collector_entity_observations").insert(observation_rows).execute()
-
     usable = report["usableScoredRows"]
     total = report["totalRows"]
     status = "success" if usable == total else "partial_failure" if usable else "failed"
 
-    supabase.table("pokemon_collector_source_runs").update(
-        {
-            "status": status,
-            "completed_at": now,
-            "captured_at": now,
-            "item_count": len(observation_rows),
-            "diagnostics_json": {**report, "captureIdentity": capture_hash},
-        }
-    ).eq("id", run_id).execute()
+    # Observations and terminal transition are atomic. If any row is rejected,
+    # the RPC transaction rolls back the source run and every observation.
+    response = supabase.rpc("persist_pokemon_trends_v2_source_run", {
+        "p_source_run": {**run, "status": status, "completed_at": now, "captured_at": now,
+                         "item_count": len(observation_rows), "diagnostics_json": {**report, "captureIdentity": capture_hash}},
+        "p_observations": observation_rows,
+    }).execute()
+    rpc_result = response.data[0] if isinstance(response.data, list) else response.data
+    run_id = str(rpc_result.get("source_run_id"))
 
     result["mode"] = "committed"
     result["sourceRunId"] = run_id

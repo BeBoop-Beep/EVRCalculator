@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.domain.pokemon.market_index import resolve_market_window_target
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 
@@ -416,8 +417,7 @@ def build_global_set_value_row(
     }
 
 
-def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segments: bool = False) -> Dict[str, Any]:
-    active = client or service_read_client
+def _read_explore_set_value_snapshot_once(active: Any, *, include_explorer_segments: bool) -> Dict[str, Any]:
     started = time.perf_counter()
     rows = list((active.table(TABLE).select("payload_json,market_date,updated_at,payload_size_bytes").eq("tcg", "pokemon").eq("scope", "market").limit(1).execute()).data or [])
     db_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -435,6 +435,22 @@ def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segm
     payload["meta"] = {**(payload.get("meta") or {}), "source": TABLE, "payloadSizeBytes": rows[0].get("payload_size_bytes")}
     logger.info("market_read route=/explore/set-value-market dbDurationMs=%s majorReads=1 payloadBytes=%s", db_ms, rows[0].get("payload_size_bytes"))
     return payload
+
+
+def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segments: bool = False) -> Dict[str, Any]:
+    # The whole logical read (base row + the initialSelectedSetMovers fallback
+    # read, when needed) is wrapped as ONE retryable unit: a transient failure
+    # partway through must not leave a half-read result, and it avoids retrying
+    # pieces independently with their own separate circuit/backoff state.
+    if client is not None:
+        # An explicit client (tests, batch/back-office callers) opts out of the
+        # bounded-retry wrapper and reads directly with the given client.
+        return _read_explore_set_value_snapshot_once(client, include_explorer_segments=include_explorer_segments)
+    return run_public_read_with_retry(
+        lambda active: _read_explore_set_value_snapshot_once(active, include_explorer_segments=include_explorer_segments),
+        operation_name="explore_set_value_snapshot",
+        initial_client=service_read_client,
+    )
 
 
 def read_market_explorer_snapshot(*, client: Any = None) -> Dict[str, Any]:

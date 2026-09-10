@@ -56,7 +56,14 @@ def _valid_header() -> dict:
 
 
 def _full_rows(n=EXPECTED_SUBJECT_COUNT) -> list[dict]:
-    return [_valid_row(i) for i in range(1, n + 1)]
+    rows = [_valid_row(i) for i in range(1, n + 1)]
+    if n == EXPECTED_SUBJECT_COUNT:
+        for row in rows[-32:-5]:
+            row.update(classification="scored_zero_high_confidence", global_relative=0.0, raw_target=0.0)
+        for row in rows[-5:]:
+            row.update(classification="failed", global_relative=None, raw_target=None, raw_anchor=None,
+                       failure_detail="status=rate_limited error_type=rate_limited_429")
+    return rows
 
 
 def test_validate_checkpoint_accepts_well_formed_full_capture():
@@ -64,7 +71,7 @@ def test_validate_checkpoint_accepts_well_formed_full_capture():
     report = validate_checkpoint(loaded)
     assert report["totalRows"] == EXPECTED_SUBJECT_COUNT
     assert report["uniqueSubjects"] == EXPECTED_SUBJECT_COUNT
-    assert report["failedRows"] == 0
+    assert report["failedRows"] == 5
 
 
 def test_validate_checkpoint_rejects_wrong_row_count():
@@ -124,15 +131,10 @@ def test_validate_checkpoint_rejects_failed_coerced_to_numeric_zero():
 
 def test_validate_checkpoint_accepts_genuine_failed_row_without_score():
     rows = _full_rows()
-    rows[0]["classification"] = "failed"
-    rows[0]["global_relative"] = None
-    rows[0]["raw_target"] = None
-    rows[0]["raw_anchor"] = None
-    rows[0]["failure_detail"] = "status=rate_limited error_type=rate_limited_429"
     loaded = LoadedCheckpoint(header=_valid_header(), rows=rows)
     report = validate_checkpoint(loaded)
-    assert report["failedRows"] == 1
-    assert report["usableScoredRows"] == EXPECTED_SUBJECT_COUNT - 1
+    assert report["failedRows"] == 5
+    assert report["usableScoredRows"] == EXPECTED_SUBJECT_COUNT - 5
 
 
 def test_validate_checkpoint_rejects_missing_pokemon_identity():
@@ -162,11 +164,20 @@ def test_validate_checkpoint_rejects_unknown_classification():
 def test_capture_identity_is_deterministic_and_pins_query_contract():
     header_a = _valid_header()
     header_b = _valid_header()
-    assert capture_identity(header_a) == capture_identity(header_b)
+    rows = _full_rows()
+    assert capture_identity(header_a, rows) == capture_identity(header_b, copy.deepcopy(rows))
 
     header_c = _valid_header()
     header_c["timeframe"] = "today 12-m"
-    assert capture_identity(header_c) != capture_identity(header_a)
+    assert capture_identity(header_c, rows) != capture_identity(header_a, rows)
+    changed = copy.deepcopy(rows); changed[0]["raw_target"] += 0.01
+    assert capture_identity(header_a, changed) != capture_identity(header_a, rows)
+
+
+def test_validate_checkpoint_rejects_mixed_manifest_versions():
+    rows = _full_rows(); rows[0]["manifest_version"] = "other_manifest"
+    with pytest.raises(ValidationError, match="manifest_version"):
+        validate_checkpoint(LoadedCheckpoint(header=_valid_header(), rows=rows))
 
 
 def test_load_checkpoint_missing_files_fail_closed(tmp_path):

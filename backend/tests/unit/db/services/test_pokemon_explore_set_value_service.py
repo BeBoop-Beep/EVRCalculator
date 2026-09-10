@@ -2,7 +2,10 @@ import json
 from datetime import date, timedelta
 
 import pytest
+from postgrest.exceptions import APIError
 
+from backend.db.services import pokemon_explore_set_value_service as svc
+from backend.db.services import public_read_retry
 from backend.db.services.pokemon_explore_set_value_service import (
     ExploreSetValueUnavailable,
     build_global_set_value_row,
@@ -27,6 +30,96 @@ class _SnapshotQuery:
 class _SnapshotClient:
     def __init__(self, row): self.row = row
     def table(self, _name): return _SnapshotQuery(self.row)
+
+
+@pytest.fixture(autouse=True)
+def _reset_circuit_breaker():
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
+    yield
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
+
+
+def _transient_error(code="PGRST002"):
+    return APIError({"message": "schema cache unavailable", "code": code, "hint": None, "details": None})
+
+
+def _row():
+    return {
+        "market_date": "2026-08-28", "updated_at": "now", "payload_size_bytes": 1,
+        "payload_json": {"marketOverview": {"raw": {"indexValue": 100}}, "sets": [], "meta": {}},
+    }
+
+
+class _FlakyOnceClient:
+    """Fails the first .execute() with a transient error, then succeeds."""
+
+    def __init__(self, row):
+        self.row = row
+        self.calls = 0
+
+    def table(self, _name):
+        return self
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, *_args):
+        return self
+
+    def limit(self, *_args):
+        return self
+
+    def execute(self):
+        self.calls += 1
+        if self.calls == 1:
+            raise _transient_error()
+        return _Result([self.row])
+
+
+class _AlwaysNonTransientClient:
+    def __init__(self):
+        self.calls = 0
+
+    def table(self, _name):
+        return self
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, *_args):
+        return self
+
+    def limit(self, *_args):
+        return self
+
+    def execute(self):
+        self.calls += 1
+        raise ValueError("not a Supabase/PostgREST error at all")
+
+
+def test_no_client_path_retries_a_transient_failure_and_recovers(monkeypatch):
+    """B: run_public_read_with_retry wraps the whole logical read when no explicit
+    client is passed, so a first-attempt transient PostgREST error is retried on
+    a fresh client and the retry's result is returned."""
+    flaky = _FlakyOnceClient(_row())
+    monkeypatch.setattr(svc, "service_read_client", flaky)
+    real_retry = public_read_retry.run_public_read_with_retry
+    monkeypatch.setattr(
+        svc, "run_public_read_with_retry",
+        lambda op, **kwargs: real_retry(op, client_factory=lambda: flaky, **kwargs),
+    )
+    result = read_explore_set_value_snapshot()
+    assert result["marketOverview"]["raw"]["indexValue"] == 100
+    assert flaky.calls == 2
+
+
+def test_no_client_path_does_not_retry_a_non_transient_failure(monkeypatch):
+    """E: a deterministic/non-Supabase error must not be retried."""
+    client = _AlwaysNonTransientClient()
+    monkeypatch.setattr(svc, "service_read_client", client)
+    with pytest.raises(ValueError):
+        read_explore_set_value_snapshot()
+    assert client.calls == 1
 
 
 def test_market_reader_stays_slim_while_explorer_reader_preserves_published_segments():
