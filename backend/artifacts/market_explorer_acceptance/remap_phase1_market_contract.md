@@ -65,13 +65,14 @@ agent. No production database operation was performed.
 
 ## K. Tests
 
-Focused frontend normalization/reducer and backend domain/planner tests cover stale-ID removal,
-Exact isolation, distinct fingerprints, mode transitions, watermark clipping, and refreshing.
-Final command results are recorded at handoff.
+Focused backend suites passed: 178 tests. Focused frontend normalization/reducer tests passed:
+22 tests. The repository-wide frontend suite was attempted but has pre-existing unrelated
+contract failures and a missing `@/components/ui/InfoPopover` module, then did not terminate on
+its own. No failure implicated a Phase 1 changed file.
 
 ## L. Build
 
-Final production frontend build result is recorded at handoff.
+`next build` completed successfully. Existing lint warnings remain; there were no build errors.
 
 ## M. Files changed
 
@@ -87,7 +88,7 @@ application approximation.
 
 ## O. Commit SHA
 
-Pending final source commit.
+Implementation and acceptance artifacts: `be8127de`.
 
 ## P. Phase-2 readiness
 
