@@ -161,3 +161,14 @@ def test_component_comparison_reports_without_selecting_or_tuning_a_winner():
     assert "winner" not in report
     assert "selected" not in report
     assert "do not tune or select V6" in report["methodology"]["selection_policy"]
+
+
+def test_whole_set_bootstrap_reports_coefficient_and_incremental_uncertainty():
+    suite = run_component_suite(_rows(n_sets=5, per_set=25), _spec(), bootstrap_draws=25)
+    coefficient_ci = suite["models"]["M3_component_scarcity"]["cluster_bootstrap_coefficient_ci"]
+    assert coefficient_ci["component::collector_component"]["draws"] >= 20
+    assert coefficient_ci["component::collector_component"]["ci_low"] is not None
+    lift = suite["incremental_lift_out_of_sample"]["component_over_scarcity_M3_vs_M2"]
+    bootstrap = lift["cluster_bootstrap_by_held_out_set"]
+    assert bootstrap["mae_reduction"]["draws"] == 25
+    assert bootstrap["rmse_reduction"]["ci_low"] is not None
