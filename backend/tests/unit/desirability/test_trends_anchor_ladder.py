@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 
 import pytest
@@ -12,6 +13,9 @@ from backend.desirability.trends_anchor_ladder import (
     assign_nearest_rung,
     calibrate_ladder,
     classify_zero_outcome,
+    frozen_ladder_anchors,
+    frozen_ladder_bridges,
+    load_frozen_anchor_manifest,
     recover_global_relative,
 )
 
@@ -213,6 +217,64 @@ class TestCohortIndependence:
         scale_with_more_context = calibrate_ladder(ANCHORS, extra_bridges)
         value_with_more_context = recover_global_relative(20.0, 60.0, scale_with_more_context["Torkoal"])
         assert value_alone == pytest.approx(value_with_more_context)
+
+
+class TestFrozenAnchorManifest:
+    def test_manifest_loads_and_has_six_rungs(self):
+        manifest = load_frozen_anchor_manifest()
+        anchors = manifest["anchorsAscending"]
+        assert len(anchors) == 6
+        assert [a["name"] for a in anchors] == ["Purugly", "Stunky", "Torkoal", "Lucario", "Charizard", "Pikachu"]
+        assert [a["rung"] for a in anchors] == [0, 1, 2, 3, 4, 5]
+
+    def test_reference_anchor_has_scale_one(self):
+        anchors = frozen_ladder_anchors()
+        assert anchors[0].name == "Purugly"
+        assert anchors[0].global_scale == pytest.approx(1.0)
+
+    def test_every_bridge_passed_its_own_resolution_check(self):
+        manifest = load_frozen_anchor_manifest()
+        for bridge in manifest["bridges"]:
+            assert bridge["resolutionCheckPassed"] is True
+            assert bridge["rawLower"] > RESOLUTION_FLOOR
+            assert bridge["rawHigher"] > RESOLUTION_FLOOR
+
+    def test_manifest_scales_match_fresh_calibration_from_raw_bridge_data(self):
+        # Parity test: the manifest's precomputed globalScale values must be exactly
+        # reproducible by feeding the manifest's own raw bridge observations back
+        # through calibrate_ladder() -- proves the frozen numbers are not hand-typed
+        # drift from what the calibration function actually computes.
+        manifest = load_frozen_anchor_manifest()
+        anchors_ascending = [a["name"] for a in manifest["anchorsAscending"]]
+        bridges = frozen_ladder_bridges(manifest)
+        recomputed = calibrate_ladder(anchors_ascending, bridges)
+        for anchor in manifest["anchorsAscending"]:
+            assert recomputed[anchor["name"]] == pytest.approx(anchor["globalScale"], rel=1e-3)
+
+    def test_monotonic_ascending_scale(self):
+        anchors = frozen_ladder_anchors()
+        scales = [a.global_scale for a in anchors]
+        assert scales == sorted(scales)
+        assert len(set(scales)) == len(scales)  # strictly increasing, no ties
+
+    def test_assign_nearest_rung_works_against_frozen_roster(self):
+        anchors = frozen_ladder_anchors()
+        # A target expected to be near Torkoal's magnitude should be assigned Torkoal.
+        chosen = assign_nearest_rung(tier_hint=anchors[2].global_scale, anchors_ascending=anchors)
+        assert chosen.name == "Torkoal"
+
+    def test_manifest_records_known_limitations_honestly(self):
+        manifest = load_frozen_anchor_manifest()
+        limitations = manifest["knownLimitations"]
+        assert "singleTemporalWindow" in limitations
+        assert "sampleSize" in limitations
+
+    def test_manifest_has_no_price_input(self):
+        manifest = load_frozen_anchor_manifest()
+        assert manifest["acceptanceCriteria"]["noPriceInput"] is True
+        raw = json.dumps(manifest).lower()
+        for forbidden in ("market_price", "price_usd", "card_price"):
+            assert forbidden not in raw
 
 
 class TestDeterministicOutput:

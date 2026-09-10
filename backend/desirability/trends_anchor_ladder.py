@@ -26,12 +26,18 @@ No price input. No cohort/percentile ranking. Deterministic and monotonic.
 """
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
 TREND_SCORING_VERSION_ANCHOR_LADDER_V2 = "pokemon_google_trends_anchor_ladder_v2"
+
+FROZEN_ANCHOR_MANIFEST_PATH = (
+    Path(__file__).resolve().parents[2] / "backend" / "config" / "pokemon_trends_anchor_ladder_v1.json"
+)
 
 # A zero raw value below this floor cannot be distinguished from quantization noise
 # under Google Trends' integer-scaled batch response; a genuine zero must survive a
@@ -200,6 +206,47 @@ def classify_zero_outcome(
     if is_lowest_available_rung:
         return ZeroClassification.SCORED_ZERO_HIGH_CONFIDENCE
     return ZeroClassification.RESOLUTION_LIMITED_ZERO
+
+
+def load_frozen_anchor_manifest(path: Path = FROZEN_ANCHOR_MANIFEST_PATH) -> Dict[str, object]:
+    """Load the versioned, empirically-calibrated anchor roster.
+
+    The manifest (backend/config/pokemon_trends_anchor_ladder_v1.json) records the
+    live-query evidence that justified each bridge (resolution-floor pass/fail,
+    same-session repeat-call stability, chain-error and stratified-sample
+    diagnostics) alongside the frozen anchors-ascending / bridges data used to
+    reconstruct `calibrate_ladder()`'s output deterministically. This function does
+    not perform any network call -- it only loads the frozen, already-validated data.
+    """
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def frozen_ladder_anchors(manifest: Optional[Dict[str, object]] = None) -> List[LadderAnchor]:
+    """Return the frozen roster as `LadderAnchor` objects, pre-populated with the
+    manifest's already-calibrated `global_scale` values (no recomputation needed for
+    read paths that only need to assign a target to its nearest rung)."""
+    data = manifest if manifest is not None else load_frozen_anchor_manifest()
+    return [
+        LadderAnchor(name=a["name"], rung=a["rung"], global_scale=a["globalScale"])
+        for a in data["anchorsAscending"]  # type: ignore[index]
+    ]
+
+
+def frozen_ladder_bridges(manifest: Optional[Dict[str, object]] = None) -> List[BridgeObservation]:
+    """Return the frozen bridge observations as `BridgeObservation` objects, suitable
+    for re-deriving `calibrate_ladder()`'s scale factors from raw evidence (rather than
+    trusting the manifest's precomputed `globalScale` values directly) -- used by the
+    parity test that proves the manifest's frozen scales match what the calibration
+    function itself produces from the same raw bridge data."""
+    data = manifest if manifest is not None else load_frozen_anchor_manifest()
+    return [
+        BridgeObservation(
+            lower_anchor=b["lowerAnchor"], higher_anchor=b["higherAnchor"],
+            raw_lower=b["rawLower"], raw_higher=b["rawHigher"],
+        )
+        for b in data["bridges"]  # type: ignore[index]
+    ]
 
 
 def assign_nearest_rung(
