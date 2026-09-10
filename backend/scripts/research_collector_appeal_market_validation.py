@@ -347,13 +347,15 @@ def merge_frozen_appeal(
 
     merged: List[Dict[str, Any]] = []
     unmatched_market = 0
-    matched_appeal_ids = set()
+    matched_market_ids = set()
+    matched_without_component = 0
     for market in market_rows:
         card_id = str(market.get("card_id") or "")
         appeal = appeal_by_card.get(card_id)
         if appeal is None:
             unmatched_market += 1
             continue
+        matched_market_ids.add(card_id)
         scores = appeal.get("scores") if isinstance(appeal.get("scores"), Mapping) else appeal
         subject_type = str(appeal.get("subject_type") or appeal.get("subject_policy") or "")
         subject_cluster_key = (
@@ -371,13 +373,15 @@ def merge_frozen_appeal(
             found = found or value is not None
         if found:
             merged.append(row)
-            matched_appeal_ids.add(card_id)
+        else:
+            matched_without_component += 1
     diagnostics = {
         "marketRows": len(market_rows),
         "appealRows": len(appeal_by_card),
         "mergedRowsWithAnyComponent": len(merged),
         "marketRowsWithoutAppealRow": unmatched_market,
-        "appealRowsOutsideMarketCohort": len(set(appeal_by_card) - matched_appeal_ids),
+        "marketRowsWithAppealButNoRegisteredComponent": matched_without_component,
+        "appealRowsOutsideMarketCohort": len(set(appeal_by_card) - matched_market_ids),
         "joinKey": "canonical card id exact match",
     }
     return merged, diagnostics
