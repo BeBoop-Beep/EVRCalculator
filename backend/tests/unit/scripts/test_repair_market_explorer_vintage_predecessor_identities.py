@@ -466,7 +466,7 @@ def test_pilot_projection_window_derived_from_coverage_min_max():
     reproject_calls = [call for call in client.rpc_calls
                        if call[0] == "publish_pokemon_market_explorer_daily_v2_for_set"]
     assert len(reproject_calls) == 1
-        assert reproject_calls[0][1]["p_through_date"] == str(date(2026, 9, 1))
+    assert reproject_calls[0][1]["p_through_date"] == str(date(2026, 9, 1))
     assert reproject_calls[0][1]["p_force_rebuild"] is True
 
 
@@ -525,7 +525,7 @@ def test_explicit_projection_override_skips_coverage_lookup():
     assert report["pilot_projection_window"] == {"start_date": "2026-04-11", "end_date": "2026-09-01"}
     reproject_calls = [call for call in client.rpc_calls
                        if call[0] == "publish_pokemon_market_explorer_daily_v2_for_set"]
-        assert reproject_calls[0][1]["p_through_date"] == str(date(2026, 9, 1))
+    assert reproject_calls[0][1]["p_through_date"] == str(date(2026, 9, 1))
     assert reproject_calls[0][1]["p_force_rebuild"] is True
 
 
