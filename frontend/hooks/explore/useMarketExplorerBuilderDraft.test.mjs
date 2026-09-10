@@ -25,3 +25,35 @@ test("exact membership keeps a removable edit definition separate from filter de
   const filters = marketExplorerBuilderDraftReducer(state, { type: "field", field: "membershipMode", value: "filters" });
   assert.deepEqual(filters.exactItems, [item]);
 });
+
+test("changing a peer filter exits Exact mode without leaking its saved basket", () => {
+  const exact = {
+    ...INITIAL_MARKET_EXPLORER_BUILDER_DRAFT,
+    membershipMode: "explicit",
+    instrumentIds: ["variant-a"],
+    exactItems: [{ instrumentId: "variant-a" }],
+  };
+  const filtered = marketExplorerBuilderDraftReducer(exact, {
+    type: "field", field: "segmentIds", value: ["specialIllustrationRare"],
+  });
+  assert.equal(filtered.membershipMode, "filters");
+  assert.deepEqual(filtered.segmentIds, ["specialIllustrationRare"]);
+  assert.deepEqual(filtered.instrumentIds, ["variant-a"]);
+});
+
+test("entering Exact mode removes independent filter and ranking axes", () => {
+  const filtered = {
+    ...INITIAL_MARKET_EXPLORER_BUILDER_DRAFT,
+    eraIds: ["sv"], segmentIds: ["sir"], priceSegmentIds: ["intermediate"],
+    releaseAgeCohortIds: ["new"], mode: "chase", topN: 10,
+  };
+  const exact = marketExplorerBuilderDraftReducer(filtered, {
+    type: "field", field: "membershipMode", value: "explicit",
+  });
+  assert.deepEqual(exact.eraIds, []);
+  assert.deepEqual(exact.segmentIds, []);
+  assert.deepEqual(exact.priceSegmentIds, []);
+  assert.deepEqual(exact.releaseAgeCohortIds, []);
+  assert.equal(exact.mode, "all");
+  assert.equal(exact.topN, null);
+});

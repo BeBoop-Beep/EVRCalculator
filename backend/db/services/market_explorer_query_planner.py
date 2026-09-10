@@ -77,6 +77,10 @@ class MarketExplorerBuildInProgress(RuntimeError):
     """Another worker owns the bounded build lease and has not published yet."""
 
 
+class MarketExplorerCacheRefreshing(MarketExplorerBuildInProgress):
+    """A previously published market is being advanced to the comparison date."""
+
+
 class MarketExplorerPublishFailed(RuntimeError):
     """The persistent cache write did not commit; the build must not report success."""
 
@@ -692,6 +696,10 @@ class MarketExplorerQueryPlanner:
                         self.l1.put(l1_key, generation, payload)
                     return self._done(started, "persistent_cache", payload)
 
+            if row and row.get("status") in ("ready", "stale", "failed"):
+                raise MarketExplorerCacheRefreshing(
+                    "this Market Explorer query is refreshing to the comparison date"
+                )
             raise MarketExplorerBuildInProgress(
                 "an equivalent Market Explorer query is already being built"
             )
@@ -799,6 +807,19 @@ def resolve_canonical_through(client: Any, spec: Mapping[str, Any]) -> str:
     if not through:
         raise RuntimeError(f"{spec['asset']} market publication has no usable date")
     return through
+
+
+def resolve_explorer_comparison_through(client: Any, spec: Mapping[str, Any]) -> str:
+    """Accepted Explorer chart watermark, bounded by source publication."""
+    source_through = resolve_canonical_through(client, spec)
+    rows = list((client.table("pokemon_explore_set_value_snapshot_latest")
+                 .select("comparison_as_of:payload_json->marketOverview->>marketDate")
+                 .eq("tcg", "pokemon").eq("scope", "global")
+                 .limit(1).execute()).data or [])
+    comparison_as_of = str(rows[0].get("comparison_as_of") or "")[:10] if rows else ""
+    if not comparison_as_of:
+        raise RuntimeError("Market Explorer publication has no comparison date")
+    return min(source_through, comparison_as_of)
 
 # Existing prepared Cards parents/segments are canonical-card or set-aggregate
 # publications, not the variant/physical-instrument contract.  No production

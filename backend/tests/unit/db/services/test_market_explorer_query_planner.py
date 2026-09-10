@@ -7,6 +7,7 @@ import pytest
 
 from backend.db.services.market_explorer_query_planner import (
     MarketExplorerBuildInProgress,
+    MarketExplorerCacheRefreshing,
     MarketExplorerL1Cache,
     MarketExplorerPublishFailed,
     MarketExplorerQueryPlanner,
@@ -18,6 +19,7 @@ from backend.db.services.market_explorer_query_planner import (
     publication_scope_key,
     resolve_cards_canonical_through,
     resolve_canonical_through,
+    resolve_explorer_comparison_through,
     _BuildLeaseHeartbeat,
 )
 from backend.domain.pokemon.market_explorer_query import (
@@ -178,6 +180,11 @@ class WatermarkClient:
             return WatermarkQuery(self.quality)
         if name == "sets":
             return WatermarkQuery([])
+        if name == "pokemon_explore_set_value_snapshot_latest":
+            return WatermarkQuery([{
+                "tcg": "pokemon", "scope": "global",
+                "comparison_as_of": "2026-08-27",
+            }])
         raise AssertionError(name)
 
 
@@ -240,6 +247,11 @@ def test_open_interval_ahead_does_not_advance_beyond_quality_authority():
     assert resolve_canonical_through(client, spec) == "2026-08-28"
 
 
+def test_explorer_comparison_watermark_clips_newer_source_projection():
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    assert resolve_explorer_comparison_through(WatermarkClient(), spec) == "2026-08-27"
+
+
 def test_cards_watermark_no_history_scope_does_not_invent_a_date():
     spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
     with pytest.raises(RuntimeError, match="no scoped history"):
@@ -257,6 +269,20 @@ def test_set_value_ahead_keeps_ready_d2_l2_as_true_hit():
         novel_builder=lambda *_: pytest.fail("D2 L2 is current"),
     )
     assert result.execution_source == "persistent_cache"
+
+
+def test_stale_ready_cache_with_owned_lease_is_typed_as_refreshing():
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent({
+        "status": "ready", "computed_through": "2026-08-27",
+        "series_payload": payload("2026-08-27"),
+    }, claim=False)
+    with pytest.raises(MarketExplorerCacheRefreshing):
+        planner().execute(
+            spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+            canonical_through=lambda: "2026-08-28",
+            novel_builder=lambda *_: pytest.fail("lease follower must not build"),
+        )
 
 
 def test_quality_forward_publication_moves_generation_and_appends_d1_d2():

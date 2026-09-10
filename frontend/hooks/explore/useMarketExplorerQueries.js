@@ -4,6 +4,34 @@ import { useCallback, useRef, useState } from "react";
 import { buildQueryKey, queryResultToSeries, resolveBenchmarkSpec } from "@/lib/explore/marketExplorerQuery.mjs";
 import { attachMarketInstance, replaceMarketInstance, specsAreEquivalent } from "@/lib/explore/marketExplorerInstances.mjs";
 
+export const MARKET_QUERY_OUTCOME = Object.freeze({
+  emptyNow: "QUERY_EMPTY_NOW",
+  noHistory: "QUERY_NO_HISTORY",
+  building: "QUERY_BUILDING",
+  refreshing: "QUERY_CACHE_REFRESHING",
+  rateLimited: "QUERY_RATE_LIMITED",
+  invalid: "QUERY_INVALID",
+  unavailable: "QUERY_UNAVAILABLE",
+  failed: "QUERY_FAILED",
+});
+
+const STATUS_CODE = {
+  400: MARKET_QUERY_OUTCOME.invalid,
+  404: MARKET_QUERY_OUTCOME.unavailable,
+  429: MARKET_QUERY_OUTCOME.rateLimited,
+  503: MARKET_QUERY_OUTCOME.building,
+};
+
+export class MarketExplorerQueryApiError extends Error {
+  constructor(message, { code, status, retryAfter } = {}) {
+    super(message);
+    this.name = "MarketExplorerQueryApiError";
+    this.code = code || MARKET_QUERY_OUTCOME.failed;
+    this.status = status || 0;
+    this.retryAfter = retryAfter ?? null;
+  }
+}
+
 async function executeQuery(spec) {
   const response = await fetch("/api/market/explorer/query", {
     method: "POST",
@@ -21,10 +49,18 @@ async function executeQuery(spec) {
   if (!response.ok) {
     // FastAPI answers with `detail`, the app's own routes with `message`.
     // Reading only one of them turned an auth answer into a generic failure.
-    if (response.status === 401 || response.status === 403) {
-      throw new Error("Sign in to build a custom market.");
-    }
-    throw new Error(payload?.message || payload?.detail || "Unable to execute this market query");
+    const detail = payload?.detail && typeof payload.detail === "object" ? payload.detail : null;
+    const message = payload?.message || detail?.message || (typeof payload?.detail === "string" ? payload.detail : null);
+    throw new MarketExplorerQueryApiError(
+      (response.status === 401 || response.status === 403)
+        ? "Sign in to build a custom market."
+        : message || "Unable to execute this market query",
+      {
+        code: payload?.code || detail?.code || STATUS_CODE[response.status] || MARKET_QUERY_OUTCOME.failed,
+        status: response.status,
+        retryAfter: response.headers.get("Retry-After") || payload?.retryAfter || detail?.retryAfter || null,
+      },
+    );
   }
   const series = queryResultToSeries(payload);
   if (!series) throw new Error("The query response did not contain a market series");

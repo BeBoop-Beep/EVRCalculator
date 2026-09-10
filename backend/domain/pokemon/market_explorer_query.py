@@ -172,11 +172,19 @@ def normalize_query_spec(
         if len(explicit_ids) > MAX_EXPLICIT_INSTRUMENTS:
             raise MarketExplorerQueryError("explicit membership supports at most 25 instrumentIds")
 
+    # Exact Basket is an independent leaf-instrument definition. Stale scope,
+    # peer-filter, and ranking fields from a prior Builder state are
+    # deterministically removed; they never narrow explicit membership.
+    exact_membership = membership == MEMBERSHIP_EXPLICIT
+
     mode_key = str(mode or "").strip()
     if mode_key not in SUPPORTED_MODES:
         raise MarketExplorerQueryError(f"unsupported market mode: {mode!r}")
 
-    if mode_key == MODE_CHASE:
+    if exact_membership:
+        mode_key = MODE_ALL
+        resolved_top_n = None
+    elif mode_key == MODE_CHASE:
         resolved_top_n = DEFAULT_CHASE_TOP_N if top_n is None else int(top_n)
         if resolved_top_n <= 0:
             raise MarketExplorerQueryError("chase topN must be a positive integer")
@@ -190,21 +198,21 @@ def normalize_query_spec(
     # key are different vocabularies over different universes, and a spec that
     # mixed them would describe no market at all. Rejecting here means the
     # engines below never have to ask whether their segment list is theirs.
-    cleaned_segments = _clean_ids(segment_ids)
+    cleaned_segments = () if exact_membership else _clean_ids(segment_ids)
     unknown = [value for value in cleaned_segments if value not in segment_vocabulary(asset_key)]
     if unknown:
         raise MarketExplorerQueryError(
             f"segment(s) {unknown!r} are not valid for asset {asset_key!r}"
         )
 
-    cleaned_pokemon = _clean_ids(pokemon_ids)
+    cleaned_pokemon = () if exact_membership else _clean_ids(pokemon_ids)
     if asset_key == ASSET_SEALED and cleaned_pokemon:
         raise MarketExplorerQueryError("Pokemon filtering is supported for cards only")
-    cleaned_price_segments = _clean_ids(price_segment_ids)
+    cleaned_price_segments = () if exact_membership else _clean_ids(price_segment_ids)
     unknown_price = sorted(set(cleaned_price_segments) - set(PRICE_SEGMENT_IDS))
     if unknown_price:
         raise MarketExplorerQueryError(f"unknown price segment(s): {unknown_price}")
-    cleaned_release_ages = _clean_ids(release_age_cohort_ids)
+    cleaned_release_ages = () if exact_membership else _clean_ids(release_age_cohort_ids)
     unknown_release = sorted(set(cleaned_release_ages) - set(RELEASE_AGE_COHORT_IDS))
     if unknown_release:
         raise MarketExplorerQueryError(f"unknown release-age cohort(s): {unknown_release}")
@@ -212,8 +220,8 @@ def normalize_query_spec(
     normalized = {
         "contractVersion": MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
         "asset": asset_key,
-        "eraIds": _clean_ids(era_ids),
-        "setIds": _clean_ids(set_ids),
+        "eraIds": () if exact_membership else _clean_ids(era_ids),
+        "setIds": () if exact_membership else _clean_ids(set_ids),
         "segmentIds": cleaned_segments,
         "pokemonIds": cleaned_pokemon,
         "priceSegmentIds": cleaned_price_segments,

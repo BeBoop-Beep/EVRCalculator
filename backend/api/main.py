@@ -168,8 +168,9 @@ from backend.db.services.market_explorer_query_planner import (
     GLOBAL_MARKET_EXPLORER_PLANNER,
     GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
     MarketExplorerBuildInProgress,
+    MarketExplorerCacheRefreshing,
     PersistentMarketExplorerCache,
-    resolve_canonical_through,
+    resolve_explorer_comparison_through,
 )
 from backend.db.services.market_explorer_instrument_search import (
     search_market_explorer_instruments,
@@ -1429,11 +1430,11 @@ def post_market_explorer_query(
     serve one asset's result for the other.
     """
     if payload.asset not in SUPPORTED_ASSETS:
-        return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+        return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "QUERY_INVALID"}, status_code=400)
     if payload.responseMode not in ("full", "summary"):
-        return JSONResponse(content={"message": "responseMode must be full or summary", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+        return JSONResponse(content={"message": "responseMode must be full or summary", "code": "QUERY_INVALID"}, status_code=400)
     if payload.mode == "chase" and payload.topN not in (None, 10):
-        return JSONResponse(content={"message": "Only Top 10 queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+        return JSONResponse(content={"message": "Only Top 10 queries are supported", "code": "QUERY_INVALID"}, status_code=400)
     try:
         # Normalized BEFORE the cache is consulted, so an invalid spec is
         # rejected rather than keyed, and equivalent selections share one entry.
@@ -1479,24 +1480,29 @@ def post_market_explorer_query(
             spec=normalized,
             prepared=GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
             persistent=persistent,
-            canonical_through=lambda: resolve_canonical_through(
+            canonical_through=lambda: resolve_explorer_comparison_through(
                 service_read_client, normalized,
             ),
             novel_builder=build_market,
             summary=payload.responseMode == "summary",
         )
-        return _tiered_response(planned.payload)
+        return _tiered_response({
+            **planned.payload,
+            "comparisonAsOf": str(planned.payload.get("asOf") or "")[:10] or None,
+        })
     except HTTPException:
         raise
     except MarketExplorerQueryError as exc:
-        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_INVALID"}, status_code=400)
     except (MarketExplorerQueryUnavailable, SealedMarketExplorerQueryUnavailable) as exc:
-        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_UNAVAILABLE"}, status_code=404)
+    except MarketExplorerCacheRefreshing as exc:
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_CACHE_REFRESHING"}, status_code=503)
     except MarketExplorerBuildInProgress as exc:
-        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_BUILDING"}, status_code=503)
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_BUILDING"}, status_code=503)
     except Exception:
         logger.exception("/market/explorer/query unexpected error")
-        return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "MARKET_EXPLORER_QUERY_FAILED"}, status_code=500)
+        return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "QUERY_FAILED"}, status_code=500)
 
 
 @app.post("/market/explorer/query/constituents")

@@ -455,7 +455,10 @@ def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segm
 
 def read_market_explorer_snapshot(*, client: Any = None) -> Dict[str, Any]:
     """Read the authoritative publication without the /Market payload slimming."""
-    return read_explore_set_value_snapshot(client=client, include_explorer_segments=True)
+    payload = read_explore_set_value_snapshot(client=client, include_explorer_segments=True)
+    overview = payload.get("marketOverview") if isinstance(payload, Mapping) else None
+    comparison_as_of = overview.get("marketDate") if isinstance(overview, Mapping) else None
+    return {**payload, "comparisonAsOf": str(comparison_as_of)[:10] if comparison_as_of else None}
 
 
 def upsert_explore_set_value_snapshot(row: Mapping[str, Any], *, client: Any) -> None:

@@ -125,19 +125,22 @@ export function normalizeQuerySpec({
   if (membership === QUERY_MEMBERSHIP_EXPLICIT && explicitIds.length > MAX_EXPLICIT_INSTRUMENTS) {
     throw new RangeError("explicit membership supports at most 25 instrumentIds");
   }
+  // Exact membership is a standalone leaf-instrument definition. Canonicalize
+  // away stale Builder filters instead of allowing an accidental intersection.
+  const exact = membership === QUERY_MEMBERSHIP_EXPLICIT;
   const normalized = {
     contractVersion: MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
     asset: normalizeAsset(asset),
-    eraIds: cleanIds(eraIds),
-    setIds: cleanIds(setIds),
-    segmentIds: cleanIds(segmentIds),
-    pokemonIds: cleanIds(pokemonIds),
-    priceSegmentIds: cleanIds(priceSegmentIds),
-    releaseAgeCohortIds: cleanIds(releaseAgeCohortIds),
-    mode: resolvedMode,
+    eraIds: exact ? [] : cleanIds(eraIds),
+    setIds: exact ? [] : cleanIds(setIds),
+    segmentIds: exact ? [] : cleanIds(segmentIds),
+    pokemonIds: exact ? [] : cleanIds(pokemonIds),
+    priceSegmentIds: exact ? [] : cleanIds(priceSegmentIds),
+    releaseAgeCohortIds: exact ? [] : cleanIds(releaseAgeCohortIds),
+    mode: exact ? QUERY_MODE_ALL : resolvedMode,
     // topN is not part of an "all constituents" market's identity; carrying a
     // stray value would fingerprint two identical markets apart.
-    topN: resolvedMode === QUERY_MODE_CHASE
+    topN: !exact && resolvedMode === QUERY_MODE_CHASE
       ? (Number.isFinite(Number(topN)) && Number(topN) > 0 ? Number(topN) : DEFAULT_CHASE_TOP_N)
       : null,
   };
