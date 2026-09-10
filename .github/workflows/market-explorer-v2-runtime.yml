@@ -9,12 +9,14 @@ on:
       - 'backend/scripts/run_market_explorer_daily_publication.py'
       - 'backend/scripts/check_market_explorer_maintained_cache_health.py'
       - 'backend/scripts/backfill_market_explorer_variant_intervals.py'
+      - 'backend/scripts/repair_market_explorer_vintage_predecessor_identities.py'
       - 'backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py'
       - 'backend/tests/unit/db/services/test_market_explorer_constituent_movement.py'
       - 'backend/tests/unit/scripts/test_publish_market_explorer_daily_projection.py'
       - 'backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py'
       - 'backend/tests/unit/scripts/test_check_market_explorer_maintained_cache_health.py'
       - 'backend/tests/unit/scripts/test_backfill_market_explorer_variant_intervals.py'
+      - 'backend/tests/unit/scripts/test_repair_market_explorer_vintage_predecessor_identities.py'
       - 'backend/tests/unit/test_market_explorer_v2_runtime_cutover.py'
       - '.github/workflows/market-explorer-v2-runtime.yml'
   pull_request:
@@ -26,6 +28,7 @@ on:
       - 'backend/scripts/run_market_explorer_daily_publication.py'
       - 'backend/scripts/check_market_explorer_maintained_cache_health.py'
       - 'backend/scripts/backfill_market_explorer_variant_intervals.py'
+      - 'backend/scripts/repair_market_explorer_vintage_predecessor_identities.py'
       - 'backend/tests/unit/**'
       - '.github/workflows/market-explorer-v2-runtime.yml'
 
@@ -57,7 +60,8 @@ jobs:
             backend/scripts/publish_market_explorer_daily_projection.py \
             backend/scripts/run_market_explorer_daily_publication.py \
             backend/scripts/check_market_explorer_maintained_cache_health.py \
-            backend/scripts/backfill_market_explorer_variant_intervals.py
+            backend/scripts/backfill_market_explorer_variant_intervals.py \
+            backend/scripts/repair_market_explorer_vintage_predecessor_identities.py
       - name: Run focused V2 suite
         run: |
           python -m pytest -q \
@@ -67,4 +71,5 @@ jobs:
             backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py \
             backend/tests/unit/scripts/test_check_market_explorer_maintained_cache_health.py \
             backend/tests/unit/scripts/test_backfill_market_explorer_variant_intervals.py \
+            backend/tests/unit/scripts/test_repair_market_explorer_vintage_predecessor_identities.py \
             backend/tests/unit/test_market_explorer_v2_runtime_cutover.py
