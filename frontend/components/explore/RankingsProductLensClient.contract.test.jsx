@@ -56,3 +56,24 @@ test("colFormat width is narrowed from the oversized 15rem", () => {
   assert.doesNotMatch(colFormatRule, /15rem/, "colFormat should no longer be 15rem");
   assert.match(colFormatRule, /10rem/, "colFormat should be narrowed to a conservative 10rem pending Task 11 visual check");
 });
+
+// Task 10: Units + Committed consolidation into a single "Opening Plan"
+// column was scoped to run ONLY if the All Products table still overflowed
+// 1440px after Tasks 8-9 narrowed .colProduct/.colFormat. A live Playwright
+// measurement at a 1440x900 viewport (chromium, `/Explore` route, Products
+// tab) on 2026-09-10 found the rendered `.productsTable` at 1374px wide with
+// zero horizontal overflow (`document.body.scrollWidth` === 1440 ===
+// `clientWidth`), because `.productsTable { width: 100%; table-layout: fixed }`
+// proportionally scales every <col> to fit its container regardless of the
+// summed rem values. So the consolidation was not implemented — .colUnits
+// and .colCommitted remain separate columns. This test pins that decision
+// so a future change doesn't silently reintroduce the merge (or drop these
+// columns) without re-measuring.
+test("colUnits and colCommitted remain separate (Opening Plan consolidation not needed — table already fits at 1440px)", () => {
+  const unitsMatch = css.match(/\.colUnits\s*\{([^}]*)\}/);
+  const committedMatch = css.match(/\.colChase,\s*\n\.colCommitted,\s*\n\.colRecover\s*\{([^}]*)\}/);
+  assert.ok(unitsMatch, "colUnits rule should still exist (not consolidated into colOpeningPlan)");
+  assert.match(unitsMatch[1], /4rem/, "colUnits should remain 4rem");
+  assert.ok(committedMatch, "colCommitted should still be grouped with colChase/colRecover at 7rem (not consolidated)");
+  assert.doesNotMatch(css, /\.colOpeningPlan/, "colOpeningPlan should not exist — measured width already fits 1440px");
+});
