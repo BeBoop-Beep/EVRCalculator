@@ -141,6 +141,21 @@ const BLOCK_LEAVES = Object.freeze({
   rip_decision: ["top_chase"],
 });
 
+/**
+ * Narrower leaf list for the ANONYMOUS/Basic public Set RIP leaderboard
+ * (`projectRankingsClientPublicSetLeaderboard`). Unlike `BLOCK_LEAVES.setRipV1`
+ * (used by the paid `projectRankingsClientPlus` path), this list deliberately
+ * excludes `score`, `modelScore`, `leaderNormalizedScore`, `familyScores`,
+ * `displayFamilyScores`, `participatingFamilyCount`, `participatingFamilies`,
+ * `skuEvidenceCount`, and `chaseAccessibility` — those are paid evidence and
+ * must never reach an anonymous/Basic API response. Do not widen this list to
+ * match `BLOCK_LEAVES.setRipV1`; add fields explicitly by name only after
+ * confirming a public consumer needs them.
+ */
+const PUBLIC_BLOCK_LEAVES = Object.freeze({
+  setRipV1: ["publicScore", "tier", "rank", "cohortSize", "rankable", "methodologyVersion"],
+});
+
 /** The canonical-contract blocks `readCanonicalBlock` consumes, leaf by leaf. */
 const CONTRACT_BLOCKS = Object.freeze(["overallRip", "financialRip", "collectorAppeal"]);
 const CONTRACT_LEAVES = Object.freeze([
@@ -230,7 +245,7 @@ export function projectRankingsClientPublicSetLeaderboard(targets) {
   if (!Array.isArray(targets)) return [];
   return targets.map((target) => {
     const projected = projectLeaves(target, BASE_SCALAR_FIELDS) || {};
-    const setRip = projectLeaves(target?.setRipV1, BLOCK_LEAVES.setRipV1);
+    const setRip = projectLeaves(target?.setRipV1, PUBLIC_BLOCK_LEAVES.setRipV1);
     if (setRip !== undefined) projected.setRipV1 = setRip;
     return projected;
   });
@@ -257,4 +272,4 @@ export const RANKINGS_CLIENT_FIELDS = Object.freeze([
   ),
 ]);
 
-export { SCALAR_FIELDS, BLOCK_LEAVES, CONTRACT_BLOCKS, CONTRACT_LEAVES };
+export { SCALAR_FIELDS, BLOCK_LEAVES, PUBLIC_BLOCK_LEAVES, CONTRACT_BLOCKS, CONTRACT_LEAVES };

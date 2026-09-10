@@ -199,7 +199,7 @@ test("a 22-set API cohort remains renderable with canonical Set RIP rank and tie
 test("anonymous public Set projection keeps only leaderboard Set RIP evidence", () => {
   const source = target(4, {
     setRipV1: {
-      score: 73.1, rank: 4, tier: "B", cohortSize: 22, rankable: true,
+      score: 73.1, publicScore: 61.2, rank: 4, tier: "B", cohortSize: 22, rankable: true,
       methodologyVersion: "set-rip-v1", participatingFamilyCount: 1,
       participatingFamilies: ["booster_box"], skuEvidenceCount: 2,
       familyScores: [{ family: "booster_box", score: 81, rank: 3, tier: "A" }],
@@ -208,14 +208,63 @@ test("anonymous public Set projection keeps only leaderboard Set RIP evidence", 
     },
   });
   const [projected] = projectRankingsClientPublicSetLeaderboard([source]);
-  assert.equal(projected.setRipV1.score, 73.1);
+  assert.equal(projected.setRipV1.publicScore, 61.2);
   assert.equal(projected.setRipV1.rank, 4);
   assert.equal(projected.setRipV1.tier, "B");
-  assert.equal(projected.setRipV1.participatingFamilyCount, 1);
-  assert.equal(projected.setRipV1.displayFamilyScores[0].family, "booster_box");
-  assert.equal("privateRawInputs" in projected.setRipV1, false);
+  assert.equal(projected.setRipV1.cohortSize, 22);
+  assert.equal(projected.setRipV1.rankable, true);
+  assert.equal(projected.setRipV1.methodologyVersion, "set-rip-v1");
+  // Paid Set RIP evidence must never cross into the anonymous/Basic response.
+  for (const paidLeaf of [
+    "score",
+    "modelScore",
+    "leaderNormalizedScore",
+    "participatingFamilyCount",
+    "participatingFamilies",
+    "skuEvidenceCount",
+    "familyScores",
+    "displayFamilyScores",
+    "chaseAccessibility",
+    "privateRawInputs",
+  ]) {
+    assert.equal(paidLeaf in projected.setRipV1, false, paidLeaf);
+  }
   for (const paid of ["overallRipV10", "financialRipV4", "publicRipContractV10", "openingExperience"])
     assert.equal(paid in projected, false, paid);
+});
+
+test("public set leaderboard projection excludes paid fields (regression fixture)", () => {
+  const PAID_FIXTURE_SCORE = 87.3; // representative paid numeric fixture value
+  const target = {
+    id: "swsh-ascended-heroes",
+    setRipV1: {
+      score: PAID_FIXTURE_SCORE,
+      publicScore: 61.2,
+      tier: "A",
+      rank: 4,
+      cohortSize: 42,
+      rankable: true,
+      methodologyVersion: "v11",
+      familyScores: { loosePack: PAID_FIXTURE_SCORE, sleevedPack: 71.0 },
+      displayFamilyScores: { loosePack: "87.3", sleevedPack: "71.0" },
+      chaseAccessibility: { publicScore: 55.0, setRank: 4, setCohortSize: 42 },
+    },
+  };
+
+  const [projected] = projectRankingsClientPublicSetLeaderboard([target]);
+
+  assert.equal(projected.setRipV1.familyScores, undefined);
+  assert.equal(projected.setRipV1.displayFamilyScores, undefined);
+  assert.equal(projected.setRipV1.chaseAccessibility, undefined);
+  assert.equal(projected.setRipV1.score, undefined);
+  assert.equal(JSON.stringify(projected).includes(String(PAID_FIXTURE_SCORE)), false);
+
+  assert.equal(projected.setRipV1.publicScore, 61.2);
+  assert.equal(projected.setRipV1.tier, "A");
+  assert.equal(projected.setRipV1.rank, 4);
+  assert.equal(projected.setRipV1.cohortSize, 42);
+  assert.equal(projected.setRipV1.rankable, true);
+  assert.equal(projected.setRipV1.methodologyVersion, "v11");
 });
 
 test("packaged V10 survives projection and resolves through the strict headline reader", () => {
