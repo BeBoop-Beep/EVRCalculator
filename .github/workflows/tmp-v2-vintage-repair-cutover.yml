@@ -1,0 +1,149 @@
+name: Temporary V2 vintage repair cutover
+
+on:
+  push:
+    branches:
+      - fix/market-explorer-v2-runtime-cutover-20260910
+    paths:
+      - .github/workflows/tmp-v2-vintage-repair-cutover.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cutover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/market-explorer-v2-runtime-cutover-20260910
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Cut vintage repair to V2-only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('backend/scripts/repair_market_explorer_vintage_predecessor_identities.py')
+          s = path.read_text()
+
+          s = s.replace(
+              'repairs the\nderived tables that assume one physical instrument per canonical/edition\npair, and performs a narrowly scoped pilot re-projection for the two sets\nthat already publish precomputed daily state (Fossil, Neo Genesis).',
+              'repairs the\nderived tables that assume one physical instrument per canonical/edition\npair, and force-rebuilds the bounded V2 Market Explorer daily projection for\nevery affected set from V2 interval authority.'
+          )
+
+          needle = 'from backend.db.clients.supabase_client import create_service_role_client\n'
+          replacement = needle + '''from backend.scripts.publish_market_explorer_daily_projection import (\n    V2_COVERAGE_TABLE,\n    V2_DAILY_STATES_TABLE,\n    V2_INTERVAL_TABLE,\n    V2_RETENTION_DAYS,\n    publish_set_v2,\n)\n'''
+          assert needle in s
+          s = s.replace(needle, replacement, 1)
+
+          s = s.replace('INTERVAL_TABLE = "pokemon_card_variant_market_price_intervals"', 'INTERVAL_TABLE = V2_INTERVAL_TABLE')
+          s = s.replace('DAILY_STATES_TABLE = "pokemon_market_explorer_card_daily_states"', 'DAILY_STATES_TABLE = V2_DAILY_STATES_TABLE')
+          s = s.replace('COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage"', 'COVERAGE_TABLE = V2_COVERAGE_TABLE')
+
+          s = re.sub(
+              r'\n# reproject_pokemon_market_explorer_card_daily_states\([^\n]*\)\nREPROJECT_DAILY_STATES_RPC = "reproject_pokemon_market_explorer_card_daily_states"',
+              '', s, count=1,
+          )
+          s = re.sub(
+              r'\n# Pilot sets:[^\n]*\n# already published and therefore need row-level re-projection\.\nPILOT_PROJECTION_SET_NAMES = \{"fossil", "neo genesis"\}\n',
+              '\n', s, count=1,
+          )
+
+          derive = '''def derive_pilot_projection_window(client: Any, set_ids: Sequence[str]) -> tuple[date, date]:\n    """Derive the bounded V2 rebuild window for every affected set.\n\n    The compatibility function name is retained because older callers import\n    it, but there is no longer a pilot-only projection. V2 coverage is the\n    sole authority: MIN(retained_from) .. MAX(computed_through). Missing\n    coverage fails closed.\n    """\n    if not set_ids:\n        raise ValueError("cannot derive a V2 projection window: no affected set ids in scope")\n\n    rows = _paged(lambda: client.table(COVERAGE_TABLE)\n                  .select("set_id,retained_from,computed_through,retention_days")\n                  .in_("set_id", list(set_ids)))\n    rows_by_set: dict[str, dict[str, Any]] = {str(row["set_id"]): row for row in rows}\n\n    missing = sorted(sid for sid in set_ids if sid not in rows_by_set)\n    if missing:\n        raise ValueError(\n            "missing V2 Market Explorer coverage row(s) for affected set(s); "\n            f"refusing to invent a rebuild window: {missing}"\n        )\n\n    start_date = min(_to_date(row["retained_from"]) for row in rows_by_set.values())\n    end_date = max(_to_date(row["computed_through"]) for row in rows_by_set.values())\n    return start_date, end_date\n\n\n'''
+          s, n = re.subn(
+              r'def derive_pilot_projection_window\(.*?\n\ndef repair_pilot_projections',
+              derive + 'def repair_pilot_projections',
+              s,
+              count=1,
+              flags=re.S,
+          )
+          assert n == 1, n
+
+          repair = '''def repair_pilot_projections(client: Any, *, commit: bool, mappings: Sequence[Mapping],\n                             summary: Summary, projection_start: date | None = None,\n                             projection_end: date | None = None) -> None:\n    """Force-rebuild bounded V2 daily state for every affected set.\n\n    The function name and summary keys are retained for compatibility with\n    the original repair CLI, but V2 has no Fossil/Neo-Genesis-only pilot.\n    Normal runs derive each set's through-date and retention from V2 coverage.\n    An explicit start/end override skips the coverage lookup; V2 still rebuilds\n    only its bounded retention window ending at ``projection_end``.\n    """\n    if not mappings:\n        return\n\n    by_set: dict[str, list[Mapping]] = {}\n    for mapping in mappings:\n        by_set.setdefault(mapping.set_name, []).append(mapping)\n    affected_set_ids = sorted({m.set_id for m in mappings})\n\n    coverage_by_set: dict[str, dict[str, Any]] = {}\n    if projection_start is not None and projection_end is not None:\n        start_date, end_date = projection_start, projection_end\n    else:\n        rows = _paged(lambda: client.table(COVERAGE_TABLE)\n                      .select("set_id,retained_from,computed_through,retention_days")\n                      .in_("set_id", affected_set_ids))\n        coverage_by_set = {str(row["set_id"]): row for row in rows}\n        missing = sorted(sid for sid in affected_set_ids if sid not in coverage_by_set)\n        if missing:\n            raise ValueError(\n                "missing V2 Market Explorer coverage row(s) for affected set(s); "\n                f"refusing to invent a rebuild window: {missing}"\n            )\n        start_date = min(_to_date(row["retained_from"]) for row in coverage_by_set.values())\n        end_date = max(_to_date(row["computed_through"]) for row in coverage_by_set.values())\n\n    summary.pilot_projection_window = {"start_date": str(start_date), "end_date": str(end_date)}\n\n    for set_name, set_mappings in by_set.items():\n        set_id = set_mappings[0].set_id\n        if not commit:\n            rows = _paged(lambda sid=set_id: client.table(DAILY_STATES_TABLE)\n                         .select("card_variant_id").eq("set_id", sid))\n            summary.pilot_projection_rows_touched[set_name] = len(rows)\n            continue\n\n        coverage = coverage_by_set.get(set_id) or {}\n        through_date = str(projection_end or coverage.get("computed_through"))[:10]\n        retention_days = int(coverage.get("retention_days") or V2_RETENTION_DAYS)\n        result = publish_set_v2(\n            client,\n            set_id=set_id,\n            through_date=through_date,\n            retention_days=retention_days,\n            force_rebuild=True,\n        )\n        summary.pilot_projection_rows_touched[set_name] = int(\n            result.get("actual_rows") or result.get("expected_rows") or 0\n        )\n\n\n'''
+          s, n = re.subn(
+              r'def repair_pilot_projections\(.*?\n\ndef invalidate_targeted_caches',
+              repair + 'def invalidate_targeted_caches',
+              s,
+              count=1,
+              flags=re.S,
+          )
+          assert n == 1, n
+
+          old_scope = 'affected_set_ids = {m.set_id for m in mappings if _fold(m.set_name) in PILOT_PROJECTION_SET_NAMES}'
+          assert old_scope in s
+          s = s.replace(old_scope, 'affected_set_ids = {m.set_id for m in mappings}', 1)
+
+          # Remove stale V1 relation/RPC names even from documentation; V2 names are imported constants.
+          for stale in (
+              '``pokemon_market_explorer_card_daily_states``',
+              '``pokemon_market_explorer_card_daily_coverage``',
+              'reproject_pokemon_market_explorer_card_daily_states',
+          ):
+              s = s.replace(stale, 'the retired V1 projection')
+
+          assert '"pokemon_card_variant_market_price_intervals"' not in s
+          assert '"pokemon_market_explorer_card_daily_states"' not in s
+          assert '"pokemon_market_explorer_card_daily_coverage"' not in s
+          assert 'REPROJECT_DAILY_STATES_RPC' not in s
+          assert 'PILOT_PROJECTION_SET_NAMES' not in s
+          path.write_text(s)
+
+          tpath = Path('backend/tests/unit/scripts/test_repair_market_explorer_vintage_predecessor_identities.py')
+          t = tpath.read_text()
+          t = t.replace('    COVERAGE_TABLE,\n', '    COVERAGE_TABLE,\n    DAILY_STATES_TABLE,\n')
+          t = t.replace('"pokemon_market_explorer_card_daily_states": [],', 'DAILY_STATES_TABLE: [],')
+          t = t.replace('"first_market_date":', '"retained_from":')
+          t = t.replace('"set_id": "fossil", "first_market_date": first_market_date,\n            "computed_through": computed_through}',
+                        '"set_id": "fossil", "retained_from": first_market_date,\n            "computed_through": computed_through, "retention_days": 100}')
+
+          old_rpc = '''        if self.name == "reproject_pokemon_market_explorer_card_daily_states":\n            return Response(len(self.params["p_set_ids"]))\n'''
+          new_rpc = '''        if self.name == "publish_pokemon_market_explorer_daily_v2_for_set":\n            assert self.params["p_force_rebuild"] is True\n            return Response({\n                "status": "verified",\n                "reconciled": True,\n                "mode": "rebuild",\n                "expected_rows": 1,\n                "actual_rows": 1,\n            })\n'''
+          assert old_rpc in t
+          t = t.replace(old_rpc, new_rpc, 1)
+
+          # V2 covers all affected sets, not the old two-set pilot.
+          t, n = re.subn(
+              r'def test_pilot_projection_scope_limited_to_fossil_and_neo_genesis_only\(\):.*?\n\ndef test_targeted_cache_invalidation_calls_atomic_scoped_rpc',
+              '''def test_v2_projection_rebuild_scope_includes_every_affected_set():\n    sets = [\n        {"id": "fossil", "name": "Fossil"},\n        {"id": "neo-genesis", "name": "Neo Genesis"},\n        {"id": "gym-heroes", "name": "Gym Heroes"},\n    ]\n    cards = [\n        {"id": "c1", "set_id": "fossil", "name": "Zapdos", "card_number": "15"},\n        {"id": "c2", "set_id": "neo-genesis", "name": "Lugia", "card_number": "9"},\n        {"id": "c3", "set_id": "gym-heroes", "name": "Blaine's Charizard", "card_number": "2"},\n    ]\n    variants = [\n        {"id": "v-pred-1", "card_id": "c1", "edition": None},\n        {"id": "v-succ-1", "card_id": "c1", "edition": "first"},\n        {"id": "v-pred-2", "card_id": "c2", "edition": None},\n        {"id": "v-succ-2", "card_id": "c2", "edition": "unlimited"},\n        {"id": "v-pred-3", "card_id": "c3", "edition": None},\n        {"id": "v-succ-3", "card_id": "c3", "edition": "first"},\n    ]\n    coverage_rows = [\n        {"set_id": "fossil", "retained_from": "2026-06-03", "computed_through": "2026-09-10", "retention_days": 100},\n        {"set_id": "neo-genesis", "retained_from": "2026-06-03", "computed_through": "2026-09-10", "retention_days": 100},\n        {"set_id": "gym-heroes", "retained_from": "2026-06-03", "computed_through": "2026-09-10", "retention_days": 100},\n    ]\n    client = FakeClient(_base_store(sets=sets, cards=cards, variants=variants, coverage_rows=coverage_rows))\n    report = run_repair(client, commit=False, set_ids=["fossil", "neo-genesis", "gym-heroes"])\n    assert set(report["pilot_projection_rows_touched"]) == {"Fossil", "Neo Genesis", "Gym Heroes"}\n    assert report["pilot_projection_window"] == {"start_date": "2026-06-03", "end_date": "2026-09-10"}\n\n\ndef test_targeted_cache_invalidation_calls_atomic_scoped_rpc''',
+              t,
+              count=1,
+              flags=re.S,
+          )
+          assert n == 1, n
+
+          # Update the commit-path RPC assertions to the verified V2 publisher contract.
+          t = t.replace('reproject_pokemon_market_explorer_card_daily_states', 'publish_pokemon_market_explorer_daily_v2_for_set')
+          t = re.sub(r'assert reproject_calls\[0\]\[1\]\["p_start_date"\] == date\([^\n]+\)\n', '', t)
+          t = re.sub(r'assert reproject_calls\[0\]\[1\]\["p_end_date"\] == date\(([^\n]+)\)\n', r'assert reproject_calls[0][1]["p_through_date"] == str(date(\1))\n    assert reproject_calls[0][1]["p_force_rebuild"] is True\n', t)
+          t = t.replace('MIN(first_market_date)', 'MIN(retained_from)')
+          t = t.replace('first_market_date)/MAX', 'retained_from)/MAX')
+          t = t.replace("neo-genesis's 2026-04-11", "neo-genesis's 2026-04-11")
+
+          # All V2 manual coverage fixtures need retention_days.
+          t = re.sub(
+              r'(\{"set_id": "(?:fossil|neo-genesis|gym-heroes)", "retained_from": "[^"]+",\s*"computed_through": "[^"]+"\})(,?)',
+              lambda m: m.group(1)[:-1] + ', "retention_days": 100}' + m.group(2),
+              t,
+          )
+
+          tpath.write_text(t)
+          PY
+
+          python -m py_compile backend/scripts/repair_market_explorer_vintage_predecessor_identities.py
+          git diff --check
+
+          export SUPABASE_URL='https://example.supabase.co'
+          export SUPABASE_SERVICE_ROLE_KEY='dummy-service-role-key'
+          export SUPABASE_ANON_KEY='dummy-anon-key'
+          pytest -q backend/tests/unit/scripts/test_repair_market_explorer_vintage_predecessor_identities.py
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/scripts/repair_market_explorer_vintage_predecessor_identities.py backend/tests/unit/scripts/test_repair_market_explorer_vintage_predecessor_identities.py
+          git commit -m 'Cut vintage Market Explorer repair to V2 only'
+          git push origin HEAD:fix/market-explorer-v2-runtime-cutover-20260910
