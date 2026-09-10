@@ -109,10 +109,10 @@
  * is narrow (a 1-2 digit number), Product/Set carries a thumbnail + full
  * product name and gets the largest share, and Format Strength gets enough
  * room to wrap copy like "#12 of 22 Loose Booster Packs" instead of clipping
- * it. `.productsTable` pairs with `width: max-content` (below) so the table
- * renders at its natural, wider-than-viewport size and the existing
- * `overflow-x-auto` wrapper scrolls it horizontally - the intended outcome
- * at normal desktop widths, not a bug to fix by crushing columns back down.
+ * it. `.productsTable` uses `width: 100%` so the table fits within the viewport
+ * and column widths are proportionally scaled to fit. The `overflow-x-auto` wrapper
+ * on the desktop display block ensures legibility without forcing a wider-than-viewport
+ * rendering - the table never intentionally exceeds the viewport width.
  */
 .productsTable {
   width: 100%;
