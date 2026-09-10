@@ -7,6 +7,9 @@ class Query:
     def eq(self, *_): return self
     def limit(self, *_): return self
     def order(self, *_): return self
+    def range(self, start, end):
+        self.data = self.data[start:end + 1]
+        return self
     def execute(self): return self
 
 

@@ -16,10 +16,17 @@ def load_pokemon_trends_v2_run(source_run_id: str, *, client: Any) -> dict:
     run = runs[0]
     if run.get("source_name") != SOURCE_NAME or run.get("status") not in ("success", "partial_failure"):
         raise RuntimeError(f"Collector source run {source_run_id} is not a terminal Pokemon Trends V2 run")
-    rows = (client.table("pokemon_collector_entity_observations")
-            .select("source_run_id,collector_entity_id,external_entity_key,normalized_observation_score,raw_value,raw_row_json")
-            .eq("source_run_id", source_run_id).eq("dimension_key", DIMENSION_KEY)
-            .order("external_entity_key").execute().data or [])
+    rows = []
+    for start in range(0, 2000, 1000):
+        page = (client.table("pokemon_collector_entity_observations")
+                .select("source_run_id,collector_entity_id,external_entity_key,normalized_observation_score,raw_value,raw_row_json")
+                .eq("source_run_id", source_run_id).eq("dimension_key", DIMENSION_KEY)
+                .order("external_entity_key").range(start, start + 999).execute().data or [])
+        rows.extend(page)
+        if len(page) < 1000:
+            break
+    else:
+        raise RuntimeError(f"Pokemon Trends V2 exact-run read exceeded safety limit for {source_run_id}")
     if len(rows) != run.get("item_count") or len(rows) != 1025:
         raise RuntimeError(f"Pokemon Trends V2 exact-run row count mismatch for {source_run_id}")
     result = []
