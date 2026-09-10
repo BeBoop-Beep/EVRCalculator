@@ -275,7 +275,7 @@ export default function RankingsLazyClient({
             {setAnalysisLens === "economics" ? (
               <SetPackMetrics sets={openingEconomics?.sets} targets={setTargets} eraFilter={selectedEra} marketDate={openingEconomics?.marketDate} canViewRankingsIntelligence={canViewRankingsIntelligence} />
             ) : (
-              <ExploreTableClient targets={setTargets} loadError={loadError || setsUnavailable} canViewProductRipIntelligence eraFilter={selectedEra} />
+              <ExploreTableClient targets={setTargets} loadError={loadError || setsUnavailable} canViewProductRipIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} />
             )}
           </>
         )
