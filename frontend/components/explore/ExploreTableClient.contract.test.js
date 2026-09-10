@@ -40,6 +40,43 @@ test("legacy Market-Based spanning group is absent", () => {
   assert.doesNotMatch(source, />\s*Market-Based\s*</);
 });
 
+test("ChaseAccessibilityCell, ScoreCell, and MobileScoreBlock lock before checking for missing data when not entitled", () => {
+  // Task 4: once canViewProductRipIntelligence can genuinely be false (Task 1
+  // fixed the JSX-shorthand bug that always forced it true), these cells must
+  // distinguish "not entitled" from "entitled but genuinely no data". The
+  // entitlement check has to run BEFORE the null-check so a locked viewer never
+  // sees "Unavailable" (which reads as a data problem, not a paywall).
+  const cellNames = ["ChaseAccessibilityCell", "ScoreCell", "MobileScoreBlock"];
+  for (const name of cellNames) {
+    const fnMatch = new RegExp(`function ${name}\\(([^)]*)\\)\\s*\\{([\\s\\S]*?)\\n\\}`).exec(source);
+    assert.ok(fnMatch, `expected to find function ${name} in ExploreTableClient.jsx`);
+    const [, params, body] = fnMatch;
+    assert.match(params, /entitled/, `${name} must accept an entitled prop`);
+    const entitledCheckIndex = body.search(/if\s*\(!entitled\)/);
+    assert.notEqual(entitledCheckIndex, -1, `${name} must branch on !entitled`);
+    const unavailableCheckIndex = body.search(/=== null/);
+    if (unavailableCheckIndex !== -1) {
+      assert.ok(
+        entitledCheckIndex < unavailableCheckIndex,
+        `${name} must check entitlement before its missing-value/Unavailable branch`
+      );
+    }
+  }
+});
+
+test("locked cells render PremiumMetricLock, and call sites thread canViewProductRipIntelligence in as entitled", () => {
+  assert.match(source, /import \{ PremiumMetricLock \} from "\.\/RankedProductTablePrimitives\.jsx";/);
+  assert.match(source, /<PremiumMetricLock \/>/);
+  // Desktop cells
+  assert.match(source, /<ScoreCell target=\{target\} modeId="financial" entitled=\{canViewProductRipIntelligence\} \/>/);
+  assert.match(source, /<ChaseAccessibilityCell target=\{target\} entitled=\{canViewProductRipIntelligence\} \/>/);
+  assert.match(source, /<ScoreCell target=\{target\} modeId=\{COLLECTOR_APPEAL_COLUMN\} entitled=\{canViewProductRipIntelligence\} \/>/);
+  // Mobile cells
+  assert.match(source, /<MobileScoreBlock target=\{target\} modeId="financial" label="Financial RIP" entitled=\{canViewProductRipIntelligence\} \/>/);
+  assert.match(source, /<ChaseAccessibilityCell target=\{target\} compact entitled=\{canViewProductRipIntelligence\} \/>/);
+  assert.match(source, /<MobileScoreBlock target=\{target\} modeId=\{COLLECTOR_APPEAL_COLUMN\} label="Collector Appeal" entitled=\{canViewProductRipIntelligence\} \/>/);
+});
+
 test("setRipV1's client leaf list carries chaseAccessibility through to the table", () => {
   // Task 3 regression: setRipV1.chaseAccessibility was dropped at the SQL lens
   // boundary (20260906055315_add_v12_v11_to_rankings_sets_lens_rpc.sql), which

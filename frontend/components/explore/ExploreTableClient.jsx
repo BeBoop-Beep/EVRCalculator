@@ -81,6 +81,7 @@ import {
 } from "./chaseAccessibilityDisplay.mjs";
 import { FamilySnapshot, RANKINGS_FAMILY_COLUMNS, RankingsFamilyCells, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
+import { PremiumMetricLock } from "./RankedProductTablePrimitives.jsx";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -132,9 +133,12 @@ function TopChaseCell({ target, compact = false }) {
  * column (`readOptionalRankingsChase` / `topChase`), which names a specific
  * chase card rather than measuring set-level pull accessibility.
  */
-function ChaseAccessibilityCell({ target, compact = false }) {
+function ChaseAccessibilityCell({ target, compact = false, entitled = true }) {
   const block = target?.setRipV1?.chaseAccessibility;
   const publicScore = Number.isFinite(Number(block?.publicScore)) ? Number(block.publicScore) : null;
+  if (!entitled) {
+    return <PremiumMetricLock />;
+  }
   if (publicScore === null) {
     return <span className="text-[11px] font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>;
   }
@@ -335,9 +339,13 @@ const RELATIVE_SCORE_TOOLTIP =
  * renders an explicit Unavailable state, never a fabricated zero and never a
  * substitute from another scale.
  */
-function ScoreCell({ target, modeId }) {
+function ScoreCell({ target, modeId, entitled = true }) {
   const rankColumnMode = useContext(RankColumnModeContext);
   const { value, kind, isPublic, rank, cohort } = readModeScore(target, modeId);
+
+  if (!entitled) {
+    return <PremiumMetricLock />;
+  }
 
   if (value === null) {
     return (
@@ -372,12 +380,21 @@ function ScoreCell({ target, modeId }) {
  * unavailable state. Financial is never hidden on mobile. No border per metric:
  * the label carries the meaning, the shared row carries the frame.
  */
-function MobileScoreBlock({ target, modeId, label }) {
+function MobileScoreBlock({ target, modeId, label, entitled = true }) {
   const rankColumnMode = useContext(RankColumnModeContext);
   const { value, kind, isPublic, rank, cohort } = readModeScore(target, modeId);
 
   const rankText =
     rankColumnMode === modeId ? null : formatRankText(rank, cohort, { compact: true, withCohort: false });
+
+  if (!entitled) {
+    return (
+      <div className="min-w-0">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">{label}</div>
+        <div className="mt-0.5"><PremiumMetricLock /></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-w-0" title={isPublic ? PUBLIC_SCORE_SCALE_NOTE : undefined}>
@@ -942,9 +959,9 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                       <td className={styles.numeric}><RipScoreBadge score={canonicalOverall.publicScore} tier={tier} /></td>
                       <td className="text-center"><RipTierMark tier={tier} /></td>
                       <RankingsFamilyCells setRip={target?.setRipV1} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
-                      <td className="text-center align-middle"><ScoreCell target={target} modeId="financial" /></td>
-                      <td className="text-center align-middle" data-chase-accessibility-cell><ChaseAccessibilityCell target={target} /></td>
-                      <td className="text-center align-middle"><ScoreCell target={target} modeId={COLLECTOR_APPEAL_COLUMN} /></td>
+                      <td className="text-center align-middle"><ScoreCell target={target} modeId="financial" entitled={canViewProductRipIntelligence} /></td>
+                      <td className="text-center align-middle" data-chase-accessibility-cell><ChaseAccessibilityCell target={target} entitled={canViewProductRipIntelligence} /></td>
+                      <td className="text-center align-middle"><ScoreCell target={target} modeId={COLLECTOR_APPEAL_COLUMN} entitled={canViewProductRipIntelligence} /></td>
                       <td className="align-middle"><RankingInsight setRip={target?.setRipV1} /></td>
                     </tr>
                   );
@@ -991,12 +1008,12 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                         signals, using the same one-field-by-kind cells.
                       */}
                       <div className="mt-2 grid grid-cols-3 gap-x-3 gap-y-2 border-t border-[var(--border-subtle)] pt-2">
-                        <MobileScoreBlock target={target} modeId="financial" label="Financial RIP" />
+                        <MobileScoreBlock target={target} modeId="financial" label="Financial RIP" entitled={canViewProductRipIntelligence} />
                         <div data-chase-accessibility-mobile>
                           <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Chase Accessibility</div>
-                          <div className="mt-0.5"><ChaseAccessibilityCell target={target} compact /></div>
+                          <div className="mt-0.5"><ChaseAccessibilityCell target={target} compact entitled={canViewProductRipIntelligence} /></div>
                         </div>
-                        <MobileScoreBlock target={target} modeId={COLLECTOR_APPEAL_COLUMN} label="Collector Appeal" />
+                        <MobileScoreBlock target={target} modeId={COLLECTOR_APPEAL_COLUMN} label="Collector Appeal" entitled={canViewProductRipIntelligence} />
                       </div>
                       <p className="pt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Format Strength</p>
                       <RankingInsight setRip={target?.setRipV1} />
