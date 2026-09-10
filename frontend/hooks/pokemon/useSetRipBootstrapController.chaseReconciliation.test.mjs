@@ -153,8 +153,8 @@ const RAW_FRESH_BACKEND_RESPONSE = {
   meta: {},
 };
 
-function Harness({ setId, initialPayload, enabled, onResult }) {
-  const result = useSetRipBootstrapController({ setId, initialPayload, enabled });
+function Harness({ setId, initialPayload, enabled, entitled = true, onResult }) {
+  const result = useSetRipBootstrapController({ setId, initialPayload, enabled, entitled });
   onResult(result);
   return null;
 }
@@ -286,6 +286,36 @@ test("Task 7 fix: when the reconciliation fetch still lacks Chase, the truthful 
 
   await flush();
   assert.equal(calls.length, 1, "must not retry or poll when the backend genuinely still lacks Chase");
+
+  await act(async () => { renderer.unmount(); });
+  delete global.fetch;
+});
+
+test("Task 7 fix: a non-entitled/anonymous viewer never triggers the reconciliation fetch, even with a core-ready-but-chase-missing seed", async () => {
+  const calls = installFetchMock(RAW_FRESH_BACKEND_RESPONSE);
+
+  let latest = null;
+  let renderer;
+  await act(async () => {
+    renderer = TestRenderer.create(
+      React.createElement(Harness, {
+        setId: SET_TARGET_ID,
+        initialPayload: STALE_SEED,
+        enabled: true,
+        entitled: false,
+        onResult: (r) => { latest = r; },
+      })
+    );
+  });
+
+  assert.equal(latest.state.status, "success");
+  assert.deepEqual(latest.payload.canonical.chaseAccessibility, {});
+
+  await flush();
+
+  assert.equal(calls.length, 0, "a non-entitled viewer must never trigger the extra no-store reconciliation fetch");
+  assert.equal(latest.state.status, "success");
+  assert.deepEqual(latest.payload.canonical.chaseAccessibility, {}, "falls through to the existing truthful Unavailable, unchanged");
 
   await act(async () => { renderer.unmount(); });
   delete global.fetch;

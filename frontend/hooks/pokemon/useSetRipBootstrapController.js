@@ -23,7 +23,7 @@ const needsChaseReconciliation = (payload) => {
   );
 };
 
-export default function useSetRipBootstrapController({ setId, initialPayload, enabled }) {
+export default function useSetRipBootstrapController({ setId, initialPayload, enabled, entitled = false }) {
   const validSeed = initialPayload?.available && setIdentity(initialPayload) === String(setId || "") ? initialPayload : null;
   const [state, setState] = useState(() => ({ status: validSeed ? "success" : "idle", setId: validSeed ? setId : null, payload: validSeed, error: null }));
   const activeSetIdRef = useRef(String(setId || ""));
@@ -70,8 +70,14 @@ export default function useSetRipBootstrapController({ setId, initialPayload, en
   // seed is replaced; on success without Chase, or on any failure, the
   // existing accepted seed (and its truthful Chase "Unavailable") is left
   // exactly as-is and the gap is reported as a publication-data blocker.
+  //
+  // Gated on `entitled`: this extra fetch is only worth the backend load for
+  // a viewer who is actually entitled to see Chase Accessibility (the same
+  // plan-access signal RankingsLazyClient/useRankingsAccess already resolve
+  // for this page tree). An anonymous or non-entitled viewer falls through to
+  // the existing behavior — the truthful Unavailable seed, no extra fetch.
   useEffect(() => {
-    if (!enabled || !validSeed) return;
+    if (!enabled || !entitled || !validSeed) return;
     if (state.setId !== setId || state.status !== "success") return;
     if (state.payload !== validSeed) return;
     if (!needsChaseReconciliation(validSeed)) return;
@@ -99,7 +105,7 @@ export default function useSetRipBootstrapController({ setId, initialPayload, en
           error?.message || error,
         );
       });
-  }, [enabled, validSeed, setId, state.setId, state.status, state.payload]);
+  }, [enabled, entitled, validSeed, setId, state.setId, state.status, state.payload]);
 
   const payload = state.setId === setId ? state.payload : null;
   return { state, payload, load, preload: () => load({ speculative: true }), retry: () => load({ force: true }) };

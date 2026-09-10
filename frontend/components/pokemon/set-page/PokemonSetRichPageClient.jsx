@@ -55,7 +55,7 @@ export default function PokemonSetRichPageClient({ targetsPayload, selectedTarge
   const setId = requestedTargetId || activeTarget?.target_id || activeTarget?.setId || shellPayload?.set?.id || null;
   const activeTab = normalizeSetViewTab(searchParams?.get?.("tab")); const cardsSection = activeTab === "cards" && searchParams?.get?.("section") === "market-movers" ? "market-movers" : "all-cards";
   const serverRipBootstrap = initialModuleSnapshots?.ripBootstrapPayload || null;
-  const ripBootstrapController = useSetRipBootstrapController({ setId, initialPayload: serverRipBootstrap, enabled: activeTab === "overview" });
+  const ripBootstrapController = useSetRipBootstrapController({ setId, initialPayload: serverRipBootstrap, enabled: activeTab === "overview", entitled: canViewProductRipIntelligence });
   const ripBootstrap = ripBootstrapController.payload;
   const summary = useMemo(() => ({ ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}), ...(ripBootstrap?.summary || {}) }), [shellPayload?.summary, explorePayload?.summary, ripBootstrap?.summary]);
   const canonical = useMemo(() => resolveCanonicalRipV7(ripBootstrap?.canonicalSource, explorePayload, shellPayload, activeTarget, summary), [ripBootstrap?.canonicalSource, explorePayload, shellPayload, activeTarget, summary]);
