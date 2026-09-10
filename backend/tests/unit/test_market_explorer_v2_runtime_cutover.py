@@ -11,6 +11,7 @@ RUNTIME_FILES = (
     "backend/scripts/run_market_explorer_daily_publication.py",
     "backend/scripts/check_market_explorer_maintained_cache_health.py",
     "backend/scripts/backfill_market_explorer_variant_intervals.py",
+    "backend/scripts/repair_market_explorer_vintage_predecessor_identities.py",
 )
 
 RETIRED_V1_RELATIONS = {
