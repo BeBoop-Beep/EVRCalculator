@@ -27,6 +27,12 @@ def _dt(value: Any) -> Optional[datetime]:
     return parsed.astimezone(timezone.utc)
 
 
+def _default_client() -> Any:
+    from backend.db.clients.supabase_client import supabase
+
+    return supabase
+
+
 def _failure(
     context: CheckContext,
     *,
@@ -51,7 +57,7 @@ def _failure(
 def check_component_heartbeat(
     context: CheckContext,
     *,
-    client: Any,
+    client: Any = None,
     component: str = "sentinel_vm",
     host: str,
     max_age_seconds: int = DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
@@ -96,8 +102,9 @@ def check_component_heartbeat(
             },
         )
 
+    resolved_client = client if client is not None else _default_client()
     result = (
-        client.table("sentinel_component_heartbeats")
+        resolved_client.table("sentinel_component_heartbeats")
         .select("component,host,build_sha,heartbeat_at,metadata,updated_at")
         .eq("component", target_component)
         .eq("host", target_host)
