@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from backend.scripts.plan_collector_appeal_refresh import freshness_plan
+from backend.scripts.plan_collector_appeal_refresh import freshness_plan, parse_captured_at
 
 
 def _run(source, timeframe, captured="2026-09-10T00:00:00+00:00"):
@@ -19,3 +19,7 @@ def test_failed_or_stale_run_never_satisfies_refresh_contract():
     plan=freshness_plan(rows,datetime(2026,9,11,tzinfo=timezone.utc))
     assert plan["allFresh"] is False
     assert next(x for x in plan["sources"] if x["key"]=="artist_12m")["due"] is True
+
+
+def test_supabase_variable_fraction_timestamp_is_accepted():
+    assert parse_captured_at("2026-09-08T03:20:58.01866+00:00").microsecond == 18660

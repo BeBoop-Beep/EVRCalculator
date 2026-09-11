@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -28,13 +29,23 @@ DYNAMIC_CONTRACT = (
 )
 
 
+def parse_captured_at(value):
+    """Accept PostgREST timestamps on runtimes requiring 0/3/6 fraction digits."""
+    text=str(value).replace("Z","+00:00")
+    match=re.match(r"^(.*\.)(\d+)([+-]\d\d:\d\d)$",text)
+    if match:
+        fraction=(match.group(2)+"000000")[:6]
+        text=f"{match.group(1)}{fraction}{match.group(3)}"
+    return datetime.fromisoformat(text)
+
+
 def freshness_plan(runs, now):
     result=[]
     for spec in DYNAMIC_CONTRACT:
         eligible=[r for r in runs if r.get("source_name")==spec["sourceName"] and r.get("status")=="success" and (spec["timeframe"] is None or (r.get("raw_payload_json") or {}).get("timeframe")==spec["timeframe"])]
         eligible.sort(key=lambda r: str(r.get("captured_at") or ""),reverse=True)
         latest=eligible[0] if eligible else None
-        captured=datetime.fromisoformat(str(latest["captured_at"]).replace("Z","+00:00")) if latest else None
+        captured=parse_captured_at(latest["captured_at"]) if latest else None
         due=captured is None or now-captured>timedelta(days=spec["maxAgeDays"])
         result.append({**spec,"latestSuccessfulRunId":None if latest is None else latest.get("id"),"lastSuccessfulAt":None if captured is None else captured.isoformat(),"due":due})
     return {"allFresh":not any(x["due"] for x in result),"lastSuccessfulCollectorAppealRefreshAt":min((x["lastSuccessfulAt"] for x in result if x["lastSuccessfulAt"]),default=None),"sources":result}
