@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 
 from backend.db.services.pokemon_market_rollout_cohort import (
+    MARKET_CERTIFICATION_COLUMNS,
+    MARKET_CERTIFICATION_VIEW,
+    MARKET_MEMBERSHIP_COLUMNS,
+    MARKET_READY_VIEW,
     MARKET_ROOT_AUTHORITY_CUTOVER_DATE,
     resolve_market_root_cohort,
 )
@@ -21,7 +28,13 @@ class _FakeTable:
         self._name = name
         self._rows = list(client.rows.get(name, []))
 
-    def select(self, *_a, **_k):
+    def select(self, columns="*", **_k):
+        self._client.selects.append((self._name, columns))
+        available = self._client.schemas.get(self._name)
+        requested = {part.strip() for part in columns.split(",")}
+        if available is not None and columns != "*" and not requested <= available:
+            missing = sorted(requested - available)
+            raise RuntimeError(f"column {self._name}.{missing[0]} does not exist")
         return self
 
     def eq(self, field, value):
@@ -65,9 +78,11 @@ class _FakeTable:
 
 
 class _FakeClient:
-    def __init__(self, rows):
+    def __init__(self, rows, *, schemas=None):
         self.rows = {name: list(vals) for name, vals in rows.items()}
         self.upserted: dict[str, list] = {}
+        self.selects: list[tuple[str, str]] = []
+        self.schemas = dict(schemas or {})
 
     def table(self, name):
         return _FakeTable(self, name)
@@ -110,10 +125,7 @@ def _set_rows(set_ids):
 
 
 def _ready_rows(set_ids, day, *, not_ready=()):
-    """Mock of pokemon_market_root_set_market_ready_v1: the FULL root
-    universe (ready and not-ready alike), matching the real view which joins
-    every canonical root set to its certification status rather than
-    filtering on it."""
+    """Exact production publication-cohort projection (membership only)."""
     not_ready = set(not_ready)
     return [
         {
@@ -125,10 +137,6 @@ def _ready_rows(set_ids, day, *, not_ready=()):
             "current_certification_status": (
                 "PRICE_FRESHNESS_STALE" if set_id in not_ready else "CERTIFIED_CURRENT"
             ),
-            "oldest_component_price_date": day,
-            "newest_component_price_date": day,
-            "top10_certified": set_id not in not_ready,
-            "coverage_pct": 100.0,
         }
         for set_id in set_ids
     ]
@@ -147,6 +155,9 @@ def _cert_rows(set_ids, day, *, blocked=()):
             "current_certification_status": (
                 "CERTIFIED_CURRENT" if set_id not in blocked else "STRUCTURAL_MISMATCH"
             ),
+            "oldest_component_price_date": day,
+            "newest_component_price_date": day,
+            "coverage_pct": 100.0,
         }
         for set_id in set_ids
     ]
@@ -202,11 +213,62 @@ def _post_cutover_fixture(day="2026-09-09", previous_day="2026-09-08"):
         ],
         "pokemon_market_public_rollout_root_sets_v1": [],
     }
-    return _FakeClient(rows), previous_ids, ready_ids, prior_only_ids, entered_ids, final_ids
+    schemas = {
+        MARKET_READY_VIEW: set(MARKET_MEMBERSHIP_COLUMNS.split(",")),
+        MARKET_CERTIFICATION_VIEW: set(MARKET_CERTIFICATION_COLUMNS.split(",")),
+    }
+    return _FakeClient(rows, schemas=schemas), previous_ids, ready_ids, prior_only_ids, entered_ids, final_ids
 
 
 def test_cutover_date_is_frozen_after_already_published_sep8():
     assert MARKET_ROOT_AUTHORITY_CUTOVER_DATE == "2026-09-09"
+
+
+def test_membership_query_does_not_request_certification_columns():
+    """Regression for production PostgREST 42703 on the membership view."""
+    client, *_ = _post_cutover_fixture(day="2026-09-10", previous_day="2026-09-09")
+
+    cohort = resolve_market_root_cohort(client, market_date="2026-09-10")
+
+    selects = dict(client.selects)
+    assert selects[MARKET_READY_VIEW] == MARKET_MEMBERSHIP_COLUMNS
+    assert selects[MARKET_CERTIFICATION_VIEW] == MARKET_CERTIFICATION_COLUMNS
+    assert cohort[0]["market_oldest_component_price_date"] == "2026-09-10"
+    assert cohort[0]["market_newest_component_price_date"] == "2026-09-10"
+    assert cohort[0]["market_coverage_pct"] == 100.0
+
+
+def test_membership_and_certification_authority_columns_remain_separate():
+    membership = set(MARKET_MEMBERSHIP_COLUMNS.split(","))
+    certification_metadata = {
+        "oldest_component_price_date",
+        "newest_component_price_date",
+        "top10_certified",
+        "coverage_pct",
+    }
+
+    assert membership.isdisjoint(certification_metadata)
+    assert certification_metadata <= set(MARKET_CERTIFICATION_COLUMNS.split(","))
+
+
+@pytest.mark.parametrize("migration_path", [
+    "backend/db/migrations/20260906004022_add_staged_market_set_value_publication_cohort.sql",
+    "supabase/migrations/20260906004022_add_staged_market_set_value_publication_cohort.sql",
+])
+def test_membership_query_matches_deployed_view_schema_contract(migration_path):
+    """Pin the service projection to the actual forward migration contract."""
+    root = Path(__file__).resolve().parents[5]
+    sql = (root / migration_path).read_text(encoding="utf-8")
+    match = re.search(
+        r"SELECT DISTINCT ON \(set_id\)\s+(.*?)\s+FROM \(", sql,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    assert match is not None
+    deployed_columns = ",".join(
+        part.strip() for part in match.group(1).replace("\n", " ").split(",")
+    )
+    assert MARKET_MEMBERSHIP_COLUMNS == deployed_columns
 
 
 def test_pre_cutover_history_still_reconstructs_the_staged_39_roots():

@@ -18,6 +18,23 @@ MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
 MARKET_CERTIFICATION_VIEW = "pokemon_market_root_set_publication_current_certification_v1"
 MARKET_INDEX_HISTORY_TABLE = "pokemon_market_index_daily_history"
 
+# Keep the two authority contracts explicit.  The publication cohort owns
+# membership/identity; certification owns structural and freshness evidence.
+# In particular, do not widen the membership select when a caller needs more
+# certification metadata -- production intentionally does not expose those
+# columns on MARKET_READY_VIEW.
+MARKET_MEMBERSHIP_COLUMNS = (
+    "set_id,set_name,canonical_key,era_name,release_date,logo_image_url,"
+    "symbol_image_url,market_scope,canonical_market_date,"
+    "market_publication_ready,current_certification_status"
+)
+MARKET_CERTIFICATION_COLUMNS = (
+    "set_id,market_scope,canonical_market_date,set_value_certified,"
+    "top10_certified,market_scope_certified,price_freshness_certified,"
+    "current_market_scope_certified,current_certification_status,"
+    "oldest_component_price_date,newest_component_price_date,coverage_pct"
+)
+
 # Sep 8 was already published with the staged headline basket. Never rewrite it.
 # The next market date resolves the canonical authority and chain-links through
 # the common prior cohort.
@@ -189,13 +206,7 @@ def _canonical_market_root_cohort(
     day = str(market_date)[:10] if market_date else None
     query = (
         client.table(MARKET_READY_VIEW)
-        .select(
-            "set_id,set_name,canonical_key,era_name,release_date,logo_image_url,"
-            "symbol_image_url,market_scope,canonical_market_date,"
-            "market_publication_ready,current_certification_status,"
-            "oldest_component_price_date,newest_component_price_date,"
-            "top10_certified,coverage_pct"
-        )
+        .select(MARKET_MEMBERSHIP_COLUMNS)
         .eq("market_scope", "standard")
     )
     if day:
@@ -210,11 +221,7 @@ def _canonical_market_root_cohort(
     for offset in range(0, len(candidate_ids), 100):
         cert_query = (
             client.table(MARKET_CERTIFICATION_VIEW)
-            .select(
-                "set_id,market_scope,canonical_market_date,set_value_certified,"
-                "top10_certified,market_scope_certified,price_freshness_certified,"
-                "current_market_scope_certified,current_certification_status"
-            )
+            .select(MARKET_CERTIFICATION_COLUMNS)
             .eq("market_scope", "standard")
             .in_("set_id", candidate_ids[offset:offset + 100])
         )
@@ -269,17 +276,15 @@ def _canonical_market_root_cohort(
                 (cert_by_id.get(set_id) or {}).get("price_freshness_certified")
             ),
             "market_current_certification_status": (
-                universe_by_id.get(set_id) or {}
-            ).get("current_certification_status") or (cert_by_id.get(set_id) or {}).get(
-                "current_certification_status"
-            ),
+                cert_by_id.get(set_id) or {}
+            ).get("current_certification_status"),
             "market_oldest_component_price_date": (
-                universe_by_id.get(set_id) or {}
+                cert_by_id.get(set_id) or {}
             ).get("oldest_component_price_date"),
             "market_newest_component_price_date": (
-                universe_by_id.get(set_id) or {}
+                cert_by_id.get(set_id) or {}
             ).get("newest_component_price_date"),
-            "market_coverage_pct": (universe_by_id.get(set_id) or {}).get("coverage_pct"),
+            "market_coverage_pct": (cert_by_id.get(set_id) or {}).get("coverage_pct"),
             "canonical_market_date": (
                 universe_by_id.get(set_id) or {}
             ).get("canonical_market_date") or (cert_by_id.get(set_id) or {}).get(
