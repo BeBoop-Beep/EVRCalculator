@@ -546,12 +546,12 @@ export default function MarketExplorerQueryBuilder({
             id="market-builder-heading"
             className="text-[16px] font-semibold text-[var(--text-primary)]"
           >
-            Market Explorer
+            Custom Filtered Market
           </h2>
           <span data-market-explorer-plan-badge data-market-explorer-plan={accessMode} className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">{accessMode === "premium" ? "Index Premium" : accessMode === "plus" ? "Index Plus" : "Basic"}</span>
           </div>
           <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
-            Build, compare, and inspect markets.
+            Define a market using canonical scope and filters.
           </p>
           {coverageSummary.length ? <p data-market-coverage-summary className="mt-1 text-[9px] leading-tight text-[var(--text-secondary)]">{coverageSummary.join(" · ")}</p> : null}
         </div>

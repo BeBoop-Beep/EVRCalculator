@@ -17,9 +17,9 @@ export default function MarketExplorerBrowse({ directory = [], activeKeys = [], 
   const [tab, setTab] = useState("sets");
   const grouped = useMemo(() => groupPreparedDirectory(directory, search), [directory, search]);
   const rows = tab === "eras" ? grouped.eras : tab === "quick" ? grouped.quick : null;
-  return <section data-market-explorer-browse aria-labelledby="browse-markets-heading" className="min-w-0 border-b border-[var(--border-subtle)]">
-    <div className="px-3 py-3"><h2 id="browse-markets-heading" className="text-sm font-semibold text-[var(--text-primary)]">Browse Markets</h2>
-      <p className="text-[11px] text-[var(--text-secondary)]">Explore every published Set, Era, and curated Quick Market.</p></div>
+  return <section data-market-explorer-browse aria-labelledby="browse-markets-heading" className="min-w-0">
+    <div className="px-3 py-3"><h3 id="browse-markets-heading" className="text-sm font-semibold text-[var(--text-primary)]">Market Directory</h3>
+      <p className="text-[11px] text-[var(--text-secondary)]">Select a market to open it, or add it to a comparison.</p></div>
     <div role="tablist" aria-label="Prepared market type" className="flex gap-1 px-3">
       {[['sets','Sets'],['eras','Eras'],['quick','Quick Markets']].map(([id,label]) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`rounded-t px-3 py-2 text-xs ${tab === id ? "bg-[rgba(45,212,191,.12)] text-[rgb(45,212,191)]" : "text-[var(--text-secondary)]"}`}>{label}</button>)}
     </div>

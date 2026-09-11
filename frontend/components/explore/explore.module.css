@@ -1134,6 +1134,55 @@
   display: block;
 }
 
+/* Phase 7 information architecture: broad intent zones, with the comparison
+ * workspace carrying the strongest visual weight. Internal tools keep their
+ * own compact separators instead of becoming a wall of nested cards. */
+.explorerZone {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ex-line);
+  border-radius: 0.9rem;
+}
+
+.explorerZonePrimary {
+  border-color: rgba(45, 212, 191, 0.24);
+  box-shadow: 0 16px 48px rgba(2, 6, 23, 0.18), inset 0 1px rgba(153, 246, 228, 0.05);
+}
+
+.explorerZoneHeader {
+  padding: 1rem 0.9rem 0.8rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: linear-gradient(110deg, rgba(13, 148, 136, 0.09), rgba(14, 116, 144, 0.035) 55%, transparent);
+}
+
+.explorerZoneEyebrow {
+  color: rgb(45, 212, 191);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.explorerZoneTitle { margin-top: 0.2rem; color: var(--text-primary); font-size: 1.05rem; font-weight: 700; }
+.explorerZoneDescription { margin-top: 0.2rem; color: var(--text-secondary); font-size: 0.75rem; line-height: 1.45; }
+
+.explorerInspectionGrid,
+.explorerBuildGrid { display: grid; min-width: 0; }
+
+.explorerInspectionGrid > *,
+.explorerBuildPath { min-width: 0; border-top: 1px solid var(--border-subtle); }
+
+@media (min-width: 768px) {
+  .explorerZoneHeader { padding: 1.1rem 1rem 0.9rem; }
+  .explorerInspectionGrid { grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.75fr); }
+  .explorerInspectionGrid > :last-child { border-left: 1px solid var(--border-subtle); }
+}
+
+@media (min-width: 1200px) {
+  .explorerBuildGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .explorerBuildPath + .explorerBuildPath { border-left: 1px solid var(--border-subtle); }
+}
+
 /* THE RAIL IS FIXED; THE CHART TAKES EVERYTHING ELSE.
  *
  * The previous 20fr/80fr split meant that widening the workspace widened the

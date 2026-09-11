@@ -52,24 +52,28 @@ export default function MarketExplorerChart({
 
   return (
     <section data-market-explorer-chart-pane className="flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
-      <div className="flex flex-col gap-3 px-3 py-3 sm:px-4 desk:flex-row desk:items-start desk:justify-between desk:gap-6">
-        <div className="min-w-0">
-          <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
+      <div className="px-3 py-3 sm:px-4">
+        <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
+        <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-6">
+          <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
+          <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0">
+            <MarketExplorerTimeframeSelector
+              options={timeframeOptions}
+              value={timeframe}
+              onChange={onTimeframeChange}
+              ariaDescription="Sets the timeframe for the chart and every selected-period return on this page. Each market is measured over its own history. Changing it does not change which markets are on the chart."
+            />
+          </div>
+        </div>
+        <div className="mt-2 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-2">
+          <div className="min-w-0 flex-1">
           <p className="text-[10px] text-[var(--text-secondary)]">{viewMode === MARKET_CHART_VIEW_INDEX ? INDEX_NOTE : PERFORMANCE_NOTE}</p>
           {timeframe === "All" ? (
             <p data-market-explorer-all-span-note className="mt-1 text-[11px] text-[var(--text-secondary)]">
               All shows each selected market since its own tracking start, so lines may begin on different dates.
             </p>
           ) : null}
-        </div>
-        <div className="flex flex-col items-stretch gap-2 desk:flex-none desk:items-end">
-          <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
-          <MarketExplorerTimeframeSelector
-            options={timeframeOptions}
-            value={timeframe}
-            onChange={onTimeframeChange}
-            ariaDescription="Sets the timeframe for the chart and every selected-period return on this page. Each market is measured over its own history. Changing it does not change which markets are on the chart."
-          />
+          </div>
           {/* GRAPH-LEVEL controls. Distinct from Builder Clear (which lives with
               the Builder and only resets the draft): these three act on what is
               CURRENTLY ON THE CHART. Show all / Hide all is one click instead of
@@ -79,7 +83,7 @@ export default function MarketExplorerChart({
             data-market-explorer-graph-controls
             role="group"
             aria-label="Graph controls"
-            className="flex flex-wrap items-center gap-1.5 text-[11px]"
+            className="flex flex-none flex-wrap items-center gap-1.5 text-[11px]"
           >
             <button
               type="button"
@@ -87,7 +91,7 @@ export default function MarketExplorerChart({
               onClick={onClearGraph}
               disabled={!totalActiveCount}
               aria-label="Clear Graph: remove every active market from the chart"
-              className="rounded-full border border-[var(--border-subtle)] px-2.5 py-1 font-medium text-[var(--text-secondary)] transition-colors hover:border-[rgba(248,113,113,0.5)] hover:text-[rgb(248,113,113)] disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+              className="rounded-md px-2 py-1 font-medium text-[var(--text-secondary)] opacity-70 transition-colors hover:bg-[rgba(248,113,113,0.06)] hover:text-[rgb(248,113,113)] disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
             >
               Clear Graph
             </button>
