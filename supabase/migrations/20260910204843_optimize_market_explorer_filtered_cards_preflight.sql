@@ -96,7 +96,7 @@ readiness as materialized (
         (
             a.previous_approved_market_date is not null
             and s.scope_set_count > 0
-            and coalesce(c.history_probe_projection_ready_set_count, 0) = s.scope_set_count
+            and coalesce(c.history_probe_ready_set_count, 0) = s.scope_set_count
         ) as history_probe_projection_ready,
         c.projection_retained_from,
         c.projection_computed_through
