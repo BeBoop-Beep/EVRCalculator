@@ -1,8 +1,8 @@
-"""Persistence boundary for Sentinel state.
+"""Persistence boundary for Sentinel state and bounded recovery audit records.
 
-The default Prompt-2 runtime uses NoopStateStore. Supabase writes are only
-possible when SENTINEL_STATE_WRITES_ENABLED=true and the proposed Sentinel
-schema has been explicitly deployed in a later activation step.
+Production persistence is only constructed when Sentinel state writes are
+explicitly enabled after the dedicated schema is deployed. NoopStateStore keeps
+all pre-activation/test-only execution inert by default.
 """
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ from backend.sentinel.models import (
     CheckStateStatus,
     IncidentRecord,
     IncidentStatus,
+    RecoveryAttemptRecord,
+    RecoveryAttemptStatus,
     RunnerIdentity,
     Severity,
 )
@@ -52,6 +54,10 @@ class SentinelStateStore(Protocol):
     ) -> Optional[IncidentRecord]: ...
     def upsert_incident(self, incident: IncidentRecord) -> None: ...
     def resolve_incident(self, incident_id: str, resolved_at: datetime) -> None: ...
+    def get_latest_recovery_attempt(
+        self, incident_id: str, runbook: str
+    ) -> Optional[RecoveryAttemptRecord]: ...
+    def save_recovery_attempt(self, attempt: RecoveryAttemptRecord) -> None: ...
     def record_heartbeat(
         self,
         identity: RunnerIdentity,
@@ -85,6 +91,14 @@ class NoopStateStore:
     def resolve_incident(self, incident_id: str, resolved_at: datetime) -> None:
         return None
 
+    def get_latest_recovery_attempt(
+        self, incident_id: str, runbook: str
+    ) -> Optional[RecoveryAttemptRecord]:
+        return None
+
+    def save_recovery_attempt(self, attempt: RecoveryAttemptRecord) -> None:
+        return None
+
     def record_heartbeat(
         self,
         identity: RunnerIdentity,
@@ -102,6 +116,7 @@ class MemoryStateStore:
     def __init__(self) -> None:
         self.check_states: Dict[str, CheckState] = {}
         self.incidents: Dict[str, IncidentRecord] = {}
+        self.recovery_attempts: Dict[str, RecoveryAttemptRecord] = {}
         self.heartbeats: Dict[tuple[str, str], Dict[str, Any]] = {}
 
     def get_check_state(self, check_key: str) -> Optional[CheckState]:
@@ -136,6 +151,22 @@ class MemoryStateStore:
         incident.status = IncidentStatus.RESOLVED
         incident.resolved_at = resolved_at
         incident.last_seen_at = resolved_at
+
+    def get_latest_recovery_attempt(
+        self, incident_id: str, runbook: str
+    ) -> Optional[RecoveryAttemptRecord]:
+        candidates = [
+            attempt
+            for attempt in self.recovery_attempts.values()
+            if attempt.incident_id == incident_id and attempt.runbook == runbook
+        ]
+        if not candidates:
+            return None
+        latest = max(candidates, key=lambda attempt: (attempt.attempt_number, attempt.started_at))
+        return replace(latest)
+
+    def save_recovery_attempt(self, attempt: RecoveryAttemptRecord) -> None:
+        self.recovery_attempts[attempt.id] = replace(attempt)
 
     def record_heartbeat(
         self,
@@ -309,6 +340,58 @@ class SupabaseStateStore:
                 }
             )
             .eq("id", incident_id)
+            .execute()
+        )
+
+    def _recovery_from_row(self, row: Dict[str, Any]) -> RecoveryAttemptRecord:
+        return RecoveryAttemptRecord(
+            id=str(row["id"]),
+            incident_id=str(row["incident_id"]),
+            runbook=str(row["runbook"]),
+            runbook_version=str(row["runbook_version"]),
+            started_at=_dt(row["started_at"]) or datetime.now(timezone.utc),
+            completed_at=_dt(row.get("completed_at")),
+            preconditions_json=dict(row.get("preconditions_json") or {}),
+            result_json=dict(row.get("result_json") or {}),
+            status=RecoveryAttemptStatus(row["status"]),
+            attempt_number=int(row["attempt_number"]),
+            cooldown_until=_dt(row.get("cooldown_until")),
+        )
+
+    def get_latest_recovery_attempt(
+        self, incident_id: str, runbook: str
+    ) -> Optional[RecoveryAttemptRecord]:
+        rows = list(
+            (
+                self.client.table("sentinel_recovery_attempts")
+                .select("*")
+                .eq("incident_id", incident_id)
+                .eq("runbook", runbook)
+                .order("attempt_number", desc=True)
+                .limit(1)
+                .execute()
+            ).data
+            or []
+        )
+        return self._recovery_from_row(rows[0]) if rows else None
+
+    def save_recovery_attempt(self, attempt: RecoveryAttemptRecord) -> None:
+        payload = {
+            "id": attempt.id,
+            "incident_id": attempt.incident_id,
+            "runbook": attempt.runbook,
+            "runbook_version": attempt.runbook_version,
+            "started_at": _iso(attempt.started_at),
+            "completed_at": _iso(attempt.completed_at),
+            "preconditions_json": attempt.preconditions_json,
+            "result_json": attempt.result_json,
+            "status": attempt.status.value,
+            "attempt_number": attempt.attempt_number,
+            "cooldown_until": _iso(attempt.cooldown_until),
+        }
+        (
+            self.client.table("sentinel_recovery_attempts")
+            .upsert(payload, on_conflict="id")
             .execute()
         )
 
