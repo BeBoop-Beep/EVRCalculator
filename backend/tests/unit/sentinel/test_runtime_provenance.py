@@ -36,13 +36,13 @@ def write_manifest(tmp_path, **overrides):
     return str(path)
 
 
-def runner_for(*, branch="main", ancestor_rc=0, committed="", status=""):
+def runner_for(*, branch="main", head=HEAD, ancestor_rc=0, committed="", status=""):
     def run(_repo, args):
         key = tuple(args)
         if key == ("branch", "--show-current"):
             return 0, branch + "\n", ""
         if key == ("rev-parse", "HEAD"):
-            return 0, HEAD + "\n", ""
+            return 0, head + "\n", ""
         if key[:2] == ("merge-base", "--is-ancestor"):
             return ancestor_rc, "", ""
         if key[:3] == ("diff", "--name-only", "--diff-filter=ACDMRTUXB"):
@@ -110,6 +110,11 @@ def test_manifest_rejects_non_full_sha_and_parent_traversal(tmp_path):
     bad_path = write_manifest(tmp_path, allowedPaths=["../outside"])
     with pytest.raises(ValueError, match="repository-relative"):
         load_vm_overlay_manifest(bad_path)
+
+
+def test_invalid_observed_head_sha_fails_closed(tmp_path):
+    result = check(tmp_path, head="not-a-sha")
+    assert result.failure_code == "runtime_head_sha_invalid"
 
 
 def test_git_exception_is_structured_without_error_message(tmp_path):
