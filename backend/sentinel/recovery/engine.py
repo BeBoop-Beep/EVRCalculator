@@ -7,8 +7,9 @@ Recovery is deliberately conservative:
 - preconditions are re-read immediately before mutation,
 - the attempt is persisted before mutation,
 - an unfinished prior attempt blocks blind replay after process death,
+- callback contract defects fail closed instead of escaping after mutation,
 - one failed execution/verification escalates instead of looping,
-- successful recovery is only accepted after a healthy deterministic verifier.
+- successful recovery is only accepted after a same-authority healthy verifier.
 """
 
 from __future__ import annotations
@@ -144,6 +145,20 @@ def _execution_error(exc: Exception) -> RecoveryExecution:
     )
 
 
+def _contract_execution_failure(value: Any) -> RecoveryExecution:
+    # If an execute callback returned an invalid object, mutation state is
+    # unknowable. Mark it as potentially mutated so operators do not assume the
+    # failed contract was harmless or retry it automatically.
+    return RecoveryExecution(
+        RecoveryAttemptStatus.FAILED,
+        result={
+            "error_type": "recovery_execution_contract_invalid",
+            "returned_type": type(value).__name__,
+        },
+        mutation_performed=True,
+    )
+
+
 class RecoveryRunner:
     def __init__(self, store: SentinelStateStore, registry: RecoveryRegistry) -> None:
         self.store = store
@@ -245,6 +260,14 @@ class RecoveryRunner:
                 "runbook": runbook.key,
                 "error_type": exc.__class__.__name__,
             }
+        if not isinstance(decision, RecoveryDecision):
+            return {
+                "action": "blocked",
+                "reason_code": "recovery_precondition_contract_invalid",
+                "incident_id": incident.id,
+                "runbook": runbook.key,
+                "returned_type": type(decision).__name__,
+            }
         if not decision.eligible:
             return {
                 "action": "blocked",
@@ -279,6 +302,8 @@ class RecoveryRunner:
             execution = runbook.execute(incident, context)
         except Exception as exc:
             execution = _execution_error(exc)
+        if not isinstance(execution, RecoveryExecution):
+            execution = _contract_execution_failure(execution)
 
         result_json: Dict[str, Any] = {
             "execution": {
@@ -316,12 +341,29 @@ class RecoveryRunner:
                 checked_at=now,
             )
 
-        if verification.check_key != incident.check_key:
+        if not isinstance(verification, CheckResult):
             verification = CheckResult.execution_error(
                 incident.check_key,
                 failure_code="recovery_verification_contract_invalid",
                 authority_identity=incident.authority_identity,
-                evidence={"returned_check_key": verification.check_key},
+                evidence={"returned_type": type(verification).__name__},
+                checked_at=now,
+            )
+        elif (
+            verification.check_key != incident.check_key
+            or (
+                incident.authority_identity is not None
+                and verification.authority_identity != incident.authority_identity
+            )
+        ):
+            verification = CheckResult.execution_error(
+                incident.check_key,
+                failure_code="recovery_verification_contract_invalid",
+                authority_identity=incident.authority_identity,
+                evidence={
+                    "returned_check_key": verification.check_key,
+                    "returned_authority_identity": verification.authority_identity,
+                },
                 checked_at=now,
             )
 
