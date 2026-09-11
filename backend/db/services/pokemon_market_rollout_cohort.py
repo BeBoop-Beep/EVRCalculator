@@ -15,6 +15,14 @@ ROLLOUT_VIEW = "pokemon_market_public_rollout_root_sets_v1"
 # eligibility and are the basis for the one root universe shared by Set Market,
 # Raw/Top-10 Market, and the eligible Sealed root universe after the cutover.
 MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
+# Sep 10+ annotation projection: NO membership predicate (no
+# market_publication_ready filter, no rollout-override CTE) -- unlike
+# MARKET_READY_VIEW, this can never add or remove a member. Membership for
+# these dates comes exclusively from MARKET_ROOT_AUTHORITY_TABLE; this view
+# is only ever queried with an explicit candidate set_id list already derived
+# from that table. See migration
+# 20260911160500_add_pokemon_market_set_value_publication_cohort_v2.
+MARKET_ANNOTATION_VIEW_V2 = "pokemon_market_set_value_publication_cohort_v2"
 MARKET_CERTIFICATION_VIEW = "pokemon_market_root_set_publication_current_certification_v1"
 MARKET_INDEX_HISTORY_TABLE = "pokemon_market_index_daily_history"
 
@@ -352,13 +360,20 @@ def _authority_market_root_cohort(
     candidate_ids = sorted(universe_ids)
     universe_rows: list[dict[str, Any]] = []
     for offset in range(0, len(candidate_ids), 100):
+        # Deliberately MARKET_ANNOTATION_VIEW_V2, not MARKET_READY_VIEW: v1
+        # carries a `WHERE market_publication_ready` gate (plus a
+        # rollout-override CTE) that must never again decide Sep 10+
+        # membership. v2 has no membership predicate at all -- membership is
+        # already fully decided by `universe_ids` above (the authority
+        # table); this query only fetches metadata/certification annotation
+        # for that fixed candidate list, and is intentionally NOT filtered by
+        # canonical_market_date (v2's certification join is "current
+        # certification", not a per-date history row).
         query = (
-            client.table(MARKET_READY_VIEW)
+            client.table(MARKET_ANNOTATION_VIEW_V2)
             .select(MARKET_MEMBERSHIP_COLUMNS)
             .in_("set_id", candidate_ids[offset:offset + 100])
         )
-        if day:
-            query = query.eq("canonical_market_date", day)
         universe_rows.extend(dict(row) for row in (query.execute().data or []))
 
     certification_rows: list[dict[str, Any]] = []

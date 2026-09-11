@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from backend.db.services.pokemon_market_rollout_cohort import (
+    MARKET_ANNOTATION_VIEW_V2,
     MARKET_CERTIFICATION_COLUMNS,
     MARKET_CERTIFICATION_VIEW,
     MARKET_MEMBERSHIP_COLUMNS,
@@ -203,6 +204,13 @@ def _post_cutover_fixture(day="2026-09-09", previous_day="2026-09-08"):
         "pokemon_market_set_value_publication_cohort_v1": _ready_rows(
             final_ids, day, not_ready=prior_only_ids
         ),
+        # v2 has no membership predicate at all (unlike v1's
+        # market_publication_ready gate): every candidate set_id the
+        # authority-table resolver asks about is present, with certification
+        # carried purely as annotation.
+        "pokemon_market_set_value_publication_cohort_v2": _ready_rows(
+            final_ids, day, not_ready=prior_only_ids
+        ),
         "pokemon_market_root_set_publication_current_certification_v1": _cert_rows(final_ids, day),
         "sets": _set_rows(final_ids),
         "eras": [{"id": "era", "name": "Era"}],
@@ -225,6 +233,7 @@ def _post_cutover_fixture(day="2026-09-09", previous_day="2026-09-08"):
     }
     schemas = {
         MARKET_READY_VIEW: set(MARKET_MEMBERSHIP_COLUMNS.split(",")),
+        MARKET_ANNOTATION_VIEW_V2: set(MARKET_MEMBERSHIP_COLUMNS.split(",")),
         MARKET_CERTIFICATION_VIEW: set(MARKET_CERTIFICATION_COLUMNS.split(",")),
     }
     return _FakeClient(rows, schemas=schemas), previous_ids, ready_ids, prior_only_ids, entered_ids, final_ids
@@ -241,7 +250,13 @@ def test_membership_query_does_not_request_certification_columns():
     cohort = resolve_market_root_cohort(client, market_date="2026-09-10")
 
     selects = dict(client.selects)
-    assert selects[MARKET_READY_VIEW] == MARKET_MEMBERSHIP_COLUMNS
+    # Sep 10+ resolves via the authority table and only ever fetches
+    # metadata/certification annotation from the ungated v2 view -- never
+    # MARKET_READY_VIEW (v1), which still carries the market_publication_ready
+    # gate and rollout-override CTE this pass exists to remove from the Sep
+    # 10+ path.
+    assert selects[MARKET_ANNOTATION_VIEW_V2] == MARKET_MEMBERSHIP_COLUMNS
+    assert MARKET_READY_VIEW not in selects
     assert selects[MARKET_CERTIFICATION_VIEW] == MARKET_CERTIFICATION_COLUMNS
     assert cohort[0]["market_oldest_component_price_date"] == "2026-09-10"
     assert cohort[0]["market_newest_component_price_date"] == "2026-09-10"
