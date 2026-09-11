@@ -65,6 +65,13 @@ PHASE5_PREPARED_MIRRORS = {
     "20260911201307_market_explorer_phase5_fix_contextual_ranking_metadata_join": "545fbfc912f1bcaa36743c041c9e4ec8",
 }
 
+PHASE6_EXACT_MIRRORS = {
+    "20260911211011_market_explorer_phase6_exact_basket_v2_contract": "49f8184f49c9edface89cb12983686c8",
+    "20260911211033_market_explorer_phase6_search_exact_eligibility": "ad8084a3f9ee4fd26d16ce32dcd0a537",
+    "20260911211130_market_explorer_phase6_preserve_stale_exact_basket_state": "35a28f3e34fbe111103018fede255388",
+    "20260911211254_market_explorer_phase6_separate_leaf_identity_from_price_state": "fa2cb59a708700fcfe37b379bc56eda3",
+}
+
 
 def test_prompt1_sources_use_actual_ledger_versions_and_match_statement_bytes():
     """apply_migration stored the submitted SQL with one trailing CRLF."""
@@ -117,6 +124,14 @@ def test_phase5_prepared_migrations_are_identical_in_both_canonical_trees():
         assert backend_source == (
             ROOT / "supabase/migrations" / f"{stem}.sql"
         ).read_bytes()
+        normalized = backend_source.replace(b"\r\n", b"\n").rstrip(b"\n")
+        assert hashlib.md5(normalized).hexdigest() == ledger_md5
+
+
+def test_phase6_exact_migrations_are_identical_in_both_canonical_trees():
+    for stem, ledger_md5 in PHASE6_EXACT_MIRRORS.items():
+        backend_source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        assert backend_source == (ROOT / "supabase/migrations" / f"{stem}.sql").read_bytes()
         normalized = backend_source.replace(b"\r\n", b"\n").rstrip(b"\n")
         assert hashlib.md5(normalized).hexdigest() == ledger_md5
 

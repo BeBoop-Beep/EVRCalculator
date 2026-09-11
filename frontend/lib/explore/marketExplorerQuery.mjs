@@ -27,12 +27,14 @@ import { colorForSeriesFingerprint, softSeriesColor } from "./marketExplorerSeri
 
 export const MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v3-variant";
 export const MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1-explicit-instrument";
+export const MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION_V2 = "pokemon-market-explorer-query-v2-qualified-explicit-instrument";
 export const QUERY_MEMBERSHIP_FILTERS = "filters";
 export const QUERY_MEMBERSHIP_EXPLICIT = "explicit";
 export const MAX_EXPLICIT_INSTRUMENTS = 25;
 
 export const QUERY_ASSET_CARDS = "cards";
 export const QUERY_ASSET_SEALED = "sealed";
+export const QUERY_ASSET_MIXED = "mixed";
 export const QUERY_ASSETS = [QUERY_ASSET_CARDS, QUERY_ASSET_SEALED];
 
 export const QUERY_MODE_ALL = "all";
@@ -66,7 +68,7 @@ export const ASSET_PRESENTATION = {
 
 /** The asset an unknown or absent value resolves to. */
 export const normalizeAsset = (value) =>
-  QUERY_ASSETS.includes(String(value)) ? String(value) : QUERY_ASSET_CARDS;
+  [...QUERY_ASSETS, QUERY_ASSET_MIXED].includes(String(value)) ? String(value) : QUERY_ASSET_CARDS;
 
 export const presentationFor = (asset) => ASSET_PRESENTATION[normalizeAsset(asset)];
 
@@ -114,23 +116,31 @@ export function normalizeQuerySpec({
   topN = null,
   membershipMode = QUERY_MEMBERSHIP_FILTERS,
   instrumentIds = [],
+  instruments = [],
 } = {}) {
   const resolvedMode = mode === QUERY_MODE_CHASE ? QUERY_MODE_CHASE : QUERY_MODE_ALL;
   const membership = membershipMode === QUERY_MEMBERSHIP_EXPLICIT
     ? QUERY_MEMBERSHIP_EXPLICIT : QUERY_MEMBERSHIP_FILTERS;
   const explicitIds = cleanIds(instrumentIds);
-  if (membership === QUERY_MEMBERSHIP_EXPLICIT && !explicitIds.length) {
-    throw new RangeError("explicit membership requires at least one instrumentId");
+  const qualified = [...new Map((Array.isArray(instruments) ? instruments : []).map((item) => {
+    const itemAsset = String(item?.asset || "").trim().toLowerCase();
+    const instrumentId = String(item?.instrumentId || "").trim();
+    if (!QUERY_ASSETS.includes(itemAsset) || !instrumentId) throw new RangeError("explicit instruments require asset and instrumentId");
+    return [`${itemAsset}:${instrumentId}`, { asset: itemAsset, instrumentId }];
+  })).values()].sort((a, b) => a.asset.localeCompare(b.asset) || a.instrumentId.localeCompare(b.instrumentId));
+  const explicitCount = qualified.length || explicitIds.length;
+  if (membership === QUERY_MEMBERSHIP_EXPLICIT && !explicitCount) {
+    throw new RangeError("explicit membership requires at least one instrument");
   }
-  if (membership === QUERY_MEMBERSHIP_EXPLICIT && explicitIds.length > MAX_EXPLICIT_INSTRUMENTS) {
-    throw new RangeError("explicit membership supports at most 25 instrumentIds");
+  if (membership === QUERY_MEMBERSHIP_EXPLICIT && explicitCount > MAX_EXPLICIT_INSTRUMENTS) {
+    throw new RangeError("explicit membership supports at most 25 instruments");
   }
   // Exact membership is a standalone leaf-instrument definition. Canonicalize
   // away stale Builder filters instead of allowing an accidental intersection.
   const exact = membership === QUERY_MEMBERSHIP_EXPLICIT;
   const normalized = {
     contractVersion: MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
-    asset: normalizeAsset(asset),
+    asset: qualified.length ? (new Set(qualified.map((item) => item.asset)).size === 1 ? qualified[0].asset : "mixed") : normalizeAsset(asset),
     eraIds: exact ? [] : cleanIds(eraIds),
     setIds: exact ? [] : cleanIds(setIds),
     segmentIds: exact ? [] : cleanIds(segmentIds),
@@ -145,9 +155,10 @@ export function normalizeQuerySpec({
       : null,
   };
   if (membership === QUERY_MEMBERSHIP_EXPLICIT) {
-    normalized.contractVersion = MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION;
+    normalized.contractVersion = qualified.length ? MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION_V2 : MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION;
     normalized.membershipMode = membership;
-    normalized.instrumentIds = explicitIds;
+    if (qualified.length) normalized.instruments = qualified;
+    else normalized.instrumentIds = explicitIds;
   }
   return normalized;
 }
@@ -211,7 +222,8 @@ export function buildQueryKey(spec) {
     `topN=${normalized.topN ?? "na"}`,
   ];
   if (normalized.membershipMode === QUERY_MEMBERSHIP_EXPLICIT) {
-    parts.splice(1, 0, "membership=explicit", keyPart("instrument", normalized.instrumentIds));
+    const identities = normalized.instruments?.map((item) => `${item.asset}:${item.instrumentId}`) || normalized.instrumentIds;
+    parts.splice(1, 0, "membership=explicit", keyPart("instrument", identities));
   }
   return parts.join("|");
 }
@@ -371,6 +383,8 @@ export function queryResultToSeries(result) {
     isParent: false,
     available: true,
     basketValue: result.trackedValue,
+    basketAsOf: result.basketAsOf || result.asOf,
+    status: result.status || "ready",
     indexValue: result.indexValue,
     historyStartDate: result.historyStartDate,
     changes,

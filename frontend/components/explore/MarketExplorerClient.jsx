@@ -11,6 +11,7 @@ import MarketExplorerMethodology from "./MarketExplorerMethodology";
 import MarketExplorerBrowse from "./MarketExplorerBrowse";
 import MarketExplorerScreens from "./MarketExplorerScreens";
 import MarketExplorerContextRanking from "./MarketExplorerContextRanking";
+import MarketExplorerExactBasket from "./MarketExplorerExactBasket";
 import { buildPreparedSeries } from "@/lib/explore/marketExplorerPrepared.mjs";
 import {
   buildAssetMarketModel,
@@ -275,6 +276,8 @@ export default function MarketExplorerClient({
           canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared} />
         <MarketExplorerScreens canUse={canComparePreparedMarkets}
           onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={comparePrepared} />
+        <MarketExplorerExactBasket currentPlan={indexPlan} editingSeries={editingSeries}
+          onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} />
       </section>
       {/* 1 — the ASSET CLASS selector cards. Submarkets and benchmarks
              deliberately do not become top-level cards. */}
@@ -328,7 +331,7 @@ export default function MarketExplorerClient({
           onAddPrepared={addPrepared}
           onAddQuery={addQuery}
           onUpdateQuery={updateQuery}
-          editingSeries={editingSeries}
+          editingSeries={editingSeries?.spec?.membershipMode === "explicit" ? null : editingSeries}
           onCancelEdit={() => setEditingSeriesId(null)}
           onToggleBenchmark={toggleMarket}
           selectedSeriesCount={selectedSeries.length}

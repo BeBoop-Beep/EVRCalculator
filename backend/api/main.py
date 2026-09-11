@@ -171,6 +171,9 @@ from backend.db.services.market_explorer_prepared_directory import (
     read_prepared_comparison, read_prepared_directory, read_prepared_history,
     read_prepared_screen, read_set_context_ranking,
 )
+from backend.db.services.market_explorer_exact_basket import (
+    MarketExplorerExactBasketUnavailable, run_exact_basket_v2,
+)
 from backend.db.services.market_explorer_query_planner import (
     GLOBAL_MARKET_EXPLORER_PLANNER,
     GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
@@ -272,10 +275,16 @@ class WaitlistVerifyRequest(BaseModel):
     token: str
 
 
+class MarketExplorerQualifiedInstrument(BaseModel):
+    asset: str
+    instrumentId: str = Field(min_length=1)
+
+
 class MarketExplorerQueryRequest(BaseModel):
     asset: str = "cards"
     membershipMode: str = "filters"
     instrumentIds: List[str] = Field(default_factory=list, max_length=25)
+    instruments: List[MarketExplorerQualifiedInstrument] = Field(default_factory=list, max_length=25)
     eraIds: List[str] = Field(default_factory=list)
     setIds: List[str] = Field(default_factory=list)
     segmentIds: List[str] = Field(default_factory=list)
@@ -1509,7 +1518,7 @@ def post_market_explorer_query(
     apart because the asset is part of the spec, so the shared cache cannot
     serve one asset's result for the other.
     """
-    if payload.asset not in SUPPORTED_ASSETS:
+    if payload.asset not in (*SUPPORTED_ASSETS, "mixed"):
         return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "QUERY_INVALID"}, status_code=400)
     if payload.responseMode not in ("full", "summary"):
         return JSONResponse(content={"message": "responseMode must be full or summary", "code": "QUERY_INVALID"}, status_code=400)
@@ -1524,21 +1533,29 @@ def post_market_explorer_query(
             pokemon_ids=payload.pokemonIds, price_segment_ids=payload.priceSegmentIds,
             release_age_cohort_ids=payload.releaseAgeCohortIds, top_n=payload.topN,
             membership_mode=payload.membershipMode, instrument_ids=payload.instrumentIds,
+            instruments=[item.model_dump() for item in payload.instruments],
         )
         user_id = _require_market_explorer_query_access(
             normalized, authorization=authorization, token_cookie=token_cookie
         )
         _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
                             route="/market/explorer/query")
-        runner = (
-            run_sealed_market_explorer_query if payload.asset == ASSET_SEALED
-            else run_market_explorer_query
-        )
+        is_exact_v2 = bool(normalized.get("instruments"))
+        runner = (run_exact_basket_v2 if is_exact_v2 else
+                  run_sealed_market_explorer_query if normalized["asset"] == ASSET_SEALED
+                  else run_market_explorer_query)
         persistent = PersistentMarketExplorerCache(
             service_read_client, metrics=GLOBAL_MARKET_EXPLORER_PLANNER.metrics,
         )
 
         def build_market(previous_through: str | None, canonical_date: str) -> Dict[str, Any]:
+            if is_exact_v2:
+                return runner(
+                    service_read_client,
+                    instruments=normalized["instruments"],
+                    start_date=previous_through or "1999-01-01",
+                    end_date=canonical_date,
+                )
             return runner(
                 service_read_client,
                 mode=normalized["mode"],
@@ -1575,6 +1592,8 @@ def post_market_explorer_query(
     except MarketExplorerQueryError as exc:
         return JSONResponse(content={"message": str(exc), "code": "QUERY_INVALID"}, status_code=400)
     except (MarketExplorerQueryUnavailable, SealedMarketExplorerQueryUnavailable) as exc:
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_UNAVAILABLE"}, status_code=404)
+    except MarketExplorerExactBasketUnavailable as exc:
         return JSONResponse(content={"message": str(exc), "code": "QUERY_UNAVAILABLE"}, status_code=404)
     except MarketExplorerCacheRefreshing as exc:
         return JSONResponse(content={"message": str(exc), "code": "QUERY_CACHE_REFRESHING"}, status_code=503)
@@ -1660,6 +1679,7 @@ def post_market_explorer_query_constituents(
         pokemon_ids=payload.pokemonIds, price_segment_ids=payload.priceSegmentIds,
         release_age_cohort_ids=payload.releaseAgeCohortIds, top_n=payload.topN,
         membership_mode=payload.membershipMode, instrument_ids=payload.instrumentIds,
+        instruments=[item.model_dump() for item in payload.instruments],
     )
     user_id = _require_market_explorer_query_access(
         normalized, authorization=authorization, token_cookie=token_cookie,

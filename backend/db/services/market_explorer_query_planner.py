@@ -233,7 +233,7 @@ class PersistentMarketExplorerCache:
         try:
             response = self.client.rpc(CLAIM_RPC, {
                 "p_query_fingerprint": fingerprint,
-                "p_query_contract_version": MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
+                "p_query_contract_version": str(spec.get("contractVersion") or MARKET_EXPLORER_QUERY_CONTRACT_VERSION),
                 "p_service_version": MARKET_EXPLORER_SERVICE_VERSIONS[asset],
                 "p_instrument_methodology_version":
                     MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS[asset],
@@ -650,12 +650,19 @@ class MarketExplorerQueryPlanner:
         def response(payload: Mapping[str, Any]) -> dict[str, Any]:
             if not summary:
                 return dict(payload)
+            if spec.get("instruments"):
+                # Exact V2 is capped at 25 leaves. Its coherent DB-owned prices
+                # and shares are part of the current basket state, not a broad
+                # constituent payload that should be paged away.
+                return {key: value for key, value in payload.items()
+                        if key != "membershipByDate"}
             return {key: value for key, value in payload.items()
                     if key not in ("currentConstituents", "membershipByDate")}
 
         def read_cache(*, full: bool = False) -> dict[str, Any] | None:
             return (persistent.read(fingerprint, summary=True)
-                    if summary and not full else persistent.read(fingerprint))
+                    if summary and not full and not spec.get("instruments")
+                    else persistent.read(fingerprint))
 
         prepared_payload = prepared.resolve(spec)
         if prepared_payload is not None:

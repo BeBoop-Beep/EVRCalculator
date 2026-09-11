@@ -1,43 +1,40 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
+import { readFile } from "node:fs/promises";
 
-const read = (name) => fs.readFileSync(new URL(name, import.meta.url), "utf8").replace(/\r\n/g, "\n");
-const picker = read("./MarketExplorerExactItemPicker.jsx");
-const builder = read("./MarketExplorerQueryBuilder.jsx");
-const constituents = read("./MarketExplorerConstituents.jsx");
+const picker = await readFile(new URL("./MarketExplorerExactItemPicker.jsx", import.meta.url), "utf8");
+const exact = await readFile(new URL("./MarketExplorerExactBasket.jsx", import.meta.url), "utf8");
+const builder = await readFile(new URL("./MarketExplorerQueryBuilder.jsx", import.meta.url), "utf8");
+const client = await readFile(new URL("./MarketExplorerClient.jsx", import.meta.url), "utf8");
 
-test("one dedicated responsive workspace owns the exact browser", () => {
-  assert.equal((builder.match(/<MarketExplorerExactItemPicker/g) || []).length, 1);
-  assert.doesNotMatch(builder, /<ExplorerDisclosure[^>]+ExactItems/);
-  assert.match(builder, /data-market-exact-open/);
-  for (const token of ["fixed inset-0", "h-[100dvh]", "desk:max-h-[86vh]", "desk:max-w-5xl", "desk:grid-cols-[1.8fr_1fr]", "minmax(8rem,30vh)", "env(safe-area-inset-bottom)"]) assert.ok(picker.includes(token), token);
+test("Exact Basket is one standalone top-level Premium workspace", () => {
+  assert.match(client, /<MarketExplorerExactBasket/);
+  assert.doesNotMatch(builder, /<MarketExplorerExactItemPicker/);
+  assert.match(exact, /requires Index Premium/i);
 });
 
-test("workspace lifecycle separates Close, Cancel edits, and genuine success", () => {
-  assert.match(builder, /onClose=\{closeExactWorkspace\}/);
-  assert.match(builder, /onCancelEdit=\{editing \? cancelExactEdits : null\}/);
-  assert.match(builder, /outcome !== "duplicate" && outcome !== "unchanged"/);
-  assert.match(picker, />Cancel edits</);
-  assert.match(picker, />Close</);
-  assert.match(picker, /onSaveAsNew/);
+test("mixed search scopes affect discovery and preserve qualified selection", () => {
+  assert.match(picker, /useState\("all"\)/);
+  assert.match(picker, /\["all", "cards", "sealed"\]/);
+  assert.match(picker, /item\.asset.*item\.instrumentId/);
+  assert.match(picker, /25 \/ 25 selected/);
 });
 
-test("focus, scroll lock, search bounds, and artwork fallback are explicit", () => {
-  for (const token of ['role="dialog"', 'aria-modal="true"', "FOCUSABLE_SELECTOR", 'event.key === "Escape"', 'document.body.style.overflow = "hidden"', "document.body.style.overflow = previousOverflow", "setTimeout(async () =>", "}, 300)", "controller.abort()", "limit=20", "data-exact-artwork-placeholder", "onError={() => setFailed(true)}"]) assert.ok(picker.includes(token), token);
+test("Exact has no Builder narrowing or composition controls", () => {
+  assert.doesNotMatch(picker, /narrowingSummary|Additional Builder filters|Clear narrowing filters/);
+  assert.doesNotMatch(exact, /eraIds|setIds|segmentIds|pokemonIds|priceSegmentIds|releaseAgeCohortIds|topN/);
 });
 
-test("Plus execution is separated from browse/select and narrowing remains visible", () => {
-  assert.doesNotMatch(picker, /disabled \|\| selected \|\| atMaximum/);
-  assert.match(picker, /executionLocked/);
-  assert.match(picker, /Requires Index Premium/);
-  assert.match(picker, /Additional Builder filters:/);
-  assert.match(picker, /Clear narrowing filters/);
+test("editing restores definition authority and translates V1 in memory", () => {
+  assert.match(exact, /contractVersion === MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION/);
+  assert.match(exact, /spec\.instrumentIds/);
+  assert.match(exact, /spec\.instruments/);
+  assert.match(exact, /onUpdateQuery/);
+  assert.match(picker, /Save as new/);
 });
 
-test("Edit Items restores definition authority and opens the same workspace", () => {
-  assert.match(constituents, /data-market-constituents-edit-items/);
-  assert.match(constituents, /onEditSeries\?\.\(active\)/);
-  assert.match(builder, /builder\.replace\(\{ \.\.\.editingSeries\.spec, exactItems: editingSeries\.exactItems \|\| \[\] \}\)/);
-  assert.match(builder, /setExactOpen\(true\)/);
+test("one-unit methodology and DB-owned price/share fields are explicit", () => {
+  assert.match(picker, /One physical unit/);
+  assert.match(picker, /item\.marketPrice/);
+  assert.match(picker, /item\.valueSharePercent/);
 });

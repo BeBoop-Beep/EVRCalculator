@@ -1,11 +1,10 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
 import ExplorerDisclosure from "./ExplorerDisclosure";
 import ExplorerMarketOption from "./ExplorerMarketOption";
 import ExplorerSelectableRow from "./ExplorerSelectableRow";
 import ExplorerPlanLockPanel from "./ExplorerPlanLockPanel";
-import MarketExplorerExactItemPicker from "./MarketExplorerExactItemPicker";
 import useMarketExplorerBuilderDraft from "@/hooks/explore/useMarketExplorerBuilderDraft";
 import useMarketExplorerPreflight from "@/hooks/explore/useMarketExplorerPreflight";
 import { PREFLIGHT_STATE, buildErrorMessage } from "@/lib/explore/marketExplorerPreflight.mjs";
@@ -80,8 +79,6 @@ export default function MarketExplorerQueryBuilder({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [buildStatus, setBuildStatus] = useState("idle");
-  const [exactOpen, setExactOpen] = useState(false);
-  const exactTriggerRef = useRef(null);
   // Phase 5 moved these discovery surfaces into Compare / Analyze. Keeping
   // their old implementation unreachable during the migration protects the
   // frozen Phase-4 Builder mechanics while the new prepared-directory view
@@ -114,7 +111,6 @@ export default function MarketExplorerQueryBuilder({
     if (!editingSeries?.spec) return;
     builder.replace({ ...editingSeries.spec, exactItems: editingSeries.exactItems || [] });
     setMobileOpen(true);
-    if (editingSeries.spec.membershipMode === QUERY_MEMBERSHIP_EXPLICIT) setExactOpen(true);
     setMessage("");
     // The instance id is the edit-session boundary. Draft field changes must
     // never reload the active result back over the user's unsaved edits.
@@ -152,22 +148,6 @@ export default function MarketExplorerQueryBuilder({
     return ["segmentIds", "pokemonIds", "priceSegmentIds", "releaseAgeCohortIds", "mode", "topN"]
       .every((key) => JSON.stringify(draft[key] ?? null) === JSON.stringify(expected[key] ?? null));
   })?.id || null, [draft]);
-  const narrowingSummary = useMemo(() => [
-    ...draft.eraIds.map((id) => builder.eraOptions.find((entry) => entry.id === id)?.label || id),
-    ...draft.setIds.map((id) => builder.assetSets.find((entry) => entry.id === id)?.label || id),
-    ...draft.segmentIds.map((id) => builder.segments.find((entry) => entry.key === id)?.label || id),
-    ...draft.pokemonIds.map((id) => builder.pokemonOptions.find((entry) => entry.id === id)?.label || id),
-    ...draft.priceSegmentIds.map((id) => builder.priceSegments.find((entry) => entry.id === id)?.label || id),
-    ...draft.releaseAgeCohortIds.map((id) => builder.releaseAgeCohorts.find((entry) => entry.id === id)?.label || id),
-  ].filter(Boolean), [builder.assetSets, builder.eraOptions, builder.pokemonOptions, builder.priceSegments, builder.releaseAgeCohorts, builder.segments, draft]);
-  const closeExactWorkspace = () => {
-    setExactOpen(false);
-    setTimeout(() => exactTriggerRef.current?.focus(), 0);
-  };
-  const cancelExactEdits = () => {
-    closeExactWorkspace();
-    onCancelEdit?.();
-  };
   const build = async (saveAsNew = false) => {
     if (!spec || (!editing && alreadyActive)) return;
     if (knownEmpty) {
@@ -196,7 +176,6 @@ export default function MarketExplorerQueryBuilder({
       );
       setBuildStatus("success");
       if (outcome !== "duplicate" && outcome !== "unchanged") {
-        closeExactWorkspace();
         if (editing) onCancelEdit?.();
       }
     } catch (error) {
@@ -259,11 +238,6 @@ export default function MarketExplorerQueryBuilder({
     const presentation = presentationFor(asset);
     return (
       <div className="mt-2 space-y-2">
-        <div data-market-builder-membership-mode role="radiogroup" aria-label="Build from" className="grid grid-cols-2 gap-2">
-          <button type="button" role="radio" aria-checked={draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_FILTERS)} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Filters</button>
-          <button ref={exactTriggerRef} type="button" role="radio" aria-checked={draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT} onClick={() => { builder.setMembershipMode(QUERY_MEMBERSHIP_EXPLICIT); setExactOpen(true); setBuildStatus("idle"); setMessage(""); }} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Exact Items <span className="text-[9px] opacity-75">Premium</span></button>
-        </div>
-        {draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? <button type="button" data-market-exact-open onClick={() => setExactOpen(true)} className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-left text-xs"><strong className="block text-[var(--text-primary)]">Exact Items</strong><span className="text-[var(--text-secondary)]">{draft.exactItems?.length || 0} selected · Open selection workspace</span></button> : null}
         <p className="px-1 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Scope</p>
         <ExplorerDisclosure
           id={`${asset}EraSets`}
@@ -601,21 +575,5 @@ export default function MarketExplorerQueryBuilder({
         {body}
       </div>
     </section>
-    <MarketExplorerExactItemPicker
-      asset={draft.asset}
-      open={exactOpen && draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT}
-      selectedItems={draft.exactItems || []}
-      onChange={builder.setExactItems}
-      onClose={closeExactWorkspace}
-      onCancelEdit={editing ? cancelExactEdits : null}
-      onBuild={() => build(false)}
-      onSaveAsNew={editing ? () => build(true) : null}
-      buildLabel={editing ? "Update Market" : "Build Market"}
-      buildStatus={buildStatus}
-      buildMessage={message}
-      executionLocked={!access.allowed && !prepared}
-      narrowingSummary={narrowingSummary}
-      onClearNarrowing={() => builder.replace({ ...draft, eraIds: [], setIds: [], segmentIds: [], pokemonIds: [], priceSegmentIds: [], releaseAgeCohortIds: [] })}
-    />
   </>);
 }
