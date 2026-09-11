@@ -814,7 +814,7 @@ def resolve_explorer_comparison_through(client: Any, spec: Mapping[str, Any]) ->
     source_through = resolve_canonical_through(client, spec)
     rows = list((client.table("pokemon_explore_set_value_snapshot_latest")
                  .select("comparison_as_of:payload_json->marketOverview->>marketDate")
-                 .eq("tcg", "pokemon").eq("scope", "global")
+                 .eq("tcg", "pokemon").eq("scope", "market")
                  .limit(1).execute()).data or [])
     comparison_as_of = str(rows[0].get("comparison_as_of") or "")[:10] if rows else ""
     if not comparison_as_of:

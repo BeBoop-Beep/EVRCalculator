@@ -162,13 +162,20 @@ class WatermarkQuery:
 
 
 class WatermarkClient:
-    def __init__(self, *, coverage_latest="2026-08-29", quality=None, has_history=True):
+    def __init__(self, *, coverage_latest="2026-08-29", quality=None, has_history=True,
+                 snapshot_rows=None):
         self.coverage_latest = coverage_latest
         self.quality = quality or [
             {"market_date": "2026-08-27", "tcg": "pokemon", "status": "READY"},
             {"market_date": "2026-08-28", "tcg": "pokemon", "status": "READY"},
         ]
         self.has_history = has_history
+        # Production canonical rows use scope='market'; a stray scope='global'
+        # row must not be readable by this predicate (section E regression).
+        self.snapshot_rows = snapshot_rows if snapshot_rows is not None else [{
+            "tcg": "pokemon", "scope": "market",
+            "comparison_as_of": "2026-08-27",
+        }]
 
     def table(self, name):
         if name == "pokemon_set_value_daily_history_coverage":
@@ -181,10 +188,7 @@ class WatermarkClient:
         if name == "sets":
             return WatermarkQuery([])
         if name == "pokemon_explore_set_value_snapshot_latest":
-            return WatermarkQuery([{
-                "tcg": "pokemon", "scope": "global",
-                "comparison_as_of": "2026-08-27",
-            }])
+            return WatermarkQuery(self.snapshot_rows)
         raise AssertionError(name)
 
 
@@ -250,6 +254,39 @@ def test_open_interval_ahead_does_not_advance_beyond_quality_authority():
 def test_explorer_comparison_watermark_clips_newer_source_projection():
     spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
     assert resolve_explorer_comparison_through(WatermarkClient(), spec) == "2026-08-27"
+
+
+def test_explorer_comparison_watermark_resolves_scope_market_row():
+    # A scope='market' row with market_date='2026-09-09' must resolve directly
+    # when no scope='global' row exists at all -- the production shape.
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    quality = [
+        {"market_date": "2026-09-08", "tcg": "pokemon", "status": "READY"},
+        {"market_date": "2026-09-09", "tcg": "pokemon", "status": "READY"},
+        {"market_date": "2026-09-10", "tcg": "pokemon", "status": "READY"},
+    ]
+    client = WatermarkClient(
+        coverage_latest="2026-09-10", quality=quality,
+        snapshot_rows=[{"tcg": "pokemon", "scope": "market", "comparison_as_of": "2026-09-09"}],
+    )
+    assert resolve_explorer_comparison_through(client, spec) == "2026-09-09"
+
+
+def test_explorer_comparison_watermark_does_not_read_scope_global_rows():
+    # A newer V2 source date must not let a custom comparison exceed the
+    # prepared Explorer publication date; a stray scope='global' row must be
+    # invisible to this predicate rather than silently satisfying it.
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    quality = [
+        {"market_date": "2026-09-09", "tcg": "pokemon", "status": "READY"},
+        {"market_date": "2026-09-10", "tcg": "pokemon", "status": "READY"},
+    ]
+    client = WatermarkClient(
+        coverage_latest="2026-09-10", quality=quality,
+        snapshot_rows=[{"tcg": "pokemon", "scope": "global", "comparison_as_of": "2026-09-10"}],
+    )
+    with pytest.raises(RuntimeError, match="no comparison date"):
+        resolve_explorer_comparison_through(client, spec)
 
 
 def test_cards_watermark_no_history_scope_does_not_invent_a_date():

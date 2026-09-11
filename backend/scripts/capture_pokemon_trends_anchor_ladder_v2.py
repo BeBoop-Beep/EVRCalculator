@@ -199,6 +199,17 @@ def classify_and_record(
     request_missing = False
     failure_detail: Optional[str] = None
 
+    # An anchor cannot be compared with itself: pytrends requires distinct terms.
+    # Use the same deterministic lower-rung escalation already frozen for a
+    # resolution-limited result.  This changes neither the ladder nor calibration.
+    if anchor == subject["pokemon_name"]:
+        lower = lower_rung(anchor)
+        if lower is None:
+            raise RuntimeError(f"lowest ladder anchor {anchor!r} cannot self-calibrate")
+        anchor = lower
+        escalated = True
+        retry_count += 1
+
     def do_query(anchor_name: str) -> Optional[Dict[str, float]]:
         nonlocal request_failed, failure_detail, stats
         for attempt in range(MAX_BATCH_RETRIES + 1):
