@@ -12,11 +12,18 @@ def _config(**overrides):
         state_writes_enabled=False,
         persistence_schema_ready=False,
         recovery_enabled=False,
+        recovery_execution_ready=False,
         ai_enabled=False,
         fail_on_no_checks=True,
         component="sentinel_vm",
         backend_base_url="",
+        frontend_base_url="",
         public_http_timeout_seconds=12.0,
+        expected_release_sha="",
+        expected_release_branch="main",
+        expected_frontend_environment="production",
+        runtime_repo_path="",
+        runtime_overlay_manifest_path="",
         watch_component="sentinel_vm",
         watch_host="",
         heartbeat_max_age_seconds=900,
@@ -84,6 +91,45 @@ def test_independent_profile_requires_explicit_target_host():
         operational.run_profile("independent", config=_config(), client=object())
 
 
+def test_deploy_profile_requires_explicit_backend_frontend_and_release_sha():
+    with pytest.raises(RuntimeError, match="SENTINEL_FRONTEND_BASE_URL"):
+        operational.run_profile(
+            "deploy",
+            config=_config(backend_base_url="https://backend.example.test"),
+        )
+    with pytest.raises(RuntimeError, match="SENTINEL_EXPECTED_RELEASE_SHA"):
+        operational.run_profile(
+            "deploy",
+            config=_config(
+                backend_base_url="https://backend.example.test",
+                frontend_base_url="https://index.example.test",
+            ),
+        )
+
+
+def test_runtime_profile_requires_repo_and_overlay_manifest_authority():
+    with pytest.raises(RuntimeError, match="SENTINEL_RUNTIME_REPO_PATH"):
+        operational.run_profile("runtime", config=_config())
+    with pytest.raises(RuntimeError, match="SENTINEL_RUNTIME_OVERLAY_MANIFEST"):
+        operational.run_profile(
+            "runtime", config=_config(runtime_repo_path="/repo")
+        )
+
+
+def test_p6_recovery_cannot_be_enabled_for_p7_detection_profiles():
+    config = _config(
+        state_writes_enabled=True,
+        persistence_schema_ready=True,
+        recovery_enabled=True,
+        recovery_execution_ready=True,
+        backend_base_url="https://backend.example.test",
+        frontend_base_url="https://index.example.test",
+        expected_release_sha="a" * 40,
+    )
+    with pytest.raises(RuntimeError, match="fast or all"):
+        operational.run_profile("deploy", config=config, store=MemoryStateStore())
+
+
 def test_deadman_pings_after_completed_cycle_even_when_semantic_check_failed(monkeypatch):
     registry = _registry("failure")
     monkeypatch.setattr(operational, "build_profile_registry", lambda *a, **k: registry)
@@ -102,7 +148,7 @@ def test_deadman_pings_after_completed_cycle_even_when_semantic_check_failed(mon
         config=_config(deadman_ping_url=secret_url),
         deadman_get=deadman_get,
     )
-    assert summary["healthy"] is False  # semantic failure remains truthful
+    assert summary["healthy"] is False
     assert summary["deadman"]["delivered"] is True
     assert calls[0][0] == secret_url
     assert secret_url not in str(summary)
