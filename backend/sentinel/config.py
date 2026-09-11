@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 def _env_true(name: str, default: str = "false") -> bool:
@@ -14,6 +14,15 @@ def _env_float(name: str, default: float) -> float:
     raw = str(os.getenv(name, str(default))).strip()
     try:
         value = float(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = str(os.getenv(name, str(default))).strip()
+    try:
+        value = int(raw)
     except (TypeError, ValueError):
         return default
     return value if value > 0 else default
@@ -35,6 +44,11 @@ class SentinelConfig:
     component: str = "sentinel_vm"
     backend_base_url: str = ""
     public_http_timeout_seconds: float = 12.0
+    watch_component: str = "sentinel_vm"
+    watch_host: str = ""
+    heartbeat_max_age_seconds: int = 15 * 60
+    deadman_ping_url: str = field(default="", repr=False, compare=False)
+    deadman_timeout_seconds: float = 5.0
 
     @classmethod
     def from_env(cls) -> "SentinelConfig":
@@ -46,6 +60,11 @@ class SentinelConfig:
             component=os.getenv("SENTINEL_COMPONENT", "sentinel_vm").strip() or "sentinel_vm",
             backend_base_url=os.getenv("SENTINEL_BACKEND_BASE_URL", "").strip().rstrip("/"),
             public_http_timeout_seconds=_env_float("SENTINEL_PUBLIC_HTTP_TIMEOUT_SECONDS", 12.0),
+            watch_component=os.getenv("SENTINEL_WATCH_COMPONENT", "sentinel_vm").strip() or "sentinel_vm",
+            watch_host=os.getenv("SENTINEL_WATCH_HOST", "").strip(),
+            heartbeat_max_age_seconds=_env_int("SENTINEL_HEARTBEAT_MAX_AGE_SECONDS", 15 * 60),
+            deadman_ping_url=os.getenv("SENTINEL_DEADMAN_PING_URL", "").strip(),
+            deadman_timeout_seconds=_env_float("SENTINEL_DEADMAN_TIMEOUT_SECONDS", 5.0),
         )
 
     def validate_kernel_v1(self) -> None:
