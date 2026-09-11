@@ -73,7 +73,7 @@ EXPECTED_CODE_VERSION = "capture_pokemon_trends_anchor_ladder_v2_r1"
 EXPECTED_TIMEFRAME = "today 1-m"
 EXPECTED_GEO = "US"
 EXPECTED_SUBJECT_COUNT = 1025
-EXPECTED_CLASSIFICATIONS = {"SCORED": 993, "scored_zero_high_confidence": 27, "failed": 5, "missing_evidence": 0, "insufficient_calibration": 0}
+EXPECTED_CLASSIFICATIONS = {"SCORED": 998, "scored_zero_high_confidence": 27, "failed": 0, "missing_evidence": 0, "insufficient_calibration": 0}
 
 KNOWN_ANCHORS = {"Purugly", "Stunky", "Torkoal", "Lucario", "Charizard", "Pikachu"}
 
@@ -198,11 +198,13 @@ def validate_checkpoint(loaded: LoadedCheckpoint) -> dict:
             )
         classifications[classification] = classifications.get(classification, 0) + 1
 
-        anchor = row.get("assigned_anchor")
-        if anchor is not None and anchor not in KNOWN_ANCHORS:
-            raise ValidationError(f"row {idx} (subject_id={subject_id}) has unknown anchor identity={anchor!r}")
-        if anchor is not None:
-            anchor_distribution[anchor] = anchor_distribution.get(anchor, 0) + 1
+        assigned_anchor = row.get("assigned_anchor")
+        actual_anchor = row.get("actual_query_anchor", assigned_anchor)
+        if assigned_anchor not in KNOWN_ANCHORS or actual_anchor not in KNOWN_ANCHORS:
+            raise ValidationError(f"row {idx} (subject_id={subject_id}) has unknown anchor identity")
+        if actual_anchor == row.get("pokemon_name"):
+            raise ValidationError(f"row {idx} (subject_id={subject_id}) queries itself as anchor")
+        anchor_distribution[actual_anchor] = anchor_distribution.get(actual_anchor, 0) + 1
 
         settings = row.get("query_settings")
         if settings != {"timeframe": EXPECTED_TIMEFRAME, "geo": EXPECTED_GEO, "queryType": "search_term"}:
@@ -313,11 +315,12 @@ def build_observation_row(source_run_id: Optional[str], entity_id: Optional[str]
             "pokedexNumber": row["pokedex_number"],
             "pokemonName": row["pokemon_name"],
             "assignedAnchor": row.get("assigned_anchor"),
-            "ladderRung": ["Purugly", "Stunky", "Torkoal", "Lucario", "Charizard", "Pikachu"].index(row["assigned_anchor"]),
+            "actualQueryAnchor": row.get("actual_query_anchor", row.get("assigned_anchor")),
+            "ladderRung": ["Purugly", "Stunky", "Torkoal", "Lucario", "Charizard", "Pikachu"].index(row.get("actual_query_anchor", row["assigned_anchor"])),
             "escalated": row.get("escalated"),
             "retryEscalationPath": {
                 "escalatedToLowerRung": bool(row.get("escalated")),
-                "terminalAnchor": row.get("assigned_anchor"),
+                "terminalAnchor": row.get("actual_query_anchor", row.get("assigned_anchor")),
                 "providerRetryCount": row.get("retry_count"),
             },
             "rawTarget": row.get("raw_target"),
