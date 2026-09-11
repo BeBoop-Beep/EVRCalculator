@@ -5,13 +5,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional
-from zoneinfo import ZoneInfo
 
 from backend.sentinel.models import CheckResult, Severity
 from backend.sentinel.registry import CheckContext
 
 
-PHOENIX = ZoneInfo("America/Phoenix")
+# Match the repository's existing Python-3.8-safe Phoenix market-date helper.
+# Arizona does not observe DST, so America/Phoenix is always UTC-7.
+PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 CANONICAL_LEGACY_RUNNING_GRACE_SECONDS = 7200
 _SAMPLE_LIMIT = 20
 
