@@ -9,7 +9,7 @@ from backend.sentinel.config import SentinelConfig
 from backend.sentinel.deadman import ping_deadman
 from backend.sentinel.models import CheckOutcome, RunnerIdentity
 from backend.sentinel.registry import CheckContext
-from backend.sentinel.state import MemoryStateStore
+from backend.sentinel.state import MemoryStateStore, SupabaseStateStore
 
 
 NOW = datetime(2026, 9, 11, 20, 0, tzinfo=timezone.utc)
@@ -140,6 +140,41 @@ def test_memory_heartbeat_store_overwrites_same_component_host_instead_of_append
     latest = store.heartbeats[(TARGET_COMPONENT, TARGET_HOST)]
     assert latest["heartbeat_at"] == NOW
     assert latest["metadata"] == {"run": 2}
+
+
+class _UpsertQuery:
+    def __init__(self, calls):
+        self.calls = calls
+
+    def upsert(self, payload, on_conflict=None):
+        self.calls.append((payload, on_conflict))
+        return self
+
+    def execute(self):
+        return _Result([])
+
+
+class _UpsertClient:
+    def __init__(self):
+        self.calls = []
+        self.table_names = []
+
+    def table(self, name):
+        self.table_names.append(name)
+        return _UpsertQuery(self.calls)
+
+
+def test_supabase_heartbeat_store_uses_component_host_conflict_upsert():
+    client = _UpsertClient()
+    store = SupabaseStateStore(client)
+    identity = RunnerIdentity(component=TARGET_COMPONENT, host=TARGET_HOST, build_sha="vm-sha")
+    store.record_heartbeat(identity, NOW, {"check_count": 13})
+    assert client.table_names == ["sentinel_component_heartbeats"]
+    payload, conflict = client.calls[0]
+    assert conflict == "component,host"
+    assert payload["component"] == TARGET_COMPONENT
+    assert payload["host"] == TARGET_HOST
+    assert payload["heartbeat_at"] == NOW.isoformat()
 
 
 class _Response:
