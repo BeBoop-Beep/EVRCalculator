@@ -1,4 +1,4 @@
-"""Typed contracts shared by Sentinel checks, persistence, and incidents."""
+"""Typed contracts shared by Sentinel checks, persistence, incidents, and recovery."""
 
 from __future__ import annotations
 
@@ -32,6 +32,13 @@ class IncidentStatus(str, Enum):
     RECOVERING = "recovering"
     ESCALATED = "escalated"
     RESOLVED = "resolved"
+
+
+class RecoveryAttemptStatus(str, Enum):
+    STARTED = "started"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    BLOCKED = "blocked"
 
 
 def utc_now() -> datetime:
@@ -205,6 +212,40 @@ class IncidentRecord:
         _require_aware(self.last_seen_at, "last_seen_at")
         if self.resolved_at is not None:
             _require_aware(self.resolved_at, "resolved_at")
+        if self.recovery_attempt_count < 0:
+            raise ValueError("recovery_attempt_count cannot be negative")
+
+
+@dataclass
+class RecoveryAttemptRecord:
+    id: str
+    incident_id: str
+    runbook: str
+    runbook_version: str
+    started_at: datetime
+    status: RecoveryAttemptStatus
+    attempt_number: int
+    completed_at: Optional[datetime] = None
+    preconditions_json: Dict[str, Any] = field(default_factory=dict)
+    result_json: Dict[str, Any] = field(default_factory=dict)
+    cooldown_until: Optional[datetime] = None
+
+    def __post_init__(self) -> None:
+        if not self.id.strip():
+            raise ValueError("recovery attempt id is required")
+        if not self.incident_id.strip():
+            raise ValueError("recovery incident_id is required")
+        if not self.runbook.strip():
+            raise ValueError("recovery runbook is required")
+        if not self.runbook_version.strip():
+            raise ValueError("recovery runbook_version is required")
+        if self.attempt_number < 1:
+            raise ValueError("recovery attempt_number must be positive")
+        _require_aware(self.started_at, "started_at")
+        if self.completed_at is not None:
+            _require_aware(self.completed_at, "completed_at")
+        if self.cooldown_until is not None:
+            _require_aware(self.cooldown_until, "cooldown_until")
 
 
 @dataclass(frozen=True)
