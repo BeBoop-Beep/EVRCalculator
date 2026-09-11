@@ -122,7 +122,10 @@ def check_component_heartbeat(
         )
 
     row = dict(rows[0])
-    heartbeat_at = _dt(row.get("heartbeat_at"))
+    try:
+        heartbeat_at = _dt(row.get("heartbeat_at"))
+    except (TypeError, ValueError, OverflowError):
+        heartbeat_at = None
     if heartbeat_at is None:
         return _failure(
             context,
