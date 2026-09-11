@@ -1,0 +1,10 @@
+{
+  "registerVersion":"final_collector_market_validation_register_v1",
+  "sourceArtifact":"docs/research/collector_appeal_v7_price_validation/master_result.json",
+  "frozenModel":{"version":"pokemon_collector_appeal_v7_expanded_price_blind_v1","runId":"e282f26e-2136-4105-b0a3-f0974c4d9d70","formulaFingerprint":"06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b","cardFingerprint":"7dbe5e989c6eb7bcb9d4684707f9c239ab1ca701fc429a7a0605657d79f2ab90","setFingerprint":"744f088e7e1e33e5f8b40aca707b8f7e0d93bf7def8308b860da0277257a4b52"},
+  "overall":{"verdict":"APPEAL_PRICING_SIGNAL_PARTIAL","promotion":"V7_PROMOTION_SUPPORTED_WITH_LIMITATIONS","withinSetMedianSpearman":0.31764708442997636,"withinSetWeightedMeanSpearman":0.29910491268326117,"positiveSetPercent":95.45454545454545,"controlledIncrementalOosR2":0.022553849347258015,"maeImprovementPercent":5.756603588376002,"rmseImprovementPercent":8.02579386748062,"heldOutSpearmanImprovement":0.04937523884172457,"residualPriceSpearman":0.33144173771183055,"residualPricePearson":0.3757996270591523,"matchedPairWinRate":0.8492462311557789,"matchedPairMedianPriceRatio":2.3066278222869627},
+  "componentVerdicts":{"Pokemon":"SUPPORTED","Trainer":"SUPPORTED","Artist":"PARTIALLY_SUPPORTED","Playability":"PARTIALLY_SUPPORTED","Treatment":"TREATMENT_PREFERENCE_INSUFFICIENT_EVIDENCE","Pull Scarcity":"SCARCITY_DIAGNOSTIC_ONLY"},
+  "v7VsV6":{"incrementalOosR2":0.0008865024081824435,"maeImprovementPercent":0.3450392739806989,"rmseImprovementPercent":0.356513925811328,"heldOutSpearmanImprovement":0.003833904672355226,"bootstrapOosR2Interval":[-0.0008278913068851673,0.00219125853645625],"limitation":"V7-specific incremental predictive improvement over V6 was modest and statistically uncertain; V7 must not be described as demonstrably more price-predictive than V6."},
+  "rerunPerformed":false,
+  "retuningPerformed":false
+}
