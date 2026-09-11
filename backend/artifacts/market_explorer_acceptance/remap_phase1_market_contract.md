@@ -264,4 +264,4 @@ Quick Markets, or sidebar file was touched.
 
 ## M. Final commit SHA
 
-(recorded after commit — see repository history)
+`d725f579`
