@@ -32,12 +32,13 @@ def _env_int(name: str, default: int) -> int:
 class SentinelConfig:
     """Runtime switches for the deterministic Sentinel kernel.
 
-    State persistence is optional and disabled by default because the Sentinel
-    schema is not deployed yet. Recovery and AI remain deliberately unavailable
-    and fail closed if someone attempts to enable them early.
+    Persistence requires TWO explicit switches: the operator must enable state
+    writes and separately attest that the dedicated Sentinel schema has been
+    deployed. Recovery and AI remain unavailable and fail closed.
     """
 
     state_writes_enabled: bool = False
+    persistence_schema_ready: bool = False
     recovery_enabled: bool = False
     ai_enabled: bool = False
     fail_on_no_checks: bool = True
@@ -54,6 +55,7 @@ class SentinelConfig:
     def from_env(cls) -> "SentinelConfig":
         return cls(
             state_writes_enabled=_env_true("SENTINEL_STATE_WRITES_ENABLED"),
+            persistence_schema_ready=_env_true("SENTINEL_PERSISTENCE_SCHEMA_READY"),
             recovery_enabled=_env_true("SENTINEL_RECOVERY_ENABLED"),
             ai_enabled=_env_true("SENTINEL_AI_ENABLED"),
             fail_on_no_checks=_env_true("SENTINEL_FAIL_ON_NO_CHECKS", "true"),
