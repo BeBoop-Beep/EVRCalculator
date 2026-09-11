@@ -118,3 +118,39 @@ def translate_preflight_row(row: Mapping[str, Any]) -> dict[str, Any]:
 def resolve_query_outcome_for_preflight(row: Mapping[str, Any]) -> str | None:
     """Convenience accessor: the typed QUERY_* outcome, or None if ready to build."""
     return translate_preflight_row(row)["queryOutcome"]
+
+
+PREFLIGHT_RPC_NAME = "preflight_pokemon_market_explorer_filtered_cards_v1"
+
+
+def call_filtered_cards_preflight(
+    client: Any,
+    *,
+    set_ids: Any,
+    segment_ids: Any = None,
+    pokemon_ids: Any = None,
+    price_segment_ids: Any = None,
+    release_age_cohort_ids: Any = None,
+    comparison_as_of: str | None = None,
+) -> dict[str, Any]:
+    """Call the DB Filtered Cards preflight RPC and return the typed contract.
+
+    THIN BY DESIGN. This performs no filtering itself -- it only shapes the
+    RPC call and hands the single returned row to `translate_preflight_row`.
+    Set scope must already be resolved (see `resolve_scope_set_ids` in
+    market_explorer_query_planner.py); Exact Basket (explicit instrument)
+    membership is intentionally never passed here, matching the RPC's own
+    documented exclusion.
+    """
+    response = client.rpc(PREFLIGHT_RPC_NAME, {
+        "p_set_ids": sorted({str(value) for value in (set_ids or ())}),
+        "p_segment_ids": sorted({str(value) for value in (segment_ids or ())}) or None,
+        "p_pokemon_ids": sorted({str(value) for value in (pokemon_ids or ())}) or None,
+        "p_price_segment_ids": sorted({str(value) for value in (price_segment_ids or ())}) or None,
+        "p_release_age_cohort_ids": sorted({str(value) for value in (release_age_cohort_ids or ())}) or None,
+        "p_comparison_as_of": comparison_as_of,
+    }).execute()
+    rows = list(getattr(response, "data", None) or [])
+    if not rows:
+        raise MarketExplorerPreflightError("preflight RPC returned no row")
+    return translate_preflight_row(rows[0])

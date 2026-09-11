@@ -785,15 +785,30 @@ def resolve_cards_canonical_through(
     return through
 
 
-def resolve_canonical_through(client: Any, spec: Mapping[str, Any]) -> str:
-    """Narrow metadata-only publication watermark (one call for common scopes)."""
-    requested_sets = {str(value) for value in (spec.get("setIds") or ())}
-    era_ids = list(spec.get("eraIds") or ())
-    if era_ids:
-        era_rows = list((client.table("sets").select("id").in_("era_id", era_ids)
+def resolve_scope_set_ids(client: Any, era_ids: Iterable[Any], set_ids: Iterable[Any]) -> set[str]:
+    """Era -> Set expansion, intersected with any explicit Set selection.
+
+    Shared by every caller that needs the resolved Set ID scope for the
+    canonical authority in this module (watermark resolution, the Filtered
+    Cards preflight caller). An empty era list with a non-empty set list
+    returns the set list unchanged; an empty set list with a non-empty era
+    list returns every set in those eras; both empty returns an empty set,
+    which callers interpret as "global" per the query spec's own EMPTY MEANS
+    ALL convention.
+    """
+    requested_sets = {str(value) for value in (set_ids or ())}
+    resolved_era_ids = list(era_ids or ())
+    if resolved_era_ids:
+        era_rows = list((client.table("sets").select("id").in_("era_id", resolved_era_ids)
                          .execute()).data or [])
         era_sets = {str(row.get("id")) for row in era_rows if row.get("id")}
         requested_sets = requested_sets & era_sets if requested_sets else era_sets
+    return requested_sets
+
+
+def resolve_canonical_through(client: Any, spec: Mapping[str, Any]) -> str:
+    """Narrow metadata-only publication watermark (one call for common scopes)."""
+    requested_sets = resolve_scope_set_ids(client, spec.get("eraIds"), spec.get("setIds"))
 
     if spec["asset"] == "cards":
         return resolve_cards_canonical_through(client, requested_sets)

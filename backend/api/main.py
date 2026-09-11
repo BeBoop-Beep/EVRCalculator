@@ -171,6 +171,11 @@ from backend.db.services.market_explorer_query_planner import (
     MarketExplorerCacheRefreshing,
     PersistentMarketExplorerCache,
     resolve_explorer_comparison_through,
+    resolve_scope_set_ids,
+)
+from backend.domain.pokemon.market_explorer_preflight import (
+    MarketExplorerPreflightError,
+    call_filtered_cards_preflight,
 )
 from backend.db.services.market_explorer_instrument_search import (
     search_market_explorer_instruments,
@@ -277,6 +282,20 @@ class MarketExplorerQueryRequest(BaseModel):
 class MarketExplorerConstituentPageRequest(MarketExplorerQueryRequest):
     limit: int = Field(default=100, ge=1, le=100)
     afterRank: int = Field(default=0, ge=0)
+
+
+class MarketExplorerPreflightRequest(BaseModel):
+    """A cheap 'how many cards/sets would this match' check.
+
+    Filters-only: Exact Basket (explicit instrument) membership is
+    intentionally out of scope for preflight, matching the RPC it calls.
+    """
+    eraIds: List[str] = Field(default_factory=list)
+    setIds: List[str] = Field(default_factory=list)
+    segmentIds: List[str] = Field(default_factory=list)
+    pokemonIds: List[str] = Field(default_factory=list)
+    priceSegmentIds: List[str] = Field(default_factory=list)
+    releaseAgeCohortIds: List[str] = Field(default_factory=list)
 
 
 class BillingCheckoutRequest(BaseModel):
@@ -1503,6 +1522,68 @@ def post_market_explorer_query(
     except Exception:
         logger.exception("/market/explorer/query unexpected error")
         return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "QUERY_FAILED"}, status_code=500)
+
+
+@app.post("/market/explorer/query/preflight")
+def post_market_explorer_query_preflight(
+    request: Request,
+    payload: MarketExplorerPreflightRequest,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """Cheap point-in-time readiness check for a Filtered Cards query.
+
+    THIS IS NOT THE QUERY ENGINE. It calls the bounded, read-only DB preflight
+    RPC (preflight_pokemon_market_explorer_filtered_cards_v1) once, transports
+    no constituent IDs, builds no index, and never chain-links history. Its
+    only job is to answer "how many cards/sets would this match, and is that
+    answer trustworthy right now" cheaply enough to run ahead of a Build click.
+    """
+    try:
+        # Filters-first validation: reuses the same normalization the real
+        # query endpoint uses, so a spec that would be rejected there is
+        # rejected here identically, before the RPC is ever called.
+        normalized = normalize_query_spec(
+            asset="cards", mode="all", era_ids=payload.eraIds, set_ids=payload.setIds,
+            segment_ids=payload.segmentIds, pokemon_ids=payload.pokemonIds,
+            price_segment_ids=payload.priceSegmentIds,
+            release_age_cohort_ids=payload.releaseAgeCohortIds,
+        )
+        user_id = _require_market_explorer_query_access(
+            normalized, authorization=authorization, token_cookie=token_cookie
+        )
+        _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+                            route="/market/explorer/query/preflight")
+        resolved_set_ids = resolve_scope_set_ids(
+            service_read_client, normalized["eraIds"], normalized["setIds"],
+        )
+        comparison_as_of = None
+        try:
+            comparison_as_of = resolve_explorer_comparison_through(service_read_client, normalized)
+        except RuntimeError:
+            # No accepted publication date yet -- let the RPC's own
+            # `no_approved_market_date` status describe that, rather than
+            # failing the whole preflight request.
+            pass
+        result = call_filtered_cards_preflight(
+            service_read_client,
+            set_ids=resolved_set_ids,
+            segment_ids=normalized["segmentIds"],
+            pokemon_ids=normalized["pokemonIds"],
+            price_segment_ids=normalized["priceSegmentIds"],
+            release_age_cohort_ids=normalized["releaseAgeCohortIds"],
+            comparison_as_of=comparison_as_of,
+        )
+        return _tiered_response(result)
+    except HTTPException:
+        raise
+    except MarketExplorerQueryError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_INVALID"}, status_code=400)
+    except MarketExplorerPreflightError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_UNAVAILABLE"}, status_code=404)
+    except Exception:
+        logger.exception("/market/explorer/query/preflight unexpected error")
+        return JSONResponse(content={"message": "Unable to preflight this market query", "code": "QUERY_FAILED"}, status_code=500)
 
 
 @app.post("/market/explorer/query/constituents")

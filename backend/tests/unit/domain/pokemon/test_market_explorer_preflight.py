@@ -16,8 +16,10 @@ from backend.domain.pokemon.market_explorer_preflight import (
     PREFLIGHT_HISTORY_UNAVAILABLE,
     PREFLIGHT_PROJECTION_LAGGING,
     PREFLIGHT_READY,
+    PREFLIGHT_RPC_NAME,
     PREFLIGHT_UNKNOWN,
     MarketExplorerPreflightError,
+    call_filtered_cards_preflight,
     resolve_query_outcome_for_preflight,
     translate_preflight_row,
 )
@@ -114,3 +116,47 @@ def test_unmapped_sql_status_degrades_to_unknown_unavailable_not_ready():
 def test_non_mapping_row_raises():
     with pytest.raises(MarketExplorerPreflightError):
         translate_preflight_row(["not", "a", "mapping"])
+
+
+class _FakeRpcCall:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def execute(self):
+        return type("Response", (), {"data": self._rows})()
+
+
+class _FakeSupabaseClient:
+    """Records the exact RPC name/params call_filtered_cards_preflight makes."""
+
+    def __init__(self, rows):
+        self._rows = rows
+        self.calls = []
+
+    def rpc(self, name, params):
+        self.calls.append((name, params))
+        return _FakeRpcCall(self._rows)
+
+
+def test_call_filtered_cards_preflight_invokes_the_correct_rpc_with_sorted_params():
+    client = _FakeSupabaseClient([_row()])
+    result = call_filtered_cards_preflight(
+        client,
+        set_ids=["set-b", "set-a"],
+        segment_ids=["sir"],
+        comparison_as_of="2026-09-09",
+    )
+    assert len(client.calls) == 1
+    name, params = client.calls[0]
+    assert name == PREFLIGHT_RPC_NAME
+    assert params["p_set_ids"] == ["set-a", "set-b"]
+    assert params["p_segment_ids"] == ["sir"]
+    assert params["p_pokemon_ids"] is None
+    assert params["p_comparison_as_of"] == "2026-09-09"
+    assert result["readiness"] == PREFLIGHT_READY
+
+
+def test_call_filtered_cards_preflight_raises_on_empty_rpc_response():
+    client = _FakeSupabaseClient([])
+    with pytest.raises(MarketExplorerPreflightError):
+        call_filtered_cards_preflight(client, set_ids=["set-a"])
