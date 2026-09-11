@@ -52,4 +52,4 @@ Nav search and Phase 3+ work were not changed.
 
 ## P. Final commit SHA
 
-Recorded by the Phase 2 source commit containing this report; use `git log -1 --format=%H`.
+Phase 2 source implementation commit: `487e16a2a2eb6bf5523adc08114847da8c426e7c`.
