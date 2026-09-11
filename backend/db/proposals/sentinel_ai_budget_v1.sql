@@ -1,7 +1,7 @@
 -- inDex Sentinel optional AI budget ledger.
 --
--- FUTURE PROPOSAL ONLY. P8 DOES NOT APPLY THIS SQL, DOES NOT CREATE A
--- MIGRATION, AND DOES NOT INSTALL OR CALL A PAID AI PROVIDER.
+-- FUTURE PROPOSAL ONLY. P8 DOES NOT APPLY THIS SQL AND DOES NOT CREATE A MIGRATION.
+-- P8 DOES NOT INSTALL OR CALL A PAID AI PROVIDER.
 --
 -- The deterministic Sentinel works with AI disabled.  This proposal exists so
 -- a future reviewed provider cannot be enabled without an atomic, persisted
