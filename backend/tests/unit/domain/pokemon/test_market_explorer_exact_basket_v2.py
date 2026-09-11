@@ -44,4 +44,3 @@ def test_builder_axes_are_absent_from_new_exact_identity():
     spec = normalize_query_spec(mode="chase", membership_mode="explicit", instruments=[{"asset": "sealed", "instrumentId": "b"}], era_ids=["era"], set_ids=["set"], segment_ids=["ignored"], top_n=10)
     assert spec["eraIds"] == spec["setIds"] == spec["segmentIds"] == ()
     assert spec["mode"] == "all" and spec["topN"] is None
-

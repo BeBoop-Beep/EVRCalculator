@@ -22,4 +22,3 @@ def test_exact_basket_uses_common_cohort_values_not_raw_basket_jump():
     assert result["metadata"]["oneUnitPerLeaf"] is True
     assert result["basketAsOf"] == "2026-09-08"
     assert len(result["currentConstituents"]) == 2
-
