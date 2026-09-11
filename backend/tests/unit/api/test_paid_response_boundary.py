@@ -39,9 +39,13 @@ def _rankings_fixture():
     return {
         "targets": [{
             "id": "set-1", "name": "Safe Set", "canonical_key": "safe-set",
-            "setRipV1": {"score": 73.1, "rank": 4, "tier": "B", "cohortSize": 22,
+            "setRipV1": {"score": 73.1, "publicScore": 71.4, "modelScore": 68.2,
+                         "rank": 4, "tier": "B", "cohortSize": 22,
                          "rankable": True, "methodologyVersion": "set-rip-v1",
                          "participatingFamilyCount": 1,
+                         "participatingFamilies": ["booster_box"],
+                         "skuEvidenceCount": 2,
+                         "familyScores": {"booster_box": 81},
                          "displayFamilyScores": [{"family": "booster_box", "score": 81,
                                                    "rank": 3, "tier": "A"}],
                          "privateRawInputs": PREMIUM_VALUE},
@@ -137,11 +141,12 @@ def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
 
     assert str(PLUS_VALUE) in plus_products.text and str(PLUS_VALUE) in plus_sets.text
     assert str(PLUS_VALUE) not in base_products.text and str(PLUS_VALUE) not in base_sets.text
-    assert base_sets.json()["targets"][0]["setRipV1"]["score"] == 73.1
+    assert base_sets.json()["targets"][0]["setRipV1"]["publicScore"] == 71.4
     assert base_sets.json()["targets"][0]["setRipV1"]["rank"] == 4
     assert base_sets.json()["targets"][0]["setRipV1"]["tier"] == "B"
-    assert base_sets.json()["targets"][0]["setRipV1"]["participatingFamilyCount"] == 1
-    assert base_sets.json()["targets"][0]["setRipV1"]["displayFamilyScores"][0]["family"] == "booster_box"
+    for paid_field in ("score", "modelScore", "participatingFamilyCount", "participatingFamilies",
+                       "skuEvidenceCount", "familyScores", "displayFamilyScores"):
+        assert paid_field not in base_sets.json()["targets"][0]["setRipV1"]
     assert "privateRawInputs" not in base_sets.text
     assert base_eras.json()["eraSetStrengthV1"]["eras"][0]["rank"] == 1
     assert base_eras.json()["eraSetStrengthV1"]["eras"][0]["score"] == 73.1

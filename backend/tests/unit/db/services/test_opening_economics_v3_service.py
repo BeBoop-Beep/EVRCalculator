@@ -1,5 +1,8 @@
+import inspect
+
 import numpy as np
 
+from backend.db.services import opening_economics_v3_service
 from backend.db.services.opening_economics_v3_service import _store_physical_distribution
 from backend.domain.pokemon.opening_economics_v3 import WeightedEmpiricalMixture, build_scope
 
@@ -39,3 +42,9 @@ def test_shared_physical_cache_is_price_independent_and_order_invariant(tmp_path
         assert left[key] == right[key]
     assert left["normalizedReturnBuckets"] == right["normalizedReturnBuckets"]
     assert left["normalizedReturnBuckets"][-1]["probability"] == left["chanceToRecoverCost"]
+
+
+def test_bucket_publication_is_enabled_for_global_scope_only():
+    source = inspect.getsource(opening_economics_v3_service.build_opening_economics_v3)
+    assert source.count("include_recovery_buckets=True") == 1
+    assert "global_scope = _identity(build_scope(usable, paths, include_recovery_buckets=True)" in source

@@ -178,9 +178,7 @@ _PLUS_TARGET_FIELDS = _BASE_TARGET_FIELDS | frozenset({
 })
 _RANKINGS_META_FIELDS = frozenset({"source", "updatedAt", "warnings", "snapshot", "limit"})
 _PUBLIC_SET_RIP_FIELDS = frozenset({
-    "score", "rank", "tier", "cohortSize", "rankable", "methodologyVersion",
-    "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount",
-    "familyScores", "displayFamilyScores",
+    "publicScore", "rank", "tier", "cohortSize", "rankable", "methodologyVersion",
 })
 
 
