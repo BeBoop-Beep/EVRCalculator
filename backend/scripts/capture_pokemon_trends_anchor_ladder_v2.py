@@ -302,9 +302,16 @@ def classify_and_record(
 
 
 def main() -> int:
+    global CHECKPOINT_DIR, CHECKPOINT_ROWS_PATH, CHECKPOINT_HEADER_PATH
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=None, help="Process at most N remaining subjects (for pilot runs).")
+    parser.add_argument("--checkpoint-dir", type=Path, default=CHECKPOINT_DIR,
+                        help="Unique append-only directory for this capture run.")
     args = parser.parse_args()
+
+    CHECKPOINT_DIR = args.checkpoint_dir
+    CHECKPOINT_ROWS_PATH = CHECKPOINT_DIR / "checkpoint_rows.jsonl"
+    CHECKPOINT_HEADER_PATH = CHECKPOINT_DIR / "checkpoint_header.json"
 
     manifest = load_frozen_anchor_manifest()
     fp = manifest_fingerprint(manifest)

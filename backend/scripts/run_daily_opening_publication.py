@@ -1081,7 +1081,7 @@ def orchestrate(
             commit=not dry_run,
         )
         summary.historical_rip_status = str(history["status"])
-        if summary.historical_rip_status == "SOURCE_REFRESH_REQUIRED":
+        if summary.historical_rip_status == "COLLECTOR_SOURCE_REFRESH_BLOCKED":
             summary.exit_code = EXIT_FAILED
             summary.error = "Collector source refresh is due before historical append"
             return summary

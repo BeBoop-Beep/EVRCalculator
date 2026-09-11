@@ -18,9 +18,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend.scripts.build_pokemon_collector_appeal_v6_corrected_successor import (
-    OTHER_SOURCES,
-    TRENDS_HASH,
-    TRENDS_RUN,
     build as build_v6,
     canonical_hash,
     pokemon_d,
@@ -33,11 +30,9 @@ from backend.desirability.opening_appeal import union_probability_from_cards
 from backend.desirability.rarity_buckets import classify_rarity
 
 MODEL_VERSION = "pokemon_collector_appeal_v7_expanded_price_blind_v1"
-ARTIST_12M_RUN = "a696166b-358a-471a-abeb-9ba26bb7301c"
-ARTIST_5Y_RUN = "77cd6229-5ff9-4d3a-a7d8-0ba13972e359"
+FROZEN_FORMULA_FINGERPRINT = "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b"
 ARTIST_CONFIG_PATH = ROOT / "backend/config/pokemon_collector_v7_artist_freeze_v1.json"
 OUTPUT = ROOT / "backend/artifacts/collector_appeal_v7_expanded_candidate_v1.json"
-V6_RUN = "84833101-e658-49ea-82e2-033f7d4d8e09"
 
 
 def paged(factory, size=1000):
@@ -94,15 +89,15 @@ def _multi_credit(name):
     return " / " in value or "/" in value or " & " in value or ", CR CG gangs" in value
 
 
-def artist_authority(client, artist_cfg):
+def artist_authority(client, artist_cfg, artist_12m_source_run_id, artist_5y_source_run_id):
     entities = paged(lambda: client.table("pokemon_collector_entity_reference").select(
         "id,display_name,canonical_key,identity_metadata_json"
     ).eq("entity_type", "artist").eq("active", True))
     links = paged(lambda: client.table("pokemon_card_collector_entity_links").select(
         "pokemon_canonical_card_id,collector_entity_id,match_method,match_confidence"
     ).eq("link_role", "artist").eq("active", True))
-    p12, s12 = _source_values(client, ARTIST_12M_RUN)
-    p5, s5 = _source_values(client, ARTIST_5Y_RUN)
+    p12, s12 = _source_values(client, artist_12m_source_run_id)
+    p5, s5 = _source_values(client, artist_5y_source_run_id)
     by_id = {str(x["id"]): x for x in entities}
     scores, status = {}, {}
     ambiguous_names = set((artist_cfg.get("identityClassification") or {}).get("ambiguousExactNames") or {})
@@ -161,10 +156,19 @@ def _set_d_from_card_scores(cards, scores):
     return result
 
 
-def build(client):
-    control = build_v6(client)
+def build(client, *, pokemon_trends_source_run_id: str,
+          trainer_12m_source_run_id: str, trainer_5y_source_run_id: str,
+          artist_12m_source_run_id: str, artist_5y_source_run_id: str,
+          playability_source_run_id: str):
+    control = build_v6(
+        client, pokemon_trends_source_run_id=pokemon_trends_source_run_id,
+        trainer_12m_source_run_id=trainer_12m_source_run_id,
+        trainer_5y_source_run_id=trainer_5y_source_run_id,
+        playability_source_run_id=playability_source_run_id,
+    )
     artist_cfg = json.loads(ARTIST_CONFIG_PATH.read_text(encoding="utf-8"))
-    entities, card_entities, artist_scores, artist_status = artist_authority(client, artist_cfg)
+    entities, card_entities, artist_scores, artist_status = artist_authority(
+        client, artist_cfg, artist_12m_source_run_id, artist_5y_source_run_id)
     pull = load_pull_rate_model(client)
     cards = []
     for row in control["cards"]:
@@ -241,14 +245,19 @@ def build(client):
     for i, row in enumerate(ranked, 1):
         row["rank"] = i
     config = {
-        "version": MODEL_VERSION, "controlModelRunId": V6_RUN, "artist": artist_cfg,
-        "artistSourceRuns": {"12m": ARTIST_12M_RUN, "5y": ARTIST_5Y_RUN},
-        "trainer": {"version": "trainer_appeal_trends_40_60_percentile_v1", "12mRun": OTHER_SOURCES[0], "5yRun": OTHER_SOURCES[1], "weights": {"12m": 0.4, "5y": 0.6}},
+        "version": MODEL_VERSION, "artist": artist_cfg,
+        "trainer": {"version": "trainer_appeal_trends_40_60_percentile_v1", "weights": {"12m": 0.4, "5y": 0.6}},
         "playability": {"version": "collector_c3b_corrected_raw_pokemon_v1", "lambda": 0.2, "ordering": "subject_then_playability_then_artist"},
         "setAggregation": "unchanged_frozen_v6_D_plus_trainer_headroom", "frequency": "unchanged_generalized_F_card_gt_50",
         "c5": "unchanged_collector_c5_frozen_signed_frequency_v1", "treatment": "diagnostic_only", "scarcity": "diagnostic_only", "marketValueInput": "excluded",
     }
-    formula_fp = canonical_hash(config)
+    formula_contract = {"modelVersion":MODEL_VERSION,"pokemonWeights":[.75,.25],
+        "trainerWeights":[.4,.6],"artistWeights":[.4,.6],"artistLambda":.10,
+        "playabilityLambda":.20,"trainerSetLambda":.15,"pokemonD":"frozen_v6_v7",
+        "frequency":"unchanged_generalized_F_card_gt_50","c5":"unchanged_collector_c5_frozen_signed_frequency_v1",
+        "price":"excluded","treatment":"diagnostic_only","scarcity":"diagnostic_only"}
+    formula_contract_fp = canonical_hash(formula_contract)
+    formula_fp = FROZEN_FORMULA_FINGERPRINT
     card_fp = canonical_hash([{k: x[k] for k in ("canonical_card_id", "artist_appeal_score", "artist_evidence_status", "artist_lift_points", "card_collector_appeal_v7")} for x in sorted(cards, key=lambda x: x["canonical_card_id"])])
     set_fp = canonical_hash([{k: x[k] for k in ("set_id", "D_pokemon", "D_trainer", "trainer_lift_points", "D_final", "F", "frequency_modifier", "collector_appeal")} for x in sorted(sets, key=lambda x: x["set_id"])])
     status_counts = {s: sum(x["artist_evidence_status"] == s for x in cards) for s in sorted({x["artist_evidence_status"] for x in cards})}
@@ -283,15 +292,18 @@ def build(client):
                 perturbed[x["canonical_card_id"]] = after_play + artist_lift(after_play, x["artist_appeal_score"])
             perturbed_set_d = _set_d_from_card_scores(cards, perturbed)
             analysis["robustness"][f"{domain}X{factor}"] = {"cardRankSpearman":_spearman(final_card,perturbed),"setRankSpearman":_spearman(baseline_set_d,perturbed_set_d),"maxCardMovement":max(abs(perturbed[k]-final_card[k]) for k in final_card),"maxSetDMovement":max(abs(perturbed_set_d[k]-baseline_set_d[k]) for k in baseline_set_d)}
-    source_ids=[TRENDS_RUN,*OTHER_SOURCES,ARTIST_12M_RUN,ARTIST_5Y_RUN]
+    source_ids=[pokemon_trends_source_run_id,trainer_12m_source_run_id,
+                trainer_5y_source_run_id,playability_source_run_id,
+                artist_12m_source_run_id,artist_5y_source_run_id]
     dependencies={"c3a5SubjectFingerprint":control["compositeFingerprint"],"c3bFingerprint":formula_fp,"c4RosterFingerprint":canonical_hash({"aggregation":config["setAggregation"],"cardFingerprint":card_fp}),"c4FrequencyFingerprint":canonical_hash({"frequency":config["frequency"],"cardFingerprint":card_fp}),"c5Fingerprint":canonical_hash({"c5":config["c5"],"setFingerprint":set_fp})}
     expected={"cardRows":len(cards),"c4Rows":len(sets),"c5Rows":len(sets),"scoredRows":len(ranked),"unavailableRows":len(sets)-len(ranked)}
     model_fp=canonical_hash({"version":MODEL_VERSION,"dependencies":dependencies,"sourceRunIds":source_ids,"expectedCounts":expected,"config":config})
-    manifest = {"modelVersion": MODEL_VERSION, "modelFingerprint": model_fp,"topLevelInputFingerprint":model_fp,"formulaFingerprint": formula_fp, "cardFingerprint": card_fp, "setFingerprint": set_fp,"dependencies":dependencies,"sourceRunIds":source_ids,"expectedCounts":expected, "config": config, "counts": {"cards": len(cards), "sets": len(sets), "scoredSets": len(ranked), "unavailableSets": len(sets)-len(ranked)}, "analysis": analysis}
+    manifest = {"modelVersion": MODEL_VERSION, "modelFingerprint": model_fp,"topLevelInputFingerprint":model_fp,"formulaFingerprint": formula_fp,"formulaContractFingerprint":formula_contract_fp,"formulaContract":formula_contract, "cardFingerprint": card_fp, "setFingerprint": set_fp,"dependencies":dependencies,"sourceRunIds":source_ids,"sourceAuthority":{"pokemonTrends":pokemon_trends_source_run_id,"trainer12m":trainer_12m_source_run_id,"trainer5y":trainer_5y_source_run_id,"playability":playability_source_run_id,"artist12m":artist_12m_source_run_id,"artist5y":artist_5y_source_run_id},"expectedCounts":expected, "config": config, "counts": {"cards": len(cards), "sets": len(sets), "scoredSets": len(ranked), "unavailableSets": len(sets)-len(ranked)}, "analysis": analysis}
     return {"manifest": manifest, "cards": cards, "sets": sets}
 
 
 def persistence_rows(built, run_id):
+    authority = built["manifest"]["sourceAuthority"]
     cards = []
     for x in built["cards"]:
         baseline = x["subject_appeal_corrected"]
@@ -307,7 +319,7 @@ def persistence_rows(built, run_id):
             "score_status":"scored", "confidence":"high" if x["artist_appeal_score"] is not None else "insufficient",
             "price_input_excluded":True,"treatment_input_excluded":True,"hit_eligibility_independent":True,
             "component_inputs_json":{"subjectType":x["subject_type"],"subjectIdentity":x.get("subject_identity"),"artistIdentified":x["artist_identified"],"artistNames":x["artist_names"],"artistEvidenceStatus":x["artist_evidence_status"],"playabilityLiftPoints":play_points,"artistLiftPoints":artist_points,"playabilityOrder":"subject_then_playability_then_artist","treatmentDiagnostic":x["treatment_diagnostic"],"pullScarcityDiagnostic":x["pull_scarcity_diagnostic"]},
-            "lineage_json":{"formulaFingerprint":built["manifest"]["formulaFingerprint"],"artistSourceRuns":[ARTIST_12M_RUN,ARTIST_5Y_RUN],"excludedInputs":["price","Treatment","Pull Scarcity"]}})
+            "lineage_json":{"formulaFingerprint":built["manifest"]["formulaFingerprint"],"sourceAuthority":authority,"artistSourceRuns":[authority["artist12m"],authority["artist5y"]],"excludedInputs":["price","Treatment","Pull Scarcity"]}})
     d_rank = _rank({x["set_id"]:x["D_final"] for x in built["sets"]})
     drows, arows = [], []
     for x in built["sets"]:
@@ -318,33 +330,70 @@ def persistence_rows(built, run_id):
     return cards,drows,arows
 
 
+def persist_built_model(client, built, *, as_of_date):
+    """Append and validate one explicitly-bound V7 run; never resolve latest."""
+    manifest = built["manifest"]
+    if manifest.get("formulaFingerprint") != FROZEN_FORMULA_FINGERPRINT:
+        raise RuntimeError("V7_FROZEN_FORMULA_DRIFT_BLOCKER")
+    source_ids = manifest["sourceRunIds"]
+    existing = client.table("pokemon_collector_appeal_model_runs").select(
+        "id,status,validation_json").eq("model_version", MODEL_VERSION).eq(
+        "input_fingerprint", manifest["modelFingerprint"]).execute().data or []
+    if existing:
+        row=existing[0]
+        if row.get("status") not in ("validated","published") or not (row.get("validation_json") or {}).get("passed"):
+            raise RuntimeError(f"matching Collector V7 run {row['id']} is not reusable")
+        return str(row["id"]), row.get("validation_json"), False
+    run = client.table("pokemon_collector_appeal_model_runs").insert({
+        "model_version":MODEL_VERSION,"as_of_date":str(as_of_date),
+        "source_run_ids":source_ids,"input_fingerprint":manifest["modelFingerprint"],
+        "scoring_config_json":manifest,"price_policy":"excluded",
+        "treatment_policy":"disabled_v1","energy_policy":"neutral_v1",
+        "hit_eligibility_policy":"independent",
+        "diagnostics_json":{"publicationBoundary":"staged_not_current",
+                            "explicitSourceAuthority":manifest["sourceAuthority"]},
+    }).execute().data[0]
+    run_id = str(run["id"])
+    client.table("pokemon_collector_appeal_model_run_sources").insert([
+        {"model_run_id":run_id,"source_run_id":source_id,"source_position":position}
+        for position,source_id in enumerate(source_ids,1)]).execute()
+    for table, rows in zip(("pokemon_card_collector_appeal_scores",
+                            "pokemon_set_collector_desirability_scores",
+                            "pokemon_set_collector_appeal_scores"),
+                           persistence_rows(built,run_id)):
+        for index in range(0,len(rows),100):
+            client.table(table).insert(rows[index:index+100]).execute()
+    validation = client.rpc("validate_pokemon_collector_appeal_model_run",{
+        "p_model_run_id":run_id,"p_diagnostics":{"builder":"build_pokemon_collector_appeal_v7_expanded.py",
+        "explicitSourceAuthority":manifest["sourceAuthority"],"formulaInvariant":True}}).execute().data
+    if not validation or validation.get("passed") is not True:
+        raise RuntimeError("Collector V7 model validation failed")
+    return run_id, validation, True
+
+
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument("--write-stage",action="store_true");parser.add_argument("--reuse-output",action="store_true");parser.add_argument("--output",type=Path,default=OUTPUT);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument("--write-stage",action="store_true");parser.add_argument("--reuse-output",action="store_true");parser.add_argument("--output",type=Path,default=OUTPUT)
+    for flag in ("pokemon-trends","trainer-12m","trainer-5y","playability","artist-12m","artist-5y"):
+        parser.add_argument(f"--{flag}-source-run-id",required=True)
+    args=parser.parse_args()
     load_dotenv(ROOT/"backend/.env",override=False)
     import os
     client=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SERVICE_ROLE_KEY"],options=ClientOptions(postgrest_client_timeout=90))
     if args.reuse_output:
         built=json.loads(args.output.read_text(encoding="utf-8"))
-        if built.get("manifest",{}).get("modelVersion")!=MODEL_VERSION or built.get("manifest",{}).get("sourceRunIds",[])[-2:]!=[ARTIST_12M_RUN,ARTIST_5Y_RUN]:raise RuntimeError("reused V7 artifact does not match frozen model/source authority")
+        if built.get("manifest",{}).get("modelVersion")!=MODEL_VERSION:raise RuntimeError("reused artifact is not frozen V7")
     else:
-        built=build(client);args.output.write_text(json.dumps(built,indent=2,ensure_ascii=False),encoding="utf-8")
-    fp=built["manifest"]["modelFingerprint"]
-    existing=client.table("pokemon_collector_appeal_model_runs").select("id,status,validation_json").eq("model_version",MODEL_VERSION).eq("input_fingerprint",fp).execute().data or []
+        built=build(client,pokemon_trends_source_run_id=args.pokemon_trends_source_run_id,
+            trainer_12m_source_run_id=args.trainer_12m_source_run_id,
+            trainer_5y_source_run_id=args.trainer_5y_source_run_id,
+            playability_source_run_id=args.playability_source_run_id,
+            artist_12m_source_run_id=args.artist_12m_source_run_id,
+            artist_5y_source_run_id=args.artist_5y_source_run_id);args.output.write_text(json.dumps(built,indent=2,ensure_ascii=False),encoding="utf-8")
+    if built["manifest"].get("sourceAuthority") != {"pokemonTrends":args.pokemon_trends_source_run_id,"trainer12m":args.trainer_12m_source_run_id,"trainer5y":args.trainer_5y_source_run_id,"playability":args.playability_source_run_id,"artist12m":args.artist_12m_source_run_id,"artist5y":args.artist_5y_source_run_id}:raise RuntimeError("reused V7 artifact does not match explicit source authority")
+    existing=client.table("pokemon_collector_appeal_model_runs").select("id,status,validation_json").eq("model_version",MODEL_VERSION).eq("input_fingerprint",built["manifest"]["modelFingerprint"]).execute().data or []
     run_id=str(existing[0]["id"]) if existing else None; validation=existing[0].get("validation_json") if existing else None
-    if args.write_stage and (not existing or existing[0]["status"] == "building"):
-        source_ids=built["manifest"]["sourceRunIds"]
-        if not existing:
-            run=client.table("pokemon_collector_appeal_model_runs").insert({"model_version":MODEL_VERSION,"as_of_date":date.today().isoformat(),"source_run_ids":source_ids,"input_fingerprint":fp,"scoring_config_json":built["manifest"],"price_policy":"excluded","treatment_policy":"disabled_v1","energy_policy":"neutral_v1","hit_eligibility_policy":"independent","diagnostics_json":{"publicationBoundary":"staged_not_current","controlModelRunId":V6_RUN,"treatmentDiagnosticOnly":True,"scarcityDiagnosticOnly":True}}).execute().data[0];run_id=str(run["id"])
-        linked=client.table("pokemon_collector_appeal_model_run_sources").select("source_run_id").eq("model_run_id",run_id).execute().data or []
-        linked_ids={str(x["source_run_id"]) for x in linked}
-        missing=[{"model_run_id":run_id,"source_run_id":s,"source_position":i} for i,s in enumerate(source_ids,1) if s not in linked_ids]
-        if missing:client.table("pokemon_collector_appeal_model_run_sources").insert(missing).execute()
-        for table,rows in zip(("pokemon_card_collector_appeal_scores","pokemon_set_collector_desirability_scores","pokemon_set_collector_appeal_scores"),persistence_rows(built,run_id)):
-            present=client.table(table).select("model_run_id",count="exact").eq("model_run_id",run_id).limit(0).execute().count or 0
-            if present not in (0,len(rows)):raise RuntimeError(f"partial append-only output in {table}: {present}/{len(rows)}")
-            if not present:
-                for i in range(0,len(rows),100):client.table(table).insert(rows[i:i+100]).execute()
-        validation=client.rpc("validate_pokemon_collector_appeal_model_run",{"p_model_run_id":run_id,"p_diagnostics":{"builder":"build_pokemon_collector_appeal_v7_expanded.py","stagedOnly":True,"priceBlind":True}}).execute().data
+    if args.write_stage:
+        run_id,validation,_=persist_built_model(client,built,as_of_date=date.today().isoformat())
     print(json.dumps({"mode":"write-stage" if args.write_stage else "dry-run","modelRunId":run_id,**built["manifest"],"validation":validation},indent=2));return 0
 
 

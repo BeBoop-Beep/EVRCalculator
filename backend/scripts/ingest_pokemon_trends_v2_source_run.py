@@ -257,8 +257,11 @@ def validate_checkpoint(loaded: LoadedCheckpoint) -> dict:
             f"expected {EXPECTED_SUBJECT_COUNT} unique subjects, found {len(seen_subjects)}"
         )
     observed = {key: classifications.get(key, 0) for key in EXPECTED_CLASSIFICATIONS}
-    if observed != EXPECTED_CLASSIFICATIONS:
-        raise ValidationError(f"unexpected terminal state counts: expected {EXPECTED_CLASSIFICATIONS}, found {observed}")
+    # Longitudinal captures need complete numeric authority, not the control
+    # run's incidental 998/27 split. Popularity movement may legitimately move
+    # a subject between scored and confirmed-zero classifications.
+    if failed or missing or unavailable_count or usable != EXPECTED_SUBJECT_COUNT:
+        raise ValidationError(f"incomplete Pokemon Trends authority: {observed}")
 
     usable = sum(classifications.get(c, 0) for c in USABLE_NUMERIC_CLASSIFICATIONS)
     failed = classifications.get("failed", 0)
