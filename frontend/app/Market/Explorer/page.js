@@ -63,6 +63,10 @@ export default async function MarketExplorerPage({ searchParams }) {
   const initialState = resolveInitialExplorerState(
     overview, resolvedSearchParams, sealedSegments, cardSegments
   );
+  const requestedPreparedKey = typeof resolvedSearchParams?.prepared === "string"
+    ? resolvedSearchParams.prepared.trim() : "";
+  const initialPreparedKey = preparedDirectory.some((market) => market.market_key === requestedPreparedKey)
+    ? requestedPreparedKey : null;
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
@@ -92,6 +96,7 @@ export default async function MarketExplorerPage({ searchParams }) {
           user={user}
           coverageSummary={coverageSummary}
           preparedDirectory={preparedDirectory}
+          initialPreparedKey={initialPreparedKey}
         />
       </MarketExplorerAccessGate>
     </div>

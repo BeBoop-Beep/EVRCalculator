@@ -36,9 +36,9 @@ const codeOf = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*
 
 test("the route exists at /Market/Explorer with the locked header copy", () => {
   assert.ok(fs.existsSync(path.resolve(here, "page.js")));
-  assert.match(explorerPage, />Market Explorer</);
-  assert.match(explorerPage, /Compare performance across Pokémon market segments\./);
-  assert.match(explorerPage, /Index Plus/);
+  assert.match(client, />Market Explorer<\/h1>/);
+  assert.match(client, /Explore\. Compare\. Build your own Pokémon markets\./);
+  assert.match(client, /Compare &amp; Analyze/);
   assert.match(explorerPage, /path: "\/Market\/Explorer"/);
 });
 

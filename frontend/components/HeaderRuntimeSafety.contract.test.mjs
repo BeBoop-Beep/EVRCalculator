@@ -42,5 +42,5 @@ test("primary public navigation remains intact", () => {
     assert.ok(source.includes(`href="${destination}"`), `${destination} must remain in the Header`);
   }
   assert.ok(source.includes("href={TCGS_NAV_HREF}"), "TCGs navigation must remain intact");
-  assert.ok(source.includes("<SearchBar"), "Search must remain present");
+  assert.ok(source.includes("<SitewideSearchBar"), "Canonical sitewide search must remain present");
 });

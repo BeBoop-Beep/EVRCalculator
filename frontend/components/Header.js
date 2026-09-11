@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from 'next/navigation'; // Use next/navigation for routing
-import SearchBar from "@/components/Search/SearchBar";
+import SitewideSearchBar from "@/components/Search/SitewideSearchBar";
 import Image from "next/image";
 import { useAuth } from "@/components/AuthContext";
 import { TCGS_NAV_HREF, isTopNavRouteActive } from "@/lib/navigation/tcgsNav.mjs";
@@ -162,7 +162,7 @@ export default function Header() {
             onClickCapture={() => setIsMobileMenuOpen(false)}
             onFocusCapture={() => setIsMobileMenuOpen(false)}
           >
-            <SearchBar
+            <SitewideSearchBar
               onSearch={handleHeaderSearch}
               className="relative flex items-center w-full min-w-0"
               inputClassName="w-full min-w-0 px-3 py-2 pr-10 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] text-sm"
@@ -217,7 +217,7 @@ export default function Header() {
             onClickCapture={() => setIsMobileMenuOpen(false)}
             onFocusCapture={() => setIsMobileMenuOpen(false)}
           >
-            <SearchBar
+            <SitewideSearchBar
               onSearch={handleHeaderSearch}
               className="relative flex items-center w-full min-w-0 max-w-full lg:w-[360px] xl:w-[420px]"
               inputClassName="w-full min-w-0 px-4 py-2 pr-12 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[rgb(45,212,191)] focus:ring-2 focus:ring-[rgba(45,212,191,0.35)]"

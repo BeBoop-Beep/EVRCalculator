@@ -23,6 +23,7 @@ POLICY_INTERACTIVE_DETAIL = "interactive_detail"
 POLICY_RANKED_INTELLIGENCE = "ranked_intelligence"
 POLICY_CUSTOM_QUERY = "custom_query"
 POLICY_INSTRUMENT_SEARCH = "instrument_search"
+POLICY_SITE_SEARCH = "site_search"
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,9 @@ POLICIES = {
     # A distinct finite bucket for debounced typeahead. It must never consume
     # custom build/query capacity.
     POLICY_INSTRUMENT_SEARCH: PaidRoutePolicy(POLICY_INSTRUMENT_SEARCH, 30, 10, 600, 3600),
+    # Public header typeahead. Separate buckets ensure ordinary navigation can
+    # never consume Exact Basket discovery or Custom Builder capacity.
+    POLICY_SITE_SEARCH: PaidRoutePolicy(POLICY_SITE_SEARCH, 30, 10, 600, 3600),
 }
 
 

@@ -76,6 +76,7 @@ export default function MarketExplorerClient({
   user = null,
   coverageSummary = [],
   preparedDirectory = [],
+  initialPreparedKey = null,
 }) {
   const auth = useAuth();
   const liveUser = auth ? auth.user : user;
@@ -93,10 +94,10 @@ export default function MarketExplorerClient({
   const {
     selection: { assetUniverse, sealedFamilyIds, segmentIds },
     selectedSeriesIds, toggleMarket, toggleAny, replacePrepared, clearAll: clearAllSelection,
-  } = useMarketExplorerSelection({ overview, sealedSegments, cardSegments, initialState });
+  } = useMarketExplorerSelection({ overview, sealedSegments, cardSegments, initialState, hasExternalSeries: Boolean(initialPreparedKey) });
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
   const [compareUpgradeVisible, setCompareUpgradeVisible] = useState(false);
-  const [preparedActiveKeys, setPreparedActiveKeys] = useState([]);
+  const [preparedActiveKeys, setPreparedActiveKeys] = useState(() => initialPreparedKey ? [initialPreparedKey] : []);
   const [loadedPreparedSeries, setLoadedPreparedSeries] = useState([]);
   // ONE detail target at a time. Four selected markets must not produce four
   // constituent tables; the user names the one they are inspecting.
@@ -169,6 +170,16 @@ export default function MarketExplorerClient({
     clearAllQueries();
     setHiddenSeriesKeys(new Set());
   }, [clearAllQueries, clearAllSelection]);
+
+  // A canonical prepared deep link is a selection, not an addition to the
+  // legacy default asset pair. Resolve it through the same replacement path
+  // Basic Browse uses so the first usable state contains exactly one market.
+  useEffect(() => {
+    if (!initialPreparedKey) return;
+    clearAllSelection();
+    clearAllQueries();
+    setHiddenSeriesKeys(new Set());
+  }, [clearAllQueries, clearAllSelection, initialPreparedKey]);
 
   useEffect(() => {
     if (!preparedActiveKeys.length) { setLoadedPreparedSeries([]); return; }

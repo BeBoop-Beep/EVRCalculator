@@ -76,7 +76,10 @@ PHASE6_EXACT_MIRRORS = {
 def test_prompt1_sources_use_actual_ledger_versions_and_match_statement_bytes():
     """apply_migration stored the submitted SQL with one trailing CRLF."""
     for stem, ledger_sha256 in PROMPT1_LEDGER_MIRRORS.items():
-        source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        # Git's Windows checkout may materialize CRLF. The ledger stores the
+        # submitted LF statement plus one trailing CRLF, so normalize only for
+        # this byte assertion without rewriting the frozen migration.
+        source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes().replace(b"\r\n", b"\n")
         assert hashlib.sha256(source + b"\r\n").hexdigest() == ledger_sha256
     for obsolete in (
         "20260907200000_add_market_explorer_exact_instrument_foundation.sql",

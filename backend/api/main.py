@@ -190,6 +190,7 @@ from backend.domain.pokemon.market_explorer_preflight import (
 from backend.db.services.market_explorer_instrument_search import (
     search_market_explorer_instruments,
 )
+from backend.db.services.sitewide_search import search_sitewide
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
 from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
 from backend.domain.pokemon.market_explorer_query import (
@@ -203,6 +204,7 @@ from backend.api.market_request_metrics import build_identity, market_request_me
 from backend.api.paid_abuse_control import (
     POLICY_CUSTOM_QUERY,
     POLICY_INSTRUMENT_SEARCH,
+    POLICY_SITE_SEARCH,
     POLICY_INTERACTIVE_DETAIL,
     POLICY_RANKED_INTELLIGENCE,
     emit_security_event,
@@ -1502,6 +1504,27 @@ def get_market_explorer_instrument_search(
         ))
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_SEARCH_INVALID"}, status_code=400)
+
+
+@app.get("/search")
+def get_sitewide_search(
+    request: Request,
+    q: str = Query(min_length=2, max_length=120),
+    limit: int = Query(default=20, ge=1, le=30),
+):
+    """Public navigation search composed from prepared and canonical leaf authorities."""
+    forwarded = str(request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+    network_identity = forwarded or (request.client.host if request.client else "unknown")
+    _enforce_paid_abuse(request, user_id=f"public-search:{network_identity}",
+                        policy_class=POLICY_SITE_SEARCH, route="/search")
+    try:
+        return JSONResponse(content=search_sitewide(service_read_client, q=q, limit=limit),
+                            headers={"Cache-Control": "public, max-age=30, stale-while-revalidate=60"})
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "SITE_SEARCH_INVALID"}, status_code=400)
+    except Exception:
+        logger.exception("/search unexpected error")
+        return JSONResponse(content={"message": "Search is temporarily unavailable", "code": "SITE_SEARCH_FAILED"}, status_code=503)
 
 
 @app.post("/market/explorer/query")
