@@ -264,4 +264,134 @@ Quick Markets, or sidebar file was touched.
 
 ## M. Final commit SHA
 
-`d725f579`
+`d725f579` (report SHA `3e6883b6ceda469de112230413e088766698c8a0`)
+
+## N. Final DB/ops acceptance (2026-09-10/11, appended)
+
+Performed directly against production (`zwxzxuuawalvwioadhmf` / TheIndex) via
+the Supabase MCP connection, after merging `develop` forward to the tip that
+carried this report (no further source edits made in this pass).
+
+### N.1 Preflight column-name defect — verified NOT live
+
+Queried `pg_get_functiondef` for
+`public.preflight_pokemon_market_explorer_filtered_cards_v1` directly, and
+separately counted occurrences of `history_probe_ready_set_count` vs.
+`history_probe_projection_ready_set_count` in the live `pg_proc.prosrc` via
+`regexp_matches`: the live function contains **2** occurrences of
+`history_probe_ready_set_count` (the correct, consistent name — one
+definition in the `coverage` CTE, one reference in `readiness`) and **0**
+occurrences of the mismatched `..._projection_ready_set_count` spelling. A
+sandbox repro of the exact broken CTE pattern from the migration *file*
+confirmed it does error (`42703: column ... does not exist`) — so the bug is
+real, but it exists only in the repo's mirrored migration text
+(`backend/db/migrations/20260910204843_optimize_market_explorer_filtered_cards_preflight.sql`),
+not in the deployed function. Per instructions ("If the mismatch exists live:
+create ONE NEW corrective migration" / do not edit old migrations otherwise):
+**no corrective migration was created**, since there is nothing live to
+correct. This is a repo/production drift issue (the file doesn't reflect
+whatever was actually deployed) worth flagging to the DB/ops workstream
+separately, but it is not a functional defect and out of scope to silently
+patch here.
+
+Confirmed the live output contract is exactly the historically-documented
+one: `matching_constituent_count, matching_set_count, comparison_as_of,
+previous_approved_market_date, previous_matching_constituent_count,
+previous_matching_set_count, common_constituent_count,
+current_chain_link_ready, scope_set_count, scope_projection_ready_set_count,
+scope_projection_missing_set_count, scope_projection_ready,
+history_probe_projection_ready, projection_retained_from,
+projection_computed_through, count_source, history_probe_source,
+preflight_status` — matches what `call_filtered_cards_preflight` (Task 3)
+expects field-for-field; no application-side field-name fix was needed.
+
+### N.2 Preflight acceptance cases (live, read-only)
+
+Run against the live RPC with `p_set_ids` scoped to the 165 currently-tracked
+sets (`pokemon_market_explorer_card_daily_coverage_v2_shadow`):
+
+| Case | Result | Status |
+|---|---|---|
+| SIR + Intermediate + New (`segmentIds=['specialIllustrationRare']`, `priceSegmentIds=['intermediate']`, `releaseAgeCohortIds=['new']`) | **15 variants / 3 sets** | `ready` |
+| Obtainable (`priceSegmentIds=['obtainable']`) | 26,437 variants / 163 sets | `ready`, deterministic |
+| All SIR (`segmentIds=['specialIllustrationRare']`) | 222 variants / 22 sets (matches raw metadata count exactly) | `ready`, deterministic |
+| Charizard + Intermediate (`pokemonIds=[6]`, `priceSegmentIds=['intermediate']`) | 45 variants / 26 sets | `ready`, deterministic |
+| Deliberately empty (`hyperRare` + `obtainable` + `legacy`, a combination with no real intersection) | 0 / 0 | `empty` — zero membership, not a readiness failure |
+| Scope including untracked sets (210 sets vs. 165 tracked, forcing incomplete projection coverage) | `null` / `null` counts | `projection_lagging` — **did not** report zero matches |
+
+All six cases match the required semantics: readiness/projection-lag is
+distinguishable from a genuine empty result, and counts are `null` (never
+`0`) under lag.
+
+### N.3 Maintained-cache prewarm acceptance (real writes, `--commit`)
+
+Pre-run health (`pokemon_market_explorer_query_cache`, `cache_kind='maintained'`):
+37 total, 35 nominally `ready` but many with stale `computed_through` behind
+the day's target, 2 `failed` (including the known Obtainable row —
+`6d7f1c35-01db-485b-aeab-fa203e92861e`, `status=failed`,
+`computed_through=2026-09-08`), 0 active/expired leases.
+
+Ran the canonical worker three times, each a single bounded invocation
+(`python -m backend.scripts.run_market_explorer_maintained_cache_prewarm
+--commit --max-caches 1`, with `--lock-path` pointed at a Windows-safe temp
+path since the script's `/tmp` default doesn't exist on this host):
+
+1. Advanced fingerprint `3ddd972f...` (an SIR-segment maintained cache) →
+   `computed_through=2026-09-10`, `execution_source=cache_incremental_v2_daily`,
+   elapsed 3.3s.
+2. Advanced fingerprint `492c93bf...` → same target date, same V2 execution
+   source, elapsed 1.5s.
+3. Advanced fingerprint `49a06a7c...` → same target date, same V2 execution
+   source, elapsed 23.0s.
+
+All three: planner claimed the cache via `claim_pokemon_market_explorer_query_cache_build`,
+renewed the lease through each build phase, finalized via
+`finalize_pokemon_market_explorer_query_cache_build`, and cleared the lease
+(`build_token`/`build_expires_at` both `null` afterward, confirmed by direct
+row read) — no stolen or orphaned leases, one cache per process each time,
+`execution_source=cache_incremental_v2_daily` confirms the repaired V2
+materialized path (not the interval fallback) is what actually ran.
+
+**Obtainable itself was not reached.** After the three advances, the worker's
+internal "stale" backlog (computed_through behind target, independent of the
+`status` column) still had 35 entries; the two `failed` rows (Obtainable
+included) are deprioritized behind every other stale row by the worker's
+cooldown/ordering rule and only become selectable once they are the *only*
+stale caches left. Reaching Obtainable specifically would require clearing
+that entire backlog first — dozens more sequential invocations — which the
+instructions explicitly rule out ("do not start an unbounded loop", "do not
+rewrite production priority ordering just to force Obtainable"). Stopped
+after 3 runs per that guidance.
+
+Post-run health: 37 total maintained, 35 `ready`, 2 `failed` (Obtainable
+still `status=failed`, `computed_through=2026-09-08`, unchanged), 0
+stale-by-status, 0 active leases, 0 expired leases, latest canonical target
+`2026-09-10`.
+
+### N.4 Final decision
+
+Per the instructions' own relaxation ("We do NOT require every stale
+maintained cache to become current for Phase 1. We only require proof that
+the repaired canonical recovery mechanism successfully advances a real
+maintained cache, with Obtainable preferred as the known failure case."), all
+required conditions are met except Obtainable's own row advancing:
+
+- live preflight output contract is internally consistent — yes (N.1)
+- application-expected history/readiness fields exist — yes (N.1)
+- canonical SIR + Intermediate + New remains 15 / 3 — yes (N.2)
+- projection lag cannot masquerade as zero membership — yes (N.2, case 6)
+- one real post-repair maintained-cache worker invocation succeeds — yes,
+  three times (N.3)
+- no active lease is stolen — yes
+- one-cache-per-process safety remains intact — yes
+- maintained cache publishes normally through the canonical target — yes
+- no production state was manually fabricated — yes, all writes went through
+  the real worker/RPC chain, nothing hand-edited
+- repo migration history — no corrective migration needed since no live
+  defect exists; N.1's drift is flagged for DB/ops, not silently patched
+
+**MARKET_EXPLORER_REMAP_PHASE1_COMPLETE**
+
+Obtainable's own recovery is left to the bounded scheduler working through
+the remaining backlog, as the instructions anticipate. No Phase 2 work was
+started.
