@@ -55,7 +55,13 @@ test("Format Strength wraps instead of clipping and no longer uses a fixed min-w
   assert.match(jsx, /whitespace-normal break-words/);
 });
 
-test("desktop table opts into horizontal scroll via colgroup widths rather than shrinking columns", () => {
+test("desktop table fits the viewport via colgroup-driven fixed layout rather than horizontal overflow", () => {
+  // Tasks 8/9 intentionally replaced the earlier `width: max-content` /
+  // horizontal-scroll approach: the table now uses `width: 100%` with
+  // `table-layout: fixed` so column widths (from colgroup <col> widths) are
+  // proportionally scaled to fit the viewport instead of overflowing it.
   assert.match(jsx, /styles\.table\}\s*\$\{styles\.productsTable\}/);
-  assert.match(css, /\.productsTable\s*{[^}]*width:\s*max-content/);
+  assert.match(css, /\.productsTable\s*{[^}]*width:\s*100%/);
+  assert.match(css, /\.productsTable\s*{[^}]*table-layout:\s*fixed/);
+  assert.doesNotMatch(css, /\.productsTable\s*{[^}]*width:\s*max-content/);
 });

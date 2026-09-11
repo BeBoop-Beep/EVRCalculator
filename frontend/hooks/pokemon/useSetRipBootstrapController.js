@@ -23,7 +23,7 @@ const needsChaseReconciliation = (payload) => {
   );
 };
 
-export default function useSetRipBootstrapController({ setId, initialPayload, enabled, entitled = false }) {
+export default function useSetRipBootstrapController({ setId, initialPayload, enabled }) {
   const validSeed = initialPayload?.available && setIdentity(initialPayload) === String(setId || "") ? initialPayload : null;
   const [state, setState] = useState(() => ({ status: validSeed ? "success" : "idle", setId: validSeed ? setId : null, payload: validSeed, error: null }));
   const activeSetIdRef = useRef(String(setId || ""));
@@ -71,13 +71,19 @@ export default function useSetRipBootstrapController({ setId, initialPayload, en
   // existing accepted seed (and its truthful Chase "Unavailable") is left
   // exactly as-is and the gap is reported as a publication-data blocker.
   //
-  // Gated on `entitled`: this extra fetch is only worth the backend load for
-  // a viewer who is actually entitled to see Chase Accessibility (the same
-  // plan-access signal RankingsLazyClient/useRankingsAccess already resolve
-  // for this page tree). An anonymous or non-entitled viewer falls through to
-  // the existing behavior — the truthful Unavailable seed, no extra fetch.
+  // NOT gated on entitlement: RipDecisionPage renders
+  // <ChaseAccessibilitySnapshotCard> inside the public data-three-pillar-summary
+  // row, outside any canViewProductRipIntelligence gate — Chase Accessibility
+  // is actually a public pillar on this page, visible to anonymous/non-entitled
+  // viewers too. Gating this one-shot repair fetch on entitlement (as an
+  // earlier fix round mistakenly did, based on a literal reading of "entitled
+  // user" in the plan text rather than the page's actual rendering) would
+  // leave the exact viewers who can see the card stuck on a stale "Unavailable"
+  // indefinitely. The fetch is still one-shot and bounded by the other 3
+  // conditions below (valid seed, Overall/Financial/Collector ready, Chase
+  // missing), so this does not reintroduce a retry loop or broad backend load.
   useEffect(() => {
-    if (!enabled || !entitled || !validSeed) return;
+    if (!enabled || !validSeed) return;
     if (state.setId !== setId || state.status !== "success") return;
     if (state.payload !== validSeed) return;
     if (!needsChaseReconciliation(validSeed)) return;
@@ -105,7 +111,7 @@ export default function useSetRipBootstrapController({ setId, initialPayload, en
           error?.message || error,
         );
       });
-  }, [enabled, entitled, validSeed, setId, state.setId, state.status, state.payload]);
+  }, [enabled, validSeed, setId, state.setId, state.status, state.payload]);
 
   const payload = state.setId === setId ? state.payload : null;
   return { state, payload, load, preload: () => load({ speculative: true }), retry: () => load({ force: true }) };

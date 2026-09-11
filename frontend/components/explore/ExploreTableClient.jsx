@@ -133,7 +133,7 @@ function TopChaseCell({ target, compact = false }) {
  * column (`readOptionalRankingsChase` / `topChase`), which names a specific
  * chase card rather than measuring set-level pull accessibility.
  */
-function ChaseAccessibilityCell({ target, compact = false, entitled = true }) {
+function ChaseAccessibilityCell({ target, compact = false, entitled = false }) {
   const block = target?.setRipV1?.chaseAccessibility;
   const publicScore = Number.isFinite(Number(block?.publicScore)) ? Number(block.publicScore) : null;
   if (!entitled) {
@@ -339,7 +339,7 @@ const RELATIVE_SCORE_TOOLTIP =
  * renders an explicit Unavailable state, never a fabricated zero and never a
  * substitute from another scale.
  */
-function ScoreCell({ target, modeId, entitled = true }) {
+function ScoreCell({ target, modeId, entitled = false }) {
   const rankColumnMode = useContext(RankColumnModeContext);
   const { value, kind, isPublic, rank, cohort } = readModeScore(target, modeId);
 
@@ -380,7 +380,7 @@ function ScoreCell({ target, modeId, entitled = true }) {
  * unavailable state. Financial is never hidden on mobile. No border per metric:
  * the label carries the meaning, the shared row carries the frame.
  */
-function MobileScoreBlock({ target, modeId, label, entitled = true }) {
+function MobileScoreBlock({ target, modeId, label, entitled = false }) {
   const rankColumnMode = useContext(RankColumnModeContext);
   const { value, kind, isPublic, rank, cohort } = readModeScore(target, modeId);
 

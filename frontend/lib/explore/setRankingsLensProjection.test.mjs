@@ -6,7 +6,7 @@ const source = {
   target_type: "set",
   target_id: "ascended",
   name: "Ascended Heroes",
-  setRipV1: { score: 12.34, rank: 4, cohortSize: 22 },
+  setRipV1: { score: 12.34, publicScore: 38.73, tier: "B", rank: 4, cohortSize: 22, rankable: true, methodologyVersion: "overall_rip_v12" },
   overallRipV12: { score: 36.8998, leaderNormalizedScore: 36.89, rank: 17, cohortSize: 22, status: "ready", components: { privateWeightingInput: 999 } },
   financialRipV4: { leaderNormalizedScore: 30.066, rank: 19, cohortSize: 22, status: "ready" },
   chaseAccessibility: { value: 0.0037, modelScore: 71.25, publicScore: 38.37, setRank: 21, setCohortSize: 22, cohortId: "run-22", status: "ready" },
@@ -25,7 +25,18 @@ const source = {
 
 test("Basic receives public Set RIP identity but no Plus peer-pillar intelligence", () => {
   const row = projectSetRankingsLensTargets([source], { rankingsIntelligence: false })[0];
-  assert.deepEqual(row.setRipV1, { score: 12.34, rank: 4, cohortSize: 22 });
+  // PUBLIC_BLOCK_LEAVES.setRipV1 intentionally excludes `score` — this is the
+  // entitlement-leak fix (a prior contract leaked the raw score to Basic/
+  // anonymous viewers). Only the public leaderboard leaves survive.
+  assert.deepEqual(row.setRipV1, {
+    publicScore: 38.73,
+    tier: "B",
+    rank: 4,
+    cohortSize: 22,
+    rankable: true,
+    methodologyVersion: "overall_rip_v12",
+  });
+  assert.equal(row.setRipV1.score, undefined, "raw score must not leak to a Basic/anonymous viewer");
   assert.equal(row.overallRipV12, undefined);
   assert.equal(row.financialRipV4, undefined);
   assert.equal(row.publicRipContractV11, undefined);

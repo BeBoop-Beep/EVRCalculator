@@ -153,8 +153,8 @@ const RAW_FRESH_BACKEND_RESPONSE = {
   meta: {},
 };
 
-function Harness({ setId, initialPayload, enabled, entitled = true, onResult }) {
-  const result = useSetRipBootstrapController({ setId, initialPayload, enabled, entitled });
+function Harness({ setId, initialPayload, enabled, onResult }) {
+  const result = useSetRipBootstrapController({ setId, initialPayload, enabled });
   onResult(result);
   return null;
 }
@@ -291,7 +291,16 @@ test("Task 7 fix: when the reconciliation fetch still lacks Chase, the truthful 
   delete global.fetch;
 });
 
-test("Task 7 fix: a non-entitled/anonymous viewer never triggers the reconciliation fetch, even with a core-ready-but-chase-missing seed", async () => {
+test("Final fix wave: the reconciliation fetch fires for a non-entitled/anonymous viewer too, since Chase Accessibility is rendered ungated on the live page", async () => {
+  // RipDecisionPage renders <ChaseAccessibilitySnapshotCard> inside the public
+  // data-three-pillar-summary row, outside any canViewProductRipIntelligence
+  // gate — so Chase Accessibility is actually a public pillar. Gating the
+  // one-shot repair fetch on entitlement (as an earlier fix round did) would
+  // leave exactly the viewers who can see the card stuck on a stale
+  // "Unavailable" forever. The hook no longer accepts or checks an `entitled`
+  // flag: the fetch is bounded solely by the other 3 conditions (valid seed,
+  // Overall/Financial/Collector ready, Chase missing) and fires once per set
+  // view regardless of viewer entitlement.
   const calls = installFetchMock(RAW_FRESH_BACKEND_RESPONSE);
 
   let latest = null;
@@ -302,20 +311,21 @@ test("Task 7 fix: a non-entitled/anonymous viewer never triggers the reconciliat
         setId: SET_TARGET_ID,
         initialPayload: STALE_SEED,
         enabled: true,
-        entitled: false,
         onResult: (r) => { latest = r; },
       })
     );
   });
 
   assert.equal(latest.state.status, "success");
-  assert.deepEqual(latest.payload.canonical.chaseAccessibility, {});
 
   await flush();
 
-  assert.equal(calls.length, 0, "a non-entitled viewer must never trigger the extra no-store reconciliation fetch");
+  assert.equal(calls.length, 1, "a non-entitled/anonymous viewer must still trigger the one-shot reconciliation fetch when the seed is core-ready-but-chase-missing");
   assert.equal(latest.state.status, "success");
-  assert.deepEqual(latest.payload.canonical.chaseAccessibility, {}, "falls through to the existing truthful Unavailable, unchanged");
+  assert.equal(latest.payload.canonical.chaseAccessibility.status, "ready", "the fresh Chase data must replace the stale seed for this viewer too");
+
+  await flush();
+  assert.equal(calls.length, 1, "reconciliation must never fire more than once per set view");
 
   await act(async () => { renderer.unmount(); });
   delete global.fetch;
