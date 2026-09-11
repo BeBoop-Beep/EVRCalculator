@@ -1,13 +1,17 @@
 from backend.sentinel.checks.registry import (
     AUDIT_CHECK_KEYS,
+    DEPLOY_CHECK_KEYS,
     FAST_CHECK_KEYS,
     INDEPENDENT_CHECK_KEYS,
     PUBLIC_CHECK_KEYS,
+    RUNTIME_CHECK_KEYS,
     build_audit_registry,
+    build_deploy_registry,
     build_fast_registry,
     build_independent_registry,
     build_profile_registry,
     build_public_registry,
+    build_runtime_registry,
 )
 
 
@@ -36,12 +40,32 @@ def test_independent_registry_is_separate_and_heartbeat_age_is_its_confirmation_
     assert registry.get("watcher.component_heartbeat").confirm_after == 1
 
 
+def test_deploy_registry_is_explicit_and_immediate():
+    registry = build_deploy_registry(
+        backend_base_url="https://backend.example.test",
+        frontend_base_url="https://index.example.test",
+        expected_release_sha="a" * 40,
+        http_get=lambda *a, **k: None,
+    )
+    assert registry.keys() == tuple(sorted(DEPLOY_CHECK_KEYS))
+    assert registry.get("deployment.release_identity").confirm_after == 1
+
+
+def test_runtime_registry_is_explicit_and_immediate():
+    registry = build_runtime_registry(
+        repo_path="/repo",
+        overlay_manifest_path="/repo/manifest.json",
+    )
+    assert registry.keys() == tuple(sorted(RUNTIME_CHECK_KEYS))
+    assert registry.get("runtime.vm_provenance").confirm_after == 1
+
+
 def test_heavy_audit_is_separate_profile():
     registry = build_audit_registry(client=object())
     assert registry.keys() == tuple(sorted(AUDIT_CHECK_KEYS))
 
 
-def test_all_profile_combines_without_independent_observer():
+def test_all_profile_combines_without_special_failure_domain_canaries():
     registry = build_profile_registry(
         "all",
         client=object(),
@@ -52,6 +76,8 @@ def test_all_profile_combines_without_independent_observer():
         sorted((*FAST_CHECK_KEYS, *PUBLIC_CHECK_KEYS, *AUDIT_CHECK_KEYS))
     )
     assert not set(INDEPENDENT_CHECK_KEYS).intersection(registry.keys())
+    assert not set(DEPLOY_CHECK_KEYS).intersection(registry.keys())
+    assert not set(RUNTIME_CHECK_KEYS).intersection(registry.keys())
 
 
 def test_market_freshness_keeps_confirmation_window_while_deterministic_checks_are_immediate():
@@ -67,6 +93,6 @@ def test_unknown_profile_is_rejected():
     try:
         build_profile_registry("unknown", client=object())
     except ValueError as exc:
-        assert "fast, public, independent, audit, all" in str(exc)
+        assert "fast, public, independent, deploy, runtime, audit, all" in str(exc)
     else:
         raise AssertionError("unknown profile must fail")
