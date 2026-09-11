@@ -1,0 +1,21 @@
+{
+  "status": "READY_FOR_CUTOVER_NOT_ACTIVE",
+  "correctedModelVersion": "pokemon_collector_appeal_v6_corrected_complete_trends_v2",
+  "modelRunId": "84833101-e658-49ea-82e2-033f7d4d8e09",
+  "modelFingerprint": "2b43616e6e77f9aa1db3c4d6e924292c14b041035d04818566570d353ffba786",
+  "trends": {"sourceRunId":"77792597-7fb4-48e9-bd52-3034061f9d3e","captureHash":"c8614e5041c279853ad87600226777beb844371289bbef07d41b25c6aa5428db","manifest":"pokemon_trends_anchor_ladder_manifest_v1","manifestFingerprint":"009418a05f6b9631"},
+  "pokemonComposite": {"identity":"pokemon_desirability_raw_75_25_complete_trends_v2_v1","fingerprint":"4cf7f4a84a5c0ba71e32fd3c7a368966bb34db06d1155774c8f0d9d3355f0f02","formula":"0.75*fan_popularity + 0.25*corrected_trends_v2","percentileTransform":false,"coverage":1025,"statistics":{"min":26.57744319899244,"p10":33.50081802575107,"p25":38.620325,"median":46.88953585858586,"p75":55.576794278126506,"p90":66.23832551099115,"p95":72.77043651551313,"max":96.8443,"sd":13.03567545893329,"uniqueValues":1025}},
+  "correctedC3B": {"identity":"collector_c3b_corrected_raw_pokemon_v1","fingerprint":"22690b5fadad79bbcd65dcf39737aea54b647613634428b8608151350f7bbced","playabilityLambda":0.20,"unknownPlayability":"zero_lift","positiveOnly":true},
+  "pokemonD": {"freezeFingerprint":"3bb56da6353fe55e787a893a1250ed1a54d7670cef85d024323fea42612067a6","productionOutputFingerprint":"71fe75bb9a85c5a7477eafb58ce0fcfe1c04b2e8a8d6eee3b81f3463e012774e","freezeComparison":"A_legitimate_input_change_from_complete_Trends_V2","implementationMismatch":false},
+  "trainer": {"contract":"separate_domain_bounded_remaining_headroom","lambda":0.15,"maxLiftPoints":1.2045219365577802,"nonnegativeAndBounded":true,"overpowerViolations":0},
+  "generalizedF": {"identity":"generalized_desirable_frequency_corrected_c3b_v1","fingerprint":"d8684f2302ce94666b9cc9cdd98c4963dca416e610a37379feea6badf81df33c","supportedSets":22,"enteringCards":28,"leavingCards":368,"delta":{"min":-0.04433183825376685,"max":0.016897724293407634,"mean":-0.02089279843999301},"scarcityVerdict":"SCARCITY_DIAGNOSTIC_ONLY","calculationRunLineageComplete":true},
+  "c5": {"identity":"collector_c5_frozen_signed_frequency_v1","fingerprint":"df338d9af4dcc93cd0a4b0d4bee0f4f424019c9438ab88324154ce5df8f4ca17","semanticVerdict":"UNCHANGED_ANCHOR_MEANING_PASS","anchors":["1/16","1/8","1/4"],"modifierRange":[-1,2]},
+  "counts": {"cardRows":18293,"setComponentRows":128,"setAppealRows":128,"scored":22,"unavailable":106},
+  "modelValidation": {"passed":true,"sourceCount":4,"badSourceCount":0,"stateOrLineageViolations":0,"sourceLineageExact":true,"dependencyManifestExact":true},
+  "inactiveSetPageGeneration": {"generationId":"04e77451-516f-40b8-bea7-64c26c97c3d3","status":"validated","publicMembershipCount":210,"freshRebuilt":22,"historicalCarryForward":188,"activated":false,"rankingsPublication":null},
+  "overallV12NonInterference": {"freshRowsChecked":22,"failures":0,"canonicalVersion":"overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5","collectorComponentVersion":"collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2","v11ProjectedV12Parity":true},
+  "runtimeVerification": {"setContractUsesExplicitModelRun":true,"pokemonAndTrainerModeled":true,"functionalTreatmentScarcityDiagnosticOnly":true,"artistNotModeled":true,"unavailableIsNull":true},
+  "tests": {"backendPrimary":{"passed":943,"failedUnrelatedStale":1,"note":"pre-existing contradictory V12-equals-V10 assertion"},"backendAdditional":{"passed":162,"failed":0},"frontend":{"passed":28,"failed":0},"pythonCompile":"passed","scopedDiffCheck":"passed"},
+  "knownLimitations": ["Artist not yet included in corrected V6","Treatment diagnostic-only","Scarcity diagnostic-only","Appeal-to-Price validation intentionally follows final Appeal freeze","Historical Collector Appeal deferred until the full Appeal contract is frozen"],
+  "cutoverGuards": {"collectorCurrentSelected":false,"setPageGenerationActivated":false,"overallRipAltered":false,"deployed":false}
+}
