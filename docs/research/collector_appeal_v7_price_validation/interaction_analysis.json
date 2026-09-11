@@ -1,0 +1,284 @@
+{
+  "pokemon_subject": {
+    "n": 3703,
+    "base_metrics": {
+      "mae": 0.5609845604785197,
+      "rmse": 0.7545213647447601,
+      "r2": 0.8782032023084354,
+      "spearman": 0.8277436917205612
+    },
+    "richer_metrics": {
+      "mae": 0.5508152724110157,
+      "rmse": 0.7425280616648446,
+      "r2": 0.8820444095119523,
+      "spearman": 0.8209652306110119
+    },
+    "mae_reduction": 0.010169288067504056,
+    "mae_reduction_pct": 1.8127572100789469,
+    "rmse_reduction": 0.011993303079915418,
+    "rmse_reduction_pct": 1.5895246497059126,
+    "r2_gain": 0.003841207203516883,
+    "spearman_gain": -0.006778461109549272,
+    "cluster_bootstrap_by_held_out_set": {
+      "mae_reduction": {
+        "draws": 20,
+        "ci_low": 0.0055295669139634514,
+        "ci_high": 0.017532461844146627,
+        "share_positive": 1.0
+      },
+      "rmse_reduction": {
+        "draws": 20,
+        "ci_low": 0.0032508669535982527,
+        "ci_high": 0.020258524256490152,
+        "share_positive": 1.0
+      },
+      "r2_gain": {
+        "draws": 20,
+        "ci_low": 0.0010950307669575943,
+        "ci_high": 0.006599491506470893,
+        "share_positive": 1.0
+      },
+      "spearman_gain": {
+        "draws": 20,
+        "ci_low": -0.009774062462623212,
+        "ci_high": -0.0014330284762609645,
+        "share_positive": 0.0
+      }
+    }
+  },
+  "trainer_subject": {
+    "n": 280,
+    "base_metrics": {
+      "mae": 0.6572627565980497,
+      "rmse": 0.8264126788300494,
+      "r2": 0.8354855654973649,
+      "spearman": 0.8867255223919969
+    },
+    "richer_metrics": {
+      "mae": 0.6498964455169227,
+      "rmse": 0.8177501849615423,
+      "r2": 0.8389163847684531,
+      "spearman": 0.8863772588750578
+    },
+    "mae_reduction": 0.007366311081126953,
+    "mae_reduction_pct": 1.1207558936177233,
+    "rmse_reduction": 0.008662493868507148,
+    "rmse_reduction_pct": 1.0482043766282267,
+    "r2_gain": 0.003430819271088237,
+    "spearman_gain": -0.00034826351693906243,
+    "cluster_bootstrap_by_held_out_set": {
+      "mae_reduction": {
+        "draws": 20,
+        "ci_low": -0.00027593293660332636,
+        "ci_high": 0.014095496940789203,
+        "share_positive": 0.95
+      },
+      "rmse_reduction": {
+        "draws": 20,
+        "ci_low": -0.0015514920150555,
+        "ci_high": 0.015351688831974441,
+        "share_positive": 0.95
+      },
+      "r2_gain": {
+        "draws": 20,
+        "ci_low": -0.0006186738629741033,
+        "ci_high": 0.006045855296118747,
+        "share_positive": 0.95
+      },
+      "spearman_gain": {
+        "draws": 20,
+        "ci_low": -0.007483330887978257,
+        "ci_high": 0.004537610000284321,
+        "share_positive": 0.25
+      }
+    }
+  },
+  "artist": {
+    "n": 2982,
+    "base_metrics": {
+      "mae": 0.5798902157165526,
+      "rmse": 0.8079759655845952,
+      "r2": 0.8575487617702283,
+      "spearman": 0.8031623014824651
+    },
+    "richer_metrics": {
+      "mae": 0.5789572101680353,
+      "rmse": 0.8073689902930977,
+      "r2": 0.8577627084920068,
+      "spearman": 0.8015320176713117
+    },
+    "mae_reduction": 0.0009330055485173849,
+    "mae_reduction_pct": 0.16089348004682205,
+    "rmse_reduction": 0.0006069752914974469,
+    "rmse_reduction_pct": 0.07512293896740874,
+    "r2_gain": 0.0002139467217784352,
+    "spearman_gain": -0.0016302838111534879,
+    "cluster_bootstrap_by_held_out_set": {
+      "mae_reduction": {
+        "draws": 20,
+        "ci_low": 0.000200696522952451,
+        "ci_high": 0.0024719887275322055,
+        "share_positive": 1.0
+      },
+      "rmse_reduction": {
+        "draws": 20,
+        "ci_low": -8.69925538854066e-05,
+        "ci_high": 0.002300442701895776,
+        "share_positive": 0.95
+      },
+      "r2_gain": {
+        "draws": 20,
+        "ci_low": -3.2616757358674975e-05,
+        "ci_high": 0.0008332387362779909,
+        "share_positive": 0.95
+      },
+      "spearman_gain": {
+        "draws": 20,
+        "ci_low": -0.002947978004968163,
+        "ci_high": 0.0005531247811134116,
+        "share_positive": 0.15
+      }
+    }
+  },
+  "playability_lift": {
+    "n": 3703,
+    "base_metrics": {
+      "mae": 0.584961713834255,
+      "rmse": 0.8148832629381307,
+      "r2": 0.8579361492685824,
+      "spearman": 0.800085219252044
+    },
+    "richer_metrics": {
+      "mae": 0.5849793515453925,
+      "rmse": 0.8137662248926418,
+      "r2": 0.8583253632017365,
+      "spearman": 0.8035144235782038
+    },
+    "mae_reduction": -1.7637711137497014e-05,
+    "mae_reduction_pct": -0.003015190690325169,
+    "rmse_reduction": 0.001117038045488905,
+    "rmse_reduction_pct": 0.13707951755707065,
+    "r2_gain": 0.0003892139331540534,
+    "spearman_gain": 0.003429204326159785,
+    "cluster_bootstrap_by_held_out_set": {
+      "mae_reduction": {
+        "draws": 20,
+        "ci_low": -0.001222909573019848,
+        "ci_high": 0.0018248930381707235,
+        "share_positive": 0.65
+      },
+      "rmse_reduction": {
+        "draws": 20,
+        "ci_low": -0.0015941648787021812,
+        "ci_high": 0.00387762275050027,
+        "share_positive": 0.75
+      },
+      "r2_gain": {
+        "draws": 20,
+        "ci_low": -0.000519923888971402,
+        "ci_high": 0.0014098317439739632,
+        "share_positive": 0.75
+      },
+      "spearman_gain": {
+        "draws": 20,
+        "ci_low": 0.0018950701093275678,
+        "ci_high": 0.006214943131352999,
+        "share_positive": 1.0
+      }
+    }
+  },
+  "card_appeal_v6": {
+    "n": 3983,
+    "base_metrics": {
+      "mae": 0.5663447462651221,
+      "rmse": 0.7632240648089998,
+      "r2": 0.8754486966574635,
+      "spearman": 0.8387724225521244
+    },
+    "richer_metrics": {
+      "mae": 0.5609910252744534,
+      "rmse": 0.7558280398695859,
+      "r2": 0.8778509300704677,
+      "spearman": 0.8318680084908877
+    },
+    "mae_reduction": 0.0053537209906686645,
+    "mae_reduction_pct": 0.9453113189404313,
+    "rmse_reduction": 0.007396024939413937,
+    "rmse_reduction_pct": 0.9690502803085519,
+    "r2_gain": 0.0024022334130041623,
+    "spearman_gain": -0.006904414061236652,
+    "cluster_bootstrap_by_held_out_set": {
+      "mae_reduction": {
+        "draws": 20,
+        "ci_low": 0.002412208468414101,
+        "ci_high": 0.009472162043514372,
+        "share_positive": 1.0
+      },
+      "rmse_reduction": {
+        "draws": 20,
+        "ci_low": 0.0022255171513517248,
+        "ci_high": 0.012235975345224933,
+        "share_positive": 1.0
+      },
+      "r2_gain": {
+        "draws": 20,
+        "ci_low": 0.0006923785916988778,
+        "ci_high": 0.003986413921348916,
+        "share_positive": 1.0
+      },
+      "spearman_gain": {
+        "draws": 20,
+        "ci_low": -0.009362770372155405,
+        "ci_high": -0.004440763469415738,
+        "share_positive": 0.0
+      }
+    }
+  },
+  "card_appeal_v7": {
+    "n": 3983,
+    "base_metrics": {
+      "mae": 0.5646936138074459,
+      "rmse": 0.761007368573214,
+      "r2": 0.8761711357909381,
+      "spearman": 0.8410880554660052
+    },
+    "richer_metrics": {
+      "mae": 0.5587295370547011,
+      "rmse": 0.7533978091110711,
+      "r2": 0.8786351645162229,
+      "spearman": 0.8338648017156612
+    },
+    "mae_reduction": 0.005964076752744796,
+    "mae_reduction_pct": 1.0561615373214541,
+    "rmse_reduction": 0.007609559462142923,
+    "rmse_reduction_pct": 0.9999324285663381,
+    "r2_gain": 0.002464028725284839,
+    "spearman_gain": -0.007223253750343939,
+    "cluster_bootstrap_by_held_out_set": {
+      "mae_reduction": {
+        "draws": 20,
+        "ci_low": 0.0030795653253964466,
+        "ci_high": 0.009826180413011074,
+        "share_positive": 1.0
+      },
+      "rmse_reduction": {
+        "draws": 20,
+        "ci_low": 0.0026371191339954417,
+        "ci_high": 0.01195223466330841,
+        "share_positive": 1.0
+      },
+      "r2_gain": {
+        "draws": 20,
+        "ci_low": 0.0008208517118866332,
+        "ci_high": 0.0038755981739542057,
+        "share_positive": 1.0
+      },
+      "spearman_gain": {
+        "draws": 20,
+        "ci_low": -0.009874518362299778,
+        "ci_high": -0.004819937642401204,
+        "share_positive": 0.0
+      }
+    }
+  }
+}
