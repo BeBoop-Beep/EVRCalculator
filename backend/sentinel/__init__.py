@@ -1,8 +1,8 @@
 """Deterministic reliability kernel for inDex Sentinel.
 
-Prompt 2 intentionally contains no production checks, automated recovery, or AI.
-Those capabilities are attached in later phases through the registry/provider
-interfaces defined here.
+Observation adapters, independent monitoring, and P6's allowlisted recovery
+layer attach to the same typed kernel. Recovery remains fail-closed unless its
+separate persistence/schema/execution gates are explicitly enabled.
 """
 
 from backend.sentinel.config import SentinelConfig
@@ -13,6 +13,8 @@ from backend.sentinel.models import (
     CheckStateStatus,
     IncidentRecord,
     IncidentStatus,
+    RecoveryAttemptRecord,
+    RecoveryAttemptStatus,
     Severity,
 )
 from backend.sentinel.registry import CheckRegistry
@@ -25,6 +27,8 @@ __all__ = [
     "CheckStateStatus",
     "IncidentRecord",
     "IncidentStatus",
+    "RecoveryAttemptRecord",
+    "RecoveryAttemptStatus",
     "SentinelConfig",
     "Severity",
 ]
