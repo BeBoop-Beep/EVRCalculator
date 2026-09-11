@@ -161,8 +161,11 @@ from backend.db.services.pokemon_sealed_market_explorer_query_service import (
 )
 from backend.db.services.pokemon_market_explorer_query_service import (
     MarketExplorerQueryUnavailable,
-    build_market_explorer_filter_options,
     run_market_explorer_query,
+)
+from backend.db.services.market_explorer_options_snapshot import (
+    MarketExplorerOptionsUnavailable,
+    read_market_explorer_options_snapshot,
 )
 from backend.db.services.market_explorer_query_planner import (
     GLOBAL_MARKET_EXPLORER_PLANNER,
@@ -1390,14 +1393,16 @@ def get_market_explorer_query_options(
         now = time.monotonic()
         if _market_explorer_options_cache and _market_explorer_options_cache[0] > now:
             return _tiered_response(_market_explorer_options_cache[1])
-        options = build_market_explorer_filter_options(service_read_client)
+        options = read_market_explorer_options_snapshot(service_read_client)
         _market_explorer_options_cache = (
             now + _MARKET_EXPLORER_OPTIONS_CACHE_TTL_SECONDS,
             options,
         )
         return _tiered_response(options)
-    except MarketExplorerQueryUnavailable as exc:
-        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+    except MarketExplorerOptionsUnavailable as exc:
+        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_OPTIONS_REFRESHING",
+                                     "retryAfterSeconds": 15}, status_code=503,
+                            headers={"Retry-After": "15"})
     except Exception:
         logger.exception("/market/explorer/query/options unexpected error")
         return JSONResponse(content={"message": "Unable to load Market Explorer filters", "code": "MARKET_EXPLORER_OPTIONS_FAILED"}, status_code=500)

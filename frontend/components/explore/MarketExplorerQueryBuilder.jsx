@@ -319,8 +319,9 @@ export default function MarketExplorerQueryBuilder({
             onChange={builder.setSegmentIds}
             allLabel={presentation.allSegmentsLabel}
             summaryNoun={presentation.segmentSummaryNoun}
-            searchable={false}
-            emptyMessage="No published segment options."
+            searchable={asset === QUERY_ASSET_CARDS}
+            searchPlaceholder={asset === QUERY_ASSET_CARDS ? "Search raritiesâ€¦" : undefined}
+            emptyMessage={asset === QUERY_ASSET_CARDS ? "No filterable rarities." : "No published product families."}
           />
         </ExplorerDisclosure>
         {asset === QUERY_ASSET_CARDS ? (

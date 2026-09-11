@@ -29,7 +29,7 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     let rows = draft.eraIds.length ? assetSets.filter((entry) => draft.eraIds.includes(entry.eraId)) : assetSets;
     const compatibility = options?.compatibility || {};
     const segmentMap = draft.asset === QUERY_ASSET_CARDS
-      ? compatibility.cardSegmentSetIds : compatibility.sealedFamilySetIds;
+      ? (compatibility.cardRaritySetIds || compatibility.cardSegmentSetIds) : compatibility.sealedFamilySetIds;
     const allowedFor = (ids, map) => ids.length
       ? new Set(ids.flatMap((id) => map?.[id] || [])) : null;
     const segmentAllowed = allowedFor(draft.segmentIds, segmentMap);
@@ -40,7 +40,9 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
   }, [assetSets, draft.asset, draft.eraIds, draft.segmentIds, draft.pokemonIds, options]);
   const segments = useMemo(() => {
     if (draft.asset === "sealed") return options?.sealedProductFamilies?.segments || [];
-    return options?.cardSegments?.segments || options?.segments?.segments || [];
+    // cardSegments fallback is read-only compatibility for an already-loaded
+    // pre-Phase-3 payload; every newly published snapshot carries cardRarities.
+    return options?.cardRarities?.rarities || options?.cardSegments?.segments || [];
   }, [options, draft.asset]);
   const pokemonOptions = useMemo(() => draft.asset === QUERY_ASSET_CARDS ? (options?.pokemon || []) : [], [options, draft.asset]);
   const priceSegments = useMemo(() => options?.priceSegments?.[draft.asset] || [], [options, draft.asset]);
@@ -78,7 +80,7 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     const nextSegments = field === "segmentIds" ? next : draft.segmentIds;
     const nextPokemon = field === "pokemonIds" ? next : draft.pokemonIds;
     const segmentMap = draft.asset === QUERY_ASSET_CARDS
-      ? compatibility.cardSegmentSetIds : compatibility.sealedFamilySetIds;
+      ? (compatibility.cardRaritySetIds || compatibility.cardSegmentSetIds) : compatibility.sealedFamilySetIds;
     const permitted = [
       nextSegments.length ? new Set(nextSegments.flatMap((id) => segmentMap?.[id] || [])) : null,
       nextPokemon.length ? new Set(nextPokemon.flatMap((id) => compatibility.pokemonSetIds?.[id] || [])) : null,

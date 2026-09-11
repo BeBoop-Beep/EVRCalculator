@@ -406,7 +406,7 @@ def test_custom_market_premium_cache_cannot_be_replayed_to_plus(monkeypatch):
                         lambda **kwargs: runs.append(True) or SimpleNamespace(
                             payload={"premiumMetric": PREMIUM_VALUE}))
     monkeypatch.setattr(
-        main, "build_market_explorer_filter_options",
+        main, "read_market_explorer_options_snapshot",
         lambda _client: {"premiumOptions": PREMIUM_VALUE},
     )
     client = TestClient(main.app)

@@ -51,6 +51,13 @@ PHASE2_SEARCH_LEDGER_MD5 = {
     "20260911154613_market_explorer_phase2_canonical_instrument_search_v2": "0cb94dddaf76bf6714116db590b822b1",
 }
 
+PHASE3_OPTIONS_LEDGER_MD5 = {
+    "20260911182748_market_explorer_phase3_filter_rarity_key": "8eda8d5e71a6003a908c5a78df6f27e6",
+    "20260911182822_market_explorer_phase3_use_full_rarity_filter_for_custom_queries": "ed8fcf7e8a9e80e6ddebf63f8c111dbb",
+    "20260911183142_market_explorer_phase3_options_snapshot_contract": "b0ce4b2272f0328cb84050de233376f3",
+    "20260911183523_market_explorer_phase3_options_snapshot_least_privilege": "8c24634ed0c1db7ccadeb775b9b650cf",
+}
+
 
 def test_prompt1_sources_use_actual_ledger_versions_and_match_statement_bytes():
     """apply_migration stored the submitted SQL with one trailing CRLF."""
@@ -87,6 +94,14 @@ def test_phase2_search_rpc_is_bounded_ranked_and_service_role_only():
     assert "order by c.relevance_score desc" in sql
     assert "revoke all on function public.search_pokemon_market_explorer_instruments_v2" in sql
     assert "to service_role" in sql
+
+
+def test_phase3_options_mirrors_match_live_ledger_and_both_trees():
+    for stem, ledger_md5 in PHASE3_OPTIONS_LEDGER_MD5.items():
+        backend_source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        supabase_source = (ROOT / "supabase/migrations" / f"{stem}.sql").read_bytes()
+        assert backend_source == supabase_source
+        assert hashlib.md5(backend_source.rstrip(b"\r\n")).hexdigest() == ledger_md5
 
 
 def _sql(stem: str) -> str:

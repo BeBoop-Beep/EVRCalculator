@@ -247,9 +247,9 @@ def segment_vocabulary(asset: str) -> frozenset[str]:
     them, and are never restated here.
     """
     if asset == ASSET_CARDS:
-        from backend.domain.pokemon.card_rarity_taxonomy import RAW_CARD_SEGMENT_DEFINITIONS
+        from backend.domain.pokemon.card_rarity_taxonomy import FILTER_RARITY_DEFINITIONS
 
-        return frozenset(str(definition["key"]) for definition in RAW_CARD_SEGMENT_DEFINITIONS)
+        return frozenset(str(definition["key"]) for definition in FILTER_RARITY_DEFINITIONS)
     if asset == ASSET_SEALED:
         from backend.domain.pokemon.sealed_market_segments import SEALED_SEGMENT_DEFINITIONS
 

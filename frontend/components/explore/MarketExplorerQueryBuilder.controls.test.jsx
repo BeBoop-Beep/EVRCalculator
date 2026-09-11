@@ -7,7 +7,7 @@ import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder.jsx";
 import MarketExplorerExactItemPicker from "./MarketExplorerExactItemPicker.jsx";
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-const OPTIONS = { eras: [{ id: "sv", label: "Scarlet & Violet", sortOrder: 1 }], sets: [{ id: "sv1", label: "Temporal Forces", eraId: "sv", assets: ["cards", "sealed"] }], cardSegments: { segments: [{ key: "sir", label: "Special Illustration Rare" }] }, sealedProductFamilies: { segments: [{ key: "bundle", label: "Booster Bundles" }] } };
+const OPTIONS = { eras: [{ id: "sv", label: "Scarlet & Violet", sortOrder: 1 }], sets: [{ id: "sv1", label: "Temporal Forces", eraId: "sv", assets: ["cards", "sealed"] }], cardRarities: { rarities: [{ key: "sir", label: "Special Illustration Rare" }, { key: "legend", label: "LEGEND" }] }, cardSegments: { segments: [{ key: "sir", label: "Special Illustration Rare" }] }, compatibility: { cardRaritySetIds: { sir: ["sv1"], legend: ["sv1"] } }, sealedProductFamilies: { segments: [{ key: "bundle", label: "Booster Bundles" }] } };
 const RAW = { key: "raw", available: true };
 function mount(props = {}) { let renderer; act(() => { renderer = TestRenderer.create(<MarketExplorerQueryBuilder optionsProvided options={OPTIONS} optionsStatus="ready" currentPlan="premium" preparedSeries={[RAW]} activeSeries={[]} benchmarkEntries={[]} onAddPrepared={() => "added"} onAddQuery={async () => "added"} {...props} />); }); return renderer; }
 const byData = (renderer, key) => renderer.root.find((node) => node.props?.[key] !== undefined);
@@ -265,4 +265,13 @@ test("toggling a benchmark never touches the Builder draft", () => {
     renderer.root.findByProps({ "data-market-explorer-filters": true }).props["data-market-builder-asset"],
     draftAssetBefore,
   );
+});
+
+test("Cards Rarity uses the full locally searchable filter taxonomy", () => {
+  const renderer = mount({ currentPlan: "premium" });
+  openDisclosure(renderer, "cardsSegments");
+  const rarity = renderer.root.find((node) => node.props?.name === "cards-segment");
+  assert.equal(rarity.props.searchable, true);
+  assert.deepEqual(rarity.props.options.map((row) => row.id), ["sir", "legend"]);
+  assert.equal(rarity.props.searchPlaceholder, "Search raritiesâ€¦");
 });

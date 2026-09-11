@@ -40,6 +40,36 @@ import re
 from typing import Any, Iterable, Mapping
 
 CARD_RARITY_TAXONOMY_VERSION = "pokemon-card-rarity-taxonomy-v2"
+CARD_RARITY_FILTER_TAXONOMY_VERSION = "pokemon-card-rarity-filter-taxonomy-v1"
+
+# Full query-filter vocabulary audited against the 34,228 eligible variants in
+# pokemon_market_explorer_card_current_metadata (165 sets, 2026-09-11). This is
+# deliberately separate from RAW_CARD_SEGMENT_DEFINITIONS: selectability does
+# not imply that a rarity is broad enough to maintain as its own Market.
+_FILTER_RARITY_LABELS = {
+    "aceSpecRare": "ACE SPEC Rare", "amazingRare": "Amazing Rare",
+    "blackWhiteRare": "Black White Rare", "classicCollection": "Classic Collection",
+    "common": "Common", "doubleRare": "Double Rare", "holoRare": "Holo Rare",
+    "hyperRare": "Hyper Rare", "illustrationRare": "Illustration Rare", "legend": "LEGEND",
+    "megaHyperRare": "Mega Hyper Rare", "megaAttackRare": "Mega Attack Rare",
+    "promo": "Promo", "radiantRare": "Radiant Rare", "rare": "Rare",
+    "rareAce": "Rare ACE", "rareBreak": "Rare BREAK", "rareHolo": "Rare Holo",
+    "rareHoloEx": "Rare Holo EX", "rareHoloGx": "Rare Holo GX",
+    "rareHoloLvX": "Rare Holo LV.X", "rareHoloStar": "Rare Holo Star",
+    "rareHoloV": "Rare Holo V", "rareHoloVmax": "Rare Holo VMAX",
+    "rareHoloVstar": "Rare Holo VSTAR", "rarePrime": "Rare Prime",
+    "rarePrismStar": "Rare Prism Star", "rareRainbow": "Rare Rainbow",
+    "rareSecret": "Rare Secret", "rareShining": "Rare Shining",
+    "rareShiny": "Rare Shiny", "rareShinyGx": "Rare Shiny GX",
+    "rareUltra": "Rare Ultra", "shinyRare": "Shiny Rare",
+    "shinyUltraRare": "Shiny Ultra Rare", "specialIllustrationRare": "Special Illustration Rare",
+    "trainerGalleryRareHolo": "Trainer Gallery Rare Holo", "ultraRare": "Ultra Rare",
+    "uncommon": "Uncommon",
+}
+FILTER_RARITY_DEFINITIONS: tuple[dict[str, Any], ...] = tuple(
+    {"key": key, "label": label, "rawAliases": (label,)}
+    for key, label in _FILTER_RARITY_LABELS.items()
+)
 
 #: Least-arbitrary quality gate, chosen from the observed distribution of the
 #: tracked universe (167 sets, audited 2026-08-24) rather than picked round.
@@ -58,8 +88,37 @@ MIN_SEGMENT_SET_COUNT = 3
 def _fold(value: Any) -> str:
     """Case- and separator-folded comparison form. Never a fuzzy match."""
     text = str(value or "").strip().lower()
-    text = text.replace("_", " ").replace("-", " ")
-    return re.sub(r"\s+", " ", text)
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", text)).strip()
+
+
+FILTER_RARITY_ALIASES = {
+    _fold(alias): str(definition["key"])
+    for definition in FILTER_RARITY_DEFINITIONS
+    for alias in definition["rawAliases"]
+}
+
+
+def normalize_filter_rarity(value: Any) -> str | None:
+    """Exact full filter key mirroring market_explorer_filter_rarity_key()."""
+    folded = _fold(value)
+    return FILTER_RARITY_ALIASES.get(folded) if folded else None
+
+
+def filter_rarity_metadata(*, card_counts: Mapping[str, int] | None = None,
+                           set_counts: Mapping[str, int] | None = None) -> dict[str, Any]:
+    prepared = {str(row["key"]) for row in RAW_CARD_SEGMENT_DEFINITIONS}
+    card_counts, set_counts = card_counts or {}, set_counts or {}
+    return {
+        "taxonomyVersion": CARD_RARITY_FILTER_TAXONOMY_VERSION,
+        "rarities": [
+            {"key": row["key"], "label": row["label"],
+             "cardCount": int(card_counts.get(str(row["key"]), 0)),
+             "setCount": int(set_counts.get(str(row["key"]), 0)),
+             "preparedMarketAvailable": row["key"] in prepared,
+             **({"preparedSegmentKey": row["key"]} if row["key"] in prepared else {})}
+            for row in FILTER_RARITY_DEFINITIONS
+        ],
+    }
 
 
 #: Folded raw value -> canonical rarity key. EXACT match only.

@@ -959,12 +959,19 @@ def test_filter_options_publication_excludes_catalog_only_sets(monkeypatch):
                 return _Query([])
             if name == "pokemon_set_sealed_market_snapshot_latest":
                 return _Query([])
+            if name == "pokemon_market_explorer_card_current_metadata":
+                return _Query([{"canonical_card_id": row["id"], "set_id": row["set_id"],
+                                "rarity": row.get("rarity")} for row in CARDS])
             return super().table(name)
 
     options = svc.build_market_explorer_filter_options(Client())
     set_ids = {row["id"] for row in options["sets"]}
     assert set_ids == {"set-ah", "set-pe"}
     assert "set-ev" not in set_ids  # would appear if the raw SETS fixture leaked through
+    assert len(options["cardRarities"]["rarities"]) == 39
+    assert len(options["cardSegments"]["segments"]) == 9
+    assert "cardRaritySetIds" in options["compatibility"]
+    assert "cardSegmentSetIds" not in options["compatibility"]
 
 
 # ---------------------------------------------------------------------------
