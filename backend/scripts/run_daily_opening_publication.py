@@ -47,6 +47,7 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -137,6 +138,7 @@ class PublicationSummary:
     rip_stats_set_count: int = 0
     rip_stats_source_run_fingerprint: Optional[str] = None
     rip_stats_failures: List[str] = field(default_factory=list)
+    historical_rip_status: str = "not_attempted"
     exit_code: int = EXIT_CANNOT_START
     error: Optional[str] = None
 
@@ -197,6 +199,7 @@ class PublicationSummary:
         out.append(f"{TAG} simulation_execution_date={self.simulation_execution_date}")
         out.append(f"{TAG} rip_stats_set_count={self.rip_stats_set_count}")
         out.append(f"{TAG} rip_stats_source_run_fingerprint={self.rip_stats_source_run_fingerprint}")
+        out.append(f"{TAG} historical_rip_status={self.historical_rip_status}")
         for failure in self.rip_stats_failures:
             out.append(f"{TAG}   rip_stats_failure={failure}")
         out.append(f"{TAG} verification_passed={self.verification_passed}")
@@ -1063,6 +1066,25 @@ def orchestrate(
         )
         return summary
 
+    # Final step of the existing scheduler-owned chain: append/confirm today's
+    # exact Collector observation.  This planner makes zero provider calls and
+    # fails closed when source refresh is due.
+    declared_tables = getattr(client, "_tables", None)
+    if isinstance(declared_tables, dict) and "pokemon_rip_temporal_history" not in declared_tables:
+        summary.historical_rip_status = "skipped_legacy_test_client"
+    else:
+        from backend.scripts.operationalize_historical_rip import execute as append_historical_rip
+        history = append_historical_rip(
+            client,
+            as_of=date.fromisoformat(resolved_market_date),
+            now=datetime.now(timezone.utc),
+            commit=not dry_run,
+        )
+        summary.historical_rip_status = str(history["status"])
+        if summary.historical_rip_status == "SOURCE_REFRESH_REQUIRED":
+            summary.exit_code = EXIT_FAILED
+            summary.error = "Collector source refresh is due before historical append"
+            return summary
     summary.exit_code = EXIT_OK
     return summary
 

@@ -12,6 +12,8 @@ QUALITY_UNAVAILABLE = "UNAVAILABLE"
 QUALITY_RECONSTRUCTED = "RECONSTRUCTED_VALIDATED"
 QUALITY_BLOCKED = "BLOCKED_SOURCE_GAP"
 ANALYTIC_QUALITY = frozenset({QUALITY_READY, QUALITY_RECONSTRUCTED})
+INSUFFICIENT_HISTORY = "INSUFFICIENT_HISTORY"
+HISTORICAL_QUALITY_RESEARCH_NOT_READY = "HISTORICAL_QUALITY_RESEARCH_NOT_READY"
 
 
 def canonical_hash(value: Any) -> str:
@@ -86,3 +88,35 @@ def assert_idempotent(rows: Sequence[Mapping[str, Any]]) -> None:
     identities = [history_identity(row) for row in rows]
     if len(identities) != len(set(identities)):
         raise ValueError("duplicate date/set/model historical identity")
+
+
+def metric_gates(observation_count: int) -> dict[str, str]:
+    """Research gates: weekly signal, monthly stability, durability, eligibility."""
+    return {
+        "basic": "READY" if observation_count >= 7 else INSUFFICIENT_HISTORY,
+        "stability30d": "READY" if observation_count >= 30 else INSUFFICIENT_HISTORY,
+        "durability60d": "READY" if observation_count >= 60 else INSUFFICIENT_HISTORY,
+        "historicalQuality90d": "READY" if observation_count >= 90 else INSUFFICIENT_HISTORY,
+    }
+
+
+def research_readiness(*, dates: int, sets: int, forward_target_available: bool,
+                       same_version: bool, no_lookahead: bool,
+                       predictor_variation: bool) -> str:
+    ready = (dates >= 90 and sets >= 20 and forward_target_available and same_version
+             and no_lookahead and predictor_variation)
+    return "HISTORICAL_QUALITY_RESEARCH_READY" if ready else HISTORICAL_QUALITY_RESEARCH_NOT_READY
+
+
+def classify_chase_lineage(row: Mapping[str, Any]) -> str:
+    if row.get("persisted_exact") and row.get("formula_version"):
+        return "CHASE_HISTORY_READY"
+    if not row.get("probability_run_id"):
+        return "CHASE_HISTORY_BLOCKED_PROBABILITY"
+    if not row.get("desirability_run_id"):
+        return "CHASE_HISTORY_BLOCKED_DESIRABILITY"
+    if row.get("price_required") and not row.get("price_as_of"):
+        return "CHASE_HISTORY_BLOCKED_PRICE"
+    if not row.get("formula_version") or not row.get("calculation_run_id"):
+        return "CHASE_HISTORY_BLOCKED_LINEAGE"
+    return "CHASE_HISTORY_RECONSTRUCTABLE"

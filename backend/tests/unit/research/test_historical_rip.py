@@ -4,6 +4,7 @@ import pytest
 from backend.research.historical_rip import (
     QUALITY_BLOCKED, assert_idempotent, cohort_identity, historical_features,
     historical_v7_availability, select_as_of_source, source_effective_periods,
+    metric_gates, research_readiness, classify_chase_lineage,
 )
 
 
@@ -49,3 +50,20 @@ def test_history_identity_is_idempotent():
     row={"set_id":"s","as_of_date":"2026-09-11","collector_model_version":"v7"}
     with pytest.raises(ValueError,match="duplicate"):
         assert_idempotent([row,row])
+
+
+def test_minimum_history_gates_do_not_invent_metrics():
+    assert metric_gates(1)["basic"] == "INSUFFICIENT_HISTORY"
+    assert metric_gates(30)["stability30d"] == "READY"
+    assert metric_gates(89)["historicalQuality90d"] == "INSUFFICIENT_HISTORY"
+
+
+def test_research_readiness_requires_primary_90_observation_gate():
+    assert research_readiness(dates=1, sets=128, forward_target_available=True,
+                              same_version=True, no_lookahead=True,
+                              predictor_variation=True) == "HISTORICAL_QUALITY_RESEARCH_NOT_READY"
+
+
+def test_chase_lineage_classifies_first_missing_authority():
+    assert classify_chase_lineage({"formula_version":"v1"}) == "CHASE_HISTORY_BLOCKED_PROBABILITY"
+    assert classify_chase_lineage({"probability_run_id":"p","formula_version":"v1"}) == "CHASE_HISTORY_BLOCKED_DESIRABILITY"
