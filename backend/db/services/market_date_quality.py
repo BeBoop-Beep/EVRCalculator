@@ -15,7 +15,9 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from backend.db.services.pokemon_market_rollout_cohort import (
     MARKET_ROOT_AUTHORITY_CUTOVER_DATE,
+    MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE,
     resolve_market_root_cohort,
+    resolve_market_root_ids,
 )
 from backend.domain.pokemon.market_index import (
     MARKET_INDEX_METHODOLOGY_VERSION,
@@ -28,7 +30,17 @@ INDEX_TABLE = "pokemon_market_index_daily_history"
 PAGE_SIZE = 1000
 IN_CHUNK_SIZE = 100
 
-MARKET_QUALITY_CONTRACT_VERSION = "pokemon-market-date-quality-v1"
+# v2: 2026-09-10+ cohort membership now resolves from the frozen
+# pokemon_market_root_authority table instead of the certification-sensitive
+# canonical view. The persisted row is upserted on (tcg, market_date,
+# contract_version) -- keeping the same contract_version and re-evaluating a
+# date whose cohort composition changed (e.g. a previously-published 111-set
+# Sep 10 evaluation) would silently overwrite that row's historical meaning
+# with the new 106-set result under the same version key. Bumping the
+# contract version keeps any already-persisted v1 row intact as audit
+# evidence of what was true when it was evaluated, and any Sep 10+
+# evaluation from this point forward persists distinctly under v2.
+MARKET_QUALITY_CONTRACT_VERSION = "pokemon-market-date-quality-v2"
 
 # Frozen pre-enforcement cutoff. Dates strictly before this may be granted
 # LEGACY_VERIFIED through the explicit allowlist below; dates on or after it
@@ -185,11 +197,20 @@ def cohort_set_ids_for_date(
         persisted = _persisted_raw_cohort_for_date(client, day)
         if persisted:
             return persisted
-    return sorted(
-        str(row["id"])
-        for row in resolve_market_root_cohort(client, market_date=day)
-        if row.get("id")
-    )
+    if day < MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE:
+        # 2026-09-08/09 historical behavior is UNCHANGED: same call, same
+        # resolver reference (patchable exactly as before this pass).
+        return sorted(
+            str(row["id"])
+            for row in resolve_market_root_cohort(client, market_date=day)
+            if row.get("id")
+        )
+    # 2026-09-10+: membership-only lookup that reads solely the frozen
+    # pokemon_market_root_authority table (no metadata/certification/era/logo
+    # joins), avoiding the heavyweight resolve_market_root_cohort() query
+    # shape that carries production statement-timeout risk when all quality
+    # evaluation needs is the id list.
+    return resolve_market_root_ids(client, market_date=day)
 
 
 def valuation_set_ids_for_date(

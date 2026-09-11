@@ -212,6 +212,16 @@ def _post_cutover_fixture(day="2026-09-09", previous_day="2026-09-08"):
             _previous_index_row(previous_ids, previous_day, index_key="top10"),
         ],
         "pokemon_market_public_rollout_root_sets_v1": [],
+        # 2026-09-10+ resolves membership from the frozen authority table, not
+        # from this fixture's certification-derived continuity math. Seed it
+        # with the full 111-id continuity-safe set so tests that exercise the
+        # generic "day after cutover" mechanics (unrelated to the real,
+        # human-approved Sep 10 106-id snapshot) keep the same fixture shape.
+        "pokemon_market_root_authority": [
+            {"set_id": set_id, "activated_market_date": "2026-09-09",
+             "deactivated_market_date": None, "enabled": True}
+            for set_id in final_ids
+        ],
     }
     schemas = {
         MARKET_READY_VIEW: set(MARKET_MEMBERSHIP_COLUMNS.split(",")),
