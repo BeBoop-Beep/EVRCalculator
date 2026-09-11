@@ -1,28 +1,23 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
-import DarkSelect from "@/components/ui/DarkSelect";
 import ExplorerDisclosure from "./ExplorerDisclosure";
 import ExplorerMarketOption from "./ExplorerMarketOption";
 import ExplorerSelectableRow from "./ExplorerSelectableRow";
 import ExplorerPlanLockPanel from "./ExplorerPlanLockPanel";
-import MarketExplorerExactItemPicker from "./MarketExplorerExactItemPicker";
 import useMarketExplorerBuilderDraft from "@/hooks/explore/useMarketExplorerBuilderDraft";
+import useMarketExplorerPreflight from "@/hooks/explore/useMarketExplorerPreflight";
+import { PREFLIGHT_STATE, buildErrorMessage } from "@/lib/explore/marketExplorerPreflight.mjs";
 import {
   QUERY_ASSET_CARDS,
   QUERY_ASSET_SEALED,
   QUERY_MODE_ALL,
-  QUERY_MODE_CHASE,
   QUERY_MEMBERSHIP_EXPLICIT,
   QUERY_MEMBERSHIP_FILTERS,
   buildQueryKey,
-  marketModeOptions,
   presentationFor,
 } from "@/lib/explore/marketExplorerQuery.mjs";
-import {
-  INDEX_PLAN_PLUS,
-  INDEX_PLAN_PREMIUM,
-} from "@/lib/access/indexPlanAccess.mjs";
+import { INDEX_PLAN_PLUS, INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
 import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
 import {
   OPTIONS_STATUS,
@@ -78,13 +73,17 @@ export default function MarketExplorerQueryBuilder({
   onCancelEdit,
   onAddPrepared,
   onToggleBenchmark,
+  preflightResult = null,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [buildStatus, setBuildStatus] = useState("idle");
-  const [exactOpen, setExactOpen] = useState(false);
-  const exactTriggerRef = useRef(null);
+  // Phase 5 moved these discovery surfaces into Compare / Analyze. Keeping
+  // their old implementation unreachable during the migration protects the
+  // frozen Phase-4 Builder mechanics while the new prepared-directory view
+  // owns all screen interaction.
+  const showLegacyAnalysis = false;
   const [selectedScreenId, setSelectedScreenId] = useState(null);
   const loadedOptions = useMarketExplorerFilterOptions({ enabled: !optionsProvided });
   const canonicalOptions = optionsProvided ? options : loadedOptions.options;
@@ -99,19 +98,24 @@ export default function MarketExplorerQueryBuilder({
     activeSeries,
   });
   const { draft, spec, access, prepared, alreadyActive } = builder;
+  const paid = currentPlan === "premium";
+  const livePreflight = useMarketExplorerPreflight(spec, {
+    enabled: !preflightResult && paid && Boolean(canonicalOptions) && Boolean(spec) && draft.asset === QUERY_ASSET_CARDS &&
+      draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT && !prepared && access.allowed,
+  });
+  const preflight = preflightResult || livePreflight;
+  const knownEmpty = preflight.state === PREFLIGHT_STATE.empty;
   const editing = Boolean(editingSeries?.instanceId);
   const noChanges = Boolean(editing && spec && buildQueryKey(editingSeries.spec) === buildQueryKey(spec));
   useEffect(() => {
     if (!editingSeries?.spec) return;
     builder.replace({ ...editingSeries.spec, exactItems: editingSeries.exactItems || [] });
     setMobileOpen(true);
-    if (editingSeries.spec.membershipMode === QUERY_MEMBERSHIP_EXPLICIT) setExactOpen(true);
     setMessage("");
     // The instance id is the edit-session boundary. Draft field changes must
     // never reload the active result back over the user's unsaved edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingSeries?.instanceId]);
-  const paid = currentPlan === "plus" || currentPlan === "premium";
   const segmentOptions = builder.segments.map((entry) => ({
     id: entry.key,
     label: entry.label,
@@ -134,46 +138,23 @@ export default function MarketExplorerQueryBuilder({
     label: entry.label,
     description: entry.description,
   }));
-  const selectedScreen =
-    MARKET_EXPLORER_SCREENS.find((entry) => entry.id === selectedScreenId) ||
-    null;
-  useEffect(() => {
-    if (selectedScreen?.asset && selectedScreen.asset !== draft.asset) setSelectedScreenId(null);
-  }, [draft.asset, selectedScreen]);
-  const screenResults = useMemo(
-    () =>
-      selectedScreen
-        ? resolveScreenResults(selectedScreen, preparedSeries.filter((series) =>
-            series?.group === (draft.asset === QUERY_ASSET_CARDS ? "card" : "sealed")
-          ))
-        : [],
-    [selectedScreen, preparedSeries, draft.asset],
-  );
+  const selectedScreen = MARKET_EXPLORER_SCREENS.find((entry) => entry.id === selectedScreenId) || null;
+  const screenResults = useMemo(() => selectedScreen
+    ? resolveScreenResults(selectedScreen, preparedSeries.filter((series) => series?.group === (draft.asset === QUERY_ASSET_CARDS ? "card" : "sealed")))
+    : [], [selectedScreen, preparedSeries, draft.asset]);
   const selectedPresetId = useMemo(() => MARKET_EXPLORER_QUICK_PRESETS.find((preset) => {
     if (draft.asset !== "cards" || draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT) return false;
     const expected = draftForQuickPreset(preset, draft);
     return ["segmentIds", "pokemonIds", "priceSegmentIds", "releaseAgeCohortIds", "mode", "topN"]
       .every((key) => JSON.stringify(draft[key] ?? null) === JSON.stringify(expected[key] ?? null));
   })?.id || null, [draft]);
-  const narrowingSummary = useMemo(() => [
-    ...draft.eraIds.map((id) => builder.eraOptions.find((entry) => entry.id === id)?.label || id),
-    ...draft.setIds.map((id) => builder.assetSets.find((entry) => entry.id === id)?.label || id),
-    ...draft.segmentIds.map((id) => builder.segments.find((entry) => entry.key === id)?.label || id),
-    ...draft.pokemonIds.map((id) => builder.pokemonOptions.find((entry) => entry.id === id)?.label || id),
-    ...draft.priceSegmentIds.map((id) => builder.priceSegments.find((entry) => entry.id === id)?.label || id),
-    ...draft.releaseAgeCohortIds.map((id) => builder.releaseAgeCohorts.find((entry) => entry.id === id)?.label || id),
-    draft.mode === QUERY_MODE_CHASE ? `Composition: Top ${draft.topN || 10}` : null,
-  ].filter(Boolean), [builder.assetSets, builder.eraOptions, builder.pokemonOptions, builder.priceSegments, builder.releaseAgeCohorts, builder.segments, draft]);
-  const closeExactWorkspace = () => {
-    setExactOpen(false);
-    setTimeout(() => exactTriggerRef.current?.focus(), 0);
-  };
-  const cancelExactEdits = () => {
-    closeExactWorkspace();
-    onCancelEdit?.();
-  };
   const build = async (saveAsNew = false) => {
     if (!spec || (!editing && alreadyActive)) return;
+    if (knownEmpty) {
+      setMessage("No cards currently match these filters.");
+      setBuildStatus("empty");
+      return;
+    }
     if (!prepared && !access.allowed) {
       setMessage(
         `This market requires Index ${access.requiredPlan === "premium" ? "Premium" : "Plus"}.`,
@@ -195,22 +176,18 @@ export default function MarketExplorerQueryBuilder({
       );
       setBuildStatus("success");
       if (outcome !== "duplicate" && outcome !== "unchanged") {
-        closeExactWorkspace();
         if (editing) onCancelEdit?.();
       }
     } catch (error) {
-      setMessage(
-        error?.message ||
-          "The market query service is temporarily unavailable.",
-      );
-      setBuildStatus("error");
+      setMessage(buildErrorMessage(error));
+      setBuildStatus(error?.code || "error");
     } finally {
       setLoading(false);
     }
   };
   const accessPanel = (description) => (
     <ExplorerPlanLockPanel
-      requiredPlan={INDEX_PLAN_PLUS}
+      requiredPlan={INDEX_PLAN_PREMIUM}
       isAuthenticated={isAuthenticated}
       currentPlan={currentPlan}
       description={description}
@@ -261,11 +238,7 @@ export default function MarketExplorerQueryBuilder({
     const presentation = presentationFor(asset);
     return (
       <div className="mt-2 space-y-2">
-        <div data-market-builder-membership-mode role="radiogroup" aria-label="Build from" className="grid grid-cols-2 gap-2">
-          <button type="button" role="radio" aria-checked={draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT} onClick={() => builder.setMembershipMode(QUERY_MEMBERSHIP_FILTERS)} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Filters</button>
-          <button ref={exactTriggerRef} type="button" role="radio" aria-checked={draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT} onClick={() => { builder.setMembershipMode(QUERY_MEMBERSHIP_EXPLICIT); setExactOpen(true); setBuildStatus("idle"); setMessage(""); }} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Exact Items <span className="text-[9px] opacity-75">Premium</span></button>
-        </div>
-        {draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT ? <button type="button" data-market-exact-open onClick={() => setExactOpen(true)} className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-left text-xs"><strong className="block text-[var(--text-primary)]">Exact Items</strong><span className="text-[var(--text-secondary)]">{draft.exactItems?.length || 0} selected · Open selection workspace</span></button> : null}
+        <p className="px-1 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Scope</p>
         <ExplorerDisclosure
           id={`${asset}EraSets`}
           title="Era & Set"
@@ -301,6 +274,7 @@ export default function MarketExplorerQueryBuilder({
             />
           </div>
         </ExplorerDisclosure>
+        <p className="px-1 pt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Filters</p>
         <ExplorerDisclosure
           id={`${asset}Segments`}
           title={asset === QUERY_ASSET_CARDS ? "Rarity" : "Product Family"}
@@ -319,8 +293,9 @@ export default function MarketExplorerQueryBuilder({
             onChange={builder.setSegmentIds}
             allLabel={presentation.allSegmentsLabel}
             summaryNoun={presentation.segmentSummaryNoun}
-            searchable={false}
-            emptyMessage="No published segment options."
+            searchable={asset === QUERY_ASSET_CARDS}
+            searchPlaceholder={asset === QUERY_ASSET_CARDS ? "Search raritiesâ€¦" : undefined}
+            emptyMessage={asset === QUERY_ASSET_CARDS ? "No filterable rarities." : "No published product families."}
           />
         </ExplorerDisclosure>
         {asset === QUERY_ASSET_CARDS ? (
@@ -381,25 +356,7 @@ export default function MarketExplorerQueryBuilder({
             emptyMessage="No published release cohorts."
           />
         </ExplorerDisclosure>
-        <ExplorerDisclosure
-          id={`${asset}Composition`}
-          title="Composition"
-          summary={draft.mode === QUERY_MODE_CHASE ? `Top ${draft.topN || 10}` : "All"}
-        >
-          <DarkSelect
-            ariaLabel="Market Mode"
-            value={draft.mode}
-            onChange={builder.setMode}
-            options={marketModeOptions(asset).map((entry) => ({
-              value: entry.id,
-              label: asset === QUERY_ASSET_SEALED && entry.id === QUERY_MODE_CHASE ? "Top N by Price" : entry.label,
-            }))}
-          />
-          <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
-            {asset === QUERY_ASSET_SEALED ? "All Products or the highest-priced products in this scope." : "All Cards or a Top N chase composition in this scope."}
-          </p>
-        </ExplorerDisclosure>
-        <ExplorerDisclosure id={`${asset}Screens`} title="Screens" summary={selectedScreen?.asset === asset || selectedScreen?.asset == null ? selectedScreen?.label : null}>
+        {showLegacyAnalysis ? <><ExplorerDisclosure id={`${asset}Screens`} title="Screens" summary={selectedScreen?.asset === asset || selectedScreen?.asset == null ? selectedScreen?.label : null}>
           <p className="mb-2 text-[10px] leading-snug text-[var(--text-secondary)]">Pre-built market scans. Choose a Screen to see matching published markets, then add any result to the chart.</p>
           <div className="space-y-1">
             {MARKET_EXPLORER_SCREENS.filter((screen) => screen.asset === asset || screen.asset == null).map((screen) => {
@@ -447,7 +404,7 @@ export default function MarketExplorerQueryBuilder({
             if (preset.id === "set-top-ten" && draft.setIds.length !== 1) { setBuildStatus("error"); setMessage(draft.setIds.length ? "Choose exactly one set." : "Choose one set first."); return; }
             builder.replace(draftForQuickPreset(preset, draft)); setBuildStatus("idle"); setMessage("");
           }} className={`w-full rounded-md border px-3 py-2 text-left text-xs ${selectedPresetId === preset.id ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)]" : "border-[var(--border-subtle)]"}`}><strong className="block">{preset.label}</strong><span className="text-[10px] text-[var(--text-secondary)]">{preset.description}</span></button>)}</div>
-        </ExplorerDisclosure> : null}
+        </ExplorerDisclosure> : null}</> : null}
         {asset === QUERY_ASSET_CARDS ? (
           <ExplorerDisclosure id="cardsReference" title="Reference Market">
             {paid ? <PreparedOptionList entries={benchmarkEntries} onToggle={onToggleBenchmark} selectedSeriesCount={selectedSeriesCount} /> : accessPanel("Add the Per-Set Chase reference market with Index Plus.")}
@@ -504,28 +461,6 @@ export default function MarketExplorerQueryBuilder({
             accessPanel("Add prepared comparison benchmarks with Index Plus.")
           )}
         </ExplorerDisclosure> : null}
-        {false && paid ? (
-          <ExplorerDisclosure
-            id="marketComposition"
-            title="Composition"
-            summary={draft.mode === QUERY_MODE_CHASE ? "Top 10" : "All"}
-          >
-            <DarkSelect
-              ariaLabel="Market Mode"
-              value={draft.mode}
-              onChange={builder.setMode}
-              options={marketModeOptions(draft.asset).map((entry) => ({
-                value: entry.id,
-                label: entry.label,
-              }))}
-            />
-            {draft.mode === QUERY_MODE_CHASE ? (
-              <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
-                Top 10 composition is an Index Premium capability.
-              </p>
-            ) : null}
-          </ExplorerDisclosure>
-        ) : null}
       </div>
       <div
         data-current-market
@@ -545,6 +480,7 @@ export default function MarketExplorerQueryBuilder({
         >
           {builder.preview}
         </p>
+        {preflight.message ? <p data-market-builder-preflight={preflight.state} role="status" className="mt-1 text-[11px] text-[var(--text-secondary)]">{preflight.message}</p> : null}
         {!prepared && !access.allowed ? (
           <p
             data-current-market-lock
@@ -567,7 +503,7 @@ export default function MarketExplorerQueryBuilder({
             type="button"
             data-market-builder-build
             onClick={() => build(false)}
-            disabled={loading || !spec || noChanges || (!editing && alreadyActive) || (!prepared && !access.allowed)}
+            disabled={loading || !spec || knownEmpty || noChanges || (!editing && alreadyActive) || (!prepared && !access.allowed)}
             className="min-h-11 rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-3 text-xs font-semibold text-[rgb(45,212,191)] disabled:opacity-50 desk:min-h-0"
           >
             {noChanges ? "No changes" : !editing && alreadyActive
@@ -610,12 +546,12 @@ export default function MarketExplorerQueryBuilder({
             id="market-builder-heading"
             className="text-[16px] font-semibold text-[var(--text-primary)]"
           >
-            Market Explorer
+            Custom Filtered Market
           </h2>
           <span data-market-explorer-plan-badge data-market-explorer-plan={accessMode} className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">{accessMode === "premium" ? "Index Premium" : accessMode === "plus" ? "Index Plus" : "Basic"}</span>
           </div>
           <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
-            Build, compare, and inspect markets.
+            Define a market using canonical scope and filters.
           </p>
           {coverageSummary.length ? <p data-market-coverage-summary className="mt-1 text-[9px] leading-tight text-[var(--text-secondary)]">{coverageSummary.join(" · ")}</p> : null}
         </div>
@@ -639,21 +575,5 @@ export default function MarketExplorerQueryBuilder({
         {body}
       </div>
     </section>
-    <MarketExplorerExactItemPicker
-      asset={draft.asset}
-      open={exactOpen && draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT}
-      selectedItems={draft.exactItems || []}
-      onChange={builder.setExactItems}
-      onClose={closeExactWorkspace}
-      onCancelEdit={editing ? cancelExactEdits : null}
-      onBuild={() => build(false)}
-      onSaveAsNew={editing ? () => build(true) : null}
-      buildLabel={editing ? "Update Market" : "Build Market"}
-      buildStatus={buildStatus}
-      buildMessage={message}
-      executionLocked={!access.allowed && !prepared}
-      narrowingSummary={narrowingSummary}
-      onClearNarrowing={() => builder.replace({ ...draft, eraIds: [], setIds: [], segmentIds: [], pokemonIds: [], priceSegmentIds: [], releaseAgeCohortIds: [] })}
-    />
   </>);
 }

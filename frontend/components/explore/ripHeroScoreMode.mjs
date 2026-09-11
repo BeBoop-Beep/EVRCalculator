@@ -25,7 +25,7 @@
 
 import { readCanonicalBlock, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 
-export const RIP_SCORE_LABEL = "Overall RIP";
+export const RIP_SCORE_LABEL = "RIP Score";
 
 // Neutral and factual. It names the two canonical inputs without stating a
 // weight, an arithmetic relationship, or a judgement about the set.

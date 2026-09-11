@@ -1,0 +1,136 @@
+{
+  "controlFreezeVersion": "collector_appeal_v7_expanded_control_freeze_v1",
+  "frozenAt": "2026-09-11T20:41:45.741820+00:00",
+  "environment": "production",
+  "git": {
+    "branch": "develop",
+    "startingHead": "55735a89c7e4f3e49fbbeacaa2c931dfd12d111d"
+  },
+  "model": {
+    "version": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+    "currentModelRunId": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+    "modelFingerprint": "3b781f4ec01ef8c74c77b34d2b91e9a90231d2feccf2ee41411de64606378c9d",
+    "formulaFingerprint": "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b",
+    "cardFingerprint": "7dbe5e989c6eb7bcb9d4684707f9c239ab1ca701fc429a7a0605657d79f2ab90",
+    "setFingerprint": "744f088e7e1e33e5f8b40aca707b8f7e0d93bf7def8308b860da0277257a4b52",
+    "priceInputExcluded": true,
+    "status": "published",
+    "validationPassed": true
+  },
+  "sourceLineage": [
+    "77792597-7fb4-48e9-bd52-3034061f9d3e",
+    "b3997343-1363-45aa-b1b0-9a6de1ce3793",
+    "648e5375-47cb-4972-b01d-faceb6348d1d",
+    "9947aaf7-8647-484f-8c9c-2cec59792cdb",
+    "a696166b-358a-471a-abeb-9ba26bb7301c",
+    "77cd6229-5ff9-4d3a-a7d8-0ba13972e359"
+  ],
+  "pokemon": {
+    "authority": "google_trends_pokemon_v2 plus corrected raw 75/25 fan and Trends composite",
+    "formula": "corrected raw composite; no percentile transform"
+  },
+  "trainer": {
+    "authority": "google_trends_trainer",
+    "sourceRuns": {"today12m": "b3997343-1363-45aa-b1b0-9a6de1ce3793", "today5y": "648e5375-47cb-4972-b01d-faceb6348d1d"},
+    "weights": {"today12m": 0.4, "today5y": 0.6},
+    "coverageLimitation": "Only legitimate named Trainer evidence is scored; unresolved generic roles remain unavailable."
+  },
+  "artist": {
+    "authority": "google_trends_artist",
+    "sourceRuns": {"today12m": "a696166b-358a-471a-abeb-9ba26bb7301c", "today5y": "77cd6229-5ff9-4d3a-a7d8-0ba13972e359"},
+    "weights": {"today12m": 0.4, "today5y": 0.6},
+    "lambda": 0.1,
+    "formula": "after_playability + (100-after_playability) * 0.10 * artist_score/100",
+    "missingnessPolicy": "NULL means no contribution and no penalty; confirmed zero remains numeric zero.",
+    "multiArtistPolicy": "maximum independently scoreable artist; never sum; unresolved combined credit remains NULL"
+  },
+  "playability": {
+    "lambda": 0.2,
+    "policy": "positive-only",
+    "ordering": "subject, then playability, then Artist"
+  },
+  "setModel": {
+    "D": "unchanged frozen V6 D plus Trainer headroom",
+    "F": "unchanged generalized desirable-outcome frequency; card threshold > 50",
+    "C5": "unchanged collector_c5_frozen_signed_frequency_v1"
+  },
+  "diagnostics": {
+    "treatment": "DIAGNOSTIC_ONLY",
+    "pullScarcity": "SCARCITY_DIAGNOSTIC_ONLY"
+  },
+  "counts": {
+    "cardRows": 18293,
+    "setRows": 128,
+    "scoredSets": 22,
+    "unavailableSets": 106,
+    "artistScored": 11144,
+    "artistConfirmedZero": 5631,
+    "artistAmbiguous": 470,
+    "artistMissing": 1048
+  },
+  "priceValidation": {
+    "commit": "55735a89c7e4f3e49fbbeacaa2c931dfd12d111d",
+    "verdict": "APPEAL_PRICING_SIGNAL_PARTIAL",
+    "recommendation": "V7_PROMOTION_SUPPORTED_WITH_LIMITATIONS",
+    "withinSetMedianSpearman": 0.3176,
+    "withinSetWeightedMeanSpearman": 0.2991,
+    "positiveSetPercent": 95.5,
+    "controlledIncrementalOosR2": 0.02255,
+    "maeImprovementPercent": 5.76,
+    "rmseImprovementPercent": 8.03,
+    "heldOutSpearmanImprovement": 0.0494,
+    "residualPriceSpearman": 0.3314,
+    "residualPricePearson": 0.3758,
+    "v7IncrementalOosR2OverV6": 0.00089,
+    "v7OverV6BootstrapIntervalCrossedZero": true,
+    "requiredLanguage": "V7 was constructed and frozen without price. Subsequent outcome validation supported Collector Appeal as an independent pricing-related signal after structural controls. V7-specific incremental predictive improvement over V6 was modest and statistically uncertain, so V7 must not be described as demonstrably more price-predictive than V6."
+  },
+  "setPageGeneration": {
+    "generationId": "6bd24a8e-e0e1-4b33-86a1-a16d483f1b24",
+    "previousGenerationId": "04e77451-516f-40b8-bea7-64c26c97c3d3",
+    "status": "published",
+    "publicMembership": 210,
+    "freshRebuilt": 22,
+    "carriedForward": 188,
+    "validationPassed": true
+  },
+  "productionAcceptance": {
+    "currentPointerVerified": true,
+    "cardReadbackPassed": true,
+    "artistNullNonzeroLiftRows": 0,
+    "negativeArtistLiftRows": 0,
+    "negativePlayabilityLiftRows": 0,
+    "setReadbackPassed": true,
+    "membershipLoss": 0,
+    "duplicateActiveGeneration": false,
+    "overallV12NonInterference": true,
+    "rankingsNonInterference": true,
+    "entitlementSmokePassed": true
+  },
+  "overallAuthority": {
+    "version": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+    "collectorPillar": "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2",
+    "financial": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+    "chase": "chase_accessibility_v1_hc_value_squared_modeled_probability",
+    "v7UsedInsideOverall": false
+  },
+  "operationalRefresh": {
+    "planner": "backend/scripts/plan_collector_appeal_refresh.py",
+    "plannerSmoke": "allFresh",
+    "automaticExecutionWired": false,
+    "secondSchedulerCreated": false,
+    "cadenceDays": {"pokemon": 7, "trainer12m": 7, "trainer5y": 31, "artist12m": 7, "artist5y": 31},
+    "identityMetadata": "refresh only when catalog changes"
+  },
+  "rollback": {
+    "collectorModelRunId": "84833101-e658-49ea-82e2-033f7d4d8e09",
+    "setPageGenerationId": "04e77451-516f-40b8-bea7-64c26c97c3d3",
+    "collectorRpc": "promote_pokemon_collector_appeal_model_run",
+    "setPageRpc": "activate_pokemon_set_page_snapshot_generation",
+    "rollbackPerformed": false
+  },
+  "productionMutations": [
+    "promote_pokemon_collector_appeal_model_run(e282f26e-2136-4105-b0a3-f0974c4d9d70)",
+    "activate_pokemon_set_page_snapshot_generation(6bd24a8e-e0e1-4b33-86a1-a16d483f1b24)"
+  ]
+}

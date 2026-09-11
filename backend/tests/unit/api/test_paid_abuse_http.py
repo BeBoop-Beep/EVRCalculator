@@ -59,7 +59,43 @@ def test_custom_query_variation_cannot_bypass_and_users_are_isolated(monkeypatch
     assert client.post("/market/explorer/query", json={"asset": "cards"},
                        headers=_auth("premium-two")).status_code == 200
     assert client.post("/market/explorer/query", json={"asset": "cards"},
-                       headers=_auth("plus")).status_code == 200
+                       headers=_auth("plus")).status_code == 403
+
+
+def test_instrument_search_has_typed_independent_rate_limit(monkeypatch):
+    _install_auth(monkeypatch)
+    monkeypatch.setattr(main, "search_market_explorer_instruments", lambda *args, **kwargs: {"items": []})
+    client = TestClient(main.app)
+    responses = [client.get(
+        f"/market/explorer/instruments/search?q=dragonite{i}&asset=cards",
+        headers=_auth("plus"),
+    ) for i in range(31)]
+    assert all(response.status_code == 200 for response in responses[:30])
+    assert responses[30].status_code == 429
+    assert int(responses[30].headers["retry-after"]) > 0
+    assert responses[30].json()["detail"]["code"] == "PAID_ANALYTICS_RATE_LIMITED"
+
+    # Thirty searches do not consume the five-request custom-query budget.
+    monkeypatch.setattr(main, "normalize_query_spec", lambda **kwargs: kwargs)
+    from types import SimpleNamespace
+    monkeypatch.setattr(main.GLOBAL_MARKET_EXPLORER_PLANNER, "execute",
+                        lambda **kwargs: SimpleNamespace(payload={"rows": []}))
+    builds = [client.post("/market/explorer/query", json={"asset": "cards"},
+                          headers=_auth("premium")) for _ in range(5)]
+    assert all(response.status_code == 200 for response in builds)
+
+
+def test_public_site_search_is_anonymous_and_has_an_independent_typeahead_bucket(monkeypatch):
+    monkeypatch.setattr(main, "search_sitewide", lambda *args, **kwargs: {"query": kwargs["q"], "items": []})
+    client = TestClient(main.app)
+    responses = [client.get(f"/search?q=dragonite{i}") for i in range(31)]
+    assert all(response.status_code == 200 for response in responses[:30])
+    assert responses[30].status_code == 429
+    # Its bucket does not consume authenticated Exact discovery capacity.
+    _install_auth(monkeypatch)
+    monkeypatch.setattr(main, "search_market_explorer_instruments", lambda *args, **kwargs: {"items": []})
+    assert client.get("/market/explorer/instruments/search?q=dragonite&asset=cards",
+                      headers=_auth("plus")).status_code == 200
 
 
 def test_hard_pagination_and_topn_caps_are_enforced_before_readers(monkeypatch):

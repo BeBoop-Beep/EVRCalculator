@@ -152,7 +152,7 @@ test("all required Rankings metrics are sortable columns", () => {
     RANKINGS_SORT_COLUMN_IDS.map((id) => RANKINGS_SORT_COLUMNS[id].label),
     [
       "Set RIP",
-      "Overall RIP",
+      "RIP Score",
       "Financial RIP",
       "Collector Appeal",
       "Chase Accessibility",

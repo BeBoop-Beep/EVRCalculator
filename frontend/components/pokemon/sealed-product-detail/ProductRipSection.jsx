@@ -202,7 +202,7 @@ export function ProductRipSection({ detail }) {
       <dl className="mt-4 grid gap-3">
         <ScoreCard
           primary
-          label="Overall RIP"
+          label="RIP Score"
           value={rip.overallRipLeaderScore}
           tier={rip.publicTier}
         >
@@ -219,7 +219,7 @@ export function ProductRipSection({ detail }) {
         </ScoreCard>
       </dl>
       <div data-product-rip-formula className="my-3">
-        <p className="text-sm text-[var(--text-secondary)]">Overall RIP considers financial outcomes, chase accessibility, and collector appeal.</p>
+        <p className="text-sm text-[var(--text-secondary)]">RIP Score considers financial outcomes, chase accessibility, and collector appeal.</p>
       </div>
       <section
         data-three-pillar-summary="product"

@@ -34,7 +34,7 @@ const FAMILY_ORDER = [
   "enhanced_booster_box",
 ];
 const SORTS = [
-  { value: "overallRipLeaderScore", label: "Overall RIP" },
+  { value: "overallRipLeaderScore", label: "RIP Score" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
   { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
@@ -134,7 +134,7 @@ function ProductRows({ rows, overall, entitled }) {
           </colgroup>
           <thead className={styles.head}>
             <tr>
-              <th scope="col">Rank</th><th scope="col">Product / Set</th><th scope="col">Overall RIP</th><th scope="col">Tier</th>
+              <th scope="col">Rank</th><th scope="col">Product / Set</th><th scope="col">RIP Score</th><th scope="col">Tier</th>
               {/*
                 Market-Based Opening Quality is an explanatory GROUPING
                 header only — it carries no score/rank/tier/sort of its own.
@@ -213,7 +213,7 @@ function ProductRows({ rows, overall, entitled }) {
                 </RankedProductIdentity>
                 <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
                 {/*
-                  Peer supporting scores beneath Overall RIP.
+                  Peer supporting scores beneath RIP Score.
                 */}
                 {entitled ? (
                   <span className="mt-1 block text-[10px] text-[var(--text-secondary)]">

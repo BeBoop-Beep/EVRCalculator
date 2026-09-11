@@ -102,6 +102,7 @@ class CaptureRow:
     pokedex_number: int
     pokemon_name: str
     assigned_anchor: str
+    actual_query_anchor: str
     escalated: bool
     raw_target: Optional[float]
     raw_anchor: Optional[float]
@@ -190,7 +191,8 @@ def classify_and_record(
     stats: Dict[str, int],
 ) -> CaptureRow:
     query_settings = {"timeframe": TIMEFRAME, "geo": GEO, "queryType": QUERY_TYPE_SEARCH_TERM}
-    anchor = assign_initial_anchor(subject["fan_popularity_score"])
+    assigned_anchor = assign_initial_anchor(subject["fan_popularity_score"])
+    anchor = assigned_anchor
     escalated = False
     retry_count = 0
     raw_target: Optional[float] = None
@@ -283,7 +285,8 @@ def classify_and_record(
         subject_id=subject["pokemon_reference_id"],
         pokedex_number=subject["pokedex_number"],
         pokemon_name=subject["pokemon_name"],
-        assigned_anchor=anchor,
+        assigned_anchor=assigned_anchor,
+        actual_query_anchor=anchor,
         escalated=escalated,
         raw_target=raw_target,
         raw_anchor=raw_anchor,
@@ -299,9 +302,16 @@ def classify_and_record(
 
 
 def main() -> int:
+    global CHECKPOINT_DIR, CHECKPOINT_ROWS_PATH, CHECKPOINT_HEADER_PATH
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=None, help="Process at most N remaining subjects (for pilot runs).")
+    parser.add_argument("--checkpoint-dir", type=Path, default=CHECKPOINT_DIR,
+                        help="Unique append-only directory for this capture run.")
     args = parser.parse_args()
+
+    CHECKPOINT_DIR = args.checkpoint_dir
+    CHECKPOINT_ROWS_PATH = CHECKPOINT_DIR / "checkpoint_rows.jsonl"
+    CHECKPOINT_HEADER_PATH = CHECKPOINT_DIR / "checkpoint_header.json"
 
     manifest = load_frozen_anchor_manifest()
     fp = manifest_fingerprint(manifest)

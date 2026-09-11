@@ -5,6 +5,7 @@ import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { getAuthenticatedUserFromCookiesWithTimeout } from "@/lib/authServer";
 import { resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
 import { getExploreSetValueMarket } from "@/lib/explore/exploreSetValueMarketServer";
+import { getMarketExplorerPreparedDirectory } from "@/lib/explore/marketExplorerPreparedServer";
 import { resolveInitialExplorerState } from "@/lib/explore/marketExplorerState.mjs";
 import {
   resolveCardSegmentReconciliation,
@@ -36,13 +37,14 @@ export const metadata = buildRouteMetadata({
 });
 
 export default async function MarketExplorerPage({ searchParams }) {
-  const [resolvedSearchParams, payload, auth] = await Promise.all([
+  const [resolvedSearchParams, payload, auth, preparedDirectory] = await Promise.all([
     Promise.resolve(searchParams).catch(() => null),
     getExploreSetValueMarket().catch(() => null),
     // PLAN, NOT LOGIN, decides what this workspace offers. Resolved here so the
     // first paint is already correct; a failure or timeout yields no user,
     // which is basic access — the gate fails CLOSED.
     getAuthenticatedUserFromCookiesWithTimeout().catch(() => ({ user: null })),
+    getMarketExplorerPreparedDirectory(),
   ]);
   const user = auth?.user || null;
   const planAccess = resolveMarketExplorerPlanAccess(user);
@@ -61,6 +63,10 @@ export default async function MarketExplorerPage({ searchParams }) {
   const initialState = resolveInitialExplorerState(
     overview, resolvedSearchParams, sealedSegments, cardSegments
   );
+  const requestedPreparedKey = typeof resolvedSearchParams?.prepared === "string"
+    ? resolvedSearchParams.prepared.trim() : "";
+  const initialPreparedKey = preparedDirectory.some((market) => market.market_key === requestedPreparedKey)
+    ? requestedPreparedKey : null;
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
@@ -89,6 +95,8 @@ export default async function MarketExplorerPage({ searchParams }) {
           initialState={initialState}
           user={user}
           coverageSummary={coverageSummary}
+          preparedDirectory={preparedDirectory}
+          initialPreparedKey={initialPreparedKey}
         />
       </MarketExplorerAccessGate>
     </div>

@@ -116,6 +116,9 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
                   <th scope="col">Market Index</th>
                   <th scope="col">Tracking Start</th>
                   <th scope="col">Constituents</th>
+                  <th scope="col">Current Drawdown</th>
+                  <th scope="col">Max Drawdown</th>
+                  <th scope="col">vs Era</th>
                   {MARKET_EXPLORER_DETAIL_WINDOWS.map((window) => (
                     <th
                       key={window.key}
@@ -177,6 +180,9 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
                     <td data-market-explorer-detail-metric="index" className={styles.marketOverviewIndex}>{formatIndexValue(entry.indexValue)}</td>
                     <td data-market-explorer-detail-metric="trackingStart">{entry.historyStartDate ? formatMarketDate(entry.historyStartDate) : "—"}</td>
                     <td data-market-explorer-detail-metric="constituents">{constituentCount(entry) ?? "—"}</td>
+                    <td data-market-explorer-detail-metric="currentDrawdown">{entry.analytics?.currentDrawdown == null ? "—" : `${Number(entry.analytics.currentDrawdown).toFixed(1)}%`}</td>
+                    <td data-market-explorer-detail-metric="maxDrawdown">{entry.analytics?.maxDrawdown == null ? "—" : `${Number(entry.analytics.maxDrawdown).toFixed(1)}%`}</td>
+                    <td data-market-explorer-detail-metric="relativeEra">{entry.analytics?.[`relative${timeframe}`] == null ? "—" : `${Number(entry.analytics[`relative${timeframe}`]).toFixed(1)} pp`}</td>
                     {MARKET_EXPLORER_DETAIL_WINDOWS.map((window) => (
                       <td key={window.key} data-market-explorer-detail-change={window.key} className={window.key === timeframe ? "bg-[rgba(45,212,191,0.08)]" : ""}>
                         <ChangeValue

@@ -1,0 +1,101 @@
+{
+  "marketManifest": {
+    "contractVersion": "collector_appeal_market_validation_market_cohort_v1",
+    "asOfDate": "2026-09-11",
+    "sourceTables": [
+      "pokemon_set_page_snapshot_latest",
+      "pokemon_canonical_cards",
+      "pokemon_canonical_card_market_prices_latest",
+      "sets",
+      "eras"
+    ],
+    "filters": {
+      "catalogRole": "main",
+      "openingEligible": true,
+      "canonicalReviewStatus": "approved",
+      "supertypes": [
+        "Pokemon",
+        "Trainer"
+      ],
+      "energyIncluded": false,
+      "price": "positive latest market price",
+      "pullProbability": "modeled rarity-keyed specific-card probability"
+    },
+    "counts": {
+      "pullModelSets": 22,
+      "coveredSets": 22,
+      "candidateCards": 4355,
+      "modeledRows": 4331,
+      "modeledSets": 22,
+      "dropped": {
+        "no_modeled_pull_probability": 24
+      }
+    },
+    "cohortFingerprint": "85e95af722f9d2207723124625fb257c969fd2b3114e7a8e2eb99bbb4468d875"
+  },
+  "join": {
+    "marketRows": 4331,
+    "joinedRows": 4331,
+    "unmatchedMarketRows": 0,
+    "frozenRowsOutsideControlledCohort": 13962,
+    "joinKey": "exact canonical card UUID"
+  },
+  "coverage": [
+    {
+      "cohort": "ALL frozen eligible cards",
+      "n": 18293,
+      "sets": 128,
+      "missingFromFrozen": 0
+    },
+    {
+      "cohort": "ALL priced cards in exact-scarcity sets",
+      "n": 4331,
+      "sets": 22,
+      "eras": 2,
+      "missingFromFrozen": 13962
+    },
+    {
+      "cohort": "Pokemon Appeal available",
+      "n": 3703,
+      "sets": 22,
+      "eras": 2,
+      "missingFromFrozen": 14590
+    },
+    {
+      "cohort": "Trainer Appeal available",
+      "n": 280,
+      "sets": 22,
+      "eras": 2,
+      "missingFromFrozen": 18013
+    },
+    {
+      "cohort": "Artist Appeal available",
+      "n": 3220,
+      "sets": 16,
+      "eras": 2,
+      "missingFromFrozen": 15073
+    },
+    {
+      "cohort": "Pull Scarcity available",
+      "n": 4331,
+      "sets": 22,
+      "eras": 2,
+      "missingFromFrozen": 13962
+    },
+    {
+      "cohort": "Treatment available",
+      "n": 4331,
+      "sets": 22,
+      "eras": 2,
+      "missingFromFrozen": 13962
+    },
+    {
+      "cohort": "Appeal + Scarcity + Treatment",
+      "n": 4331,
+      "sets": 22,
+      "eras": 2,
+      "missingFromFrozen": 13962
+    }
+  ],
+  "rowFingerprint": "dc4d806d53993a8e5b1fb692a32c60f3665464cf41ec45dcc89b98f4740e04c3"
+}

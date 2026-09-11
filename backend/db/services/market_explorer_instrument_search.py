@@ -1,4 +1,4 @@
-"""Bounded search over Market Explorer's canonical eligible instruments."""
+"""Application adapter for canonical, server-ranked leaf-instrument search."""
 
 from __future__ import annotations
 
@@ -6,6 +6,53 @@ from typing import Any
 
 MIN_QUERY_LENGTH = 2
 MAX_RESULTS = 50
+SEARCH_RPC = "search_pokemon_market_explorer_instruments_v2"
+
+
+def _text(row: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = row.get(key)
+        if value is not None and str(value).strip():
+            return str(value)
+    return None
+
+
+def _canonical_item(row: dict[str, Any]) -> dict[str, Any] | None:
+    """Translate the private SQL shape without exposing ranking internals."""
+    asset = _text(row, "asset", "asset_type")
+    instrument_id = _text(row, "instrument_id", "instrumentId")
+    display_name = _text(row, "display_name", "displayName", "name", "product_name", "card_name")
+    if asset not in ("cards", "sealed") or not instrument_id or not display_name:
+        return None
+    item = {
+        "asset": asset,
+        "instrumentId": instrument_id,
+        "displayName": display_name,
+        # Transitional aliases keep the Phase-1 picker/drafts compatible.
+        "name": display_name,
+        "label": display_name,
+        "setId": _text(row, "set_id", "setId") or "",
+        "setName": _text(row, "set_name", "setName"),
+        "secondaryLabel": _text(row, "secondary_label", "secondaryLabel"),
+        "imageUrl": _text(row, "image_url", "imageUrl"),
+    }
+    if asset == "cards":
+        item.update({
+            "cardNumber": _text(row, "collector_number", "card_number", "cardNumber"),
+            "rarity": _text(row, "rarity"),
+            "edition": _text(row, "edition"),
+            "printingType": _text(row, "printing_type", "printingType"),
+            "specialType": _text(row, "special_type", "specialType"),
+            "variantLabel": _text(row, "variant_label", "variantLabel"),
+        })
+    else:
+        family = _text(row, "product_family", "productFamily", "product_type", "productType")
+        item.update({
+            "productFamily": family,
+            "productType": _text(row, "product_type", "productType") or family,
+            "variantLabel": _text(row, "variant_label", "variantLabel"),
+        })
+    return {key: value for key, value in item.items() if value is not None}
 
 
 def search_market_explorer_instruments(client: Any, *, q: str, asset: str = "all",
@@ -16,43 +63,11 @@ def search_market_explorer_instruments(client: Any, *, q: str, asset: str = "all
     if asset not in ("all", "cards", "sealed"):
         raise ValueError("asset must be all, cards, or sealed")
     cap = max(1, min(int(limit), MAX_RESULTS))
-    results: list[dict[str, Any]] = []
-
-    if asset in ("all", "cards"):
-        rows = list((client.table("pokemon_market_explorer_card_current_metadata")
-                     .select("card_variant_id,set_id,card_name,card_number,rarity,edition,printing_type,special_type,image_url")
-                     .ilike("card_name", f"%{needle}%")
-                     .order("card_name").order("card_variant_id").limit(cap).execute()).data or [])
-        set_ids = sorted({str(row.get("set_id") or "") for row in rows} - {""})
-        set_rows = list((client.table("sets").select("id,name").in_("id", set_ids).execute()).data or []) if set_ids else []
-        set_names = {str(row.get("id")): row.get("name") for row in set_rows}
-        results.extend({
-            "asset": "cards", "instrumentId": str(row["card_variant_id"]),
-            "name": row.get("card_name"), "label": row.get("card_name"),
-            "setId": str(row.get("set_id") or ""),
-            "setName": set_names.get(str(row.get("set_id") or "")),
-            "imageUrl": row.get("image_url"), "cardNumber": row.get("card_number"),
-            "rarity": row.get("rarity"), "edition": row.get("edition"),
-            "printingType": row.get("printing_type"), "specialType": row.get("special_type"),
-        } for row in rows)
-
-    if asset in ("all", "sealed"):
-        products = list((client.rpc("search_pokemon_market_explorer_sealed_instruments", {
-            "p_query": needle, "p_limit": cap,
-        }).execute()).data or [])
-        for product in products:
-            name = str(product.get("product_name") or "")
-            product_id = str(product.get("sealed_product_id") or "")
-            set_id = str(product.get("set_id") or "")
-            results.append({
-                "asset": "sealed", "instrumentId": product_id,
-                "name": name, "label": name, "setId": set_id,
-                "setName": product.get("set_name"), "imageUrl": product.get("image_url"),
-                "productType": product.get("product_family"),
-                "productFamily": product.get("product_family"),
-                "variantLabel": product.get("variant_label"),
-            })
-
-    results = [row for row in results if row.get("instrumentId")]
-    results.sort(key=lambda row: (str(row.get("name") or "").casefold(), row["asset"], row["instrumentId"]))
+    rows = list((client.rpc(SEARCH_RPC, {
+        "p_query": needle, "p_asset": asset, "p_limit": cap,
+    }).execute()).data or [])
+    # Preserve SQL order: the database owns normalization, relevance, fuzzy
+    # matching, cross-asset ranking, and the cap.
+    results = [item for row in rows if (item := _canonical_item(dict(row)))]
+    results = [item for item in results if asset == "all" or item["asset"] == asset]
     return {"query": needle, "asset": asset, "limit": cap, "items": results[:cap]}

@@ -49,6 +49,9 @@ export const FEATURE_MARKET_EXPLORER_COMPOUND = "market_explorer_compound";
 export const FEATURE_MARKET_EXPLORER_CUSTOM_RANKED = "market_explorer_custom_ranked";
 export const FEATURE_MARKET_EXPLORER_POKEMON = "market_explorer_pokemon";
 export const FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS = "market_explorer_explicit_instruments";
+export const FEATURE_MARKET_EXPLORER_PREPARED_COMPARE = "market_explorer_prepared_compare";
+export const FEATURE_MARKET_EXPLORER_ANALYTICAL_SCREENS = "market_explorer_analytical_screens";
+export const FEATURE_MARKET_EXPLORER_ADVANCED_RANKING = "market_explorer_advanced_ranking";
 export const FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency";
 export const FEATURE_PRODUCT_RIP = "product_rip";
 export const FEATURE_DETAILED_OPENING_ECONOMICS = "detailed_opening_economics";
@@ -72,13 +75,16 @@ export const PLUS_FEATURES = Object.freeze(new Set([
   FEATURE_SET_PACK_ECONOMICS, FEATURE_ERA_PACK_ECONOMICS,
   FEATURE_MARKET_BREADTH, FEATURE_CARD_PULL_ODDS,
   FEATURE_ACQUISITION_MILESTONES, FEATURE_PREPARED_MARKET_INTELLIGENCE,
-  FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS, FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
+  FEATURE_MARKET_EXPLORER_PREPARED_COMPARE,
+  FEATURE_MARKET_EXPLORER_ANALYTICAL_SCREENS,
+  FEATURE_MARKET_EXPLORER_ADVANCED_RANKING,
 ]));
 export const PREMIUM_FEATURES = Object.freeze(new Set([
   FEATURE_CARD_CHASE_EFFICIENCY, FEATURE_CHASE_OPENING_ROUTE,
   FEATURE_CHASE_VS_BUY, FEATURE_CHASE_RANKINGS,
   FEATURE_MARKET_EXPLORER_COMPOUND, FEATURE_MARKET_EXPLORER_CUSTOM_RANKED,
   FEATURE_MARKET_EXPLORER_POKEMON, FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS,
+  FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS, FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
   FEATURE_PRODUCT_CHASE_INTELLIGENCE,
 ]));
 
@@ -103,7 +109,10 @@ export function evaluateMarketQueryAccess(plan, spec) {
   const ranked = spec?.mode === "chase";
   const pokemon = Boolean(spec?.pokemonIds?.length);
   const explicit = spec?.membershipMode === "explicit";
-  const requiredPlan = explicit || pokemon || ranked || activeFilterAxes.length > 1 ? INDEX_PLAN_PREMIUM : INDEX_PLAN_PLUS;
+  // Every arbitrary Builder execution is creation, and creation is Premium.
+  // Prepared-market browsing/comparison is evaluated by the Explorer
+  // capability layer below and never reaches this query gate.
+  const requiredPlan = INDEX_PLAN_PREMIUM;
   const capability = explicit
     ? FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS
     : pokemon
@@ -113,9 +122,7 @@ export function evaluateMarketQueryAccess(plan, spec) {
     : activeFilterAxes.length > 1
       ? FEATURE_MARKET_EXPLORER_COMPOUND
       : FEATURE_MARKET_EXPLORER_SINGLE_AXIS;
-  const allowed = requiredPlan === INDEX_PLAN_PREMIUM
-    ? hasIndexPremiumAccess(plan)
-    : hasIndexPlusAccess(plan);
+  const allowed = hasIndexPremiumAccess(plan);
   return { allowed, requiredPlan, capability, activeFilterAxes };
 }
 
@@ -141,16 +148,22 @@ export const INDEX_PLAN_LABELS = Object.freeze({
  */
 export function resolveMarketExplorerPlanAccess(user) {
   const indexPlan = normalizeIndexPlan(user?.index_plan);
+  const canComparePreparedMarkets = hasIndexPlusAccess(indexPlan);
+  const canBuildCustomMarkets = hasIndexPremiumAccess(indexPlan);
   return {
     accessMode: indexPlan || "basic",
     isAuthenticated: Boolean(user),
     indexPlan,
     // Plus AND Premium — Premium inherits the whole prepared layer.
-    canUsePreparedMarketIntelligence: hasIndexPlusAccess(indexPlan),
+    canBrowsePreparedMarkets: true,
+    canComparePreparedMarkets,
+    canUseAnalyticalScreens: canComparePreparedMarkets,
+    canUseAdvancedMarketRanking: canComparePreparedMarkets,
+    canUsePreparedMarketIntelligence: canComparePreparedMarkets,
     // Premium only. Browsing Era & Sets is a Plus capability; turning a scope
     // into a real custom market is not.
-    canBuildCustomMarkets: hasIndexPlusAccess(indexPlan),
-    canBuildSingleAxisMarket: hasIndexPlusAccess(indexPlan),
+    canBuildCustomMarkets,
+    canBuildSingleAxisMarket: canBuildCustomMarkets,
     canBuildCompoundMarket: hasIndexPremiumAccess(indexPlan),
     canUseCustomRankedComposition: hasIndexPremiumAccess(indexPlan),
   };

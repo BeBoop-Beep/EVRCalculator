@@ -1003,14 +1003,14 @@ export default function RipDecisionPage({
   const metrics = {
     overall: {
       key: "overall",
-      label: "Overall RIP",
+      label: "RIP Score",
       role: "overall",
       icon: "gauge",
       score: model.overall.publicScore,
       rank: model.overall.rank,
       cohortSize: model.overall.cohortSize,
       tier: model.overall.tier,
-      cta: overallOpen ? "Hide explanation" : "How Overall RIP works",
+      cta: overallOpen ? "Hide explanation" : "How RIP Score works",
       help: "The current canonical overall score for opening this set relative to ranked sets.",
     },
     financial: {
@@ -1105,7 +1105,7 @@ export default function RipDecisionPage({
             id="overall-rip-explanation"
             className={styles.overallDisclosure}
           >
-            Overall RIP considers financial outcomes, chase accessibility, and collector appeal.
+            RIP Score considers financial outcomes, chase accessibility, and collector appeal.
           </div>
         ) : null}
         <div className={styles.pillarCardRow} data-three-pillar-summary>
@@ -1346,7 +1346,7 @@ export default function RipDecisionPage({
                   </th>
                   <th scope="col">Product</th>
                   <th scope="col">
-                    <RankedProductHeader text="How close this product's Overall RIP performance is to the strongest eligible product of the same type.">
+                    <RankedProductHeader text="How close this product's RIP Score performance is to the strongest eligible product of the same type.">
                       RIP Score
                     </RankedProductHeader>
                   </th>

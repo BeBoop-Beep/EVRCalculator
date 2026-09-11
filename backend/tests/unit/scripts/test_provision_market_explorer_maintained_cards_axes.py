@@ -20,6 +20,11 @@ FAKE_OPTIONS = {
             {"key": "illustrationRare", "label": "Illustration Rare"},
         ],
     },
+    "cardRarities": {"rarities": [
+        {"key": "specialIllustrationRare", "label": "Special Illustration Rare"},
+        {"key": "illustrationRare", "label": "Illustration Rare"},
+        {"key": "legend", "label": "LEGEND"},
+    ]},
     "priceSegments": {
         "cards": [
             {"id": "obtainable", "label": "Obtainable"},
@@ -107,6 +112,14 @@ def test_no_compound_or_pokemon_axis_is_ever_discovered():
             "eraIds", "setIds", "segmentIds", "priceSegmentIds", "releaseAgeCohortIds",
         ))
         assert active_axes == 1, spec
+
+
+def test_filter_only_rarity_is_never_discovered_for_maintained_provisioning():
+    with patch.object(prov, "build_market_explorer_filter_options", return_value=FAKE_OPTIONS):
+        candidates = prov.discover_candidate_specs(Client())
+    rarity_ids = {spec["segmentIds"][0] for _, kind, spec in candidates if kind == "rarity_segment"}
+    assert rarity_ids == {"specialIllustrationRare", "illustrationRare"}
+    assert "legend" not in rarity_ids
 
 
 def test_semantically_identical_screen_and_builder_spec_share_one_fingerprint():

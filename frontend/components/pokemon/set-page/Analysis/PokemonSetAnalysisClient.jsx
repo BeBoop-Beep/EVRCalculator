@@ -342,12 +342,12 @@ export default function PokemonSetAnalysisClient({
                       icon="analysis"
                       id="analysis-overview-title"
                       title={`Why ${setName} ranks ${readCanonicalBlock(canonical.overall).rank === null ? "where it does" : `#${Math.round(readCanonicalBlock(canonical.overall).rank)}`}`}
-                      description="Overall RIP considers financial outcomes, chase accessibility, and collector appeal."
+                      description="RIP Score considers financial outcomes, chase accessibility, and collector appeal."
                     />
                     <div className="mt-4 flex justify-center">
                       <div className="w-full max-w-md">
                         <ScoreCard
-                          label="Overall RIP"
+                          label="RIP Score"
                           icon="gauge"
                           role="overall"
                           block={canonical.overall}
@@ -411,7 +411,7 @@ export default function PokemonSetAnalysisClient({
                     <SectionHeading
                       icon="bulb"
                       title="How to read this result"
-                      description="Overall RIP is the canonical combined result. The supporting scores remain separate so unavailable inputs are visible instead of being filled with estimates."
+                      description="RIP Score is the canonical combined result. The supporting scores remain separate so unavailable inputs are visible instead of being filled with estimates."
                     />
                     <nav
                       aria-label="Explore score details"

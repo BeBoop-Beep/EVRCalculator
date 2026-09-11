@@ -7,7 +7,7 @@ import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder.jsx";
 import MarketExplorerExactItemPicker from "./MarketExplorerExactItemPicker.jsx";
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-const OPTIONS = { eras: [{ id: "sv", label: "Scarlet & Violet", sortOrder: 1 }], sets: [{ id: "sv1", label: "Temporal Forces", eraId: "sv", assets: ["cards", "sealed"] }], cardSegments: { segments: [{ key: "sir", label: "Special Illustration Rare" }] }, sealedProductFamilies: { segments: [{ key: "bundle", label: "Booster Bundles" }] } };
+const OPTIONS = { eras: [{ id: "sv", label: "Scarlet & Violet", sortOrder: 1 }], sets: [{ id: "sv1", label: "Temporal Forces", eraId: "sv", assets: ["cards", "sealed"] }], cardRarities: { rarities: [{ key: "sir", label: "Special Illustration Rare" }, { key: "legend", label: "LEGEND" }] }, cardSegments: { segments: [{ key: "sir", label: "Special Illustration Rare" }] }, compatibility: { cardRaritySetIds: { sir: ["sv1"], legend: ["sv1"] } }, sealedProductFamilies: { segments: [{ key: "bundle", label: "Booster Bundles" }] } };
 const RAW = { key: "raw", available: true };
 function mount(props = {}) { let renderer; act(() => { renderer = TestRenderer.create(<MarketExplorerQueryBuilder optionsProvided options={OPTIONS} optionsStatus="ready" currentPlan="premium" preparedSeries={[RAW]} activeSeries={[]} benchmarkEntries={[]} onAddPrepared={() => "added"} onAddQuery={async () => "added"} {...props} />); }); return renderer; }
 const byData = (renderer, key) => renderer.root.find((node) => node.props?.[key] !== undefined);
@@ -218,14 +218,14 @@ test("Quick Preset applies immediately and preserves multi-set scope", () => {
   assert.match(byData(renderer, "data-current-market-preview").children.join(""), /obtainable/i);
 });
 
-test("Sealed context excludes card-only Screens and uses asset-specific composition", () => {
+test("Sealed context excludes card-only Screens and generic composition membership", () => {
   const renderer = mount();
   openDisclosure(renderer, "sealedBuilder");
   openDisclosure(renderer, "sealedScreens");
   assert.equal(renderer.root.findAllByProps({ "data-market-screen": "rarity-leaders" }).length, 0);
   assert.ok(renderer.root.findByProps({ "data-market-screen": "sealed-format-leaders" }));
-  openDisclosure(renderer, "sealedComposition");
-  assert.ok(renderer.root.find((node) => node.props?.ariaLabel === "Market Mode").props.options.some((row) => row.label === "Top N by Price"));
+  assert.equal(renderer.root.findAllByProps({ "data-explorer-disclosure-toggle": "sealedComposition" }).length, 0);
+  assert.match(textOf(renderer.root.findByProps({ "data-explorer-disclosure": "sealedBuilder" })), /Scope.*Filters/);
 });
 
 test("Top 10 in Selected Set remains a Quick Preset", () => {
@@ -265,4 +265,33 @@ test("toggling a benchmark never touches the Builder draft", () => {
     renderer.root.findByProps({ "data-market-explorer-filters": true }).props["data-market-builder-asset"],
     draftAssetBefore,
   );
+});
+
+test("Cards Rarity uses the full locally searchable filter taxonomy", () => {
+  const renderer = mount({ currentPlan: "premium" });
+  openDisclosure(renderer, "cardsSegments");
+  const rarity = renderer.root.find((node) => node.props?.name === "cards-segment");
+  assert.equal(rarity.props.searchable, true);
+  assert.deepEqual(rarity.props.options.map((row) => row.id), ["sir", "legend"]);
+  assert.equal(rarity.props.searchPlaceholder, "Search raritiesâ€¦");
+});
+
+test("a truthful empty preflight disables Build without executing the expensive query", async () => {
+  let builds = 0;
+  const renderer = mount({
+    preflightResult: { state: "empty", message: "No cards currently match these filters." },
+    onAddQuery: async () => { builds += 1; return "added"; },
+  });
+  const button = renderer.root.findByProps({ "data-market-builder-build": true });
+  assert.equal(button.props.disabled, true);
+  await act(async () => button.props.onClick());
+  assert.equal(builds, 0);
+  assert.match(textOf(renderer.root.findByProps({ "data-market-builder-preflight": "empty" })), /No cards currently match/);
+});
+
+test("projection lag is unavailable and never presented as zero matches", () => {
+  const renderer = mount({ preflightResult: { state: "unavailable", message: "Matching-card availability is temporarily unavailable. This is not a zero-match result." } });
+  const text = textOf(renderer.root.findByProps({ "data-market-builder-preflight": "unavailable" }));
+  assert.match(text, /temporarily unavailable/);
+  assert.doesNotMatch(text, /0 matching|No cards currently match/);
 });

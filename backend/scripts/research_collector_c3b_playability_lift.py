@@ -113,8 +113,8 @@ def rank_diagnostics(base, final):
     }
 
 
-def build_playability(client):
-    observations = paged(lambda: client.table("pokemon_playability_event_observations").select("*").eq("source_run_id", LIMITLESS_RUN))
+def build_playability(client, source_run_id=LIMITLESS_RUN):
+    observations = paged(lambda: client.table("pokemon_playability_event_observations").select("*").eq("source_run_id", source_run_id))
     grouped = defaultdict(list)
     for row in observations:
         if row.get("functional_reference_id"):
@@ -153,13 +153,14 @@ def build_playability(client):
     return result
 
 
-def trainer_scores(client):
+def trainer_scores(client, trainer_12m_source_run_id=TRAINER_12M,
+                   trainer_5y_source_run_id=TRAINER_5Y):
     def run(run_id):
         rows = client.table("pokemon_collector_entity_observations").select(
             "collector_entity_id,normalized_observation_score").eq("source_run_id", run_id).execute().data or []
         return {str(row["collector_entity_id"]): float(row["normalized_observation_score"] or 0) for row in rows}
-    p12, p5 = pranks(run(TRAINER_12M)), pranks(run(TRAINER_5Y))
-    return {key: .4 * p12[key] + .6 * p5[key] for key in p12}
+    p12, p5 = pranks(run(trainer_12m_source_run_id)), pranks(run(trainer_5y_source_run_id))
+    return {key: .4 * p12[key] + .6 * p5[key] for key in set(p12) & set(p5)}
 
 
 def main(output_path):

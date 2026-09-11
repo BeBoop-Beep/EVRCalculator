@@ -2,10 +2,11 @@
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from 'next/navigation'; // Use next/navigation for routing
-import SearchBar from "@/components/Search/SearchBar";
+import SitewideSearchBar from "@/components/Search/SitewideSearchBar";
 import Image from "next/image";
 import { useAuth } from "@/components/AuthContext";
 import { TCGS_NAV_HREF, isTopNavRouteActive } from "@/lib/navigation/tcgsNav.mjs";
+import { MARKET_EXPLORER_NAV_HREF, isExplorerNavRouteActive, isMarketNavRouteActive } from "@/lib/navigation/marketNav.mjs";
 import AuthPopover from "@/components/AuthPopover";
 import MembershipNavLink from "@/components/membership/MembershipNavLink";
 
@@ -68,6 +69,8 @@ export default function Header() {
 
   const isTopNavActive = (path) => isTopNavRouteActive(pathname, path);
   const isTcgsRouteActive = isTopNavActive('/TCGs');
+  const isMarketRouteActive = isMarketNavRouteActive(pathname);
+  const isExplorerRouteActive = isExplorerNavRouteActive(pathname);
 
   const handleHeaderSearch = (query) => {
     if (!query) return;
@@ -162,7 +165,7 @@ export default function Header() {
             onClickCapture={() => setIsMobileMenuOpen(false)}
             onFocusCapture={() => setIsMobileMenuOpen(false)}
           >
-            <SearchBar
+            <SitewideSearchBar
               onSearch={handleHeaderSearch}
               className="relative flex items-center w-full min-w-0"
               inputClassName="w-full min-w-0 px-3 py-2 pr-10 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] text-sm"
@@ -184,10 +187,20 @@ export default function Header() {
               <Link
                 href="/Market"
                 className={`${navTabBase} inline-flex items-center justify-center ${
-                  isTopNavActive('/Market') ? navTabActive : navTabInactive
+                  isMarketRouteActive ? navTabActive : navTabInactive
                 }`}
+                aria-current={isMarketRouteActive ? "page" : undefined}
               >
                 Market
+              </Link>
+              <Link
+                href={MARKET_EXPLORER_NAV_HREF}
+                aria-current={isExplorerRouteActive ? "page" : undefined}
+                className={`${navTabBase} inline-flex items-center justify-center ${
+                  isExplorerRouteActive ? navTabActive : navTabInactive
+                }`}
+              >
+                Explorer
               </Link>
               {/* Pokémon is the only live TCG, so TCGs is a direct link to its
                   Sets catalog rather than a one-item menu. It stays active for
@@ -217,7 +230,7 @@ export default function Header() {
             onClickCapture={() => setIsMobileMenuOpen(false)}
             onFocusCapture={() => setIsMobileMenuOpen(false)}
           >
-            <SearchBar
+            <SitewideSearchBar
               onSearch={handleHeaderSearch}
               className="relative flex items-center w-full min-w-0 max-w-full lg:w-[360px] xl:w-[420px]"
               inputClassName="w-full min-w-0 px-4 py-2 pr-12 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[rgb(45,212,191)] focus:ring-2 focus:ring-[rgba(45,212,191,0.35)]"
@@ -314,6 +327,12 @@ export default function Header() {
               className="w-full px-0 py-0 flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
+              <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">DISCOVER</div>
+              <div className="border-y border-[var(--border-subtle)] mb-2">
+                <Link href="/Articles" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                  Articles
+                </Link>
+              </div>
               <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">ACCOUNT</div>
               <div className="border-y border-[var(--border-subtle)] mb-6">
                 <MembershipNavLink mobile />

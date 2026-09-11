@@ -59,8 +59,11 @@ from backend.db.services.pokemon_set_cards_market_analytics_service import (
 )
 from backend.domain.pokemon.card_rarity_taxonomy import (
     CARD_RARITY_TAXONOMY_VERSION,
+    CARD_RARITY_FILTER_TAXONOMY_VERSION,
+    FILTER_RARITY_DEFINITIONS,
     RAW_CARD_SEGMENT_DEFINITIONS,
-    segment_key_for_rarity,
+    filter_rarity_metadata,
+    normalize_filter_rarity,
     taxonomy_metadata,
 )
 from backend.domain.pokemon.constituent_movement import (
@@ -263,7 +266,7 @@ def _resolve_rarity_spellings(client: Any, set_ids: Sequence[str]) -> dict[str, 
                          .select("rarity").in_("set_id", batch).order("rarity"))
         for row in rows:
             raw = row.get("rarity")
-            segment = segment_key_for_rarity(raw)
+            segment = normalize_filter_rarity(raw)
             if segment and raw is not None:
                 spellings.setdefault(segment, set()).add(raw)
     _rarity_spellings_cache[key] = (time.monotonic() + _RARITY_SPELLINGS_TTL_SECONDS, spellings)
@@ -280,7 +283,7 @@ def resolve_segment_card_universe(
     not the union of the published segments.
     """
     wanted = {str(value).strip() for value in segment_ids if str(value or "").strip()}
-    known = {str(definition["key"]) for definition in RAW_CARD_SEGMENT_DEFINITIONS}
+    known = {str(definition["key"]) for definition in FILTER_RARITY_DEFINITIONS}
     unknown = wanted - known
     if unknown:
         raise MarketExplorerQueryError(f"unknown card segment(s): {sorted(unknown)}")
@@ -332,7 +335,7 @@ def resolve_segment_card_universe(
             card_id = str(row.get("id") or "").strip()
             if not card_id:
                 continue
-            segment = segment_key_for_rarity(row.get("rarity"))
+            segment = normalize_filter_rarity(row.get("rarity"))
             if wanted and segment not in wanted:
                 continue
             universe[card_id] = {
@@ -1225,7 +1228,7 @@ def run_market_explorer_query(
         raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
     for row in basket_rows:
         row["setName"] = set_names.get(str(row.get("setId") or ""))
-        row["segmentKey"] = segment_key_for_rarity(row.get("rarity"))
+        row["segmentKey"] = normalize_filter_rarity(row.get("rarity"))
     movement_prices: dict[str, dict[str, float]] = {}
     series = build_query_series_from_cohorts(
         cohort_rows, basket_rows, {}, mode=spec["mode"], top_n=spec["topN"],
@@ -1236,6 +1239,7 @@ def run_market_explorer_query(
 
     return {
         "serviceVersion": MARKET_EXPLORER_QUERY_SERVICE_VERSION,
+        "filterTaxonomyVersion": CARD_RARITY_FILTER_TAXONOMY_VERSION,
         "spec": {**spec, "eraIds": list(spec["eraIds"]), "setIds": list(spec["setIds"]),
                  "segmentIds": list(spec["segmentIds"]), "pokemonIds": list(spec["pokemonIds"]),
                  "priceSegmentIds": list(spec["priceSegmentIds"]),
@@ -1323,16 +1327,22 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
 
     # Compact compatibility authority: one set-id list per selectable rarity or
     # Pokemon, never a materialized cross-product of every possible query.
-    card_rows = _page_all(lambda: client.table("pokemon_canonical_cards")
-                          .select("id,set_id,rarity").in_("set_id", list(tracked_set_ids)))
-    card_set_by_id = {str(row.get("id")): str(row.get("set_id")) for row in card_rows}
+    card_rows = _page_all(lambda: client.table("pokemon_market_explorer_card_current_metadata")
+                          .select("canonical_card_id,set_id,rarity")
+                          .in_("set_id", list(tracked_set_ids))
+                          .order("canonical_card_id"))
+    card_set_by_id = {str(row.get("canonical_card_id")): str(row.get("set_id")) for row in card_rows}
     segment_sets: dict[str, set[str]] = {}
+    rarity_card_counts: dict[str, int] = {}
     for row in card_rows:
-        segment_key = segment_key_for_rarity(row.get("rarity"))
+        segment_key = normalize_filter_rarity(row.get("rarity"))
         if segment_key:
             segment_sets.setdefault(segment_key, set()).add(str(row.get("set_id")))
+            rarity_card_counts[segment_key] = rarity_card_counts.get(segment_key, 0) + 1
     subject_links = _page_all(lambda: client.table("pokemon_card_desirability_links")
-                              .select("pokemon_canonical_card_id,pokemon_reference_id"))
+                              .select("pokemon_canonical_card_id,pokemon_reference_id")
+                              .order("pokemon_canonical_card_id")
+                              .order("pokemon_reference_id"))
     pokemon_sets: dict[str, set[str]] = {}
     for link in subject_links:
         set_id = card_set_by_id.get(str(link.get("pokemon_canonical_card_id")))
@@ -1415,6 +1425,10 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
         # breaks; `cardSegments` is the asset-explicit alias.
         "segments": published_segment_options(),
         "cardSegments": published_segment_options(),
+        "cardRarities": filter_rarity_metadata(
+            card_counts=rarity_card_counts,
+            set_counts={key: len(value) for key, value in segment_sets.items()},
+        ),
         "sealedProductFamilies": published_sealed_family_options(),
         "pokemon": [
             {"id": str(row.get("id")), "label": str(row.get("display_name") or ""),
@@ -1441,7 +1455,7 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
             {"id": "legacy", "label": "Legacy", "description": "More than 5 years since set release"},
         ],
         "compatibility": {
-            "cardSegmentSetIds": {key: sorted(value) for key, value in segment_sets.items()},
+            "cardRaritySetIds": {key: sorted(value) for key, value in segment_sets.items()},
             "pokemonSetIds": {key: sorted(value) for key, value in pokemon_sets.items()},
             "sealedFamilySetIds": {key: sorted(value) for key, value in sealed_segment_sets.items()},
         },

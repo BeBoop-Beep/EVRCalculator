@@ -1,0 +1,53 @@
+{
+  "version": "pokemon_collector_v7_artist_freeze_v1",
+  "authority": "google_trends_artist",
+  "queryContract": {
+    "queryType": "search_term",
+    "template": "{artist} Pokemon cards",
+    "geo": "US",
+    "timeframes": ["today 12-m", "today 5-y"],
+    "anchor": "Pikachu Pokemon",
+    "lowerAnchor": "Pokemon illustrator",
+    "property": "web_search",
+    "category": 0,
+    "captureVersion": "collector_trends_anchor_v1"
+  },
+  "score": {
+    "version": "artist_appeal_trends_40_60_percentile_v1",
+    "transform": "positive-only within-artist-domain percentile per horizon",
+    "weights": {"today 12-m": 0.4, "today 5-y": 0.6},
+    "requireBothHorizons": true,
+    "confirmedZeroPolicy": "SCORED_ZERO_HIGH_CONFIDENCE",
+    "unresolvedPolicy": "NULL"
+  },
+  "cardContribution": {
+    "version": "artist_secondary_headroom_after_playability_v1",
+    "formula": "v6_card_appeal + (100-v6_card_appeal)*0.10*(artist_appeal/100)",
+    "lambda": 0.1,
+    "order": ["subject", "playability", "artist"],
+    "missingPolicy": "no contribution and no penalty",
+    "multiArtistPolicy": "maximum independently scoreable artist appeal; never sum",
+    "unresolvedCombinedCreditPolicy": "NULL artist score and no contribution"
+  },
+  "identityClassification": {
+    "clean": "one exact canonical catalog artist name",
+    "resolvableAlias": "reviewed alias to one canonical identity",
+    "ambiguous": "name/query cannot be safely attributed",
+    "missing": "canonical card has no artist metadata",
+    "multiArtist": "catalog credit names multiple contributors",
+    "automaticAmbiguousMerge": false,
+    "ambiguousExactNames": {
+      "take": "ordinary English verb collides with contextual search query",
+      "match": "ordinary English noun/verb collides with contextual search query",
+      "Pokemon Rumble": "catalog credit collides with the video-game property",
+      "Jerky": "ordinary English product term remains collision-prone",
+      "sui": "short global-name/token ambiguity",
+      "yuu": "short personal-name/romanization ambiguity",
+      "aoki": "surname-only ambiguity",
+      "Oku": "short surname/token ambiguity",
+      "Rond": "short global token ambiguity"
+    }
+  },
+  "prohibitedInputs": ["price", "sales", "grading activity", "portfolio value", "market cap", "auction count"],
+  "diagnosticOnly": ["Treatment", "Pull Scarcity"]
+}

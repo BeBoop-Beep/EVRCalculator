@@ -171,6 +171,6 @@ test("comparisons and final CTA stay canonical without duplicate Set RIP metrics
   assert.match(client, /href=\{setHref\}/);
   assert.doesNotMatch(
     client,
-    /Set Overall RIP|Set Financial RIP|Set Collector Appeal/,
+    /Set RIP Score|Set Financial RIP|Set Collector Appeal/,
   );
 });

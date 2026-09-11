@@ -67,6 +67,14 @@ async function executeQuery(spec) {
   return series;
 }
 
+function exactItemsForResult(result, fallback) {
+  if (!result?.spec?.instruments || !result.currentConstituents?.length) return fallback;
+  return result.currentConstituents.map((item) => ({
+    ...item,
+    instrumentId: item.instrumentId || item.cardVariantId || item.sealedProductId,
+  }));
+}
+
 export default function useMarketExplorerQueries() {
   const [querySeries, setQuerySeries] = useState([]);
   const pendingKeys = useRef(new Set());
@@ -82,7 +90,7 @@ export default function useMarketExplorerQueries() {
       setQuerySeries((current) => {
         if (current.some((entry) => entry.queryFingerprint === result.queryFingerprint)) { outcome = "duplicate"; return current; }
         const additions = [];
-        const resultInstance = attachMarketInstance(result, { exactItems });
+        const resultInstance = attachMarketInstance(result, { exactItems: exactItemsForResult(result, exactItems) });
         if (benchmark && !current.some((entry) => entry.queryFingerprint === benchmark.queryFingerprint)) additions.push({ ...attachMarketInstance(benchmark), benchmarkForInstanceId: resultInstance.instanceId });
         additions.push(resultInstance);
         return [...current, ...additions];
@@ -105,7 +113,7 @@ export default function useMarketExplorerQueries() {
       setQuerySeries((entries) => {
         let foundBenchmark = false;
         const updated = entries.flatMap((entry) => {
-          if (entry.instanceId === instanceId) return [replaceMarketInstance(entry, result, { exactItems })];
+        if (entry.instanceId === instanceId) return [replaceMarketInstance(entry, result, { exactItems: exactItemsForResult(result, exactItems) })];
           if (entry.benchmarkForInstanceId === instanceId) {
             if (!benchmark) return [];
             foundBenchmark = true;

@@ -1,0 +1,6676 @@
+{
+  "warning": "Graph connectivity does not authorize transitive preference inference.",
+  "edges": [
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "amazing_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "base_wotc__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "black_and_white__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "black_white_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "break",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "common",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "diamond_and_pearl__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "double_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "e_card__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ace_spec",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "base_wotc__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "black_and_white__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "black_white_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "break",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "common",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "diamond_and_pearl__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "double_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "e_card__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "amazing_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "black_and_white__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "black_white_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "break",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "common",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "diamond_and_pearl__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "double_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "e_card__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "base_wotc__secret_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "black_white_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "break",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "common",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "diamond_and_pearl__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "double_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "e_card__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_and_white__secret_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "break",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "common",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "diamond_and_pearl__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "double_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 2,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "e_card__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "hyper_rare_gold",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "illustration_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "shiny_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 2,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "ultra_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 2,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "uncommon",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "black_white_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "common",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "diamond_and_pearl__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "double_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "e_card__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "break",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "common",
+      "status": "DIRECTLY_IDENTIFIABLE",
+      "sameCardContrasts": 2,
+      "sameSubjectContrasts": 2067,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "diamond_and_pearl__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "double_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "e_card__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "hyper_rare_gold",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 4,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "illustration_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 678,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "mega_attack_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "mega_hyper_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "shiny_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 32,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "special_illustration_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 9,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "ultra_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 41,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "uncommon",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 6,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "common",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "double_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "e_card__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "diamond_and_pearl__secret_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "e_card__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "hyper_rare_gold",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 33,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "illustration_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 6,
+      "eras": [
+        "Mega Evolution"
+      ]
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 8,
+      "eras": [
+        "Mega Evolution"
+      ]
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "shiny_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 7,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 143,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "ultra_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 197,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "uncommon",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "double_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "ex__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "e_card__secret_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "gold_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ex__secret_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "heartgold_and_soulsilver__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "gold_star",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "hyper_rare_gold",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "heartgold_and_soulsilver__secret_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "illustration_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "mega_attack_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "mega_hyper_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "shiny_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "special_illustration_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 31,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "ultra_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 29,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "uncommon",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 18,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "hyper_rare_gold",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "legend",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "mega_attack_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 190,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "shiny_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 3,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "uncommon",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 388,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "illustration_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "mega_attack_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "mega_hyper_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "legend",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "mega_hyper_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 1,
+      "eras": [
+        "Mega Evolution"
+      ]
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "shiny_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 7,
+      "eras": [
+        "Mega Evolution"
+      ]
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "uncommon",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_attack_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "platinum__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "shiny_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 7,
+      "eras": [
+        "Mega Evolution"
+      ]
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "ultra_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 6,
+      "eras": [
+        "Mega Evolution"
+      ]
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "uncommon",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "mega_hyper_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "prime",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "platinum__secret_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "prism_star",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prime",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "radiant_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "prism_star",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rainbow_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "radiant_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rainbow_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 491,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "rare_holo",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "shiny_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 20,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 4,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "ultra_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 6,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "uncommon",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 6,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "rare_holo_ex",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "rare_holo_gx",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_ex",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "rare_holo_lv_x",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_gx",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "rare_holo_v",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_lv_x",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "rare_holo_vmax",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_v",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "rare_holo_vstar",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vmax",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "rare_ultra",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_holo_vstar",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_ultra",
+      "treatmentB": "shining",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_ultra",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_ultra",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_ultra",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_ultra",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_ultra",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_ultra",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_ultra",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "rare_ultra",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shining",
+      "treatmentB": "shiny_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shining",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shining",
+      "treatmentB": "special_illustration_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shining",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shining",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shining",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shining",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shining",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_rare",
+      "treatmentB": "shiny_ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_rare",
+      "treatmentB": "ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_rare",
+      "treatmentB": "uncommon",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 14,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "shiny_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_ultra_rare",
+      "treatmentB": "special_illustration_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 2,
+      "eras": [
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "shiny_ultra_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_ultra_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_ultra_rare",
+      "treatmentB": "ultra_rare",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_ultra_rare",
+      "treatmentB": "uncommon",
+      "status": "CONNECTED_ONLY_THROUGH_INTERMEDIATES",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "shiny_ultra_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "special_illustration_rare",
+      "treatmentB": "sun_and_moon__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "special_illustration_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "special_illustration_rare",
+      "treatmentB": "ultra_rare",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 163,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "special_illustration_rare",
+      "treatmentB": "uncommon",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 118,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "special_illustration_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "sun_and_moon__secret_rare",
+      "treatmentB": "sword_and_shield__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "sun_and_moon__secret_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "sun_and_moon__secret_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "sun_and_moon__secret_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "sword_and_shield__secret_rare",
+      "treatmentB": "ultra_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "sword_and_shield__secret_rare",
+      "treatmentB": "uncommon",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "sword_and_shield__secret_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "ultra_rare",
+      "treatmentB": "uncommon",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 214,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "ultra_rare",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    },
+    {
+      "treatmentA": "uncommon",
+      "treatmentB": "uncommon",
+      "status": "LOCALLY_IDENTIFIABLE",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 1298,
+      "eras": [
+        "Mega Evolution",
+        "Scarlet and Violet"
+      ]
+    },
+    {
+      "treatmentA": "uncommon",
+      "treatmentB": "xy__secret_rare",
+      "status": "UNSUPPORTED",
+      "sameCardContrasts": 0,
+      "sameSubjectContrasts": 0,
+      "eras": []
+    }
+  ]
+}

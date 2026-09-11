@@ -1,0 +1,40 @@
+{
+  "taxonomyVersion": "pokemon_card_treatment_taxonomy_v3",
+  "priceUsed": false,
+  "attributes": {
+    "illustration_led": "Artwork is the dominant presentation feature.",
+    "full_art": "Artwork extends beyond the standard illustration box.",
+    "extended_art": "Artwork/frame is extended beyond the standard frame; requires explicit metadata.",
+    "alternate_artwork": "Alternate artwork for an otherwise corresponding card.",
+    "textured": "Physical/textured print treatment is explicitly established.",
+    "gold_or_gilded": "Gold-colored border, frame, or accents are intrinsic to the treatment.",
+    "rainbow": "Rainbow-colored treatment.",
+    "shiny": "The depicted Pokémon is explicitly a Shiny treatment.",
+    "holo": "Holofoil presentation.",
+    "reverse_holo": "Foil outside the ordinary illustration treatment.",
+    "etched_or_special_foil": "Named nonstandard foil or pattern.",
+    "gallery_style": "Named gallery/subset illustration presentation; requires explicit metadata.",
+    "borderless_or_extended_frame": "Borderless/extended-frame layout; requires explicit metadata.",
+    "standard_frame": "Ordinary era-local frame.",
+    "premium_frame": "Nonstandard premium frame or layout.",
+    "character_scene": "Full scene/environment presentation.",
+    "trainer_gallery_style": "Named Trainer Gallery presentation; requires explicit metadata.",
+    "subset_specialty": "Special subset or secret-number presentation.",
+    "vintage_specialty": "Era-local historical specialty with no asserted modern equivalence.",
+    "promo_only": "Distribution-specific promo status; never inferred from rarity alone.",
+    "unique_mechanic_treatment": "Presentation is bundled with a named gameplay/form mechanic."
+  },
+  "definitions": {
+    "era_local_label": "Publisher/API rarity designation interpreted only inside its era.",
+    "semantic_attributes": "Observable presentation properties; never an ordinal global ladder."
+  },
+  "manualOverrides": [],
+  "detection": {
+    "rarity": "deterministic normalized source metadata",
+    "printing_type": "deterministic variant metadata",
+    "special_type": "deterministic variant metadata",
+    "edition": "deterministic variant metadata",
+    "unassignedAttributes": "require future explicit metadata or versioned manual override"
+  },
+  "fingerprint": "85fdb2344d9ae7842a91bf0b3b0a434e02e99298be4cb025c8b3826066f67ddc"
+}

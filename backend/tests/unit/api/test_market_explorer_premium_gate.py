@@ -85,7 +85,8 @@ def test_the_builder_options_endpoint_carries_the_same_gate():
 def test_public_taxonomy_cache_sits_behind_access_and_never_contains_query_results():
     options = _function_source("get_market_explorer_query_options")
     assert options.index("has_index_plus_access") < options.index("_market_explorer_options_cache")
-    assert "build_market_explorer_filter_options" in options
+    assert "read_market_explorer_options_snapshot" in options
+    assert "build_market_explorer_filter_options" not in options
     assert "run_market_explorer_query" not in options
     assert "_market_explorer_query_cache" not in options
 
@@ -105,6 +106,8 @@ def test_exact_instrument_discovery_is_plus_but_execution_remains_spec_gated():
     assert "has_index_premium_access" not in search
     assert '"requiredPlan": "plus"' in search
     assert "_require_market_explorer_query_access" in query
+    assert "POLICY_INSTRUMENT_SEARCH" in search
+    assert "POLICY_CUSTOM_QUERY" not in search
 
 
 @pytest.mark.parametrize("route", [

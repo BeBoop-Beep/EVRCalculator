@@ -140,11 +140,11 @@ test("the Insights Summary is one grouped surface carrying exactly three canonic
   assert.deepEqual(
     cards.map((card) => card.props["data-insights-summary-metric"]),
     ["overall", "financial", "collector"],
-    "exactly Overall RIP, Financial RIP and Collector Appeal, in that order"
+    "exactly RIP Score, Financial RIP and Collector Appeal, in that order"
   );
 
   const text = textOf(renderer.toJSON());
-  for (const label of ["Overall RIP", "Financial RIP", "Collector Appeal"]) {
+  for (const label of ["RIP Score", "Financial RIP", "Collector Appeal"]) {
     assert.ok(text.includes(label), `${label} must be labelled`);
   }
   assert.match(summarySource, /import \{ RIP_SUMMARY_DESCRIPTIONS \} from "\.\/OverviewRipSummary\.jsx";/);
@@ -156,7 +156,7 @@ test("the Insights Summary is one grouped surface carrying exactly three canonic
 
 test("the summary prints only the three public relative scores", () => {
   const text = textOf(renderSummary().toJSON());
-  assert.ok(text.includes("73.4"), "Overall RIP relative score");
+  assert.ok(text.includes("73.4"), "RIP Score relative score");
   assert.ok(text.includes("82.4"), "Financial RIP relative score");
   assert.ok(text.includes("70.1"), "Collector Appeal relative score");
   assert.equal(text.includes("46.8"), false, "Financial absolute score must not render");

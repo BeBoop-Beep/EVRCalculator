@@ -20,6 +20,14 @@ const FILTER_DEFINITION_FIELDS = new Set([
   "releaseAgeCohortIds", "mode", "topN",
 ]);
 
+export function compatibleSetIds(axisSelections) {
+  const axisUnions = (axisSelections || []).map(({ ids = [], map = {} }) =>
+    ids.length ? new Set(ids.flatMap((id) => map?.[id] || [])) : null
+  ).filter(Boolean);
+  if (!axisUnions.length) return null;
+  return new Set([...axisUnions[0]].filter((setId) => axisUnions.every((allowed) => allowed.has(setId))));
+}
+
 function enterMembershipMode(state, value) {
   if (value === "explicit") {
     // Exact Basket is a list of physical leaves, not a filtered universe.

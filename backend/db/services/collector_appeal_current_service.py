@@ -37,10 +37,11 @@ def load_set_collector_appeal_for_model(
     *,
     client=None,
 ) -> Dict[str, Dict[str, Any]]:
-    """Load one explicit published Collector run for an inactive candidate build.
+    """Load one explicit validated Collector run for an inactive candidate build.
 
     This deliberately bypasses only the *current pointer*, not model validation:
-    the requested run must already be published and validation-passed. Public
+    the requested run must already be validation-passed. It may be staged
+    (``validated``) or published; public
     runtime readers continue to use ``load_current_set_collector_appeal``.
     """
     resolved = client or service_read_client
@@ -52,9 +53,10 @@ def load_set_collector_appeal_for_model(
     if not headers:
         raise RuntimeError(f"Collector model run {model_run_id} does not exist")
     header = headers[0]
-    if (header.get("status") != "published" or header.get("validation_passed") is not True
-            or not header.get("published_at")):
-        raise RuntimeError(f"Collector model run {model_run_id} is not published and validated")
+    if (header.get("status") not in {"validated", "published"}
+            or header.get("validation_passed") is not True
+            or (header.get("status") == "published" and not header.get("published_at"))):
+        raise RuntimeError(f"Collector model run {model_run_id} is not validated")
 
     ids = [str(value) for value in (set_ids or [])]
     desirability = resolved.table("pokemon_set_collector_desirability_scores").select("*").eq(
@@ -136,10 +138,14 @@ def build_public_collector_appeal_contract(row: Optional[Dict[str, Any]]) -> Opt
     f = row.get("generalized_desirable_outcome_frequency")
     roster_diag = row.get("roster_diagnostics_json") or {}
     groups = row.get("subject_rollups_json") or []
+    corrected_v6 = str(row.get("model_version") or "").startswith("pokemon_collector_appeal_v6_corrected_")
+    subject_scope = ({"modeled":["Pokémon","Trainers"],"diagnosticOnly":["eligible neutral functional cards","Treatment","Scarcity"],"notYetModeled":["Artist"],"excluded":["Energy","market value"],"note":"Pokémon and Trainers contribute under separate locked contracts. Functional, Treatment, and Scarcity are diagnostic-only; Artist is not yet modeled."}
+                     if corrected_v6 else
+                     {"modeled":["Pokémon","Trainers","eligible neutral functional cards"],"notYetModeled":["Artist","Treatment","Energy"],"note":"Pokémon, Trainers, and eligible functional cards are modeled. Artist is not modeled; Treatment and Energy are excluded."})
     return {
         "contractVersion": PUBLIC_CONTRACT_VERSION,
         "collectorAppeal": {"score": row.get("collector_appeal_score") if scored else None,"absoluteScore":row.get("collector_appeal_score") if scored else None,"rank":row.get("collector_appeal_rank") if scored else None,"rankedSetCount":22,"tier":None,"status":row.get("score_status"),"statusReason":row.get("score_status_reason"),"version":"collector_appeal","modelVersion":row.get("model_version"),"modelRunId":row.get("model_run_id"),"asOfDate":str(row.get("as_of_date")) if row.get("as_of_date") else None,
-            "subjectScope":{"modeled":["Pokémon","Trainers","eligible neutral functional cards"],"notYetModeled":["Artist","Treatment","Energy"],"note":"Pokémon, Trainers, and eligible functional cards are modeled. Artist is not modeled; Treatment and Energy are excluded."}},
+            "subjectScope":subject_scope},
         "components": {
             "rosterDesirability":{"score":row.get("collector_roster_desirability_score"),"rank":row.get("collector_roster_desirability_rank"),"rankedSetCount":128,"tier":None,"version":"collector_roster_desirability_v1","groupCount":roster_diag.get("distinctGroupCount"),"pokemonGroupCount":roster_diag.get("pokemonGroupCount"),"trainerGroupCount":roster_diag.get("trainerGroupCount"),"neutralFunctionalGroupCount":roster_diag.get("neutralFunctionalGroupCount"),"topCollectorGroups":[{"name":g.get("identity"),"type":g.get("type"),"score":g.get("appeal"),"cardCount":g.get("cardCount")} for g in groups[:10]]},
             "desirableOutcomeFrequency":{"rawValue":f,"displayPercent":round(float(f)*100,2) if f is not None else None,"impliedOddsOneInN":_one_in(f),"status":row.get("generalized_frequency_status"),"statusReason":row.get("generalized_frequency_status_reason"),"version":"generalized_desirable_outcome_frequency_v1","eligibleCardCount":row.get("eligible_card_count"),"modeledCardCount":row.get("scored_card_count"),"coverageRatio":row.get("score_coverage_ratio"),"isFinancialMetric":False},

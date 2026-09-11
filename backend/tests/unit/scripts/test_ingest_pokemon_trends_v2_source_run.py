@@ -58,11 +58,8 @@ def _valid_header() -> dict:
 def _full_rows(n=EXPECTED_SUBJECT_COUNT) -> list[dict]:
     rows = [_valid_row(i) for i in range(1, n + 1)]
     if n == EXPECTED_SUBJECT_COUNT:
-        for row in rows[-32:-5]:
+        for row in rows[-27:]:
             row.update(classification="scored_zero_high_confidence", global_relative=0.0, raw_target=0.0)
-        for row in rows[-5:]:
-            row.update(classification="failed", global_relative=None, raw_target=None, raw_anchor=None,
-                       failure_detail="status=rate_limited error_type=rate_limited_429")
     return rows
 
 
@@ -71,7 +68,7 @@ def test_validate_checkpoint_accepts_well_formed_full_capture():
     report = validate_checkpoint(loaded)
     assert report["totalRows"] == EXPECTED_SUBJECT_COUNT
     assert report["uniqueSubjects"] == EXPECTED_SUBJECT_COUNT
-    assert report["failedRows"] == 5
+    assert report["failedRows"] == 0
 
 
 def test_validate_checkpoint_rejects_wrong_row_count():
@@ -129,12 +126,19 @@ def test_validate_checkpoint_rejects_failed_coerced_to_numeric_zero():
         validate_checkpoint(loaded)
 
 
-def test_validate_checkpoint_accepts_genuine_failed_row_without_score():
+def test_validate_complete_checkpoint_rejects_genuine_failed_row_without_score():
     rows = _full_rows()
+    rows[0].update(classification="failed", global_relative=None, raw_target=None, raw_anchor=None)
     loaded = LoadedCheckpoint(header=_valid_header(), rows=rows)
-    report = validate_checkpoint(loaded)
-    assert report["failedRows"] == 5
-    assert report["usableScoredRows"] == EXPECTED_SUBJECT_COUNT - 5
+    with pytest.raises(ValidationError, match="terminal state counts"):
+        validate_checkpoint(loaded)
+
+
+def test_validate_checkpoint_rejects_self_anchor_query_provenance():
+    rows = _full_rows()
+    rows[0].update(pokemon_name="Torkoal", assigned_anchor="Torkoal", actual_query_anchor="Torkoal")
+    with pytest.raises(ValidationError, match="queries itself"):
+        validate_checkpoint(LoadedCheckpoint(header=_valid_header(), rows=rows))
 
 
 def test_validate_checkpoint_rejects_missing_pokemon_identity():

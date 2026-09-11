@@ -1,0 +1,4070 @@
+{
+  "parallel": [
+    {
+      "component": "card_appeal_v6",
+      "role": "final",
+      "subject_types": [
+        "pokemon",
+        "trainer"
+      ],
+      "n_cards": 3983,
+      "n_sets": 22,
+      "raw_spearman_vs_log_price": 0.26066124608699776,
+      "oos_mae": 0.5663447462651222,
+      "oos_rmse": 0.763224064809,
+      "oos_r2": 0.8754486966574635,
+      "oos_spearman": 0.8387724225521244,
+      "incremental_mae_reduction_pct_vs_scarcity": 5.481041182618141,
+      "incremental_rmse_reduction_pct_vs_scarcity": 7.7578872939797785,
+      "incremental_r2_gain_vs_scarcity": 0.02183141021378343,
+      "incremental_spearman_gain_vs_scarcity": 0.04705960592784375
+    },
+    {
+      "component": "card_appeal_v7",
+      "role": "final",
+      "subject_types": [
+        "pokemon",
+        "trainer"
+      ],
+      "n_cards": 3983,
+      "n_sets": 22,
+      "raw_spearman_vs_log_price": 0.2671435674963524,
+      "oos_mae": 0.5646936138074459,
+      "oos_rmse": 0.7610073685732139,
+      "oos_r2": 0.8761711357909381,
+      "oos_spearman": 0.8410880554660052,
+      "incremental_mae_reduction_pct_vs_scarcity": 5.756603588376002,
+      "incremental_rmse_reduction_pct_vs_scarcity": 8.02579386748062,
+      "incremental_r2_gain_vs_scarcity": 0.022553849347258015,
+      "incremental_spearman_gain_vs_scarcity": 0.04937523884172457
+    }
+  ],
+  "directIncrementAfterV6": {
+    "component": {
+      "name": "v7_increment_after_v6",
+      "column": "v7_increment_over_v6",
+      "subject_types": [
+        "pokemon",
+        "trainer"
+      ],
+      "role": "candidate",
+      "cross_bucket_comparable": true
+    },
+    "sample": {
+      "n_cards": 3983,
+      "n_sets": 22,
+      "n_eras": 2
+    },
+    "relationships": {
+      "n_cards": 3983,
+      "n_sets": 22,
+      "spearman_vs_log_price": 0.038602035561580865,
+      "pearson_vs_log_price": -0.0034561495806216067,
+      "by_era": {
+        "Mega Evolution": {
+          "n_cards": 850,
+          "n_sets": 6,
+          "spearman_vs_log_price": 0.06347176232038088,
+          "pearson_vs_log_price": -0.03512004296771533
+        },
+        "Scarlet and Violet": {
+          "n_cards": 3133,
+          "n_sets": 16,
+          "spearman_vs_log_price": 0.02977227688594911,
+          "pearson_vs_log_price": 0.0007239521844112566
+        }
+      }
+    },
+    "models": {
+      "M0_controls_only": {
+        "predictors": [
+          "log_release_age",
+          "is_secret",
+          "is_promo",
+          "is_mechanic_card",
+          "is_stage2",
+          "is_trainer",
+          "card_appeal_v6"
+        ],
+        "leave_whole_set_out_cv": {
+          "n": 3983,
+          "n_folds": 22,
+          "mae": 0.6570963841711688,
+          "rmse": 0.9006882028734938,
+          "r2": 0.8265424873007168,
+          "spearman": 0.8171024876520532,
+          "folds": [
+            {
+              "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+              "set_name": "Phantasmal Flames",
+              "n": 115,
+              "centering": {
+                "v7_increment_over_v6": 0.8625488853454711,
+                "pull_scarcity": 1.7213250403797642
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.579856494762778,
+              "rmse": 0.8677056037073027,
+              "r2": 0.7720990770725799,
+              "spearman": 0.7836808128823594
+            },
+            {
+              "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+              "set_name": "Journey Together",
+              "n": 173,
+              "centering": {
+                "v7_increment_over_v6": 0.8613947456092151,
+                "pull_scarcity": 1.7211362300795856
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.619248661152426,
+              "rmse": 0.8529630910638265,
+              "r2": 0.7568584324786662,
+              "spearman": 0.6748361200207306
+            },
+            {
+              "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+              "set_name": "Paldea Evolved",
+              "n": 260,
+              "centering": {
+                "v7_increment_over_v6": 0.8543320892363911,
+                "pull_scarcity": 1.705016952528275
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6670874862703936,
+              "rmse": 0.9051652681575167,
+              "r2": 0.8308143208471572,
+              "spearman": 0.8347594746385048
+            },
+            {
+              "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+              "set_name": "Shrouded Fable",
+              "n": 88,
+              "centering": {
+                "v7_increment_over_v6": 0.896171470098715,
+                "pull_scarcity": 1.7190354417671654
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.8048492216305444,
+              "rmse": 1.0164312069677135,
+              "r2": 0.8156888627288073,
+              "spearman": 0.7951018184385277
+            },
+            {
+              "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+              "set_name": "Scarlet and Violet Base Set",
+              "n": 228,
+              "centering": {
+                "v7_increment_over_v6": 0.8528129489853594,
+                "pull_scarcity": 1.7123496879295612
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4922463110415893,
+              "rmse": 0.7311538216772008,
+              "r2": 0.8406925804878669,
+              "spearman": 0.7469101149061881
+            },
+            {
+              "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+              "set_name": "Black Bolt",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8584757990351961,
+                "pull_scarcity": 1.69878866324239
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.8831690875041447,
+              "rmse": 1.1930255052762797,
+              "r2": 0.7908659373901042,
+              "spearman": 0.8141156107382362
+            },
+            {
+              "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+              "set_name": "Pitch Black",
+              "n": 104,
+              "centering": {
+                "v7_increment_over_v6": 0.8728686762554582,
+                "pull_scarcity": 1.7199077533139253
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5957959322603432,
+              "rmse": 0.7767365019679501,
+              "r2": 0.8587957406916704,
+              "spearman": 0.8115391352500486
+            },
+            {
+              "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+              "set_name": "Stellar Crown",
+              "n": 163,
+              "centering": {
+                "v7_increment_over_v6": 0.913766459694894,
+                "pull_scarcity": 1.721284962439829
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.629501388197029,
+              "rmse": 0.8455479292995431,
+              "r2": 0.7930963955628024,
+              "spearman": 0.7325637079746208
+            },
+            {
+              "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+              "set_name": "Chaos Rising",
+              "n": 107,
+              "centering": {
+                "v7_increment_over_v6": 0.8712093508499816,
+                "pull_scarcity": 1.7198612232532788
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6581235009500027,
+              "rmse": 0.8157211463819154,
+              "r2": 0.8258690496284669,
+              "spearman": 0.807600601294824
+            },
+            {
+              "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+              "set_name": "Paradox Rift",
+              "n": 245,
+              "centering": {
+                "v7_increment_over_v6": 0.8462847369893901,
+                "pull_scarcity": 1.7047116422939268
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6091477389257342,
+              "rmse": 0.8404640399229056,
+              "r2": 0.8311768333345595,
+              "spearman": 0.799129872706122
+            },
+            {
+              "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+              "set_name": "Perfect Order",
+              "n": 101,
+              "centering": {
+                "v7_increment_over_v6": 0.8991725595142954,
+                "pull_scarcity": 1.7158162310208278
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.8036382111760264,
+              "rmse": 0.9525198821078332,
+              "r2": 0.804953843541427,
+              "spearman": 0.8363441367270407
+            },
+            {
+              "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+              "set_name": "Ascended Heroes",
+              "n": 259,
+              "centering": {
+                "v7_increment_over_v6": 0.8702025660773478,
+                "pull_scarcity": 1.7019037230213756
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.7071714910295552,
+              "rmse": 0.958571280272809,
+              "r2": 0.816760507259869,
+              "spearman": 0.8436456002226768
+            },
+            {
+              "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+              "set_name": "Prismatic Evolutions",
+              "n": 150,
+              "centering": {
+                "v7_increment_over_v6": 0.9106673300376975,
+                "pull_scarcity": 1.706049709790888
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.9945444454522135,
+              "rmse": 1.225004180692045,
+              "r2": 0.7942757083228016,
+              "spearman": 0.9030943233073668
+            },
+            {
+              "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+              "set_name": "Temporal Forces",
+              "n": 197,
+              "centering": {
+                "v7_increment_over_v6": 0.8633901119565836,
+                "pull_scarcity": 1.7141219044118048
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6111446329012208,
+              "rmse": 0.8662414027470712,
+              "r2": 0.8305339199760648,
+              "spearman": 0.7903237280067932
+            },
+            {
+              "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+              "set_name": "Mega Evolution",
+              "n": 164,
+              "centering": {
+                "v7_increment_over_v6": 0.9140057282101323,
+                "pull_scarcity": 1.7160053280457226
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6289508951775648,
+              "rmse": 0.818544979262183,
+              "r2": 0.8638163426298893,
+              "spearman": 0.8274182767636664
+            },
+            {
+              "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+              "set_name": "Obsidian Flames",
+              "n": 222,
+              "centering": {
+                "v7_increment_over_v6": 0.8627411954489995,
+                "pull_scarcity": 1.7210956100272454
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.47061031625288946,
+              "rmse": 0.7021772452873608,
+              "r2": 0.7692125683840529,
+              "spearman": 0.7454674717279647
+            },
+            {
+              "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+              "set_name": "White Flare",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8620288560203557,
+                "pull_scarcity": 1.6991653335496526
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.873379834181547,
+              "rmse": 1.144151142391432,
+              "r2": 0.8109329460321364,
+              "spearman": 0.8497231568662152
+            },
+            {
+              "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+              "set_name": "Twilight Masquerade",
+              "n": 202,
+              "centering": {
+                "v7_increment_over_v6": 0.8695281747258522,
+                "pull_scarcity": 1.7141931470824647
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5802532618779889,
+              "rmse": 0.8151944712339283,
+              "r2": 0.8313942866553672,
+              "spearman": 0.7824382532233854
+            },
+            {
+              "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+              "set_name": "Scarlet and Violet 151",
+              "n": 195,
+              "centering": {
+                "v7_increment_over_v6": 0.8708289873941032,
+                "pull_scarcity": 1.7201346036943486
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5891763622576258,
+              "rmse": 0.8064230972686753,
+              "r2": 0.8402335279619517,
+              "spearman": 0.7613232966599068
+            },
+            {
+              "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+              "set_name": "Destined Rivals",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.863271361798603,
+                "pull_scarcity": 1.7122264633096638
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5573145378831593,
+              "rmse": 0.8012498730316661,
+              "r2": 0.8383204209880892,
+              "spearman": 0.8078737209164968
+            },
+            {
+              "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+              "set_name": "Surging Sparks",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.9285948060746195,
+                "pull_scarcity": 1.7126089994296694
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6843531757630262,
+              "rmse": 0.9422548698147323,
+              "r2": 0.7805925383412022,
+              "spearman": 0.7563117600970909
+            },
+            {
+              "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+              "set_name": "Paldean Fates",
+              "n": 230,
+              "centering": {
+                "v7_increment_over_v6": 0.8736232846651936,
+                "pull_scarcity": 1.688448932687403
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6927005292935978,
+              "rmse": 0.9092619305812134,
+              "r2": 0.809169480495131,
+              "spearman": 0.8313666557095057
+            }
+          ]
+        },
+        "set_fixed_effects_fit": {
+          "n": 3983,
+          "n_sets": 22,
+          "centering": {
+            "v7_increment_over_v6": 0.8763715480879977,
+            "pull_scarcity": 1.7121118382105986
+          },
+          "columns": [
+            "is_secret",
+            "is_mechanic_card",
+            "is_stage2",
+            "is_trainer",
+            "card_appeal_v6"
+          ],
+          "dropped_collinear_columns": [
+            "log_release_age",
+            "is_promo"
+          ],
+          "coefficients": {
+            "is_secret": 3.820111809719422,
+            "is_mechanic_card": 0.994774719191407,
+            "is_stage2": 0.10794303199261705,
+            "is_trainer": -0.17680552379891395,
+            "card_appeal_v6": 0.020606986093333002
+          },
+          "cluster_robust_se": {
+            "is_secret": 0.11814562546417547,
+            "is_mechanic_card": 0.15146498677092904,
+            "is_stage2": 0.0520824444157568,
+            "is_trainer": 0.1075422298013433,
+            "card_appeal_v6": 0.0016216089345316824
+          },
+          "t_stats": {
+            "is_secret": 32.33392514289723,
+            "is_mechanic_card": 6.56768762470414,
+            "is_stage2": 2.0725415867762234,
+            "is_trainer": -1.644056703357526,
+            "card_appeal_v6": 12.70774084584349
+          },
+          "two_way_cluster_robust_se_set_subject": {
+            "is_secret": 0.10497234440786211,
+            "is_mechanic_card": 0.14200550884611712,
+            "is_stage2": 0.03127713242448361,
+            "is_trainer": 0.06695711812703095,
+            "card_appeal_v6": 0.0012659372140362997
+          },
+          "two_way_t_stats_set_subject": {
+            "is_secret": 36.39160229552144,
+            "is_mechanic_card": 7.0051840050049385,
+            "is_stage2": 3.45118057907763,
+            "is_trainer": -2.640578458939627,
+            "card_appeal_v6": 16.27804749307426
+          },
+          "within_r2": 0.833966725097062
+        },
+        "cluster_bootstrap_coefficient_ci": {
+          "is_secret": {
+            "draws": 20,
+            "ci_low": 3.5883696448259754,
+            "ci_high": 4.028706925347832,
+            "share_positive": 1.0
+          },
+          "is_mechanic_card": {
+            "draws": 20,
+            "ci_low": 0.7768559140595372,
+            "ci_high": 1.2709864643760835,
+            "share_positive": 1.0
+          },
+          "is_stage2": {
+            "draws": 20,
+            "ci_low": 0.06777264772270526,
+            "ci_high": 0.22390942543243803,
+            "share_positive": 1.0
+          },
+          "is_trainer": {
+            "draws": 20,
+            "ci_low": -0.3249313364126346,
+            "ci_high": 0.03790881688586777,
+            "share_positive": 0.05
+          },
+          "card_appeal_v6": {
+            "draws": 20,
+            "ci_low": 0.01734800009161798,
+            "ci_high": 0.022620463823881214,
+            "share_positive": 1.0
+          }
+        }
+      },
+      "M1_component": {
+        "predictors": [
+          "log_release_age",
+          "is_secret",
+          "is_promo",
+          "is_mechanic_card",
+          "is_stage2",
+          "is_trainer",
+          "card_appeal_v6",
+          "component::v7_increment_over_v6"
+        ],
+        "leave_whole_set_out_cv": {
+          "n": 3983,
+          "n_folds": 22,
+          "mae": 0.6521046160670636,
+          "rmse": 0.8946407920207506,
+          "r2": 0.8288639284881326,
+          "spearman": 0.8242518919587868,
+          "folds": [
+            {
+              "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+              "set_name": "Phantasmal Flames",
+              "n": 115,
+              "centering": {
+                "v7_increment_over_v6": 0.8625488853454711,
+                "pull_scarcity": 1.7213250403797642
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5619729015990085,
+              "rmse": 0.8595703765773978,
+              "r2": 0.7763524424929602,
+              "spearman": 0.7903137971922425
+            },
+            {
+              "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+              "set_name": "Journey Together",
+              "n": 173,
+              "centering": {
+                "v7_increment_over_v6": 0.8613947456092151,
+                "pull_scarcity": 1.7211362300795856
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6277838045120586,
+              "rmse": 0.8596971073639958,
+              "r2": 0.7530041450145819,
+              "spearman": 0.6748952212805969
+            },
+            {
+              "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+              "set_name": "Paldea Evolved",
+              "n": 260,
+              "centering": {
+                "v7_increment_over_v6": 0.8543320892363911,
+                "pull_scarcity": 1.705016952528275
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6578377997404724,
+              "rmse": 0.8957863735414241,
+              "r2": 0.8343022009203798,
+              "spearman": 0.8447656463401483
+            },
+            {
+              "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+              "set_name": "Shrouded Fable",
+              "n": 88,
+              "centering": {
+                "v7_increment_over_v6": 0.896171470098715,
+                "pull_scarcity": 1.7190354417671654
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.8241132530674179,
+              "rmse": 1.039053935195329,
+              "r2": 0.8073931268200824,
+              "spearman": 0.794326556283422
+            },
+            {
+              "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+              "set_name": "Scarlet and Violet Base Set",
+              "n": 228,
+              "centering": {
+                "v7_increment_over_v6": 0.8528129489853594,
+                "pull_scarcity": 1.7123496879295612
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.49697407428545143,
+              "rmse": 0.7246207449539311,
+              "r2": 0.8435267797483645,
+              "spearman": 0.7529370382136592
+            },
+            {
+              "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+              "set_name": "Black Bolt",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8584757990351961,
+                "pull_scarcity": 1.69878866324239
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.8701998083190535,
+              "rmse": 1.174167163851833,
+              "r2": 0.7974253117627854,
+              "spearman": 0.8202029319252214
+            },
+            {
+              "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+              "set_name": "Pitch Black",
+              "n": 104,
+              "centering": {
+                "v7_increment_over_v6": 0.8728686762554582,
+                "pull_scarcity": 1.7199077533139253
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5935191896127069,
+              "rmse": 0.7817193390170403,
+              "r2": 0.856978252687026,
+              "spearman": 0.8128179616933544
+            },
+            {
+              "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+              "set_name": "Stellar Crown",
+              "n": 163,
+              "centering": {
+                "v7_increment_over_v6": 0.913766459694894,
+                "pull_scarcity": 1.721284962439829
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.632010728774497,
+              "rmse": 0.8376382316018908,
+              "r2": 0.7969492591517654,
+              "spearman": 0.7327092610363618
+            },
+            {
+              "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+              "set_name": "Chaos Rising",
+              "n": 107,
+              "centering": {
+                "v7_increment_over_v6": 0.8712093508499816,
+                "pull_scarcity": 1.7198612232532788
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.660300514389004,
+              "rmse": 0.8248632182888864,
+              "r2": 0.8219440851589255,
+              "spearman": 0.7923009635883875
+            },
+            {
+              "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+              "set_name": "Paradox Rift",
+              "n": 245,
+              "centering": {
+                "v7_increment_over_v6": 0.8462847369893901,
+                "pull_scarcity": 1.7047116422939268
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6048357640209618,
+              "rmse": 0.8367274718291896,
+              "r2": 0.8326746178145773,
+              "spearman": 0.7976243834234764
+            },
+            {
+              "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+              "set_name": "Perfect Order",
+              "n": 101,
+              "centering": {
+                "v7_increment_over_v6": 0.8991725595142954,
+                "pull_scarcity": 1.7158162310208278
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.7743227403542067,
+              "rmse": 0.9253759789212384,
+              "r2": 0.8159118890548909,
+              "spearman": 0.8365482226559638
+            },
+            {
+              "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+              "set_name": "Ascended Heroes",
+              "n": 259,
+              "centering": {
+                "v7_increment_over_v6": 0.8702025660773478,
+                "pull_scarcity": 1.7019037230213756
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6944722428572437,
+              "rmse": 0.9483547771875823,
+              "r2": 0.8206456446259365,
+              "spearman": 0.8454805838473114
+            },
+            {
+              "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+              "set_name": "Prismatic Evolutions",
+              "n": 150,
+              "centering": {
+                "v7_increment_over_v6": 0.9106673300376975,
+                "pull_scarcity": 1.706049709790888
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.9868170560151759,
+              "rmse": 1.218289565799446,
+              "r2": 0.7965248003537566,
+              "spearman": 0.9025074255085868
+            },
+            {
+              "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+              "set_name": "Temporal Forces",
+              "n": 197,
+              "centering": {
+                "v7_increment_over_v6": 0.8633901119565836,
+                "pull_scarcity": 1.7141219044118048
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6134182350326004,
+              "rmse": 0.8628026059598598,
+              "r2": 0.831876738948537,
+              "spearman": 0.790845774759489
+            },
+            {
+              "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+              "set_name": "Mega Evolution",
+              "n": 164,
+              "centering": {
+                "v7_increment_over_v6": 0.9140057282101323,
+                "pull_scarcity": 1.7160053280457226
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6198717852219916,
+              "rmse": 0.8093940866425026,
+              "r2": 0.8668442424334554,
+              "spearman": 0.8279804305799492
+            },
+            {
+              "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+              "set_name": "Obsidian Flames",
+              "n": 222,
+              "centering": {
+                "v7_increment_over_v6": 0.8627411954489995,
+                "pull_scarcity": 1.7210956100272454
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4644335504622504,
+              "rmse": 0.6968327905491803,
+              "r2": 0.772712365622089,
+              "spearman": 0.7746896818559242
+            },
+            {
+              "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+              "set_name": "White Flare",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8620288560203557,
+                "pull_scarcity": 1.6991653335496526
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.8579411415569672,
+              "rmse": 1.1305880706299478,
+              "r2": 0.8153888798706215,
+              "spearman": 0.8598928783186618
+            },
+            {
+              "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+              "set_name": "Twilight Masquerade",
+              "n": 202,
+              "centering": {
+                "v7_increment_over_v6": 0.8695281747258522,
+                "pull_scarcity": 1.7141931470824647
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5756707670611209,
+              "rmse": 0.8125174496699098,
+              "r2": 0.8324998388461737,
+              "spearman": 0.7803523202042836
+            },
+            {
+              "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+              "set_name": "Scarlet and Violet 151",
+              "n": 195,
+              "centering": {
+                "v7_increment_over_v6": 0.8708289873941032,
+                "pull_scarcity": 1.7201346036943486
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.579624421672898,
+              "rmse": 0.8001242194948935,
+              "r2": 0.8427196155833768,
+              "spearman": 0.7723647587050154
+            },
+            {
+              "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+              "set_name": "Destined Rivals",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.863271361798603,
+                "pull_scarcity": 1.7122264633096638
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5667604188357188,
+              "rmse": 0.804029670192667,
+              "r2": 0.837196636584055,
+              "spearman": 0.799346216309251
+            },
+            {
+              "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+              "set_name": "Surging Sparks",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.9285948060746195,
+                "pull_scarcity": 1.7126089994296694
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6742408745506283,
+              "rmse": 0.9255518710404796,
+              "r2": 0.7883023008345382,
+              "spearman": 0.7560372319255357
+            },
+            {
+              "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+              "set_name": "Paldean Fates",
+              "n": 230,
+              "centering": {
+                "v7_increment_over_v6": 0.8736232846651936,
+                "pull_scarcity": 1.688448932687403
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6859853701188309,
+              "rmse": 0.9079259872745248,
+              "r2": 0.8097298283132047,
+              "spearman": 0.8280868959643345
+            }
+          ]
+        },
+        "set_fixed_effects_fit": {
+          "n": 3983,
+          "n_sets": 22,
+          "centering": {
+            "v7_increment_over_v6": 0.8763715480879977,
+            "pull_scarcity": 1.7121118382105986
+          },
+          "columns": [
+            "is_secret",
+            "is_mechanic_card",
+            "is_stage2",
+            "is_trainer",
+            "card_appeal_v6",
+            "component::v7_increment_over_v6"
+          ],
+          "dropped_collinear_columns": [
+            "log_release_age",
+            "is_promo"
+          ],
+          "coefficients": {
+            "is_secret": 3.8144699948160157,
+            "is_mechanic_card": 1.0045444802398742,
+            "is_stage2": 0.11327413116379068,
+            "is_trainer": -0.18962468530160104,
+            "card_appeal_v6": 0.02174248363061837,
+            "component::v7_increment_over_v6": 0.06261218935489266
+          },
+          "cluster_robust_se": {
+            "is_secret": 0.11721248249332758,
+            "is_mechanic_card": 0.14932133009277018,
+            "is_stage2": 0.05013111718957462,
+            "is_trainer": 0.1079287844560356,
+            "card_appeal_v6": 0.001609727289105214,
+            "component::v7_increment_over_v6": 0.008515547764443158
+          },
+          "t_stats": {
+            "is_secret": 32.54320626673151,
+            "is_mechanic_card": 6.727401099466312,
+            "is_stage2": 2.2595572872520666,
+            "is_trainer": -1.7569426567464397,
+            "card_appeal_v6": 13.506936098911629,
+            "component::v7_increment_over_v6": 7.352690758935217
+          },
+          "two_way_cluster_robust_se_set_subject": {
+            "is_secret": 0.10400062613799815,
+            "is_mechanic_card": 0.13995217203199312,
+            "is_stage2": 0.028206724529350146,
+            "is_trainer": 0.06692385878300644,
+            "card_appeal_v6": 0.0011989630137198607,
+            "component::v7_increment_over_v6": 0.0
+          },
+          "two_way_t_stats_set_subject": {
+            "is_secret": 36.67737528574689,
+            "is_mechanic_card": 7.177769845617222,
+            "is_stage2": 4.015855546996416,
+            "is_trainer": -2.833439206134827,
+            "card_appeal_v6": 18.134407301824016,
+            "component::v7_increment_over_v6": null
+          },
+          "within_r2": 0.8353582523277996
+        },
+        "cluster_bootstrap_coefficient_ci": {
+          "is_secret": {
+            "draws": 20,
+            "ci_low": 3.591333330838891,
+            "ci_high": 4.068259923242133,
+            "share_positive": 1.0
+          },
+          "is_mechanic_card": {
+            "draws": 20,
+            "ci_low": 0.7667142541603383,
+            "ci_high": 1.1958124364178362,
+            "share_positive": 1.0
+          },
+          "is_stage2": {
+            "draws": 20,
+            "ci_low": 0.05624678615342439,
+            "ci_high": 0.23354340251858613,
+            "share_positive": 1.0
+          },
+          "is_trainer": {
+            "draws": 20,
+            "ci_low": -0.4595633598841271,
+            "ci_high": -0.020207874542699324,
+            "share_positive": 0.0
+          },
+          "card_appeal_v6": {
+            "draws": 20,
+            "ci_low": 0.019870362802221077,
+            "ci_high": 0.023856283485506148,
+            "share_positive": 1.0
+          },
+          "component::v7_increment_over_v6": {
+            "draws": 20,
+            "ci_low": 0.04978260151766274,
+            "ci_high": 0.08031474388112704,
+            "share_positive": 1.0
+          }
+        }
+      },
+      "M2_scarcity": {
+        "predictors": [
+          "log_release_age",
+          "is_secret",
+          "is_promo",
+          "is_mechanic_card",
+          "is_stage2",
+          "is_trainer",
+          "card_appeal_v6",
+          "centered::pull_scarcity"
+        ],
+        "leave_whole_set_out_cv": {
+          "n": 3983,
+          "n_folds": 22,
+          "mae": 0.5663447462651224,
+          "rmse": 0.7632240648090008,
+          "r2": 0.8754486966574632,
+          "spearman": 0.8387724225521244,
+          "folds": [
+            {
+              "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+              "set_name": "Phantasmal Flames",
+              "n": 115,
+              "centering": {
+                "v7_increment_over_v6": 0.8625488853454711,
+                "pull_scarcity": 1.7213250403797642
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.696730092738464,
+              "rmse": 0.8571721543771474,
+              "r2": 0.7775986657881445,
+              "spearman": 0.7894189226089541
+            },
+            {
+              "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+              "set_name": "Journey Together",
+              "n": 173,
+              "centering": {
+                "v7_increment_over_v6": 0.8613947456092151,
+                "pull_scarcity": 1.7211362300795856
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5167283508304762,
+              "rmse": 0.679865233937384,
+              "r2": 0.8455299095316542,
+              "spearman": 0.7451934821094429
+            },
+            {
+              "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+              "set_name": "Paldea Evolved",
+              "n": 260,
+              "centering": {
+                "v7_increment_over_v6": 0.8543320892363911,
+                "pull_scarcity": 1.705016952528275
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5466782009246902,
+              "rmse": 0.7412261652387339,
+              "r2": 0.886548741131087,
+              "spearman": 0.8503497547139689
+            },
+            {
+              "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+              "set_name": "Shrouded Fable",
+              "n": 88,
+              "centering": {
+                "v7_increment_over_v6": 0.896171470098715,
+                "pull_scarcity": 1.7190354417671654
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 1.092692508154319,
+              "rmse": 1.28907614489703,
+              "r2": 0.7035491218890702,
+              "spearman": 0.8462745504436041
+            },
+            {
+              "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+              "set_name": "Scarlet and Violet Base Set",
+              "n": 228,
+              "centering": {
+                "v7_increment_over_v6": 0.8528129489853594,
+                "pull_scarcity": 1.7123496879295612
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5019397680134373,
+              "rmse": 0.6595732345916949,
+              "r2": 0.8703583524531422,
+              "spearman": 0.738903089268764
+            },
+            {
+              "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+              "set_name": "Black Bolt",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8584757990351961,
+                "pull_scarcity": 1.69878866324239
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6220890747200123,
+              "rmse": 0.9034570229145727,
+              "r2": 0.8800665536233105,
+              "spearman": 0.8688868022325076
+            },
+            {
+              "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+              "set_name": "Pitch Black",
+              "n": 104,
+              "centering": {
+                "v7_increment_over_v6": 0.8728686762554582,
+                "pull_scarcity": 1.7199077533139253
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5244757554100475,
+              "rmse": 0.6506536018350367,
+              "r2": 0.9009167955150762,
+              "spearman": 0.8668186395945671
+            },
+            {
+              "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+              "set_name": "Stellar Crown",
+              "n": 163,
+              "centering": {
+                "v7_increment_over_v6": 0.913766459694894,
+                "pull_scarcity": 1.721284962439829
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5382635478928793,
+              "rmse": 0.7104453272971696,
+              "r2": 0.8539327273490491,
+              "spearman": 0.7824061415452788
+            },
+            {
+              "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+              "set_name": "Chaos Rising",
+              "n": 107,
+              "centering": {
+                "v7_increment_over_v6": 0.8712093508499816,
+                "pull_scarcity": 1.7198612232532788
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4690702083995819,
+              "rmse": 0.616731337929451,
+              "r2": 0.9004629965916199,
+              "spearman": 0.8497995738144701
+            },
+            {
+              "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+              "set_name": "Paradox Rift",
+              "n": 245,
+              "centering": {
+                "v7_increment_over_v6": 0.8462847369893901,
+                "pull_scarcity": 1.7047116422939268
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.514407440646332,
+              "rmse": 0.6924415390997025,
+              "r2": 0.8854064970600345,
+              "spearman": 0.8396865632526689
+            },
+            {
+              "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+              "set_name": "Perfect Order",
+              "n": 101,
+              "centering": {
+                "v7_increment_over_v6": 0.8991725595142954,
+                "pull_scarcity": 1.7158162310208278
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6615064826711076,
+              "rmse": 0.7893598304255168,
+              "r2": 0.8660510414538708,
+              "spearman": 0.8529168837080608
+            },
+            {
+              "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+              "set_name": "Ascended Heroes",
+              "n": 259,
+              "centering": {
+                "v7_increment_over_v6": 0.8702025660773478,
+                "pull_scarcity": 1.7019037230213756
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5211720117039864,
+              "rmse": 0.6821606909348086,
+              "r2": 0.9072009277049516,
+              "spearman": 0.8801035304814705
+            },
+            {
+              "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+              "set_name": "Prismatic Evolutions",
+              "n": 150,
+              "centering": {
+                "v7_increment_over_v6": 0.9106673300376975,
+                "pull_scarcity": 1.706049709790888
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.663709547992257,
+              "rmse": 0.8716726593978221,
+              "r2": 0.8958360878779292,
+              "spearman": 0.9329592472050097
+            },
+            {
+              "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+              "set_name": "Temporal Forces",
+              "n": 197,
+              "centering": {
+                "v7_increment_over_v6": 0.8633901119565836,
+                "pull_scarcity": 1.7141219044118048
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5258463942310422,
+              "rmse": 0.7262331295237027,
+              "r2": 0.8808875870278038,
+              "spearman": 0.8030915920864452
+            },
+            {
+              "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+              "set_name": "Mega Evolution",
+              "n": 164,
+              "centering": {
+                "v7_increment_over_v6": 0.9140057282101323,
+                "pull_scarcity": 1.7160053280457226
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5162880639083418,
+              "rmse": 0.6287384796382344,
+              "r2": 0.9196510923966582,
+              "spearman": 0.8421789205249428
+            },
+            {
+              "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+              "set_name": "Obsidian Flames",
+              "n": 222,
+              "centering": {
+                "v7_increment_over_v6": 0.8627411954489995,
+                "pull_scarcity": 1.7210956100272454
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.394188583837898,
+              "rmse": 0.5611859823351116,
+              "r2": 0.852588189719508,
+              "spearman": 0.7007944350654143
+            },
+            {
+              "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+              "set_name": "White Flare",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8620288560203557,
+                "pull_scarcity": 1.6991653335496526
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5627333441749697,
+              "rmse": 0.8764854939029749,
+              "r2": 0.8890471338269583,
+              "spearman": 0.9058298024456165
+            },
+            {
+              "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+              "set_name": "Twilight Masquerade",
+              "n": 202,
+              "centering": {
+                "v7_increment_over_v6": 0.8695281747258522,
+                "pull_scarcity": 1.7141931470824647
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.48867730823167455,
+              "rmse": 0.6625748514099952,
+              "r2": 0.8886167895686231,
+              "spearman": 0.7997993904058648
+            },
+            {
+              "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+              "set_name": "Scarlet and Violet 151",
+              "n": 195,
+              "centering": {
+                "v7_increment_over_v6": 0.8708289873941032,
+                "pull_scarcity": 1.7201346036943486
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6325427039533231,
+              "rmse": 0.9039309284225389,
+              "r2": 0.7992617095104401,
+              "spearman": 0.8441614685729968
+            },
+            {
+              "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+              "set_name": "Destined Rivals",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.863271361798603,
+                "pull_scarcity": 1.7122264633096638
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5033193565966078,
+              "rmse": 0.6909701036537597,
+              "r2": 0.8797631094549332,
+              "spearman": 0.8231235892815935
+            },
+            {
+              "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+              "set_name": "Surging Sparks",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.9285948060746195,
+                "pull_scarcity": 1.7126089994296694
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.621200938221638,
+              "rmse": 0.8278807386865668,
+              "r2": 0.8306246644007846,
+              "spearman": 0.7549383640439463
+            },
+            {
+              "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+              "set_name": "Paldean Fates",
+              "n": 230,
+              "centering": {
+                "v7_increment_over_v6": 0.8736232846651936,
+                "pull_scarcity": 1.688448932687403
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.7271223912088394,
+              "rmse": 0.8731881649690125,
+              "r2": 0.8240110105116969,
+              "spearman": 0.8897497626649323
+            }
+          ]
+        },
+        "set_fixed_effects_fit": {
+          "n": 3983,
+          "n_sets": 22,
+          "centering": {
+            "v7_increment_over_v6": 0.8763715480879977,
+            "pull_scarcity": 1.7121118382105986
+          },
+          "columns": [
+            "is_secret",
+            "is_mechanic_card",
+            "is_stage2",
+            "is_trainer",
+            "card_appeal_v6",
+            "centered::pull_scarcity"
+          ],
+          "dropped_collinear_columns": [
+            "log_release_age",
+            "is_promo"
+          ],
+          "coefficients": {
+            "is_secret": 1.1500576708660077,
+            "is_mechanic_card": 0.03719484716230714,
+            "is_stage2": 0.07003783334848823,
+            "is_trainer": -0.2903078414422052,
+            "card_appeal_v6": 0.019681648126731677,
+            "centered::pull_scarcity": 2.337063627189836
+          },
+          "cluster_robust_se": {
+            "is_secret": 0.2520467141757888,
+            "is_mechanic_card": 0.1592763867793647,
+            "is_stage2": 0.04336367143681165,
+            "is_trainer": 0.09400400176109429,
+            "card_appeal_v6": 0.001501741179967674,
+            "centered::pull_scarcity": 0.25156055083280693
+          },
+          "t_stats": {
+            "is_secret": 4.562875079037553,
+            "is_mechanic_card": 0.23352392601566713,
+            "is_stage2": 1.6151269260156036,
+            "is_trainer": -3.0882498191939285,
+            "card_appeal_v6": 13.105885614161116,
+            "centered::pull_scarcity": 9.290262799365166
+          },
+          "two_way_cluster_robust_se_set_subject": {
+            "is_secret": 0.21205081781823257,
+            "is_mechanic_card": 0.14518010864739428,
+            "is_stage2": 0.038724590394662646,
+            "is_trainer": 0.0610804606948855,
+            "card_appeal_v6": 0.0012991878416826388,
+            "centered::pull_scarcity": 0.22762894448947055
+          },
+          "two_way_t_stats_set_subject": {
+            "is_secret": 5.42350028497331,
+            "is_mechanic_card": 0.2561979565165088,
+            "is_stage2": 1.8086139229542746,
+            "is_trainer": -4.752875766480814,
+            "card_appeal_v6": 15.149193592545522,
+            "centered::pull_scarcity": 10.266987937019326
+          },
+          "within_r2": 0.8894230116105004
+        },
+        "cluster_bootstrap_coefficient_ci": {
+          "is_secret": {
+            "draws": 20,
+            "ci_low": 0.5827354886928953,
+            "ci_high": 1.3520647035011717,
+            "share_positive": 1.0
+          },
+          "is_mechanic_card": {
+            "draws": 20,
+            "ci_low": -0.36071598529184923,
+            "ci_high": 0.17696333562437366,
+            "share_positive": 0.45
+          },
+          "is_stage2": {
+            "draws": 20,
+            "ci_low": -0.008554902170356832,
+            "ci_high": 0.1080596513187267,
+            "share_positive": 0.95
+          },
+          "is_trainer": {
+            "draws": 20,
+            "ci_low": -0.42203726513516093,
+            "ci_high": -0.2188983805721431,
+            "share_positive": 0.0
+          },
+          "card_appeal_v6": {
+            "draws": 20,
+            "ci_low": 0.018012572140119983,
+            "ci_high": 0.021111019775450178,
+            "share_positive": 1.0
+          },
+          "centered::pull_scarcity": {
+            "draws": 20,
+            "ci_low": 2.170409256523008,
+            "ci_high": 2.994706043433849,
+            "share_positive": 1.0
+          }
+        }
+      },
+      "M3_component_scarcity": {
+        "predictors": [
+          "log_release_age",
+          "is_secret",
+          "is_promo",
+          "is_mechanic_card",
+          "is_stage2",
+          "is_trainer",
+          "card_appeal_v6",
+          "component::v7_increment_over_v6",
+          "centered::pull_scarcity"
+        ],
+        "leave_whole_set_out_cv": {
+          "n": 3983,
+          "n_folds": 22,
+          "mae": 0.5643906344643814,
+          "rmse": 0.7605030647328134,
+          "r2": 0.8763351990656456,
+          "spearman": 0.8426063272244796,
+          "folds": [
+            {
+              "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+              "set_name": "Phantasmal Flames",
+              "n": 115,
+              "centering": {
+                "v7_increment_over_v6": 0.8625488853454711,
+                "pull_scarcity": 1.7213250403797642
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6710679006373185,
+              "rmse": 0.8312119105681064,
+              "r2": 0.7908659273448013,
+              "spearman": 0.798664711029028
+            },
+            {
+              "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+              "set_name": "Journey Together",
+              "n": 173,
+              "centering": {
+                "v7_increment_over_v6": 0.8613947456092151,
+                "pull_scarcity": 1.7211362300795856
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5207312871294247,
+              "rmse": 0.6846725146407605,
+              "r2": 0.8433376913741036,
+              "spearman": 0.7433125530420748
+            },
+            {
+              "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+              "set_name": "Paldea Evolved",
+              "n": 260,
+              "centering": {
+                "v7_increment_over_v6": 0.8543320892363911,
+                "pull_scarcity": 1.705016952528275
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5407274111980911,
+              "rmse": 0.7351100592561145,
+              "r2": 0.8884132657185615,
+              "spearman": 0.858861971238612
+            },
+            {
+              "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+              "set_name": "Shrouded Fable",
+              "n": 88,
+              "centering": {
+                "v7_increment_over_v6": 0.896171470098715,
+                "pull_scarcity": 1.7190354417671654
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 1.136863855564146,
+              "rmse": 1.3387280631106475,
+              "r2": 0.6802722491071327,
+              "spearman": 0.8442219399937648
+            },
+            {
+              "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+              "set_name": "Scarlet and Violet Base Set",
+              "n": 228,
+              "centering": {
+                "v7_increment_over_v6": 0.8528129489853594,
+                "pull_scarcity": 1.7123496879295612
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5029163719086102,
+              "rmse": 0.652892971401218,
+              "r2": 0.8729711165357819,
+              "spearman": 0.7469647559072583
+            },
+            {
+              "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+              "set_name": "Black Bolt",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8584757990351961,
+                "pull_scarcity": 1.69878866324239
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6127189516914358,
+              "rmse": 0.8949837105905024,
+              "r2": 0.8823056596684034,
+              "spearman": 0.8733411921032029
+            },
+            {
+              "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+              "set_name": "Pitch Black",
+              "n": 104,
+              "centering": {
+                "v7_increment_over_v6": 0.8728686762554582,
+                "pull_scarcity": 1.7199077533139253
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5141263313805825,
+              "rmse": 0.6387439941606963,
+              "r2": 0.9045108501824781,
+              "spearman": 0.8690446048789895
+            },
+            {
+              "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+              "set_name": "Stellar Crown",
+              "n": 163,
+              "centering": {
+                "v7_increment_over_v6": 0.913766459694894,
+                "pull_scarcity": 1.721284962439829
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5554268950644982,
+              "rmse": 0.7180468019298266,
+              "r2": 0.8507902851494974,
+              "spearman": 0.7806387188561791
+            },
+            {
+              "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+              "set_name": "Chaos Rising",
+              "n": 107,
+              "centering": {
+                "v7_increment_over_v6": 0.8712093508499816,
+                "pull_scarcity": 1.7198612232532788
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4715150079713565,
+              "rmse": 0.6148252114190974,
+              "r2": 0.901077322184109,
+              "spearman": 0.8339173949325324
+            },
+            {
+              "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+              "set_name": "Paradox Rift",
+              "n": 245,
+              "centering": {
+                "v7_increment_over_v6": 0.8462847369893901,
+                "pull_scarcity": 1.7047116422939268
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5100039588392291,
+              "rmse": 0.690997871396349,
+              "r2": 0.8858838297232611,
+              "spearman": 0.8412689049972095
+            },
+            {
+              "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+              "set_name": "Perfect Order",
+              "n": 101,
+              "centering": {
+                "v7_increment_over_v6": 0.8991725595142954,
+                "pull_scarcity": 1.7158162310208278
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6444220331685262,
+              "rmse": 0.7724798867942859,
+              "r2": 0.8717186096188199,
+              "spearman": 0.8515582901321908
+            },
+            {
+              "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+              "set_name": "Ascended Heroes",
+              "n": 259,
+              "centering": {
+                "v7_increment_over_v6": 0.8702025660773478,
+                "pull_scarcity": 1.7019037230213756
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5294248128997348,
+              "rmse": 0.6912095705689155,
+              "r2": 0.9047226343900465,
+              "spearman": 0.8804637379098822
+            },
+            {
+              "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+              "set_name": "Prismatic Evolutions",
+              "n": 150,
+              "centering": {
+                "v7_increment_over_v6": 0.9106673300376975,
+                "pull_scarcity": 1.706049709790888
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6643195221903097,
+              "rmse": 0.8673902258594701,
+              "r2": 0.8968570658029789,
+              "spearman": 0.933126422370377
+            },
+            {
+              "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+              "set_name": "Temporal Forces",
+              "n": 197,
+              "centering": {
+                "v7_increment_over_v6": 0.8633901119565836,
+                "pull_scarcity": 1.7141219044118048
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5280073636038077,
+              "rmse": 0.7222569158483936,
+              "r2": 0.8821883259580026,
+              "spearman": 0.8053626214705538
+            },
+            {
+              "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+              "set_name": "Mega Evolution",
+              "n": 164,
+              "centering": {
+                "v7_increment_over_v6": 0.9140057282101323,
+                "pull_scarcity": 1.7160053280457226
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5137295487648417,
+              "rmse": 0.6256590896075911,
+              "r2": 0.9204362191905139,
+              "spearman": 0.8420169457643147
+            },
+            {
+              "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+              "set_name": "Obsidian Flames",
+              "n": 222,
+              "centering": {
+                "v7_increment_over_v6": 0.8627411954489995,
+                "pull_scarcity": 1.7210956100272454
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.3908035686963454,
+              "rmse": 0.5568866460779168,
+              "r2": 0.8548382288945018,
+              "spearman": 0.7280755706856142
+            },
+            {
+              "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+              "set_name": "White Flare",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8620288560203557,
+                "pull_scarcity": 1.6991653335496526
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5538649451197118,
+              "rmse": 0.866585208324423,
+              "r2": 0.8915394996395425,
+              "spearman": 0.912081184161729
+            },
+            {
+              "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+              "set_name": "Twilight Masquerade",
+              "n": 202,
+              "centering": {
+                "v7_increment_over_v6": 0.8695281747258522,
+                "pull_scarcity": 1.7141931470824647
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4842247734525287,
+              "rmse": 0.6601841968746287,
+              "r2": 0.8894191091638444,
+              "spearman": 0.7982086137345052
+            },
+            {
+              "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+              "set_name": "Scarlet and Violet 151",
+              "n": 195,
+              "centering": {
+                "v7_increment_over_v6": 0.8708289873941032,
+                "pull_scarcity": 1.7201346036943486
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6200125967073239,
+              "rmse": 0.8970453107324345,
+              "r2": 0.8023082756973533,
+              "spearman": 0.8506842576685132
+            },
+            {
+              "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+              "set_name": "Destined Rivals",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.863271361798603,
+                "pull_scarcity": 1.7122264633096638
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5124271238506675,
+              "rmse": 0.6964297124798553,
+              "r2": 0.8778555311169167,
+              "spearman": 0.8184007706504423
+            },
+            {
+              "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+              "set_name": "Surging Sparks",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.9285948060746195,
+                "pull_scarcity": 1.7126089994296694
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6086241407119578,
+              "rmse": 0.810964729098361,
+              "r2": 0.8374756103127823,
+              "spearman": 0.7556828981579609
+            },
+            {
+              "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+              "set_name": "Paldean Fates",
+              "n": 230,
+              "centering": {
+                "v7_increment_over_v6": 0.8736232846651936,
+                "pull_scarcity": 1.688448932687403
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.7201580820669915,
+              "rmse": 0.86615190965125,
+              "r2": 0.826835863878859,
+              "spearman": 0.8892364722911307
+            }
+          ]
+        },
+        "set_fixed_effects_fit": {
+          "n": 3983,
+          "n_sets": 22,
+          "centering": {
+            "v7_increment_over_v6": 0.8763715480879977,
+            "pull_scarcity": 1.7121118382105986
+          },
+          "columns": [
+            "is_secret",
+            "is_mechanic_card",
+            "is_stage2",
+            "is_trainer",
+            "card_appeal_v6",
+            "component::v7_increment_over_v6",
+            "centered::pull_scarcity"
+          ],
+          "dropped_collinear_columns": [
+            "log_release_age",
+            "is_promo"
+          ],
+          "coefficients": {
+            "is_secret": 1.1549162131570352,
+            "is_mechanic_card": 0.04871284950972343,
+            "is_stage2": 0.07459225019119191,
+            "is_trainer": -0.3005285605735127,
+            "card_appeal_v6": 0.0206261886505843,
+            "component::v7_increment_over_v6": 0.05190046228197394,
+            "centered::pull_scarcity": 2.328717632374375
+          },
+          "cluster_robust_se": {
+            "is_secret": 0.2518134028501285,
+            "is_mechanic_card": 0.15771484553301665,
+            "is_stage2": 0.04237217289203677,
+            "is_trainer": 0.09284080673094455,
+            "card_appeal_v6": 0.001494129531230801,
+            "component::v7_increment_over_v6": 0.006548417421295142,
+            "centered::pull_scarcity": 0.2506576993316458
+          },
+          "t_stats": {
+            "is_secret": 4.586396911702137,
+            "is_mechanic_card": 0.3088666088794139,
+            "is_stage2": 1.7604065380657037,
+            "is_trainer": -3.2370309043571055,
+            "card_appeal_v6": 13.804819608640834,
+            "component::v7_increment_over_v6": 7.9256496559300125,
+            "centered::pull_scarcity": 9.290429292950794
+          },
+          "two_way_cluster_robust_se_set_subject": {
+            "is_secret": 0.2115990331033912,
+            "is_mechanic_card": 0.14373999839289217,
+            "is_stage2": 0.03747452777945604,
+            "is_trainer": 0.05957480220788916,
+            "card_appeal_v6": 0.0012612058663898015,
+            "component::v7_increment_over_v6": 0.0,
+            "centered::pull_scarcity": 0.22662329949827226
+          },
+          "two_way_t_stats_set_subject": {
+            "is_secret": 5.45804107050301,
+            "is_mechanic_card": 0.33889557572259055,
+            "is_stage2": 1.9904787227788423,
+            "is_trainer": -5.044558260131586,
+            "card_appeal_v6": 16.354339287706225,
+            "component::v7_increment_over_v6": null,
+            "centered::pull_scarcity": 10.275720270289899
+          },
+          "within_r2": 0.8903784331319168
+        },
+        "cluster_bootstrap_coefficient_ci": {
+          "is_secret": {
+            "draws": 20,
+            "ci_low": 0.7910329130762623,
+            "ci_high": 1.5310877607061744,
+            "share_positive": 1.0
+          },
+          "is_mechanic_card": {
+            "draws": 20,
+            "ci_low": -0.21331436345205018,
+            "ci_high": 0.17055935985673662,
+            "share_positive": 0.65
+          },
+          "is_stage2": {
+            "draws": 20,
+            "ci_low": -0.0017733279689242896,
+            "ci_high": 0.14505591240691787,
+            "share_positive": 0.95
+          },
+          "is_trainer": {
+            "draws": 20,
+            "ci_low": -0.4580376852813126,
+            "ci_high": -0.19710899346032104,
+            "share_positive": 0.0
+          },
+          "card_appeal_v6": {
+            "draws": 20,
+            "ci_low": 0.01843954129706023,
+            "ci_high": 0.022950452678242993,
+            "share_positive": 1.0
+          },
+          "component::v7_increment_over_v6": {
+            "draws": 20,
+            "ci_low": 0.04002990828847313,
+            "ci_high": 0.06550375048640328,
+            "share_positive": 1.0
+          },
+          "centered::pull_scarcity": {
+            "draws": 20,
+            "ci_low": 1.99698027584934,
+            "ci_high": 2.713829900933389,
+            "share_positive": 1.0
+          }
+        }
+      },
+      "M4_interaction": {
+        "predictors": [
+          "log_release_age",
+          "is_secret",
+          "is_promo",
+          "is_mechanic_card",
+          "is_stage2",
+          "is_trainer",
+          "card_appeal_v6",
+          "component::v7_increment_over_v6",
+          "centered::pull_scarcity",
+          "interaction::v7_increment_over_v6::pull_scarcity"
+        ],
+        "leave_whole_set_out_cv": {
+          "n": 3983,
+          "n_folds": 22,
+          "mae": 0.5646603975180766,
+          "rmse": 0.760824795702763,
+          "r2": 0.8762305440968371,
+          "spearman": 0.8425086644255059,
+          "folds": [
+            {
+              "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+              "set_name": "Phantasmal Flames",
+              "n": 115,
+              "centering": {
+                "v7_increment_over_v6": 0.8625488853454711,
+                "pull_scarcity": 1.7213250403797642
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.671177583245126,
+              "rmse": 0.8313334268508725,
+              "r2": 0.7908047755437148,
+              "spearman": 0.7986054684718725
+            },
+            {
+              "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+              "set_name": "Journey Together",
+              "n": 173,
+              "centering": {
+                "v7_increment_over_v6": 0.8613947456092151,
+                "pull_scarcity": 1.7211362300795856
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5209829535358292,
+              "rmse": 0.6852805533303219,
+              "r2": 0.8430593129077841,
+              "spearman": 0.7424277510208651
+            },
+            {
+              "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+              "set_name": "Paldea Evolved",
+              "n": 260,
+              "centering": {
+                "v7_increment_over_v6": 0.8543320892363911,
+                "pull_scarcity": 1.705016952528275
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.541177822523581,
+              "rmse": 0.7352927172291972,
+              "r2": 0.888357805345777,
+              "spearman": 0.859167283124246
+            },
+            {
+              "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+              "set_name": "Shrouded Fable",
+              "n": 88,
+              "centering": {
+                "v7_increment_over_v6": 0.896171470098715,
+                "pull_scarcity": 1.7190354417671654
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 1.139457412670621,
+              "rmse": 1.339951887246841,
+              "r2": 0.6796874113013894,
+              "spearman": 0.8449443179203175
+            },
+            {
+              "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+              "set_name": "Scarlet and Violet Base Set",
+              "n": 228,
+              "centering": {
+                "v7_increment_over_v6": 0.8528129489853594,
+                "pull_scarcity": 1.7123496879295612
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5041119838806655,
+              "rmse": 0.6549425651740058,
+              "r2": 0.8721723140255732,
+              "spearman": 0.7475799677719855
+            },
+            {
+              "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+              "set_name": "Black Bolt",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8584757990351961,
+                "pull_scarcity": 1.69878866324239
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6124689729710279,
+              "rmse": 0.895330599770919,
+              "r2": 0.8822144070458636,
+              "spearman": 0.8730079328904911
+            },
+            {
+              "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+              "set_name": "Pitch Black",
+              "n": 104,
+              "centering": {
+                "v7_increment_over_v6": 0.8728686762554582,
+                "pull_scarcity": 1.7199077533139253
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5135905516680048,
+              "rmse": 0.6382738051737371,
+              "r2": 0.9046513804168265,
+              "spearman": 0.8688097308441823
+            },
+            {
+              "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+              "set_name": "Stellar Crown",
+              "n": 163,
+              "centering": {
+                "v7_increment_over_v6": 0.913766459694894,
+                "pull_scarcity": 1.721284962439829
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5554068499833866,
+              "rmse": 0.7178535172528924,
+              "r2": 0.8508706032286725,
+              "spearman": 0.780738526255093
+            },
+            {
+              "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+              "set_name": "Chaos Rising",
+              "n": 107,
+              "centering": {
+                "v7_increment_over_v6": 0.8712093508499816,
+                "pull_scarcity": 1.7198612232532788
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4723936703911981,
+              "rmse": 0.6154058359991875,
+              "r2": 0.9008903940680866,
+              "spearman": 0.8339222998673322
+            },
+            {
+              "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+              "set_name": "Paradox Rift",
+              "n": 245,
+              "centering": {
+                "v7_increment_over_v6": 0.8462847369893901,
+                "pull_scarcity": 1.7047116422939268
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5101212676506193,
+              "rmse": 0.6911998758155644,
+              "r2": 0.8858170991553994,
+              "spearman": 0.841119114724406
+            },
+            {
+              "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+              "set_name": "Perfect Order",
+              "n": 101,
+              "centering": {
+                "v7_increment_over_v6": 0.8991725595142954,
+                "pull_scarcity": 1.7158162310208278
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6441489326688365,
+              "rmse": 0.7721472372170155,
+              "r2": 0.8718290683194877,
+              "spearman": 0.8515582901321908
+            },
+            {
+              "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+              "set_name": "Ascended Heroes",
+              "n": 259,
+              "centering": {
+                "v7_increment_over_v6": 0.8702025660773478,
+                "pull_scarcity": 1.7019037230213756
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5294248837325616,
+              "rmse": 0.6912082767313332,
+              "r2": 0.9047229910787449,
+              "spearman": 0.8804637379098822
+            },
+            {
+              "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+              "set_name": "Prismatic Evolutions",
+              "n": 150,
+              "centering": {
+                "v7_increment_over_v6": 0.9106673300376975,
+                "pull_scarcity": 1.706049709790888
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6642407818194292,
+              "rmse": 0.8673073734917347,
+              "r2": 0.8968767691104931,
+              "spearman": 0.933126422370377
+            },
+            {
+              "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+              "set_name": "Temporal Forces",
+              "n": 197,
+              "centering": {
+                "v7_increment_over_v6": 0.8633901119565836,
+                "pull_scarcity": 1.7141219044118048
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5302998903682176,
+              "rmse": 0.7240767427974981,
+              "r2": 0.8815938921602431,
+              "spearman": 0.8056021236585694
+            },
+            {
+              "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+              "set_name": "Mega Evolution",
+              "n": 164,
+              "centering": {
+                "v7_increment_over_v6": 0.9140057282101323,
+                "pull_scarcity": 1.7160053280457226
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5136751900920561,
+              "rmse": 0.6253912670302592,
+              "r2": 0.9205043215049596,
+              "spearman": 0.8419311944204528
+            },
+            {
+              "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+              "set_name": "Obsidian Flames",
+              "n": 222,
+              "centering": {
+                "v7_increment_over_v6": 0.8627411954489995,
+                "pull_scarcity": 1.7210956100272454
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.39075838177393973,
+              "rmse": 0.5567301240400351,
+              "r2": 0.8549198175744983,
+              "spearman": 0.7285466711245956
+            },
+            {
+              "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+              "set_name": "White Flare",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8620288560203557,
+                "pull_scarcity": 1.6991653335496526
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5531022603517133,
+              "rmse": 0.8664541005117916,
+              "r2": 0.891572315669938,
+              "spearman": 0.9126335098075806
+            },
+            {
+              "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+              "set_name": "Twilight Masquerade",
+              "n": 202,
+              "centering": {
+                "v7_increment_over_v6": 0.8695281747258522,
+                "pull_scarcity": 1.7141931470824647
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4845936936621997,
+              "rmse": 0.6605828401288506,
+              "r2": 0.8892855233081295,
+              "spearman": 0.7980352598664726
+            },
+            {
+              "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+              "set_name": "Scarlet and Violet 151",
+              "n": 195,
+              "centering": {
+                "v7_increment_over_v6": 0.8708289873941032,
+                "pull_scarcity": 1.7201346036943486
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.619816172021062,
+              "rmse": 0.8968718656437707,
+              "r2": 0.802384716303769,
+              "spearman": 0.8509482464016154
+            },
+            {
+              "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+              "set_name": "Destined Rivals",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.863271361798603,
+                "pull_scarcity": 1.7122264633096638
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5126949120918345,
+              "rmse": 0.6972686768632379,
+              "r2": 0.8775610675662895,
+              "spearman": 0.8174613676734178
+            },
+            {
+              "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+              "set_name": "Surging Sparks",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.9285948060746195,
+                "pull_scarcity": 1.7126089994296694
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.60834207059529,
+              "rmse": 0.8108604350289319,
+              "r2": 0.8375174105031622,
+              "spearman": 0.7557160123007649
+            },
+            {
+              "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+              "set_name": "Paldean Fates",
+              "n": 230,
+              "centering": {
+                "v7_increment_over_v6": 0.8736232846651936,
+                "pull_scarcity": 1.688448932687403
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.7204988754288516,
+              "rmse": 0.8663765227669655,
+              "r2": 0.8267460413456826,
+              "spearman": 0.8897666395489442
+            }
+          ]
+        },
+        "set_fixed_effects_fit": {
+          "n": 3983,
+          "n_sets": 22,
+          "centering": {
+            "v7_increment_over_v6": 0.8763715480879977,
+            "pull_scarcity": 1.7121118382105986
+          },
+          "columns": [
+            "is_secret",
+            "is_mechanic_card",
+            "is_stage2",
+            "is_trainer",
+            "card_appeal_v6",
+            "component::v7_increment_over_v6",
+            "centered::pull_scarcity",
+            "interaction::v7_increment_over_v6::pull_scarcity"
+          ],
+          "dropped_collinear_columns": [
+            "log_release_age",
+            "is_promo"
+          ],
+          "coefficients": {
+            "is_secret": 1.1523909648020294,
+            "is_mechanic_card": 0.04288452155858136,
+            "is_stage2": 0.07459504137936154,
+            "is_trainer": -0.30343322790688126,
+            "card_appeal_v6": 0.02056765769371094,
+            "component::v7_increment_over_v6": 0.05150076257700792,
+            "centered::pull_scarcity": 2.332888263804267,
+            "interaction::v7_increment_over_v6::pull_scarcity": -0.017425865527741263
+          },
+          "cluster_robust_se": {
+            "is_secret": 0.2506742365095609,
+            "is_mechanic_card": 0.15660587409729762,
+            "is_stage2": 0.04231755313003814,
+            "is_trainer": 0.09202422335625501,
+            "card_appeal_v6": 0.0014812287504629921,
+            "component::v7_increment_over_v6": 0.007066351841265302,
+            "centered::pull_scarcity": 0.24886474708773385,
+            "interaction::v7_increment_over_v6::pull_scarcity": 0.015394112633933706
+          },
+          "t_stats": {
+            "is_secret": 4.5971655517860786,
+            "is_mechanic_card": 0.273837247841276,
+            "is_stage2": 1.7627446735905903,
+            "is_trainer": -3.297319084478386,
+            "card_appeal_v6": 13.885537724866632,
+            "component::v7_increment_over_v6": 7.288168454372658,
+            "centered::pull_scarcity": 9.374121048096214,
+            "interaction::v7_increment_over_v6::pull_scarcity": -1.1319824625245956
+          },
+          "two_way_cluster_robust_se_set_subject": {
+            "is_secret": 0.20995065289928602,
+            "is_mechanic_card": 0.14245216304301567,
+            "is_stage2": 0.037309223835054785,
+            "is_trainer": 0.05839347635628263,
+            "card_appeal_v6": 0.001244765321394284,
+            "component::v7_increment_over_v6": 0.0,
+            "centered::pull_scarcity": 0.22436951467145583,
+            "interaction::v7_increment_over_v6::pull_scarcity": 0.0
+          },
+          "two_way_t_stats_set_subject": {
+            "is_secret": 5.4888658305570255,
+            "is_mechanic_card": 0.30104507114877366,
+            "is_stage2": 1.9993726406410515,
+            "is_trainer": -5.1963549156674675,
+            "card_appeal_v6": 16.52332157733374,
+            "component::v7_increment_over_v6": null,
+            "centered::pull_scarcity": 10.397527789014983,
+            "interaction::v7_increment_over_v6::pull_scarcity": null
+          },
+          "within_r2": 0.890433103743689
+        },
+        "cluster_bootstrap_coefficient_ci": {
+          "is_secret": {
+            "draws": 20,
+            "ci_low": 0.5295748478304115,
+            "ci_high": 1.5273216369994453,
+            "share_positive": 1.0
+          },
+          "is_mechanic_card": {
+            "draws": 20,
+            "ci_low": -0.42039274478508754,
+            "ci_high": 0.14241680250468308,
+            "share_positive": 0.4
+          },
+          "is_stage2": {
+            "draws": 20,
+            "ci_low": -0.013728553010975059,
+            "ci_high": 0.15474765922949474,
+            "share_positive": 0.85
+          },
+          "is_trainer": {
+            "draws": 20,
+            "ci_low": -0.5623041964161664,
+            "ci_high": -0.16852057355628192,
+            "share_positive": 0.0
+          },
+          "card_appeal_v6": {
+            "draws": 20,
+            "ci_low": 0.018088723239235792,
+            "ci_high": 0.02249634618830022,
+            "share_positive": 1.0
+          },
+          "component::v7_increment_over_v6": {
+            "draws": 20,
+            "ci_low": 0.03918252929738511,
+            "ci_high": 0.06079189733479049,
+            "share_positive": 1.0
+          },
+          "centered::pull_scarcity": {
+            "draws": 20,
+            "ci_low": 2.0006463377939796,
+            "ci_high": 3.070822415500993,
+            "share_positive": 1.0
+          },
+          "interaction::v7_increment_over_v6::pull_scarcity": {
+            "draws": 20,
+            "ci_low": -0.047114467017171736,
+            "ci_high": 0.00385068438872311,
+            "share_positive": 0.05
+          }
+        }
+      },
+      "M5_plus_treatment": {
+        "predictors": [
+          "log_release_age",
+          "is_secret",
+          "is_promo",
+          "is_mechanic_card",
+          "is_stage2",
+          "is_trainer",
+          "card_appeal_v6",
+          "component::v7_increment_over_v6",
+          "centered::pull_scarcity",
+          "interaction::v7_increment_over_v6::pull_scarcity",
+          "treatment_prestige"
+        ],
+        "leave_whole_set_out_cv": {
+          "n": 3983,
+          "n_folds": 22,
+          "mae": 0.5300178418508062,
+          "rmse": 0.7242203807016444,
+          "r2": 0.8878535190421719,
+          "spearman": 0.8582860862801204,
+          "folds": [
+            {
+              "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+              "set_name": "Phantasmal Flames",
+              "n": 115,
+              "centering": {
+                "v7_increment_over_v6": 0.8625488853454711,
+                "pull_scarcity": 1.7213250403797642
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6024831706391303,
+              "rmse": 0.7762385604267172,
+              "r2": 0.8176139131502311,
+              "spearman": 0.8131514910054619
+            },
+            {
+              "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+              "set_name": "Journey Together",
+              "n": 173,
+              "centering": {
+                "v7_increment_over_v6": 0.8613947456092151,
+                "pull_scarcity": 1.7211362300795856
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4926284726534502,
+              "rmse": 0.6487991841300642,
+              "r2": 0.8593242224337497,
+              "spearman": 0.7545726154614001
+            },
+            {
+              "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+              "set_name": "Paldea Evolved",
+              "n": 260,
+              "centering": {
+                "v7_increment_over_v6": 0.8543320892363911,
+                "pull_scarcity": 1.705016952528275
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4979869365879401,
+              "rmse": 0.6741791771867837,
+              "r2": 0.9061447640899982,
+              "spearman": 0.8671450075631838
+            },
+            {
+              "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+              "set_name": "Shrouded Fable",
+              "n": 88,
+              "centering": {
+                "v7_increment_over_v6": 0.896171470098715,
+                "pull_scarcity": 1.7190354417671654
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.9719793617178948,
+              "rmse": 1.1506764190679242,
+              "r2": 0.763787963351191,
+              "spearman": 0.859717827467015
+            },
+            {
+              "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+              "set_name": "Scarlet and Violet Base Set",
+              "n": 228,
+              "centering": {
+                "v7_increment_over_v6": 0.8528129489853594,
+                "pull_scarcity": 1.7123496879295612
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.43572970642353037,
+              "rmse": 0.5710548519932291,
+              "r2": 0.9028206150735884,
+              "spearman": 0.7895542415212626
+            },
+            {
+              "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+              "set_name": "Black Bolt",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8584757990351961,
+                "pull_scarcity": 1.69878866324239
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6169545399020769,
+              "rmse": 0.9343133812446244,
+              "r2": 0.8717343238096841,
+              "spearman": 0.8614370155798396
+            },
+            {
+              "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+              "set_name": "Pitch Black",
+              "n": 104,
+              "centering": {
+                "v7_increment_over_v6": 0.8728686762554582,
+                "pull_scarcity": 1.7199077533139253
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5416307589052857,
+              "rmse": 0.678379009716444,
+              "r2": 0.892292692232961,
+              "spearman": 0.865019718009794
+            },
+            {
+              "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+              "set_name": "Stellar Crown",
+              "n": 163,
+              "centering": {
+                "v7_increment_over_v6": 0.913766459694894,
+                "pull_scarcity": 1.721284962439829
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5240970773193577,
+              "rmse": 0.6846636250055742,
+              "r2": 0.864341782524627,
+              "spearman": 0.7826570462564372
+            },
+            {
+              "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+              "set_name": "Chaos Rising",
+              "n": 107,
+              "centering": {
+                "v7_increment_over_v6": 0.8712093508499816,
+                "pull_scarcity": 1.7198612232532788
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.47317102544679274,
+              "rmse": 0.6219688570827685,
+              "r2": 0.8987652050771952,
+              "spearman": 0.8232884012212416
+            },
+            {
+              "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+              "set_name": "Paradox Rift",
+              "n": 245,
+              "centering": {
+                "v7_increment_over_v6": 0.8462847369893901,
+                "pull_scarcity": 1.7047116422939268
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5077826799196212,
+              "rmse": 0.6576368406401804,
+              "r2": 0.8966367781660552,
+              "spearman": 0.8504232538492819
+            },
+            {
+              "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+              "set_name": "Perfect Order",
+              "n": 101,
+              "centering": {
+                "v7_increment_over_v6": 0.8991725595142954,
+                "pull_scarcity": 1.7158162310208278
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5780861778590274,
+              "rmse": 0.720003878037652,
+              "r2": 0.8885554156636528,
+              "spearman": 0.8694707341882981
+            },
+            {
+              "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+              "set_name": "Ascended Heroes",
+              "n": 259,
+              "centering": {
+                "v7_increment_over_v6": 0.8702025660773478,
+                "pull_scarcity": 1.7019037230213756
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5721507802162372,
+              "rmse": 0.7531799164890922,
+              "r2": 0.8868726231430755,
+              "spearman": 0.8773493758474853
+            },
+            {
+              "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+              "set_name": "Prismatic Evolutions",
+              "n": 150,
+              "centering": {
+                "v7_increment_over_v6": 0.9106673300376975,
+                "pull_scarcity": 1.706049709790888
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.6729675991538837,
+              "rmse": 0.8849865611256433,
+              "r2": 0.8926297941859695,
+              "spearman": 0.9309193544956877
+            },
+            {
+              "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+              "set_name": "Temporal Forces",
+              "n": 197,
+              "centering": {
+                "v7_increment_over_v6": 0.8633901119565836,
+                "pull_scarcity": 1.7141219044118048
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4643992514749066,
+              "rmse": 0.6478769860433921,
+              "r2": 0.9052039993300137,
+              "spearman": 0.8252083224466815
+            },
+            {
+              "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+              "set_name": "Mega Evolution",
+              "n": 164,
+              "centering": {
+                "v7_increment_over_v6": 0.9140057282101323,
+                "pull_scarcity": 1.7160053280457226
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4905489961712797,
+              "rmse": 0.621312528131606,
+              "r2": 0.9215378657706599,
+              "spearman": 0.8531237864930988
+            },
+            {
+              "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+              "set_name": "Obsidian Flames",
+              "n": 222,
+              "centering": {
+                "v7_increment_over_v6": 0.8627411954489995,
+                "pull_scarcity": 1.7210956100272454
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.3591174995477812,
+              "rmse": 0.5116115064903193,
+              "r2": 0.87748218082656,
+              "spearman": 0.756871447751321
+            },
+            {
+              "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+              "set_name": "White Flare",
+              "n": 166,
+              "centering": {
+                "v7_increment_over_v6": 0.8620288560203557,
+                "pull_scarcity": 1.6991653335496526
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5645065739192122,
+              "rmse": 0.9193238820109029,
+              "r2": 0.877936408385679,
+              "spearman": 0.9018060904365257
+            },
+            {
+              "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+              "set_name": "Twilight Masquerade",
+              "n": 202,
+              "centering": {
+                "v7_increment_over_v6": 0.8695281747258522,
+                "pull_scarcity": 1.7141931470824647
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.4496824109258671,
+              "rmse": 0.6088040093336822,
+              "r2": 0.905961683955101,
+              "spearman": 0.8249976133663433
+            },
+            {
+              "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+              "set_name": "Scarlet and Violet 151",
+              "n": 195,
+              "centering": {
+                "v7_increment_over_v6": 0.8708289873941032,
+                "pull_scarcity": 1.7201346036943486
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5697142643279658,
+              "rmse": 0.7974205069438751,
+              "r2": 0.8437807570156323,
+              "spearman": 0.864621405169808
+            },
+            {
+              "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+              "set_name": "Destined Rivals",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.863271361798603,
+                "pull_scarcity": 1.7122264633096638
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.49387690500705206,
+              "rmse": 0.660260517771197,
+              "r2": 0.8902132627420719,
+              "spearman": 0.8178875436686796
+            },
+            {
+              "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+              "set_name": "Surging Sparks",
+              "n": 224,
+              "centering": {
+                "v7_increment_over_v6": 0.9285948060746195,
+                "pull_scarcity": 1.7126089994296694
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5793076554910302,
+              "rmse": 0.7672872366059779,
+              "r2": 0.8545108656850491,
+              "spearman": 0.7962386434086535
+            },
+            {
+              "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+              "set_name": "Paldean Fates",
+              "n": 230,
+              "centering": {
+                "v7_increment_over_v6": 0.8736232846651936,
+                "pull_scarcity": 1.688448932687403
+              },
+              "dropped_predictors": [
+                "is_promo"
+              ],
+              "mae": 0.5555410901578467,
+              "rmse": 0.7570440176327251,
+              "r2": 0.8677145497181732,
+              "spearman": 0.8868233482051016
+            }
+          ]
+        },
+        "set_fixed_effects_fit": {
+          "n": 3983,
+          "n_sets": 22,
+          "centering": {
+            "v7_increment_over_v6": 0.8763715480879977,
+            "pull_scarcity": 1.7121118382105986
+          },
+          "columns": [
+            "is_secret",
+            "is_mechanic_card",
+            "is_stage2",
+            "is_trainer",
+            "card_appeal_v6",
+            "component::v7_increment_over_v6",
+            "centered::pull_scarcity",
+            "interaction::v7_increment_over_v6::pull_scarcity",
+            "treatment_prestige"
+          ],
+          "dropped_collinear_columns": [
+            "log_release_age",
+            "is_promo"
+          ],
+          "coefficients": {
+            "is_secret": 0.6517394895287953,
+            "is_mechanic_card": -0.2694839243150592,
+            "is_stage2": 0.010967315163261505,
+            "is_trainer": -0.45419944118643707,
+            "card_appeal_v6": 0.020026489190279495,
+            "component::v7_increment_over_v6": 0.049746755952426655,
+            "centered::pull_scarcity": 1.9230550029568294,
+            "interaction::v7_increment_over_v6::pull_scarcity": -0.027204570403833304,
+            "treatment_prestige": 2.0137877779744566
+          },
+          "cluster_robust_se": {
+            "is_secret": 0.28988422365816974,
+            "is_mechanic_card": 0.1518277809077611,
+            "is_stage2": 0.04718707201370059,
+            "is_trainer": 0.09678020957622094,
+            "card_appeal_v6": 0.0014209669155421255,
+            "component::v7_increment_over_v6": 0.006913136711770137,
+            "centered::pull_scarcity": 0.17952017323691682,
+            "interaction::v7_increment_over_v6::pull_scarcity": 0.012868365030501908,
+            "treatment_prestige": 0.4194169073029012
+          },
+          "t_stats": {
+            "is_secret": 2.248275126201155,
+            "is_mechanic_card": -1.7749315883025183,
+            "is_stage2": 0.23242203203617265,
+            "is_trainer": -4.693102475963585,
+            "card_appeal_v6": 14.093564720779593,
+            "component::v7_increment_over_v6": 7.195974566469812,
+            "centered::pull_scarcity": 10.712194447467084,
+            "interaction::v7_increment_over_v6::pull_scarcity": -2.1140657992954246,
+            "treatment_prestige": 4.80139866302554
+          },
+          "two_way_cluster_robust_se_set_subject": {
+            "is_secret": 0.24850296889931728,
+            "is_mechanic_card": 0.12688640291643868,
+            "is_stage2": 0.03983742226484493,
+            "is_trainer": 0.06183968308008759,
+            "card_appeal_v6": 0.0011622434213278887,
+            "component::v7_increment_over_v6": 0.0,
+            "centered::pull_scarcity": 0.1363908911996323,
+            "interaction::v7_increment_over_v6::pull_scarcity": 0.0,
+            "treatment_prestige": 0.3450061407891778
+          },
+          "two_way_t_stats_set_subject": {
+            "is_secret": 2.6226627891631034,
+            "is_mechanic_card": -2.1238203473427206,
+            "is_stage2": 0.27530182777262074,
+            "is_trainer": -7.344789277108853,
+            "card_appeal_v6": 17.230890554234147,
+            "component::v7_increment_over_v6": null,
+            "centered::pull_scarcity": 14.099585287862785,
+            "interaction::v7_increment_over_v6::pull_scarcity": null,
+            "treatment_prestige": 5.836962128755319
+          },
+          "within_r2": 0.8983733791803217
+        },
+        "cluster_bootstrap_coefficient_ci": {
+          "is_secret": {
+            "draws": 20,
+            "ci_low": 0.13973647268991007,
+            "ci_high": 1.0656968090821257,
+            "share_positive": 1.0
+          },
+          "is_mechanic_card": {
+            "draws": 20,
+            "ci_low": -0.47740351201082143,
+            "ci_high": -0.03251950184525473,
+            "share_positive": 0.0
+          },
+          "is_stage2": {
+            "draws": 20,
+            "ci_low": -0.04787586628517901,
+            "ci_high": 0.06898456219886126,
+            "share_positive": 0.7
+          },
+          "is_trainer": {
+            "draws": 20,
+            "ci_low": -0.608879740524642,
+            "ci_high": -0.26005487776705705,
+            "share_positive": 0.0
+          },
+          "card_appeal_v6": {
+            "draws": 20,
+            "ci_low": 0.017882031220460153,
+            "ci_high": 0.022523534730508832,
+            "share_positive": 1.0
+          },
+          "component::v7_increment_over_v6": {
+            "draws": 20,
+            "ci_low": 0.03373329518264619,
+            "ci_high": 0.05726932893860447,
+            "share_positive": 1.0
+          },
+          "centered::pull_scarcity": {
+            "draws": 20,
+            "ci_low": 1.631232833913709,
+            "ci_high": 2.222967913878131,
+            "share_positive": 1.0
+          },
+          "interaction::v7_increment_over_v6::pull_scarcity": {
+            "draws": 20,
+            "ci_low": -0.05336988490426756,
+            "ci_high": -0.009699280459812535,
+            "share_positive": 0.0
+          },
+          "treatment_prestige": {
+            "draws": 20,
+            "ci_low": 1.1728820453890099,
+            "ci_high": 2.5324761016609947,
+            "share_positive": 1.0
+          }
+        }
+      }
+    },
+    "incremental_lift_out_of_sample": {
+      "component_over_controls_M1_vs_M0": {
+        "n": 3983,
+        "base_metrics": {
+          "mae": 0.6570963841711688,
+          "rmse": 0.9006882028734938,
+          "r2": 0.8265424873007168,
+          "spearman": 0.8171024876520532
+        },
+        "richer_metrics": {
+          "mae": 0.6521046160670635,
+          "rmse": 0.8946407920207506,
+          "r2": 0.8288639284881326,
+          "spearman": 0.8242518919587868
+        },
+        "mae_reduction": 0.0049917681041052875,
+        "mae_reduction_pct": 0.7596706091149283,
+        "rmse_reduction": 0.006047410852743185,
+        "rmse_reduction_pct": 0.671421123697406,
+        "r2_gain": 0.0023214411874158403,
+        "spearman_gain": 0.007149404306733609,
+        "cluster_bootstrap_by_held_out_set": {
+          "mae_reduction": {
+            "draws": 20,
+            "ci_low": 0.00212923644313793,
+            "ci_high": 0.010584735371521058,
+            "share_positive": 1.0
+          },
+          "rmse_reduction": {
+            "draws": 20,
+            "ci_low": 0.0027800754253293008,
+            "ci_high": 0.010620380461644548,
+            "share_positive": 1.0
+          },
+          "r2_gain": {
+            "draws": 20,
+            "ci_low": 0.0010847919955650708,
+            "ci_high": 0.004083600746491947,
+            "share_positive": 1.0
+          },
+          "spearman_gain": {
+            "draws": 20,
+            "ci_low": 0.0032693623021085444,
+            "ci_high": 0.011434771037933455,
+            "share_positive": 1.0
+          }
+        }
+      },
+      "scarcity_over_controls_M2_vs_M0": {
+        "n": 3983,
+        "base_metrics": {
+          "mae": 0.6570963841711688,
+          "rmse": 0.9006882028734938,
+          "r2": 0.8265424873007168,
+          "spearman": 0.8171024876520532
+        },
+        "richer_metrics": {
+          "mae": 0.5663447462651224,
+          "rmse": 0.7632240648090008,
+          "r2": 0.8754486966574632,
+          "spearman": 0.8387724225521244
+        },
+        "mae_reduction": 0.09075163790604635,
+        "mae_reduction_pct": 13.81100856619631,
+        "rmse_reduction": 0.13746413806449298,
+        "rmse_reduction_pct": 15.262122633108419,
+        "r2_gain": 0.04890620935674639,
+        "spearman_gain": 0.021669934900071186,
+        "cluster_bootstrap_by_held_out_set": {
+          "mae_reduction": {
+            "draws": 20,
+            "ci_low": 0.05961094759993178,
+            "ci_high": 0.13922329400699626,
+            "share_positive": 1.0
+          },
+          "rmse_reduction": {
+            "draws": 20,
+            "ci_low": 0.09725038167452686,
+            "ci_high": 0.1944979476384704,
+            "share_positive": 1.0
+          },
+          "r2_gain": {
+            "draws": 20,
+            "ci_low": 0.036435665614192564,
+            "ci_high": 0.06530351368846005,
+            "share_positive": 1.0
+          },
+          "spearman_gain": {
+            "draws": 20,
+            "ci_low": 0.002306655507187622,
+            "ci_high": 0.036659945683909595,
+            "share_positive": 0.95
+          }
+        }
+      },
+      "component_over_scarcity_M3_vs_M2": {
+        "n": 3983,
+        "base_metrics": {
+          "mae": 0.5663447462651224,
+          "rmse": 0.7632240648090008,
+          "r2": 0.8754486966574632,
+          "spearman": 0.8387724225521244
+        },
+        "richer_metrics": {
+          "mae": 0.5643906344643814,
+          "rmse": 0.7605030647328135,
+          "r2": 0.8763351990656456,
+          "spearman": 0.8426063272244796
+        },
+        "mae_reduction": 0.0019541118007410097,
+        "mae_reduction_pct": 0.3450392739806989,
+        "rmse_reduction": 0.002721000076187363,
+        "rmse_reduction_pct": 0.356513925811328,
+        "r2_gain": 0.0008865024081824435,
+        "spearman_gain": 0.003833904672355226,
+        "cluster_bootstrap_by_held_out_set": {
+          "mae_reduction": {
+            "draws": 20,
+            "ci_low": -0.0005922218911968341,
+            "ci_high": 0.00406574669033819,
+            "share_positive": 0.95
+          },
+          "rmse_reduction": {
+            "draws": 20,
+            "ci_low": -0.002476698846978284,
+            "ci_high": 0.006304762191333539,
+            "share_positive": 0.9
+          },
+          "r2_gain": {
+            "draws": 20,
+            "ci_low": -0.0008278913068851673,
+            "ci_high": 0.00219125853645625,
+            "share_positive": 0.9
+          },
+          "spearman_gain": {
+            "draws": 20,
+            "ci_low": 0.0017689495164528695,
+            "ci_high": 0.0061752644827866784,
+            "share_positive": 1.0
+          }
+        }
+      },
+      "scarcity_over_component_M3_vs_M1": {
+        "n": 3983,
+        "base_metrics": {
+          "mae": 0.6521046160670635,
+          "rmse": 0.8946407920207506,
+          "r2": 0.8288639284881326,
+          "spearman": 0.8242518919587868
+        },
+        "richer_metrics": {
+          "mae": 0.5643906344643814,
+          "rmse": 0.7605030647328135,
+          "r2": 0.8763351990656456,
+          "spearman": 0.8426063272244796
+        },
+        "mae_reduction": 0.08771398160268207,
+        "mae_reduction_pct": 13.45090641003244,
+        "rmse_reduction": 0.13413772728793716,
+        "rmse_reduction_pct": 14.993473188826597,
+        "r2_gain": 0.04747127057751299,
+        "spearman_gain": 0.018354435265692803,
+        "cluster_bootstrap_by_held_out_set": {
+          "mae_reduction": {
+            "draws": 20,
+            "ci_low": 0.04299247780418161,
+            "ci_high": 0.12020879716369348,
+            "share_positive": 1.0
+          },
+          "rmse_reduction": {
+            "draws": 20,
+            "ci_low": 0.07883107005387231,
+            "ci_high": 0.17483770237865914,
+            "share_positive": 1.0
+          },
+          "r2_gain": {
+            "draws": 20,
+            "ci_low": 0.02836196668319636,
+            "ci_high": 0.06173523946182883,
+            "share_positive": 1.0
+          },
+          "spearman_gain": {
+            "draws": 20,
+            "ci_low": 0.005516507160546536,
+            "ci_high": 0.0381448923894869,
+            "share_positive": 1.0
+          }
+        }
+      },
+      "interaction_over_additive_M4_vs_M3": {
+        "n": 3983,
+        "base_metrics": {
+          "mae": 0.5643906344643814,
+          "rmse": 0.7605030647328135,
+          "r2": 0.8763351990656456,
+          "spearman": 0.8426063272244796
+        },
+        "richer_metrics": {
+          "mae": 0.5646603975180766,
+          "rmse": 0.760824795702763,
+          "r2": 0.8762305440968371,
+          "spearman": 0.8425086644255059
+        },
+        "mae_reduction": -0.0002697630536951934,
+        "mae_reduction_pct": -0.04779722362884426,
+        "rmse_reduction": -0.00032173096994947414,
+        "rmse_reduction_pct": -0.04230501951527407,
+        "r2_gain": -0.00010465496880851521,
+        "spearman_gain": -9.766279897371888e-05,
+        "cluster_bootstrap_by_held_out_set": {
+          "mae_reduction": {
+            "draws": 20,
+            "ci_low": -0.0005213175534378112,
+            "ci_high": -7.996550061927233e-05,
+            "share_positive": 0.0
+          },
+          "rmse_reduction": {
+            "draws": 20,
+            "ci_low": -0.0004940420697367553,
+            "ci_high": -9.525605624184646e-05,
+            "share_positive": 0.0
+          },
+          "r2_gain": {
+            "draws": 20,
+            "ci_low": -0.0001642601551065076,
+            "ci_high": -3.087974726985189e-05,
+            "share_positive": 0.0
+          },
+          "spearman_gain": {
+            "draws": 20,
+            "ci_low": -0.00025608995523696834,
+            "ci_high": -1.0021950017460893e-05,
+            "share_positive": 0.0
+          }
+        }
+      },
+      "treatment_over_interaction_M5_vs_M4": {
+        "n": 3983,
+        "base_metrics": {
+          "mae": 0.5646603975180766,
+          "rmse": 0.760824795702763,
+          "r2": 0.8762305440968371,
+          "spearman": 0.8425086644255059
+        },
+        "richer_metrics": {
+          "mae": 0.5300178418508062,
+          "rmse": 0.7242203807016443,
+          "r2": 0.8878535190421719,
+          "spearman": 0.8582860862801204
+        },
+        "mae_reduction": 0.03464255566727037,
+        "mae_reduction_pct": 6.135113391967842,
+        "rmse_reduction": 0.03660441500111866,
+        "rmse_reduction_pct": 4.811149059266357,
+        "r2_gain": 0.011622974945334819,
+        "spearman_gain": 0.015777421854614504,
+        "cluster_bootstrap_by_held_out_set": {
+          "mae_reduction": {
+            "draws": 20,
+            "ci_low": 0.010986763935770406,
+            "ci_high": 0.05334391101420863,
+            "share_positive": 1.0
+          },
+          "rmse_reduction": {
+            "draws": 20,
+            "ci_low": 0.010047846420602611,
+            "ci_high": 0.060269036611088116,
+            "share_positive": 1.0
+          },
+          "r2_gain": {
+            "draws": 20,
+            "ci_low": 0.0030959460726108475,
+            "ci_high": 0.020141046030419857,
+            "share_positive": 1.0
+          },
+          "spearman_gain": {
+            "draws": 20,
+            "ci_low": 0.010049671713348913,
+            "ci_high": 0.02118724511364837,
+            "share_positive": 1.0
+          }
+        }
+      }
+    },
+    "by_era": {
+      "Mega Evolution": {
+        "eligible": true,
+        "n_cards": 850,
+        "n_sets": 6,
+        "component_over_scarcity": {
+          "n": 850,
+          "base_metrics": {
+            "mae": 0.6123473341628856,
+            "rmse": 0.7628275222911747,
+            "r2": 0.8718093790677401,
+            "spearman": 0.8179308997216117
+          },
+          "richer_metrics": {
+            "mae": 0.6471444124588398,
+            "rmse": 0.7976963731432967,
+            "r2": 0.8598223488032868,
+            "spearman": 0.8164487444119579
+          },
+          "mae_reduction": -0.03479707829595424,
+          "mae_reduction_pct": -5.682572023200505,
+          "rmse_reduction": -0.03486885085212199,
+          "rmse_reduction_pct": -4.571000630311866,
+          "r2_gain": -0.011987030264453358,
+          "spearman_gain": -0.0014821553096537876
+        },
+        "models": {
+          "M2_scarcity": {
+            "n": 850,
+            "n_folds": 6,
+            "mae": 0.6123473341628854,
+            "rmse": 0.7628275222911747,
+            "r2": 0.8718093790677401,
+            "spearman": 0.8179308997216117,
+            "folds": [
+              {
+                "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+                "set_name": "Phantasmal Flames",
+                "n": 115,
+                "centering": {
+                  "v7_increment_over_v6": 0.6373663033224354,
+                  "pull_scarcity": 1.6420279732905783
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.8162680011497447,
+                "rmse": 0.9508962052199038,
+                "r2": 0.72630459381437,
+                "spearman": 0.7885816278011558
+              },
+              {
+                "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+                "set_name": "Pitch Black",
+                "n": 104,
+                "centering": {
+                  "v7_increment_over_v6": 0.6943468359525867,
+                  "pull_scarcity": 1.635827720220326
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5751257483268044,
+                "rmse": 0.7005237460433916,
+                "r2": 0.8851460092071437,
+                "spearman": 0.8698880161857971
+              },
+              {
+                "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+                "set_name": "Chaos Rising",
+                "n": 107,
+                "centering": {
+                  "v7_increment_over_v6": 0.6849698362318118,
+                  "pull_scarcity": 1.6352454986666953
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.46033944677686417,
+                "rmse": 0.6184947424648647,
+                "r2": 0.8998929754879583,
+                "spearman": 0.8501870636636589
+              },
+              {
+                "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+                "set_name": "Perfect Order",
+                "n": 101,
+                "centering": {
+                  "v7_increment_over_v6": 0.8313925506811776,
+                  "pull_scarcity": 1.6149584953304394
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.6524805762258826,
+                "rmse": 0.7872208378843851,
+                "r2": 0.8667760026555377,
+                "spearman": 0.8597331750822762
+              },
+              {
+                "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+                "set_name": "Ascended Heroes",
+                "n": 259,
+                "centering": {
+                  "v7_increment_over_v6": 0.6307267351907788,
+                  "pull_scarcity": 1.5003295578870561
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.6485968201634135,
+                "rmse": 0.8152820937589106,
+                "r2": 0.8674480678149341,
+                "spearman": 0.8840788861590317
+              },
+              {
+                "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+                "set_name": "Mega Evolution",
+                "n": 164,
+                "centering": {
+                  "v7_increment_over_v6": 0.907744927784551,
+                  "pull_scarcity": 1.6067487638283697
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5101701259389126,
+                "rmse": 0.6243248152043294,
+                "r2": 0.9207752112074996,
+                "spearman": 0.8431766306051142
+              }
+            ]
+          },
+          "M3_component_scarcity": {
+            "n": 850,
+            "n_folds": 6,
+            "mae": 0.6471444124588398,
+            "rmse": 0.7976963731432967,
+            "r2": 0.8598223488032868,
+            "spearman": 0.8164487444119579,
+            "folds": [
+              {
+                "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+                "set_name": "Phantasmal Flames",
+                "n": 115,
+                "centering": {
+                  "v7_increment_over_v6": 0.6373663033224354,
+                  "pull_scarcity": 1.6420279732905783
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.811542408520352,
+                "rmse": 0.946214286965845,
+                "r2": 0.7289931414285944,
+                "spearman": 0.789837570012853
+              },
+              {
+                "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+                "set_name": "Pitch Black",
+                "n": 104,
+                "centering": {
+                  "v7_increment_over_v6": 0.6943468359525867,
+                  "pull_scarcity": 1.635827720220326
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5770557349928909,
+                "rmse": 0.7052979337857295,
+                "r2": 0.8835751759147302,
+                "spearman": 0.8739983117949224
+              },
+              {
+                "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+                "set_name": "Chaos Rising",
+                "n": 107,
+                "centering": {
+                  "v7_increment_over_v6": 0.6849698362318118,
+                  "pull_scarcity": 1.6352454986666953
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.47158815548622923,
+                "rmse": 0.6217420653660757,
+                "r2": 0.898839019149395,
+                "spearman": 0.8293067562206665
+              },
+              {
+                "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+                "set_name": "Perfect Order",
+                "n": 101,
+                "centering": {
+                  "v7_increment_over_v6": 0.8313925506811776,
+                  "pull_scarcity": 1.6149584953304394
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.636437488754359,
+                "rmse": 0.7703817814568313,
+                "r2": 0.8724145043933975,
+                "spearman": 0.8584328902435678
+              },
+              {
+                "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+                "set_name": "Ascended Heroes",
+                "n": 259,
+                "centering": {
+                  "v7_increment_over_v6": 0.6307267351907788,
+                  "pull_scarcity": 1.5003295578870561
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.7660714313689262,
+                "rmse": 0.9240641110948828,
+                "r2": 0.8297157575160377,
+                "spearman": 0.875391066088259
+              },
+              {
+                "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+                "set_name": "Mega Evolution",
+                "n": 164,
+                "centering": {
+                  "v7_increment_over_v6": 0.907744927784551,
+                  "pull_scarcity": 1.6067487638283697
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5096277892996586,
+                "rmse": 0.6232882923169397,
+                "r2": 0.9210380556025614,
+                "spearman": 0.8421816427898273
+              }
+            ]
+          }
+        }
+      },
+      "Scarlet and Violet": {
+        "eligible": true,
+        "n_cards": 3133,
+        "n_sets": 16,
+        "component_over_scarcity": {
+          "n": 3133,
+          "base_metrics": {
+            "mae": 0.5762846563531553,
+            "rmse": 0.7848345664678221,
+            "r2": 0.8689998532649525,
+            "spearman": 0.8336999661822116
+          },
+          "richer_metrics": {
+            "mae": 0.574819802406203,
+            "rmse": 0.7830913157653486,
+            "r2": 0.8695811540578733,
+            "spearman": 0.8368847985617711
+          },
+          "mae_reduction": 0.0014648539469522825,
+          "mae_reduction_pct": 0.254189302249026,
+          "rmse_reduction": 0.0017432507024734978,
+          "rmse_reduction_pct": 0.22211696285486812,
+          "r2_gain": 0.0005813007929207359,
+          "spearman_gain": 0.0031848323795594657
+        },
+        "models": {
+          "M2_scarcity": {
+            "n": 3133,
+            "n_folds": 16,
+            "mae": 0.5762846563531553,
+            "rmse": 0.7848345664678221,
+            "r2": 0.8689998532649525,
+            "spearman": 0.8336999661822116,
+            "folds": [
+              {
+                "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+                "set_name": "Journey Together",
+                "n": 173,
+                "centering": {
+                  "v7_increment_over_v6": 0.8983787028077393,
+                  "pull_scarcity": 1.7531696894698519
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5240701483277698,
+                "rmse": 0.6852364703761843,
+                "r2": 0.8430795037232185,
+                "spearman": 0.7423802059581265
+              },
+              {
+                "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+                "set_name": "Paldea Evolved",
+                "n": 260,
+                "centering": {
+                  "v7_increment_over_v6": 0.8903464489268648,
+                  "pull_scarcity": 1.7332514300349138
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5479597702238254,
+                "rmse": 0.7389800853396599,
+                "r2": 0.8872352644150963,
+                "spearman": 0.851386589397825
+              },
+              {
+                "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+                "set_name": "Shrouded Fable",
+                "n": 88,
+                "centering": {
+                  "v7_increment_over_v6": 0.9418308228487005,
+                  "pull_scarcity": 1.7495882725486531
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 1.098798067407965,
+                "rmse": 1.2996017466864576,
+                "r2": 0.6986881786702615,
+                "spearman": 0.8462745504436041
+              },
+              {
+                "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+                "set_name": "Scarlet and Violet Base Set",
+                "n": 228,
+                "centering": {
+                  "v7_increment_over_v6": 0.8879860939689579,
+                  "pull_scarcity": 1.7424186996223896
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.512738152449687,
+                "rmse": 0.6653994669299375,
+                "r2": 0.8680579001975888,
+                "spearman": 0.7375642112003491
+              },
+              {
+                "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+                "set_name": "Black Bolt",
+                "n": 166,
+                "centering": {
+                  "v7_increment_over_v6": 0.8945362670903747,
+                  "pull_scarcity": 1.7243443113662769
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.6364803907346621,
+                "rmse": 0.9122967432546149,
+                "r2": 0.8777081355383,
+                "spearman": 0.8666733837606777
+              },
+              {
+                "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+                "set_name": "Stellar Crown",
+                "n": 163,
+                "centering": {
+                  "v7_increment_over_v6": 0.9656144294862938,
+                  "pull_scarcity": 1.7532531315648772
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5402266652715472,
+                "rmse": 0.7092261867629116,
+                "r2": 0.8544336068235602,
+                "spearman": 0.78023810304665
+              },
+              {
+                "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+                "set_name": "Paradox Rift",
+                "n": 245,
+                "centering": {
+                  "v7_increment_over_v6": 0.8797435340741476,
+                  "pull_scarcity": 1.7327096132694728
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5141790218804114,
+                "rmse": 0.690761894778357,
+                "r2": 0.8859617580380489,
+                "spearman": 0.8390388311099471
+              },
+              {
+                "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+                "set_name": "Prismatic Evolutions",
+                "n": 150,
+                "centering": {
+                  "v7_increment_over_v6": 0.961406253963893,
+                  "pull_scarcity": 1.733537305348982
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.6855746873228872,
+                "rmse": 0.8943335549728911,
+                "r2": 0.8903497856156345,
+                "spearman": 0.93186015941568
+              },
+              {
+                "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+                "set_name": "Temporal Forces",
+                "n": 197,
+                "centering": {
+                  "v7_increment_over_v6": 0.9012540679180598,
+                  "pull_scarcity": 1.7443865035186081
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5255101186134532,
+                "rmse": 0.7250256247139595,
+                "r2": 0.8812833531638773,
+                "spearman": 0.8030593966977176
+              },
+              {
+                "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+                "set_name": "Obsidian Flames",
+                "n": 222,
+                "centering": {
+                  "v7_increment_over_v6": 0.9007408504374735,
+                  "pull_scarcity": 1.7536564182548984
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.39646954763406655,
+                "rmse": 0.5583620530380882,
+                "r2": 0.8540680312182926,
+                "spearman": 0.6998857236046284
+              },
+              {
+                "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+                "set_name": "White Flare",
+                "n": 166,
+                "centering": {
+                  "v7_increment_over_v6": 0.8991072204143902,
+                  "pull_scarcity": 1.7248288919401966
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5716935064199239,
+                "rmse": 0.8819927658728007,
+                "r2": 0.8876484402273606,
+                "spearman": 0.9057471503893488
+              },
+              {
+                "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+                "set_name": "Twilight Masquerade",
+                "n": 202,
+                "centering": {
+                  "v7_increment_over_v6": 0.9092367820464843,
+                  "pull_scarcity": 1.7445300352597537
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.49033730259228564,
+                "rmse": 0.6615859983608776,
+                "r2": 0.8889490069389315,
+                "spearman": 0.8005918652311576
+              },
+              {
+                "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+                "set_name": "Scarlet and Violet 151",
+                "n": 195,
+                "centering": {
+                  "v7_increment_over_v6": 0.9108193273616955,
+                  "pull_scarcity": 1.7521181494287716
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.6309007275864088,
+                "rmse": 0.9036756694188954,
+                "r2": 0.7993750655636577,
+                "spearman": 0.8446845873508619
+              },
+              {
+                "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+                "set_name": "Destined Rivals",
+                "n": 224,
+                "centering": {
+                  "v7_increment_over_v6": 0.9014520551876064,
+                  "pull_scarcity": 1.7422181230005382
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5074118813122268,
+                "rmse": 0.6924395784541593,
+                "r2": 0.8792511539985899,
+                "spearman": 0.8213975143413931
+              },
+              {
+                "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+                "set_name": "Surging Sparks",
+                "n": 224,
+                "centering": {
+                  "v7_increment_over_v6": 0.9858627898158451,
+                  "pull_scarcity": 1.7427124348861005
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.624800273118993,
+                "rmse": 0.8295520660784085,
+                "r2": 0.8299401035273319,
+                "spearman": 0.7558735715286232
+              },
+              {
+                "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+                "set_name": "Paldean Fates",
+                "n": 230,
+                "centering": {
+                  "v7_increment_over_v6": 0.9149139396790457,
+                  "pull_scarcity": 1.7115405058916167
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.7570118016602266,
+                "rmse": 0.9062410849875356,
+                "r2": 0.8104353685979513,
+                "spearman": 0.8855784518842037
+              }
+            ]
+          },
+          "M3_component_scarcity": {
+            "n": 3133,
+            "n_folds": 16,
+            "mae": 0.5748198024062031,
+            "rmse": 0.7830913157653486,
+            "r2": 0.8695811540578733,
+            "spearman": 0.8368847985617711,
+            "folds": [
+              {
+                "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+                "set_name": "Journey Together",
+                "n": 173,
+                "centering": {
+                  "v7_increment_over_v6": 0.8983787028077393,
+                  "pull_scarcity": 1.7531696894698519
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5283885933126254,
+                "rmse": 0.6906728596238523,
+                "r2": 0.8405797392323264,
+                "spearman": 0.7420543483330152
+              },
+              {
+                "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+                "set_name": "Paldea Evolved",
+                "n": 260,
+                "centering": {
+                  "v7_increment_over_v6": 0.8903464489268648,
+                  "pull_scarcity": 1.7332514300349138
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5423145268560564,
+                "rmse": 0.7333134634639563,
+                "r2": 0.8889580311575921,
+                "spearman": 0.8601354701441255
+              },
+              {
+                "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+                "set_name": "Shrouded Fable",
+                "n": 88,
+                "centering": {
+                  "v7_increment_over_v6": 0.9418308228487005,
+                  "pull_scarcity": 1.7495882725486531
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 1.139338323451129,
+                "rmse": 1.3451200568952233,
+                "r2": 0.6772117667715332,
+                "spearman": 0.8448738420250442
+              },
+              {
+                "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+                "set_name": "Scarlet and Violet Base Set",
+                "n": 228,
+                "centering": {
+                  "v7_increment_over_v6": 0.8879860939689579,
+                  "pull_scarcity": 1.7424186996223896
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5105400012365146,
+                "rmse": 0.6580942522758955,
+                "r2": 0.8709390998948286,
+                "spearman": 0.745844806796017
+              },
+              {
+                "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+                "set_name": "Black Bolt",
+                "n": 166,
+                "centering": {
+                  "v7_increment_over_v6": 0.8945362670903747,
+                  "pull_scarcity": 1.7243443113662769
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.6243984570174473,
+                "rmse": 0.902072081917756,
+                "r2": 0.8804339721761208,
+                "spearman": 0.870828627566419
+              },
+              {
+                "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+                "set_name": "Stellar Crown",
+                "n": 163,
+                "centering": {
+                  "v7_increment_over_v6": 0.9656144294862938,
+                  "pull_scarcity": 1.7532531315648772
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5552143781606865,
+                "rmse": 0.715923281181419,
+                "r2": 0.8516715129617337,
+                "spearman": 0.7788712961670796
+              },
+              {
+                "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+                "set_name": "Paradox Rift",
+                "n": 245,
+                "centering": {
+                  "v7_increment_over_v6": 0.8797435340741476,
+                  "pull_scarcity": 1.7327096132694728
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5098731457521801,
+                "rmse": 0.6889956319007657,
+                "r2": 0.8865441989623319,
+                "spearman": 0.8403852648320332
+              },
+              {
+                "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+                "set_name": "Prismatic Evolutions",
+                "n": 150,
+                "centering": {
+                  "v7_increment_over_v6": 0.961406253963893,
+                  "pull_scarcity": 1.733537305348982
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.6864158368627495,
+                "rmse": 0.8918358907293564,
+                "r2": 0.8909613851506326,
+                "spearman": 0.9312181356423016
+              },
+              {
+                "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+                "set_name": "Temporal Forces",
+                "n": 197,
+                "centering": {
+                  "v7_increment_over_v6": 0.9012540679180598,
+                  "pull_scarcity": 1.7443865035186081
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5279151321524213,
+                "rmse": 0.7219039590693466,
+                "r2": 0.882303443633495,
+                "spearman": 0.8061093971453174
+              },
+              {
+                "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+                "set_name": "Obsidian Flames",
+                "n": 222,
+                "centering": {
+                  "v7_increment_over_v6": 0.9007408504374735,
+                  "pull_scarcity": 1.7536564182548984
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.39262985813363654,
+                "rmse": 0.5542323104356603,
+                "r2": 0.8562187245574441,
+                "spearman": 0.7248294800151507
+              },
+              {
+                "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+                "set_name": "White Flare",
+                "n": 166,
+                "centering": {
+                  "v7_increment_over_v6": 0.8991072204143902,
+                  "pull_scarcity": 1.7248288919401966
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5606332619058846,
+                "rmse": 0.8708715726058903,
+                "r2": 0.8904638962859492,
+                "spearman": 0.9112258009762293
+              },
+              {
+                "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+                "set_name": "Twilight Masquerade",
+                "n": 202,
+                "centering": {
+                  "v7_increment_over_v6": 0.9092367820464843,
+                  "pull_scarcity": 1.7445300352597537
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.48635433626436786,
+                "rmse": 0.6598640250183234,
+                "r2": 0.8895263407638783,
+                "spearman": 0.799343426030283
+              },
+              {
+                "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+                "set_name": "Scarlet and Violet 151",
+                "n": 195,
+                "centering": {
+                  "v7_increment_over_v6": 0.9108193273616955,
+                  "pull_scarcity": 1.7521181494287716
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.6220899660584165,
+                "rmse": 0.8991472824715491,
+                "r2": 0.8013807210564163,
+                "spearman": 0.8513644740360157
+              },
+              {
+                "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+                "set_name": "Destined Rivals",
+                "n": 224,
+                "centering": {
+                  "v7_increment_over_v6": 0.9014520551876064,
+                  "pull_scarcity": 1.7422181230005382
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.5188619843893526,
+                "rmse": 0.7008387019217469,
+                "r2": 0.8763040799052365,
+                "spearman": 0.8157481188102602
+              },
+              {
+                "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+                "set_name": "Surging Sparks",
+                "n": 224,
+                "centering": {
+                  "v7_increment_over_v6": 0.9858627898158451,
+                  "pull_scarcity": 1.7427124348861005
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.6146874798551833,
+                "rmse": 0.8159430239876566,
+                "r2": 0.8354740984936433,
+                "spearman": 0.7561956332723467
+              },
+              {
+                "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+                "set_name": "Paldean Fates",
+                "n": 230,
+                "centering": {
+                  "v7_increment_over_v6": 0.9149139396790457,
+                  "pull_scarcity": 1.7115405058916167
+                },
+                "dropped_predictors": [
+                  "is_promo"
+                ],
+                "mae": 0.7482901326518491,
+                "rmse": 0.8973330341511078,
+                "r2": 0.8141437679593428,
+                "spearman": 0.8852358055047282
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

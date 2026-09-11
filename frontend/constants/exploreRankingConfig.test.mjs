@@ -163,7 +163,6 @@ test("no mode publishes retired public vocabulary", () => {
   const forbidden = [
     /God Pull/i,
     /GOD PULL/,
-    /RIP Score/,
     /Relative RIP Index/,
     /Financial Quality/,
     /Opening Desirability/,
@@ -178,8 +177,8 @@ test("no mode publishes retired public vocabulary", () => {
   }
 });
 
-test("the canonical modes are labelled Overall RIP and Financial RIP", () => {
-  assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "OVERALL RIP");
+test("the canonical modes are labelled RIP Score and Financial RIP", () => {
+  assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "RIP SCORE");
   assert.equal(EXPLORE_RANKING_MODES.financial.scoreLabel, "FINANCIAL RIP");
   assert.equal(EXPLORE_RANKING_MODES.financial.label, "Financial RIP");
 });

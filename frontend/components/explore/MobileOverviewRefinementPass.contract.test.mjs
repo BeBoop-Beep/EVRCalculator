@@ -191,7 +191,7 @@ test("scores, tiers and ranks are read straight off the shared view model", () =
 });
 
 test("Decision Signals renders three explicit groups with stable row feeds", () => {
-  assert.ok(compactList.includes('groupLabel("OVERALL RIP")'));
+  assert.ok(compactList.includes('groupLabel("RIP SCORE")'));
   assert.ok(compactList.includes('groupLabel("CORE")'));
   assert.ok(compactList.includes('groupLabel("ALSO TRACKED")'));
   assert.ok(compactList.includes("overallRows.map(renderRow)"));

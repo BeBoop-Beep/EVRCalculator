@@ -6,8 +6,8 @@ const test = require("node:test");
 const source = fs.readFileSync(path.join(__dirname, "ExploreTableClient.jsx"), "utf8");
 const projection = fs.readFileSync(path.join(__dirname, "../../lib/explore/rankingsClientProjection.mjs"), "utf8");
 
-test("Set Rankings renders Overall plus three peer metric fields", () => {
-  for (const label of ["Overall RIP", "Financial RIP", "Chase Accessibility", "Collector Appeal"])
+test("Set Rankings renders RIP Score plus three peer metric fields", () => {
+  for (const label of ["RIP Score", "Financial RIP", "Chase Accessibility", "Collector Appeal"])
     assert.match(source, new RegExp(label));
 });
 

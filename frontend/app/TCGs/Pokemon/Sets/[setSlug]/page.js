@@ -23,7 +23,7 @@ export async function generateMetadata({ params }) {
     return buildRouteMetadata({
       path: SETS_BASE_PATH,
       title: "Pokémon TCG Set Catalog — inDex",
-      description: "Browse Pokémon TCG sets and open one for its Overall RIP and opening analysis.",
+      description: "Browse Pokémon TCG sets and open one for its RIP Score and opening analysis.",
     });
   }
 
@@ -40,17 +40,17 @@ export async function generateMetadata({ params }) {
   if (!setName) {
     return buildRouteMetadata({
       path: canonicalPath,
-      title: "Pokémon Set Overall RIP & Opening Analysis — inDex",
-      description: "Overall RIP, Financial RIP, Chase Accessibility, Collector Appeal and modeled opening outcomes for this Pokémon set.",
+      title: "Pokémon Set RIP Score & Opening Analysis — inDex",
+      description: "RIP Score, Financial RIP, Chase Accessibility, Collector Appeal and modeled opening outcomes for this Pokémon set.",
     });
   }
 
   return buildRouteMetadata({
     path: canonicalPath,
-    title: `${setName} Overall RIP, Expected Value & Opening Analysis — inDex`,
-    description: `Is ${setName} worth ripping? See its Overall RIP, Financial RIP, Chase Accessibility, Collector Appeal, expected value and modeled opening outcomes on inDex.`,
-    ogTitle: `${setName} — Overall RIP & Opening Analysis`,
-    ogDescription: `Overall RIP, Financial RIP, Chase Accessibility, Collector Appeal and modeled pack outcomes for ${setName}.`,
+    title: `${setName} RIP Score, Expected Value & Opening Analysis — inDex`,
+    description: `Is ${setName} worth ripping? See its RIP Score, Financial RIP, Chase Accessibility, Collector Appeal, expected value and modeled opening outcomes on inDex.`,
+    ogTitle: `${setName} — RIP Score & Opening Analysis`,
+    ogDescription: `RIP Score, Financial RIP, Chase Accessibility, Collector Appeal and modeled pack outcomes for ${setName}.`,
   });
 }
 
