@@ -45,6 +45,12 @@ def test_active_incident_fingerprint_is_partial_unique():
     assert "where status in ('open','recovering','escalated')" in LOWER
 
 
+def test_component_heartbeat_is_latest_state_not_append_only_history():
+    assert "create table public.sentinel_component_heartbeats" in LOWER
+    assert "primary key (component, host)" in LOWER
+    assert "sentinel_component_heartbeats_at_idx" in LOWER
+
+
 def test_proposal_is_explicitly_non_deployed():
     assert "proposal only" in LOWER
     assert "does not apply this sql to production" in LOWER
