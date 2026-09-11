@@ -1,14 +1,18 @@
-"""Operational runner for Sentinel authority, public, and watcher profiles."""
+"""Operational runner for Sentinel observation and gated P6 recovery profiles."""
 
 from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 from backend.sentinel.checks.registry import build_profile_registry
 from backend.sentinel.config import SentinelConfig
 from backend.sentinel.deadman import ping_deadman
+from backend.sentinel.models import RunnerIdentity
+from backend.sentinel.recovery.engine import RecoveryRegistry, RecoveryRunner
+from backend.sentinel.recovery.runbooks import build_safe_recovery_registry
 from backend.sentinel.runner import run_once
 from backend.sentinel.state import (
     NoopStateStore,
@@ -19,6 +23,7 @@ from backend.sentinel.state import (
 
 
 _PUBLIC_PROFILES = {"public", "all"}
+_RECOVERY_PROFILES = {"fast", "all"}
 
 
 def _state_store(
@@ -51,6 +56,83 @@ def _state_store(
     return build_state_store(True)
 
 
+def _parsed_utc(value: str) -> datetime:
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _run_recovery_pass(
+    summary: dict,
+    *,
+    check_registry,
+    store: SentinelStateStore,
+    recovery_registry: RecoveryRegistry,
+) -> dict:
+    runner_data = dict(summary.get("runner") or {})
+    identity = RunnerIdentity(
+        component=str(runner_data.get("component") or "unknown"),
+        host=str(runner_data.get("host") or "unknown"),
+        build_sha=str(runner_data.get("build_sha") or "unknown"),
+    )
+    now = _parsed_utc(summary["checked_at"])
+    runner = RecoveryRunner(store, recovery_registry)
+    reports = []
+    failed_keys = set()
+    recovered_keys = set()
+
+    for rendered in list(summary.get("results") or []):
+        check = dict(rendered.get("check") or {})
+        if check.get("outcome") == "healthy":
+            continue
+        check_key = str(check.get("check_key") or "")
+        if check_key:
+            failed_keys.add(check_key)
+        transition = dict(rendered.get("transition") or {})
+        incident_id = transition.get("incident_id")
+        if not incident_id:
+            # A SUSPECT failure has not met its confirmation threshold and may
+            # never trigger mutation.
+            continue
+        incident = store.get_incident(str(incident_id))
+        if incident is None:
+            reports.append(
+                {
+                    "action": "blocked",
+                    "reason_code": "incident_state_missing",
+                    "incident_id": str(incident_id),
+                    "check_key": check_key,
+                }
+            )
+            continue
+        registered = check_registry.get(check_key)
+        report = runner.attempt(
+            incident,
+            registered,
+            identity=identity,
+            now=now,
+        )
+        reports.append(report)
+        if report.get("action") == "recovered":
+            recovered_keys.add(check_key)
+
+    if failed_keys and failed_keys.issubset(recovered_keys):
+        summary["healthy"] = True
+        summary["status"] = "recovered"
+
+    return {
+        "enabled": True,
+        "allowlist": [
+            {"check_key": check_key, "failure_code": failure_code}
+            for check_key, failure_code in recovery_registry.matches()
+        ],
+        "attempts": reports,
+        "recovered_check_keys": sorted(recovered_keys),
+        "unrecovered_check_keys": sorted(failed_keys - recovered_keys),
+    }
+
+
 def run_profile(
     profile: str,
     *,
@@ -59,6 +141,7 @@ def run_profile(
     http_get: Optional[Callable[..., Any]] = None,
     deadman_get: Optional[Callable[..., Any]] = None,
     store: Optional[SentinelStateStore] = None,
+    recovery_registry: Optional[RecoveryRegistry] = None,
 ):
     resolved = config or SentinelConfig.from_env()
     resolved.validate_kernel_v1()
@@ -70,6 +153,10 @@ def run_profile(
     if normalized == "independent" and not resolved.watch_host:
         raise RuntimeError(
             "SENTINEL_WATCH_HOST is required for the independent Sentinel profile"
+        )
+    if resolved.recovery_enabled and normalized not in _RECOVERY_PROFILES:
+        raise RuntimeError(
+            "P6 recovery is only supported for the fast or all Sentinel profile"
         )
 
     resolved_store = _state_store(resolved, client=client, store=store)
@@ -85,10 +172,26 @@ def run_profile(
     )
     summary = run_once(registry, config=resolved, store=resolved_store)
 
+    if resolved.recovery_enabled:
+        safe_registry = recovery_registry or build_safe_recovery_registry(client=client)
+        summary["recovery"] = _run_recovery_pass(
+            summary,
+            check_registry=registry,
+            store=resolved_store,
+            recovery_registry=safe_registry,
+        )
+    else:
+        summary["recovery"] = {
+            "enabled": False,
+            "allowlist": [],
+            "attempts": [],
+            "recovered_check_keys": [],
+            "unrecovered_check_keys": [],
+        }
+
     # A dead-man ping proves that a Sentinel cycle reached completion. It is
-    # intentionally sent whether semantic checks passed or failed; missing pings
-    # mean the watcher itself stopped running/completing, not merely that one
-    # monitored business surface is unhealthy.
+    # intentionally sent whether semantic checks passed, failed, or recovered;
+    # missing pings mean the watcher itself stopped running/completing.
     deadman = ping_deadman(
         resolved.deadman_ping_url,
         timeout_seconds=resolved.deadman_timeout_seconds,
@@ -97,7 +200,7 @@ def run_profile(
     summary["deadman"] = deadman.to_dict()
     if deadman.configured and not deadman.delivered:
         summary["healthy"] = False
-        if summary.get("status") == "healthy":
+        if summary.get("status") in {"healthy", "recovered"}:
             summary["status"] = "deadman_delivery_failed"
     return summary
 
