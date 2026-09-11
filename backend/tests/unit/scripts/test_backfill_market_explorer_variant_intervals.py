@@ -1,7 +1,4 @@
-from backend.scripts.backfill_market_explorer_variant_intervals import (
-    decode_cursor,
-    run_backfill,
-)
+from backend.scripts import backfill_market_explorer_variant_intervals as backfill
 
 
 class Response:
@@ -16,110 +13,117 @@ class Query:
         self.name = name
         self.params = params or {}
         self.filters = {}
+        self.start = 0
+        self.end = 999
 
-    def select(self, *_args, **_kwargs):
-        return self
-
-    def order(self, *_args, **_kwargs):
-        return self
-
+    def select(self, *_args, **_kwargs): return self
+    def order(self, *_args, **_kwargs): return self
     def in_(self, field, values):
         self.filters[field] = list(values)
         return self
-
     def range(self, start, end):
         self.start, self.end = start, end
         return self
 
     def execute(self):
-        if self.kind == "rpc" and self.name == "get_pokemon_canonical_card_variant_authority":
-            set_id = self.params["p_set_ids"][0]
-            rows = [{"card_variant_id": value} for value in self.client.authority.get(set_id, [])]
-        elif self.kind == "rpc":
-            batch = self.params["p_card_variant_ids"]
-            self.client.writes.append(list(batch))
-            rows = sum(len(self.client.intervals.get(value, [])) for value in batch)
-            return Response(rows)
-        elif self.name == "sets":
-            rows = [{"id": value} for value in self.client.set_ids]
-        else:
-            requested = self.filters["card_variant_id"]
+        if self.kind == "rpc":
+            requested = list(self.params["p_set_ids"])
+            self.client.writes.append(requested)
+            rows = sum(self.client.interval_counts.get(set_id, 0) for set_id in requested)
+            return Response({"set_count": len(requested), "interval_rows": rows})
+        if self.name == backfill.V2_COVERAGE_TABLE:
+            rows = [{"set_id": value} for value in self.client.covered]
+        elif self.name == backfill.V2_INTERVAL_TABLE:
+            requested = self.filters.get("set_id", [])
             rows = [
-                {"observation_id": observation, "card_variant_id": variant}
-                for variant in requested for observation in self.client.intervals.get(variant, [])
+                {"set_id": set_id, "card_variant_id": f"{set_id}-v{index}", "valid_from": "2026-09-01"}
+                for set_id in requested
+                for index in range(self.client.interval_counts.get(set_id, 0))
             ]
+        elif self.name == backfill.SETS_TABLE:
+            rows = [{"id": value, "era_id": "era-a"} for value in self.client.set_ids]
+        else:
+            raise AssertionError(self.name)
         return Response(rows[self.start:self.end + 1])
 
 
 class Client:
     def __init__(self):
-        self.set_ids = ["set-a", "set-b"]
-        self.authority = {"set-a": ["v1", "v2", "v3"], "set-b": ["v4"]}
-        self.intervals = {"v1": ["o1", "o2"], "v2": [], "v3": ["o3"], "v4": ["o4"]}
+        self.set_ids = ["set-a", "set-b", "set-c"]
+        self.interval_counts = {"set-a": 2, "set-b": 1, "set-c": 3}
+        self.covered = {"set-a"}
         self.writes = []
 
     def rpc(self, name, params):
+        assert name == backfill.V2_REBUILD_RPC
         return Query(self, "rpc", name, params)
 
     def table(self, name):
         return Query(self, "table", name)
 
 
-def test_dry_run_plans_deterministically_and_performs_no_writes():
+def _tracked(_client):
+    return ["set-a", "set-b", "set-c"]
+
+
+def test_dry_run_plans_set_batches_without_writes(monkeypatch):
+    monkeypatch.setattr(backfill, "resolve_tracked_set_ids", _tracked)
     client = Client()
-    report = run_backfill(client, commit=False, batch_size=2)
+    report = backfill.run_backfill(client, commit=False, batch_size=2)
     assert client.writes == []
-    assert report["variants_attempted"] == 4
-    assert report["variants_succeeded"] == 4
-    assert report["batches_succeeded"] == 3
+    assert report["sets_attempted"] == 3
+    assert report["sets_succeeded"] == 3
+    assert report["batches_succeeded"] == 2
     assert report["interval_rows_created"] == 0
-    assert report["dry_run"] is True
 
 
-def test_commit_reports_interval_and_empty_history_reconciliation():
+def test_commit_rebuilds_and_exactly_reconciles_v2_interval_rows(monkeypatch):
+    monkeypatch.setattr(backfill, "resolve_tracked_set_ids", _tracked)
     client = Client()
-    report = run_backfill(client, commit=True, batch_size=2, set_ids=["set-a"])
-    assert client.writes == [["v1", "v2"], ["v3"]]
+    report = backfill.run_backfill(
+        client, commit=True, batch_size=2, set_ids=["set-a", "set-b"],
+    )
+    assert client.writes == [["set-a", "set-b"]]
     assert report["interval_rows_created"] == 3
-    assert report["empty_history_variants"] == 1
-    assert report["variants_with_history"] == 2
-    assert report["variants_with_history"] + report["empty_history_variants"] == report["variants_succeeded"]
+    assert report["sets_succeeded"] == 2
     assert report["failures"] == 0
 
 
-def test_resume_cursor_skips_completed_batches_without_global_delete():
+def test_resume_cursor_is_set_scoped(monkeypatch):
+    monkeypatch.setattr(backfill, "resolve_tracked_set_ids", _tracked)
     client = Client()
-    report = run_backfill(
-        client, commit=True, batch_size=2, resume_after="set-a:v2",
+    report = backfill.run_backfill(
+        client, commit=True, batch_size=1, resume_after="set-a:legacy-variant",
     )
-    assert client.writes == [["v3"], ["v4"]]
-    assert report["variants_attempted"] == 2
-    assert decode_cursor(report["resume_cursor"]) == ("set-b", "v4")
+    assert client.writes == [["set-b"], ["set-c"]]
+    assert report["resume_cursor"] == "set-c"
+    assert backfill.decode_cursor("set-a:legacy-variant") == "set-a"
 
 
-def test_rerunning_the_same_batch_is_idempotent_from_the_operator_view():
+def test_exclude_covered_uses_v2_coverage(monkeypatch):
+    monkeypatch.setattr(backfill, "resolve_tracked_set_ids", _tracked)
     client = Client()
-    first = run_backfill(client, commit=True, batch_size=10, set_ids=["set-a"])
-    second = run_backfill(client, commit=True, batch_size=10, set_ids=["set-a"])
-    assert first["interval_rows_created"] == second["interval_rows_created"] == 3
-    assert client.writes == [["v1", "v2", "v3"], ["v1", "v2", "v3"]]
+    report = backfill.run_backfill(
+        client, commit=False, batch_size=10, exclude_covered=True,
+    )
+    assert report["sets_attempted"] == 2
 
 
-def test_failed_batch_does_not_advance_cursor_past_the_failure():
+def test_failed_batch_does_not_advance_cursor(monkeypatch):
+    monkeypatch.setattr(backfill, "resolve_tracked_set_ids", _tracked)
     client = Client()
     original_rpc = client.rpc
 
     def rpc(name, params):
         query = original_rpc(name, params)
-        if name == "refresh_pokemon_card_variant_market_price_intervals" and "v3" in params["p_card_variant_ids"]:
+        if "set-b" in params["p_set_ids"]:
             def fail():
                 raise RuntimeError("statement timeout")
             query.execute = fail
         return query
 
     client.rpc = rpc
-    report = run_backfill(client, commit=True, batch_size=2)
-    assert client.writes == [["v1", "v2"]]
+    report = backfill.run_backfill(client, commit=True, batch_size=1)
+    assert client.writes == [["set-a"]]
     assert report["failures"] == 1
-    assert report["resume_cursor"] == "set-a:v2"
-    assert report["variants_succeeded"] == 2
+    assert report["resume_cursor"] == "set-a"

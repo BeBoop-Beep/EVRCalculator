@@ -431,7 +431,6 @@ COHORT_RPC = "get_pokemon_market_explorer_daily_cohort"
 BATCHED_CONSTITUENT_RPC = "get_pokemon_cards_daily_constituents"
 FILTERED_COHORT_RPC = "get_pokemon_market_explorer_filtered_cohort"
 DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_daily"
-V1_DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_daily_candidate"
 V2_DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_v2_shadow"
 V2_INTERVAL_FALLBACK_RPC = "get_pokemon_market_explorer_filtered_cohort_v2_interval_shadow"
 MATERIALIZED_SERIES_RPC = "get_pokemon_market_explorer_filtered_cohort_materialized_series"
@@ -445,54 +444,42 @@ _RPC_MAX_ROWS_PER_RESPONSE = 1000
 #: rather than from the caller's date range.
 COHORT_CHUNK_DAYS = 30
 DAILY_PROJECTION_SET_BATCH_SIZE = 5
-V1_MATERIALIZED_CHUNK_DAYS = 3
 V2_MATERIALIZED_CHUNK_DAYS = 3
 
 
 def resolve_materialized_history_route(
     client: Any, set_ids: Sequence[str], *, start_date: str, end_date: str,
 ) -> tuple[str, str | None]:
-    """Choose V1/V2 materialized history, falling back only on real gaps."""
+    """Choose bounded V2 daily materialization or V2 interval fallback.
+
+    V1 daily-state storage is retired. Every requested set must have V2
+    coverage through ``end_date`` and the requested start must be inside
+    the retained V2 daily window; otherwise the complete range is rebuilt
+    point-in-time from V2 interval authority.
+    """
     wanted = {str(value) for value in set_ids}
     if not wanted:
         return "interval_fallback", None
     try:
-        v1_rows = list((client.table("pokemon_market_explorer_card_daily_coverage")
-                        .select("set_id,computed_through").in_("set_id", sorted(wanted))
-                        .execute()).data or [])
-        v2_rows = list((client.table(V2_COVERAGE_TABLE)
-                        .select("set_id,retained_from,computed_through")
-                        .in_("set_id", sorted(wanted)).execute()).data or [])
-        v1_current = {
-            str(row.get("set_id")) for row in v1_rows
-            if str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
-        } == wanted
-        v2_current = {
-            str(row.get("set_id")) for row in v2_rows
-            if str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
-        } == wanted
-        retained = [str(row.get("retained_from") or "")[:10] for row in v2_rows
-                    if row.get("retained_from")]
-        bridge = None
-        if v2_current and len(retained) == len(wanted):
-            boundary = max(retained)
-            approved = list((client.table("pokemon_market_date_quality")
-                             .select("market_date").eq("tcg", "pokemon")
-                             .in_("status", ["READY", "LEGACY_VERIFIED"])
-                             .gte("market_date", boundary).order("market_date")
-                             .limit(1).execute()).data or [])
-            bridge = str(approved[0].get("market_date") or "")[:10] if approved else None
-        if bridge and str(start_date)[:10] >= bridge:
-            return "v2_daily", bridge
-        if bridge and str(end_date)[:10] <= bridge and v1_current:
-            return "v1_daily", bridge
-        if bridge and v1_current and str(start_date)[:10] < bridge < str(end_date)[:10]:
-            return "materialized_hybrid", bridge
-        if v1_current:
-            return "v1_daily", bridge
+        rows = list((client.table(V2_COVERAGE_TABLE)
+                     .select("set_id,retained_from,computed_through")
+                     .in_("set_id", sorted(wanted)).execute()).data or [])
+        by_id = {str(row.get("set_id")): row for row in rows if row.get("set_id")}
+        if set(by_id) != wanted:
+            return "interval_fallback", None
+        if any(str((by_id[set_id] or {}).get("computed_through") or "")[:10]
+               < str(end_date)[:10] for set_id in wanted):
+            return "interval_fallback", None
+        retained = [str((by_id[set_id] or {}).get("retained_from") or "")[:10]
+                    for set_id in wanted]
+        if any(not value for value in retained):
+            return "interval_fallback", None
+        boundary = max(retained)
+        if str(start_date)[:10] >= boundary:
+            return "v2_daily", boundary
+        return "interval_fallback", boundary
     except Exception:
-        pass
-    return "interval_fallback", None
+        return "interval_fallback", None
 
 
 def load_filtered_daily_cohort_rows(
@@ -542,9 +529,7 @@ def load_filtered_daily_cohort_rows(
     # boundary) automatically gets the conservative chunking; a range that is
     # daily-projection-covered automatically keeps the efficient one. Neither
     # path needs to know where that boundary currently sits.
-    if rpc_name == V1_DAILY_PROJECTION_RPC:
-        chunk_days = min(int(chunk_days), V1_MATERIALIZED_CHUNK_DAYS)
-    elif rpc_name == V2_DAILY_PROJECTION_RPC:
+    if rpc_name == V2_DAILY_PROJECTION_RPC:
         chunk_days = min(int(chunk_days), V2_MATERIALIZED_CHUNK_DAYS)
     elif rpc_name == DAILY_PROJECTION_RPC:
         # Live evidence (this session, recovering the Global All Raw
@@ -560,7 +545,7 @@ def load_filtered_daily_cohort_rows(
         chunk_days = min(int(chunk_days), max(1, 70 // max(1, statement_set_count)))
     else:
         chunk_days = min(int(chunk_days), max(1, 60 // max(1, len(set_ids))))
-    if (rpc_name in (V1_DAILY_PROJECTION_RPC, V2_DAILY_PROJECTION_RPC)
+    if (rpc_name == V2_DAILY_PROJECTION_RPC
             and len(set_ids) > 100
             and (price_segment_ids or release_age_cohort_ids)):
         chunk_days = 1
@@ -597,10 +582,10 @@ def load_filtered_daily_cohort_rows(
         for set_batch in set_batches:
             batch_payload = {**payload, "p_set_ids": [str(value) for value in set_batch]}
             call_rpc = rpc_name
-            if (rpc_name in (V1_DAILY_PROJECTION_RPC, V2_DAILY_PROJECTION_RPC)
+            if (rpc_name == V2_DAILY_PROJECTION_RPC
                     and (chunk_end < last or not include_latest_basket)):
                 call_rpc = MATERIALIZED_SERIES_RPC
-                batch_payload["p_use_v2"] = rpc_name == V2_DAILY_PROJECTION_RPC
+                batch_payload["p_use_v2"] = True
             batch_pages.append(list(getattr(
                 client.rpc(call_rpc, batch_payload).execute(), "data", None,
             ) or []))
@@ -667,26 +652,24 @@ def load_filtered_daily_cohort_rows(
 
 def daily_projection_covers(client: Any, set_ids: Sequence[str], *,
                             start_date: str, end_date: str) -> bool:
-    """Fail closed unless every set has complete projection coverage."""
+    """True only when V2 daily coverage contains the entire requested range."""
     wanted = {str(value) for value in set_ids}
     if not wanted:
         return False
     try:
-        rows = list((client.table("pokemon_market_explorer_card_daily_coverage")
-                     .select("set_id,first_market_date,computed_through")
+        rows = list((client.table(V2_COVERAGE_TABLE)
+                     .select("set_id,retained_from,computed_through")
                      .in_("set_id", sorted(wanted)).execute()).data or [])
     except Exception:
         return False
-    # ``first_market_date`` is the first authoritative state this individual
-    # set can contribute.  A later-starting set must not suppress valid earlier
-    # history from the other requested sets.  Completeness therefore depends
-    # only on every requested set having a coverage row current through the
-    # requested end date.
-    covered = {
-        str(row.get("set_id")) for row in rows
-        if str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
-    }
-    return covered == wanted
+    by_id = {str(row.get("set_id")): row for row in rows if row.get("set_id")}
+    if set(by_id) != wanted:
+        return False
+    return all(
+        str((by_id[set_id] or {}).get("retained_from") or "")[:10] <= str(start_date)[:10]
+        and str((by_id[set_id] or {}).get("computed_through") or "")[:10] >= str(end_date)[:10]
+        for set_id in wanted
+    )
 
 
 def _is_statement_timeout(exc: Exception) -> bool:
@@ -1230,28 +1213,14 @@ def run_market_explorer_query(
         "price_segment_ids": spec["priceSegmentIds"],
         "release_age_cohort_ids": spec["releaseAgeCohortIds"], "top_n": spec["topN"],
     }
-    if execution_engine == "materialized_hybrid" and bridge_date:
-        v1_rows, _v1_basket = load_filtered_daily_cohort_rows(
-            client, scope_set_ids, start_date=effective_start, end_date=bridge_date,
-            rpc_name=V1_DAILY_PROJECTION_RPC, include_latest_basket=False, **load_kwargs,
-        )
-        v2_rows, basket_rows = load_filtered_daily_cohort_rows(
-            client, scope_set_ids, start_date=bridge_date, end_date=effective_end,
-            rpc_name=V2_DAILY_PROJECTION_RPC, **load_kwargs,
-        )
-        cohort_rows = v1_rows + [
-            row for row in v2_rows if str(row.get("marketDate"))[:10] > bridge_date
-        ]
-    else:
-        rpc_by_engine = {
-            "v1_daily": V1_DAILY_PROJECTION_RPC,
-            "v2_daily": V2_DAILY_PROJECTION_RPC,
-            "interval_fallback": V2_INTERVAL_FALLBACK_RPC,
-        }
-        cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
-            client, scope_set_ids, start_date=effective_start, end_date=effective_end,
-            rpc_name=rpc_by_engine[execution_engine], **load_kwargs,
-        )
+    rpc_by_engine = {
+        "v2_daily": V2_DAILY_PROJECTION_RPC,
+        "interval_fallback": V2_INTERVAL_FALLBACK_RPC,
+    }
+    cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
+        client, scope_set_ids, start_date=effective_start, end_date=effective_end,
+        rpc_name=rpc_by_engine[execution_engine], **load_kwargs,
+    )
     if not cohort_rows:
         raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
     for row in basket_rows:
