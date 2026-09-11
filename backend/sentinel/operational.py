@@ -92,8 +92,6 @@ def _run_recovery_pass(
         transition = dict(rendered.get("transition") or {})
         incident_id = transition.get("incident_id")
         if not incident_id:
-            # A SUSPECT failure has not met its confirmation threshold and may
-            # never trigger mutation.
             continue
         incident = store.get_incident(str(incident_id))
         if incident is None:
@@ -142,6 +140,8 @@ def run_profile(
     deadman_get: Optional[Callable[..., Any]] = None,
     store: Optional[SentinelStateStore] = None,
     recovery_registry: Optional[RecoveryRegistry] = None,
+    git_runner=None,
+    manifest_loader=None,
 ):
     resolved = config or SentinelConfig.from_env()
     resolved.validate_kernel_v1()
@@ -154,22 +154,55 @@ def run_profile(
         raise RuntimeError(
             "SENTINEL_WATCH_HOST is required for the independent Sentinel profile"
         )
+    if normalized == "deploy":
+        missing = []
+        if not resolved.backend_base_url:
+            missing.append("SENTINEL_BACKEND_BASE_URL")
+        if not resolved.frontend_base_url:
+            missing.append("SENTINEL_FRONTEND_BASE_URL")
+        if not resolved.expected_release_sha:
+            missing.append("SENTINEL_EXPECTED_RELEASE_SHA")
+        if missing:
+            raise RuntimeError(
+                "deploy Sentinel profile requires explicit release authority: "
+                + ", ".join(missing)
+            )
+    if normalized == "runtime":
+        missing = []
+        if not resolved.runtime_repo_path:
+            missing.append("SENTINEL_RUNTIME_REPO_PATH")
+        if not resolved.runtime_overlay_manifest_path:
+            missing.append("SENTINEL_RUNTIME_OVERLAY_MANIFEST")
+        if missing:
+            raise RuntimeError(
+                "runtime Sentinel profile requires explicit VM provenance authority: "
+                + ", ".join(missing)
+            )
     if resolved.recovery_enabled and normalized not in _RECOVERY_PROFILES:
         raise RuntimeError(
             "P6 recovery is only supported for the fast or all Sentinel profile"
         )
 
     resolved_store = _state_store(resolved, client=client, store=store)
-    registry = build_profile_registry(
-        normalized,
+    profile_kwargs = dict(
         client=client,
         backend_base_url=resolved.backend_base_url,
+        frontend_base_url=resolved.frontend_base_url,
+        expected_release_sha=resolved.expected_release_sha,
+        expected_release_branch=resolved.expected_release_branch,
+        expected_frontend_environment=resolved.expected_frontend_environment,
         http_get=http_get,
         timeout_seconds=resolved.public_http_timeout_seconds,
         watch_component=resolved.watch_component,
         watch_host=resolved.watch_host,
         heartbeat_max_age_seconds=resolved.heartbeat_max_age_seconds,
+        runtime_repo_path=resolved.runtime_repo_path,
+        runtime_overlay_manifest_path=resolved.runtime_overlay_manifest_path,
+        git_runner=git_runner,
     )
+    if manifest_loader is not None:
+        profile_kwargs["manifest_loader"] = manifest_loader
+    registry = build_profile_registry(normalized, **profile_kwargs)
     summary = run_once(registry, config=resolved, store=resolved_store)
 
     if resolved.recovery_enabled:
@@ -189,9 +222,6 @@ def run_profile(
             "unrecovered_check_keys": [],
         }
 
-    # A dead-man ping proves that a Sentinel cycle reached completion. It is
-    # intentionally sent whether semantic checks passed, failed, or recovered;
-    # missing pings mean the watcher itself stopped running/completing.
     deadman = ping_deadman(
         resolved.deadman_ping_url,
         timeout_seconds=resolved.deadman_timeout_seconds,
@@ -209,11 +239,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--profile",
-        choices=("fast", "public", "independent", "audit", "all"),
+        choices=("fast", "public", "independent", "deploy", "runtime", "audit", "all"),
         default="fast",
         help=(
             "Profile to evaluate. Independent must run outside the watched "
-            "component's failure domain; audit is intentionally heavier."
+            "component's failure domain; deploy/runtime require explicit authority; "
+            "audit is intentionally heavier."
         ),
     )
     parser.add_argument(
@@ -227,8 +258,12 @@ def main() -> int:
         registry = build_profile_registry(
             args.profile,
             client=object(),
-            backend_base_url="https://sentinel.invalid",
+            backend_base_url="https://backend.sentinel.invalid",
+            frontend_base_url="https://frontend.sentinel.invalid",
+            expected_release_sha="0" * 40,
             watch_host="watched-host.invalid",
+            runtime_repo_path="/sentinel/invalid",
+            runtime_overlay_manifest_path="/sentinel/invalid/manifest.json",
         )
         print(
             json.dumps(
