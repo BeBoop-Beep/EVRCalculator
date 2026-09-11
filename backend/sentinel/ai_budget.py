@@ -8,7 +8,7 @@ in code and cannot be raised by environment configuration.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Mapping, Optional, Protocol
 
@@ -23,11 +23,7 @@ class AiBudgetDecision:
     estimated_cost_cents: int
     configured_budget_cents: int
     hard_cap_cents: int = AI_HARD_MONTHLY_CAP_CENTS
-    ledger_metadata: Mapping[str, Any] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.ledger_metadata is None:
-            object.__setattr__(self, "ledger_metadata", {})
+    ledger_metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -170,7 +166,11 @@ class AiBudgetGuard:
         }
         return AiBudgetDecision(
             allowed,
-            "ai_budget_reserved" if allowed else str(raw.get("reason_code") or "ai_budget_reservation_denied"),
+            (
+                "ai_budget_reserved"
+                if allowed
+                else str(raw.get("reason_code") or "ai_budget_reservation_denied")
+            ),
             estimate,
             self.configured_budget_cents,
             ledger_metadata=metadata,
