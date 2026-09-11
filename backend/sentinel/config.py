@@ -37,6 +37,9 @@ class SentinelConfig:
     deployed. P6 recovery requires a THIRD, separate execution-readiness gate.
     This keeps recovery code testable without making production mutation a
     side effect of merely enabling Sentinel persistence. AI remains disabled.
+
+    P7 deployment/runtime canaries are detection-only and require explicit
+    release/runtime authority inputs; they never infer what SHOULD be deployed.
     """
 
     state_writes_enabled: bool = False
@@ -47,7 +50,13 @@ class SentinelConfig:
     fail_on_no_checks: bool = True
     component: str = "sentinel_vm"
     backend_base_url: str = ""
+    frontend_base_url: str = ""
     public_http_timeout_seconds: float = 12.0
+    expected_release_sha: str = ""
+    expected_release_branch: str = "main"
+    expected_frontend_environment: str = "production"
+    runtime_repo_path: str = ""
+    runtime_overlay_manifest_path: str = ""
     watch_component: str = "sentinel_vm"
     watch_host: str = ""
     heartbeat_max_age_seconds: int = 15 * 60
@@ -65,7 +74,20 @@ class SentinelConfig:
             fail_on_no_checks=_env_true("SENTINEL_FAIL_ON_NO_CHECKS", "true"),
             component=os.getenv("SENTINEL_COMPONENT", "sentinel_vm").strip() or "sentinel_vm",
             backend_base_url=os.getenv("SENTINEL_BACKEND_BASE_URL", "").strip().rstrip("/"),
+            frontend_base_url=os.getenv("SENTINEL_FRONTEND_BASE_URL", "").strip().rstrip("/"),
             public_http_timeout_seconds=_env_float("SENTINEL_PUBLIC_HTTP_TIMEOUT_SECONDS", 12.0),
+            expected_release_sha=os.getenv("SENTINEL_EXPECTED_RELEASE_SHA", "").strip(),
+            expected_release_branch=(
+                os.getenv("SENTINEL_EXPECTED_RELEASE_BRANCH", "main").strip() or "main"
+            ),
+            expected_frontend_environment=(
+                os.getenv("SENTINEL_EXPECTED_FRONTEND_ENVIRONMENT", "production").strip()
+                or "production"
+            ),
+            runtime_repo_path=os.getenv("SENTINEL_RUNTIME_REPO_PATH", "").strip(),
+            runtime_overlay_manifest_path=os.getenv(
+                "SENTINEL_RUNTIME_OVERLAY_MANIFEST", ""
+            ).strip(),
             watch_component=os.getenv("SENTINEL_WATCH_COMPONENT", "sentinel_vm").strip() or "sentinel_vm",
             watch_host=os.getenv("SENTINEL_WATCH_HOST", "").strip(),
             heartbeat_max_age_seconds=_env_int("SENTINEL_HEARTBEAT_MAX_AGE_SECONDS", 15 * 60),
