@@ -18,10 +18,7 @@ import {
   buildQueryKey,
   presentationFor,
 } from "@/lib/explore/marketExplorerQuery.mjs";
-import {
-  INDEX_PLAN_PLUS,
-  INDEX_PLAN_PREMIUM,
-} from "@/lib/access/indexPlanAccess.mjs";
+import { INDEX_PLAN_PLUS, INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
 import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
 import {
   OPTIONS_STATUS,
@@ -85,6 +82,11 @@ export default function MarketExplorerQueryBuilder({
   const [buildStatus, setBuildStatus] = useState("idle");
   const [exactOpen, setExactOpen] = useState(false);
   const exactTriggerRef = useRef(null);
+  // Phase 5 moved these discovery surfaces into Compare / Analyze. Keeping
+  // their old implementation unreachable during the migration protects the
+  // frozen Phase-4 Builder mechanics while the new prepared-directory view
+  // owns all screen interaction.
+  const showLegacyAnalysis = false;
   const [selectedScreenId, setSelectedScreenId] = useState(null);
   const loadedOptions = useMarketExplorerFilterOptions({ enabled: !optionsProvided });
   const canonicalOptions = optionsProvided ? options : loadedOptions.options;
@@ -99,7 +101,7 @@ export default function MarketExplorerQueryBuilder({
     activeSeries,
   });
   const { draft, spec, access, prepared, alreadyActive } = builder;
-  const paid = currentPlan === "plus" || currentPlan === "premium";
+  const paid = currentPlan === "premium";
   const livePreflight = useMarketExplorerPreflight(spec, {
     enabled: !preflightResult && paid && Boolean(canonicalOptions) && Boolean(spec) && draft.asset === QUERY_ASSET_CARDS &&
       draft.membershipMode !== QUERY_MEMBERSHIP_EXPLICIT && !prepared && access.allowed,
@@ -140,21 +142,10 @@ export default function MarketExplorerQueryBuilder({
     label: entry.label,
     description: entry.description,
   }));
-  const selectedScreen =
-    MARKET_EXPLORER_SCREENS.find((entry) => entry.id === selectedScreenId) ||
-    null;
-  useEffect(() => {
-    if (selectedScreen?.asset && selectedScreen.asset !== draft.asset) setSelectedScreenId(null);
-  }, [draft.asset, selectedScreen]);
-  const screenResults = useMemo(
-    () =>
-      selectedScreen
-        ? resolveScreenResults(selectedScreen, preparedSeries.filter((series) =>
-            series?.group === (draft.asset === QUERY_ASSET_CARDS ? "card" : "sealed")
-          ))
-        : [],
-    [selectedScreen, preparedSeries, draft.asset],
-  );
+  const selectedScreen = MARKET_EXPLORER_SCREENS.find((entry) => entry.id === selectedScreenId) || null;
+  const screenResults = useMemo(() => selectedScreen
+    ? resolveScreenResults(selectedScreen, preparedSeries.filter((series) => series?.group === (draft.asset === QUERY_ASSET_CARDS ? "card" : "sealed")))
+    : [], [selectedScreen, preparedSeries, draft.asset]);
   const selectedPresetId = useMemo(() => MARKET_EXPLORER_QUICK_PRESETS.find((preset) => {
     if (draft.asset !== "cards" || draft.membershipMode === QUERY_MEMBERSHIP_EXPLICIT) return false;
     const expected = draftForQuickPreset(preset, draft);
@@ -217,7 +208,7 @@ export default function MarketExplorerQueryBuilder({
   };
   const accessPanel = (description) => (
     <ExplorerPlanLockPanel
-      requiredPlan={INDEX_PLAN_PLUS}
+      requiredPlan={INDEX_PLAN_PREMIUM}
       isAuthenticated={isAuthenticated}
       currentPlan={currentPlan}
       description={description}
@@ -391,7 +382,7 @@ export default function MarketExplorerQueryBuilder({
             emptyMessage="No published release cohorts."
           />
         </ExplorerDisclosure>
-        <ExplorerDisclosure id={`${asset}Screens`} title="Screens" summary={selectedScreen?.asset === asset || selectedScreen?.asset == null ? selectedScreen?.label : null}>
+        {showLegacyAnalysis ? <><ExplorerDisclosure id={`${asset}Screens`} title="Screens" summary={selectedScreen?.asset === asset || selectedScreen?.asset == null ? selectedScreen?.label : null}>
           <p className="mb-2 text-[10px] leading-snug text-[var(--text-secondary)]">Pre-built market scans. Choose a Screen to see matching published markets, then add any result to the chart.</p>
           <div className="space-y-1">
             {MARKET_EXPLORER_SCREENS.filter((screen) => screen.asset === asset || screen.asset == null).map((screen) => {
@@ -439,7 +430,7 @@ export default function MarketExplorerQueryBuilder({
             if (preset.id === "set-top-ten" && draft.setIds.length !== 1) { setBuildStatus("error"); setMessage(draft.setIds.length ? "Choose exactly one set." : "Choose one set first."); return; }
             builder.replace(draftForQuickPreset(preset, draft)); setBuildStatus("idle"); setMessage("");
           }} className={`w-full rounded-md border px-3 py-2 text-left text-xs ${selectedPresetId === preset.id ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)]" : "border-[var(--border-subtle)]"}`}><strong className="block">{preset.label}</strong><span className="text-[10px] text-[var(--text-secondary)]">{preset.description}</span></button>)}</div>
-        </ExplorerDisclosure> : null}
+        </ExplorerDisclosure> : null}</> : null}
         {asset === QUERY_ASSET_CARDS ? (
           <ExplorerDisclosure id="cardsReference" title="Reference Market">
             {paid ? <PreparedOptionList entries={benchmarkEntries} onToggle={onToggleBenchmark} selectedSeriesCount={selectedSeriesCount} /> : accessPanel("Add the Per-Set Chase reference market with Index Plus.")}

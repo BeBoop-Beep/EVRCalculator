@@ -167,6 +167,10 @@ from backend.db.services.market_explorer_options_snapshot import (
     MarketExplorerOptionsUnavailable,
     read_market_explorer_options_snapshot,
 )
+from backend.db.services.market_explorer_prepared_directory import (
+    read_prepared_comparison, read_prepared_directory, read_prepared_history,
+    read_prepared_screen, read_set_context_ranking,
+)
 from backend.db.services.market_explorer_query_planner import (
     GLOBAL_MARKET_EXPLORER_PLANNER,
     GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
@@ -300,6 +304,11 @@ class MarketExplorerPreflightRequest(BaseModel):
     pokemonIds: List[str] = Field(default_factory=list)
     priceSegmentIds: List[str] = Field(default_factory=list)
     releaseAgeCohortIds: List[str] = Field(default_factory=list)
+
+
+class PreparedComparisonRequest(BaseModel):
+    marketKeys: List[str] = Field(min_length=1, max_length=25)
+    startDate: Optional[date] = None
 
 
 class BillingCheckoutRequest(BaseModel):
@@ -1360,6 +1369,52 @@ def get_market_explorer_snapshot(
     except Exception:
         logger.exception("/market/explorer/snapshot unexpected error")
         return JSONResponse(content={"message": "Unable to load Market Explorer snapshot", "code": "MARKET_EXPLORER_SNAPSHOT_FAILED"}, status_code=500)
+
+
+@app.get("/market/explorer/prepared-directory")
+def get_market_explorer_prepared_directory():
+    """Public, compact Browse authority. No Builder or query cache involved."""
+    try:
+        return {"markets": read_prepared_directory(service_read_client)}
+    except Exception:
+        logger.exception("/market/explorer/prepared-directory unexpected error")
+        return JSONResponse(content={"message": "Prepared markets are temporarily unavailable", "code": "PREPARED_DIRECTORY_FAILED"}, status_code=503)
+
+
+@app.post("/market/explorer/prepared-comparison")
+def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token")):
+    if len(set(payload.marketKeys)) > 1:
+        _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if len(set(payload.marketKeys)) > 1 and not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(status_code=403, detail={"message": "Compare markets with Index+.", "requiredPlan": "plus"})
+    keys = list(dict.fromkeys(payload.marketKeys))
+    try:
+        return {"markets": read_prepared_comparison(service_read_client, keys),
+                "history": read_prepared_history(service_read_client, keys, payload.startDate.isoformat() if payload.startDate else None)}
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "PREPARED_COMPARISON_INVALID"}, status_code=400)
+
+
+@app.get("/market/explorer/prepared-screen")
+def get_market_explorer_prepared_screen(screen: str, asset: Optional[str] = None,
+    limit: int = Query(default=10, ge=1, le=25), authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token")):
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(status_code=403, detail={"message": "Screens require Index+.", "requiredPlan": "plus"})
+    return {"results": read_prepared_screen(service_read_client, screen, asset, limit)}
+
+
+@app.get("/market/explorer/set-context-ranking")
+def get_market_explorer_set_context_ranking(set_id: UUID, ranking: str, timeframe: str = "7D",
+    limit: int = Query(default=10, ge=1, le=25), as_of: Optional[date] = None,
+    authorization: Optional[str] = Header(default=None, alias="authorization"), token_cookie: Optional[str] = Cookie(default=None, alias="token")):
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(status_code=403, detail={"message": "Analytical rankings require Index+.", "requiredPlan": "plus"})
+    return read_set_context_ranking(service_read_client, str(set_id), ranking, timeframe, limit, as_of.isoformat() if as_of else None)
 
 
 @app.get("/market/explorer/query/options")

@@ -122,8 +122,8 @@ def test_paid_product_detail_receives_existing_snapshot_contract(plan):
 
 
 def test_locked_commercial_capability_sets_fail_closed_and_inherit():
-    assert len(_PLUS_FEATURES) == 12  # includes server response-boundary aliases
-    assert len(_PREMIUM_FEATURES) == 9  # includes exact-instrument Market Explorer membership
+    assert len(_PLUS_FEATURES) == 13  # includes server response-boundary aliases
+    assert len(_PREMIUM_FEATURES) == 11
     for feature in _PLUS_FEATURES:
         assert not has_index_feature_access(None, feature)
         assert has_index_feature_access("plus", feature)
@@ -175,6 +175,10 @@ def test_unrecognised_plans_normalize_to_none_rather_than_to_a_tier():
 def test_market_explorer_ladder_has_three_levels():
     assert resolve_market_explorer_plan_access(None) == {
         "accessMode": "basic",
+        "canBrowsePreparedMarkets": True,
+        "canComparePreparedMarkets": False,
+        "canUseAnalyticalScreens": False,
+        "canUseAdvancedMarketRanking": False,
         "canUsePreparedMarketIntelligence": False,
         "canBuildCustomMarkets": False,
         "canBuildSingleAxisMarket": False,
@@ -183,14 +187,22 @@ def test_market_explorer_ladder_has_three_levels():
     }
     assert resolve_market_explorer_plan_access({"index_plan": "plus"}) == {
         "accessMode": "plus",
+        "canBrowsePreparedMarkets": True,
+        "canComparePreparedMarkets": True,
+        "canUseAnalyticalScreens": True,
+        "canUseAdvancedMarketRanking": True,
         "canUsePreparedMarketIntelligence": True,
-        "canBuildCustomMarkets": True,
-        "canBuildSingleAxisMarket": True,
+        "canBuildCustomMarkets": False,
+        "canBuildSingleAxisMarket": False,
         "canBuildCompoundMarket": False,
         "canUseCustomRankedComposition": False,
     }
     assert resolve_market_explorer_plan_access({"index_plan": "premium"}) == {
         "accessMode": "premium",
+        "canBrowsePreparedMarkets": True,
+        "canComparePreparedMarkets": True,
+        "canUseAnalyticalScreens": True,
+        "canUseAdvancedMarketRanking": True,
         "canUsePreparedMarketIntelligence": True,
         "canBuildCustomMarkets": True,
         "canBuildSingleAxisMarket": True,
@@ -200,11 +212,12 @@ def test_market_explorer_ladder_has_three_levels():
 
 
 @pytest.mark.parametrize("asset", ["cards", "sealed"])
-def test_plus_can_build_one_axis_all_constituent_markets(asset):
+def test_only_premium_can_build_one_axis_all_constituent_markets(asset):
     scope = {"asset": asset, "eraIds": ("sv",), "setIds": (), "segmentIds": (), "mode": "all"}
     segment = {"asset": asset, "eraIds": (), "setIds": (), "segmentIds": ("segment",), "mode": "all"}
-    assert evaluate_market_query_access("plus", scope)["allowed"] is True
-    assert evaluate_market_query_access("plus", segment)["allowed"] is True
+    assert evaluate_market_query_access("plus", scope)["allowed"] is False
+    assert evaluate_market_query_access("plus", segment)["allowed"] is False
+    assert evaluate_market_query_access("premium", scope)["allowed"] is True
 
 
 def test_plus_cannot_build_compound_or_ranked_markets_but_premium_can():
@@ -225,8 +238,8 @@ def test_pass3_axis_packaging_is_centralized_and_fail_closed():
     scope_price = {"setIds": ("sv8",), "priceSegmentIds": ("premium",), "mode": "all"}
     segment_pokemon = {"segmentIds": ("sir",), "pokemonIds": ("149",), "mode": "all"}
 
-    assert evaluate_market_query_access("plus", price)["allowed"] is True
-    assert evaluate_market_query_access("plus", release)["allowed"] is True
+    assert evaluate_market_query_access("plus", price)["allowed"] is False
+    assert evaluate_market_query_access("plus", release)["allowed"] is False
     pokemon_access = evaluate_market_query_access("plus", pokemon)
     assert pokemon_access["allowed"] is False
     assert pokemon_access["requiredPlan"] == "premium"

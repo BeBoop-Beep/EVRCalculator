@@ -13,7 +13,6 @@ export const MARKET_EXPLORER_QUICK_PRESETS = Object.freeze([
   { id: "premium-market", label: "Premium", description: "Cards at $100 or more.", asset: "cards", requiredPlan: "plus", type: "builderTemplate", template: { priceSegmentIds: ["premium"] } },
   { id: "new-release-market", label: "New Release", description: "Sets released in the last 180 days.", asset: "cards", requiredPlan: "plus", type: "builderTemplate", template: { releaseAgeCohortIds: ["new"] } },
   { id: "established-market", label: "Established", description: "Sets released 2–5 years ago.", asset: "cards", requiredPlan: "plus", type: "builderTemplate", template: { releaseAgeCohortIds: ["established"] } },
-  { id: "set-top-ten", label: "Top 10 in Selected Set", description: "The selected set's ten highest-priced eligible cards.", asset: "cards", requiredPlan: "premium", type: "builderTemplate", template: { mode: "chase", topN: 10 } },
 ]);
 
 export function canUseScreen(screen, plan) {
