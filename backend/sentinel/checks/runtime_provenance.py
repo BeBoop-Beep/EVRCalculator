@@ -16,7 +16,10 @@ _FULL_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def _normalize_path(value: Any) -> str:
-    return str(value or "").strip().replace("\\", "/").lstrip("./")
+    path = str(value or "").strip().replace("\\", "/")
+    while path.startswith("./"):
+        path = path[2:]
+    return path.lstrip("/")
 
 
 def _validate_allowed_path(value: Any) -> str:
@@ -27,9 +30,10 @@ def _validate_allowed_path(value: Any) -> str:
 
 
 def load_vm_overlay_manifest(path: str) -> Dict[str, Any]:
-    manifest_path = Path(str(path or "").strip())
-    if not str(manifest_path):
+    raw_path = str(path or "").strip()
+    if not raw_path:
         raise ValueError("VM overlay manifest path is required")
+    manifest_path = Path(raw_path)
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("VM overlay manifest must be a JSON object")
@@ -186,6 +190,14 @@ def check_vm_runtime_provenance(
 
     branch = str(results["branch"][1] or "").strip()
     head = str(results["head"][1] or "").strip().lower()
+    if not _FULL_SHA_RE.fullmatch(head):
+        return _failure(
+            context,
+            code="runtime_head_sha_invalid",
+            authority=approved,
+            expected=expected,
+            observed={"head_sha": head},
+        )
     committed_paths = tuple(_normalize_path(path) for path in _lines(results["committed"][1]))
     worktree_paths = _status_paths(results["status"][1])
     overlay_paths = tuple(sorted(set((*committed_paths, *worktree_paths))))
