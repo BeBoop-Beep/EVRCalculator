@@ -9,6 +9,10 @@ from backend.sentinel.checks.authorities import (
     check_scrape_queue_leases,
     check_set_page_generation,
 )
+from backend.sentinel.checks.independent import (
+    DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+    check_component_heartbeat,
+)
 from backend.sentinel.checks.public_semantics import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     check_backend_health,
@@ -21,9 +25,11 @@ from backend.sentinel.checks.public_semantics import (
 from backend.sentinel.checks.registry import (
     AUDIT_CHECK_KEYS,
     FAST_CHECK_KEYS,
+    INDEPENDENT_CHECK_KEYS,
     PUBLIC_CHECK_KEYS,
     build_audit_registry,
     build_fast_registry,
+    build_independent_registry,
     build_profile_registry,
     build_public_registry,
 )
@@ -31,15 +37,19 @@ from backend.sentinel.checks.registry import (
 __all__ = [
     "AUDIT_CHECK_KEYS",
     "CANONICAL_LEGACY_RUNNING_GRACE_SECONDS",
+    "DEFAULT_HEARTBEAT_MAX_AGE_SECONDS",
     "DEFAULT_HTTP_TIMEOUT_SECONDS",
     "FAST_CHECK_KEYS",
+    "INDEPENDENT_CHECK_KEYS",
     "PUBLIC_CHECK_KEYS",
     "build_audit_registry",
     "build_fast_registry",
+    "build_independent_registry",
     "build_profile_registry",
     "build_public_registry",
     "check_alert_delivery",
     "check_backend_health",
+    "check_component_heartbeat",
     "check_homepage_rankings",
     "check_market_freshness",
     "check_market_public_snapshot",
