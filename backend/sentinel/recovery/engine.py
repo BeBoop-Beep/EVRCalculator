@@ -6,6 +6,7 @@ Recovery is deliberately conservative:
 - the incident must still be the active confirmed failure for its check,
 - preconditions are re-read immediately before mutation,
 - the attempt is persisted before mutation,
+- an unfinished prior attempt blocks blind replay after process death,
 - one failed execution/verification escalates instead of looping,
 - successful recovery is only accepted after a healthy deterministic verifier.
 """
@@ -201,6 +202,20 @@ class RecoveryRunner:
                 "runbook": runbook.key,
             }
 
+        latest = self.store.get_latest_recovery_attempt(incident.id, runbook.key)
+        if latest and latest.status is RecoveryAttemptStatus.STARTED:
+            # A process may have died after persisting STARTED but before it could
+            # record whether the mutation ran. Replaying automatically would risk
+            # a duplicate repair. Human/reconciliation review is required.
+            return {
+                "action": "blocked",
+                "reason_code": "recovery_prior_attempt_unfinished",
+                "incident_id": incident.id,
+                "runbook": runbook.key,
+                "attempt_number": latest.attempt_number,
+                "started_at": latest.started_at.isoformat(),
+            }
+
         if incident.recovery_attempt_count >= runbook.max_attempts:
             return {
                 "action": "blocked",
@@ -210,7 +225,6 @@ class RecoveryRunner:
                 "attempt_count": incident.recovery_attempt_count,
             }
 
-        latest = self.store.get_latest_recovery_attempt(incident.id, runbook.key)
         if latest and latest.cooldown_until and latest.cooldown_until > now:
             return {
                 "action": "blocked",
@@ -252,6 +266,8 @@ class RecoveryRunner:
             preconditions_json=_bounded_mapping(decision.details),
         )
         # Persist the audit record and RECOVERING state before any mutation.
+        # The SQL uniqueness contract on (incident_id, runbook, attempt_number)
+        # also prevents two concurrent runners from both obtaining attempt #1.
         self.store.save_recovery_attempt(attempt)
         incident.status = IncidentStatus.RECOVERING
         incident.recovery_eligible = True
