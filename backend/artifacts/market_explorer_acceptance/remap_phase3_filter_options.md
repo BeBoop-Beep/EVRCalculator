@@ -30,4 +30,4 @@ Focused backend taxonomy/query/options/provisioning/API tests passed. Focused Bu
 
 Changed the rarity taxonomy/query validation, options builder, snapshot adapter/API, standalone publisher, Builder hook/control, exact migration mirrors, tests, and acceptance artifacts. Historical quick-segment tests on the current base have 13 unrelated failures in the separate prepared chart-toggle panel; Phase 3 does not change that panel. The options payload is intentionally large (1.23 MB) because compatibility is preserved; persistent reads remain below one second.
 
-Final source commit: use `git log -1 --format=%H` on the commit containing this report.
+Final source commit: `77b94bbd9115e5caf741aa80a76f32c70a1fd5d6`.
