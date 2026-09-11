@@ -12,6 +12,10 @@ from backend.sentinel.checks.authorities import (
     check_scrape_queue_leases,
     check_set_page_generation,
 )
+from backend.sentinel.checks.independent import (
+    DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+    check_component_heartbeat,
+)
 from backend.sentinel.checks.public_semantics import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     check_backend_health,
@@ -42,6 +46,7 @@ PUBLIC_CHECK_KEYS = (
     "public.tcgs",
     "public.setpage.representative",
 )
+INDEPENDENT_CHECK_KEYS = ("watcher.component_heartbeat",)
 AUDIT_CHECK_KEYS = ("publication.audit.post_scrape",)
 
 
@@ -146,6 +151,32 @@ def build_public_registry(
     return registry
 
 
+def build_independent_registry(
+    *,
+    client: Any = None,
+    watch_component: str = "sentinel_vm",
+    watch_host: str,
+    max_age_seconds: int = DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+) -> CheckRegistry:
+    """Watch a Sentinel heartbeat from a DIFFERENT host/failure domain."""
+    registry = CheckRegistry()
+    registry.register(
+        "watcher.component_heartbeat",
+        lambda ctx: check_component_heartbeat(
+            ctx,
+            client=client,
+            component=watch_component,
+            host=watch_host,
+            max_age_seconds=max_age_seconds,
+        ),
+        description="Independent stale/missing Sentinel component heartbeat",
+        # The age threshold already provides a 15-minute confirmation window.
+        confirm_after=1,
+        exception_severity=Severity.CRITICAL,
+    )
+    return registry
+
+
 def build_audit_registry(*, client: Any = None) -> CheckRegistry:
     registry = CheckRegistry()
     registry.register(
@@ -176,6 +207,9 @@ def build_profile_registry(
     backend_base_url: str = "",
     http_get: Optional[Callable[..., Any]] = None,
     timeout_seconds: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
+    watch_component: str = "sentinel_vm",
+    watch_host: str = "",
+    heartbeat_max_age_seconds: int = DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
 ) -> CheckRegistry:
     normalized = str(profile or "").strip().lower()
     if normalized == "fast":
@@ -186,9 +220,18 @@ def build_profile_registry(
             http_get=http_get,
             timeout_seconds=timeout_seconds,
         )
+    if normalized == "independent":
+        return build_independent_registry(
+            client=client,
+            watch_component=watch_component,
+            watch_host=watch_host,
+            max_age_seconds=heartbeat_max_age_seconds,
+        )
     if normalized == "audit":
         return build_audit_registry(client=client)
     if normalized == "all":
+        # Deliberately excludes `independent`: a VM cannot be its own external
+        # failure-domain observer merely because an aggregate profile was used.
         registry = build_fast_registry(client=client)
         _merge_registry(
             registry,
@@ -200,4 +243,6 @@ def build_profile_registry(
         )
         _merge_registry(registry, build_audit_registry(client=client))
         return registry
-    raise ValueError("Sentinel profile must be one of: fast, public, audit, all")
+    raise ValueError(
+        "Sentinel profile must be one of: fast, public, independent, audit, all"
+    )
