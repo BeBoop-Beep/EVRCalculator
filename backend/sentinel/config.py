@@ -34,12 +34,15 @@ class SentinelConfig:
 
     Persistence requires TWO explicit switches: the operator must enable state
     writes and separately attest that the dedicated Sentinel schema has been
-    deployed. Recovery and AI remain unavailable and fail closed.
+    deployed. P6 recovery requires a THIRD, separate execution-readiness gate.
+    This keeps recovery code testable without making production mutation a
+    side effect of merely enabling Sentinel persistence. AI remains disabled.
     """
 
     state_writes_enabled: bool = False
     persistence_schema_ready: bool = False
     recovery_enabled: bool = False
+    recovery_execution_ready: bool = False
     ai_enabled: bool = False
     fail_on_no_checks: bool = True
     component: str = "sentinel_vm"
@@ -57,6 +60,7 @@ class SentinelConfig:
             state_writes_enabled=_env_true("SENTINEL_STATE_WRITES_ENABLED"),
             persistence_schema_ready=_env_true("SENTINEL_PERSISTENCE_SCHEMA_READY"),
             recovery_enabled=_env_true("SENTINEL_RECOVERY_ENABLED"),
+            recovery_execution_ready=_env_true("SENTINEL_RECOVERY_EXECUTION_READY"),
             ai_enabled=_env_true("SENTINEL_AI_ENABLED"),
             fail_on_no_checks=_env_true("SENTINEL_FAIL_ON_NO_CHECKS", "true"),
             component=os.getenv("SENTINEL_COMPONENT", "sentinel_vm").strip() or "sentinel_vm",
@@ -71,9 +75,18 @@ class SentinelConfig:
 
     def validate_kernel_v1(self) -> None:
         if self.recovery_enabled:
-            raise RuntimeError(
-                "SENTINEL_RECOVERY_ENABLED=true is not supported by the deterministic kernel"
-            )
+            missing = []
+            if not self.state_writes_enabled:
+                missing.append("SENTINEL_STATE_WRITES_ENABLED")
+            if not self.persistence_schema_ready:
+                missing.append("SENTINEL_PERSISTENCE_SCHEMA_READY")
+            if not self.recovery_execution_ready:
+                missing.append("SENTINEL_RECOVERY_EXECUTION_READY")
+            if missing:
+                raise RuntimeError(
+                    "SENTINEL_RECOVERY_ENABLED=true requires explicit recovery gates: "
+                    + ", ".join(missing)
+                )
         if self.ai_enabled:
             raise RuntimeError(
                 "SENTINEL_AI_ENABLED=true is not supported by the deterministic kernel"
