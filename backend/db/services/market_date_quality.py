@@ -42,6 +42,14 @@ IN_CHUNK_SIZE = 100
 # evaluation from this point forward persists distinctly under v2.
 MARKET_QUALITY_CONTRACT_VERSION = "pokemon-market-date-quality-v2"
 
+# The contract version this replaced. Rows persisted under this version are
+# NEVER deleted and remain queryable as audit evidence (e.g. Sep 10's stale
+# v1=111 evaluation), but they must never again decide current Sep 10+
+# authority once a v2 evaluation exists for the same date. See
+# `read_market_date_quality_history` / `_select_authoritative_quality_rows`
+# for the exact mixed-version read policy.
+MARKET_QUALITY_CONTRACT_VERSION_LEGACY = "pokemon-market-date-quality-v1"
+
 # Frozen pre-enforcement cutoff. Dates strictly before this may be granted
 # LEGACY_VERIFIED through the explicit allowlist below; dates on or after it
 # never can, no matter how incomplete their telemetry is.
@@ -287,25 +295,69 @@ def persist_market_date_quality(client: Any, evaluation: Mapping[str, Any]) -> i
     return 1
 
 
+def _select_authoritative_quality_rows(
+    rows: Iterable[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Apply the v1/v2 mixed-history read policy to a raw row set.
+
+    Policy (see project notes: quality contract v2 history compatibility):
+      - date < MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE ("2026-09-10"): any
+        persisted contract version participates unchanged. In production this
+        is always the legacy (v1) contract -- the version bump only ever
+        starts producing rows at the cutover -- so this preserves exactly the
+        pre-existing accepted-date behavior for that history with zero
+        reinterpretation.
+      - date >= cutover: only the current (v2) contract version is
+        authoritative. If both v1 and v2 exist for the same date (e.g. Sep
+        10's stale v1=111-set evaluation alongside a fresh v2=106-set one),
+        v2 wins outright and the v1 row is dropped from this authoritative
+        view -- it remains directly queryable via
+        `read_market_date_quality_history(include_superseded=True)` as audit
+        evidence, but never participates in accepted-date/current-authority
+        decisions. A date >= cutover with NO v2 row yet is simply absent here
+        (fails safe as not-yet-accepted), even if a stale v1 row exists.
+    """
+    by_date: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        day = str(row.get("market_date") or "")[:10]
+        if not day:
+            continue
+        version = str(row.get("contract_version") or "")
+        if day >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE and version != MARKET_QUALITY_CONTRACT_VERSION:
+            continue
+        by_date[day] = dict(row)
+    return [by_date[day] for day in sorted(by_date)]
+
+
 def read_market_date_quality_history(
-    client: Any, *, through_date: str | None = None
+    client: Any, *, through_date: str | None = None, include_superseded: bool = False,
 ) -> list[dict[str, Any]]:
     """Read persisted quality history with BOUNDED PAGINATION.
 
     PostgREST caps rows per response. An unpaginated read silently truncates
     older dates, which would let a DEGRADED date reappear as unknown-and-
     therefore-accepted. Every page is requested explicitly via .range().
+
+    By default this returns exactly one authoritative row per market_date,
+    picked by the mixed v1/v2 policy in `_select_authoritative_quality_rows`:
+    legacy (v1) contract rows for dates before the 2026-09-10 authority-table
+    cutover, current (v2) contract rows on/after it. Pass
+    `include_superseded=True` to instead get the raw, unfiltered row set
+    (both versions, if both were persisted for a date) -- e.g. for audit
+    tooling that specifically wants to inspect a superseded v1 evaluation.
     """
     def query():
         built = (client.table(QUALITY_TABLE).select("*")
                  .eq("tcg", "pokemon")
-                 .eq("contract_version", MARKET_QUALITY_CONTRACT_VERSION)
                  .order("market_date", desc=False))
         if through_date:
             built = built.lte("market_date", str(through_date)[:10])
         return built
 
-    return _paged(query)
+    rows = _paged(query)
+    if include_superseded:
+        return rows
+    return _select_authoritative_quality_rows(rows)
 
 
 def accepted_market_dates(
