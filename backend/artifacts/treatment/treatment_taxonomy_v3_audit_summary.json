@@ -1,0 +1,4079 @@
+{
+  "status": "TREATMENT_TAXONOMY_V3_READY",
+  "coverage": {
+    "generatedAt": "2026-09-11T23:25:41.469913+00:00",
+    "collectorModelRunId": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+    "collectorVersion": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+    "eligibleCanonicalCards": 18293,
+    "mappedBefore": 15788,
+    "unmappedBefore": 2505,
+    "mappedAfter": 18040,
+    "unmappedAfter": 253,
+    "ambiguous": 0,
+    "multiTreatment": 5589,
+    "unknownLegacy": 250,
+    "dataQualityError": 0,
+    "structurallyUnsupported": 250,
+    "legacyUnsupported": 250,
+    "missingSourceMetadata": 3,
+    "eligibleAssociatedVariants": 33127,
+    "mappedAssociatedVariants": 32883,
+    "liveTableCounts": {
+      "pokemon_canonical_cards": 20651,
+      "cards": 25161,
+      "card_variants": 40661,
+      "sets": 210,
+      "eras": 17,
+      "simulation_card_variant_pull_rates": 75594
+    },
+    "pokemonCardTreatmentScoresLive": false,
+    "mappingAuthority": "read_only_code_and_config",
+    "scarcityDiagnostics": [
+      {
+        "era": "Mega Evolution",
+        "treatment": "common",
+        "variantCount": 543,
+        "rarityDistribution": {
+          "Common": 543
+        },
+        "probability": {
+          "min": 0.010458,
+          "median": 0.025924,
+          "max": 0.110084
+        },
+        "withinTreatmentProbabilityRatio": 10.526295658825779,
+        "scarcityExampleVariantIds": [
+          "7c10d27a-62eb-4f63-a322-dec49cd5dd75",
+          "c2d386c8-c8fe-433b-9afd-c7196683e195"
+        ]
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "double_rare",
+        "variantCount": 88,
+        "rarityDistribution": {
+          "Double Rare": 88
+        },
+        "probability": {
+          "min": 0.004926,
+          "median": 0.019742000000000003,
+          "max": 0.022391
+        },
+        "withinTreatmentProbabilityRatio": 4.54547300040601,
+        "scarcityExampleVariantIds": [
+          "7bb5bcc1-3f12-4ceb-a826-d5f461833a90",
+          "193c425a-823c-4526-b6b9-dde8def5c97a"
+        ]
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "illustration_rare",
+        "variantCount": 101,
+        "rarityDistribution": {
+          "Illustration Rare": 101
+        },
+        "probability": {
+          "min": 0.003091,
+          "median": 0.005151,
+          "max": 0.010288
+        },
+        "withinTreatmentProbabilityRatio": 3.3283726949207377,
+        "scarcityExampleVariantIds": [
+          "be0e22ea-f86f-4ef9-993e-c54f0d55dffd",
+          "a6b9cbb7-08e0-4797-be26-55fe7d2563e1"
+        ]
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "mega_attack_rare",
+        "variantCount": 7,
+        "rarityDistribution": {
+          "MEGA_ATTACK_RARE": 7
+        },
+        "probability": {
+          "min": 0.005019,
+          "median": 0.005145,
+          "max": 0.005238
+        },
+        "withinTreatmentProbabilityRatio": 1.0436341900777046,
+        "scarcityExampleVariantIds": [
+          "9af696c3-6749-42a7-9f4a-c5f267479c3e",
+          "f2eeee25-443d-4b90-8b1e-c48e101606df"
+        ]
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "mega_hyper_rare",
+        "variantCount": 8,
+        "rarityDistribution": {
+          "Mega Hyper Rare": 8
+        },
+        "probability": {
+          "min": 0.000386,
+          "median": 0.000847,
+          "max": 0.00109
+        },
+        "withinTreatmentProbabilityRatio": 2.823834196891192,
+        "scarcityExampleVariantIds": [
+          "b2117d87-f756-426c-9f56-c8125de37e98",
+          "fc81462a-2c3e-4b7a-a7be-ad7f88d98ace"
+        ]
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "rare",
+        "variantCount": 120,
+        "rarityDistribution": {
+          "Rare": 120
+        },
+        "probability": {
+          "min": 0.010023,
+          "median": 0.0241575,
+          "max": 0.072367
+        },
+        "withinTreatmentProbabilityRatio": 7.220093784296118,
+        "scarcityExampleVariantIds": [
+          "44b1a255-defb-4c96-ab2a-b8610e43e365",
+          "08bf0377-28df-46e8-b959-f6dcb2ebbf2e"
+        ]
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "special_illustration_rare",
+        "variantCount": 55,
+        "rarityDistribution": {
+          "Special Illustration Rare": 55
+        },
+        "probability": {
+          "min": 0.000724,
+          "median": 0.001002,
+          "max": 0.002587
+        },
+        "withinTreatmentProbabilityRatio": 3.5732044198895023,
+        "scarcityExampleVariantIds": [
+          "9053f73f-6647-4a85-99da-5c8136bd0432",
+          "81bb14e8-db6b-41ba-b9ff-37b4468f9ba4"
+        ]
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "ultra_rare",
+        "variantCount": 106,
+        "rarityDistribution": {
+          "Ultra Rare": 106
+        },
+        "probability": {
+          "min": 0.003243,
+          "median": 0.0045485000000000005,
+          "max": 0.00508
+        },
+        "withinTreatmentProbabilityRatio": 1.5664508171446194,
+        "scarcityExampleVariantIds": [
+          "9f6c24f7-6a76-471f-ad81-d3901c5e9088",
+          "4c4a0fb5-5081-4165-9c09-e9fb1c35a797"
+        ]
+      },
+      {
+        "era": "Mega Evolution",
+        "treatment": "uncommon",
+        "variantCount": 377,
+        "rarityDistribution": {
+          "Uncommon": 377
+        },
+        "probability": {
+          "min": 0.010416,
+          "median": 0.025848,
+          "max": 0.120403
+        },
+        "withinTreatmentProbabilityRatio": 11.559427803379416,
+        "scarcityExampleVariantIds": [
+          "2121f431-ce45-474f-9378-1aed819f2aaa",
+          "6a32c0ed-8fb0-4a44-98d9-34d64d928c28"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "ace_spec",
+        "variantCount": 30,
+        "rarityDistribution": {
+          "ACE SPEC Rare": 30
+        },
+        "probability": {
+          "min": 0.005996,
+          "median": 0.0080795,
+          "max": 0.01921
+        },
+        "withinTreatmentProbabilityRatio": 3.203802535023349,
+        "scarcityExampleVariantIds": [
+          "e437d4cc-90c3-4f02-9ddb-98ba15eab741",
+          "333bce4e-f5cb-46d5-a01c-94968177bc62"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "black_white_rare",
+        "variantCount": 2,
+        "rarityDistribution": {
+          "Black White Rare": 2
+        },
+        "probability": {
+          "min": 0.000705,
+          "median": 0.0007235,
+          "max": 0.000742
+        },
+        "withinTreatmentProbabilityRatio": 1.052482269503546,
+        "scarcityExampleVariantIds": [
+          "3662df70-bfc6-44cd-9952-6a1175919dd0",
+          "fee828eb-ea4c-4c61-a65d-1924cb06969b"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "common",
+        "variantCount": 2413,
+        "rarityDistribution": {
+          "Common": 2413
+        },
+        "probability": {
+          "min": 0.00066,
+          "median": 0.019304,
+          "max": 0.113076
+        },
+        "withinTreatmentProbabilityRatio": 171.3272727272727,
+        "scarcityExampleVariantIds": [
+          "2e34d90b-6dc5-4d77-bac1-ee369eaf3b75",
+          "5afe444a-58ca-407d-a44c-7d4c35eb9791"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "double_rare",
+        "variantCount": 229,
+        "rarityDistribution": {
+          "Double Rare": 229
+        },
+        "probability": {
+          "min": 0.006256,
+          "median": 0.010832,
+          "max": 0.027624
+        },
+        "withinTreatmentProbabilityRatio": 4.415601023017903,
+        "scarcityExampleVariantIds": [
+          "95a9a033-1767-4d6e-87d1-a88fc1e34330",
+          "6880bd54-f1e6-42ed-809f-00095ac0b2c5"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "hyper_rare_gold",
+        "variantCount": 62,
+        "rarityDistribution": {
+          "Hyper Rare": 62
+        },
+        "probability": {
+          "min": 0.000864,
+          "median": 0.0017165000000000001,
+          "max": 0.006659
+        },
+        "withinTreatmentProbabilityRatio": 7.7071759259259265,
+        "scarcityExampleVariantIds": [
+          "004931ef-91af-4360-b7f4-a9b8d06d2c40",
+          "f688b463-5963-4740-b45f-f3da75a7325a"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "illustration_rare",
+        "variantCount": 391,
+        "rarityDistribution": {
+          "Illustration Rare": 391
+        },
+        "probability": {
+          "min": 0.00118,
+          "median": 0.002286,
+          "max": 0.023936
+        },
+        "withinTreatmentProbabilityRatio": 20.28474576271186,
+        "scarcityExampleVariantIds": [
+          "e00711f7-ab66-444a-a7bd-ca2b408c5028",
+          "3b06e1b9-e2b6-45b4-9d37-8744f9273c69"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "rare",
+        "variantCount": 614,
+        "rarityDistribution": {
+          "Rare": 614
+        },
+        "probability": {
+          "min": 0.000657,
+          "median": 0.016137,
+          "max": 0.109525
+        },
+        "withinTreatmentProbabilityRatio": 166.70471841704716,
+        "scarcityExampleVariantIds": [
+          "88453be5-8bc6-42ea-9f8a-6123af646720",
+          "8b0f5ff0-6503-4618-ab4e-ed33406638c1"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "shiny_rare",
+        "variantCount": 120,
+        "rarityDistribution": {
+          "Shiny Rare": 120
+        },
+        "probability": {
+          "min": 0.001923,
+          "median": 0.0020475,
+          "max": 0.002143
+        },
+        "withinTreatmentProbabilityRatio": 1.1144045761830472,
+        "scarcityExampleVariantIds": [
+          "86200b5d-06b6-4a2a-a508-76a576ea6265",
+          "9326d67b-4017-4430-ac3c-bae6eb088be7"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "shiny_ultra_rare",
+        "variantCount": 12,
+        "rarityDistribution": {
+          "Shiny Ultra Rare": 12
+        },
+        "probability": {
+          "min": 0.006216,
+          "median": 0.006327,
+          "max": 0.006427
+        },
+        "withinTreatmentProbabilityRatio": 1.033944658944659,
+        "scarcityExampleVariantIds": [
+          "17da3c5f-e161-4e45-9251-cd95fccb2629",
+          "6a325d6c-f8be-404a-bd3b-e200d460f231"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "special_illustration_rare",
+        "variantCount": 167,
+        "rarityDistribution": {
+          "Special Illustration Rare": 167
+        },
+        "probability": {
+          "min": 0.000739,
+          "median": 0.001181,
+          "max": 0.005347
+        },
+        "withinTreatmentProbabilityRatio": 7.235453315290934,
+        "scarcityExampleVariantIds": [
+          "77c10d10-97d3-4bae-9bed-d3c013b5c899",
+          "09eecea9-1ed7-4217-87e6-083aa473ee28"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "ultra_rare",
+        "variantCount": 249,
+        "rarityDistribution": {
+          "Ultra Rare": 249
+        },
+        "probability": {
+          "min": 0.002248,
+          "median": 0.003155,
+          "max": 0.01279
+        },
+        "withinTreatmentProbabilityRatio": 5.68950177935943,
+        "scarcityExampleVariantIds": [
+          "c61d5fbe-0eb8-482c-a60f-0009ffa6cab4",
+          "881524f8-c6c2-4853-b00a-8a5d01654da6"
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "treatment": "uncommon",
+        "variantCount": 1681,
+        "rarityDistribution": {
+          "Uncommon": 1681
+        },
+        "probability": {
+          "min": 0.000647,
+          "median": 0.019309,
+          "max": 0.143174
+        },
+        "withinTreatmentProbabilityRatio": 221.2890262751159,
+        "scarcityExampleVariantIds": [
+          "17f12513-c8bd-4feb-be19-d1733f698bc1",
+          "d4cfaf49-7b0b-4998-a314-89ff364caa21"
+        ]
+      }
+    ],
+    "sameRarityDifferentTreatmentExamples": [
+      {
+        "cardIds": [
+          "0019dd11-282b-4387-8abb-b4f9d78c4034",
+          "94485642-6e27-416c-90e0-d9715523ff54"
+        ],
+        "variantIds": [
+          "36d56f08-98eb-4ec1-be64-417afecc0dd1",
+          "595b59b4-508b-467d-9586-e5bffb89a6e9"
+        ],
+        "set": "Paldean Fates",
+        "era": "Scarlet and Violet",
+        "subject": "Palafin",
+        "artist": [
+          "Shin Nagasawa",
+          "akagi"
+        ],
+        "treatmentA": "shiny_rare",
+        "treatmentB": "illustration_rare",
+        "semanticAttributesA": [
+          "holo",
+          "shiny",
+          "subset_specialty"
+        ],
+        "semanticAttributesB": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led"
+        ],
+        "probabilityA": 0.002065,
+        "probabilityB": 0.023826,
+        "scarcityRatio": 11.538014527845036,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "61344029-61ec-4a70-a91c-56421e45d2ca",
+          "001a9e36-1736-47e5-b405-b9a88dc68a16"
+        ],
+        "variantIds": [
+          "123e2e37-78b2-49f0-afcd-977d83d45cc7",
+          "23310c21-0f09-4b3b-a818-c1f3c2afbd5b"
+        ],
+        "set": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "subject": "Rika",
+        "artist": [
+          "kantaro",
+          "GIDORA"
+        ],
+        "treatmentA": "special_illustration_rare",
+        "treatmentB": "uncommon",
+        "semanticAttributesA": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "standard_frame"
+        ],
+        "probabilityA": 0.001442,
+        "probabilityB": 0.054558,
+        "scarcityRatio": 37.834951456310684,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "61344029-61ec-4a70-a91c-56421e45d2ca",
+          "001a9e36-1736-47e5-b405-b9a88dc68a16"
+        ],
+        "variantIds": [
+          "123e2e37-78b2-49f0-afcd-977d83d45cc7",
+          "7e2101f1-bd3f-4b1d-b33c-e9c94649a0e6"
+        ],
+        "set": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "subject": "Rika",
+        "artist": [
+          "kantaro",
+          "GIDORA"
+        ],
+        "treatmentA": "special_illustration_rare",
+        "treatmentB": "uncommon",
+        "semanticAttributesA": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "reverse_holo",
+          "standard_frame"
+        ],
+        "probabilityA": 0.001442,
+        "probabilityB": 0.011825,
+        "scarcityRatio": 8.200416088765603,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "61344029-61ec-4a70-a91c-56421e45d2ca",
+          "17a8d164-aa78-48c1-9681-ae3567d3ac9d"
+        ],
+        "variantIds": [
+          "123e2e37-78b2-49f0-afcd-977d83d45cc7",
+          "9bd02423-fad7-4165-8e92-858abe67b74d"
+        ],
+        "set": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "subject": "Rika",
+        "artist": [
+          "kantaro",
+          "GIDORA"
+        ],
+        "treatmentA": "special_illustration_rare",
+        "treatmentB": "ultra_rare",
+        "semanticAttributesA": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.001442,
+        "probabilityB": 0.002301,
+        "scarcityRatio": 1.5957004160887658,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "001a9e36-1736-47e5-b405-b9a88dc68a16",
+          "17a8d164-aa78-48c1-9681-ae3567d3ac9d"
+        ],
+        "variantIds": [
+          "23310c21-0f09-4b3b-a818-c1f3c2afbd5b",
+          "9bd02423-fad7-4165-8e92-858abe67b74d"
+        ],
+        "set": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "subject": "Rika",
+        "artist": [
+          "GIDORA",
+          "GIDORA"
+        ],
+        "treatmentA": "uncommon",
+        "treatmentB": "ultra_rare",
+        "semanticAttributesA": [
+          "standard_frame"
+        ],
+        "semanticAttributesB": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.054558,
+        "probabilityB": 0.002301,
+        "scarcityRatio": 23.710560625814864,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "001a9e36-1736-47e5-b405-b9a88dc68a16",
+          "17a8d164-aa78-48c1-9681-ae3567d3ac9d"
+        ],
+        "variantIds": [
+          "7e2101f1-bd3f-4b1d-b33c-e9c94649a0e6",
+          "9bd02423-fad7-4165-8e92-858abe67b74d"
+        ],
+        "set": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "subject": "Rika",
+        "artist": [
+          "GIDORA",
+          "GIDORA"
+        ],
+        "treatmentA": "uncommon",
+        "treatmentB": "ultra_rare",
+        "semanticAttributesA": [
+          "reverse_holo",
+          "standard_frame"
+        ],
+        "semanticAttributesB": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.011825,
+        "probabilityB": 0.002301,
+        "scarcityRatio": 5.139069969578444,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "6d81bd1b-32b0-4824-8821-ac89e74ab4c8",
+          "00397e65-85d1-4192-b5c0-2dbf92b09608"
+        ],
+        "variantIds": [
+          "1672c745-d003-4ada-b5c0-a5cbe6e00e72",
+          "22b8332b-193d-4206-9207-686478f7acb2"
+        ],
+        "set": "Scarlet and Violet 151",
+        "era": "Scarlet and Violet",
+        "subject": "Charmander",
+        "artist": [
+          "miki kudo",
+          "GIDORA"
+        ],
+        "treatmentA": "illustration_rare",
+        "treatmentB": "common",
+        "semanticAttributesA": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led"
+        ],
+        "semanticAttributesB": [
+          "reverse_holo",
+          "standard_frame"
+        ],
+        "probabilityA": 0.00526,
+        "probabilityB": 0.012307,
+        "scarcityRatio": 2.3397338403041825,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "6d81bd1b-32b0-4824-8821-ac89e74ab4c8",
+          "00397e65-85d1-4192-b5c0-2dbf92b09608"
+        ],
+        "variantIds": [
+          "1672c745-d003-4ada-b5c0-a5cbe6e00e72",
+          "473878e2-5261-4ff5-8eac-265b1bd95fbf"
+        ],
+        "set": "Scarlet and Violet 151",
+        "era": "Scarlet and Violet",
+        "subject": "Charmander",
+        "artist": [
+          "miki kudo",
+          "GIDORA"
+        ],
+        "treatmentA": "illustration_rare",
+        "treatmentB": "common",
+        "semanticAttributesA": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led"
+        ],
+        "semanticAttributesB": [
+          "standard_frame"
+        ],
+        "probabilityA": 0.00526,
+        "probabilityB": 0.059391,
+        "scarcityRatio": 11.29106463878327,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "004a7bb5-9b47-4467-8f9d-2c0c999c2ad3",
+          "261f3358-bdcf-492a-a67b-6c48316240a8"
+        ],
+        "variantIds": [
+          "4abfa35e-fa67-42f1-b1d9-7d9b21b567d7",
+          "d29d630b-363d-4c48-83dd-5339bb2d7fc6"
+        ],
+        "set": "Temporal Forces",
+        "era": "Scarlet and Violet",
+        "subject": "Torterra ex",
+        "artist": [
+          "PLANETA Tsuji",
+          "PLANETA Tsuji"
+        ],
+        "treatmentA": "double_rare",
+        "treatmentB": "ultra_rare",
+        "semanticAttributesA": [
+          "holo",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.010964,
+        "probabilityB": 0.003614,
+        "scarcityRatio": 3.0337576092971776,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "81cbca2d-33bf-47bf-b843-e433db7376f9",
+          "0084e2b7-3945-4989-af98-c971fa81f276"
+        ],
+        "variantIds": [
+          "3bb65f7c-a58a-4c52-99f1-a9f5b1b9eb2f",
+          "47c34653-0270-4f75-9457-a0f566cdbaf8"
+        ],
+        "set": "Mega Evolution",
+        "era": "Mega Evolution",
+        "subject": "Mega Manectric ex",
+        "artist": [
+          null,
+          null
+        ],
+        "treatmentA": "double_rare",
+        "treatmentB": "ultra_rare",
+        "semanticAttributesA": [
+          "holo",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.019984,
+        "probabilityB": 0.003825,
+        "scarcityRatio": 5.2245751633986925,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "871f1fda-f4bc-4af6-9b1b-171ab29ac050",
+          "008bdc3e-9f8e-4635-b444-82858899e45c"
+        ],
+        "variantIds": [
+          "bfed56a5-da3d-47c8-a3be-31ef2e787d59",
+          "d7f58a3d-512d-4f7a-96b8-07da722559c8"
+        ],
+        "set": "Obsidian Flames",
+        "era": "Scarlet and Violet",
+        "subject": "Absol ex",
+        "artist": [
+          "Nisota Niso",
+          "PLANETA Mochizuki"
+        ],
+        "treatmentA": "double_rare",
+        "treatmentB": "ultra_rare",
+        "semanticAttributesA": [
+          "holo",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.006478,
+        "probabilityB": 0.005245,
+        "scarcityRatio": 1.2350810295519543,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "0760ca01-8c95-4337-aa84-65db27515f3c",
+          "009774bd-b273-47a3-adb0-bb531610778c"
+        ],
+        "variantIds": [
+          "5c9b00fe-7a34-46c4-82ff-078ec82f4644",
+          "77b83487-f52a-43c6-91b4-08e16eb017ee"
+        ],
+        "set": "Paldean Fates",
+        "era": "Scarlet and Violet",
+        "subject": "Revavroom",
+        "artist": [
+          "GOSSAN",
+          "Anesaki Dynamic"
+        ],
+        "treatmentA": "shiny_rare",
+        "treatmentB": "rare",
+        "semanticAttributesA": [
+          "holo",
+          "shiny",
+          "subset_specialty"
+        ],
+        "semanticAttributesB": [
+          "reverse_holo",
+          "standard_frame"
+        ],
+        "probabilityA": 0.002052,
+        "probabilityB": 0.018876,
+        "scarcityRatio": 9.198830409356725,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "0760ca01-8c95-4337-aa84-65db27515f3c",
+          "009774bd-b273-47a3-adb0-bb531610778c"
+        ],
+        "variantIds": [
+          "5c9b00fe-7a34-46c4-82ff-078ec82f4644",
+          "e75d89fd-6af3-498c-869d-c095dbfd127c"
+        ],
+        "set": "Paldean Fates",
+        "era": "Scarlet and Violet",
+        "subject": "Revavroom",
+        "artist": [
+          "GOSSAN",
+          "Anesaki Dynamic"
+        ],
+        "treatmentA": "shiny_rare",
+        "treatmentB": "rare",
+        "semanticAttributesA": [
+          "holo",
+          "shiny",
+          "subset_specialty"
+        ],
+        "semanticAttributesB": [
+          "holo",
+          "standard_frame"
+        ],
+        "probabilityA": 0.002052,
+        "probabilityB": 0.048474,
+        "scarcityRatio": 23.62280701754386,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "469f9da6-289a-4cef-b999-e3c9be9cfe3f",
+          "00a63fbc-b4b0-443f-88bf-6305e9447fef"
+        ],
+        "variantIds": [
+          "6335273c-8b04-46c2-b728-b97aba1ff909",
+          "64c3f326-b5c9-4a90-9dfa-9f116937ddde"
+        ],
+        "set": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "subject": "Meowscarada ex",
+        "artist": [
+          "5ban Graphics",
+          "5ban Graphics"
+        ],
+        "treatmentA": "ultra_rare",
+        "treatmentB": "hyper_rare_gold",
+        "semanticAttributesA": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "full_art",
+          "gold_or_gilded",
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.002454,
+        "probabilityB": 0.001969,
+        "scarcityRatio": 1.2463179278821739,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "469f9da6-289a-4cef-b999-e3c9be9cfe3f",
+          "8aeddcf5-48a8-4171-8846-b0672efc69bb"
+        ],
+        "variantIds": [
+          "6335273c-8b04-46c2-b728-b97aba1ff909",
+          "f642c208-389d-48b8-a883-26510a139b22"
+        ],
+        "set": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "subject": "Meowscarada ex",
+        "artist": [
+          "5ban Graphics",
+          "Kouki Saitou"
+        ],
+        "treatmentA": "ultra_rare",
+        "treatmentB": "special_illustration_rare",
+        "semanticAttributesA": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led",
+          "premium_frame"
+        ],
+        "probabilityA": 0.002454,
+        "probabilityB": 0.002099,
+        "scarcityRatio": 1.1691281562648879,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "469f9da6-289a-4cef-b999-e3c9be9cfe3f",
+          "3cf2085b-2e6b-406d-be16-744c6691cfd0"
+        ],
+        "variantIds": [
+          "6335273c-8b04-46c2-b728-b97aba1ff909",
+          "fc7eba30-af6a-4432-969c-073c26d8c01a"
+        ],
+        "set": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "subject": "Meowscarada ex",
+        "artist": [
+          "5ban Graphics",
+          "5ban Graphics"
+        ],
+        "treatmentA": "ultra_rare",
+        "treatmentB": "double_rare",
+        "semanticAttributesA": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.002454,
+        "probabilityB": 0.008187,
+        "scarcityRatio": 3.3361858190709044,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "00a63fbc-b4b0-443f-88bf-6305e9447fef",
+          "8aeddcf5-48a8-4171-8846-b0672efc69bb"
+        ],
+        "variantIds": [
+          "64c3f326-b5c9-4a90-9dfa-9f116937ddde",
+          "f642c208-389d-48b8-a883-26510a139b22"
+        ],
+        "set": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "subject": "Meowscarada ex",
+        "artist": [
+          "5ban Graphics",
+          "Kouki Saitou"
+        ],
+        "treatmentA": "hyper_rare_gold",
+        "treatmentB": "special_illustration_rare",
+        "semanticAttributesA": [
+          "full_art",
+          "gold_or_gilded",
+          "holo",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led",
+          "premium_frame"
+        ],
+        "probabilityA": 0.001969,
+        "probabilityB": 0.002099,
+        "scarcityRatio": 1.0660233621127477,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "00a63fbc-b4b0-443f-88bf-6305e9447fef",
+          "3cf2085b-2e6b-406d-be16-744c6691cfd0"
+        ],
+        "variantIds": [
+          "64c3f326-b5c9-4a90-9dfa-9f116937ddde",
+          "fc7eba30-af6a-4432-969c-073c26d8c01a"
+        ],
+        "set": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "subject": "Meowscarada ex",
+        "artist": [
+          "5ban Graphics",
+          "5ban Graphics"
+        ],
+        "treatmentA": "hyper_rare_gold",
+        "treatmentB": "double_rare",
+        "semanticAttributesA": [
+          "full_art",
+          "gold_or_gilded",
+          "holo",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.001969,
+        "probabilityB": 0.008187,
+        "scarcityRatio": 4.157948197054343,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "8aeddcf5-48a8-4171-8846-b0672efc69bb",
+          "3cf2085b-2e6b-406d-be16-744c6691cfd0"
+        ],
+        "variantIds": [
+          "f642c208-389d-48b8-a883-26510a139b22",
+          "fc7eba30-af6a-4432-969c-073c26d8c01a"
+        ],
+        "set": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "subject": "Meowscarada ex",
+        "artist": [
+          "Kouki Saitou",
+          "5ban Graphics"
+        ],
+        "treatmentA": "special_illustration_rare",
+        "treatmentB": "double_rare",
+        "semanticAttributesA": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.002099,
+        "probabilityB": 0.008187,
+        "scarcityRatio": 3.900428775607432,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "00f67f50-864d-49b3-b399-bc7cfc2ec2fb",
+          "698e264b-b3b1-4965-a1f5-3cdaf1de1cef"
+        ],
+        "variantIds": [
+          "2addbe56-580a-45f4-acbf-da0f2284b2bf",
+          "5566c69f-02b4-4040-995c-4e45bbe5fb28"
+        ],
+        "set": "White Flare",
+        "era": "Scarlet and Violet",
+        "subject": "Terrakion",
+        "artist": [
+          "Tonji Matsuno",
+          "Shiburingaru"
+        ],
+        "treatmentA": "rare",
+        "treatmentB": "illustration_rare",
+        "semanticAttributesA": [
+          "reverse_holo",
+          "standard_frame"
+        ],
+        "semanticAttributesB": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led"
+        ],
+        "probabilityA": 0.017585,
+        "probabilityB": 0.001231,
+        "scarcityRatio": 14.285134037367992,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "00f67f50-864d-49b3-b399-bc7cfc2ec2fb",
+          "698e264b-b3b1-4965-a1f5-3cdaf1de1cef"
+        ],
+        "variantIds": [
+          "4e69cf47-1cd6-491f-aeba-7bb6ae8d0a3b",
+          "5566c69f-02b4-4040-995c-4e45bbe5fb28"
+        ],
+        "set": "White Flare",
+        "era": "Scarlet and Violet",
+        "subject": "Terrakion",
+        "artist": [
+          "Tonji Matsuno",
+          "Shiburingaru"
+        ],
+        "treatmentA": "rare",
+        "treatmentB": "illustration_rare",
+        "semanticAttributesA": [
+          "holo",
+          "standard_frame"
+        ],
+        "semanticAttributesB": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led"
+        ],
+        "probabilityA": 0.086671,
+        "probabilityB": 0.001231,
+        "scarcityRatio": 70.40698619008936,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "698e264b-b3b1-4965-a1f5-3cdaf1de1cef",
+          "00f67f50-864d-49b3-b399-bc7cfc2ec2fb"
+        ],
+        "variantIds": [
+          "5566c69f-02b4-4040-995c-4e45bbe5fb28",
+          "68040fa1-31e9-439b-97ab-eed6c5b2ccbd"
+        ],
+        "set": "White Flare",
+        "era": "Scarlet and Violet",
+        "subject": "Terrakion",
+        "artist": [
+          "Shiburingaru",
+          "Tonji Matsuno"
+        ],
+        "treatmentA": "illustration_rare",
+        "treatmentB": "rare",
+        "semanticAttributesA": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led"
+        ],
+        "semanticAttributesB": [
+          "etched_or_special_foil",
+          "holo",
+          "standard_frame",
+          "subset_specialty"
+        ],
+        "probabilityA": 0.001231,
+        "probabilityB": 0.00414,
+        "scarcityRatio": 3.3631194151096664,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "698e264b-b3b1-4965-a1f5-3cdaf1de1cef",
+          "00f67f50-864d-49b3-b399-bc7cfc2ec2fb"
+        ],
+        "variantIds": [
+          "5566c69f-02b4-4040-995c-4e45bbe5fb28",
+          "a8d5b32d-5481-43a6-9169-dea28e75f0f5"
+        ],
+        "set": "White Flare",
+        "era": "Scarlet and Violet",
+        "subject": "Terrakion",
+        "artist": [
+          "Shiburingaru",
+          "Tonji Matsuno"
+        ],
+        "treatmentA": "illustration_rare",
+        "treatmentB": "rare",
+        "semanticAttributesA": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led"
+        ],
+        "semanticAttributesB": [
+          "etched_or_special_foil",
+          "holo",
+          "standard_frame",
+          "subset_specialty"
+        ],
+        "probabilityA": 0.001231,
+        "probabilityB": 0.00074,
+        "scarcityRatio": 1.6635135135135137,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "90b5c62f-f7e6-4463-9854-ce407eb47913",
+          "01101404-0905-4ef8-84e9-eef94eecf664"
+        ],
+        "variantIds": [
+          "35c78c9f-4f9b-4679-b6a1-89b281926a60",
+          "c096be9f-4901-4d5b-8ffa-0afa8db866e0"
+        ],
+        "set": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "subject": "Maushold ex",
+        "artist": [
+          "5ban Graphics",
+          "5ban Graphics"
+        ],
+        "treatmentA": "double_rare",
+        "treatmentB": "ultra_rare",
+        "semanticAttributesA": [
+          "holo",
+          "premium_frame"
+        ],
+        "semanticAttributesB": [
+          "full_art",
+          "holo",
+          "premium_frame"
+        ],
+        "probabilityA": 0.008223,
+        "probabilityB": 0.002332,
+        "scarcityRatio": 3.5261578044596913,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      },
+      {
+        "cardIds": [
+          "011df4df-c64b-4f79-bc9a-24b476831c85",
+          "aefd037e-4fcb-4cc3-85d9-ca888b8e2b12"
+        ],
+        "variantIds": [
+          "1f8914d5-c749-4a60-86ef-fe9ca8cc8d1a",
+          "4f56bd79-e6c9-4df9-bc2f-fd3100b502c9"
+        ],
+        "set": "Temporal Forces",
+        "era": "Scarlet and Violet",
+        "subject": "Meltan",
+        "artist": [
+          "Masa",
+          "Taiga Kayama"
+        ],
+        "treatmentA": "illustration_rare",
+        "treatmentB": "common",
+        "semanticAttributesA": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "holo",
+          "illustration_led"
+        ],
+        "semanticAttributesB": [
+          "reverse_holo",
+          "standard_frame"
+        ],
+        "probabilityA": 0.003428,
+        "probabilityB": 0.013392,
+        "scarcityRatio": 3.906651108518086,
+        "artworkIdentity": "same_subject",
+        "mechanicFormIdentity": "not_asserted",
+        "priceAvailable": "not_queried",
+        "identificationTier": "B"
+      }
+    ],
+    "byEra": [
+      {
+        "era": "Base/WOTC",
+        "total": 422,
+        "mapped": 422,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 130,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 83,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 82,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 1,
+            "treatmentKeys": [
+              "base_wotc__secret_rare"
+            ],
+            "semanticAttributes": [
+              "subset_specialty",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 126,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Black and White",
+        "total": 1295,
+        "mapped": 1292,
+        "unmapped": 3,
+        "labels": [
+          {
+            "label": "<NULL>",
+            "count": 3,
+            "treatmentKeys": [],
+            "semanticAttributes": [],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Common",
+            "count": 378,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 218,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare ACE",
+            "count": 13,
+            "treatmentKeys": [
+              "ace_spec"
+            ],
+            "semanticAttributes": [
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 170,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo EX",
+            "count": 56,
+            "treatmentKeys": [
+              "rare_holo_ex"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 32,
+            "treatmentKeys": [
+              "black_and_white__secret_rare"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "shiny",
+              "subset_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Ultra",
+            "count": 55,
+            "treatmentKeys": [
+              "rare_ultra"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 370,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Diamond and Pearl",
+        "total": 824,
+        "mapped": 824,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 275,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 163,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 108,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo LV.X",
+            "count": 28,
+            "treatmentKeys": [
+              "rare_holo_lv_x"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 4,
+            "treatmentKeys": [
+              "diamond_and_pearl__secret_rare"
+            ],
+            "semanticAttributes": [
+              "subset_specialty",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 246,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "E-Card",
+        "total": 508,
+        "mapped": 508,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 170,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 118,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 96,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 9,
+            "treatmentKeys": [
+              "e_card__secret_rare"
+            ],
+            "semanticAttributes": [
+              "subset_specialty",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 115,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "EX",
+        "total": 1719,
+        "mapped": 1682,
+        "unmapped": 37,
+        "labels": [
+          {
+            "label": "<NULL>",
+            "count": 37,
+            "treatmentKeys": [],
+            "semanticAttributes": [],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Common",
+            "count": 539,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 234,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 230,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo EX",
+            "count": 133,
+            "treatmentKeys": [
+              "rare_holo_ex"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo Star",
+            "count": 25,
+            "treatmentKeys": [
+              "gold_star"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "shiny",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 19,
+            "treatmentKeys": [
+              "ex__secret_rare"
+            ],
+            "semanticAttributes": [
+              "subset_specialty",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 502,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Gym",
+        "total": 252,
+        "mapped": 252,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 85,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 44,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 39,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 84,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "HeartGold and SoulSilver",
+        "total": 497,
+        "mapped": 497,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 142,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "LEGEND",
+            "count": 18,
+            "treatmentKeys": [
+              "legend"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 88,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 80,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Prime",
+            "count": 26,
+            "treatmentKeys": [
+              "prime"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 4,
+            "treatmentKeys": [
+              "heartgold_and_soulsilver__secret_rare"
+            ],
+            "semanticAttributes": [
+              "subset_specialty",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 139,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Mega Evolution",
+        "total": 968,
+        "mapped": 968,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 313,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Double Rare",
+            "count": 88,
+            "treatmentKeys": [
+              "double_rare"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Illustration Rare",
+            "count": 101,
+            "treatmentKeys": [
+              "illustration_rare"
+            ],
+            "semanticAttributes": [
+              "alternate_artwork",
+              "character_scene",
+              "full_art",
+              "illustration_led"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "MEGA_ATTACK_RARE",
+            "count": 7,
+            "treatmentKeys": [
+              "mega_attack_rare"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "illustration_led",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Mega Hyper Rare",
+            "count": 8,
+            "treatmentKeys": [
+              "mega_hyper_rare"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "gold_or_gilded",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 73,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Special Illustration Rare",
+            "count": 55,
+            "treatmentKeys": [
+              "special_illustration_rare"
+            ],
+            "semanticAttributes": [
+              "alternate_artwork",
+              "character_scene",
+              "full_art",
+              "illustration_led",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Ultra Rare",
+            "count": 106,
+            "treatmentKeys": [
+              "ultra_rare"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 217,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Neo",
+        "total": 355,
+        "mapped": 355,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 108,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 65,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 64,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Shining",
+            "count": 10,
+            "treatmentKeys": [
+              "shining"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "shiny",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 108,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Other",
+        "total": 283,
+        "mapped": 109,
+        "unmapped": 174,
+        "labels": [
+          {
+            "label": "<NULL>",
+            "count": 174,
+            "treatmentKeys": [],
+            "semanticAttributes": [],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Common",
+            "count": 37,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 19,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 19,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 34,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "POP",
+        "total": 148,
+        "mapped": 148,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 53,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 52,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 43,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Platinum",
+        "total": 512,
+        "mapped": 512,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 150,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 125,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 56,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo LV.X",
+            "count": 28,
+            "treatmentKeys": [
+              "rare_holo_lv_x"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 9,
+            "treatmentKeys": [
+              "platinum__secret_rare"
+            ],
+            "semanticAttributes": [
+              "subset_specialty",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 144,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Scarlet and Violet",
+        "total": 3387,
+        "mapped": 3387,
+        "labels": [
+          {
+            "label": "ACE SPEC Rare",
+            "count": 30,
+            "treatmentKeys": [
+              "ace_spec"
+            ],
+            "semanticAttributes": [
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Black White Rare",
+            "count": 2,
+            "treatmentKeys": [
+              "black_white_rare"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "illustration_led",
+              "premium_frame",
+              "subset_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Common",
+            "count": 1091,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Double Rare",
+            "count": 229,
+            "treatmentKeys": [
+              "double_rare"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Hyper Rare",
+            "count": 62,
+            "treatmentKeys": [
+              "hyper_rare_gold"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "gold_or_gilded",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Illustration Rare",
+            "count": 391,
+            "treatmentKeys": [
+              "illustration_rare"
+            ],
+            "semanticAttributes": [
+              "alternate_artwork",
+              "character_scene",
+              "full_art",
+              "illustration_led"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 269,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Shiny Rare",
+            "count": 120,
+            "treatmentKeys": [
+              "shiny_rare"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "shiny",
+              "subset_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Shiny Ultra Rare",
+            "count": 12,
+            "treatmentKeys": [
+              "shiny_ultra_rare"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "holo",
+              "premium_frame",
+              "shiny",
+              "subset_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Special Illustration Rare",
+            "count": 167,
+            "treatmentKeys": [
+              "special_illustration_rare"
+            ],
+            "semanticAttributes": [
+              "alternate_artwork",
+              "character_scene",
+              "full_art",
+              "illustration_led",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Ultra Rare",
+            "count": 249,
+            "treatmentKeys": [
+              "ultra_rare"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 765,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Sun and Moon",
+        "total": 2529,
+        "mapped": 2529,
+        "labels": [
+          {
+            "label": "Common",
+            "count": 642,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 357,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 231,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo GX",
+            "count": 159,
+            "treatmentKeys": [
+              "rare_holo_gx"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Prism Star",
+            "count": 25,
+            "treatmentKeys": [
+              "prism_star"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Rainbow",
+            "count": 144,
+            "treatmentKeys": [
+              "rainbow_rare"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "premium_frame",
+              "rainbow",
+              "textured"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 84,
+            "treatmentKeys": [
+              "sun_and_moon__secret_rare"
+            ],
+            "semanticAttributes": [
+              "gold_or_gilded",
+              "premium_frame",
+              "subset_specialty",
+              "textured"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Shining",
+            "count": 6,
+            "treatmentKeys": [
+              "shining"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "shiny",
+              "vintage_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Ultra",
+            "count": 238,
+            "treatmentKeys": [
+              "rare_ultra"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 643,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "Sword and Shield",
+        "total": 2981,
+        "mapped": 2981,
+        "labels": [
+          {
+            "label": "Amazing Rare",
+            "count": 9,
+            "treatmentKeys": [
+              "amazing_rare"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Common",
+            "count": 708,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Radiant Rare",
+            "count": 15,
+            "treatmentKeys": [
+              "radiant_rare"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "shiny",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 363,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 270,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo V",
+            "count": 234,
+            "treatmentKeys": [
+              "rare_holo_v"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo VMAX",
+            "count": 85,
+            "treatmentKeys": [
+              "rare_holo_vmax"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "textured",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo VSTAR",
+            "count": 33,
+            "treatmentKeys": [
+              "rare_holo_vstar"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Rainbow",
+            "count": 180,
+            "treatmentKeys": [
+              "rainbow_rare"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "premium_frame",
+              "rainbow",
+              "textured"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 77,
+            "treatmentKeys": [
+              "sword_and_shield__secret_rare"
+            ],
+            "semanticAttributes": [
+              "gold_or_gilded",
+              "premium_frame",
+              "subset_specialty",
+              "textured"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Ultra",
+            "count": 316,
+            "treatmentKeys": [
+              "rare_ultra"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 691,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      },
+      {
+        "era": "XY",
+        "total": 1613,
+        "mapped": 1574,
+        "unmapped": 39,
+        "labels": [
+          {
+            "label": "<NULL>",
+            "count": 39,
+            "treatmentKeys": [],
+            "semanticAttributes": [],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Common",
+            "count": 421,
+            "treatmentKeys": [
+              "common"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare",
+            "count": 241,
+            "treatmentKeys": [
+              "rare"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare BREAK",
+            "count": 27,
+            "treatmentKeys": [
+              "break"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo",
+            "count": 145,
+            "treatmentKeys": [
+              "rare_holo"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Holo EX",
+            "count": 127,
+            "treatmentKeys": [
+              "rare_holo_ex"
+            ],
+            "semanticAttributes": [
+              "holo",
+              "premium_frame",
+              "unique_mechanic_treatment"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Secret",
+            "count": 30,
+            "treatmentKeys": [
+              "xy__secret_rare"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "gold_or_gilded",
+              "premium_frame",
+              "subset_specialty"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Rare Ultra",
+            "count": 113,
+            "treatmentKeys": [
+              "rare_ultra"
+            ],
+            "semanticAttributes": [
+              "full_art",
+              "premium_frame"
+            ],
+            "exactPullScarcity": "partial"
+          },
+          {
+            "label": "Uncommon",
+            "count": 470,
+            "treatmentKeys": [
+              "uncommon"
+            ],
+            "semanticAttributes": [
+              "standard_frame"
+            ],
+            "exactPullScarcity": "partial"
+          }
+        ]
+      }
+    ],
+    "bySet": [
+      {
+        "value": "Ancient Origins",
+        "total": 98,
+        "mapped": 98,
+        "unmapped": 0
+      },
+      {
+        "value": "Aquapolis",
+        "total": 172,
+        "mapped": 172,
+        "unmapped": 0
+      },
+      {
+        "value": "Arceus",
+        "total": 111,
+        "mapped": 111,
+        "unmapped": 0
+      },
+      {
+        "value": "Ascended Heroes",
+        "total": 293,
+        "mapped": 293,
+        "unmapped": 0
+      },
+      {
+        "value": "Astral Radiance",
+        "total": 215,
+        "mapped": 215,
+        "unmapped": 0
+      },
+      {
+        "value": "BREAKpoint",
+        "total": 122,
+        "mapped": 122,
+        "unmapped": 0
+      },
+      {
+        "value": "BREAKthrough",
+        "total": 162,
+        "mapped": 162,
+        "unmapped": 0
+      },
+      {
+        "value": "Base",
+        "total": 94,
+        "mapped": 94,
+        "unmapped": 0
+      },
+      {
+        "value": "Base Set 2",
+        "total": 123,
+        "mapped": 123,
+        "unmapped": 0
+      },
+      {
+        "value": "Battle Styles",
+        "total": 179,
+        "mapped": 179,
+        "unmapped": 0
+      },
+      {
+        "value": "Black & White",
+        "total": 107,
+        "mapped": 107,
+        "unmapped": 0
+      },
+      {
+        "value": "Black Bolt",
+        "total": 170,
+        "mapped": 170,
+        "unmapped": 0
+      },
+      {
+        "value": "Boundaries Crossed",
+        "total": 153,
+        "mapped": 153,
+        "unmapped": 0
+      },
+      {
+        "value": "Brilliant Stars",
+        "total": 185,
+        "mapped": 185,
+        "unmapped": 0
+      },
+      {
+        "value": "Burning Shadows",
+        "total": 166,
+        "mapped": 166,
+        "unmapped": 0
+      },
+      {
+        "value": "Call of Legends",
+        "total": 96,
+        "mapped": 96,
+        "unmapped": 0
+      },
+      {
+        "value": "Celebrations",
+        "total": 25,
+        "mapped": 25,
+        "unmapped": 0
+      },
+      {
+        "value": "Celestial Storm",
+        "total": 181,
+        "mapped": 181,
+        "unmapped": 0
+      },
+      {
+        "value": "Champion's Path",
+        "total": 80,
+        "mapped": 80,
+        "unmapped": 0
+      },
+      {
+        "value": "Chaos Rising",
+        "total": 119,
+        "mapped": 119,
+        "unmapped": 0
+      },
+      {
+        "value": "Chilling Reign",
+        "total": 227,
+        "mapped": 227,
+        "unmapped": 0
+      },
+      {
+        "value": "Cosmic Eclipse",
+        "total": 269,
+        "mapped": 269,
+        "unmapped": 0
+      },
+      {
+        "value": "Crimson Invasion",
+        "total": 120,
+        "mapped": 120,
+        "unmapped": 0
+      },
+      {
+        "value": "Crown Zenith",
+        "total": 152,
+        "mapped": 152,
+        "unmapped": 0
+      },
+      {
+        "value": "Crystal Guardians",
+        "total": 99,
+        "mapped": 99,
+        "unmapped": 0
+      },
+      {
+        "value": "Dark Explorers",
+        "total": 111,
+        "mapped": 111,
+        "unmapped": 0
+      },
+      {
+        "value": "Darkness Ablaze",
+        "total": 197,
+        "mapped": 197,
+        "unmapped": 0
+      },
+      {
+        "value": "Delta Species",
+        "total": 109,
+        "mapped": 109,
+        "unmapped": 0
+      },
+      {
+        "value": "Deoxys",
+        "total": 105,
+        "mapped": 105,
+        "unmapped": 0
+      },
+      {
+        "value": "Destined Rivals",
+        "total": 243,
+        "mapped": 243,
+        "unmapped": 0
+      },
+      {
+        "value": "Detective Pikachu",
+        "total": 18,
+        "mapped": 18,
+        "unmapped": 0
+      },
+      {
+        "value": "Diamond & Pearl",
+        "total": 122,
+        "mapped": 122,
+        "unmapped": 0
+      },
+      {
+        "value": "Double Crisis",
+        "total": 32,
+        "mapped": 32,
+        "unmapped": 0
+      },
+      {
+        "value": "Dragon",
+        "total": 100,
+        "mapped": 100,
+        "unmapped": 0
+      },
+      {
+        "value": "Dragon Frontiers",
+        "total": 95,
+        "mapped": 95,
+        "unmapped": 0
+      },
+      {
+        "value": "Dragon Majesty",
+        "total": 78,
+        "mapped": 78,
+        "unmapped": 0
+      },
+      {
+        "value": "Dragon Vault",
+        "total": 21,
+        "mapped": 18,
+        "unmapped": 3
+      },
+      {
+        "value": "Dragons Exalted",
+        "total": 126,
+        "mapped": 126,
+        "unmapped": 0
+      },
+      {
+        "value": "EX Trainer Kit 2 Minun",
+        "total": 17,
+        "mapped": 8,
+        "unmapped": 9
+      },
+      {
+        "value": "EX Trainer Kit 2 Plusle",
+        "total": 18,
+        "mapped": 8,
+        "unmapped": 10
+      },
+      {
+        "value": "EX Trainer Kit Latias",
+        "total": 16,
+        "mapped": 7,
+        "unmapped": 9
+      },
+      {
+        "value": "EX Trainer Kit Latios",
+        "total": 16,
+        "mapped": 7,
+        "unmapped": 9
+      },
+      {
+        "value": "Emerald",
+        "total": 97,
+        "mapped": 97,
+        "unmapped": 0
+      },
+      {
+        "value": "Emerging Powers",
+        "total": 98,
+        "mapped": 98,
+        "unmapped": 0
+      },
+      {
+        "value": "Evolutions",
+        "total": 103,
+        "mapped": 103,
+        "unmapped": 0
+      },
+      {
+        "value": "Evolving Skies",
+        "total": 233,
+        "mapped": 233,
+        "unmapped": 0
+      },
+      {
+        "value": "Expedition Base Set",
+        "total": 157,
+        "mapped": 157,
+        "unmapped": 0
+      },
+      {
+        "value": "Fates Collide",
+        "total": 123,
+        "mapped": 123,
+        "unmapped": 0
+      },
+      {
+        "value": "FireRed & LeafGreen",
+        "total": 115,
+        "mapped": 115,
+        "unmapped": 0
+      },
+      {
+        "value": "Flashfire",
+        "total": 109,
+        "mapped": 109,
+        "unmapped": 0
+      },
+      {
+        "value": "Forbidden Light",
+        "total": 143,
+        "mapped": 143,
+        "unmapped": 0
+      },
+      {
+        "value": "Fossil",
+        "total": 62,
+        "mapped": 62,
+        "unmapped": 0
+      },
+      {
+        "value": "Furious Fists",
+        "total": 111,
+        "mapped": 111,
+        "unmapped": 0
+      },
+      {
+        "value": "Fusion Strike",
+        "total": 281,
+        "mapped": 281,
+        "unmapped": 0
+      },
+      {
+        "value": "Generations",
+        "total": 73,
+        "mapped": 73,
+        "unmapped": 0
+      },
+      {
+        "value": "Great Encounters",
+        "total": 106,
+        "mapped": 106,
+        "unmapped": 0
+      },
+      {
+        "value": "Guardians Rising",
+        "total": 165,
+        "mapped": 165,
+        "unmapped": 0
+      },
+      {
+        "value": "Gym Challenge",
+        "total": 126,
+        "mapped": 126,
+        "unmapped": 0
+      },
+      {
+        "value": "Gym Heroes",
+        "total": 126,
+        "mapped": 126,
+        "unmapped": 0
+      },
+      {
+        "value": "HS—Triumphant",
+        "total": 102,
+        "mapped": 102,
+        "unmapped": 0
+      },
+      {
+        "value": "HS—Undaunted",
+        "total": 89,
+        "mapped": 89,
+        "unmapped": 0
+      },
+      {
+        "value": "HS—Unleashed",
+        "total": 96,
+        "mapped": 96,
+        "unmapped": 0
+      },
+      {
+        "value": "HeartGold & SoulSilver",
+        "total": 114,
+        "mapped": 114,
+        "unmapped": 0
+      },
+      {
+        "value": "Hidden Fates",
+        "total": 69,
+        "mapped": 69,
+        "unmapped": 0
+      },
+      {
+        "value": "Hidden Legends",
+        "total": 102,
+        "mapped": 102,
+        "unmapped": 0
+      },
+      {
+        "value": "Holon Phantoms",
+        "total": 100,
+        "mapped": 100,
+        "unmapped": 0
+      },
+      {
+        "value": "Journey Together",
+        "total": 188,
+        "mapped": 188,
+        "unmapped": 0
+      },
+      {
+        "value": "Jungle",
+        "total": 64,
+        "mapped": 64,
+        "unmapped": 0
+      },
+      {
+        "value": "Kalos Starter Set",
+        "total": 39,
+        "mapped": 0,
+        "unmapped": 39
+      },
+      {
+        "value": "Legend Maker",
+        "total": 91,
+        "mapped": 91,
+        "unmapped": 0
+      },
+      {
+        "value": "Legendary Collection",
+        "total": 108,
+        "mapped": 108,
+        "unmapped": 0
+      },
+      {
+        "value": "Legendary Treasures",
+        "total": 114,
+        "mapped": 114,
+        "unmapped": 0
+      },
+      {
+        "value": "Legends Awakened",
+        "total": 146,
+        "mapped": 146,
+        "unmapped": 0
+      },
+      {
+        "value": "Lost Origin",
+        "total": 216,
+        "mapped": 216,
+        "unmapped": 0
+      },
+      {
+        "value": "Lost Thunder",
+        "total": 235,
+        "mapped": 235,
+        "unmapped": 0
+      },
+      {
+        "value": "Majestic Dawn",
+        "total": 95,
+        "mapped": 95,
+        "unmapped": 0
+      },
+      {
+        "value": "McDonald's Collection 2011",
+        "total": 12,
+        "mapped": 0,
+        "unmapped": 12
+      },
+      {
+        "value": "McDonald's Collection 2012",
+        "total": 12,
+        "mapped": 0,
+        "unmapped": 12
+      },
+      {
+        "value": "McDonald's Collection 2014",
+        "total": 12,
+        "mapped": 0,
+        "unmapped": 12
+      },
+      {
+        "value": "McDonald's Collection 2015",
+        "total": 12,
+        "mapped": 1,
+        "unmapped": 11
+      },
+      {
+        "value": "McDonald's Collection 2016",
+        "total": 12,
+        "mapped": 0,
+        "unmapped": 12
+      },
+      {
+        "value": "McDonald's Collection 2017",
+        "total": 12,
+        "mapped": 0,
+        "unmapped": 12
+      },
+      {
+        "value": "McDonald's Collection 2018",
+        "total": 12,
+        "mapped": 0,
+        "unmapped": 12
+      },
+      {
+        "value": "McDonald's Collection 2019",
+        "total": 12,
+        "mapped": 0,
+        "unmapped": 12
+      },
+      {
+        "value": "McDonald's Collection 2021",
+        "total": 25,
+        "mapped": 0,
+        "unmapped": 25
+      },
+      {
+        "value": "McDonald's Collection 2022",
+        "total": 15,
+        "mapped": 0,
+        "unmapped": 15
+      },
+      {
+        "value": "Mega Evolution",
+        "total": 188,
+        "mapped": 188,
+        "unmapped": 0
+      },
+      {
+        "value": "Mysterious Treasures",
+        "total": 121,
+        "mapped": 121,
+        "unmapped": 0
+      },
+      {
+        "value": "Neo Destiny",
+        "total": 112,
+        "mapped": 112,
+        "unmapped": 0
+      },
+      {
+        "value": "Neo Discovery",
+        "total": 75,
+        "mapped": 75,
+        "unmapped": 0
+      },
+      {
+        "value": "Neo Genesis",
+        "total": 102,
+        "mapped": 102,
+        "unmapped": 0
+      },
+      {
+        "value": "Neo Revelation",
+        "total": 66,
+        "mapped": 66,
+        "unmapped": 0
+      },
+      {
+        "value": "Next Destinies",
+        "total": 101,
+        "mapped": 101,
+        "unmapped": 0
+      },
+      {
+        "value": "Noble Victories",
+        "total": 102,
+        "mapped": 102,
+        "unmapped": 0
+      },
+      {
+        "value": "Obsidian Flames",
+        "total": 229,
+        "mapped": 229,
+        "unmapped": 0
+      },
+      {
+        "value": "POP Series 1",
+        "total": 17,
+        "mapped": 17,
+        "unmapped": 0
+      },
+      {
+        "value": "POP Series 2",
+        "total": 17,
+        "mapped": 17,
+        "unmapped": 0
+      },
+      {
+        "value": "POP Series 3",
+        "total": 17,
+        "mapped": 17,
+        "unmapped": 0
+      },
+      {
+        "value": "POP Series 4",
+        "total": 15,
+        "mapped": 15,
+        "unmapped": 0
+      },
+      {
+        "value": "POP Series 5",
+        "total": 14,
+        "mapped": 14,
+        "unmapped": 0
+      },
+      {
+        "value": "POP Series 6",
+        "total": 17,
+        "mapped": 17,
+        "unmapped": 0
+      },
+      {
+        "value": "POP Series 7",
+        "total": 17,
+        "mapped": 17,
+        "unmapped": 0
+      },
+      {
+        "value": "POP Series 8",
+        "total": 17,
+        "mapped": 17,
+        "unmapped": 0
+      },
+      {
+        "value": "POP Series 9",
+        "total": 17,
+        "mapped": 17,
+        "unmapped": 0
+      },
+      {
+        "value": "Paldea Evolved",
+        "total": 273,
+        "mapped": 273,
+        "unmapped": 0
+      },
+      {
+        "value": "Paldean Fates",
+        "total": 245,
+        "mapped": 245,
+        "unmapped": 0
+      },
+      {
+        "value": "Paradox Rift",
+        "total": 264,
+        "mapped": 264,
+        "unmapped": 0
+      },
+      {
+        "value": "Perfect Order",
+        "total": 121,
+        "mapped": 121,
+        "unmapped": 0
+      },
+      {
+        "value": "Phantasmal Flames",
+        "total": 129,
+        "mapped": 129,
+        "unmapped": 0
+      },
+      {
+        "value": "Phantom Forces",
+        "total": 120,
+        "mapped": 120,
+        "unmapped": 0
+      },
+      {
+        "value": "Pitch Black",
+        "total": 118,
+        "mapped": 118,
+        "unmapped": 0
+      },
+      {
+        "value": "Plasma Blast",
+        "total": 104,
+        "mapped": 104,
+        "unmapped": 0
+      },
+      {
+        "value": "Plasma Freeze",
+        "total": 121,
+        "mapped": 121,
+        "unmapped": 0
+      },
+      {
+        "value": "Plasma Storm",
+        "total": 137,
+        "mapped": 137,
+        "unmapped": 0
+      },
+      {
+        "value": "Platinum",
+        "total": 132,
+        "mapped": 132,
+        "unmapped": 0
+      },
+      {
+        "value": "Pokémon Futsal Collection",
+        "total": 5,
+        "mapped": 0,
+        "unmapped": 5
+      },
+      {
+        "value": "Pokémon GO",
+        "total": 88,
+        "mapped": 88,
+        "unmapped": 0
+      },
+      {
+        "value": "Pokémon Rumble",
+        "total": 16,
+        "mapped": 0,
+        "unmapped": 16
+      },
+      {
+        "value": "Power Keepers",
+        "total": 97,
+        "mapped": 97,
+        "unmapped": 0
+      },
+      {
+        "value": "Primal Clash",
+        "total": 162,
+        "mapped": 162,
+        "unmapped": 0
+      },
+      {
+        "value": "Prismatic Evolutions",
+        "total": 180,
+        "mapped": 180,
+        "unmapped": 0
+      },
+      {
+        "value": "Rebel Clash",
+        "total": 204,
+        "mapped": 204,
+        "unmapped": 0
+      },
+      {
+        "value": "Rising Rivals",
+        "total": 116,
+        "mapped": 116,
+        "unmapped": 0
+      },
+      {
+        "value": "Roaring Skies",
+        "total": 109,
+        "mapped": 109,
+        "unmapped": 0
+      },
+      {
+        "value": "Ruby & Sapphire",
+        "total": 100,
+        "mapped": 100,
+        "unmapped": 0
+      },
+      {
+        "value": "Sandstorm",
+        "total": 99,
+        "mapped": 99,
+        "unmapped": 0
+      },
+      {
+        "value": "Scarlet and Violet 151",
+        "total": 206,
+        "mapped": 206,
+        "unmapped": 0
+      },
+      {
+        "value": "Scarlet and Violet Base Set",
+        "total": 256,
+        "mapped": 256,
+        "unmapped": 0
+      },
+      {
+        "value": "Secret Wonders",
+        "total": 130,
+        "mapped": 130,
+        "unmapped": 0
+      },
+      {
+        "value": "Shining Fates",
+        "total": 73,
+        "mapped": 73,
+        "unmapped": 0
+      },
+      {
+        "value": "Shining Legends",
+        "total": 76,
+        "mapped": 76,
+        "unmapped": 0
+      },
+      {
+        "value": "Shrouded Fable",
+        "total": 97,
+        "mapped": 97,
+        "unmapped": 0
+      },
+      {
+        "value": "Silver Tempest",
+        "total": 212,
+        "mapped": 212,
+        "unmapped": 0
+      },
+      {
+        "value": "Skyridge",
+        "total": 179,
+        "mapped": 179,
+        "unmapped": 0
+      },
+      {
+        "value": "Southern Islands",
+        "total": 18,
+        "mapped": 0,
+        "unmapped": 18
+      },
+      {
+        "value": "Steam Siege",
+        "total": 116,
+        "mapped": 116,
+        "unmapped": 0
+      },
+      {
+        "value": "Stellar Crown",
+        "total": 175,
+        "mapped": 175,
+        "unmapped": 0
+      },
+      {
+        "value": "Stormfront",
+        "total": 104,
+        "mapped": 104,
+        "unmapped": 0
+      },
+      {
+        "value": "Sun & Moon",
+        "total": 159,
+        "mapped": 159,
+        "unmapped": 0
+      },
+      {
+        "value": "Supreme Victors",
+        "total": 153,
+        "mapped": 153,
+        "unmapped": 0
+      },
+      {
+        "value": "Surging Sparks",
+        "total": 250,
+        "mapped": 250,
+        "unmapped": 0
+      },
+      {
+        "value": "Sword & Shield",
+        "total": 215,
+        "mapped": 215,
+        "unmapped": 0
+      },
+      {
+        "value": "Team Magma vs Team Aqua",
+        "total": 94,
+        "mapped": 94,
+        "unmapped": 0
+      },
+      {
+        "value": "Team Rocket",
+        "total": 79,
+        "mapped": 79,
+        "unmapped": 0
+      },
+      {
+        "value": "Team Rocket Returns",
+        "total": 109,
+        "mapped": 109,
+        "unmapped": 0
+      },
+      {
+        "value": "Team Up",
+        "total": 196,
+        "mapped": 196,
+        "unmapped": 0
+      },
+      {
+        "value": "Temporal Forces",
+        "total": 216,
+        "mapped": 216,
+        "unmapped": 0
+      },
+      {
+        "value": "Twilight Masquerade",
+        "total": 223,
+        "mapped": 223,
+        "unmapped": 0
+      },
+      {
+        "value": "Ultra Prism",
+        "total": 168,
+        "mapped": 168,
+        "unmapped": 0
+      },
+      {
+        "value": "Unbroken Bonds",
+        "total": 232,
+        "mapped": 232,
+        "unmapped": 0
+      },
+      {
+        "value": "Unified Minds",
+        "total": 254,
+        "mapped": 254,
+        "unmapped": 0
+      },
+      {
+        "value": "Unseen Forces",
+        "total": 140,
+        "mapped": 140,
+        "unmapped": 0
+      },
+      {
+        "value": "Vivid Voltage",
+        "total": 199,
+        "mapped": 199,
+        "unmapped": 0
+      },
+      {
+        "value": "White Flare",
+        "total": 172,
+        "mapped": 172,
+        "unmapped": 0
+      },
+      {
+        "value": "XY",
+        "total": 134,
+        "mapped": 134,
+        "unmapped": 0
+      }
+    ],
+    "byRarity": [
+      {
+        "value": "<NULL>",
+        "total": 253,
+        "mapped": 0,
+        "unmapped": 253
+      },
+      {
+        "value": "ACE SPEC Rare",
+        "total": 30,
+        "mapped": 30,
+        "unmapped": 0
+      },
+      {
+        "value": "Amazing Rare",
+        "total": 9,
+        "mapped": 9,
+        "unmapped": 0
+      },
+      {
+        "value": "Black White Rare",
+        "total": 2,
+        "mapped": 2,
+        "unmapped": 0
+      },
+      {
+        "value": "Common",
+        "total": 5242,
+        "mapped": 5242,
+        "unmapped": 0
+      },
+      {
+        "value": "Double Rare",
+        "total": 317,
+        "mapped": 317,
+        "unmapped": 0
+      },
+      {
+        "value": "Hyper Rare",
+        "total": 62,
+        "mapped": 62,
+        "unmapped": 0
+      },
+      {
+        "value": "Illustration Rare",
+        "total": 492,
+        "mapped": 492,
+        "unmapped": 0
+      },
+      {
+        "value": "LEGEND",
+        "total": 18,
+        "mapped": 18,
+        "unmapped": 0
+      },
+      {
+        "value": "MEGA_ATTACK_RARE",
+        "total": 7,
+        "mapped": 7,
+        "unmapped": 0
+      },
+      {
+        "value": "Mega Hyper Rare",
+        "total": 8,
+        "mapped": 8,
+        "unmapped": 0
+      },
+      {
+        "value": "Radiant Rare",
+        "total": 15,
+        "mapped": 15,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare",
+        "total": 2512,
+        "mapped": 2512,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare ACE",
+        "total": 13,
+        "mapped": 13,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare BREAK",
+        "total": 27,
+        "mapped": 27,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Holo",
+        "total": 1590,
+        "mapped": 1590,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Holo EX",
+        "total": 316,
+        "mapped": 316,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Holo GX",
+        "total": 159,
+        "mapped": 159,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Holo LV.X",
+        "total": 56,
+        "mapped": 56,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Holo Star",
+        "total": 25,
+        "mapped": 25,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Holo V",
+        "total": 234,
+        "mapped": 234,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Holo VMAX",
+        "total": 85,
+        "mapped": 85,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Holo VSTAR",
+        "total": 33,
+        "mapped": 33,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Prime",
+        "total": 26,
+        "mapped": 26,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Prism Star",
+        "total": 25,
+        "mapped": 25,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Rainbow",
+        "total": 324,
+        "mapped": 324,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Secret",
+        "total": 269,
+        "mapped": 269,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Shining",
+        "total": 16,
+        "mapped": 16,
+        "unmapped": 0
+      },
+      {
+        "value": "Rare Ultra",
+        "total": 722,
+        "mapped": 722,
+        "unmapped": 0
+      },
+      {
+        "value": "Shiny Rare",
+        "total": 120,
+        "mapped": 120,
+        "unmapped": 0
+      },
+      {
+        "value": "Shiny Ultra Rare",
+        "total": 12,
+        "mapped": 12,
+        "unmapped": 0
+      },
+      {
+        "value": "Special Illustration Rare",
+        "total": 222,
+        "mapped": 222,
+        "unmapped": 0
+      },
+      {
+        "value": "Ultra Rare",
+        "total": 355,
+        "mapped": 355,
+        "unmapped": 0
+      },
+      {
+        "value": "Uncommon",
+        "total": 4697,
+        "mapped": 4697,
+        "unmapped": 0
+      }
+    ],
+    "byPrintingType": [
+      {
+        "value": "<NULL>",
+        "total": 92,
+        "mapped": 49,
+        "unmapped": 43
+      },
+      {
+        "value": "holo",
+        "total": 6351,
+        "mapped": 6230,
+        "unmapped": 121
+      },
+      {
+        "value": "non-holo",
+        "total": 12135,
+        "mapped": 12018,
+        "unmapped": 117
+      },
+      {
+        "value": "reverse-holo",
+        "total": 12688,
+        "mapped": 12682,
+        "unmapped": 6
+      }
+    ],
+    "bySpecialType": [
+      {
+        "value": "<NULL>",
+        "total": 92,
+        "mapped": 49,
+        "unmapped": 43
+      },
+      {
+        "value": "None",
+        "total": 18144,
+        "mapped": 17935,
+        "unmapped": 209
+      },
+      {
+        "value": "ace spec",
+        "total": 30,
+        "mapped": 30,
+        "unmapped": 0
+      },
+      {
+        "value": "journey-together-stamped",
+        "total": 1,
+        "mapped": 1,
+        "unmapped": 0
+      },
+      {
+        "value": "master ball",
+        "total": 216,
+        "mapped": 216,
+        "unmapped": 0
+      },
+      {
+        "value": "mega-evolution-stamped",
+        "total": 1,
+        "mapped": 1,
+        "unmapped": 0
+      },
+      {
+        "value": "pokeball",
+        "total": 294,
+        "mapped": 293,
+        "unmapped": 1
+      }
+    ],
+    "byEdition": [
+      {
+        "value": "1st-edition",
+        "total": 859,
+        "mapped": 859,
+        "unmapped": 0
+      },
+      {
+        "value": "<NULL>",
+        "total": 92,
+        "mapped": 49,
+        "unmapped": 43
+      },
+      {
+        "value": "None",
+        "total": 18152,
+        "mapped": 17942,
+        "unmapped": 210
+      },
+      {
+        "value": "unlimited",
+        "total": 861,
+        "mapped": 861,
+        "unmapped": 0
+      }
+    ]
+  },
+  "taxonomyFingerprint": "85fdb2344d9ae7842a91bf0b3b0a434e02e99298be4cb025c8b3826066f67ddc",
+  "cohortManifest": {
+    "best_same_card": {
+      "count": 2,
+      "fingerprint": "ec964944c28f6abe0361eb3807e13e30b66adcf7a34e3c7c64b9ac009f19dfff"
+    },
+    "best_same_subject": {
+      "count": 6251,
+      "fingerprint": "87c4e955c6783b90d2535b32c49f6faa538a12bc604ad894ec7765841fe042af"
+    },
+    "best_scarcity_matched": {
+      "count": 87,
+      "fingerprint": "d9f40b5d4d20781ea057972054c3a5999fc6a5a733cf7239ef21b2e02b367adb"
+    },
+    "era_local": {
+      "count": 6253,
+      "fingerprint": "d09d2ae899b3b3c2298c383572f6d93100c4ec84c032c71b6fd5bfb5c9848677"
+    }
+  },
+  "pairCounts": {
+    "B": 6251,
+    "A": 2
+  },
+  "productionMutations": 0
+}
