@@ -105,6 +105,8 @@ def test_exact_instrument_discovery_is_plus_but_execution_remains_spec_gated():
     assert "has_index_premium_access" not in search
     assert '"requiredPlan": "plus"' in search
     assert "_require_market_explorer_query_access" in query
+    assert "POLICY_INSTRUMENT_SEARCH" in search
+    assert "POLICY_CUSTOM_QUERY" not in search
 
 
 @pytest.mark.parametrize("route", [

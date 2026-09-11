@@ -192,6 +192,7 @@ from backend.domain.pokemon.market_explorer_query import (
 from backend.api.market_request_metrics import build_identity, market_request_metrics_middleware
 from backend.api.paid_abuse_control import (
     POLICY_CUSTOM_QUERY,
+    POLICY_INSTRUMENT_SEARCH,
     POLICY_INTERACTIVE_DETAIL,
     POLICY_RANKED_INTELLIGENCE,
     emit_security_event,
@@ -1424,7 +1425,7 @@ def get_market_explorer_instrument_search(
             "code": "MARKET_EXPLORER_PLAN_REQUIRED", "requiredPlan": "plus",
             "requiredFeature": FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
         })
-    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_INSTRUMENT_SEARCH,
                         route="/market/explorer/instruments/search")
     try:
         return _tiered_response(search_market_explorer_instruments(

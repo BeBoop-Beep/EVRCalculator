@@ -22,6 +22,7 @@ logger = logging.getLogger("security.paid_analytics")
 POLICY_INTERACTIVE_DETAIL = "interactive_detail"
 POLICY_RANKED_INTELLIGENCE = "ranked_intelligence"
 POLICY_CUSTOM_QUERY = "custom_query"
+POLICY_INSTRUMENT_SEARCH = "instrument_search"
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,9 @@ POLICIES = {
     POLICY_INTERACTIVE_DETAIL: PaidRoutePolicy(POLICY_INTERACTIVE_DETAIL, 30, 10, 300, 3600),
     POLICY_RANKED_INTELLIGENCE: PaidRoutePolicy(POLICY_RANKED_INTELLIGENCE, 12, 10, 120, 3600),
     POLICY_CUSTOM_QUERY: PaidRoutePolicy(POLICY_CUSTOM_QUERY, 5, 10, 30, 3600),
+    # A distinct finite bucket for debounced typeahead. It must never consume
+    # custom build/query capacity.
+    POLICY_INSTRUMENT_SEARCH: PaidRoutePolicy(POLICY_INSTRUMENT_SEARCH, 30, 10, 600, 3600),
 }
 
 

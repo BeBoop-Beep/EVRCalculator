@@ -44,6 +44,13 @@ PROMPT1_LEDGER_MIRRORS = {
         "8a9bc6cb215d5352d3836ea92f67c7503ea9925d92646714f5a9e2766c46ae91",
 }
 
+PHASE2_SEARCH_LEDGER_MD5 = {
+    "20260911153742_market_explorer_phase2_enable_pg_trgm": "a9f2a818cb67519ee57158cd560ed77a",
+    "20260911154138_market_explorer_phase2_card_search_fts": "6ed68aa308da90df7f30d78f2881dbe2",
+    "20260911154222_market_explorer_phase2_card_name_trgm": "2c5a1a60fb8c06dd32e777627eda201f",
+    "20260911154613_market_explorer_phase2_canonical_instrument_search_v2": "0cb94dddaf76bf6714116db590b822b1",
+}
+
 
 def test_prompt1_sources_use_actual_ledger_versions_and_match_statement_bytes():
     """apply_migration stored the submitted SQL with one trailing CRLF."""
@@ -63,6 +70,23 @@ def test_recent_production_mirrors_are_text_identical_to_supabase_lineage():
         backend_text = (MIGRATIONS_DIR / f"{stem}.sql").read_text(encoding="utf-8")
         lineage_text = (ROOT / "supabase/migrations" / f"{stem}.sql").read_text(encoding="utf-8")
         assert backend_text == lineage_text
+
+
+def test_phase2_search_mirrors_match_live_ledger_statements_and_both_trees():
+    for stem, ledger_md5 in PHASE2_SEARCH_LEDGER_MD5.items():
+        backend_source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        supabase_source = (ROOT / "supabase/migrations" / f"{stem}.sql").read_bytes()
+        assert backend_source == supabase_source
+        assert hashlib.md5(backend_source.rstrip(b"\r\n")).hexdigest() == ledger_md5
+
+
+def test_phase2_search_rpc_is_bounded_ranked_and_service_role_only():
+    sql = _sql("20260911154613_market_explorer_phase2_canonical_instrument_search_v2")
+    assert "p_asset text default 'all'" in sql
+    assert "least(greatest(coalesce(p_limit, 20), 1), 50)" in sql
+    assert "order by c.relevance_score desc" in sql
+    assert "revoke all on function public.search_pokemon_market_explorer_instruments_v2" in sql
+    assert "to service_role" in sql
 
 
 def _sql(stem: str) -> str:
