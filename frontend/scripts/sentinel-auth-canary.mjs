@@ -11,6 +11,15 @@ import {
 } from "../lib/sentinel/authCanary.mjs";
 
 
+function isAuthMeResponse(response) {
+  try {
+    const url = new URL(response.url());
+    return url.pathname === "/api/auth/me" && response.request().method() === "GET";
+  } catch {
+    return false;
+  }
+}
+
 async function readCurrentUser(page) {
   const result = await page.evaluate(async () => {
     const response = await fetch("/api/auth/me", {
@@ -48,6 +57,14 @@ async function assertRenderedAuth(page, expectedFingerprint) {
   return fingerprint;
 }
 
+async function clickAndWaitForAuthSync(page, click, timeoutMs) {
+  const [authResponse] = await Promise.all([
+    page.waitForResponse(isAuthMeResponse, { timeout: timeoutMs }),
+    click(),
+  ]);
+  return authResponse.status();
+}
+
 async function navigateViaHeader(page, destination, timeoutMs) {
   const link = page.locator("header").getByRole("link", {
     name: destination.name,
@@ -56,12 +73,16 @@ async function navigateViaHeader(page, destination, timeoutMs) {
   if ((await link.count()) < 1) {
     throw new AuthCanaryError("auth_canary_navigation_link_missing");
   }
-  await link.first().click();
+  const authSyncStatus = await clickAndWaitForAuthSync(
+    page,
+    () => link.first().click(),
+    timeoutMs,
+  );
   await page.waitForURL(
     (url) => url.pathname === destination.pathname || url.pathname.startsWith(`${destination.pathname}/`),
     { timeout: timeoutMs },
   );
-  await page.waitForLoadState("domcontentloaded");
+  return authSyncStatus;
 }
 
 async function run() {
@@ -69,6 +90,7 @@ async function run() {
   let stage = "startup";
   let browser = null;
   const visited = [];
+  const authSyncStatuses = [];
   const pageErrors = [];
 
   try {
@@ -99,7 +121,8 @@ async function run() {
 
     for (const destination of AUTH_CANARY_NAVIGATION) {
       stage = destination.name;
-      await navigateViaHeader(page, destination, config.timeoutMs);
+      const status = await navigateViaHeader(page, destination, config.timeoutMs);
+      authSyncStatuses.push({ pathname: destination.pathname, status });
       await assertRenderedAuth(page, expectedFingerprint);
       visited.push(destination.pathname);
     }
@@ -111,11 +134,15 @@ async function run() {
     if ((await accountSettings.count()) < 1) {
       throw new AuthCanaryError("auth_canary_account_settings_link_missing");
     }
-    await accountSettings.first().click();
+    const accountStatus = await clickAndWaitForAuthSync(
+      page,
+      () => accountSettings.first().click(),
+      config.timeoutMs,
+    );
     await page.waitForURL((url) => url.pathname === "/account-settings", {
       timeout: config.timeoutMs,
     });
-    await page.waitForLoadState("domcontentloaded");
+    authSyncStatuses.push({ pathname: "/account-settings", status: accountStatus });
     await assertRenderedAuth(page, expectedFingerprint);
     visited.push("/account-settings");
 
@@ -126,6 +153,7 @@ async function run() {
           config: safeAuthCanaryConfigSummary(config),
           identityFingerprint: expectedFingerprint,
           visited,
+          authSyncStatuses,
           pageErrorCount: pageErrors.length,
           pageErrorTypes: Array.from(new Set(pageErrors)).slice(0, 10),
         },
