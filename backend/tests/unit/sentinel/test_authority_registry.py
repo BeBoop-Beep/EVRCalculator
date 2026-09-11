@@ -1,9 +1,11 @@
 from backend.sentinel.checks.registry import (
     AUDIT_CHECK_KEYS,
     FAST_CHECK_KEYS,
+    PUBLIC_CHECK_KEYS,
     build_audit_registry,
     build_fast_registry,
     build_profile_registry,
+    build_public_registry,
 )
 
 
@@ -13,14 +15,25 @@ def test_fast_registry_has_only_bounded_operational_checks():
     assert "publication.audit.post_scrape" not in registry.keys()
 
 
+def test_public_registry_has_only_public_semantic_checks():
+    registry = build_public_registry(backend_base_url="https://api.example.test", http_get=lambda *a, **k: None)
+    assert registry.keys() == tuple(sorted(PUBLIC_CHECK_KEYS))
+    assert all(registry.get(key).confirm_after == 2 for key in PUBLIC_CHECK_KEYS)
+
+
 def test_heavy_audit_is_separate_profile():
     registry = build_audit_registry(client=object())
     assert registry.keys() == tuple(sorted(AUDIT_CHECK_KEYS))
 
 
 def test_all_profile_combines_without_duplicates():
-    registry = build_profile_registry("all", client=object())
-    assert registry.keys() == tuple(sorted((*FAST_CHECK_KEYS, *AUDIT_CHECK_KEYS)))
+    registry = build_profile_registry(
+        "all",
+        client=object(),
+        backend_base_url="https://api.example.test",
+        http_get=lambda *a, **k: None,
+    )
+    assert registry.keys() == tuple(sorted((*FAST_CHECK_KEYS, *PUBLIC_CHECK_KEYS, *AUDIT_CHECK_KEYS)))
 
 
 def test_market_freshness_keeps_confirmation_window_while_deterministic_checks_are_immediate():
@@ -36,6 +49,6 @@ def test_unknown_profile_is_rejected():
     try:
         build_profile_registry("unknown", client=object())
     except ValueError as exc:
-        assert "fast, audit, all" in str(exc)
+        assert "fast, public, audit, all" in str(exc)
     else:
         raise AssertionError("unknown profile must fail")
