@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 from backend.sentinel.checks.authorities import (
     check_alert_delivery,
@@ -12,6 +12,7 @@ from backend.sentinel.checks.authorities import (
     check_scrape_queue_leases,
     check_set_page_generation,
 )
+from backend.sentinel.checks.deployment import check_release_identity
 from backend.sentinel.checks.independent import (
     DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
     check_component_heartbeat,
@@ -24,6 +25,10 @@ from backend.sentinel.checks.public_semantics import (
     check_rankings_lens,
     check_representative_set_page,
     check_tcg_directory,
+)
+from backend.sentinel.checks.runtime_provenance import (
+    check_vm_runtime_provenance,
+    load_vm_overlay_manifest,
 )
 from backend.sentinel.models import Severity
 from backend.sentinel.registry import CheckRegistry
@@ -47,6 +52,8 @@ PUBLIC_CHECK_KEYS = (
     "public.setpage.representative",
 )
 INDEPENDENT_CHECK_KEYS = ("watcher.component_heartbeat",)
+DEPLOY_CHECK_KEYS = ("deployment.release_identity",)
+RUNTIME_CHECK_KEYS = ("runtime.vm_provenance",)
 AUDIT_CHECK_KEYS = ("publication.audit.post_scrape",)
 
 
@@ -170,7 +177,62 @@ def build_independent_registry(
             max_age_seconds=max_age_seconds,
         ),
         description="Independent stale/missing Sentinel component heartbeat",
-        # The age threshold already provides a 15-minute confirmation window.
+        confirm_after=1,
+        exception_severity=Severity.CRITICAL,
+    )
+    return registry
+
+
+def build_deploy_registry(
+    *,
+    backend_base_url: str,
+    frontend_base_url: str,
+    expected_release_sha: str,
+    expected_release_branch: str = "main",
+    expected_frontend_environment: str = "production",
+    http_get: Optional[Callable[..., Any]] = None,
+    timeout_seconds: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
+) -> CheckRegistry:
+    """Explicit post-deploy release identity canary; not part of continuous `all`."""
+    registry = CheckRegistry()
+    registry.register(
+        "deployment.release_identity",
+        lambda ctx: check_release_identity(
+            ctx,
+            backend_base_url=backend_base_url,
+            frontend_base_url=frontend_base_url,
+            expected_sha=expected_release_sha,
+            expected_branch=expected_release_branch,
+            expected_environment=expected_frontend_environment,
+            http_get=http_get,
+            timeout_seconds=timeout_seconds,
+        ),
+        description="Backend + frontend serve the explicitly expected release SHA",
+        confirm_after=1,
+        exception_severity=Severity.CRITICAL,
+    )
+    return registry
+
+
+def build_runtime_registry(
+    *,
+    repo_path: str,
+    overlay_manifest_path: str,
+    git_runner: Optional[Callable[[str, Sequence[str]], Tuple[int, str, str]]] = None,
+    manifest_loader: Callable[[str], Dict[str, Any]] = load_vm_overlay_manifest,
+) -> CheckRegistry:
+    """Production VM main-release + approved-overlay provenance check."""
+    registry = CheckRegistry()
+    registry.register(
+        "runtime.vm_provenance",
+        lambda ctx: check_vm_runtime_provenance(
+            ctx,
+            repo_path=repo_path,
+            manifest_path=overlay_manifest_path,
+            git_runner=git_runner,
+            manifest_loader=manifest_loader,
+        ),
+        description="VM remains main-based with only explicitly approved overlay paths",
         confirm_after=1,
         exception_severity=Severity.CRITICAL,
     )
@@ -205,11 +267,19 @@ def build_profile_registry(
     *,
     client: Any = None,
     backend_base_url: str = "",
+    frontend_base_url: str = "",
+    expected_release_sha: str = "",
+    expected_release_branch: str = "main",
+    expected_frontend_environment: str = "production",
     http_get: Optional[Callable[..., Any]] = None,
     timeout_seconds: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     watch_component: str = "sentinel_vm",
     watch_host: str = "",
     heartbeat_max_age_seconds: int = DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+    runtime_repo_path: str = "",
+    runtime_overlay_manifest_path: str = "",
+    git_runner: Optional[Callable[[str, Sequence[str]], Tuple[int, str, str]]] = None,
+    manifest_loader: Callable[[str], Dict[str, Any]] = load_vm_overlay_manifest,
 ) -> CheckRegistry:
     normalized = str(profile or "").strip().lower()
     if normalized == "fast":
@@ -227,11 +297,28 @@ def build_profile_registry(
             watch_host=watch_host,
             max_age_seconds=heartbeat_max_age_seconds,
         )
+    if normalized == "deploy":
+        return build_deploy_registry(
+            backend_base_url=backend_base_url,
+            frontend_base_url=frontend_base_url,
+            expected_release_sha=expected_release_sha,
+            expected_release_branch=expected_release_branch,
+            expected_frontend_environment=expected_frontend_environment,
+            http_get=http_get,
+            timeout_seconds=timeout_seconds,
+        )
+    if normalized == "runtime":
+        return build_runtime_registry(
+            repo_path=runtime_repo_path,
+            overlay_manifest_path=runtime_overlay_manifest_path,
+            git_runner=git_runner,
+            manifest_loader=manifest_loader,
+        )
     if normalized == "audit":
         return build_audit_registry(client=client)
     if normalized == "all":
-        # Deliberately excludes `independent`: a VM cannot be its own external
-        # failure-domain observer merely because an aggregate profile was used.
+        # Deliberately excludes `independent`, `deploy`, and `runtime`: those
+        # require distinct failure domains or explicit release/runtime authority.
         registry = build_fast_registry(client=client)
         _merge_registry(
             registry,
@@ -244,5 +331,5 @@ def build_profile_registry(
         _merge_registry(registry, build_audit_registry(client=client))
         return registry
     raise ValueError(
-        "Sentinel profile must be one of: fast, public, independent, audit, all"
+        "Sentinel profile must be one of: fast, public, independent, deploy, runtime, audit, all"
     )
