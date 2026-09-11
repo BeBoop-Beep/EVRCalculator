@@ -240,13 +240,19 @@ export default function SetPackMetrics({
       >
         <div className="hidden overflow-x-auto desk:block">
           <table className={styles.table}>
+            <colgroup>
+              <col className={styles.colSetPackIdentity} />
+              {SET_PACK_COLUMNS.map(([key]) => (
+                <col key={key} className={styles.colSetPackMetric} />
+              ))}
+            </colgroup>
             <caption className="sr-only">
               Pack Economics by Set. Parent metrics are canonical V3 Set
               aggregates.
             </caption>
             <thead className={`${styles.head} ${styles.analyticsTableHead}`}>
               <tr>
-                <th className="min-w-52">Set</th>
+                <th>Set</th>
                 {SET_PACK_COLUMNS.map(([key, label]) => (
                   <th
                     key={key}

@@ -12,7 +12,7 @@ const references = [
 export const metadata = buildRouteMetadata({ path: "/Articles/how-chase-accessibility-works", title: "Pokémon Chase Accessibility Methodology | inDex", description, ogTitle: title });
 
 export default function HowChaseAccessibilityWorksArticle() {
-  return <ArticleShell category="Methodology" title={title} deck="Chase Accessibility asks how reachable a set's most important collectible values are from one modeled pack. It is a set-level Overall RIP pillar, not the odds of one card." lastUpdated={registeredArticle.lastUpdated} related={related("rip", "collector", "financial", "chaseEfficiency")}>
+  return <ArticleShell category="Methodology" title={title} deck="Chase Accessibility asks how reachable a set's most important collectible values are from one modeled pack. It is a set-level RIP Score pillar, not the odds of one card." lastUpdated={registeredArticle.lastUpdated} related={related("rip", "collector", "financial", "chaseEfficiency")}>
     <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.chaseAccessibility} lastUpdated={registeredArticle.lastUpdated} />
     <p>Choosing one highest-priced card would make the answer depend on an arbitrary cutoff. Chase Accessibility instead evaluates the important collectible value represented across a set. It uses modeled pack probabilities and places more significance on more important collectible values, so a set with meaningful access across its value structure can read differently from one dominated by a single remote hit.</p>
     <p>The pack probabilities come from the same modeled opening authority used by the set analysis. They remain model estimates, not guarantees. Missing probability coverage fails closed instead of being filled with a neutral score.</p>
@@ -38,8 +38,8 @@ export default function HowChaseAccessibilityWorksArticle() {
     ]} />
     <p>Product Chase is deliberately separate. A booster pack, bundle, or box can inherit its parent set&apos;s Chase Accessibility while producing a different budget-specific Chase Access at $X journey.</p>
 
-    <H2>Its role in Overall RIP</H2>
-    <p>Overall RIP synthesizes Financial RIP, Chase Accessibility, and Collector Appeal as three peer pillars. Financial RIP asks how good the money outcomes are when opening the product. Chase Accessibility asks how reachable the parent set&apos;s important collectible values are. Collector Appeal describes how compelling the collectible roster is. Their peer presentation does not imply equal model weighting, and the exact model weights and transform constants are not published.</p>
+    <H2>Its role in RIP Score</H2>
+    <p>RIP Score synthesizes Financial RIP, Chase Accessibility, and Collector Appeal as three peer pillars. Financial RIP asks how good the money outcomes are when opening the product. Chase Accessibility asks how reachable the parent set&apos;s important collectible values are. Collector Appeal describes how compelling the collectible roster is. Their peer presentation does not imply equal model weighting, and the exact model weights and transform constants are not published.</p>
 
     <H2>References</H2>
     <p>Chase Accessibility is original inDex methodology. The reference supports general probability language used in this explanation; it does not propose or independently validate the metric. See <Citation href="https://openstax.org/books/introductory-statistics-2e/pages/3-introduction">OpenStax</Citation> for the underlying probability concepts.</p>

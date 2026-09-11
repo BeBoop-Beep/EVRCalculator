@@ -20,7 +20,7 @@ def _build(tmp_path, prices):
             owner, cache, ("run", 2, 0), vector, pack_count=2
         )
     rows = [_row(identity, price, int(np.count_nonzero(vector >= price))) for identity, price in prices]
-    result = build_scope(rows, paths, qs=(.25, .5, .75))
+    result = build_scope(rows, paths, qs=(.25, .5, .75), include_recovery_buckets=True)
     stored = np.load(next(iter(cache.values()))[0]).copy()
     owner.cleanup()
     return result, stored, len(cache)
@@ -37,3 +37,5 @@ def test_shared_physical_cache_is_price_independent_and_order_invariant(tmp_path
                 "meanOutcomeRetention", "chanceToRecoverCost", "valuePerPackPercentiles",
                 "normalizedReturnPercentiles"):
         assert left[key] == right[key]
+    assert left["normalizedReturnBuckets"] == right["normalizedReturnBuckets"]
+    assert left["normalizedReturnBuckets"][-1]["probability"] == left["chanceToRecoverCost"]

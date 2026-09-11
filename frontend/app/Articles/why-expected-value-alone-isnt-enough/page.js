@@ -25,7 +25,7 @@ export default function Page() { return <ArticleShell category="Analysis & Guide
   <p>Break-even probability answers the first question. Loss resilience looks at the second. P95 and the 95th-to-99th percentile band describe strong but non-jackpot upside. P99 and the top 1% describe the exceptional tail.</p>
   <H2>What EV is good at</H2>
   <p>EV is still the cleanest long-run financial reference. It lets me check whether the simulation mean behaves correctly, compare average return with pack cost, and see whether price changes are improving or weakening a set’s modeled economics.</p>
-  <p>I just do not ask it to answer a question it was not built to answer. “What is the average modeled return?” and “Which set is best to open?” are not the same question. Financial RIP addresses the financial version of the second question. Overall RIP answers the broader comparison by synthesizing financial outcomes, Chase Accessibility, and Collector Appeal.</p>
+  <p>I just do not ask it to answer a question it was not built to answer. “What is the average modeled return?” and “Which set is best to open?” are not the same question. Financial RIP addresses the financial version of the second question. RIP Score answers the broader comparison by synthesizing financial outcomes, Chase Accessibility, and Collector Appeal.</p>
   <H2>References</H2>
   <p>These references support the standard statistical meanings of Expected Value, mean, and median. The hypothetical profiles are illustrative inDex examples, not empirical findings attributed to either source.</p>
   <ReferenceList items={references} />

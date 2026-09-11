@@ -82,6 +82,7 @@ import {
 import { FamilySnapshot, RANKINGS_FAMILY_COLUMNS, RankingsFamilyCells, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
 import { PremiumMetricLock } from "./RankedProductTablePrimitives.jsx";
+import { readPublicSetRip } from "./setRipPublicPresentation.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -498,17 +499,6 @@ function RankingInsight({ setRip }) {
   const explanation = whySetRanks(setRip);
   const heading = explanation.startsWith("Elite") ? "Elite across formats" : explanation.startsWith("Strong") ? "Strong family depth" : "Standout family strength";
   return <div data-ranking-insight className="flex max-w-[15rem] items-start gap-2.5"><span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border border-[var(--ex-rank-accent,var(--accent))]" /><span><strong className="block text-xs leading-tight text-[var(--text-primary)]">{heading}</strong><span className="mt-1 block text-[10.5px] leading-[1.35] text-[var(--text-secondary)]">{explanation}</span></span></div>;
-}
-
-function readPublicSetRip(target) {
-  const block = target?.setRipV1 || {};
-  const score = Number(block.score);
-  const rank = Number(block.rank);
-  return {
-    publicScore: Number.isFinite(score) ? score : null,
-    rank: Number.isFinite(rank) ? rank : null,
-    tier: block.tier || null,
-  };
 }
 
 /**

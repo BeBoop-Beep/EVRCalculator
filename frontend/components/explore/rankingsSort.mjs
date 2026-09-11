@@ -187,7 +187,7 @@ export const RANKINGS_SORT_COLUMNS = {
   },
   overall: {
     id: "overall",
-    label: "Overall RIP",
+    label: "RIP Score",
     read: (target) => getScoreForMode(target, "overall"),
   },
   financial: {

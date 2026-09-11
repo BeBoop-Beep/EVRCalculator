@@ -181,7 +181,11 @@ def test_public_opening_economics_stays_public_but_detailed_pack_values_are_plus
     fixture = {
         "status": "available", "contractVersion": "pokemon-rip-stats-v3",
         "basis": "all_modeled_products_per_pack_equivalent", "methodology": {},
-        "global": {"typicalOpeningPerPack": 3.25, "modeledReturnOnSpend": 0.71},
+        "global": {"typicalOpeningPerPack": 3.25, "modeledReturnOnSpend": 0.71,
+                   "normalizedReturnBuckets": [{"key": "100_plus", "label": "100%+",
+                                                "lowerBound": 1.0, "upperBound": None,
+                                                "probability": 0.12, "rawOutcomes": [123]}],
+                   "rawOutcomes": [987654321]},
         "eras": [{"eraName": "Safe Era", "setCount": 2, "averageCostPerPack": 5,
                   "modeledReturnOnSpend": PLUS_VALUE}],
         "sets": [{"setId": "set-1", "setName": "Safe Set", "averageCostPerPack": 5,
@@ -195,6 +199,9 @@ def test_public_opening_economics_stays_public_but_detailed_pack_values_are_plus
     plus = client.get("/explore/opening-economics", headers=_headers("plus-token"))
 
     assert base.json()["global"]["typicalOpeningPerPack"] == 3.25
+    assert base.json()["global"]["normalizedReturnBuckets"][0]["probability"] == 0.12
+    assert "rawOutcomes" not in base.json()["global"]
+    assert "rawOutcomes" not in base.json()["global"]["normalizedReturnBuckets"][0]
     assert str(PLUS_VALUE) not in base.text
     assert str(PLUS_VALUE) in plus.text
     assert '"secret"' not in plus.text  # unknown nested fields fail closed

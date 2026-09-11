@@ -127,6 +127,14 @@
   width: 13rem;
 }
 
+.colSetPackIdentity {
+  width: 19rem;
+}
+
+.colSetPackMetric {
+  width: 7.75rem;
+}
+
 .colOverall,
 .colFinancial,
 .colCollector,

@@ -215,7 +215,7 @@ export default function InsightsSummaryModule({
       >
         <SummaryCard
           id="overall"
-          label="Overall RIP"
+          label="RIP Score"
           // The PUBLIC Overall RIP number is the cohort-relative score. The
           // absolute blend is never promoted into this headline.
           score={overallDisplayScore}

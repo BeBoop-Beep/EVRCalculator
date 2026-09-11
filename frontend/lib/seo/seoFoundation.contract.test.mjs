@@ -181,7 +181,7 @@ test("the set route resolves a real set name through the existing canonical help
   assert.ok(source.includes("export async function generateMetadata"));
   assert.ok(source.includes("findTargetBySetSlug"), "set name must come from the canonical targets payload");
   assert.ok(
-    source.includes("${setName} Overall RIP, Expected Value & Opening Analysis — inDex"),
+    source.includes("${setName} RIP Score, Expected Value & Opening Analysis — inDex"),
     "set title must be generated from the real set name"
   );
   assert.ok(!source.includes("Perfect Order"), "no set name may be hard-coded into metadata");

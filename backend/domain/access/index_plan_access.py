@@ -380,6 +380,20 @@ _BASE_OPENING_BREAKDOWN_FIELDS = frozenset({
     "eraId", "eraName", "setId", "setName", "setCanonicalKey",
     "setCount", "productSkuCount", "productFamilyCount", "averageCostPerPack",
 })
+_OPENING_BUCKET_FIELDS = frozenset({
+    "key", "label", "lowerBound", "upperBound", "probability",
+})
+
+
+def _project_opening_scope(scope: Mapping[str, Any]) -> dict[str, Any]:
+    result = _pick(scope, _OPENING_SCOPE_FIELDS)
+    if "normalizedReturnBuckets" in scope:
+        result["normalizedReturnBuckets"] = [
+            _pick(bucket, _OPENING_BUCKET_FIELDS)
+            for bucket in scope.get("normalizedReturnBuckets", [])
+            if isinstance(bucket, Mapping)
+        ]
+    return result
 
 
 def project_opening_economics_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
@@ -389,7 +403,7 @@ def project_opening_economics_response(payload: Mapping[str, Any], plan: Any) ->
         "status", "reason", "contractVersion", "basis", "methodology", "marketDate", "population",
     }))
     if isinstance(payload.get("global"), Mapping):
-        result["global"] = _pick(payload["global"], _OPENING_SCOPE_FIELDS)
+        result["global"] = _project_opening_scope(payload["global"])
     else:
         result["global"] = None
     for key in ("eras", "sets"):
