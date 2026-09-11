@@ -1,7 +1,8 @@
-"""One-shot deterministic Sentinel runner.
+"""One-shot deterministic Sentinel check/incident runner.
 
-Prompt 2 intentionally registers no production checks. Later prompts build
-authority adapters and public semantic checks on top of this kernel.
+The kernel evaluates registered checks and updates incident state. P6 recovery
+is orchestrated by ``backend.sentinel.operational`` after this observation pass,
+so mutation can never occur before a confirmed incident has been persisted.
 """
 
 from __future__ import annotations
@@ -70,8 +71,8 @@ def run_once(
             "runner": resolved_identity.to_dict(),
             "state_writes_enabled": resolved_config.state_writes_enabled,
             "state_store_persistent": bool(resolved_store.persistent),
-            "recovery_enabled": False,
-            "ai_enabled": False,
+            "recovery_enabled": resolved_config.recovery_enabled,
+            "ai_enabled": resolved_config.ai_enabled,
         }
 
     resolved_store.record_heartbeat(
@@ -79,8 +80,8 @@ def run_once(
         resolved_now,
         {
             "check_count": len(registered_checks),
-            "recovery_enabled": False,
-            "ai_enabled": False,
+            "recovery_enabled": resolved_config.recovery_enabled,
+            "ai_enabled": resolved_config.ai_enabled,
         },
     )
 
@@ -132,8 +133,8 @@ def run_once(
         "runner": resolved_identity.to_dict(),
         "state_writes_enabled": resolved_config.state_writes_enabled,
         "state_store_persistent": bool(resolved_store.persistent),
-        "recovery_enabled": False,
-        "ai_enabled": False,
+        "recovery_enabled": resolved_config.recovery_enabled,
+        "ai_enabled": resolved_config.ai_enabled,
     }
 
 
@@ -159,12 +160,12 @@ def main() -> int:
     parser.add_argument(
         "--self-test",
         action="store_true",
-        help="Run one in-memory healthy kernel check; never persists state",
+        help="Run one in-memory healthy kernel check; never persists or recovers",
     )
     parser.add_argument(
         "--list-checks",
         action="store_true",
-        help="List checks registered by this Prompt-2 runner",
+        help="List checks registered by the bare kernel runner",
     )
     args = parser.parse_args()
 
@@ -177,12 +178,14 @@ def main() -> int:
 
     config = SentinelConfig.from_env()
     if args.self_test:
-        # Self-test is guaranteed inert even if an operator has persistence
-        # enabled in the surrounding shell.
+        # Self-test is guaranteed inert even if production persistence/recovery
+        # switches are present in the surrounding shell.
         config = SentinelConfig(
             state_writes_enabled=False,
-            recovery_enabled=config.recovery_enabled,
-            ai_enabled=config.ai_enabled,
+            persistence_schema_ready=False,
+            recovery_enabled=False,
+            recovery_execution_ready=False,
+            ai_enabled=False,
             fail_on_no_checks=True,
             component=config.component,
         )
