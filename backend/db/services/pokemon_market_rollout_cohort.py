@@ -40,6 +40,18 @@ MARKET_CERTIFICATION_COLUMNS = (
 # the common prior cohort.
 MARKET_ROOT_AUTHORITY_CUTOVER_DATE = "2026-09-09"
 
+# Sep 10, 2026: a human product decision (FINAL) froze public Market root
+# membership as a specific, literal set of 106 root ids, seeded into
+# ``pokemon_market_root_authority`` (see the migration of the same name).
+# From this date forward, membership is NEVER recomputed from certification
+# state (set_value_certified, top10_certified, market_scope_certified,
+# market_publication_ready, or any rollout-override CTE); it is read from the
+# authority table only. Certification remains available as annotation.
+# Sep 9 itself keeps the certification-derived ``_canonical_market_root_cohort``
+# behavior unchanged -- it was already published and must not be reinterpreted.
+MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE = "2026-09-10"
+MARKET_ROOT_AUTHORITY_TABLE = "pokemon_market_root_authority"
+
 _CORE_SET_COLUMNS = (
     "id,canonical_key,name,era_id,release_date,logo_image_url,symbol_image_url,"
     "supports_opening_simulation,parent_opening_set_id"
@@ -295,17 +307,179 @@ def _canonical_market_root_cohort(
     ]
 
 
+def _authority_member_ids(client: Any, day: str) -> list[str]:
+    """Membership-only read of the frozen authority table for market date ``day``.
+
+    Deliberately selects only ``set_id`` plus the temporal columns needed to
+    evaluate point-in-time membership -- no metadata/certification/era/logo
+    joins. This is the lightweight query the quality resolver needs; it must
+    never be widened to the heavyweight shape used by
+    ``_authority_market_root_cohort``.
+    """
+    rows = list(
+        client.table(MARKET_ROOT_AUTHORITY_TABLE)
+        .select("set_id,activated_market_date,deactivated_market_date,enabled")
+        .eq("enabled", True)
+        .lte("activated_market_date", day)
+        .execute().data or []
+    )
+    ids: set[str] = set()
+    for row in rows:
+        deactivated = row.get("deactivated_market_date")
+        if deactivated and str(deactivated)[:10] <= day:
+            continue
+        if row.get("set_id"):
+            ids.add(str(row["set_id"]))
+    return sorted(ids)
+
+
+def _authority_market_root_cohort(
+    client: Any, *, market_date: str | None = None,
+) -> list[dict[str, Any]]:
+    """Sep 10+ roots: membership from the frozen authority table only.
+
+    MEMBERSHIP != CERTIFICATION, same contract as ``_canonical_market_root_cohort``,
+    except the membership id list itself comes from
+    ``pokemon_market_root_authority`` instead of the certification-sensitive
+    ``MARKET_READY_VIEW``. Certification/metadata are joined purely as
+    annotation and never add or remove a member.
+    """
+    day = str(market_date)[:10] if market_date else MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE
+    universe_ids = set(_authority_member_ids(client, day))
+    if not universe_ids:
+        raise RuntimeError(f"pokemon_market_root_authority has no active members for {day}")
+
+    candidate_ids = sorted(universe_ids)
+    universe_rows: list[dict[str, Any]] = []
+    for offset in range(0, len(candidate_ids), 100):
+        query = (
+            client.table(MARKET_READY_VIEW)
+            .select(MARKET_MEMBERSHIP_COLUMNS)
+            .in_("set_id", candidate_ids[offset:offset + 100])
+        )
+        if day:
+            query = query.eq("canonical_market_date", day)
+        universe_rows.extend(dict(row) for row in (query.execute().data or []))
+
+    certification_rows: list[dict[str, Any]] = []
+    for offset in range(0, len(candidate_ids), 100):
+        cert_query = (
+            client.table(MARKET_CERTIFICATION_VIEW)
+            .select(MARKET_CERTIFICATION_COLUMNS)
+            .eq("market_scope", "standard")
+            .in_("set_id", candidate_ids[offset:offset + 100])
+        )
+        if day:
+            cert_query = cert_query.eq("canonical_market_date", day)
+        certification_rows.extend(dict(row) for row in (cert_query.execute().data or []))
+
+    cert_by_id = {
+        str(row.get("set_id")): row
+        for row in certification_rows
+        if row.get("set_id")
+    }
+    metadata_by_id = _load_set_metadata(client, candidate_ids)
+    universe_by_id = {
+        str(row["set_id"]): row for row in universe_rows if row.get("set_id")
+    }
+
+    def structurally_certified(set_id: str) -> bool:
+        cert = cert_by_id.get(set_id) or {}
+        meta = metadata_by_id.get(set_id) or {}
+        return (
+            cert.get("set_value_certified") is True
+            and cert.get("top10_certified") is True
+            and cert.get("market_scope_certified") is True
+            and meta.get("catalog_only") is not True
+            and not meta.get("parent_opening_set_id")
+        )
+
+    return [
+        {
+            "id": set_id,
+            "name": (universe_by_id.get(set_id) or {}).get("set_name")
+                    or (metadata_by_id.get(set_id) or {}).get("name"),
+            "canonical_key": (universe_by_id.get(set_id) or {}).get("canonical_key")
+                             or (metadata_by_id.get(set_id) or {}).get("canonical_key"),
+            "era_id": (metadata_by_id.get(set_id) or {}).get("era_id"),
+            "era": (universe_by_id.get(set_id) or {}).get("era_name")
+                   or (metadata_by_id.get(set_id) or {}).get("era"),
+            "release_date": (universe_by_id.get(set_id) or {}).get("release_date")
+                            or (metadata_by_id.get(set_id) or {}).get("release_date"),
+            "logo_image_url": (universe_by_id.get(set_id) or {}).get("logo_image_url")
+                              or (metadata_by_id.get(set_id) or {}).get("logo_image_url"),
+            "symbol_image_url": (universe_by_id.get(set_id) or {}).get("symbol_image_url")
+                                or (metadata_by_id.get(set_id) or {}).get("symbol_image_url"),
+            # Annotation only. A stale/missing/failed certification NEVER
+            # removes a set that the frozen authority table says is a member.
+            "market_publication_ready": bool(
+                (universe_by_id.get(set_id) or {}).get("market_publication_ready")
+            ),
+            "market_continuity_carried": False,
+            "market_structural_certified": structurally_certified(set_id),
+            "market_price_freshness_certified": bool(
+                (cert_by_id.get(set_id) or {}).get("price_freshness_certified")
+            ),
+            "market_current_certification_status": (
+                cert_by_id.get(set_id) or {}
+            ).get("current_certification_status"),
+            "market_oldest_component_price_date": (
+                cert_by_id.get(set_id) or {}
+            ).get("oldest_component_price_date"),
+            "market_newest_component_price_date": (
+                cert_by_id.get(set_id) or {}
+            ).get("newest_component_price_date"),
+            "market_coverage_pct": (cert_by_id.get(set_id) or {}).get("coverage_pct"),
+            "canonical_market_date": (
+                universe_by_id.get(set_id) or {}
+            ).get("canonical_market_date") or (cert_by_id.get(set_id) or {}).get(
+                "canonical_market_date"
+            ),
+            "market_root_authority_source": "pokemon_market_root_authority",
+        }
+        for set_id in sorted(universe_ids)
+    ]
+
+
 def resolve_market_root_cohort(client: Any, *, market_date: str | None = None) -> list[dict[str, Any]]:
     """One global Market root universe with an immutable historical boundary.
 
     Dates before 2026-09-09 reconstruct the exact staged basket that was
-    actually published. The cutover date and every date after it resolve from
-    canonical Market certification plus structurally valid prior-basket
-    continuity, never from ``supports_opening_simulation`` or RIP eligibility.
+    actually published. 2026-09-09 resolves from canonical Market
+    certification plus structurally valid prior-basket continuity, exactly as
+    it was originally published -- this behavior is frozen and must not
+    change. 2026-09-10 onward resolves membership from the frozen
+    ``pokemon_market_root_authority`` table only; certification is annotation.
     """
-    if market_date and str(market_date)[:10] < MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
+    day = str(market_date)[:10] if market_date else None
+    if day and day < MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
         return _legacy_market_root_cohort(client, market_date=market_date)
+    if day and day >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE:
+        return _authority_market_root_cohort(client, market_date=market_date)
     return _canonical_market_root_cohort(client, market_date=market_date)
+
+
+def resolve_market_root_ids(client: Any, *, market_date: str | None = None) -> list[str]:
+    """Lightweight, membership-only resolver -- no metadata/certification joins.
+
+    For 2026-09-10 onward this reads ONLY ``set_id`` from the frozen authority
+    table, which is exactly the shape ``evaluate_market_date_quality`` needs
+    and avoids the heavyweight metadata+certification+era joins performed by
+    ``resolve_market_root_cohort``/``_canonical_market_root_cohort`` (the
+    production statement-timeout risk this pass exists to remove). Earlier
+    dates fall back to the full resolver, which is already the lightest
+    membership path available for that history (a persisted-row lookup wins
+    first in ``market_date_quality.cohort_set_ids_for_date``, so this fallback
+    is rarely exercised pre-cutover).
+    """
+    day = str(market_date)[:10] if market_date else None
+    if day and day >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE:
+        return _authority_member_ids(client, day)
+    return sorted(
+        str(row["id"])
+        for row in resolve_market_root_cohort(client, market_date=market_date)
+        if row.get("id")
+    )
 
 
 def rollout_transition_set_ids(client: Any, market_date: str) -> set[str]:
