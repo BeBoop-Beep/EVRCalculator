@@ -51,6 +51,20 @@ def test_component_heartbeat_is_latest_state_not_append_only_history():
     assert "sentinel_component_heartbeats_at_idx" in LOWER
 
 
+def test_recovery_attempt_contract_prevents_duplicate_incident_runbook_attempt_number():
+    assert "create table public.sentinel_recovery_attempts" in LOWER
+    assert "status text not null" in LOWER
+    assert "check (status in ('started','succeeded','failed','blocked'))" in LOWER
+    assert "attempt_number integer not null check (attempt_number >= 1)" in LOWER
+    assert "cooldown_until timestamptz" in LOWER
+    assert "unique (incident_id, runbook, attempt_number)" in LOWER
+
+
+def test_recovery_attempts_are_service_role_only_like_other_sentinel_state():
+    assert "revoke all on public.sentinel_recovery_attempts" in LOWER
+    assert "grant select, insert, update, delete on public.sentinel_recovery_attempts" in LOWER
+
+
 def test_proposal_is_explicitly_non_deployed():
     assert "proposal only" in LOWER
     assert "does not apply this sql to production" in LOWER
