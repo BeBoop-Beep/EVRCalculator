@@ -27,15 +27,25 @@ def _state_store(
     client: Any = None,
     store: Optional[SentinelStateStore] = None,
 ) -> SentinelStateStore:
-    if store is not None:
-        return store
     if not resolved.state_writes_enabled:
-        return NoopStateStore()
+        if store is not None and bool(getattr(store, "persistent", False)):
+            raise RuntimeError(
+                "Persistent Sentinel state store supplied while "
+                "SENTINEL_STATE_WRITES_ENABLED=false"
+            )
+        return store or NoopStateStore()
+
     if not resolved.persistence_schema_ready:
         raise RuntimeError(
             "Sentinel observation profiles are read-only until schema activation; "
             "SENTINEL_PERSISTENCE_SCHEMA_READY must be true before state writes"
         )
+    if store is not None:
+        if not bool(getattr(store, "persistent", False)):
+            raise RuntimeError(
+                "SENTINEL_STATE_WRITES_ENABLED=true requires a persistent state store"
+            )
+        return store
     if client is not None:
         return SupabaseStateStore(client)
     return build_state_store(True)
