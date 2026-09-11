@@ -13,6 +13,7 @@ import { evaluateMarketQueryAccess } from "@/lib/access/indexPlanAccess.mjs";
 import { resolvePreparedSeriesForSpec } from "@/lib/explore/marketExplorerPreparedResolution.mjs";
 import {
   INITIAL_MARKET_EXPLORER_BUILDER_DRAFT,
+  compatibleSetIds,
   marketExplorerBuilderDraftReducer,
 } from "@/lib/explore/marketExplorerBuilderDraft.mjs";
 
@@ -30,12 +31,11 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     const compatibility = options?.compatibility || {};
     const segmentMap = draft.asset === QUERY_ASSET_CARDS
       ? (compatibility.cardRaritySetIds || compatibility.cardSegmentSetIds) : compatibility.sealedFamilySetIds;
-    const allowedFor = (ids, map) => ids.length
-      ? new Set(ids.flatMap((id) => map?.[id] || [])) : null;
-    const segmentAllowed = allowedFor(draft.segmentIds, segmentMap);
-    const pokemonAllowed = allowedFor(draft.pokemonIds, compatibility.pokemonSetIds);
-    if (segmentAllowed) rows = rows.filter((entry) => segmentAllowed.has(entry.id));
-    if (pokemonAllowed) rows = rows.filter((entry) => pokemonAllowed.has(entry.id));
+    const allowed = compatibleSetIds([
+      { ids: draft.segmentIds, map: segmentMap },
+      { ids: draft.pokemonIds, map: compatibility.pokemonSetIds },
+    ]);
+    if (allowed) rows = rows.filter((entry) => allowed.has(entry.id));
     return rows;
   }, [assetSets, draft.asset, draft.eraIds, draft.segmentIds, draft.pokemonIds, options]);
   const segments = useMemo(() => {
@@ -81,15 +81,15 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     const nextPokemon = field === "pokemonIds" ? next : draft.pokemonIds;
     const segmentMap = draft.asset === QUERY_ASSET_CARDS
       ? (compatibility.cardRaritySetIds || compatibility.cardSegmentSetIds) : compatibility.sealedFamilySetIds;
-    const permitted = [
-      nextSegments.length ? new Set(nextSegments.flatMap((id) => segmentMap?.[id] || [])) : null,
-      nextPokemon.length ? new Set(nextPokemon.flatMap((id) => compatibility.pokemonSetIds?.[id] || [])) : null,
-    ].filter(Boolean);
+    const permitted = compatibleSetIds([
+      { ids: nextSegments, map: segmentMap },
+      { ids: nextPokemon, map: compatibility.pokemonSetIds },
+    ]);
     dispatch({ type: "field", field, value: next });
-    if (permitted.length) dispatch({
+    if (permitted) dispatch({
       type: "field",
       field: "setIds",
-      value: draft.setIds.filter((id) => permitted.every((allowed) => allowed.has(id))),
+      value: draft.setIds.filter((id) => permitted.has(id)),
     });
   }, [draft.asset, draft.pokemonIds, draft.segmentIds, draft.setIds, options]);
   const setEraIds = useCallback((value) => {
@@ -108,7 +108,6 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     setPokemonIds: (value) => setDimensionWithSetReconciliation("pokemonIds", value),
     setPriceSegmentIds: (value) => setField("priceSegmentIds", value),
     setReleaseAgeCohortIds: (value) => setField("releaseAgeCohortIds", value),
-    setMode: (value) => setField("mode", value),
     setMembershipMode: (value) => setField("membershipMode", value),
     setExactItems: (value) => {
       const items = Array.isArray(value) ? value : [];

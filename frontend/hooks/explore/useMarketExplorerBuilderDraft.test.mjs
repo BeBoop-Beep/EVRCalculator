@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { INITIAL_MARKET_EXPLORER_BUILDER_DRAFT, marketExplorerBuilderDraftReducer } from "../../lib/explore/marketExplorerBuilderDraft.mjs";
+import { INITIAL_MARKET_EXPLORER_BUILDER_DRAFT, compatibleSetIds, marketExplorerBuilderDraftReducer } from "../../lib/explore/marketExplorerBuilderDraft.mjs";
+
+test("set compatibility unions within axes and intersects across axes", () => {
+  const allowed = compatibleSetIds([
+    { ids: ["rarity-a", "rarity-b"], map: { "rarity-a": ["set-1"], "rarity-b": ["set-2", "set-3"] } },
+    { ids: ["pokemon-x", "pokemon-y"], map: { "pokemon-x": ["set-2"], "pokemon-y": ["set-4"] } },
+  ]);
+  assert.deepEqual([...allowed].sort(), ["set-2"]);
+});
 
 test("switching either asset clears its segment and keeps reconciled scope", () => {
   const cards = { ...INITIAL_MARKET_EXPLORER_BUILDER_DRAFT, eraIds: ["sv"], setIds: ["shared", "cards-only"], segmentIds: ["sir"] };
