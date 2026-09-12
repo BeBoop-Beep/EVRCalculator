@@ -77,6 +77,7 @@ export default function MarketExplorerClient({
   user = null,
   coverageSummary = [],
   preparedDirectory = [],
+  preparedDirectoryStatus = "ready",
   initialPreparedKey = null,
 }) {
   const auth = useAuth();
@@ -329,7 +330,7 @@ export default function MarketExplorerClient({
           <h2 id="explore-markets-zone-heading" className={styles.explorerZoneTitle}>Browse Markets</h2>
           <p className={styles.explorerZoneDescription}>Browse published Set, Era, and curated markets.</p>
         </div>
-        <MarketExplorerBrowse directory={preparedDirectory} activeKeys={preparedActiveKeys}
+        <MarketExplorerBrowse directory={preparedDirectory} directoryStatus={preparedDirectoryStatus} activeKeys={preparedActiveKeys}
           canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared} onBuild={() => setBuilderOpen(true)} />
         <div data-market-explorer-sidebar-section="analyze" className="border-t border-[var(--border-subtle)] px-3 py-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>

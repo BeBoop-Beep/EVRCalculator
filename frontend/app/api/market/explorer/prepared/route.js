@@ -11,11 +11,16 @@ function headers(request) {
 }
 
 async function forward(request, path, init = {}) {
-  const response = await fetch(`${getBackendApiBaseUrl()}${path}`, {
-    ...init, headers: { ...headers(request), ...(init.headers || {}) }, cache: "no-store",
-  });
-  return new NextResponse(await response.text(), { status: response.status,
-    headers: { "content-type": response.headers.get("content-type") || "application/json", "Cache-Control": "private, no-store" } });
+  try {
+    const response = await fetch(`${getBackendApiBaseUrl()}${path}`, {
+      ...init, headers: { ...headers(request), ...(init.headers || {}) }, cache: "no-store",
+    });
+    return new NextResponse(await response.text(), { status: response.status,
+      headers: { "content-type": response.headers.get("content-type") || "application/json", "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") console.error("Market Explorer prepared proxy failure", { errorCode: "PREPARED_PROXY_UNAVAILABLE", errorName: error?.name || "Error" });
+    return NextResponse.json({ message: "Prepared Market Explorer data is temporarily unavailable", code: "PREPARED_PROXY_UNAVAILABLE" }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
+  }
 }
 
 export async function POST(request) {

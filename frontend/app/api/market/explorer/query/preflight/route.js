@@ -10,11 +10,16 @@ export async function POST(request) {
   const cookie = request.headers.get("cookie");
   if (authorization) headers.Authorization = authorization;
   if (cookie) headers.Cookie = cookie;
-  const response = await fetch(`${getBackendApiBaseUrl()}/market/explorer/query/preflight`, {
-    method: "POST", headers, body: JSON.stringify(body), cache: "no-store", signal: request.signal,
-  });
-  const responseHeaders = { "content-type": response.headers.get("content-type") || "application/json", "Cache-Control": "private, no-store" };
-  const retryAfter = response.headers.get("Retry-After");
-  if (retryAfter) responseHeaders["Retry-After"] = retryAfter;
-  return new NextResponse(await response.text(), { status: response.status, headers: responseHeaders });
+  try {
+    const response = await fetch(`${getBackendApiBaseUrl()}/market/explorer/query/preflight`, {
+      method: "POST", headers, body: JSON.stringify(body), cache: "no-store", signal: request.signal,
+    });
+    const responseHeaders = { "content-type": response.headers.get("content-type") || "application/json", "Cache-Control": "private, no-store" };
+    const retryAfter = response.headers.get("Retry-After");
+    if (retryAfter) responseHeaders["Retry-After"] = retryAfter;
+    return new NextResponse(await response.text(), { status: response.status, headers: responseHeaders });
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") console.error("Market Explorer preflight proxy failure", { errorCode: "QUERY_PREFLIGHT_PROXY_UNAVAILABLE", errorName: error?.name || "Error" });
+    return NextResponse.json({ message: "Market Explorer preflight service is temporarily unavailable", code: "QUERY_PREFLIGHT_PROXY_UNAVAILABLE" }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
+  }
 }

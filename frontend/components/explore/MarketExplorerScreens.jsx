@@ -15,8 +15,9 @@ export default function MarketExplorerScreens({ canUse, activeKeys = [], onUpgra
       const response = await fetch(`/api/market/explorer/prepared?${query}`, { credentials: "include", cache: "no-store" });
       const payload = await response.json();
       setResults(response.ok && Array.isArray(payload.results) ? payload.results : []);
+      if (!response.ok && process.env.NODE_ENV !== "production") console.error("Market Explorer Screen request failed", { httpStatus: response.status, errorCode: typeof payload?.code === "string" ? payload.code : "PREPARED_SCREEN_REQUEST_FAILED" });
       setStatus(response.ok ? "ready" : "error");
-    } catch { setResults([]); setStatus("error"); }
+    } catch (error) { if (process.env.NODE_ENV !== "production") console.error("Market Explorer Screen transport failure", { errorCode: "PREPARED_SCREEN_TRANSPORT_FAILED", errorName: error?.name || "Error" }); setResults([]); setStatus("error"); }
   };
   return <section data-market-explorer-screens className="px-3 py-3 sm:px-4" aria-labelledby="market-screens-heading">
     <h2 id="market-screens-heading" className="text-sm font-semibold text-[var(--text-primary)]">Screens</h2>

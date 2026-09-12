@@ -37,7 +37,7 @@ export const metadata = buildRouteMetadata({
 });
 
 export default async function MarketExplorerPage({ searchParams }) {
-  const [resolvedSearchParams, payload, auth, preparedDirectory] = await Promise.all([
+  const [resolvedSearchParams, payload, auth, preparedDirectoryResult] = await Promise.all([
     Promise.resolve(searchParams).catch(() => null),
     getExploreSetValueMarket().catch(() => null),
     // PLAN, NOT LOGIN, decides what this workspace offers. Resolved here so the
@@ -46,6 +46,7 @@ export default async function MarketExplorerPage({ searchParams }) {
     getAuthenticatedUserFromCookiesWithTimeout().catch(() => ({ user: null })),
     getMarketExplorerPreparedDirectory(),
   ]);
+  const preparedDirectory = preparedDirectoryResult.markets;
   const user = auth?.user || null;
   const planAccess = resolveMarketExplorerPlanAccess(user);
   const overview = resolveMarketOverview(payload);
@@ -96,6 +97,7 @@ export default async function MarketExplorerPage({ searchParams }) {
           user={user}
           coverageSummary={coverageSummary}
           preparedDirectory={preparedDirectory}
+          preparedDirectoryStatus={preparedDirectoryResult.status}
           initialPreparedKey={initialPreparedKey}
         />
       </MarketExplorerAccessGate>

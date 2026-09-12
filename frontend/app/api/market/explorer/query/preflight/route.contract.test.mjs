@@ -9,4 +9,5 @@ test("preflight proxy forwards auth, cancellation, no-store, and retry metadata"
     assert.ok(source.includes(token), token);
   }
   assert.ok(source.includes("/market/explorer/query/preflight"));
+  assert.ok(source.includes("QUERY_PREFLIGHT_PROXY_UNAVAILABLE"));
 });
