@@ -1,0 +1,12 @@
+{
+  "version": "index_fair_value_article_evidence_f2r_v1",
+  "preservesF2Failure": true,
+  "sources": {
+    "structuralFailure": "index_fair_value_f2_model_results.json",
+    "marketAnchored": "index_fair_value_f2r_target_blind_predictions.csv",
+    "bands": "index_fair_value_f2r_price_band_results.json",
+    "stress": "index_fair_value_f2r_leave_many_out_results.json",
+    "gaps": "index_fair_value_f2r_gap_diagnostics.json"
+  },
+  "articleWritten": false
+}

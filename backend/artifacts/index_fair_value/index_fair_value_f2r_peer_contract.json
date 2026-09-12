@@ -1,0 +1,46 @@
+{
+  "version": "index_fair_value_f2r_peer_contract_v1",
+  "datasetFingerprint": "0e7b04f1119ce525fbe387b50b523ac580aa7a14c758e5d16487a334969825d9",
+  "structuralSource": "F2 Model C whole-root-set-held OOF predictions",
+  "f2ModelDReconstruction": {
+    "peerPrices": "outer-training roots only",
+    "targetOwnPriceExcluded": true,
+    "heldOutTargetRootPeerPricesAvailable": false,
+    "aggregation": "training-only era + Treatment + rarity median with fallbacks",
+    "sameSetTargetBlindAlreadyTested": false
+  },
+  "primaryValidation": "hide one target canonical card; permit other current prices in its root set",
+  "antiLeakage": [
+    "exclude target canonical_card_id",
+    "one selected canonical variant per row",
+    "no target history, set total, rank, or target-containing aggregate",
+    "related same-name family removed in stress test"
+  ],
+  "peerDefinitions": {
+    "P1": "same root + Treatment",
+    "P2": "same root + nearest scarcity",
+    "P3": "same root + nearest scarcity and Appeal",
+    "P4": "robust weighted same-root Treatment/scarcity/Appeal",
+    "P5": "cross-set same-era fallback only; represented by F2 B3/D and not retuned"
+  },
+  "methods": [
+    "C0_set_median",
+    "C1_set_treatment_median",
+    "C2_scarcity_neighbor_5",
+    "C3_appeal_scarcity_neighbor_5",
+    "C4_robust_weighted_10",
+    "O1_median_set_offset",
+    "O2_trimmed_set_offset",
+    "O3_shrunk_set_offset",
+    "R1_local_residual_10"
+  ],
+  "minimumPeers": {
+    "3": "LOW_CONTEXT boundary",
+    "5": "LOW_CONTEXT",
+    "10": "MEDIUM_CONTEXT",
+    "20": "HIGH_CONTEXT",
+    "under3": "UNAVAILABLE"
+  },
+  "seed": 20260912,
+  "contractFingerprint": "14c347a2ac554ae4aa7040e631e81398650f62dfc5c7ce16e2c8816506dc7a43"
+}
