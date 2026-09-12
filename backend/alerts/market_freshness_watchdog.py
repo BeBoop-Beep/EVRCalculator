@@ -21,6 +21,11 @@ def _clock(value: str) -> time:
     return time(hour, minute)
 
 
+def _bounded_error_summary(exc: Exception, limit: int = 500) -> str:
+    summary = " ".join(str(exc).split())
+    return summary[:limit] or exc.__class__.__name__
+
+
 def evaluate_watchdog_state(state: Mapping[str, Any], *, now: datetime) -> List[Dict[str, Any]]:
     local_now = now.astimezone(PHOENIX)
     market_date = local_now.date().isoformat()
@@ -75,10 +80,26 @@ def load_watchdog_state(client: Any, market_date: str) -> Dict[str, Any]:
         "authority_dates": {
             "accepted_market_quality": _latest_date(client, "pokemon_market_date_quality", "market_date", status="READY"),
             "set_value": _latest_date(client, "pokemon_set_value_daily_history", "snapshot_date", value_scope="standard"),
-            "set_market_dashboard": _latest_date(client, "pokemon_set_market_dashboard_snapshot_latest", "market_date"),
+            "set_market_dashboard": _latest_date(client, "pokemon_set_market_dashboard_snapshot_latest", "latest_market_date"),
             "sealed_snapshot": _latest_date(client, "pokemon_set_sealed_market_snapshot_latest", "market_date"),
             "global_market_index": _latest_date(client, "pokemon_market_index_daily_history", "market_date", tcg="pokemon"),
         },
+    }
+
+
+def _execution_failure(exc: Exception, *, market_date: str) -> Dict[str, Any]:
+    error_summary = _bounded_error_summary(exc)
+    return {
+        "alert_type": "market_watchdog_execution_failed",
+        "failure_class": "state_load_failed",
+        "message": (
+            "Market freshness watchdog could not load its authoritative state: "
+            f"{exc.__class__.__name__}: {error_summary}"
+        ),
+        "market_date": market_date,
+        "stage": "load_watchdog_state",
+        "exception_type": exc.__class__.__name__,
+        "error_summary": error_summary,
     }
 
 
@@ -86,7 +107,32 @@ def run_watchdog(*, client: Any = supabase, now: Optional[datetime] = None,
                  queue_failures: bool = True) -> Dict[str, Any]:
     resolved_now = now or datetime.now(timezone.utc)
     market_date = resolved_now.astimezone(PHOENIX).date().isoformat()
-    state = load_watchdog_state(client, market_date)
+    try:
+        state = load_watchdog_state(client, market_date)
+    except Exception as exc:
+        failure = _execution_failure(exc, market_date=market_date)
+        queued = 0
+        if queue_failures:
+            result = queue_alert(
+                failure["alert_type"],
+                title=f"Pokémon market watchdog execution failed — {market_date}",
+                message=failure["message"],
+                severity="critical",
+                dedupe_key=f"market_watchdog_execution_failed:{market_date}:load_watchdog_state",
+                payload=failure,
+            )
+            queued = int(result is not None)
+        return {
+            "healthy": False,
+            "execution_failed": True,
+            "market_date": market_date,
+            "failure_count": 1,
+            "queued_or_deduplicated_count": queued,
+            "queue_enabled": queue_failures,
+            "failures": [failure],
+            "state": {},
+        }
+
     failures = evaluate_watchdog_state(state, now=resolved_now)
     queued = 0
     for failure in failures if queue_failures else []:
@@ -99,9 +145,9 @@ def run_watchdog(*, client: Any = supabase, now: Optional[datetime] = None,
             payload=failure,
         )
         queued += int(result is not None)
-    return {"healthy": not failures, "market_date": market_date, "failure_count": len(failures),
-            "queued_or_deduplicated_count": queued, "queue_enabled": queue_failures,
-            "failures": failures, "state": state}
+    return {"healthy": not failures, "execution_failed": False, "market_date": market_date,
+            "failure_count": len(failures), "queued_or_deduplicated_count": queued,
+            "queue_enabled": queue_failures, "failures": failures, "state": state}
 
 
 def main() -> int:

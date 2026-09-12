@@ -1,0 +1,23 @@
+{
+  "manifestVersion":"collector_appeal_article_evidence_manifest_v1",
+  "asOfDate":"2026-09-11",
+  "model":{"version":"pokemon_collector_appeal_v7_expanded_price_blind_v1","runId":"e282f26e-2136-4105-b0a3-f0974c4d9d70","modelFingerprint":"3b781f4ec01ef8c74c77b34d2b91e9a90231d2feccf2ee41411de64606378c9d","formulaFingerprint":"06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b","cardFingerprint":"7dbe5e989c6eb7bcb9d4684707f9c239ab1ca701fc429a7a0605657d79f2ab90","setFingerprint":"744f088e7e1e33e5f8b40aca707b8f7e0d93bf7def8308b860da0277257a4b52"},
+  "sources":[
+    {"topic":"component definitions and source authorities","path":"docs/research/collector_appeal/final_collector_appeal_component_register.json"},
+    {"topic":"frozen candidate and card examples","path":"backend/artifacts/collector_appeal_v7_expanded_candidate_v1.json"},
+    {"topic":"Treatment taxonomy coverage and matched controls","path":"backend/artifacts/treatment/treatment_article_evidence.json"},
+    {"topic":"Treatment/scarcity separation and limitations","path":"docs/research/treatment/TREATMENT_PREFERENCE_EVIDENCE_REVIEW.md"},
+    {"topic":"within-set correlations, residuals, matched cards, component tests and V6 comparison","path":"docs/research/collector_appeal_v7_price_validation/master_result.json"},
+    {"topic":"frozen market-validation register","path":"docs/research/collector_appeal/final_collector_market_validation_register.json"},
+    {"topic":"production cutover/readback evidence","path":"docs/research/collector_appeal_v7_expanded_control_freeze.json"}
+  ],
+  "requiredVisuals":[
+    {"visual":"Collector Appeal vs price scatter","sourcePath":"docs/research/collector_appeal_v7_price_validation/master_result.json","jsonPointer":"/analysis/component_summary"},
+    {"visual":"Residual price vs Collector Appeal","sourcePath":"docs/research/collector_appeal_v7_price_validation/master_result.json","jsonPointer":"/residualPrice"},
+    {"visual":"Matched-card examples","sourcePath":"docs/research/collector_appeal_v7_price_validation/master_result.json","jsonPointer":"/matchedCards"},
+    {"visual":"Per-set correlation distribution","sourcePath":"docs/research/collector_appeal_v7_price_validation/within_set_results.json","jsonPointer":"/"},
+    {"visual":"Component evidence summary","sourcePath":"docs/research/collector_appeal/final_collector_appeal_component_register.json","jsonPointer":"/components"}
+  ],
+  "statisticsPolicy":"Render visuals and statistics directly from versioned machine-readable sources; do not hand-copy into an unversioned article draft.",
+  "articleWritten":false
+}
