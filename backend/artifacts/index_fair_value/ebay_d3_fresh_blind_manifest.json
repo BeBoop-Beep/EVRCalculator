@@ -1,0 +1,22 @@
+{
+  "version": "ebay_d3_fresh_blind_manifest_v1",
+  "matcher_version": "index_fair_value_ebay_d3_v3",
+  "matcher_fingerprint": "b5e44641f35c5f846a8d83bc6c777285f6e07707c9c672feef47c55cd67c95ec",
+  "benchmark_design_fingerprint": "75505bfcbe2e167821a3178b5da192e1240879fe3e4edd75891fa2c55c02d2c6",
+  "capture_run_id": "ffbd48d6-532b-4891-aa1d-63a845a41d92",
+  "capture_timestamp": "2026-09-12T23:42:48.395762+00:00",
+  "api_call_count": 125,
+  "historical_exclusion_fingerprint": "ff17fc578c500a642fa29f064c4a0af2531fb8e16881511adf8687c66b9f72fe",
+  "fresh_observation_fingerprint": "9e9b62b65a7f40c7c175e0fdb16cde7a27b193fb3f5e43d6951604d6f860ff1e",
+  "private_prediction_fingerprint": "2c4ac28be281a754259631fa530c4d86638f5da26ae03680a22838e59743d3f6",
+  "precision_cohort_fingerprint": "2292c755f3e3563c0d8eb268219fa5863b5243b61093264eec1da991ff1142c5",
+  "coverage_cohort_fingerprint": "e76e63dbbec489e3f8965dcfcaa9f920d004002632f00095318bc7fbc4c7061a",
+  "review_queue_fingerprint": "897ad0574f70c649311dc440e0af7a2380cd8d9addaf28b55c2cb1313621ccde",
+  "precision_logical_rows": 300,
+  "coverage_logical_rows": 420,
+  "overlap_rows": 16,
+  "unique_review_rows": 704,
+  "human_labels_collected": false,
+  "cohort_membership_frozen": true,
+  "manifest_fingerprint": "47b9dd7181589ad132a91c28cc7a4bdc1a90fe075e15440f45b743e9d0d0cf1b"
+}
