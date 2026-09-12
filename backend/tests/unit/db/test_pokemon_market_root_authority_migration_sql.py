@@ -17,8 +17,8 @@ import re
 from pathlib import Path
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "db" / "migrations"
-AUTHORITY_MIGRATION = MIGRATIONS_DIR / "20260911160000_add_pokemon_market_root_authority.sql"
-V2_VIEW_MIGRATION = MIGRATIONS_DIR / "20260911160500_add_pokemon_market_set_value_publication_cohort_v2.sql"
+AUTHORITY_MIGRATION = MIGRATIONS_DIR / "20260911235824_pokemon_market_root_authority.sql"
+V2_VIEW_MIGRATION = MIGRATIONS_DIR / "20260911235827_pokemon_market_set_value_publication_cohort_v2.sql"
 
 EXPECTED_FINGERPRINT = "470c8e49e083ca29c7df4d075175b62fb5dd69311b67ca48fec6baf76cd6e892"
 
@@ -56,7 +56,15 @@ def test_authority_migration_never_derives_the_seed_from_a_certification_view():
     assert "SELECT SET_ID FROM POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V1" not in sql
 
 
-# --- (6) v2 view must carry no membership predicate -------------------------
+# --- (6) v2 view must use authority membership, never certification ---------
+
+def test_v2_view_rows_originate_in_temporal_authority():
+    sql = _statements(V2_VIEW_MIGRATION.read_text(encoding="utf-8"))
+    assert re.search(r"FROM\s+public\.pokemon_market_root_authority\s+a", sql, re.IGNORECASE)
+    assert re.search(r"JOIN\s+public\.sets\s+s\s+ON\s+s\.id\s*=\s*a\.set_id", sql, re.IGNORECASE)
+    assert "a.activated_market_date" in sql
+    assert "a.deactivated_market_date" in sql
+    assert re.search(r"WHERE\s+a\.enabled", sql, re.IGNORECASE)
 
 def test_v2_view_has_no_market_publication_ready_filter():
     """CRITICAL: the whole point of v2 is removing v1's `WHERE
@@ -89,17 +97,14 @@ def test_v1_view_definition_is_untouched_by_this_migration_set():
         assert "CREATE OR REPLACE VIEW public.pokemon_market_set_value_publication_cohort_v1" not in sql
 
 
-# --- (7) new migration sorts after live prod head ---------------------------
+# --- (7) migration ordering is local/static; live-head checks are preflight -
 
-def test_migration_versions_sort_after_recorded_live_prod_head():
-    """Live prod max(version) at authoring time was 20260911154613 (recorded
-    2026-09-11 via read-only Supabase MCP query against project
-    zwxzxuuawalvwioadhmf). Both new migrations must sort strictly after it."""
-    live_head = "20260911154613"
-    for migration in (AUTHORITY_MIGRATION, V2_VIEW_MIGRATION):
-        version = migration.stem.split("_", 1)[0]
-        assert len(version) == 14 and version.isdigit()
-        assert version > live_head, f"{migration.name} does not sort after live head {live_head}"
+def test_authority_migration_precedes_dependent_view_with_unique_versions():
+    authority_version = AUTHORITY_MIGRATION.stem.split("_", 1)[0]
+    view_version = V2_VIEW_MIGRATION.stem.split("_", 1)[0]
+    assert len(authority_version) == 14 and authority_version.isdigit()
+    assert len(view_version) == 14 and view_version.isdigit()
+    assert authority_version < view_version
 
 
 def test_authority_and_v2_migrations_are_mirrored_byte_identical_in_both_trees():

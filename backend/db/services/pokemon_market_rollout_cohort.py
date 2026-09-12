@@ -21,7 +21,7 @@ MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
 # these dates comes exclusively from MARKET_ROOT_AUTHORITY_TABLE; this view
 # is only ever queried with an explicit candidate set_id list already derived
 # from that table. See migration
-# 20260911160500_add_pokemon_market_set_value_publication_cohort_v2.
+# pokemon_market_set_value_publication_cohort_v2 migration.
 MARKET_ANNOTATION_VIEW_V2 = "pokemon_market_set_value_publication_cohort_v2"
 MARKET_CERTIFICATION_VIEW = "pokemon_market_root_set_publication_current_certification_v1"
 MARKET_INDEX_HISTORY_TABLE = "pokemon_market_index_daily_history"

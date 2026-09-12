@@ -5,7 +5,7 @@
 -- that force-sets market_publication_ready=true for certain sets. Neither of
 -- those must ever again decide Sep 10+ Market root membership -- membership
 -- is now exclusively public.pokemon_market_root_authority (see
--- 20260911160000_add_pokemon_market_root_authority.sql). v1 is left
+-- 20260911235824_pokemon_market_root_authority.sql). v1 is left
 -- unchanged and keeps serving pre-Sep10 historical behavior exactly as it did
 -- (some code paths -- _canonical_market_root_cohort for 2026-09-09 -- still
 -- read it intentionally and must not be disturbed).
@@ -15,17 +15,10 @@
 -- in-place, because v1's contract (certification-gated membership via a
 -- UNION of "current_ready" + "rollout" CTEs) is still the correct, frozen
 -- behavior for pre-cutover dates. Replacing it in-place would risk silently
--- changing that frozen historical behavior. v2 has a deliberately different
--- contract: it performs NO membership filtering of any kind (no
--- market_publication_ready predicate, no rollout override, no per-date
--- certification match). It is a pure, unfiltered set/certification
--- annotation projection over public.sets LEFT JOIN the current certification
--- view. Membership for any given market date is decided entirely by the
--- caller via public.pokemon_market_root_authority (or, pre-cutover, by the
--- existing v1-driven resolvers) and passed to this view only as a candidate
--- set_id filter (`WHERE set_id = ANY(...)`) -- this view can never itself
--- add or remove a member, satisfying "certification is annotation only, not
--- a gate" for the corrected Sep 10+ design.
+-- changing that frozen historical behavior. v2 is authority-backed at SQL
+-- level: every row originates in pokemon_market_root_authority and carries
+-- its temporal interval. Callers select the interval containing the requested
+-- market date. Certification is nullable annotation only.
 BEGIN;
 SET LOCAL lock_timeout = '3s';
 SET LOCAL statement_timeout = '30s';
@@ -35,6 +28,9 @@ WITH (security_invoker = true)
 AS
 SELECT
     s.id AS set_id,
+    a.activated_market_date,
+    a.deactivated_market_date,
+    a.enabled AS authority_enabled,
     s.name AS set_name,
     s.canonical_key,
     e.name AS era_name,
@@ -54,21 +50,22 @@ SELECT
     -- Annotation only, retained for shape-compatibility with v1 consumers.
     -- NEVER used by this view (or any Sep10+ caller) to gate row presence.
     coalesce(c.current_market_scope_certified, false) AS market_publication_ready
-FROM public.sets s
+FROM public.pokemon_market_root_authority a
+JOIN public.sets s
+    ON s.id = a.set_id
 LEFT JOIN public.eras e
     ON e.id = s.era_id
 LEFT JOIN public.pokemon_market_root_set_publication_current_certification_v1 c
     ON c.set_id = s.id
    AND c.market_scope = 'standard'
-WHERE coalesce(s.catalog_only, false) = false;
+WHERE a.enabled
+  AND coalesce(s.catalog_only, false) = false;
 
 COMMENT ON VIEW public.pokemon_market_set_value_publication_cohort_v2 IS
-    'Unfiltered set + current-certification annotation projection for Sep '
-    '10, 2026+ Market publication. Carries NO membership predicate -- unlike '
-    'v1, it never filters on market_publication_ready and has no rollout '
-    'override path. Sep 10+ membership comes exclusively from '
-    'public.pokemon_market_root_authority; this view is queried only with an '
-    'explicit set_id candidate list already produced by that authority. '
+    'Authority-backed set + current-certification annotation projection for '
+    'Sep 10, 2026+ Market publication. Every row originates in the temporal '
+    'pokemon_market_root_authority table; certification is nullable annotation '
+    'and never a membership gate. Callers constrain the authority interval. '
     'pokemon_market_set_value_publication_cohort_v1 remains unchanged and is '
     'the frozen authority for pre-2026-09-10 historical behavior.';
 
