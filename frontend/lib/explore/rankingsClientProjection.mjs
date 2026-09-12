@@ -221,7 +221,12 @@ function projectTarget(target) {
     CONTRACT_LEAVES,
   );
   if (collectorAppeal !== undefined) {
-    out.publicCollectorAppealContractV1 = { collectorAppeal };
+    const rosterDesirability = projectLeaves(target?.publicCollectorAppealContractV1?.components?.rosterDesirability, ["score"]);
+    const desirableOutcomeFrequency = projectLeaves(target?.publicCollectorAppealContractV1?.components?.desirableOutcomeFrequency, ["rawValue", "displayPercent", "status", "statusReason"]);
+    const components = {};
+    if (rosterDesirability !== undefined) components.rosterDesirability = rosterDesirability;
+    if (desirableOutcomeFrequency !== undefined) components.desirableOutcomeFrequency = desirableOutcomeFrequency;
+    out.publicCollectorAppealContractV1 = { collectorAppeal, ...(Object.keys(components).length ? { components } : {}) };
   }
 
   return out;

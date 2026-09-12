@@ -16,11 +16,11 @@ test("Rankings and Era navigation use the Bucket 1 information architecture", ()
   assert.ok(!page.includes("Pokémon RIP Rankings"));
 });
 
-test("Set hub defaults to RIP Score and exposes exactly three Bucket 1 tabs", () => {
+test("Set hub defaults to RIP Score and exposes the six Bucket 2 tabs", () => {
   assert.ok(hub.includes('initialView = "ripScore"'));
   assert.ok(hub.includes("useState(initialView)"));
-  for (const label of ["RIP Score", "Pack Economics", "Compare Metrics"]) assert.ok(hub.includes(`label: "${label}"`));
-  for (const deferred of ["Financial RIP", "Collector Appeal", "Chase Accessibility"]) assert.ok(!hub.includes(`label: "${deferred}"`));
+  const registry = read("./setRankingViews.mjs");
+  for (const label of ["RIP Score", "Financial RIP", "Collector Appeal", "Chase Accessibility", "Pack Economics", "Compare Metrics"]) assert.ok(registry.includes(`label: "${label}"`));
 });
 
 test("public leaderboard is lean and reads only canonical Set RIP presentation", () => {
@@ -32,7 +32,7 @@ test("public leaderboard is lean and reads only canonical Set RIP presentation",
 
 test("Compare Metrics is one Plus lock and entitled users receive the existing dense table", () => {
   assert.ok(hub.includes("<PlanLock requiredPlan={INDEX_PLAN_PLUS}"));
-  assert.ok(hub.includes("canViewRankingsIntelligence ? <ExploreTableClient"));
+  assert.ok(hub.includes('view === "compareMetrics" ? <ExploreTableClient'));
   assert.equal((hub.match(/<PlanLock requiredPlan=/g) || []).length, 1);
 });
 

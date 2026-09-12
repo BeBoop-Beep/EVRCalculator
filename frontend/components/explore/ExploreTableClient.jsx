@@ -603,11 +603,9 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
   // The relative-vs-model explanation lives here as well as on the cell
   // titles: the stretched row link sits above the cells, so the module
   // popover is the reliable keyboard- and touch-accessible route to it.
-  const modeInfoText = `${
-    currentModeConfig?.tooltip ||
-    currentModeConfig?.description ||
-    "Sets ranked by the strongest overall opening profile."
-  } ${RELATIVE_SCORE_TOOLTIP}`;
+  const modeInfoText = RANKING_MODE_PICKER_ENABLED
+    ? `${currentModeConfig?.tooltip || currentModeConfig?.description || "Sets ranked by the strongest overall opening profile."} ${RELATIVE_SCORE_TOOLTIP}`
+    : "Advanced multi-metric comparison across RIP, Financial, Collector, Chase, family, and format-strength signals. Use a dedicated ranking tab for a focused view.";
 
   // The default Overall mode surfaces RIP Score AND Financial RIP side by
   // side; every other mode collapses to a single mode-scoped score column.
@@ -676,7 +674,9 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
     setSortMenuOpen(false);
   }
 
-  const modeTitle = currentModeConfig?.title || "Best Sets to Rip Right Now";
+  const modeTitle = RANKING_MODE_PICKER_ENABLED
+    ? currentModeConfig?.title || "Best Sets to Rip Right Now"
+    : "Compare Set Metrics";
   const tierLabel = currentModeConfig?.tierLabel || "Tier";
   const scoreLabel = currentModeConfig?.scoreLabel || "Score";
   const activeSortColumn = RANKINGS_SORT_COLUMNS[sort.column] || RANKINGS_SORT_COLUMNS.setRip;
@@ -691,10 +691,10 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
 
   return (
     <RankColumnModeContext.Provider value={selectedMode}>
-    <section className={`${styles.surface} ${styles.analyticsTableShell} set-glass-surface flex min-w-0 flex-col`} aria-label="Compare all sets" data-analytics-table-shell>
+    <section className={`${styles.surface} ${styles.analyticsTableShell} set-glass-surface flex min-w-0 flex-col`} aria-label="Compare Set Metrics" data-analytics-table-shell>
       <div className={`${styles.divider} px-3 py-3 sm:px-4 md:hidden`}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="min-w-0 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">Compare all sets</h2>
+          <h2 className="min-w-0 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">Compare Set Metrics</h2>
           <div className="relative flex-none" ref={sortMenuContainerRef}>
             <button
               type="button"
@@ -720,6 +720,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
             ) : null}
           </div>
         </div>
+        <p className="mt-1 text-xs text-[var(--text-secondary)]">Advanced multi-metric comparison. Use a dedicated ranking tab for a focused view.</p>
         <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]"><span className="text-[var(--text-primary)]">{activeSortLabel}</span><span aria-hidden="true" className="px-2">•</span><span className="tabular-nums">{displayedTargets.length}</span> shown · {canonicalTargets.length} ranked</p>
         {marketDate ? <p className="mt-1 text-[11px] tabular-nums text-[var(--text-secondary)]">Rankings data as of {marketDate}</p> : null}
         <TableSearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." ariaLabel="Search sets" containerClassName="mt-3" />

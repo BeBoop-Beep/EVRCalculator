@@ -77,12 +77,8 @@ test("stale entitled results are hidden synchronously on the render after a down
   );
 });
 
-test("the paid entitlement prop passed to ExploreTableClient is the live value, not a cached/hardcoded one", () => {
-  // Companion regression to Task 1: even if the fetch-driven set targets were
-  // (incorrectly) to persist across a downgrade, the lock-vs-value decision
-  // in ExploreTableClient must still be driven by the current render's
-  // canViewRankingsIntelligence, not a value captured at mount.
-  assert.match(lazySource, /canViewProductRipIntelligence=\{canViewRankingsIntelligence\}/);
+test("the live entitlement is passed into the Set hub, which owns paid Set views", () => {
+  assert.match(lazySource, /<SetRankingsHub[^>]*canViewRankingsIntelligence=\{canViewRankingsIntelligence\}/);
 });
 
 test("no full-page reload is used to force the downgrade to take effect", () => {

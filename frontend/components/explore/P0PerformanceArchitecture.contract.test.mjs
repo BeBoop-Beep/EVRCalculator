@@ -40,9 +40,12 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
 
 test("canonical Set rankings cohort is isolated behind the Sets lens endpoint", () => {
   const source = read("app/api/explore/rankings/lens/route.js");
+  const projection = read("lib/explore/setRankingsLensProjection.mjs");
 
   assert.ok(source.includes('if (lens === "sets")'));
-  assert.ok(source.includes("projectRankingsClientPublicSetLeaderboard"));
+  assert.ok(source.includes('preparedLensPayloadForRequest("sets", request)'));
+  assert.ok(source.includes("projectSetRankingsLensTargets"));
+  assert.ok(projection.includes("projectRankingsClientPublicSetLeaderboard"));
   assert.ok(source.includes("isPublicAnalyticsEligiblePokemonSet"));
 
   assert.ok(
@@ -59,11 +62,15 @@ test("set canonical route uses the slim route directory on every tab", () => {
 });
 
 test("set analytics runtime is split out of the initial route chunk", () => {
-  const source = read("components/pokemon/set-page/PokemonSetPageClient.jsx");
-  assert.ok(source.includes("dynamic("));
-  assert.ok(source.includes('import("@/components/explore/RipStatisticsPageClient")'));
-  assert.ok(source.includes("ssr: false"));
-  assert.ok(!/^import RipStatisticsPageClient/m.test(source));
+  const entrypoint = read("components/pokemon/set-page/PokemonSetPageClient.jsx");
+  const runtime = read("components/pokemon/set-page/runtime/PokemonSetRuntimeShell.jsx");
+  assert.ok(entrypoint.includes("dynamic("));
+  assert.ok(entrypoint.includes('import("@/components/pokemon/set-page/PokemonSetRichPageClient")'));
+  assert.ok(entrypoint.includes("ssr: false"));
+  assert.ok(runtime.includes('dynamic(() => import("@/components/explore/RipStatisticsPageClient")'));
+  assert.ok(runtime.includes("ssr: false"));
+  assert.ok(!/^import RipStatisticsPageClient/m.test(entrypoint));
+  assert.ok(!/^import RipStatisticsPageClient/m.test(runtime));
 });
 
 test("Recharts named imports stay optimized across analytical routes", () => {

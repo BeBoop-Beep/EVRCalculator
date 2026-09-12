@@ -18,7 +18,11 @@ const source = {
   },
   publicCollectorAppealContractV1: {
     collectorAppeal: { leaderNormalizedScore: 99.0942, absoluteScore: 88.1, rank: 1, cohortSize: 22, tier: "S" },
-    components: { forbiddenInternalComponent: true },
+    components: {
+      rosterDesirability: { score: 82.1, rank: 2, modeledPokemon: ["secret"] },
+      desirableOutcomeFrequency: { rawValue: 0.14, displayPercent: 14, status: "available", statusReason: null, impliedOddsOneInN: 7.1 },
+      treatment: { score: 999 }, scarcity: { score: 998 }, artist: { score: 997 },
+    },
   },
   overallRipV12Composition: { weights: { financial: 0.86 }, effectiveWeights: { financial: 1 } },
 };
@@ -40,6 +44,7 @@ test("Basic receives public Set RIP identity but no Plus peer-pillar intelligenc
   assert.equal(row.overallRipV12, undefined);
   assert.equal(row.financialRipV4, undefined);
   assert.equal(row.publicRipContractV11, undefined);
+  assert.equal(row.publicCollectorAppealContractV1, undefined);
   assert.equal(row.chaseAccessibility, undefined);
 });
 
@@ -55,7 +60,10 @@ test("Plus preserves distinct V12 peers and normalizes authoritative Chase for E
   });
   assert.equal(row.chaseAccessibility, undefined);
   assert.equal(row.publicRipContractV11.audit, undefined);
-  assert.equal(row.publicCollectorAppealContractV1.components, undefined);
+  assert.deepEqual(row.publicCollectorAppealContractV1.components, {
+    rosterDesirability: { score: 82.1 },
+    desirableOutcomeFrequency: { rawValue: 0.14, displayPercent: 14, status: "available", statusReason: null },
+  });
   assert.equal(row.overallRipV12Composition, undefined);
 });
 
