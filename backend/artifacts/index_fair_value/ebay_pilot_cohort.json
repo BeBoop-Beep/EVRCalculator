@@ -1,0 +1,1408 @@
+{
+  "version": "index_fair_value_ebay_supply_d1_v1",
+  "frozenBeforeQuery": true,
+  "size": 70,
+  "membershipFingerprint": "31fac26a1852a6b6251f5ee8e60f7232213b5006d86bd1c14572f39345516b94",
+  "cards": [
+    {
+      "canonical_card_id": "018c983e-b1d0-41df-880e-ebf3f2e2fb12",
+      "card_variant_id": "4eb8f140-a9c3-41c4-85aa-c2f6b7131746",
+      "card_name": "Penny",
+      "card_number": "252",
+      "set_name": "Scarlet and Violet Base Set",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 5.2631578947368425,
+      "pull_probability": 0.003107,
+      "target_market_price_usd": 5.63,
+      "query": {
+        "query": "Penny 252 Scarlet and Violet Base Set Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "0331d96e-d8af-44d3-9552-85f784d9b4ca",
+      "card_variant_id": "720c16f5-5c19-43bc-a711-0ea9e8545aab",
+      "card_name": "Trubbish",
+      "card_number": "140",
+      "set_name": "White Flare",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 63.98487732010063,
+      "pull_probability": 0.001247,
+      "target_market_price_usd": 18.74,
+      "query": {
+        "query": "Trubbish 140 White Flare Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "0b81872e-b089-49e9-aec3-16a535b12efb",
+      "card_variant_id": "0057b67c-a140-400c-b308-2a6d046cb043",
+      "card_name": "Haxorus",
+      "card_number": "147",
+      "set_name": "Black Bolt",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 61.03166984050266,
+      "pull_probability": 0.001325,
+      "target_market_price_usd": 66.29,
+      "query": {
+        "query": "Haxorus 147 Black Bolt Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "0dde3317-5162-49d1-b5c9-6b206a086d2c",
+      "card_variant_id": "7a7c3304-cc14-4aab-9f7b-b88270d4228c",
+      "card_name": "Tinkatuff",
+      "card_number": "166",
+      "set_name": "Paldean Fates",
+      "era": "Scarlet and Violet",
+      "treatment_key": "shiny_rare",
+      "collector_appeal": 36.029793278727844,
+      "pull_probability": 0.002023,
+      "target_market_price_usd": 6.62,
+      "query": {
+        "query": "Tinkatuff 166 Paldean Fates Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "10a47631-ea19-4b62-8a93-4b1b3e6b3013",
+      "card_variant_id": "780a248c-87ff-4879-955c-3d6bea287aca",
+      "card_name": "Lt. Surge's Bargain",
+      "card_number": "185",
+      "set_name": "Mega Evolution",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 0.37595836743062766,
+      "pull_probability": 0.000941,
+      "target_market_price_usd": 16.37,
+      "query": {
+        "query": "Lt. Surge's Bargain 185 Mega Evolution Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "147a436d-4ccc-43d1-b19a-20b74d2ff723",
+      "card_variant_id": "a86eb8d9-0e89-4e02-879a-d587dbfe0252",
+      "card_name": "Carmine",
+      "card_number": "217",
+      "set_name": "Twilight Masquerade",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 83.19954820945692,
+      "pull_probability": 0.001067,
+      "target_market_price_usd": 54.28,
+      "query": {
+        "query": "Carmine 217 Twilight Masquerade Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "152906c9-3b9f-4f16-bb22-cb4241c7386b",
+      "card_variant_id": "20ddd5ca-77ef-4e3c-a018-ea4c7a44913a",
+      "card_name": "Giovanni's Charisma",
+      "card_number": "204",
+      "set_name": "Scarlet and Violet 151",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 100.0,
+      "pull_probability": 0.004428,
+      "target_market_price_usd": 14.85,
+      "query": {
+        "query": "Giovanni's Charisma 204 Scarlet and Violet 151 Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "15faf94c-4a3b-4f09-a867-f2ded1174419",
+      "card_variant_id": "98ab7334-59cd-47fa-b778-f6526e5e1276",
+      "card_name": "Veluza",
+      "card_number": "192",
+      "set_name": "Paradox Rift",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 34.8051666864608,
+      "pull_probability": 0.002278,
+      "target_market_price_usd": 11.91,
+      "query": {
+        "query": "Veluza 192 Paradox Rift Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "209f02db-d953-4dde-bbd6-0822671fe1d1",
+      "card_variant_id": "eb38e2d2-2e6a-41e2-939d-335c8a5e50d1",
+      "card_name": "Oshawott",
+      "card_number": "105",
+      "set_name": "White Flare",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 73.23504300607767,
+      "pull_probability": 0.001329,
+      "target_market_price_usd": 90.53,
+      "query": {
+        "query": "Oshawott 105 White Flare Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "21e9ddc5-2751-4886-9e08-a1c6e2cc14e4",
+      "card_variant_id": "53abbd65-a601-4185-b08c-3721e963fa3d",
+      "card_name": "Kyurem ex",
+      "card_number": "165",
+      "set_name": "Black Bolt",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 53.61315954917803,
+      "pull_probability": 0.000935,
+      "target_market_price_usd": 75.04,
+      "query": {
+        "query": "Kyurem ex 165 Black Bolt Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "23d6bd35-bbf0-49b2-911e-4949e66ff8bb",
+      "card_variant_id": "9326d67b-4017-4430-ac3c-bae6eb088be7",
+      "card_name": "Pachirisu",
+      "card_number": "138",
+      "set_name": "Paldean Fates",
+      "era": "Scarlet and Violet",
+      "treatment_key": "shiny_rare",
+      "collector_appeal": 58.044105719679926,
+      "pull_probability": 0.002143,
+      "target_market_price_usd": 10.46,
+      "query": {
+        "query": "Pachirisu 138 Paldean Fates Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "24f40ecd-605f-4d62-b748-afed33706583",
+      "card_variant_id": "bd1bb49f-f0e6-4441-a2cd-648e3ccf4a4c",
+      "card_name": "Emboar",
+      "card_number": "98",
+      "set_name": "White Flare",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 58.25130780023117,
+      "pull_probability": 0.001219,
+      "target_market_price_usd": 44.64,
+      "query": {
+        "query": "Emboar 98 White Flare Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "25638dbd-2434-4a4f-ba0d-dcf3e3e114ca",
+      "card_variant_id": "b3f17a3e-c2cb-447e-8873-c5970a4372c9",
+      "card_name": "Clemont's Quick Wit",
+      "card_number": "243",
+      "set_name": "Surging Sparks",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 73.92105263157895,
+      "pull_probability": 0.001015,
+      "target_market_price_usd": 8.19,
+      "query": {
+        "query": "Clemont's Quick Wit 243 Surging Sparks Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "2a67a99c-dbba-4c41-846c-39ed4659c916",
+      "card_variant_id": "dfda2049-d87b-4be0-ad51-dcc005688d93",
+      "card_name": "Grubbin",
+      "card_number": "18",
+      "set_name": "Temporal Forces",
+      "era": "Scarlet and Violet",
+      "treatment_key": "common",
+      "collector_appeal": 45.039893229166665,
+      "pull_probability": 0.055364,
+      "target_market_price_usd": 0.1,
+      "query": {
+        "query": "Grubbin 18 Temporal Forces Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "2bf67447-75e1-4e97-ac08-c7f3e7f2c88c",
+      "card_variant_id": "ea7d59b7-a934-43b2-a230-9520fb6e6048",
+      "card_name": "Dhelmise",
+      "card_number": "18",
+      "set_name": "Mega Evolution",
+      "era": "Mega Evolution",
+      "treatment_key": "common",
+      "collector_appeal": 55.885708434466025,
+      "pull_probability": 0.058707,
+      "target_market_price_usd": 0.05,
+      "query": {
+        "query": "Dhelmise 18 Mega Evolution Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "2c445258-b198-43de-b710-0921ebe3f0ab",
+      "card_variant_id": "4411dcaa-280b-4355-bc49-f27c3f6580f2",
+      "card_name": "Pikachu ex",
+      "card_number": "277",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 86.638675,
+      "pull_probability": 0.000809,
+      "target_market_price_usd": 322.45,
+      "query": {
+        "query": "Pikachu ex 277 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "2cef0dfb-a5fd-4aed-b8ae-34a82f414587",
+      "card_variant_id": "3d276bff-a869-4634-840f-d5eb4f33aa1d",
+      "card_name": "Reshiram ex",
+      "card_number": "166",
+      "set_name": "White Flare",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 69.97474899528251,
+      "pull_probability": 0.000971,
+      "target_market_price_usd": 192.07,
+      "query": {
+        "query": "Reshiram ex 166 White Flare Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "2e5780f8-1769-4d26-9e3e-87e4a27d4dfe",
+      "card_variant_id": "09b7c446-d89f-4a64-b721-bc1293308747",
+      "card_name": "Dachsbun ex",
+      "card_number": "169",
+      "set_name": "Stellar Crown",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 48.52963755850234,
+      "pull_probability": 0.001845,
+      "target_market_price_usd": 69.55,
+      "query": {
+        "query": "Dachsbun ex 169 Stellar Crown Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "301185dd-2bde-4699-80bd-8b2a3cfd8f7f",
+      "card_variant_id": "af28bc66-9c8b-4dbb-bf83-fa6215bd26f0",
+      "card_name": "Pikachu ex",
+      "card_number": "276",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 87.61637282298932,
+      "pull_probability": 0.000792,
+      "target_market_price_usd": 963.86,
+      "query": {
+        "query": "Pikachu ex 276 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "31566cbb-0eeb-499e-aa6d-b9b0bd85fc8b",
+      "card_variant_id": "fc81462a-2c3e-4b7a-a7be-ad7f88d98ace",
+      "card_name": "Mega Greninja ex",
+      "card_number": "122",
+      "set_name": "Chaos Rising",
+      "era": "Mega Evolution",
+      "treatment_key": "mega_hyper_rare",
+      "collector_appeal": 93.45501895213717,
+      "pull_probability": 0.00109,
+      "target_market_price_usd": 157.83,
+      "query": {
+        "query": "Mega Greninja ex 122 Chaos Rising Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "33dca102-b449-4da6-bfa6-7b72de711596",
+      "card_variant_id": "c2d7a5e7-cfdd-4f37-9748-a2259857c6e3",
+      "card_name": "Charizard ex",
+      "card_number": "234",
+      "set_name": "Paldean Fates",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 92.75984021013483,
+      "pull_probability": 0.002269,
+      "target_market_price_usd": 281.53,
+      "query": {
+        "query": "Charizard ex 234 Paldean Fates Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "3755e7ef-e482-4186-8377-e717f80b3759",
+      "card_variant_id": "aa88bdd2-2ebe-4f9b-b53b-ab077c63f98c",
+      "card_name": "Secret Box",
+      "card_number": "163",
+      "set_name": "Twilight Masquerade",
+      "era": "Scarlet and Violet",
+      "treatment_key": "ace_spec",
+      "collector_appeal": 58.145119946018475,
+      "pull_probability": 0.008234,
+      "target_market_price_usd": 5.23,
+      "query": {
+        "query": "Secret Box 163 Twilight Masquerade Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "3b5294d0-4738-4296-952e-f32b2788e3c4",
+      "card_variant_id": "10ab9aee-5f8c-4938-aec5-aa4a4314f745",
+      "card_name": "Sunflora",
+      "card_number": "169",
+      "set_name": "Twilight Masquerade",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 44.15448603324831,
+      "pull_probability": 0.003654,
+      "target_market_price_usd": 8.91,
+      "query": {
+        "query": "Sunflora 169 Twilight Masquerade Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "3baf2f12-759f-427a-b8d0-2511e639310f",
+      "card_variant_id": "886acc91-d523-4628-bb4a-6ef8db1d8543",
+      "card_name": "Mega Gardevoir ex",
+      "card_number": "187",
+      "set_name": "Mega Evolution",
+      "era": "Mega Evolution",
+      "treatment_key": "mega_hyper_rare",
+      "collector_appeal": 84.72570042340855,
+      "pull_probability": 0.000402,
+      "target_market_price_usd": 196.43,
+      "query": {
+        "query": "Mega Gardevoir ex 187 Mega Evolution Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "3c75f577-62ee-4bdf-865c-ab2384f4379b",
+      "card_variant_id": "ecf458ed-ed92-4f04-bf27-1912d59bdbc0",
+      "card_name": "Mega Charizard Y ex",
+      "card_number": "294",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "mega_hyper_rare",
+      "collector_appeal": 92.04101868630838,
+      "pull_probability": 0.000985,
+      "target_market_price_usd": 363.68,
+      "query": {
+        "query": "Mega Charizard Y ex 294 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "4206e794-1ec6-4d55-94d4-63267ac9a183",
+      "card_variant_id": "9d5ddc90-8f9d-4759-b73d-fff0cd877d73",
+      "card_name": "Mega Dragonite ex",
+      "card_number": "290",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 93.58627828906127,
+      "pull_probability": 0.000751,
+      "target_market_price_usd": 602.19,
+      "query": {
+        "query": "Mega Dragonite ex 290 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "4299cd6b-98e3-4e65-865f-26a39b19fe5b",
+      "card_variant_id": "041717c6-a2b6-40d1-867a-b1abb1d65ec8",
+      "card_name": "Durant ex",
+      "card_number": "236",
+      "set_name": "Surging Sparks",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 70.8002231457035,
+      "pull_probability": 0.001063,
+      "target_market_price_usd": 38.61,
+      "query": {
+        "query": "Durant ex 236 Surging Sparks Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "50f67b41-059d-4c14-842f-8b48fba46bc2",
+      "card_variant_id": "304de4f2-c09c-4d1c-a57e-5b83867aee55",
+      "card_name": "Lt. Surge's Bargain",
+      "card_number": "120",
+      "set_name": "Mega Evolution",
+      "era": "Mega Evolution",
+      "treatment_key": "uncommon",
+      "collector_appeal": 0.37595836743062766,
+      "pull_probability": 0.068211,
+      "target_market_price_usd": 0.15,
+      "query": {
+        "query": "Lt. Surge's Bargain 120 Mega Evolution Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "53466d2d-94fd-4230-9505-694297a9030d",
+      "card_variant_id": "3451abaf-acc7-41aa-a60c-25f24b7ac07f",
+      "card_name": "Perrin",
+      "card_number": "220",
+      "set_name": "Twilight Masquerade",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 78.68655391257079,
+      "pull_probability": 0.001048,
+      "target_market_price_usd": 166.06,
+      "query": {
+        "query": "Perrin 220 Twilight Masquerade Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "55096ab6-1773-47c4-bbff-20c1db011223",
+      "card_variant_id": "9f4a2888-2f11-47aa-a5c5-2ccac8ca7c71",
+      "card_name": "Victini",
+      "card_number": "171",
+      "set_name": "Black Bolt",
+      "era": "Scarlet and Violet",
+      "treatment_key": "rare",
+      "collector_appeal": 67.61904632716059,
+      "pull_probability": 0.000739,
+      "target_market_price_usd": 622.84,
+      "query": {
+        "query": "Victini 171 Black Bolt Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "5576e4b9-4873-40fa-84c4-da9f28cec096",
+      "card_variant_id": "8614b6c4-8840-4b33-9908-4ded064f570f",
+      "card_name": "Gulpin",
+      "card_number": "154",
+      "set_name": "Stellar Crown",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 48.67969225260417,
+      "pull_probability": 0.005977,
+      "target_market_price_usd": 14.22,
+      "query": {
+        "query": "Gulpin 154 Stellar Crown Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "605a2c1a-6a14-463e-b1e2-b55cd9c16244",
+      "card_variant_id": "14ea6011-0e3d-4eff-ac53-6b13e2976a71",
+      "card_name": "Krookodile",
+      "card_number": "137",
+      "set_name": "Black Bolt",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 62.45561692281021,
+      "pull_probability": 0.001287,
+      "target_market_price_usd": 46.61,
+      "query": {
+        "query": "Krookodile 137 Black Bolt Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "640cd931-d97f-4173-ad9d-3ab86f91d92c",
+      "card_variant_id": "c79d38c0-0768-4f3e-80fe-8490d79b00b1",
+      "card_name": "Pecharunt ex",
+      "card_number": "93",
+      "set_name": "Shrouded Fable",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 45.930802727498495,
+      "pull_probability": 0.003066,
+      "target_market_price_usd": 25.13,
+      "query": {
+        "query": "Pecharunt ex 93 Shrouded Fable Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "64c0404b-826f-493d-9c10-738b2b56eca4",
+      "card_variant_id": "9f6c24f7-6a76-471f-ad81-d3901c5e9088",
+      "card_name": "Mega Audino ex",
+      "card_number": "253",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "ultra_rare",
+      "collector_appeal": 59.98042472281997,
+      "pull_probability": 0.003243,
+      "target_market_price_usd": 1.46,
+      "query": {
+        "query": "Mega Audino ex 253 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "67611b34-a7e9-497f-9708-651cc015ca6c",
+      "card_variant_id": "f02f5725-b24c-4ee9-a9b5-55edd91d7697",
+      "card_name": "Lillie's Determination",
+      "card_number": "184",
+      "set_name": "Mega Evolution",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 97.91563874260274,
+      "pull_probability": 0.000986,
+      "target_market_price_usd": 65.62,
+      "query": {
+        "query": "Lillie's Determination 184 Mega Evolution Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "6a1e2c02-b24d-4001-96f1-8bc2a24d8ccd",
+      "card_variant_id": "de749ceb-28f9-4977-b425-a83f69a3cf55",
+      "card_name": "Gouging Fire ex",
+      "card_number": "204",
+      "set_name": "Temporal Forces",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 35.100189574624615,
+      "pull_probability": 0.001201,
+      "target_market_price_usd": 52.31,
+      "query": {
+        "query": "Gouging Fire ex 204 Temporal Forces Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "6a2b87e5-f90b-48f4-be30-a77258bee660",
+      "card_variant_id": "36134e45-4899-474f-88f0-b540ba618b49",
+      "card_name": "Marill",
+      "card_number": "204",
+      "set_name": "Paldea Evolved",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 57.2169215820773,
+      "pull_probability": 0.002133,
+      "target_market_price_usd": 52.62,
+      "query": {
+        "query": "Marill 204 Paldea Evolved Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "6a980108-6683-4461-ac9a-c81a27326dee",
+      "card_variant_id": "129a7668-0ba7-4f77-8585-3847e6c3d342",
+      "card_name": "Team Rocket's Mewtwo ex",
+      "card_number": "231",
+      "set_name": "Destined Rivals",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 86.06077148854428,
+      "pull_probability": 0.000991,
+      "target_market_price_usd": 454.8,
+      "query": {
+        "query": "Team Rocket's Mewtwo ex 231 Destined Rivals Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "740ad74c-8c0c-411f-9ec7-2c734210b8f1",
+      "card_variant_id": "e8c344f6-9bee-4ad6-8356-63ee4e2988cf",
+      "card_name": "Arbok",
+      "card_number": "101",
+      "set_name": "Temporal Forces",
+      "era": "Scarlet and Violet",
+      "treatment_key": "common",
+      "collector_appeal": 49.03228880613668,
+      "pull_probability": 0.055239,
+      "target_market_price_usd": 0.23,
+      "query": {
+        "query": "Arbok 101 Temporal Forces Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "75720435-3807-46b6-b3da-5e1c53b77822",
+      "card_variant_id": "9ad0c133-f133-45ab-9b3f-494199354e20",
+      "card_name": "Mega Darkrai ex",
+      "card_number": "116",
+      "set_name": "Pitch Black",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 88.30050140025955,
+      "pull_probability": 0.002008,
+      "target_market_price_usd": 194.84,
+      "query": {
+        "query": "Mega Darkrai ex 116 Pitch Black Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "77b44a76-26f7-4fa0-a548-c29870a7bb68",
+      "card_variant_id": "63f84d31-df83-456f-bd4c-e59b7e2ba541",
+      "card_name": "Crustle",
+      "card_number": "183",
+      "set_name": "Paradox Rift",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 51.41182133012421,
+      "pull_probability": 0.002291,
+      "target_market_price_usd": 6.19,
+      "query": {
+        "query": "Crustle 183 Paradox Rift Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "7b00ea04-5c2a-4172-8025-afba48ddacb3",
+      "card_variant_id": "94d01e3d-09de-4d04-a0d8-1f36a5cfe684",
+      "card_name": "Cresselia",
+      "card_number": "71",
+      "set_name": "Shrouded Fable",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 39.40173265682657,
+      "pull_probability": 0.005629,
+      "target_market_price_usd": 26.07,
+      "query": {
+        "query": "Cresselia 71 Shrouded Fable Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "7f065a2b-5cab-45c8-8fd8-96d4c07c4ee8",
+      "card_variant_id": "3805ddb2-e4cd-40b3-8a52-82398effa130",
+      "card_name": "Canari",
+      "card_number": "291",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 86.93359206303714,
+      "pull_probability": 0.00079,
+      "target_market_price_usd": 38.69,
+      "query": {
+        "query": "Canari 291 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "828c0d0d-2ede-4bab-bed4-407cd3cf8662",
+      "card_variant_id": "06c45a41-2b44-401a-9703-5c9952f2580f",
+      "card_name": "Mega Gengar ex",
+      "card_number": "284",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 96.8443,
+      "pull_probability": 0.000728,
+      "target_market_price_usd": 884.54,
+      "query": {
+        "query": "Mega Gengar ex 284 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "829b12ba-c7f5-4796-9a57-a2a2463c8461",
+      "card_variant_id": "0fc5990b-19e3-4716-b616-b221acc480a6",
+      "card_name": "Houndour",
+      "card_number": "204",
+      "set_name": "Obsidian Flames",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 44.79506922455574,
+      "pull_probability": 0.006488,
+      "target_market_price_usd": 11.49,
+      "query": {
+        "query": "Houndour 204 Obsidian Flames Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "8a2827bc-48b7-4dfd-b240-501fe24100b9",
+      "card_variant_id": "4db4cc1d-2bfd-45e2-a457-7cb450d1f79a",
+      "card_name": "Bronzor",
+      "card_number": "68",
+      "set_name": "Temporal Forces",
+      "era": "Scarlet and Violet",
+      "treatment_key": "common",
+      "collector_appeal": 40.273945680861445,
+      "pull_probability": 0.054895,
+      "target_market_price_usd": 0.11,
+      "query": {
+        "query": "Bronzor 68 Temporal Forces Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "8a2cce32-ad4f-4468-8a28-8a9ea9653365",
+      "card_variant_id": "9cc8f6b0-2c28-442b-bdd1-11cbd9a4068e",
+      "card_name": "Leavanny",
+      "card_number": "89",
+      "set_name": "White Flare",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 53.861496342276,
+      "pull_probability": 0.001238,
+      "target_market_price_usd": 39.6,
+      "query": {
+        "query": "Leavanny 89 White Flare Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "966bcb61-bf43-4cd7-8287-42f4bb9fa76d",
+      "card_variant_id": "9d636c4c-055f-4e85-b5ef-64675007d904",
+      "card_name": "Leafeon ex",
+      "card_number": "144",
+      "set_name": "Prismatic Evolutions",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 72.2454529170388,
+      "pull_probability": 0.00085,
+      "target_market_price_usd": 334.14,
+      "query": {
+        "query": "Leafeon ex 144 Prismatic Evolutions Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "97165c7e-1d85-4962-807e-5661c2115d7d",
+      "card_variant_id": "b592d276-ceb3-4a5e-90d5-d759808b7da3",
+      "card_name": "Furret",
+      "card_number": "168",
+      "set_name": "Journey Together",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 63.23836296180568,
+      "pull_probability": 0.007705,
+      "target_market_price_usd": 8.58,
+      "query": {
+        "query": "Furret 168 Journey Together Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "9f323989-e972-4a9e-9e7b-3166e85d0690",
+      "card_variant_id": "0f3466bf-92b1-4d3d-913b-181fcec68996",
+      "card_name": "Mega Feraligatr ex",
+      "card_number": "274",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 63.47176746289011,
+      "pull_probability": 0.000773,
+      "target_market_price_usd": 126.32,
+      "query": {
+        "query": "Mega Feraligatr ex 274 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "a3d56338-1f3f-4b99-8920-5d71b8b85737",
+      "card_variant_id": "66f1f173-3a34-44b4-95a3-d0031fa9d3ee",
+      "card_name": "Pikachu ex",
+      "card_number": "247",
+      "set_name": "Surging Sparks",
+      "era": "Scarlet and Violet",
+      "treatment_key": "hyper_rare_gold",
+      "collector_appeal": 87.47747890620843,
+      "pull_probability": 0.000901,
+      "target_market_price_usd": 86.06,
+      "query": {
+        "query": "Pikachu ex 247 Surging Sparks Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "a6969678-b361-4b27-bee3-e3cdc127a5e4",
+      "card_variant_id": "bb6ebfa8-886c-4b5c-822a-7431870bb339",
+      "card_name": "Dragapult ex",
+      "card_number": "165",
+      "set_name": "Prismatic Evolutions",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 67.47379300423403,
+      "pull_probability": 0.000835,
+      "target_market_price_usd": 105.48,
+      "query": {
+        "query": "Dragapult ex 165 Prismatic Evolutions Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "a922341e-4646-470b-95cf-2a59055b18ce",
+      "card_variant_id": "2bf9f356-230d-42e8-99e7-0b10161b9392",
+      "card_name": "Spidops ex",
+      "card_number": "243",
+      "set_name": "Scarlet and Violet Base Set",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 40.16182333484107,
+      "pull_probability": 0.003153,
+      "target_market_price_usd": 9.67,
+      "query": {
+        "query": "Spidops ex 243 Scarlet and Violet Base Set Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "ae4a6acb-3a88-4547-a165-7a617bfb2ce8",
+      "card_variant_id": "cd7798fe-711e-4cad-a015-7139b3d49bf6",
+      "card_name": "Jolteon ex",
+      "card_number": "153",
+      "set_name": "Prismatic Evolutions",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 73.77491598771525,
+      "pull_probability": 0.000785,
+      "target_market_price_usd": 194.21,
+      "query": {
+        "query": "Jolteon ex 153 Prismatic Evolutions Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "b3020b76-9ff0-449a-85b8-924878fa0e8b",
+      "card_variant_id": "b70cd4ec-81c4-4e81-a677-901a43af62d9",
+      "card_name": "Archeops",
+      "card_number": "132",
+      "set_name": "White Flare",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 52.65654596983879,
+      "pull_probability": 0.001194,
+      "target_market_price_usd": 12.88,
+      "query": {
+        "query": "Archeops 132 White Flare Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "b547c5c3-7082-4a7f-9290-3d569b91b462",
+      "card_variant_id": "2c272732-fdb3-4639-aa6b-ea9fa3ad9c24",
+      "card_name": "Team Rocket's Giovanni",
+      "card_number": "225",
+      "set_name": "Destined Rivals",
+      "era": "Scarlet and Violet",
+      "treatment_key": "ultra_rare",
+      "collector_appeal": 100.0,
+      "pull_probability": 0.002773,
+      "target_market_price_usd": 5.78,
+      "query": {
+        "query": "Team Rocket's Giovanni 225 Destined Rivals Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "b620ec1c-c0ac-4e7e-919d-a7df98bcb84b",
+      "card_variant_id": "8af678f4-09f0-486c-9617-b56896ebeea0",
+      "card_name": "Zweilous",
+      "card_number": "147",
+      "set_name": "White Flare",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 39.79442242229438,
+      "pull_probability": 0.001289,
+      "target_market_price_usd": 12.8,
+      "query": {
+        "query": "Zweilous 147 White Flare Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "b801a524-e703-4f4c-ad99-1ec742cf30ec",
+      "card_variant_id": "586dac04-6254-4241-b628-b6d3dac61063",
+      "card_name": "Bianca's Devotion",
+      "card_number": "209",
+      "set_name": "Temporal Forces",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 5.667991380047409,
+      "pull_probability": 0.001154,
+      "target_market_price_usd": 27.46,
+      "query": {
+        "query": "Bianca's Devotion 209 Temporal Forces Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "bf928dd7-24bc-4e16-bb5e-afb8122c3241",
+      "card_variant_id": "311abf3f-15cb-4cb8-995f-1937555c4bdd",
+      "card_name": "Fidough",
+      "card_number": "213",
+      "set_name": "Scarlet and Violet Base Set",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 49.88191908476339,
+      "pull_probability": 0.003262,
+      "target_market_price_usd": 26.19,
+      "query": {
+        "query": "Fidough 213 Scarlet and Violet Base Set Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "c7e36a14-236f-4b93-a4a8-a4be2ddc7193",
+      "card_variant_id": "590cc9ca-0f7d-413e-ae31-68433716e01b",
+      "card_name": "Mega Lucario ex",
+      "card_number": "179",
+      "set_name": "Mega Evolution",
+      "era": "Mega Evolution",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 95.43269507795152,
+      "pull_probability": 0.000974,
+      "target_market_price_usd": 185.54,
+      "query": {
+        "query": "Mega Lucario ex 179 Mega Evolution Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "cc59d868-d0e5-4557-9423-3f9b7c9d2591",
+      "card_variant_id": "04f90621-b7cb-49bf-b962-8ba0790d6e62",
+      "card_name": "Team Rocket's Giovanni",
+      "card_number": "238",
+      "set_name": "Destined Rivals",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 100.0,
+      "pull_probability": 0.000937,
+      "target_market_price_usd": 28.12,
+      "query": {
+        "query": "Team Rocket's Giovanni 238 Destined Rivals Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "cdfc0223-40ef-4e4b-a9f2-3a809ae1c3df",
+      "card_variant_id": "f6e9d756-3a7b-4c8e-b87c-06cacb0d3c7e",
+      "card_name": "Flareon",
+      "card_number": "136",
+      "set_name": "Scarlet and Violet 151",
+      "era": "Scarlet and Violet",
+      "treatment_key": "rare",
+      "collector_appeal": 68.11279130840795,
+      "pull_probability": 0.032586,
+      "target_market_price_usd": 0.34,
+      "query": {
+        "query": "Flareon 136 Scarlet and Violet 151 Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "d09b2fb5-41b6-4d1e-88cf-629402434501",
+      "card_variant_id": "efae0727-f8c2-48c5-a33e-c308be0d288d",
+      "card_name": "Roaring Moon ex",
+      "card_number": "162",
+      "set_name": "Prismatic Evolutions",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 33.50081802575107,
+      "pull_probability": 0.000816,
+      "target_market_price_usd": 165.59,
+      "query": {
+        "query": "Roaring Moon ex 162 Prismatic Evolutions Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "d12a209b-06a3-4b46-82d3-a374e6bbe7b4",
+      "card_variant_id": "d0d523dc-3f95-4bbc-beb6-75b3d2a15cae",
+      "card_name": "Grafaiai",
+      "card_number": "223",
+      "set_name": "Paldea Evolved",
+      "era": "Scarlet and Violet",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 48.382998102501766,
+      "pull_probability": 0.002159,
+      "target_market_price_usd": 7.85,
+      "query": {
+        "query": "Grafaiai 223 Paldea Evolved Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "d4ff3ebb-7e40-4a36-88e6-f07af2977641",
+      "card_variant_id": "1424e3da-f59e-47f2-8310-dfad3baf354b",
+      "card_name": "Zekrom ex",
+      "card_number": "166",
+      "set_name": "Black Bolt",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 62.22778458152021,
+      "pull_probability": 0.001003,
+      "target_market_price_usd": 282.8,
+      "query": {
+        "query": "Zekrom ex 166 Black Bolt Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "e26de7b7-434e-4bec-8fc2-fb15b971b1a7",
+      "card_variant_id": "44b0372c-396d-43e9-84bb-afad2d04128f",
+      "card_name": "Jamming Tower",
+      "card_number": "261",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "ultra_rare",
+      "collector_appeal": 51.48117154811715,
+      "pull_probability": 0.003336,
+      "target_market_price_usd": 0.8,
+      "query": {
+        "query": "Jamming Tower 261 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "ec8fec81-b57d-442a-baf0-91882c40de6e",
+      "card_variant_id": "67ea57e5-8821-4372-ac63-4c6e3f81f261",
+      "card_name": "Team Rocket's Giovanni",
+      "card_number": "204",
+      "set_name": "Ascended Heroes",
+      "era": "Mega Evolution",
+      "treatment_key": "uncommon",
+      "collector_appeal": 100.0,
+      "pull_probability": 0.042764,
+      "target_market_price_usd": 0.16,
+      "query": {
+        "query": "Team Rocket's Giovanni 204 Ascended Heroes Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "ecfe51fb-3435-4e1c-8542-8809cd6f95ff",
+      "card_variant_id": "db1498a4-579d-4bbe-b887-8368299e735f",
+      "card_name": "Coalossal",
+      "card_number": "95",
+      "set_name": "Temporal Forces",
+      "era": "Scarlet and Violet",
+      "treatment_key": "uncommon",
+      "collector_appeal": 34.94886031808299,
+      "pull_probability": 0.053505,
+      "target_market_price_usd": 0.1,
+      "query": {
+        "query": "Coalossal 95 Temporal Forces Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "f01e01fe-17e4-48b7-8ba3-9a88f876acd4",
+      "card_variant_id": "7c3e24f9-be0e-4de8-86fc-9fb913792294",
+      "card_name": "Meowth",
+      "card_number": "106",
+      "set_name": "Phantasmal Flames",
+      "era": "Mega Evolution",
+      "treatment_key": "illustration_rare",
+      "collector_appeal": 73.03320782587178,
+      "pull_probability": 0.008588,
+      "target_market_price_usd": 17.36,
+      "query": {
+        "query": "Meowth 106 Phantasmal Flames Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    },
+    {
+      "canonical_card_id": "fd225f1d-3765-4209-a5ec-42caf35933b0",
+      "card_variant_id": "92fdb409-1454-43ef-87ee-19095f700462",
+      "card_name": "Team Rocket's Nidoking ex",
+      "card_number": "233",
+      "set_name": "Destined Rivals",
+      "era": "Scarlet and Violet",
+      "treatment_key": "special_illustration_rare",
+      "collector_appeal": 68.03827496196953,
+      "pull_probability": 0.000995,
+      "target_market_price_usd": 99.37,
+      "query": {
+        "query": "Team Rocket's Nidoking ex 233 Destined Rivals Pokemon card",
+        "marketplace": "EBAY_US",
+        "category_id": "183454",
+        "limit": 100,
+        "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+        "version": "index_fair_value_ebay_supply_d1_v1"
+      }
+    }
+  ]
+}
