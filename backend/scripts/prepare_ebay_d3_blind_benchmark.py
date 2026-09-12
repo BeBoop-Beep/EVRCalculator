@@ -16,9 +16,10 @@ FREEZE = OUT / "ebay_d3_v3_freeze_manifest.json"
 DESIGN = OUT / "ebay_d3_new_blind_benchmark_design.json"
 PRECISION_FILE = OUT / "ebay_d3_precision_blind.csv"
 COVERAGE_FILE = OUT / "ebay_d3_coverage_blind.csv"
+REVIEW_FILE = OUT / "ebay_d3_blind_review_queue.csv"
 MANIFEST = OUT / "ebay_d3_blind_benchmark_manifest.json"
 SAFE_FIELDS = (
-    "benchmark_row_id", "partition", "cohort_membership", "canonical_card_id",
+    "benchmark_row_id", "partition", "canonical_card_id",
     "card_variant_id", "target_card_name", "target_set_name", "target_card_number",
     "target_treatment", "listing_item_id", "listing_title", "category_id",
     "condition", "condition_id", "localized_aspects_json", "buying_options_json",
@@ -65,12 +66,11 @@ def select_cohorts(rows: list[dict[str, Any]], precision_n: int = 300, per_card:
     return precision, coverage
 
 
-def safe_row(row: Mapping[str, Any], partition: str, memberships: list[str]) -> dict[str, str]:
+def safe_row(row: Mapping[str, Any], partition: str) -> dict[str, str]:
     item_id = str(row["listing_item_id"])
     output = {field: str(row.get(field, "") or "") for field in SAFE_FIELDS}
     output["benchmark_row_id"] = "D3-" + hashlib.sha256(f"fresh-v1|{item_id}".encode()).hexdigest()[:16].upper()
     output["partition"] = partition
-    output["cohort_membership"] = "+".join(memberships)
     return output
 
 
@@ -119,9 +119,12 @@ def main() -> None:
     precision_ids = {row["listing_item_id"] for row in precision}
     coverage_ids = {row["listing_item_id"] for row in coverage}
     overlap = precision_ids & coverage_ids
-    precision_output = [safe_row(row, "PRECISION_BLIND", ["PRECISION_BLIND"] + (["COVERAGE_BLIND"] if row["listing_item_id"] in overlap else [])) for row in precision]
-    coverage_output = [safe_row(row, "COVERAGE_BLIND", ["COVERAGE_BLIND"]) for row in coverage if row["listing_item_id"] not in overlap]
+    precision_output = [safe_row(row, "PRECISION_BLIND") for row in precision]
+    coverage_output = [safe_row(row, "COVERAGE_BLIND") for row in coverage]
+    unique = {row["listing_item_id"]: row for row in precision + coverage}
+    review_output = [safe_row(row, "D3_BLIND_REVIEW") for row in sorted(unique.values(), key=lambda item: stable(item, "d3-review-v1"))]
     write_partition(PRECISION_FILE, precision_output); write_partition(COVERAGE_FILE, coverage_output)
+    write_partition(REVIEW_FILE, review_output)
     manifest = {
         "version":"ebay_d3_blind_benchmark_manifest_v1", "matcher_version":MATCHER_VERSION,
         "matcher_fingerprint":rule_fingerprint(), "benchmark_design_fingerprint":design["benchmark_design_fingerprint"],
@@ -129,11 +132,12 @@ def main() -> None:
         "capture_rows":len(raw), "excluded_prior_item_ids":excluded_prior, "duplicate_fresh_rows":duplicates,
         "deduplicated_fresh_listings":len(fresh), "high_candidates":sum(row["_matcher_state"] == "HIGH_CONFIDENCE" for row in fresh),
         "precision_cohort_rows":len(precision), "coverage_cohort_rows":len(coverage),
-        "overlap_rows":len(overlap), "unique_human_review_rows":len(precision_output) + len(coverage_output),
+        "overlap_rows":len(overlap), "unique_human_review_rows":len(review_output),
         "observed_at_min":min(str(row["observed_at"]) for row in fresh), "observed_at_max":max(str(row["observed_at"]) for row in fresh),
         "human_labels_present":False, "matcher_fields_exported_to_reviewer":False, "price_fields_exported_to_reviewer":False,
         "precision_partition_fingerprint":hashlib.sha256(PRECISION_FILE.read_bytes()).hexdigest(),
         "coverage_partition_fingerprint":hashlib.sha256(COVERAGE_FILE.read_bytes()).hexdigest(),
+        "review_queue_fingerprint":hashlib.sha256(REVIEW_FILE.read_bytes()).hexdigest(),
     }
     MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))
