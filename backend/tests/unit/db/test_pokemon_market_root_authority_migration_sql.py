@@ -17,8 +17,8 @@ import re
 from pathlib import Path
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "db" / "migrations"
-AUTHORITY_MIGRATION = MIGRATIONS_DIR / "20260911235824_pokemon_market_root_authority.sql"
-V2_VIEW_MIGRATION = MIGRATIONS_DIR / "20260911235827_pokemon_market_set_value_publication_cohort_v2.sql"
+AUTHORITY_MIGRATION = MIGRATIONS_DIR / "20260912002422_pokemon_market_root_authority.sql"
+V2_VIEW_MIGRATION = MIGRATIONS_DIR / "20260912002426_pokemon_market_set_value_publication_cohort_v2.sql"
 
 EXPECTED_FINGERPRINT = "470c8e49e083ca29c7df4d075175b62fb5dd69311b67ca48fec6baf76cd6e892"
 
