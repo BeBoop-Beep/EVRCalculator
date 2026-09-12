@@ -1,0 +1,76 @@
+{
+  "version": "ebay_d3_v3_development_metrics_v1",
+  "development_only": true,
+  "high": {
+    "accepted": 450,
+    "tp": 449,
+    "fp": 1,
+    "tn": 352,
+    "fn": 219,
+    "precision": 0.99777778,
+    "wilson_95": [
+      0.98752124,
+      0.99960762
+    ],
+    "recall": 0.67215569,
+    "card_coverage_count": 61,
+    "card_coverage": 0.87142857,
+    "false_positive_breakdown": {
+      "GRADED": 1
+    },
+    "false_positive_rows": [
+      {
+        "benchmark_row_id": "D2-0310",
+        "gold": "GRADED",
+        "listing_title": "Charizard EX #234/091 NM Paldean Fates Pokemon Card",
+        "reason": "THREE_FACTOR_IDENTITY"
+      }
+    ]
+  },
+  "matcher_state_breakdown": {
+    "AMBIGUOUS": 62,
+    "HIGH_CONFIDENCE": 450,
+    "MEDIUM_CONFIDENCE": 44,
+    "REJECTED": 494
+  },
+  "gold_by_matcher_state": {
+    "AMBIGUOUS": {
+      "AMBIGUOUS": 1,
+      "EXACT_TARGET_MATCH": 57,
+      "RELATED_BUT_WRONG_VARIANT": 1,
+      "WRONG_CARD_NUMBER": 3
+    },
+    "HIGH_CONFIDENCE": {
+      "EXACT_TARGET_MATCH": 449,
+      "GRADED": 1
+    },
+    "MEDIUM_CONFIDENCE": {
+      "EXACT_TARGET_MATCH": 42,
+      "RELATED_BUT_WRONG_VARIANT": 2
+    },
+    "REJECTED": {
+      "AMBIGUOUS": 28,
+      "EXACT_TARGET_MATCH": 120,
+      "GRADED": 166,
+      "LOT_OR_BUNDLE": 26,
+      "RELATED_BUT_WRONG_VARIANT": 36,
+      "SEALED_OR_ACCESSORY": 33,
+      "WRONG_CARD_NUMBER": 76,
+      "WRONG_LANGUAGE": 7,
+      "WRONG_SET": 2
+    }
+  },
+  "catastrophic_high_counts": {
+    "AMBIGUOUS": 0,
+    "CONDITION_INELIGIBLE": 0,
+    "GRADED": 1,
+    "LOT_OR_BUNDLE": 0,
+    "OTHER": 0,
+    "RELATED_BUT_WRONG_VARIANT": 0,
+    "SEALED_OR_ACCESSORY": 0,
+    "WRONG_CARD_NUMBER": 0,
+    "WRONG_LANGUAGE": 0,
+    "WRONG_SET": 0
+  },
+  "image_only_residual_is_not_structurally_detectable": true
+}

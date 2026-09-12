@@ -3,6 +3,7 @@ import pytest
 from backend.scripts.ebay_d3_matcher_v3 import (
     MATCHER_VERSION, classify_listing, classify_product_object, rule_fingerprint,
 )
+from backend.scripts.prepare_ebay_d3_blind_benchmark import SAFE_FIELDS, select_cohorts
 
 TARGET = {"card_name":"Houndour", "set_name":"Obsidian Flames", "card_number":"204", "treatment":"illustration_rare"}
 
@@ -73,3 +74,16 @@ def test_identity_protections_are_preserved(title,reason):
 def test_version_and_fingerprint_are_stable_shape():
     assert MATCHER_VERSION=="index_fair_value_ebay_d3_v3"
     assert len(rule_fingerprint())==64
+
+
+def test_fresh_blind_selection_is_deterministic_and_reviewer_schema_is_blind():
+    rows=[]
+    for card in range(70):
+        for number in range(7):
+            rows.append({"canonical_card_id":f"card-{card}", "listing_item_id":f"item-{card}-{number}",
+                         "seller_id":f"seller-{number}", "listing_title":f"Card {card} #{number}",
+                         "_matcher_state":"HIGH_CONFIDENCE"})
+    first=select_cohorts(rows);second=select_cohorts(list(reversed(rows)))
+    assert [[row["listing_item_id"] for row in cohort] for cohort in first] == [[row["listing_item_id"] for row in cohort] for cohort in second]
+    assert len(first[0])==300 and len(first[1])==420
+    assert not any("matcher" in field or "price" in field or "confidence" in field for field in SAFE_FIELDS)

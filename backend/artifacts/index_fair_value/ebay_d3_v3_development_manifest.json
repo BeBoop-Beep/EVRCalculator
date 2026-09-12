@@ -1,0 +1,46 @@
+{
+  "version": "ebay_d3_v3_development_manifest_v1",
+  "total_rows": 1050,
+  "source_partition_rows": {
+    "DEVELOPMENT": 450,
+    "VALIDATION": 250,
+    "FINAL_BLIND_TEST": 350
+  },
+  "exact_count": 668,
+  "definitive_negative_count": 353,
+  "ambiguous_count": 29,
+  "binary_denominator": 1021,
+  "label_breakdown": {
+    "AMBIGUOUS": 29,
+    "EXACT_TARGET_MATCH": 668,
+    "GRADED": 167,
+    "LOT_OR_BUNDLE": 26,
+    "RELATED_BUT_WRONG_VARIANT": 39,
+    "SEALED_OR_ACCESSORY": 33,
+    "WRONG_CARD_NUMBER": 79,
+    "WRONG_LANGUAGE": 7,
+    "WRONG_SET": 2
+  },
+  "membership_fingerprint": "0e484610fda15e9395be8804e73bf04a8147bac8cc36bf90c5898c4dc4670cc4",
+  "effective_labels_fingerprint": "50d01878ec36bcf331ccb6b93c5c956db8946e502eb7388cd0ab6b2c9fd83fd5",
+  "taxonomy_fingerprint": "2b1c8a8fad20e40984c5c6adafa4038c16eccb70f978f643e8da8aeda41085dd",
+  "taxonomy": {
+    "version": "ebay_final_blind_gold_taxonomy_v1",
+    "labels": [
+      "EXACT_TARGET_MATCH",
+      "RELATED_BUT_WRONG_VARIANT",
+      "WRONG_SET",
+      "WRONG_CARD_NUMBER",
+      "WRONG_LANGUAGE",
+      "GRADED",
+      "LOT_OR_BUNDLE",
+      "SEALED_OR_ACCESSORY",
+      "CONDITION_INELIGIBLE",
+      "AMBIGUOUS",
+      "OTHER"
+    ]
+  },
+  "development_corpus_fingerprint": "c77029ec2e396fe009f83217e6bb7db65a659b249630ef0189ad903a4fe78ede",
+  "independent_certification_evidence": false,
+  "methodology_note": "All prior Development, Validation, and Final Blind rows are v3 development evidence."
+}

@@ -1,0 +1,339 @@
+{
+  "version": "ebay_d3_v3_multiplicity_analysis_v1",
+  "human_multi_card_rows": 26,
+  "v3_multi_card_detected": 26,
+  "v3_high_false_positives": 0,
+  "d2_0674_finding": "D2-0674 showed that V2 handled count-before-X but not X-before-count; X2 was parsed as a single raw card.",
+  "contextual_patterns": [
+    "X2",
+    "2X",
+    "x 2",
+    "2 cards",
+    "pair",
+    "two cards",
+    "set of 2",
+    "card-contextual 2-pack",
+    "playset",
+    "4x",
+    "multiple",
+    "lot",
+    "bundle",
+    "reverse holo and holo"
+  ],
+  "collector_number_control": "Fractional collector numbers such as 2/198 are not multiplicity evidence.",
+  "structured_fields": "Only explicit lot/card/package quantities and selectable/variation flags qualify; inventory quantity is not used.",
+  "examples": [
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0426",
+      "listing_title": "Pokemon TCG - Twilight Masquerade: Choose Your Card! - All Holos/Reverse Holos!",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0585",
+      "listing_title": "Temporal Forces POKEMON CHOOSE YOUR CARD REVERSE HOLO",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0605",
+      "listing_title": "Pokemon Trading Card Scarlet & Violet/Mega Illustration Rare: Choose Your Card",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0665",
+      "listing_title": "Pokemon TCG - Obsidian Flames: Choose Your Card! - All Holos/Reverse Holo Cards!",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0686",
+      "listing_title": "Temporal Forces - Pick Your Card - Pokemon TCG",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0880",
+      "listing_title": "Pokemon Scarlet & Violet Base Set | Choose Your Card! | Reverse Holo/Holo",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0921",
+      "listing_title": "Pokemon Scarlet & Violet 151 Reverse Holos and Holos: Choose Your Card",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0923",
+      "listing_title": "Flareon Holo 36/165 Rare Scarlet and Violet 151 LP Playset (4x) Pokemon",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0925",
+      "listing_title": "151 Scarlet & Violet Singles/ Reverse Holo/ Holo YOU CHOOSE",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0994",
+      "listing_title": "Pokemon TCG Ascended Heroes Choose A Card",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0995",
+      "listing_title": "Pokemon Ascended Heroes - Pick Your Card - Holo, Reverse Energy/Ball 103-217",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0157",
+      "listing_title": "Pokemon Trading Card Sword & Shield/Scarlet & Violet Shiny: Choose Your Card",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0219",
+      "listing_title": "Pokemon TCG Mega Evolution- Choose Your Card! Common Uncommon NM/M",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0263",
+      "listing_title": "Pokemon TCG - Stellar Crown: Choose Your Card - All Reverse Holos/ex/Ace Spec",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0321",
+      "listing_title": "Pokémon TWILIGHT MASQUERADE: Choose Your Card! REVERSE/HOLO/EX NM",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0455",
+      "listing_title": "Pokemon Trading Card Scarlet & Violet/Mega Illustration Rare: Choose Your Card",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0724",
+      "listing_title": "Pokemon Trading Card Scarlet & Violet/Mega Illustration Rare: Choose Your Card",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0918",
+      "listing_title": "Flareon Reverse Holo And Holo 136/165 Sv: Scarlet & Violet 151 NM Condition",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-1012",
+      "listing_title": "Pokemon TCG Temporal Forces Choose Your Card! - NM- BULK SAVINGS!",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-1014",
+      "listing_title": "Reverse Holo Pokemon Scarlet and Violet - Temporal Forces - Choose Your Card(s)",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0412",
+      "listing_title": "Lt. Surge's Bargain 120/132 Mega Evolution Pokemon TCG 2x Playset Reverse & Reg",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0420",
+      "listing_title": "Pokemon Mega Evolution Reverse Holo Pick Your Card ME01 TCG NM",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0577",
+      "listing_title": "2X - Arbok 101/162 Common Temporal Forces Pokemon Near Mint TWO TOTAL - PLAYSET",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0674",
+      "listing_title": "X2 Houndour Illustration Rare 204/197 Sv03: Pokemon TCG Obsidian Flames MINT",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0997",
+      "listing_title": "4x Team Rocket's Giovanni 204/217 - ME: Ascended Heroes (ASC) Pokemon Playset x4",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-1015",
+      "listing_title": "Pokemon TCG SV05 Temporal Forces Choose Your Card Common Rare Holo EX Lot",
+      "evidence": {
+        "affirmative": true,
+        "reasons": [
+          "CONTEXTUAL_TITLE_MULTIPLICITY"
+        ]
+      },
+      "v3_product_object": "MULTI_CARD_OFFER"
+    }
+  ]
+}

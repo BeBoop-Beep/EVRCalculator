@@ -206,7 +206,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--partition",
-        choices=["DEVELOPMENT", "VALIDATION", "FINAL_BLIND_TEST"],
+        choices=["DEVELOPMENT", "VALIDATION", "FINAL_BLIND_TEST", "PRECISION_BLIND", "COVERAGE_BLIND"],
         default="DEVELOPMENT",
     )
     parser.add_argument("--reviewer", required=True)

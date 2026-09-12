@@ -1,0 +1,20 @@
+{
+  "version": "ebay_d3_v3_freeze_manifest_v1",
+  "matcher_version": "index_fair_value_ebay_d3_v3",
+  "matcher_fingerprint": "b5e44641f35c5f846a8d83bc6c777285f6e07707c9c672feef47c55cd67c95ec",
+  "frozen_commit": "f744ae4b59e6d9efa02de08a23e07c68ac7c370c",
+  "development_corpus_fingerprint": "c77029ec2e396fe009f83217e6bb7db65a659b249630ef0189ad903a4fe78ede",
+  "benchmark_design_fingerprint": "75505bfcbe2e167821a3178b5da192e1240879fe3e4edd75891fa2c55c02d2c6",
+  "query_contract_version": "ebay_browse_query_d1_unchanged_v1",
+  "product_object_rule_version": "ebay_d3_product_object_rules_v3",
+  "graded_rule_version": "ebay_d3_graded_detection_rules_v3",
+  "multiplicity_rule_version": "ebay_d3_multiplicity_rules_v3",
+  "accessory_rule_version": "ebay_accessory_ontology_v2",
+  "variant_rule_version": "ebay_variant_identity_rules_v1",
+  "alias_registry_version": "ebay_set_alias_registry_v1",
+  "condition_policy_version": "ebay_raw_condition_policy_v1",
+  "confidence_policy_version": "ebay_d3_confidence_policy_v3",
+  "logic_frozen": true,
+  "new_certification_labels_viewed": false,
+  "production_authority": false
+}
