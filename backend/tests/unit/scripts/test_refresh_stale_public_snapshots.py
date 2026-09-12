@@ -1616,6 +1616,27 @@ def test_set_page_freshness_depends_on_the_explore_rankings_snapshot(monkeypatch
     assert latest == "2026-08-04T13:30:00Z"
 
 
+def test_explore_rankings_retry_when_chase_or_collector_becomes_ready(monkeypatch):
+    """A deferred build must become stale again when its late authority lands."""
+    observed = []
+
+    def latest(_client, *, table, timestamp_columns, filters=()):
+        observed.append((table, timestamp_columns))
+        if table == "pokemon_set_chase_accessibility_snapshot_latest":
+            return "2026-09-12T18:04:45Z", []
+        if table == "pokemon_collector_appeal_current":
+            return "2026-09-11T20:41:40Z", []
+        return "2026-09-12T17:00:00Z", []
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", latest)
+    dependency, _checks = refresh._latest_for_explore_rankings(object())
+
+    assert dependency == "2026-09-12T18:04:45Z"
+    assert ("pokemon_set_chase_accessibility_snapshot_latest", ("updated_at", "built_at")) in observed
+    assert ("pokemon_collector_appeal_current", ("promoted_at",)) in observed
+    assert refresh._is_newer(dependency, "2026-09-12T17:30:00Z") is True
+
+
 def test_generic_set_page_freshness_does_not_query_ranked_only_authorities(monkeypatch):
     reads = []
 

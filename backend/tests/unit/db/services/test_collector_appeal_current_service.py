@@ -10,6 +10,7 @@ def test_scored_public_contract_is_standalone_and_hides_formula_inputs():
     contract=build_public_collector_appeal_contract(_row())
     assert contract["contractVersion"]=="public_collector_appeal_contract_v1"
     assert contract["collectorAppeal"]["score"]==100
+    assert contract["collectorAppeal"]["relativeScore"]==100
     assert contract["collectorAppeal"]["rankedSetCount"]==22
     assert contract["components"]["rosterDesirability"]["topCollectorGroups"][0]["type"]=="trainer"
     serialized=str(contract)
@@ -39,3 +40,67 @@ def test_card_contract_preserves_unknown_playability_as_missing_evidence():
     assert card["playability"]["score"] is None
     assert card["playability"]["status"]=="unknown"
     assert card["artistModeled"] is False and card["treatmentExcluded"] is True
+
+
+def test_v7_set_scope_models_artist_and_playability_but_keeps_diagnostics_excluded():
+    row = _row()
+    row["model_version"] = "pokemon_collector_appeal_v7_expanded_price_blind_v1"
+    scope = build_public_collector_appeal_contract(row)["collectorAppeal"]["subjectScope"]
+    assert scope["modeled"] == ["Pokémon", "Trainers", "Playability", "Artist"]
+    assert scope["diagnosticOnly"] == ["Treatment", "Pull Scarcity"]
+    assert {"market value", "price"}.issubset(scope["excluded"])
+    assert "Treatment" not in scope["modeled"]
+    assert "Pull Scarcity" not in scope["modeled"]
+
+
+def test_v7_card_contract_exposes_authoritative_artist_without_inventing_missing_scores():
+    base = {
+        "collector_card_appeal_score": 75,
+        "score_status": "scored",
+        "subject_policy": "pokemon",
+        "subject_baseline_score": 70,
+        "artist_recognition_score": 91,
+        "artist_lift": 1.5,
+        "playability_score": 42,
+        "playability_lift": 0.5,
+        "confidence": "high",
+        "model_run_id": "run-v7",
+        "model_version": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+        "component_inputs_json": {
+            "subjectType": "pokemon",
+            "subjectIdentity": "Pikachu",
+            "artistNames": ["Artist Name"],
+            "artistEvidenceStatus": "SCORED",
+            "playabilityStatus": "scored",
+            "treatmentDiagnostic": {"status": "mapped", "treatmentKey": "illustration_rare"},
+        },
+    }
+    card = build_public_card_collector_appeal(base)
+    assert card["artistModeled"] is True
+    assert card["artist"] == {
+        "modeled": True,
+        "names": ["Artist Name"],
+        "recognitionScore": 91,
+        "status": "SCORED",
+        "positiveLift": 1.5,
+    }
+    assert card["playability"]["score"] == 42
+    assert card["treatmentDiagnostic"] == {"category": "illustration_rare", "status": "mapped"}
+    assert "treatmentScore" not in card
+    assert "scarcityScore" not in card
+
+    base["artist_recognition_score"] = 0
+    base["component_inputs_json"]["artistEvidenceStatus"] = "AMBIGUOUS"
+    unavailable = build_public_card_collector_appeal(base)
+    assert unavailable["artist"]["recognitionScore"] is None
+
+
+def test_pre_v7_card_contract_is_not_mislabeled_as_artist_modeled():
+    card = build_public_card_collector_appeal({
+        "collector_card_appeal_score": 70,
+        "score_status": "scored",
+        "model_version": "pokemon_collector_appeal_v6_corrected_complete_trends_v2",
+        "component_inputs_json": {"artistEvidenceStatus": "SCORED", "artistNames": ["Name"]},
+    })
+    assert card["artistModeled"] is False
+    assert "artist" not in card

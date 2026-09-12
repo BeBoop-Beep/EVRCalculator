@@ -10,6 +10,7 @@ from backend.db.clients.supabase_client import service_read_client
 PUBLIC_CONTRACT_KEY = "publicCollectorAppealContractV1"
 PUBLIC_CONTRACT_VERSION = "public_collector_appeal_contract_v1"
 UNAVAILABLE_REASON = "collector_appeal_unavailable_no_generalized_frequency"
+COLLECTOR_APPEAL_V7_PREFIX = "pokemon_collector_appeal_v7_"
 
 
 def _one_in(value: Any) -> Optional[float]:
@@ -127,9 +128,58 @@ def load_current_card_collector_appeal(card_ids: Iterable[str], *, client=None) 
 
 
 def build_public_card_collector_appeal(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    if not row: return None
-    components=row.get("component_inputs_json") or {}
-    return {"score":row.get("collector_card_appeal_score"),"status":row.get("score_status"),"subject":{"policy":row.get("subject_policy"),"type":components.get("subjectType"),"identity":components.get("subjectIdentity") or components.get("functionalName"),"baselineScore":row.get("subject_baseline_score"),"neutralBaseline":components.get("neutralBaseline") is True},"playability":{"score":row.get("playability_score") if components.get("playabilityStatus") not in ("unknown","insufficient") else None,"status":components.get("playabilityStatus"),"confidence":row.get("confidence"),"positiveLift":row.get("playability_lift")},"artistModeled":False,"treatmentExcluded":bool(row.get("treatment_input_excluded")),"hitEligibilityIndependent":bool(row.get("hit_eligibility_independent")),"modelRunId":row.get("model_run_id"),"modelVersion":row.get("model_version"),"explanation":"A high Card Collector Appeal does not by itself mean the card counts as a pack hit."}
+    if not row:
+        return None
+    components = row.get("component_inputs_json") or {}
+    model_version = str(row.get("model_version") or "")
+    is_v7 = model_version.startswith(COLLECTOR_APPEAL_V7_PREFIX)
+    playability_status = components.get("playabilityStatus")
+    if is_v7 and not playability_status:
+        playability_status = "scored" if row.get("playability_score") is not None else "unavailable"
+    playability_score = row.get("playability_score")
+    if playability_status in ("unknown", "insufficient", "unavailable"):
+        playability_score = None
+    contract = {
+        "score": row.get("collector_card_appeal_score"),
+        "status": row.get("score_status"),
+        "subject": {
+            "policy": row.get("subject_policy"),
+            "type": components.get("subjectType"),
+            "identity": components.get("subjectIdentity") or components.get("functionalName"),
+            "baselineScore": row.get("subject_baseline_score"),
+            "neutralBaseline": components.get("neutralBaseline") is True,
+        },
+        "playability": {
+            "score": playability_score,
+            "status": playability_status,
+            "confidence": row.get("confidence"),
+            "positiveLift": row.get("playability_lift"),
+        },
+        "artistModeled": is_v7,
+        "treatmentExcluded": bool(row.get("treatment_input_excluded")) or is_v7,
+        "hitEligibilityIndependent": bool(row.get("hit_eligibility_independent")),
+        "modelRunId": row.get("model_run_id"),
+        "modelVersion": row.get("model_version"),
+        "explanation": "A high Card Collector Appeal does not by itself mean the card counts as a pack hit.",
+    }
+    if is_v7:
+        artist_status = components.get("artistEvidenceStatus")
+        artist_score = row.get("artist_recognition_score")
+        if artist_status not in ("SCORED", "scored"):
+            artist_score = None
+        contract["artist"] = {
+            "modeled": True,
+            "names": list(components.get("artistNames") or []),
+            "recognitionScore": artist_score,
+            "status": artist_status,
+            "positiveLift": row.get("artist_lift"),
+        }
+        treatment = components.get("treatmentDiagnostic") or {}
+        contract["treatmentDiagnostic"] = {
+            "category": treatment.get("treatmentKey"),
+            "status": treatment.get("status"),
+        }
+    return contract
 
 
 def build_public_collector_appeal_contract(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -138,13 +188,32 @@ def build_public_collector_appeal_contract(row: Optional[Dict[str, Any]]) -> Opt
     f = row.get("generalized_desirable_outcome_frequency")
     roster_diag = row.get("roster_diagnostics_json") or {}
     groups = row.get("subject_rollups_json") or []
-    corrected_v6 = str(row.get("model_version") or "").startswith("pokemon_collector_appeal_v6_corrected_")
-    subject_scope = ({"modeled":["Pokémon","Trainers"],"diagnosticOnly":["eligible neutral functional cards","Treatment","Scarcity"],"notYetModeled":["Artist"],"excluded":["Energy","market value"],"note":"Pokémon and Trainers contribute under separate locked contracts. Functional, Treatment, and Scarcity are diagnostic-only; Artist is not yet modeled."}
-                     if corrected_v6 else
-                     {"modeled":["Pokémon","Trainers","eligible neutral functional cards"],"notYetModeled":["Artist","Treatment","Energy"],"note":"Pokémon, Trainers, and eligible functional cards are modeled. Artist is not modeled; Treatment and Energy are excluded."})
+    model_version = str(row.get("model_version") or "")
+    corrected_v6 = model_version.startswith("pokemon_collector_appeal_v6_corrected_")
+    if model_version.startswith(COLLECTOR_APPEAL_V7_PREFIX):
+        subject_scope = {
+            "modeled": ["Pokémon", "Trainers", "Playability", "Artist"],
+            "diagnosticOnly": ["Treatment", "Pull Scarcity"],
+            "excluded": ["Energy", "market value", "price"],
+            "note": "Pokémon, Trainers, Playability, and Artist evidence are modeled. Treatment and Pull Scarcity remain diagnostic-only; market value is excluded.",
+        }
+    elif corrected_v6:
+        subject_scope = {
+            "modeled": ["Pokémon", "Trainers"],
+            "diagnosticOnly": ["eligible neutral functional cards", "Treatment", "Scarcity"],
+            "notYetModeled": ["Artist"],
+            "excluded": ["Energy", "market value"],
+            "note": "Pokémon and Trainers contribute under separate locked contracts. Functional, Treatment, and Scarcity are diagnostic-only; Artist is not yet modeled.",
+        }
+    else:
+        subject_scope = {
+            "modeled": ["Pokémon", "Trainers", "eligible neutral functional cards"],
+            "notYetModeled": ["Artist", "Treatment", "Energy"],
+            "note": "Pokémon, Trainers, and eligible functional cards are modeled. Artist is not modeled; Treatment and Energy are excluded.",
+        }
     return {
         "contractVersion": PUBLIC_CONTRACT_VERSION,
-        "collectorAppeal": {"score": row.get("collector_appeal_score") if scored else None,"absoluteScore":row.get("collector_appeal_score") if scored else None,"rank":row.get("collector_appeal_rank") if scored else None,"rankedSetCount":22,"tier":None,"status":row.get("score_status"),"statusReason":row.get("score_status_reason"),"version":"collector_appeal","modelVersion":row.get("model_version"),"modelRunId":row.get("model_run_id"),"asOfDate":str(row.get("as_of_date")) if row.get("as_of_date") else None,
+        "collectorAppeal": {"score": row.get("collector_appeal_score") if scored else None,"absoluteScore":row.get("collector_appeal_score") if scored else None,"relativeScore":row.get("collector_appeal_score") if scored else None,"rank":row.get("collector_appeal_rank") if scored else None,"rankedSetCount":22,"tier":None,"status":row.get("score_status"),"statusReason":row.get("score_status_reason"),"version":"collector_appeal","modelVersion":row.get("model_version"),"modelRunId":row.get("model_run_id"),"asOfDate":str(row.get("as_of_date")) if row.get("as_of_date") else None,
             "subjectScope":subject_scope},
         "components": {
             "rosterDesirability":{"score":row.get("collector_roster_desirability_score"),"rank":row.get("collector_roster_desirability_rank"),"rankedSetCount":128,"tier":None,"version":"collector_roster_desirability_v1","groupCount":roster_diag.get("distinctGroupCount"),"pokemonGroupCount":roster_diag.get("pokemonGroupCount"),"trainerGroupCount":roster_diag.get("trainerGroupCount"),"neutralFunctionalGroupCount":roster_diag.get("neutralFunctionalGroupCount"),"topCollectorGroups":[{"name":g.get("identity"),"type":g.get("type"),"score":g.get("appeal"),"cardCount":g.get("cardCount")} for g in groups[:10]]},

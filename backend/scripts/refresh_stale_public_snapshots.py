@@ -991,6 +991,13 @@ def _latest_for_explore_rankings(client: Any) -> Tuple[Optional[str], List[str]]
     for table, columns in (
         ("explore_rip_statistics_latest", ("updated_at", "run_at", "created_at")),
         ("simulation_latest_by_target", ("updated_at", "run_at")),
+        # Rankings readiness is deliberately evaluated only after these two
+        # authorities are available. Include their publication clocks in the
+        # stale decision so a run that deferred before either became ready is
+        # retried by the next normal refresh even when simulations themselves
+        # have not changed again.
+        ("pokemon_set_chase_accessibility_snapshot_latest", ("updated_at", "built_at")),
+        ("pokemon_collector_appeal_current", ("promoted_at",)),
         ("pokemon_set_market_dashboard_snapshot_latest", ("updated_at",)),
         ("pokemon_set_opening_desirability_latest", ("updated_at", "built_at", "created_at")),
     ):
