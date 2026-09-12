@@ -22,7 +22,8 @@ test("Basic browse and explicit compare are separate actions", () => {
 });
 
 test("Sets group by Era and Screens use only the prepared endpoint", () => {
-  assert.match(browse, /data-market-era-group=/);
+  assert.match(browse, /grouped\.sets\.flatMap/);
+  assert.match(browse, /groups\.map\(\(group\)/);
   assert.match(screens, /kind: "screen"/);
   assert.match(context, /kind: "ranking"/);
   assert.doesNotMatch(screens, /resolveScreenResults/);

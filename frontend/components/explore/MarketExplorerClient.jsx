@@ -83,7 +83,7 @@ export default function MarketExplorerClient({
   const auth = useAuth();
   // An unresolved/null client context must not erase the server-resolved paid
   // identity during hydration. A resolved context is authoritative afterwards.
-  const liveUser = auth?.user || (auth?.authRevision === 0 ? user : null);
+  const liveUser = auth?.user || (!auth || auth.authRevision === 0 ? user : null);
   const timeframeOptions = useMemo(() => buildExplorerTimeframeOptions(overview), [overview]);
   // The server user owns the first paint. The sitewide AuthContext user then
   // becomes canonical so login and profile/plan changes recover on this page
