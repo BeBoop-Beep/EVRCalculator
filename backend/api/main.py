@@ -1415,7 +1415,13 @@ def get_market_explorer_prepared_screen(screen: str, asset: Optional[str] = None
     _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
     if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
         raise HTTPException(status_code=403, detail={"message": "Screens require Index+.", "requiredPlan": "plus"})
-    return {"results": read_prepared_screen(service_read_client, screen, asset, limit)}
+    try:
+        return {"results": read_prepared_screen(service_read_client, screen, asset, limit)}
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "PREPARED_SCREEN_INVALID"}, status_code=400)
+    except Exception:
+        logger.exception("/market/explorer/prepared-screen failed", extra={"screen": screen, "asset": asset, "limit": limit})
+        return JSONResponse(content={"message": "Prepared Screen is temporarily unavailable", "code": "PREPARED_SCREEN_FAILED"}, status_code=503)
 
 
 @app.get("/market/explorer/set-context-ranking")

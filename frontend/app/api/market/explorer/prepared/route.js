@@ -25,9 +25,10 @@ export async function POST(request) {
 }
 
 export async function GET(request) {
-  const query = request.nextUrl.searchParams;
+  const query = new URLSearchParams(request.nextUrl.searchParams);
   const kind = query.get("kind");
-  if (kind === "screen") return forward(request, `/market/explorer/prepared-screen?${query.toString().replace("kind=screen&", "")}`);
-  if (kind === "ranking") return forward(request, `/market/explorer/set-context-ranking?${query.toString().replace("kind=ranking&", "")}`);
+  query.delete("kind");
+  if (kind === "screen") return forward(request, `/market/explorer/prepared-screen?${query.toString()}`);
+  if (kind === "ranking") return forward(request, `/market/explorer/set-context-ranking?${query.toString()}`);
   return NextResponse.json({ message: "Unsupported prepared read" }, { status: 400 });
 }
