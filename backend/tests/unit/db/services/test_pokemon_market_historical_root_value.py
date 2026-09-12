@@ -44,6 +44,8 @@ def fixture_client(captured_at="2026-09-10"):
         "pokemon_canonical_cards": cards,
         "pokemon_market_root_authority": [{"set_id": root, "enabled": True,
             "activated_market_date": "2026-09-10", "deactivated_market_date": None}],
+        svc.ROLLOUT_VIEW: [{"set_id": root, "enabled": True,
+            "activated_market_date": "2026-09-10", "deactivated_market_date": None}],
         svc.HISTORY_TABLE: [],
     }
     return Client(tables, prices)
@@ -139,3 +141,161 @@ def test_explicit_normalization_changes_only_exact_source(monkeypatch):
     assert {r["action"] for r in changed} == {"normalize_provenance"}
     assert {r["source"] for r in client.tables[svc.HISTORY_TABLE]} == {svc.STANDARD_SOURCE,svc.TOP10_SOURCE}
     assert all(set(write) == {"id","source"} for write in client.writes)
+
+
+def repair_projection(standard="427.72", top10="295.20", count=91):
+    return {
+        "coverage_pct": "100.00", "member_set_ids": ["root"],
+        "standard": {"value_scope": "standard", "set_value": standard,
+                     "priced_card_count": count, "total_card_count": count,
+                     "canonical_card_count": count, "linked_card_count": count,
+                     "included_card_count": count, "constituent_card_ids": [],
+                     "source": svc.STANDARD_SOURCE},
+        "top10": {"value_scope": "top10", "set_value": top10,
+                  "priced_card_count": 10, "total_card_count": 10,
+                  "canonical_card_count": 10, "linked_card_count": 10,
+                  "included_card_count": 10, "constituent_card_ids": [],
+                  "source": svc.TOP10_SOURCE},
+    }
+
+
+def history_row(scope, value, count, source, day="2026-09-11", row_id=None):
+    return {
+        "id": row_id or scope, "set_id": "root", "snapshot_date": day,
+        "value_scope": scope, "set_value": value, "priced_card_count": count,
+        "total_card_count": count, "canonical_card_count": count,
+        "linked_card_count": count, "included_card_count": count,
+        "coverage_pct": "100.00", "source": source,
+    }
+
+
+def install_anchor(client, projection):
+    client.tables[svc.HISTORY_TABLE].extend([
+        history_row("standard", projection["standard"]["set_value"],
+                    projection["standard"]["priced_card_count"], "approved",
+                    day=svc.ROOT_AUTHORITY_CUTOVER, row_id="anchor-s"),
+        history_row("top10", projection["top10"]["set_value"], 10, "approved",
+                    day=svc.ROOT_AUTHORITY_CUTOVER, row_id="anchor-t"),
+    ])
+
+
+def test_pokemon_go_91_card_root_repairs_only_in_explicit_mode(monkeypatch):
+    client = fixture_client()
+    projection = repair_projection()
+    install_anchor(client, projection)
+    client.tables[svc.HISTORY_TABLE].extend([
+        history_row("standard", "381.24", 88, svc.LEGACY_GENERIC_SOURCES["standard"]),
+        history_row("top10", "277.77", 10, svc.LEGACY_GENERIC_SOURCES["top10"]),
+    ])
+    monkeypatch.setattr(svc, "calculate_root_as_of", lambda *_a, **_k: projection)
+    with pytest.raises(RuntimeError, match="conflicting approved history"):
+        svc.plan_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11")
+    with pytest.raises(ValueError, match="requires normalize_provenance"):
+        svc.plan_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11",
+                                          repair_conflicting_generic=True)
+    plan = svc.plan_historical_root_backfill(
+        client, ["root"], "2026-09-11", "2026-09-11",
+        normalize_provenance=True, repair_conflicting_generic=True,
+    )
+    assert {row["action"] for row in plan} == {"repair_conflicting_generic"}
+    assert plan[0]["activation_anchor"]["passed"] is True
+    assert plan[0]["old_material"]["priced_card_count"] == 88
+    assert plan[0]["new_material"]["priced_card_count"] == 91
+    assert plan[0]["new_material"]["coverage_pct"] == "100.00"
+
+
+@pytest.mark.parametrize("old,new", [("514.08", "515.63"), ("2276.61", "2276.35")])
+def test_stale_same_cardinality_aggregate_requires_economic_repair(monkeypatch, old, new):
+    client = fixture_client(); projection = repair_projection(standard=new)
+    install_anchor(client, projection)
+    client.tables[svc.HISTORY_TABLE].append(
+        history_row("standard", old, 91, svc.LEGACY_GENERIC_SOURCES["standard"])
+    )
+    monkeypatch.setattr(svc, "calculate_root_as_of", lambda *_a, **_k: projection)
+    with pytest.raises(RuntimeError, match="conflicting approved history"):
+        svc.plan_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11",
+                                          normalize_provenance=True)
+    plan = svc.plan_historical_root_backfill(
+        client, ["root"], "2026-09-11", "2026-09-11",
+        normalize_provenance=True, repair_conflicting_generic=True,
+    )
+    assert plan[0]["action"] == "repair_conflicting_generic"
+    assert plan[0]["old_material"]["set_value"] == old
+    assert plan[0]["new_material"]["set_value"] == new
+
+
+@pytest.mark.parametrize("source", sorted(svc.PROTECTED_ROOT_SOURCES))
+def test_conflicting_canonical_sources_are_never_repaired(monkeypatch, source):
+    client = fixture_client(); projection = repair_projection(); install_anchor(client, projection)
+    client.tables[svc.HISTORY_TABLE].append(history_row("standard", "1.00", 91, source))
+    monkeypatch.setattr(svc, "calculate_root_as_of", lambda *_a, **_k: projection)
+    with pytest.raises(RuntimeError, match="refusing conflicting canonical-root"):
+        svc.plan_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11",
+            normalize_provenance=True, repair_conflicting_generic=True)
+
+
+def test_unknown_source_non_rollout_and_failed_anchor_are_rejected(monkeypatch):
+    projection = repair_projection()
+    monkeypatch.setattr(svc, "calculate_root_as_of", lambda *_a, **_k: projection)
+    client = fixture_client(); install_anchor(client, projection)
+    client.tables[svc.HISTORY_TABLE].append(history_row("standard", "1.00", 91, "unknown"))
+    with pytest.raises(RuntimeError, match="unknown conflict source"):
+        svc.plan_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11",
+            normalize_provenance=True, repair_conflicting_generic=True)
+    client = fixture_client(); install_anchor(client, projection); client.tables[svc.ROLLOUT_VIEW] = []
+    client.tables[svc.HISTORY_TABLE].append(history_row("standard", "1.00", 91, svc.LEGACY_GENERIC_SOURCES["standard"]))
+    with pytest.raises(RuntimeError, match="non-rollout"):
+        svc.plan_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11",
+            normalize_provenance=True, repair_conflicting_generic=True)
+    client = fixture_client()
+    client.tables[svc.HISTORY_TABLE].extend([
+        history_row("standard", "1.00", 91, "approved", day="2026-09-10", row_id="anchor-s"),
+        history_row("top10", "295.20", 10, "approved", day="2026-09-10", row_id="anchor-t"),
+        history_row("standard", "1.00", 91, svc.LEGACY_GENERIC_SOURCES["standard"]),
+    ])
+    with pytest.raises(RuntimeError, match="activation anchor mismatch"):
+        svc.plan_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11",
+            normalize_provenance=True, repair_conflicting_generic=True)
+
+
+def test_pre_cutover_and_non_authority_repairs_are_rejected(monkeypatch):
+    client = fixture_client(); projection = repair_projection()
+    client.tables["pokemon_market_root_authority"][0]["activated_market_date"] = "2026-09-09"
+    client.tables[svc.HISTORY_TABLE].append(history_row(
+        "standard", "1.00", 91, svc.LEGACY_GENERIC_SOURCES["standard"], day="2026-09-09"))
+    monkeypatch.setattr(svc, "calculate_root_as_of", lambda *_a, **_k: projection)
+    with pytest.raises(RuntimeError, match="before root-authority cutover"):
+        svc.plan_historical_root_backfill(client, ["root"], "2026-09-09", "2026-09-09",
+            normalize_provenance=True, repair_conflicting_generic=True)
+    client = fixture_client(); client.tables["pokemon_market_root_authority"] = []
+    with pytest.raises(ValueError, match="non-authority"):
+        svc.plan_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11",
+            normalize_provenance=True, repair_conflicting_generic=True)
+
+
+def test_economic_repair_uses_strict_cas_and_preserves_identity(monkeypatch):
+    client = fixture_client(); projection = repair_projection(); install_anchor(client, projection)
+    old = history_row("standard", "381.24", 88, svc.LEGACY_GENERIC_SOURCES["standard"], row_id="repair-id")
+    old["created_at"] = "kept"
+    client.tables[svc.HISTORY_TABLE].append(old)
+    monkeypatch.setattr(svc, "calculate_root_as_of", lambda *_a, **_k: projection)
+    svc.execute_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11", commit=True,
+        normalize_provenance=True, repair_conflicting_generic=True)
+    assert old["id"] == "repair-id" and old["created_at"] == "kept"
+    assert old["set_value"] == "427.72" and old["source"] == svc.STANDARD_SOURCE
+    assert "updated_at" in old
+
+
+def test_concurrent_old_row_mismatch_aborts_repair(monkeypatch):
+    projection = repair_projection()
+    planned = {**projection["standard"], "set_id": "root", "snapshot_date": "2026-09-11",
+               "coverage_pct": "100.00", "action": "repair_conflicting_generic",
+               "existing_row_id": "repair-id", "existing_source": svc.LEGACY_GENERIC_SOURCES["standard"],
+               "existing_material": (_old := history_row("standard", "381.24", 88,
+                   svc.LEGACY_GENERIC_SOURCES["standard"], row_id="repair-id"))}
+    client = fixture_client()
+    client.tables[svc.HISTORY_TABLE] = [{**_old, "set_value": "changed concurrently"}]
+    monkeypatch.setattr(svc, "plan_historical_root_backfill", lambda *_a, **_k: [planned])
+    with pytest.raises(RuntimeError, match="concurrent economic repair mismatch"):
+        svc.execute_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11", commit=True,
+            normalize_provenance=True, repair_conflicting_generic=True)
