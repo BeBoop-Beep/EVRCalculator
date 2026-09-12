@@ -7,6 +7,7 @@ from typing import Any
 MIN_QUERY_LENGTH = 2
 MAX_RESULTS = 50
 SEARCH_RPC = "search_pokemon_market_explorer_instruments_v2"
+SITEWIDE_SEARCH_RPC = "search_pokemon_sitewide_instruments_v1"
 
 
 def _text(row: dict[str, Any], *keys: str) -> str | None:
@@ -38,6 +39,7 @@ def _canonical_item(row: dict[str, Any]) -> dict[str, Any] | None:
     }
     if asset == "cards":
         item.update({
+            "canonicalCardId": _text(row, "canonical_card_id", "canonicalCardId"),
             "cardNumber": _text(row, "collector_number", "card_number", "cardNumber"),
             "rarity": _text(row, "rarity"),
             "edition": _text(row, "edition"),
@@ -71,3 +73,16 @@ def search_market_explorer_instruments(client: Any, *, q: str, asset: str = "all
     results = [item for row in rows if (item := _canonical_item(dict(row)))]
     results = [item for item in results if asset == "all" or item["asset"] == asset]
     return {"query": needle, "asset": asset, "limit": cap, "items": results[:cap]}
+
+
+def search_sitewide_instruments(client: Any, *, q: str, limit: int = 20) -> dict[str, Any]:
+    """Canonical V2 results enriched with route identity in the same RPC call."""
+    needle = str(q or "").strip()
+    if len(needle) < MIN_QUERY_LENGTH:
+        raise ValueError(f"q must contain at least {MIN_QUERY_LENGTH} characters")
+    cap = max(1, min(int(limit), MAX_RESULTS))
+    rows = list((client.rpc(SITEWIDE_SEARCH_RPC, {
+        "p_query": needle, "p_asset": "all", "p_limit": cap,
+    }).execute()).data or [])
+    results = [item for row in rows if (item := _canonical_item(dict(row)))]
+    return {"query": needle, "asset": "all", "limit": cap, "items": results[:cap]}

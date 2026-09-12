@@ -186,7 +186,14 @@ def _project_public_set_leaderboard_target(target: Mapping[str, Any]) -> dict[st
     projected = _pick(target, _BASE_TARGET_FIELDS)
     set_rip = target.get("setRipV1")
     if isinstance(set_rip, Mapping):
-        projected["setRipV1"] = _pick(set_rip, _PUBLIC_SET_RIP_FIELDS)
+        public_set_rip = _pick(set_rip, _PUBLIC_SET_RIP_FIELDS)
+        # Publications before the explicit publicScore alias stored the same
+        # public leaderboard value as `score`. Preserve absent-vs-null: an
+        # explicit publicScore (including None) always wins, and the legacy
+        # value is copied only into the narrow public output name.
+        if "publicScore" not in set_rip and "score" in set_rip:
+            public_set_rip["publicScore"] = set_rip.get("score")
+        projected["setRipV1"] = public_set_rip
     return projected
 
 
@@ -311,7 +318,7 @@ _BASE_PRODUCT_RANKING_FIELDS = frozenset({
 })
 _PLUS_PRODUCT_RANKING_FIELDS = _BASE_PRODUCT_RANKING_FIELDS | frozenset({
     "budgetRank", "budgetCohortSize", "budgetTier", "budgetModelTier", "publicTier",
-    "quantity", "actualCommittedCapital", "unusedCapital", "overallRipScore",
+    "overallRipScore",
     "financialRipScore", "overallRipAbsoluteScore", "overallRipRelativeScore",
     "overallRipLeaderScore", "financialRipAbsoluteScore", "financialRipRelativeScore",
     "financialRipLeaderScore", "collectorAppealScore", "expectedValue",

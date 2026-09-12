@@ -41,12 +41,12 @@ test("productsTable width is 100%", () => {
 // product ranking view (RipDecisionPage.jsx, `.productIdentityCell`,
 // min-width: 13rem) which reuses the same `RankedProductIdentity`
 // component. Narrow both columns to match that measured density.
-test("colProduct width matches family view density (not the oversized 22rem)", () => {
+test("colProduct receives the space freed by removing strategy columns", () => {
   const match = css.match(/\.colProduct\s*\{([^}]*)\}/);
   assert.ok(match, "colProduct rule not found in CSS");
   const colProductRule = match[1];
   assert.doesNotMatch(colProductRule, /22rem/, "colProduct should no longer be 22rem");
-  assert.match(colProductRule, /13rem/, "colProduct should match the family view's measured 13rem identity width");
+  assert.match(colProductRule, /17rem/, "colProduct should use the space removed from Units and Committed");
 });
 
 test("colFormat width is narrowed from the oversized 15rem", () => {
@@ -69,11 +69,7 @@ test("colFormat width is narrowed from the oversized 15rem", () => {
 // and .colCommitted remain separate columns. This test pins that decision
 // so a future change doesn't silently reintroduce the merge (or drop these
 // columns) without re-measuring.
-test("colUnits and colCommitted remain separate (Opening Plan consolidation not needed — table already fits at 1440px)", () => {
-  const unitsMatch = css.match(/\.colUnits\s*\{([^}]*)\}/);
-  const committedMatch = css.match(/\.colChase,\s*\n\.colCommitted,\s*\n\.colRecover\s*\{([^}]*)\}/);
-  assert.ok(unitsMatch, "colUnits rule should still exist (not consolidated into colOpeningPlan)");
-  assert.match(unitsMatch[1], /4rem/, "colUnits should remain 4rem");
-  assert.ok(committedMatch, "colCommitted should still be grouped with colChase/colRecover at 7rem (not consolidated)");
-  assert.doesNotMatch(css, /\.colOpeningPlan/, "colOpeningPlan should not exist — measured width already fits 1440px");
+test("Units and Committed geometry is removed and identity receives the space", () => {
+  assert.doesNotMatch(css, /\.colUnits|\.colCommitted|\.colOpeningPlan/);
+  assert.match(css, /\.colProduct\s*\{\s*width:\s*17rem/);
 });

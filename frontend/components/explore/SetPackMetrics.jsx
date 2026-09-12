@@ -65,12 +65,12 @@ function FamilyMatrix({ rows, setId }) {
             <th className="py-2 text-left">Product Family</th>
             <th>Products</th>
             <th>Avg Cost / Pack</th>
-            <th>Break-Even / Pack</th>
-            <th>Typical / Pack</th>
+            <th>Expected Value / Pack</th>
             <th>Modeled Return</th>
-            <th>Ent. Cost / Pack</th>
+            <th>Typical Opening / Pack</th>
             <th>Typical Retention</th>
             <th>Chance to Recover</th>
+            <th>Entertainment Cost / Pack</th>
           </tr>
         </thead>
         <tbody>
@@ -96,18 +96,11 @@ function FamilyMatrix({ rows, setId }) {
                 ) || "—"}
               </td>
               <td className="text-center tabular-nums">
-                {formatSetMetric("typicalOpening", row.typicalOpeningPerPack) ||
-                  "—"}
-              </td>
-              <td className="text-center tabular-nums">
                 {formatSetMetric("modeledReturn", row.modeledReturnOnSpend) ||
                   "—"}
               </td>
               <td className="text-center tabular-nums">
-                {formatSetMetric(
-                  "entertainmentCost",
-                  row.averageEntertainmentCostPerPack,
-                ) || "—"}
+                {formatSetMetric("typicalOpening", row.typicalOpeningPerPack) || "—"}
               </td>
               <td className="text-center tabular-nums">
                 {formatSetMetric("typicalRetention", row.typicalRetention) ||
@@ -118,6 +111,9 @@ function FamilyMatrix({ rows, setId }) {
                   "chanceToRecoverCost",
                   row.chanceToRecoverCost,
                 ) || "—"}
+              </td>
+              <td className="text-center tabular-nums">
+                {formatSetMetric("entertainmentCost", row.averageEntertainmentCostPerPack) || "—"}
               </td>
             </tr>
           ))}
@@ -133,35 +129,29 @@ function FamilyMatrix({ rows, setId }) {
             <div className="flex justify-between gap-3">
               <strong className="text-xs">{displayFamily(row.family)}</strong>
               <strong className="text-xs tabular-nums">
-                {formatSetMetric("modeledReturn", row.modeledReturnOnSpend) ||
-                  "—"}
+                {formatSetMetric("packPrice", row.averageCostPerPack) || "—"} cost
               </strong>
             </div>
             <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-              {formatSetMetric("packPrice", row.averageCostPerPack) || "—"} cost
-              ·{" "}
               {formatSetMetric(
                 "modelBreakEven",
                 row.averageModelBreakEvenPerPack,
               ) || "—"}{" "}
-              EV ·{" "}
+              expected value ·{" "}
+              {formatSetMetric("modeledReturn", row.modeledReturnOnSpend) || "—"} return ·{" "}
               {formatSetMetric("typicalOpening", row.typicalOpeningPerPack) ||
                 "—"}{" "}
               typical
             </p>
             <p className="text-[10px] text-[var(--text-secondary)]">
-              {formatSetMetric(
-                "entertainmentCost",
-                row.averageEntertainmentCostPerPack,
-              ) || "—"}{" "}
-              entertainment ·{" "}
               {formatSetMetric("typicalRetention", row.typicalRetention) || "—"}{" "}
               typical retention ·{" "}
               {formatSetMetric(
                 "chanceToRecoverCost",
                 row.chanceToRecoverCost,
               ) || "—"}{" "}
-              recover
+              recover ·{" "}
+              {formatSetMetric("entertainmentCost", row.averageEntertainmentCostPerPack) || "—"} entertainment
             </p>
           </li>
         ))}
@@ -388,10 +378,13 @@ export default function SetPackMetrics({
                   <>
                     <dl className="mt-3 grid grid-cols-2 gap-2">
                       {[
+                        "packPrice",
+                        "modelBreakEven",
                         "modeledReturn",
                         "typicalOpening",
-                        "entertainmentCost",
                         "typicalRetention",
+                        "chanceToRecoverCost",
+                        "entertainmentCost",
                       ].map((key) => (
                         <div key={key}>
                           <dt className="text-[.65rem] uppercase text-[var(--text-secondary)]">
@@ -406,17 +399,7 @@ export default function SetPackMetrics({
                       ))}
                     </dl>
                     <p className="mt-2 border-t border-[var(--ex-line)] pt-2 text-xs text-[var(--text-secondary)]">
-                      Products{" "}
-                      {formatSetMetric("products", row.products) || "—"} · Pack{" "}
-                      {formatSetMetric("packPrice", row.packPrice) || "—"} ·
-                      Break-even{" "}
-                      {formatSetMetric("modelBreakEven", row.modelBreakEven) ||
-                        "—"}{" "}
-                      · Recover{" "}
-                      {formatSetMetric(
-                        "chanceToRecoverCost",
-                        row.chanceToRecoverCost,
-                      ) || "—"}
+                      {formatSetMetric("products", row.products) || "—"} products
                     </p>
                     {expanded ? (
                       <div className="mt-2 border-t border-[var(--border-subtle)] pt-1">

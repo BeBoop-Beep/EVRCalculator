@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from difflib import SequenceMatcher
 import re
+from threading import Lock
 import time
 import unicodedata
 from urllib.parse import quote
 from typing import Any
 
-from backend.db.services.market_explorer_instrument_search import search_market_explorer_instruments
-from backend.db.services.market_explorer_prepared_directory import read_prepared_directory
+from backend.db.services.market_explorer_instrument_search import search_sitewide_instruments
+from backend.db.services.market_explorer_prepared_directory import read_prepared_directory_cached
 from backend.db.services.pokemon_sets_catalog_service import _slugify as slugify_set
 
 MIN_QUERY_LENGTH = 2
 MAX_RESULTS = 30
 PREPARED_CAP = 8
+RESULT_CACHE_TTL_SECONDS = 45.0
+RESULT_CACHE_MAX_ENTRIES = 200
+_result_cache: OrderedDict[tuple[str, int], tuple[float, dict[str, Any]]] = OrderedDict()
+_result_cache_lock = Lock()
 
 
 def _normalize(value: Any) -> str:
@@ -74,17 +80,39 @@ def _prepared_result(row: dict[str, Any]) -> dict[str, Any]:
         href = f"/Market/Explorer?prepared={quote(key, safe='')}"
         secondary = "Prepared era market" if market_type == "era" else "Curated prepared market"
     result_type = "quick" if market_type == "curated" else market_type
-    return {"resultType": result_type, "category": category, "id": key, "label": label,
-            "secondaryLabel": secondary, "href": href, "preparedMarketKey": key}
+    result = {"resultType": result_type, "category": category, "id": key, "label": label,
+              "secondaryLabel": secondary, "href": href, "preparedMarketKey": key}
+    if market_type == "set":
+        metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+        result["imageUrl"] = metadata.get("logoUrl")
+        result["imageFallbackUrl"] = metadata.get("symbolUrl")
+    return result
 
 
-def _card_routes(client: Any, items: list[dict[str, Any]]) -> dict[str, str]:
-    ids = [item["instrumentId"] for item in items if item.get("asset") == "cards"]
-    if not ids:
-        return {}
-    rows = list((client.table("pokemon_market_explorer_card_current_metadata")
-                 .select("card_variant_id,canonical_card_id").in_("card_variant_id", ids).execute()).data or [])
-    return {str(row["card_variant_id"]): str(row["canonical_card_id"]) for row in rows if row.get("canonical_card_id")}
+def _cached_result(key: tuple[str, int], now: float) -> dict[str, Any] | None:
+    with _result_cache_lock:
+        cached = _result_cache.get(key)
+        if cached is None or cached[0] <= now:
+            if cached is not None:
+                del _result_cache[key]
+            return None
+        _result_cache.move_to_end(key)
+        result = {**cached[1], "timing": {"leafSearchMs": 0.0, "preparedMatchMs": 0.0,
+                  "cardRouteMs": 0.0, "totalMs": 0.0, "cacheHit": True}}
+        return result
+
+
+def _store_result(key: tuple[str, int], result: dict[str, Any], now: float) -> None:
+    with _result_cache_lock:
+        _result_cache[key] = (now + RESULT_CACHE_TTL_SECONDS, result)
+        _result_cache.move_to_end(key)
+        while len(_result_cache) > RESULT_CACHE_MAX_ENTRIES:
+            _result_cache.popitem(last=False)
+
+
+def _reset_sitewide_result_cache() -> None:
+    with _result_cache_lock:
+        _result_cache.clear()
 
 
 def search_sitewide(client: Any, *, q: str, limit: int = 20) -> dict[str, Any]:
@@ -93,18 +121,22 @@ def search_sitewide(client: Any, *, q: str, limit: int = 20) -> dict[str, Any]:
         raise ValueError(f"q must contain at least {MIN_QUERY_LENGTH} characters")
     cap = max(1, min(int(limit), MAX_RESULTS))
     started = time.perf_counter()
+    cache_key = (_normalize(needle), cap)
+    cached = _cached_result(cache_key, time.monotonic())
+    if cached is not None:
+        cached["timing"]["totalMs"] = round((time.perf_counter() - started) * 1000, 2)
+        return cached
     leaf_started = time.perf_counter()
-    leaf = search_market_explorer_instruments(client, q=needle, asset="all", limit=cap)["items"]
+    leaf = search_sitewide_instruments(client, q=needle, limit=cap)["items"]
     leaf_ms = round((time.perf_counter() - leaf_started) * 1000, 2)
     prepared_started = time.perf_counter()
-    prepared = match_prepared_markets(read_prepared_directory(client), needle, min(PREPARED_CAP, cap))
+    prepared = match_prepared_markets(read_prepared_directory_cached(client), needle, min(PREPARED_CAP, cap))
     prepared_ms = round((time.perf_counter() - prepared_started) * 1000, 2)
-    canonical_cards = _card_routes(client, leaf)
     leaf_results = []
     for item in leaf:
         asset, instrument_id = item["asset"], item["instrumentId"]
         if asset == "cards":
-            card_id = canonical_cards.get(instrument_id)
+            card_id = item.get("canonicalCardId")
             if not card_id or not item.get("setId"):
                 continue
             href = f"/TCGs/Pokemon/Sets/{quote(str(item['setId']), safe='')}/Cards/{quote(card_id, safe='')}?variant={quote(instrument_id, safe='')}"
@@ -117,6 +149,9 @@ def search_sitewide(client: Any, *, q: str, limit: int = 20) -> dict[str, Any]:
             "secondaryLabel": " · ".join(filter(None, [item.get("setName"), item.get("variantLabel"), item.get("cardNumber")])),
             "imageUrl": item.get("imageUrl"), "href": href})
     items = [_prepared_result(row) for row in prepared] + leaf_results
-    return {"query": needle, "limit": cap, "items": items[:cap], "timing": {
+    result = {"query": needle, "limit": cap, "items": items[:cap], "timing": {
         "leafSearchMs": leaf_ms, "preparedMatchMs": prepared_ms,
-        "totalMs": round((time.perf_counter() - started) * 1000, 2)}}
+        "cardRouteMs": 0.0, "totalMs": round((time.perf_counter() - started) * 1000, 2),
+        "cacheHit": False}}
+    _store_result(cache_key, result, time.monotonic())
+    return result

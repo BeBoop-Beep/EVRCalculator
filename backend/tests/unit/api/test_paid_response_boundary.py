@@ -93,6 +93,7 @@ def test_product_rankings_http_projection_plus_then_base(monkeypatch):
         "rows": [{
             "sealedProductId": "product-1", "productName": "Safe Product", "unitPrice": 99,
             "overallRipScore": PLUS_VALUE, "expectedValue": PLUS_VALUE,
+            "quantity": 4, "actualCommittedCapital": 396, "unusedCapital": 4,
             "unknownPremiumField": PREMIUM_VALUE,
         }],
     })
@@ -101,6 +102,8 @@ def test_product_rankings_http_projection_plus_then_base(monkeypatch):
     base = client.get("/explore/product-rankings/overall?plan=premium", headers=_headers("base-token"))
 
     assert str(PLUS_VALUE) in plus.text
+    for removed in ("quantity", "actualCommittedCapital", "unusedCapital"):
+        assert removed not in plus.json()["rows"][0]
     assert str(PLUS_VALUE) not in base.text
     assert "unknownPremiumField" not in plus.text
     assert base.json()["rows"] == [{
@@ -159,6 +162,29 @@ def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
     assert all(response.headers["cache-control"] == "no-store" for response in (
         plus_products, base_products, base_sets, plus_sets, base_eras,
     ))
+
+
+def test_public_set_rip_legacy_score_compatibility_preserves_absent_vs_null(monkeypatch):
+    _install_auth(monkeypatch)
+    rows = [
+        {"id": "explicit", "setRipV1": {"publicScore": 71.4, "score": 99.9, "rank": 1, "tier": "S"}},
+        {"id": "explicit-null", "setRipV1": {"publicScore": None, "score": 88.8, "rank": 2, "tier": "A"}},
+        {"id": "legacy", "setRipV1": {"score": 77.7, "rank": 3, "tier": "B"}},
+    ]
+    monkeypatch.setattr(main, "get_pokemon_explore_rankings_lens_payload", lambda lens, limit=None: {
+        "targets": rows, "meta": {},
+    })
+    client = TestClient(main.app)
+
+    public = client.get("/explore/rankings/lens/sets")
+    plus = client.get("/explore/rankings/lens/sets", headers=_headers("plus-token"))
+
+    projected = public.json()["targets"]
+    assert projected[0]["setRipV1"] == {"publicScore": 71.4, "rank": 1, "tier": "S"}
+    assert projected[1]["setRipV1"] == {"publicScore": None, "rank": 2, "tier": "A"}
+    assert projected[2]["setRipV1"] == {"publicScore": 77.7, "rank": 3, "tier": "B"}
+    assert all("score" not in row["setRipV1"] for row in projected)
+    assert [row["setRipV1"].get("score") for row in plus.json()["targets"]] == [99.9, 88.8, 77.7]
 
 
 def test_rankings_lens_resolves_canonical_profile_once(monkeypatch):

@@ -17,8 +17,7 @@ test("desktop table declares an explicit colgroup width contract, not per-cell h
   assert.match(jsx, /<colgroup>/);
   for (const col of [
     "colRank", "colProduct", "colOverall", "colTier", "colFinancial",
-    "colChase", "colCollector", "colPrice", "colUnits", "colCommitted",
-    "colEv", "colRecover", "colFormat",
+    "colChase", "colCollector", "colPrice", "colEv", "colRecover", "colFormat",
   ]) {
     assert.ok(jsx.includes(`styles.${col}`), `expected <col className={styles.${col}} /> in RankingsProductLensClient.jsx`);
     assert.match(css, new RegExp(`\\.${col}\\s*[,{]`));
@@ -30,24 +29,13 @@ test("desktop table declares an explicit colgroup width contract, not per-cell h
   assert.ok(Number(productWidth) > Number(rankWidth) * 4, "Product/Set column must be materially wider than Rank");
 });
 
-test("Units and Committed are separate desktop <th> columns, not embedded in Product/Set identity", () => {
-  assert.match(jsx, /<th scope="col">Units<\/th>/);
-  assert.match(jsx, /<th scope="col">Committed<\/th>/);
+test("Units and Committed are absent from desktop, mobile, and geometry", () => {
+  for (const removed of ["Units", "Committed", "Strategy", "row?.quantity", "row?.actualCommittedCapital", "styles.colUnits", "styles.colCommitted"]) assert.ok(!jsx.includes(removed), removed);
+  assert.doesNotMatch(css, /\.colUnits|\.colCommitted/);
 });
 
-test("desktop Product/Set identity cell does not render Strategy (quantity/committed)", () => {
-  const desktopSection = jsx.slice(jsx.indexOf('className="hidden overflow-x-auto md:block"'), jsx.indexOf('className="space-y-2 p-3 md:hidden"'));
-  assert.doesNotMatch(desktopSection, /<Strategy/);
-});
-
-test("desktop Units/Committed cells read row.quantity and row.actualCommittedCapital, updating with the selected budget", () => {
-  assert.match(jsx, /const quantity = numeric\(row\?\.quantity\)/);
-  assert.match(jsx, /const committed = numeric\(row\?\.actualCommittedCapital\)/);
-});
-
-test("mobile card layout still surfaces quantity/committed via Strategy", () => {
-  const mobileSection = jsx.slice(jsx.indexOf('className="space-y-2 p-3 md:hidden"'));
-  assert.match(mobileSection, /<Strategy/);
+test("freed width is assigned to Product and Set identity", () => {
+  assert.match(css, /\.colProduct\s*{\s*width:\s*17rem/);
 });
 
 test("Format Strength wraps instead of clipping and no longer uses a fixed min-w-[10rem] cap", () => {

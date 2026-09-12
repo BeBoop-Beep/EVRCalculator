@@ -32,6 +32,8 @@ const COLUMNS = [
   { key: "eraName", label: "Era", sort: "eraName", align: "left" },
   { key: "setCount", label: "Sets", sort: null },
   { key: "productSkuCount", label: "Products", sort: null },
+  { key: "meanPackCost", label: "Avg Cost / Pack", sort: "meanPackCost", emphasis: "quiet" },
+  { key: "expectedValue", label: "Expected Value / Pack", sort: "expectedValue", emphasis: "quiet" },
   {
     key: "modeledReturn",
     label: "Modeled Return",
@@ -49,27 +51,15 @@ const COLUMNS = [
     sort: "typicalRetention",
   },
   {
-    key: "entertainmentCost",
-    label: "Entertainment Cost / Pack",
-    sort: "expectedEntertainmentCost",
-    secondary: "entertainmentCostShare",
-  },
-  {
     key: "chanceToRecover",
     label: "Chance to Recover",
     sort: "chanceToBeatCost",
   },
   {
-    key: "meanPackCost",
-    label: "Avg Cost / Pack",
-    sort: "meanPackCost",
-    emphasis: "quiet",
-  },
-  {
-    key: "expectedValue",
-    label: "Break-Even / Pack",
-    sort: "expectedValue",
-    emphasis: "quiet",
+    key: "entertainmentCost",
+    label: "Entertainment Cost / Pack",
+    sort: "expectedEntertainmentCost",
+    secondary: "entertainmentCostShare",
   },
 ];
 const PUBLIC_ERA_COLUMN_KEYS = new Set([
@@ -374,10 +364,13 @@ export default function OpeningEconomicsEras({
               {canViewRankingsIntelligence ? (
                 <dl className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2">
                   {[
+                    ["Avg Cost / Pack", cells.meanPackCost, false],
+                    ["Expected Value / Pack", cells.expectedValue, false],
                     ["Modeled Return", cells.modeledReturn, true],
+                    ["Typical Opening / Pack", cells.typicalOpening, false],
                     ["Typical Retention", cells.typicalRetention, false],
-                    ["Entertainment Cost", cells.entertainmentCost, false],
                     ["Chance to Recover", cells.chanceToRecover, false],
+                    ["Entertainment Cost / Pack", cells.entertainmentCost, false],
                   ].map(([label, value, strong]) => (
                     <div key={label}>
                       <dt className="text-[0.65rem] uppercase tracking-wide text-[var(--text-secondary)]">
@@ -399,18 +392,7 @@ export default function OpeningEconomicsEras({
 
               {canViewRankingsIntelligence ? (
                 <dl className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--ex-line)] pt-2 text-[0.68rem] text-[var(--text-secondary)]">
-                  {[
-                    ["Typical Opening", cells.typicalOpening],
-                    ["Avg Pack Price", cells.meanPackCost],
-                    ["Break-Even", cells.expectedValue],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex gap-1.5">
-                      <dt>{label}</dt>
-                      <dd className="tabular-nums text-[var(--text-primary)]">
-                        {value ?? <Dash />}
-                      </dd>
-                    </div>
-                  ))}
+                  <div className="flex gap-1.5"><dt>Products</dt><dd className="tabular-nums text-[var(--text-primary)]">{cells.productSkuCount ?? <Dash />}</dd></div>
                 </dl>
               ) : (
                 <div className="mt-2.5 border-t border-[var(--ex-line)] pt-2 text-xs">

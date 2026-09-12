@@ -124,7 +124,7 @@
 }
 
 .colProduct {
-  width: 13rem;
+  width: 17rem;
 }
 
 .colSetPackIdentity {
@@ -148,13 +148,8 @@
 }
 
 .colChase,
-.colCommitted,
 .colRecover {
   width: 7rem;
-}
-
-.colUnits {
-  width: 4rem;
 }
 
 .colFormat {

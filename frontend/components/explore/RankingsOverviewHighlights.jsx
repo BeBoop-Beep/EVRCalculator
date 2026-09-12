@@ -17,6 +17,26 @@ function Pending({ failed, noun }) {
   return <p className="mt-3 text-sm text-[var(--text-secondary)]">{failed ? `${noun} is temporarily unavailable.` : `Loading ${noun.toLowerCase()}…`}</p>;
 }
 
+function TopSetHighlight({ target, metric }) {
+  return <div className="mt-2">
+    <p className="text-xs font-semibold text-[var(--text-secondary)]">#1 Set to Open</p>
+    <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
+      <SetIdentity target={target} variant="compact" eager />
+      <div className="flex flex-none items-center gap-1"><RipScoreBadge score={metric.publicScore} tier={metric.tier} compact label="Set RIP" /><RipTierMark tier={metric.tier} /></div>
+    </div>
+  </div>;
+}
+
+function TopEraHighlight({ era }) {
+  return <div className="mt-2">
+    <p className="text-xs font-semibold text-[var(--text-secondary)]">#1 Era to Open</p>
+    <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
+      <p className="min-w-0 text-lg font-semibold leading-tight text-[var(--text-primary)]">{era.eraName}</p>
+      <div className="flex flex-none items-center gap-1"><RipScoreBadge score={era.score} tier={era.tier} compact label="Set Strength" /><RipTierMark tier={era.tier} /></div>
+    </div>
+  </div>;
+}
+
 export default function RankingsOverviewHighlights({ setsState, eraState, openingEconomics, onOpenTopSet, onOpenTopEra, onOpenLowestCost }) {
   const topSet = setsState?.status === "ready" ? setsState.targets.find((target) => readPublicSetRip(target).rank === 1) || null : null;
   const topSetRip = topSet ? readPublicSetRip(topSet) : null;
@@ -29,8 +49,8 @@ export default function RankingsOverviewHighlights({ setsState, eraState, openin
     <h2 className="text-base font-semibold text-[var(--text-primary)]">At a glance</h2>
     <p className="mt-1 text-xs text-[var(--text-secondary)]">Public highlights from the latest Rankings and Opening Economics publications.</p>
     <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-      <Highlight label="Top Set" onClick={onOpenTopSet}>{topSet ? <div className="mt-2 flex items-center justify-between gap-2"><div className="min-w-0"><p className="text-xs font-semibold text-[var(--text-secondary)]">#1 Set RIP ranked Set</p><SetIdentity target={topSet} variant="compact" eager /></div><div className="flex flex-none items-center gap-1"><RipScoreBadge score={topSetRip.publicScore} tier={topSetRip.tier} compact label="Set RIP" /><RipTierMark tier={topSetRip.tier} /></div></div> : <Pending failed={["error", "unavailable"].includes(setsState?.status)} noun="Top Set" />}</Highlight>
-      <Highlight label="Top Era" onClick={onOpenTopEra}>{topEra ? <div className="mt-3"><p className="text-lg font-semibold text-[var(--text-primary)]">{topEra.eraName}</p><div className="mt-2 flex items-center gap-2"><span className="text-sm font-bold tabular-nums">#1</span><RipScoreBadge score={topEra.score} tier={topEra.tier} compact label="Set Strength" /><RipTierMark tier={topEra.tier} /></div>{topEra.strongestSet?.setName ? <p className="mt-2 text-xs text-[var(--text-secondary)]">Strongest Set: <span className="text-[var(--text-primary)]">{topEra.strongestSet.setName}</span></p> : null}</div> : <Pending failed={["error", "unavailable"].includes(eraState?.status)} noun="Top Era" />}</Highlight>
+      <Highlight label="Top Set" onClick={onOpenTopSet}>{topSet ? <TopSetHighlight target={topSet} metric={topSetRip} /> : <Pending failed={["error", "unavailable"].includes(setsState?.status)} noun="Top Set" />}</Highlight>
+      <Highlight label="Top Era" onClick={onOpenTopEra}>{topEra ? <TopEraHighlight era={topEra} /> : <Pending failed={["error", "unavailable"].includes(eraState?.status)} noun="Top Era" />}</Highlight>
       <Highlight label="Lowest Avg Cost / Pack" onClick={onOpenLowestCost}>{lowestCost ? <div className="mt-3"><p className="text-base font-semibold text-[var(--text-primary)]">{lowestCost.setName}</p><p className="mt-2 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">{money(lowestCost.averageCostPerPack)}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">Lowest modeled average cost per pack; not a quality ranking.</p></div> : <Pending failed={openingEconomics?.status === "unavailable"} noun="Set cost data" />}</Highlight>
       <Highlight label="Modeled Coverage" onClick={undefined}>{global ? <dl className="mt-3 space-y-2 text-sm"><div className="flex justify-between gap-2"><dt className="text-[var(--text-secondary)]">Modeled sets</dt><dd className="font-semibold tabular-nums">{global.setCount}</dd></div><div className="flex justify-between gap-2"><dt className="text-[var(--text-secondary)]">Modeled products</dt><dd className="font-semibold tabular-nums">{global.productSkuCount}</dd></div><div className="flex justify-between gap-2"><dt className="text-[var(--text-secondary)]">Product families</dt><dd className="font-semibold tabular-nums">{global.productFamilyCount}</dd></div></dl> : <Pending failed noun="Coverage" />}</Highlight>
     </div>

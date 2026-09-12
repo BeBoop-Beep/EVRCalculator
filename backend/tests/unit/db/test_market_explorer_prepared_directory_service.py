@@ -1,5 +1,6 @@
 from backend.db.services.market_explorer_prepared_directory import (
-    read_prepared_comparison, read_prepared_directory, read_prepared_history,
+    DIRECTORY_CACHE_TTL_SECONDS, _reset_prepared_directory_cache,
+    read_prepared_comparison, read_prepared_directory, read_prepared_directory_cached, read_prepared_history,
     read_prepared_screen, read_set_context_ranking,
 )
 
@@ -29,3 +30,15 @@ def test_comparison_enforces_database_maximum_before_rpc():
     except ValueError: pass
     else: raise AssertionError("expected bound")
     assert client.calls == []
+
+def test_directory_cache_is_bounded_expires_and_serves_stale_on_refresh_error():
+    _reset_prepared_directory_cache()
+    client = Client()
+    assert read_prepared_directory_cached(client, now=10)[0]["market_key"] == "set:x"
+    assert read_prepared_directory_cached(client, now=10 + DIRECTORY_CACHE_TTL_SECONDS - 1)[0]["market_key"] == "set:x"
+    assert len(client.calls) == 1
+    assert read_prepared_directory_cached(client, now=10 + DIRECTORY_CACHE_TTL_SECONDS)[0]["market_key"] == "set:x"
+    assert len(client.calls) == 2
+    client.rpc = lambda *_args: (_ for _ in ()).throw(RuntimeError("refresh failed"))
+    assert read_prepared_directory_cached(client, now=1000)[0]["market_key"] == "set:x"
+    _reset_prepared_directory_cache()

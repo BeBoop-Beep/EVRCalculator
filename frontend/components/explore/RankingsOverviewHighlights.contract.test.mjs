@@ -6,6 +6,7 @@ const read = (name) => fs.readFileSync(new URL(name, import.meta.url), "utf8").r
 const highlights = read("./RankingsOverviewHighlights.jsx");
 const lazy = read("./RankingsLazyClient.jsx");
 const distribution = read("./OpeningEconomicsDistribution.jsx");
+const landscape = read("./setRipLandscapeSelector.mjs");
 
 test("Overview exposes exactly four Basic-safe highlights", () => {
   for (const label of ["Top Set", "Top Era", "Lowest Avg Cost / Pack", "Modeled Coverage"]) assert.ok(highlights.includes(label));
@@ -24,11 +25,21 @@ test("Overview handoffs switch existing state and reuse cached Set/Era loaders",
   assert.equal((lazy.match(/fetch\("\/api\/explore\/rankings\/lens\?lens=eras"/g) || []).length, 1);
 });
 
-test("exact buckets take priority over a truthful percentile compatibility curve", () => {
-  assert.ok(distribution.includes("const percentilePoints = buckets.length ? [] : readLegacyReturnPercentiles(scope)"));
-  assert.ok(distribution.includes('data-recovery-buckets="6"'));
-  assert.ok(distribution.includes('data-legacy-percentile-points="99"'));
-  assert.ok(distribution.includes("Each point is a published percentile position; it is not a frequency bucket."));
-  assert.ok(!distribution.includes("interpolat"));
-  assert.ok(distribution.includes("The modeled recovery distribution is unavailable."));
+test("Overview replaces outcome distributions with the public Set RIP landscape", () => {
+  assert.ok(distribution.includes("How Sets Rank to Open"));
+  assert.ok(landscape.includes("readPublicSetRip"));
+  assert.ok(distribution.includes("data-set-rip-landscape"));
+  for (const removed of ["Opening outcome range", "normalizedReturnBuckets", "normalizedReturnPercentiles", "Sets represented"]) assert.ok(!distribution.includes(removed));
+  for (const paid of ["financialRipV4", "Collector Appeal", "chaseAccessibility"]) assert.ok(!`${distribution}\n${landscape}`.includes(paid));
+  assert.ok(lazy.includes("<OpeningEconomicsOverall economics={openingEconomics} targets={setTargets} />"));
+  assert.equal((lazy.match(/lens\?lens=sets/g) || []).length, 1);
+});
+
+test("Top Set and Top Era use bespoke concise hierarchy without a redundant Era rank", () => {
+  assert.ok(highlights.includes("function TopSetHighlight"));
+  assert.ok(highlights.includes("function TopEraHighlight"));
+  assert.ok(highlights.includes("#1 Set to Open"));
+  assert.ok(highlights.includes("#1 Era to Open"));
+  const era = highlights.slice(highlights.indexOf("function TopEraHighlight"), highlights.indexOf("export default"));
+  assert.equal((era.match(/#1/g) || []).length, 1);
 });

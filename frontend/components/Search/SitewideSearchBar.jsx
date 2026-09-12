@@ -2,14 +2,40 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  CARD_THUMBNAIL_WIDTH,
+  SET_LOGO_THUMBNAIL_WIDTH,
+  optimizedImageUrl,
+} from "@/lib/images/remoteImageDelivery.mjs";
 
 const CATEGORY_ORDER = ["Sets", "Eras", "Cards", "Sealed", "Quick Markets"];
+
+function ResultThumbnail({ item }) {
+  const isCard = item.resultType === "card";
+  const isSet = item.resultType === "set";
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  if (!isCard && !isSet) return null;
+
+  const candidates = isSet
+    ? [item.imageUrl, item.imageFallbackUrl].filter(Boolean)
+    : [item.imageUrl].filter(Boolean);
+  const source = candidates[candidateIndex];
+  const width = isCard ? CARD_THUMBNAIL_WIDTH : SET_LOGO_THUMBNAIL_WIDTH;
+  const geometry = isCard ? "h-[50px] w-9" : "h-9 w-12";
+
+  return <span aria-hidden="true" data-result-thumbnail={item.resultType}
+    className={`${geometry} flex shrink-0 items-center justify-center overflow-hidden rounded bg-[rgba(148,163,184,0.08)]`}>
+    {source ? <img src={optimizedImageUrl(source, width)} alt="" loading="lazy" decoding="async"
+      className="h-full w-full object-contain" onError={() => setCandidateIndex((index) => index + 1)} /> : null}
+  </span>;
+}
 
 export default function SitewideSearchBar({ onSearch, className, inputClassName, buttonClassName, placeholder = "Search" }) {
   const router = useRouter();
   const pathname = usePathname();
   const rootRef = useRef(null);
   const requestRef = useRef(0);
+  const resultCacheRef = useRef(new Map());
   const listId = useId();
   const [query, setQuery] = useState("");
   const [items, setItems] = useState([]);
@@ -28,6 +54,12 @@ export default function SitewideSearchBar({ onSearch, className, inputClassName,
     if (needle.length < 2) { setItems([]); setStatus("idle"); setOpen(false); return; }
     const controller = new AbortController();
     const requestId = ++requestRef.current;
+    const cacheKey = needle.toLocaleLowerCase();
+    const cached = resultCacheRef.current.get(cacheKey);
+    if (cached && Date.now() - cached.storedAt < 30_000) {
+      setItems(cached.items); setStatus("success"); setOpen(true); setActiveIndex(-1);
+      return () => controller.abort();
+    }
     setStatus("loading"); setOpen(true); setActiveIndex(-1);
     const timer = setTimeout(async () => {
       try {
@@ -35,11 +67,14 @@ export default function SitewideSearchBar({ onSearch, className, inputClassName,
         const payload = await response.json();
         if (requestId !== requestRef.current) return;
         if (!response.ok) throw new Error(payload?.message || "Search unavailable");
-        setItems(Array.isArray(payload?.items) ? payload.items : []); setStatus("success");
+        const nextItems = Array.isArray(payload?.items) ? payload.items : [];
+        resultCacheRef.current.set(cacheKey, { items: nextItems, storedAt: Date.now() });
+        while (resultCacheRef.current.size > 20) resultCacheRef.current.delete(resultCacheRef.current.keys().next().value);
+        setItems(nextItems); setStatus("success");
       } catch (error) {
         if (error?.name !== "AbortError" && requestId === requestRef.current) { setItems([]); setStatus("error"); }
       }
-    }, 275);
+    }, needle.length === 2 ? 225 : 175);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [query]);
 
@@ -70,9 +105,12 @@ export default function SitewideSearchBar({ onSearch, className, inputClassName,
         <h2 id={`${listId}-${category.replaceAll(" ", "-")}`} className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[rgb(45,212,191)]">{category}</h2>
         {rows.map((item) => { const index = items.indexOf(item); return <button key={`${item.resultType}:${item.id}`} id={`${listId}-option-${index}`} role="option" aria-selected={index === activeIndex}
           type="button" onMouseEnter={() => setActiveIndex(index)} onClick={() => choose(item)}
-          className={`block min-h-11 w-full rounded-lg px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.75)] ${index === activeIndex ? "bg-[rgba(45,212,191,0.12)]" : "hover:bg-[var(--surface-hover)]"}`}>
-          <span className="block truncate text-sm font-medium text-[var(--text-primary)]">{item.label}</span>
-          {item.secondaryLabel ? <span className="block truncate text-[11px] text-[var(--text-secondary)]">{item.secondaryLabel}</span> : null}
+          className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.75)] ${index === activeIndex ? "bg-[rgba(45,212,191,0.12)]" : "hover:bg-[var(--surface-hover)]"}`}>
+          <ResultThumbnail item={item} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium text-[var(--text-primary)]">{item.label}</span>
+            {item.secondaryLabel ? <span className="block truncate text-[11px] text-[var(--text-secondary)]">{item.secondaryLabel}</span> : null}
+          </span>
         </button>; })}
       </section>) : null}
     </div> : null}

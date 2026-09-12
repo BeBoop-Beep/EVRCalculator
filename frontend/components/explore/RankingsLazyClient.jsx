@@ -234,7 +234,7 @@ export default function RankingsLazyClient({
             onOpenTopEra={() => { setEraLens("rankings"); setActiveLens("eras"); }}
             onOpenLowestCost={() => { setSetEntryView("packEconomics"); setActiveLens("sets"); }}
           />
-          <OpeningEconomicsOverall economics={openingEconomics} targets={targets} />
+          <OpeningEconomicsOverall economics={openingEconomics} targets={setTargets} />
         </>
       ) : lens === "eras" ? (
         eraLens === "rankings" ? (

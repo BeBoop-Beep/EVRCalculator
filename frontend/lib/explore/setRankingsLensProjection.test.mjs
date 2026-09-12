@@ -72,3 +72,15 @@ test("missing publicScore stays missing and never falls back to raw or model sco
   const row = projectSetRankingsLensTargets([missing], { rankingsIntelligence: true })[0];
   assert.equal(row.setRipV1.chaseAccessibility.publicScore, undefined);
 });
+
+test("the Next client boundary preserves explicit publicScore null and never exposes score", () => {
+  const rows = projectSetRankingsLensTargets([
+    { target_id: "available", setRipV1: { publicScore: 77.7, score: 99, rank: 1, tier: "S" } },
+    { target_id: "null", setRipV1: { publicScore: null, score: 88, rank: 2, tier: "A" } },
+  ], { rankingsIntelligence: false });
+  assert.deepEqual(rows.map((row) => row.setRipV1), [
+    { publicScore: 77.7, rank: 1, tier: "S" },
+    { publicScore: null, rank: 2, tier: "A" },
+  ]);
+  assert.ok(rows.every((row) => !("score" in row.setRipV1)));
+});

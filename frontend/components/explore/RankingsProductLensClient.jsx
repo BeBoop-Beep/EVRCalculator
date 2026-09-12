@@ -71,17 +71,6 @@ function recovery(value) {
   return `${(probability * 100).toFixed(1)}%`;
 }
 
-function Strategy({ row }) {
-  const quantity = numeric(row?.quantity);
-  const committed = numeric(row?.actualCommittedCapital);
-  if (quantity === null || committed === null) return null;
-  return (
-    <span className="mt-1 block text-[10.5px] text-[var(--text-secondary)]">
-      {quantity} {quantity === 1 ? "unit" : "units"} · {money.format(committed)} committed
-    </span>
-  );
-}
-
 function FormatStrength({ row }) {
   const rank = numeric(row?.familyRank);
   const size = numeric(row?.familySize);
@@ -126,8 +115,6 @@ function ProductRows({ rows, overall, entitled }) {
             <col className={styles.colChase} />
             <col className={styles.colCollector} />
             <col className={styles.colPrice} />
-            <col className={styles.colUnits} />
-            <col className={styles.colCommitted} />
             <col className={styles.colEv} />
             <col className={styles.colRecover} />
             <col className={styles.colFormat} />
@@ -147,15 +134,6 @@ function ProductRows({ rows, overall, entitled }) {
               <th scope="col" data-chase-accessibility-header title={CHASE_ACCESSIBILITY_HELP}>Chase Accessibility</th>
               <th scope="col">Collector Appeal</th>
               <th scope="col">{overall ? "Unit Price" : "Market Price"}</th>
-              {/*
-                Units and Committed are separate desktop columns (each
-                strategy row's actual quantity/committed capital, not the
-                Opening Budget ceiling), so the Product/Set identity cell
-                below no longer needs to fit that data alongside the
-                thumbnail and product name.
-              */}
-              <th scope="col">Units</th>
-              <th scope="col">Committed</th>
               <th scope="col">Expected Value</th><th scope="col">Chance to Recover Cost</th><th scope="col">Format Strength</th>
             </tr>
           </thead>
@@ -164,8 +142,6 @@ function ProductRows({ rows, overall, entitled }) {
               const rank = overall ? row?.budgetRank : row?.familyRank;
               const price = overall ? row?.unitPrice : row?.marketPrice;
               const href = buildSealedProductHref(row) || "#";
-              const quantity = numeric(row?.quantity);
-              const committed = numeric(row?.actualCommittedCapital);
               return (
                 <tr key={row?.sealedProductId} className={styles.row}>
                   <td className={styles.numeric}>{entitled ? `#${rank ?? "—"}` : <PremiumMetricLock />}</td>
@@ -187,8 +163,6 @@ function ProductRows({ rows, overall, entitled }) {
                   </td>
                   <td className={styles.numeric}>{entitled && numeric(row?.collectorAppealScore) !== null ? `${formatPublicRipScore(row.collectorAppealScore)} / 10` : entitled ? "Unavailable" : <PremiumMetricLock />}</td>
                   <td className={styles.numeric}>{numeric(price) === null ? "Unavailable" : money.format(price)}</td>
-                  <td className={styles.numeric}>{overall && entitled ? (quantity === null ? "Unavailable" : quantity) : "—"}</td>
-                  <td className={styles.numeric}>{overall && entitled ? (committed === null ? "Unavailable" : money.format(committed)) : "—"}</td>
                   <td className={styles.numeric}>{entitled ? (numeric(row?.expectedValue) === null ? "Unavailable" : money.format(row.expectedValue)) : <PremiumMetricLock />}</td>
                   <td className={styles.numeric}>{entitled ? recovery(row?.chanceToRecoverCost) : <PremiumMetricLock />}</td>
                   <td>{entitled ? <FormatStrength row={row} /> : <PremiumMetricLock />}</td>
@@ -208,9 +182,7 @@ function ProductRows({ rows, overall, entitled }) {
             <Link key={row?.sealedProductId} href={href} className={`${styles.mobileRow} grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2.5`}>
               <b className="text-right text-xs">{entitled ? `#${rank ?? "—"}` : "🔒"}</b>
               <div className="min-w-0">
-                <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`}>
-                  {overall && entitled ? <Strategy row={row} /> : null}
-                </RankedProductIdentity>
+                <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`} />
                 <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
                 {/*
                   Peer supporting scores beneath RIP Score.

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:turbo": "next dev --turbopack",
-    "build": "next build",
+    "build": "node scripts/local-production-build.mjs",
     "start": "next start",
     "lint": "next lint",
     "test:movers-ticker": "tsx --test components/explore/moversTickerSelector.test.mjs components/explore/MoversTickerViewport.test.jsx",
