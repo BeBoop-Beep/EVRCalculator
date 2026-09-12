@@ -28,7 +28,7 @@ import {
 
 /**
  * A target shaped like the real `/explore/rip-statistics/targets` row: the
- * canonical V7 contract bundle plus the top-level V7/V3 objects and the flat
+ * current public contract bundle plus the top-level V10/V4 objects and the flat
  * simulation columns.
  */
 function makeTarget({
@@ -49,8 +49,12 @@ function makeTarget({
     name,
     target_type: "pokemon_set",
     target_id: name,
-    overallRipV9: { relativeScore: overall, rank: overallRank, cohortSize: 4, tier: "B" },
-    financialRipV3: { relativeScore: financial, rank: overallRank, cohortSize: 4, tier: "B" },
+    overallRipV10: { leaderNormalizedScore: overall, rank: overallRank, cohortSize: 4, tier: "B" },
+    // CANONICAL: exploreRankingConfig's "overall" mode reads overallRipV12
+    // (V10 stays as historical fallback data only, see set_rip_service.py's
+    // _ranked_targets and exploreRankingConfig.mjs).
+    overallRipV12: { leaderNormalizedScore: overall, rank: overallRank, cohortSize: 4, tier: "B" },
+    financialRipV4: { leaderNormalizedScore: financial, rank: overallRank, cohortSize: 4, tier: "B" },
     publicRipContractV9: {
       overallRip: { relativeScore: overall, rank: overallRank, rankedSetCount: 4 },
       financialRip: { relativeScore: financial, rank: overallRank, rankedSetCount: 4 },
@@ -148,7 +152,7 @@ test("all required Rankings metrics are sortable columns", () => {
     RANKINGS_SORT_COLUMN_IDS.map((id) => RANKINGS_SORT_COLUMNS[id].label),
     [
       "Set RIP",
-      "Overall RIP",
+      "RIP Score",
       "Financial RIP",
       "Collector Appeal",
       "Chase Accessibility",
@@ -188,8 +192,8 @@ test("Chase Accessibility reads the set-level authority value and sorts unavaila
 
 test("each column reads its authoritative field and derives nothing new", () => {
   assert.equal(readSortValue({ setRipV1: { score: 88 } }, "setRip"), 88, "Set RIP is the production block score");
-  assert.equal(readSortValue(ALPHA, "overall"), 100, "Overall RIP is overallRipV9.relativeScore");
-  assert.equal(readSortValue(ALPHA, "financial"), 100, "Financial RIP is financialRipV3.relativeScore");
+  assert.equal(readSortValue(ALPHA, "overall"), 100, "Overall RIP is the current overallRipV12 leader score");
+  assert.equal(readSortValue(ALPHA, "financial"), 100, "Financial RIP is the current financialRipV4 leader score");
   assert.equal(readSortValue(ALPHA, "typicalOpening"), 9.5, "Typical Opening is the published median_value");
   assert.equal(readSortValue(ALPHA, "modelBreakEven"), 9.8, "Model Break-Even is the unchanged published mean_value");
   assert.equal(readSortValue(ALPHA, "marketPrice"), 100.5, "Market price is the published pack_cost");
@@ -304,6 +308,12 @@ test("prob_profit is normalised the same way the cell formats it", () => {
 test("the default sort is Set RIP descending", () => {
   assert.equal(RANKINGS_DEFAULT_SORT.column, "setRip");
   assert.equal(RANKINGS_DEFAULT_SORT.direction, SORT_DESC);
+});
+
+test("Set RIP sorting uses publicScore authority and keeps explicit null unavailable", () => {
+  assert.equal(readSortValue({ setRipV1: { publicScore: 8.7, score: 99 } }, "setRip"), 8.7);
+  assert.equal(readSortValue({ setRipV1: { publicScore: null, score: 99 } }, "setRip"), null);
+  assert.equal(readSortValue({ setRipV1: { score: 7.2 } }, "setRip"), 7.2);
 });
 
 test("the default sort returns the canonical order untouched", () => {
@@ -442,7 +452,7 @@ test("sorting never mutates a target's score, rank, tier or cohort", () => {
   assert.equal(JSON.stringify(CANONICAL), before, "no canonical field may be written during a sort");
   // The canonical Overall RIP rank on each row is exactly what it was.
   assert.deepEqual(
-    CANONICAL.map((row) => row.overallRipV9.rank),
+    CANONICAL.map((row) => row.overallRipV10.rank),
     [1, 2, 3, 4]
   );
 });

@@ -161,19 +161,36 @@ from backend.db.services.pokemon_sealed_market_explorer_query_service import (
 )
 from backend.db.services.pokemon_market_explorer_query_service import (
     MarketExplorerQueryUnavailable,
-    build_market_explorer_filter_options,
     run_market_explorer_query,
+)
+from backend.db.services.market_explorer_options_snapshot import (
+    MarketExplorerOptionsUnavailable,
+    read_market_explorer_options_snapshot,
+)
+from backend.db.services.market_explorer_prepared_directory import (
+    read_prepared_comparison, read_prepared_directory, read_prepared_history,
+    read_prepared_screen, read_set_context_ranking,
+)
+from backend.db.services.market_explorer_exact_basket import (
+    MarketExplorerExactBasketUnavailable, run_exact_basket_v2,
 )
 from backend.db.services.market_explorer_query_planner import (
     GLOBAL_MARKET_EXPLORER_PLANNER,
     GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
     MarketExplorerBuildInProgress,
+    MarketExplorerCacheRefreshing,
     PersistentMarketExplorerCache,
-    resolve_canonical_through,
+    resolve_explorer_comparison_through,
+    resolve_scope_set_ids,
+)
+from backend.domain.pokemon.market_explorer_preflight import (
+    MarketExplorerPreflightError,
+    call_filtered_cards_preflight,
 )
 from backend.db.services.market_explorer_instrument_search import (
     search_market_explorer_instruments,
 )
+from backend.db.services.sitewide_search import search_sitewide
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
 from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
 from backend.domain.pokemon.market_explorer_query import (
@@ -186,6 +203,8 @@ from backend.domain.pokemon.market_explorer_query import (
 from backend.api.market_request_metrics import build_identity, market_request_metrics_middleware
 from backend.api.paid_abuse_control import (
     POLICY_CUSTOM_QUERY,
+    POLICY_INSTRUMENT_SEARCH,
+    POLICY_SITE_SEARCH,
     POLICY_INTERACTIVE_DETAIL,
     POLICY_RANKED_INTELLIGENCE,
     emit_security_event,
@@ -258,10 +277,16 @@ class WaitlistVerifyRequest(BaseModel):
     token: str
 
 
+class MarketExplorerQualifiedInstrument(BaseModel):
+    asset: str
+    instrumentId: str = Field(min_length=1)
+
+
 class MarketExplorerQueryRequest(BaseModel):
     asset: str = "cards"
     membershipMode: str = "filters"
     instrumentIds: List[str] = Field(default_factory=list, max_length=25)
+    instruments: List[MarketExplorerQualifiedInstrument] = Field(default_factory=list, max_length=25)
     eraIds: List[str] = Field(default_factory=list)
     setIds: List[str] = Field(default_factory=list)
     segmentIds: List[str] = Field(default_factory=list)
@@ -276,6 +301,25 @@ class MarketExplorerQueryRequest(BaseModel):
 class MarketExplorerConstituentPageRequest(MarketExplorerQueryRequest):
     limit: int = Field(default=100, ge=1, le=100)
     afterRank: int = Field(default=0, ge=0)
+
+
+class MarketExplorerPreflightRequest(BaseModel):
+    """A cheap 'how many cards/sets would this match' check.
+
+    Filters-only: Exact Basket (explicit instrument) membership is
+    intentionally out of scope for preflight, matching the RPC it calls.
+    """
+    eraIds: List[str] = Field(default_factory=list)
+    setIds: List[str] = Field(default_factory=list)
+    segmentIds: List[str] = Field(default_factory=list)
+    pokemonIds: List[str] = Field(default_factory=list)
+    priceSegmentIds: List[str] = Field(default_factory=list)
+    releaseAgeCohortIds: List[str] = Field(default_factory=list)
+
+
+class PreparedComparisonRequest(BaseModel):
+    marketKeys: List[str] = Field(min_length=1, max_length=25)
+    startDate: Optional[date] = None
 
 
 class BillingCheckoutRequest(BaseModel):
@@ -1237,7 +1281,7 @@ def get_product_chase_intelligence(
 
 
 @app.get("/tcgs/pokemon/set-route-directory")
-def get_pokemon_set_route_directory(limit: int = Query(default=150, ge=1, le=200)):
+def get_pokemon_set_route_directory(limit: int = Query(default=200, ge=1, le=200)):
     """Slim set-route membership/identity; never reads Rankings publication JSON."""
     try:
         return get_pokemon_set_route_directory_payload(limit=limit)
@@ -1338,6 +1382,58 @@ def get_market_explorer_snapshot(
         return JSONResponse(content={"message": "Unable to load Market Explorer snapshot", "code": "MARKET_EXPLORER_SNAPSHOT_FAILED"}, status_code=500)
 
 
+@app.get("/market/explorer/prepared-directory")
+def get_market_explorer_prepared_directory():
+    """Public, compact Browse authority. No Builder or query cache involved."""
+    try:
+        return {"markets": read_prepared_directory(service_read_client)}
+    except Exception:
+        logger.exception("/market/explorer/prepared-directory unexpected error")
+        return JSONResponse(content={"message": "Prepared markets are temporarily unavailable", "code": "PREPARED_DIRECTORY_FAILED"}, status_code=503)
+
+
+@app.post("/market/explorer/prepared-comparison")
+def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token")):
+    if len(set(payload.marketKeys)) > 1:
+        _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if len(set(payload.marketKeys)) > 1 and not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(status_code=403, detail={"message": "Compare markets with Index+.", "requiredPlan": "plus"})
+    keys = list(dict.fromkeys(payload.marketKeys))
+    try:
+        return {"markets": read_prepared_comparison(service_read_client, keys),
+                "history": read_prepared_history(service_read_client, keys, payload.startDate.isoformat() if payload.startDate else None)}
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "PREPARED_COMPARISON_INVALID"}, status_code=400)
+
+
+@app.get("/market/explorer/prepared-screen")
+def get_market_explorer_prepared_screen(screen: str, asset: Optional[str] = None,
+    limit: int = Query(default=10, ge=1, le=25), authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token")):
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(status_code=403, detail={"message": "Screens require Index+.", "requiredPlan": "plus"})
+    try:
+        return {"results": read_prepared_screen(service_read_client, screen, asset, limit)}
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "PREPARED_SCREEN_INVALID"}, status_code=400)
+    except Exception:
+        logger.exception("/market/explorer/prepared-screen failed", extra={"screen": screen, "asset": asset, "limit": limit})
+        return JSONResponse(content={"message": "Prepared Screen is temporarily unavailable", "code": "PREPARED_SCREEN_FAILED"}, status_code=503)
+
+
+@app.get("/market/explorer/set-context-ranking")
+def get_market_explorer_set_context_ranking(set_id: UUID, ranking: str, timeframe: str = "7D",
+    limit: int = Query(default=10, ge=1, le=25), as_of: Optional[date] = None,
+    authorization: Optional[str] = Header(default=None, alias="authorization"), token_cookie: Optional[str] = Cookie(default=None, alias="token")):
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(status_code=403, detail={"message": "Analytical rankings require Index+.", "requiredPlan": "plus"})
+    return read_set_context_ranking(service_read_client, str(set_id), ranking, timeframe, limit, as_of.isoformat() if as_of else None)
+
+
 @app.get("/market/explorer/query/options")
 def get_market_explorer_query_options(
     request: Request,
@@ -1369,14 +1465,16 @@ def get_market_explorer_query_options(
         now = time.monotonic()
         if _market_explorer_options_cache and _market_explorer_options_cache[0] > now:
             return _tiered_response(_market_explorer_options_cache[1])
-        options = build_market_explorer_filter_options(service_read_client)
+        options = read_market_explorer_options_snapshot(service_read_client)
         _market_explorer_options_cache = (
             now + _MARKET_EXPLORER_OPTIONS_CACHE_TTL_SECONDS,
             options,
         )
         return _tiered_response(options)
-    except MarketExplorerQueryUnavailable as exc:
-        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+    except MarketExplorerOptionsUnavailable as exc:
+        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_OPTIONS_REFRESHING",
+                                     "retryAfterSeconds": 15}, status_code=503,
+                            headers={"Retry-After": "15"})
     except Exception:
         logger.exception("/market/explorer/query/options unexpected error")
         return JSONResponse(content={"message": "Unable to load Market Explorer filters", "code": "MARKET_EXPLORER_OPTIONS_FAILED"}, status_code=500)
@@ -1393,13 +1491,18 @@ def get_market_explorer_instrument_search(
 ):
     """Search canonical eligible physical cards and sealed products."""
     user_id = _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
-    if not has_index_premium_access(_resolve_index_plan(authorization, token_cookie)):
+    # Discovery is part of the Plus Builder surface: a Plus user may compose
+    # and retain an exact-item draft, while the query endpoint independently
+    # enforces Premium before any exact market executes. Keeping search behind
+    # Premium made the honest locked-draft UX impossible and did not strengthen
+    # the execution boundary.
+    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
         raise HTTPException(status_code=403, detail={
-            "message": "Exact-instrument markets require Index Premium.",
-            "code": "MARKET_EXPLORER_PLAN_REQUIRED", "requiredPlan": "premium",
-            "requiredFeature": "market_explorer_explicit_instruments",
+            "message": "Exact-instrument discovery requires Index Plus.",
+            "code": "MARKET_EXPLORER_PLAN_REQUIRED", "requiredPlan": "plus",
+            "requiredFeature": FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
         })
-    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_INSTRUMENT_SEARCH,
                         route="/market/explorer/instruments/search")
     try:
         return _tiered_response(search_market_explorer_instruments(
@@ -1407,6 +1510,27 @@ def get_market_explorer_instrument_search(
         ))
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_SEARCH_INVALID"}, status_code=400)
+
+
+@app.get("/search")
+def get_sitewide_search(
+    request: Request,
+    q: str = Query(min_length=2, max_length=120),
+    limit: int = Query(default=20, ge=1, le=30),
+):
+    """Public navigation search composed from prepared and canonical leaf authorities."""
+    forwarded = str(request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+    network_identity = forwarded or (request.client.host if request.client else "unknown")
+    _enforce_paid_abuse(request, user_id=f"public-search:{network_identity}",
+                        policy_class=POLICY_SITE_SEARCH, route="/search")
+    try:
+        return JSONResponse(content=search_sitewide(service_read_client, q=q, limit=limit),
+                            headers={"Cache-Control": "public, max-age=30, stale-while-revalidate=60"})
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "SITE_SEARCH_INVALID"}, status_code=400)
+    except Exception:
+        logger.exception("/search unexpected error")
+        return JSONResponse(content={"message": "Search is temporarily unavailable", "code": "SITE_SEARCH_FAILED"}, status_code=503)
 
 
 @app.post("/market/explorer/query")
@@ -1423,12 +1547,12 @@ def post_market_explorer_query(
     apart because the asset is part of the spec, so the shared cache cannot
     serve one asset's result for the other.
     """
-    if payload.asset not in SUPPORTED_ASSETS:
-        return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+    if payload.asset not in (*SUPPORTED_ASSETS, "mixed"):
+        return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "QUERY_INVALID"}, status_code=400)
     if payload.responseMode not in ("full", "summary"):
-        return JSONResponse(content={"message": "responseMode must be full or summary", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+        return JSONResponse(content={"message": "responseMode must be full or summary", "code": "QUERY_INVALID"}, status_code=400)
     if payload.mode == "chase" and payload.topN not in (None, 10):
-        return JSONResponse(content={"message": "Only Top 10 queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+        return JSONResponse(content={"message": "Only Top 10 queries are supported", "code": "QUERY_INVALID"}, status_code=400)
     try:
         # Normalized BEFORE the cache is consulted, so an invalid spec is
         # rejected rather than keyed, and equivalent selections share one entry.
@@ -1438,21 +1562,29 @@ def post_market_explorer_query(
             pokemon_ids=payload.pokemonIds, price_segment_ids=payload.priceSegmentIds,
             release_age_cohort_ids=payload.releaseAgeCohortIds, top_n=payload.topN,
             membership_mode=payload.membershipMode, instrument_ids=payload.instrumentIds,
+            instruments=[item.model_dump() for item in payload.instruments],
         )
         user_id = _require_market_explorer_query_access(
             normalized, authorization=authorization, token_cookie=token_cookie
         )
         _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
                             route="/market/explorer/query")
-        runner = (
-            run_sealed_market_explorer_query if payload.asset == ASSET_SEALED
-            else run_market_explorer_query
-        )
+        is_exact_v2 = bool(normalized.get("instruments"))
+        runner = (run_exact_basket_v2 if is_exact_v2 else
+                  run_sealed_market_explorer_query if normalized["asset"] == ASSET_SEALED
+                  else run_market_explorer_query)
         persistent = PersistentMarketExplorerCache(
             service_read_client, metrics=GLOBAL_MARKET_EXPLORER_PLANNER.metrics,
         )
 
         def build_market(previous_through: str | None, canonical_date: str) -> Dict[str, Any]:
+            if is_exact_v2:
+                return runner(
+                    service_read_client,
+                    instruments=normalized["instruments"],
+                    start_date=previous_through or "1999-01-01",
+                    end_date=canonical_date,
+                )
             return runner(
                 service_read_client,
                 mode=normalized["mode"],
@@ -1474,24 +1606,93 @@ def post_market_explorer_query(
             spec=normalized,
             prepared=GLOBAL_PREPARED_EQUIVALENCE_REGISTRY,
             persistent=persistent,
-            canonical_through=lambda: resolve_canonical_through(
+            canonical_through=lambda: resolve_explorer_comparison_through(
                 service_read_client, normalized,
             ),
             novel_builder=build_market,
             summary=payload.responseMode == "summary",
         )
-        return _tiered_response(planned.payload)
+        return _tiered_response({
+            **planned.payload,
+            "comparisonAsOf": str(planned.payload.get("asOf") or "")[:10] or None,
+        })
     except HTTPException:
         raise
     except MarketExplorerQueryError as exc:
-        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_INVALID"}, status_code=400)
     except (MarketExplorerQueryUnavailable, SealedMarketExplorerQueryUnavailable) as exc:
-        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_UNAVAILABLE"}, status_code=404)
+    except MarketExplorerExactBasketUnavailable as exc:
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_UNAVAILABLE"}, status_code=404)
+    except MarketExplorerCacheRefreshing as exc:
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_CACHE_REFRESHING"}, status_code=503)
     except MarketExplorerBuildInProgress as exc:
-        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_BUILDING"}, status_code=503)
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_BUILDING"}, status_code=503)
     except Exception:
         logger.exception("/market/explorer/query unexpected error")
-        return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "MARKET_EXPLORER_QUERY_FAILED"}, status_code=500)
+        return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "QUERY_FAILED"}, status_code=500)
+
+
+@app.post("/market/explorer/query/preflight")
+def post_market_explorer_query_preflight(
+    request: Request,
+    payload: MarketExplorerPreflightRequest,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """Cheap point-in-time readiness check for a Filtered Cards query.
+
+    THIS IS NOT THE QUERY ENGINE. It calls the bounded, read-only DB preflight
+    RPC (preflight_pokemon_market_explorer_filtered_cards_v1) once, transports
+    no constituent IDs, builds no index, and never chain-links history. Its
+    only job is to answer "how many cards/sets would this match, and is that
+    answer trustworthy right now" cheaply enough to run ahead of a Build click.
+    """
+    try:
+        # Filters-first validation: reuses the same normalization the real
+        # query endpoint uses, so a spec that would be rejected there is
+        # rejected here identically, before the RPC is ever called.
+        normalized = normalize_query_spec(
+            asset="cards", mode="all", era_ids=payload.eraIds, set_ids=payload.setIds,
+            segment_ids=payload.segmentIds, pokemon_ids=payload.pokemonIds,
+            price_segment_ids=payload.priceSegmentIds,
+            release_age_cohort_ids=payload.releaseAgeCohortIds,
+        )
+        user_id = _require_market_explorer_query_access(
+            normalized, authorization=authorization, token_cookie=token_cookie
+        )
+        _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+                            route="/market/explorer/query/preflight")
+        resolved_set_ids = resolve_scope_set_ids(
+            service_read_client, normalized["eraIds"], normalized["setIds"],
+        )
+        comparison_as_of = None
+        try:
+            comparison_as_of = resolve_explorer_comparison_through(service_read_client, normalized)
+        except RuntimeError:
+            # No accepted publication date yet -- let the RPC's own
+            # `no_approved_market_date` status describe that, rather than
+            # failing the whole preflight request.
+            pass
+        result = call_filtered_cards_preflight(
+            service_read_client,
+            set_ids=resolved_set_ids,
+            segment_ids=normalized["segmentIds"],
+            pokemon_ids=normalized["pokemonIds"],
+            price_segment_ids=normalized["priceSegmentIds"],
+            release_age_cohort_ids=normalized["releaseAgeCohortIds"],
+            comparison_as_of=comparison_as_of,
+        )
+        return _tiered_response(result)
+    except HTTPException:
+        raise
+    except MarketExplorerQueryError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_INVALID"}, status_code=400)
+    except MarketExplorerPreflightError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "QUERY_UNAVAILABLE"}, status_code=404)
+    except Exception:
+        logger.exception("/market/explorer/query/preflight unexpected error")
+        return JSONResponse(content={"message": "Unable to preflight this market query", "code": "QUERY_FAILED"}, status_code=500)
 
 
 @app.post("/market/explorer/query/constituents")
@@ -1507,6 +1708,7 @@ def post_market_explorer_query_constituents(
         pokemon_ids=payload.pokemonIds, price_segment_ids=payload.priceSegmentIds,
         release_age_cohort_ids=payload.releaseAgeCohortIds, top_n=payload.topN,
         membership_mode=payload.membershipMode, instrument_ids=payload.instrumentIds,
+        instruments=[item.model_dump() for item in payload.instruments],
     )
     user_id = _require_market_explorer_query_access(
         normalized, authorization=authorization, token_cookie=token_cookie,

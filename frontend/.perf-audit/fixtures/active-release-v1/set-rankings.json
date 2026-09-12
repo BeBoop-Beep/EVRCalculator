@@ -1,0 +1,26 @@
+{
+  "targets": [
+    {
+      "target_type": "set", "target_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29", "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29", "name": "Ascended Heroes", "canonical_key": "ascendedHeroes", "era": "Mega Evolution", "pack_cost": 13.24, "mean_value": 9.11, "median_value": 3.33, "prob_profit": 0.0418,
+      "publicAnalyticsStatus": { "available": true },
+      "setRipV1": { "score": 36.8998, "rank": 21, "tier": "D", "cohortSize": 22, "rankable": true, "methodologyVersion": "set_rip_v1", "participatingFamilyCount": 4, "skuEvidenceCount": 4, "familyScores": [{"family":"loose_booster_pack","score":36.8998,"rank":21,"cohortSize":22,"tier":"D","minMarketPrice":13.24,"skuCount":1},{"family":"booster_bundle","score":42.1,"rank":15,"cohortSize":22,"tier":"C","minMarketPrice":79.44,"skuCount":1},{"family":"elite_trainer_box","score":39.2,"rank":18,"cohortSize":22,"tier":"D","minMarketPrice":119.99,"skuCount":1},{"family":"pokemon_center_elite_trainer_box","score":34.8,"rank":20,"cohortSize":22,"tier":"D","minMarketPrice":249.99,"skuCount":1}], "displayFamilyScores": [{"family":"loose_booster_pack","score":36.8998,"rank":21,"cohortSize":22,"tier":"D","minMarketPrice":13.24,"skuCount":1},{"family":"booster_bundle","score":42.1,"rank":15,"cohortSize":22,"tier":"C","minMarketPrice":79.44,"skuCount":1},{"family":"elite_trainer_box","score":39.2,"rank":18,"cohortSize":22,"tier":"D","minMarketPrice":119.99,"skuCount":1},{"family":"pokemon_center_elite_trainer_box","score":34.8,"rank":20,"cohortSize":22,"tier":"D","minMarketPrice":249.99,"skuCount":1}] },
+      "overallRipV12": { "score": 36.8998, "leaderNormalizedScore": 36.8998, "rank": 21, "cohortSize": 22, "rankedSetCount": 22, "tier": "D", "status": "ready" },
+      "financialRipV4": { "leaderNormalizedScore": 30.066, "rank": 19, "cohortSize": 22, "rankedSetCount": 22, "tier": "D", "status": "ready" },
+      "chaseAccessibility": { "value": 0.003837, "percent": 0.3837, "modelScore": 71.25, "publicScore": 38.37, "setRank": 21, "setCohortSize": 22, "cohortId": "eed79a7b-fcb6-40ba-870a-10f8913be23a", "status": "ready", "version": "chase_accessibility_v1" },
+      "publicRipContractV11": { "overallRip": { "leaderNormalizedScore": 36.8998, "rank": 21, "cohortSize": 22, "tier": "D" }, "financialRip": { "leaderNormalizedScore": 30.066, "rank": 19, "cohortSize": 22, "tier": "D" } },
+      "publicCollectorAppealContractV1": { "collectorAppeal": { "leaderNormalizedScore": 99.0942, "relativeScore": 99.0942, "absoluteScore": 99.0942, "rank": 1, "cohortSize": 22, "tier": "S" } }
+    },
+    {
+      "target_type": "set", "target_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6", "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6", "name": "Prismatic Evolutions", "canonical_key": "prismaticEvolutions", "era": "Scarlet and Violet", "pack_cost": 8.75, "mean_value": 7.9, "median_value": 4.2, "prob_profit": 0.18,
+      "publicAnalyticsStatus": { "available": true },
+      "setRipV1": { "score": 62.5, "rank": 4, "tier": "A", "cohortSize": 22, "rankable": true, "methodologyVersion": "set_rip_v1", "participatingFamilyCount": 4, "skuEvidenceCount": 4, "familyScores": [{"family":"loose_booster_pack","score":62.5,"rank":4,"cohortSize":22,"tier":"A","minMarketPrice":8.75,"skuCount":1},{"family":"booster_bundle","score":65.1,"rank":3,"cohortSize":22,"tier":"A","minMarketPrice":49.99,"skuCount":1},{"family":"elite_trainer_box","score":59.4,"rank":6,"cohortSize":22,"tier":"B","minMarketPrice":89.99,"skuCount":1},{"family":"pokemon_center_elite_trainer_box","score":57.8,"rank":7,"cohortSize":22,"tier":"B","minMarketPrice":149.99,"skuCount":1}], "displayFamilyScores": [{"family":"loose_booster_pack","score":62.5,"rank":4,"cohortSize":22,"tier":"A","minMarketPrice":8.75,"skuCount":1},{"family":"booster_bundle","score":65.1,"rank":3,"cohortSize":22,"tier":"A","minMarketPrice":49.99,"skuCount":1},{"family":"elite_trainer_box","score":59.4,"rank":6,"cohortSize":22,"tier":"B","minMarketPrice":89.99,"skuCount":1},{"family":"pokemon_center_elite_trainer_box","score":57.8,"rank":7,"cohortSize":22,"tier":"B","minMarketPrice":149.99,"skuCount":1}] },
+      "overallRipV12": { "score": 62.5, "leaderNormalizedScore": 62.5, "rank": 4, "cohortSize": 22, "rankedSetCount": 22, "tier": "A", "status": "ready" },
+      "financialRipV4": { "leaderNormalizedScore": 58.4, "rank": 6, "cohortSize": 22, "rankedSetCount": 22, "tier": "A", "status": "ready" },
+      "chaseAccessibility": { "value": 0.012, "percent": 1.2, "modelScore": 55.1, "publicScore": 72.4, "setRank": 5, "setCohortSize": 22, "cohortId": "eed79a7b-fcb6-40ba-870a-10f8913be23a", "status": "ready", "version": "chase_accessibility_v1" },
+      "publicRipContractV11": { "overallRip": { "leaderNormalizedScore": 62.5, "rank": 4, "cohortSize": 22, "tier": "A" }, "financialRip": { "leaderNormalizedScore": 58.4, "rank": 6, "cohortSize": 22, "tier": "A" } },
+      "publicCollectorAppealContractV1": { "collectorAppeal": { "leaderNormalizedScore": 84.2, "relativeScore": 84.2, "absoluteScore": 84.2, "rank": 4, "cohortSize": 22, "tier": "A" } }
+    }
+  ],
+  "meta": { "comparisonSnapshots": { "currentMarketDate": "2026-09-08" }, "snapshot": { "generationId": "eed79a7b-fcb6-40ba-870a-10f8913be23a" } },
+  "access": { "rankingsIntelligence": true, "requiredPlan": "plus" }
+}

@@ -1,0 +1,29 @@
+{
+  "set": { "id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29", "slug": "ascendedHeroes", "canonicalKey": "ascendedHeroes", "name": "Ascended Heroes", "heroImageUrl": null, "logoImageUrl": null, "symbolImageUrl": null },
+  "product": { "id": "c29f8489-22db-4ad0-9022-c1a40e503f14", "name": "Ascended Heroes Booster Pack", "productType": "Booster Pack", "productFamily": "loose_booster_pack", "productFamilyLabel": "Loose Booster Pack", "imageUrl": null, "imageSmallUrl": null, "imageLargeUrl": null },
+  "market": {
+    "available": true, "currentPrice": 13.24, "marketDate": "2026-09-08", "currency": "USD", "source": "candidate_fixture",
+    "history": [{"date":"2026-08-09","marketPrice":14.1},{"date":"2026-08-20","marketPrice":13.75},{"date":"2026-09-01","marketPrice":13.5},{"date":"2026-09-08","marketPrice":13.24}],
+    "movements": {
+      "1D":{"status":"available","amount":-0.06,"percent":-0.45,"actualStartDate":"2026-09-01","endDate":"2026-09-08","fullWindowCoverage":false},
+      "7D":{"status":"available","amount":-0.26,"percent":-1.93,"actualStartDate":"2026-09-01","endDate":"2026-09-08","fullWindowCoverage":true},
+      "30D":{"status":"available","amount":-0.86,"percent":-6.1,"actualStartDate":"2026-08-09","endDate":"2026-09-08","fullWindowCoverage":true},
+      "3M":{"status":"available","amount":-0.86,"percent":-6.1,"actualStartDate":"2026-08-09","endDate":"2026-09-08","fullWindowCoverage":false},
+      "6M":{"status":"available","amount":-0.86,"percent":-6.1,"actualStartDate":"2026-08-09","endDate":"2026-09-08","fullWindowCoverage":false},
+      "1Y":{"status":"available","amount":-0.86,"percent":-6.1,"actualStartDate":"2026-08-09","endDate":"2026-09-08","fullWindowCoverage":false},
+      "lifetime":{"status":"available","amount":-0.86,"percent":-6.1,"actualStartDate":"2026-08-09","endDate":"2026-09-08","fullWindowCoverage":true}
+    }
+  },
+  "rip": {
+    "available": true, "reason": null, "calculationRunId": "5839fbaf-7018-424e-a6c6-13d584ed5cca",
+    "overallRipLeaderScore": 36.8998, "financialRipLeaderScore": 30.066, "collectorAppealScore": 99.0942, "collectorAppealTier": "S", "publicTier": "D", "familyRank": 21, "familySize": 22,
+    "overallRipVersion": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5", "financialRipVersion": "financial_rip_v4", "collectorAppealVersion": "collector_appeal_v5",
+    "expectedValue": 9.11, "medianValue": 3.33, "p05Value": 0.72, "p95Value": 24.8, "p99Value": 91.2, "chanceToRecoverCost": 0.0418, "expectedLossWhenLosing": 9.39, "medianLossWhenLosing": 8.9, "totalValueToCostRatio": 0.688,
+    "entertainmentCost": { "expectedValue": 9.11, "entertainmentCost": 4.13, "perPackEntertainmentCost": 4.13 },
+    "composition": { "packCount": 1, "randomPackCount": 1, "guaranteedComponentCount": 0, "guaranteedComponentMarketValue": 0, "accessoryValueIncluded": false, "compositionVersion": "candidate-v1", "compositionId": "ascended-pack", "distributionModelVersion": "current" },
+    "setEvRepresentativeness": { "contractVersion": "ev_representativeness_public_v1", "methodVersion": "ev_representativeness_v1", "calculationRunId": "5839fbaf-7018-424e-a6c6-13d584ed5cca", "realizationHorizon": { "targetEvRatio": 0.8, "openerProbability": 0.8, "packCount": 420, "status": "confirmed" } },
+    "publicRipContractV11": { "contractVersion": "public_rip_contract_v11", "overallRipV12": { "score": 36.8998, "status": "ready", "rankable": true, "version": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5", "components": {} }, "chaseAccessibility": { "value": 0.003837, "modelScore": 71.25, "publicScore": 38.37, "setRank": 21, "setCohortSize": 22, "cohortId": "eed79a7b-fcb6-40ba-870a-10f8913be23a", "status": "ready", "version": "chase_accessibility_v1" } }
+  },
+  "comparisons": { "sameSet": [], "sameFamily": [] },
+  "meta": { "contractVersion": "pokemon-sealed-product-detail-v1", "canonicalPath": "/sealed-products/c29f8489-22db-4ad0-9022-c1a40e503f14", "rankingPublicationCurrent": true, "rankingPublicationUpdatedAt": "2026-09-08T00:00:00Z" }
+}

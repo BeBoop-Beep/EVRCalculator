@@ -27,6 +27,9 @@ FEATURE_MARKET_EXPLORER_COMPOUND = "market_explorer_compound"
 FEATURE_MARKET_EXPLORER_CUSTOM_RANKED = "market_explorer_custom_ranked"
 FEATURE_MARKET_EXPLORER_POKEMON = "market_explorer_pokemon"
 FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS = "market_explorer_explicit_instruments"
+FEATURE_MARKET_EXPLORER_PREPARED_COMPARE = "market_explorer_prepared_compare"
+FEATURE_MARKET_EXPLORER_ANALYTICAL_SCREENS = "market_explorer_analytical_screens"
+FEATURE_MARKET_EXPLORER_ADVANCED_RANKING = "market_explorer_advanced_ranking"
 FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency"
 FEATURE_MARKET_BREADTH = "market_breadth"
 FEATURE_PRODUCT_RIP = "product_rip"
@@ -50,8 +53,9 @@ FEATURE_CHASE_RANKINGS = "chase_rankings"
 FEATURE_PRODUCT_CHASE_INTELLIGENCE = "product_chase_intelligence"
 
 _PLUS_FEATURES = frozenset({
-    FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
-    FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
+    FEATURE_MARKET_EXPLORER_PREPARED_COMPARE,
+    FEATURE_MARKET_EXPLORER_ANALYTICAL_SCREENS,
+    FEATURE_MARKET_EXPLORER_ADVANCED_RANKING,
     FEATURE_MARKET_BREADTH,
     FEATURE_PRODUCT_RIP,
     FEATURE_PACK_ECONOMICS,
@@ -64,6 +68,8 @@ _PLUS_FEATURES = frozenset({
     FEATURE_PREPARED_MARKET_INTELLIGENCE,
 })
 _PREMIUM_FEATURES = frozenset({
+    FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
     FEATURE_MARKET_EXPLORER_COMPOUND,
     FEATURE_MARKET_EXPLORER_CUSTOM_RANKED,
     FEATURE_MARKET_EXPLORER_POKEMON,
@@ -120,10 +126,9 @@ def evaluate_market_query_access(plan: Any, spec: Mapping[str, Any]) -> dict[str
         required_plan, capability = INDEX_PLAN_PREMIUM, FEATURE_MARKET_EXPLORER_COMPOUND
         reason = "compound market requires Index Premium"
     else:
-        required_plan, capability = INDEX_PLAN_PLUS, FEATURE_MARKET_EXPLORER_SINGLE_AXIS
-        reason = "custom market exploration requires Index Plus"
-    allowed = (has_index_premium_access(plan) if required_plan == INDEX_PLAN_PREMIUM
-               else has_index_plus_access(plan))
+        required_plan, capability = INDEX_PLAN_PREMIUM, FEATURE_MARKET_EXPLORER_SINGLE_AXIS
+        reason = "custom market creation requires Index Premium"
+    allowed = has_index_premium_access(plan)
     return {
         "allowed": allowed,
         "requiredPlan": required_plan,
@@ -166,15 +171,14 @@ _PLUS_TARGET_FIELDS = _BASE_TARGET_FIELDS | frozenset({
     "overallRipV10", "publicRipContractV10",
     # CURRENT canonical Overall RIP model + public contract.
     "overallRipV12", "publicRipContractV11", "chaseAccessibility",
+    "publicCollectorAppealContractV1",
     "setRipV1", "openingExperience", "rankingsChase",
     "collector_appeal_score", "collector_appeal_rank", "opening_desirability_score",
     "opening_desirability_rank", "opening_desirability_summary",
 })
 _RANKINGS_META_FIELDS = frozenset({"source", "updatedAt", "warnings", "snapshot", "limit"})
 _PUBLIC_SET_RIP_FIELDS = frozenset({
-    "score", "rank", "tier", "cohortSize", "rankable", "methodologyVersion",
-    "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount",
-    "familyScores", "displayFamilyScores",
+    "publicScore", "rank", "tier", "cohortSize", "rankable", "methodologyVersion",
 })
 
 
@@ -374,6 +378,20 @@ _BASE_OPENING_BREAKDOWN_FIELDS = frozenset({
     "eraId", "eraName", "setId", "setName", "setCanonicalKey",
     "setCount", "productSkuCount", "productFamilyCount", "averageCostPerPack",
 })
+_OPENING_BUCKET_FIELDS = frozenset({
+    "key", "label", "lowerBound", "upperBound", "probability",
+})
+
+
+def _project_opening_scope(scope: Mapping[str, Any]) -> dict[str, Any]:
+    result = _pick(scope, _OPENING_SCOPE_FIELDS)
+    if "normalizedReturnBuckets" in scope:
+        result["normalizedReturnBuckets"] = [
+            _pick(bucket, _OPENING_BUCKET_FIELDS)
+            for bucket in scope.get("normalizedReturnBuckets", [])
+            if isinstance(bucket, Mapping)
+        ]
+    return result
 
 
 def project_opening_economics_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
@@ -383,7 +401,7 @@ def project_opening_economics_response(payload: Mapping[str, Any], plan: Any) ->
         "status", "reason", "contractVersion", "basis", "methodology", "marketDate", "population",
     }))
     if isinstance(payload.get("global"), Mapping):
-        result["global"] = _pick(payload["global"], _OPENING_SCOPE_FIELDS)
+        result["global"] = _project_opening_scope(payload["global"])
     else:
         result["global"] = None
     for key in ("eras", "sets"):
@@ -499,6 +517,8 @@ def project_card_detail_response(payload: Mapping[str, Any], plan: Any) -> dict[
     }))
     if has_index_feature_access(plan, FEATURE_PRODUCT_RIP) and "intelligence" in payload:
         result["intelligence"] = payload["intelligence"]
+    if has_index_feature_access(plan, FEATURE_PRODUCT_RIP) and "collectorAppeal" in payload:
+        result["collectorAppeal"] = payload["collectorAppeal"]
     if has_index_feature_access(plan, FEATURE_PRODUCT_RIP) and "treatmentMarketPrestige" in payload:
         result["treatmentMarketPrestige"] = payload["treatmentMarketPrestige"]
     if has_index_feature_access(plan, FEATURE_CARD_CHASE_EFFICIENCY) and "chase" in payload:
@@ -587,11 +607,17 @@ def resolve_market_explorer_plan_access(user: Mapping[str, Any] | None) -> dict[
     being signed in alone.
     """
     plan = normalize_index_plan((user or {}).get("index_plan"))
+    can_compare = has_index_plus_access(plan)
+    can_build = has_index_premium_access(plan)
     return {
         "accessMode": plan or "basic",
-        "canUsePreparedMarketIntelligence": has_index_plus_access(plan),
-        "canBuildCustomMarkets": has_index_plus_access(plan),
-        "canBuildSingleAxisMarket": has_index_plus_access(plan),
+        "canBrowsePreparedMarkets": True,
+        "canComparePreparedMarkets": can_compare,
+        "canUseAnalyticalScreens": can_compare,
+        "canUseAdvancedMarketRanking": can_compare,
+        "canUsePreparedMarketIntelligence": can_compare,
+        "canBuildCustomMarkets": can_build,
+        "canBuildSingleAxisMarket": can_build,
         "canBuildCompoundMarket": has_index_premium_access(plan),
         "canUseCustomRankedComposition": has_index_premium_access(plan),
     }

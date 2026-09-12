@@ -1,61 +1,53 @@
 "use client";
 
 import Image from "next/image";
-import { useId, useState } from "react";
-import {
-  Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer,
-  Tooltip, XAxis, YAxis,
-} from "recharts";
+import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ChartFrame from "@/components/explore/ChartFrame";
 import ChartTooltipShell from "@/components/explore/ChartTooltipShell";
 import { getMinimalPlotMargin } from "@/components/explore/minimalChartAxis.mjs";
-import {
-  ACTIVE_DOT_STYLE, AREA_GRADIENT_BOTTOM_OPACITY, AREA_GRADIENT_TOP_OPACITY,
-  GRID_STROKE, PRIMARY_GLOW_OPACITY, PRIMARY_LINE_COLOR, REFERENCE_STROKE,
-} from "@/components/explore/chartVisualSystem.mjs";
+import { GRID_STROKE, PRIMARY_LINE_COLOR } from "@/components/explore/chartVisualSystem.mjs";
 import { money, ratioAsPercent } from "./openingEconomicsSelector.mjs";
 
-function Dash() {
-  return <span className="text-[var(--text-secondary)] opacity-60">—</span>;
+function Dash() { return <span className="text-[var(--text-secondary)] opacity-60">—</span>; }
+
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-function ordinal(value) {
-  const mod100 = value % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${value}TH`;
-  return `${value}${value % 10 === 1 ? "ST" : value % 10 === 2 ? "ND" : value % 10 === 3 ? "RD" : "TH"}`;
-}
-
-function PercentileTooltip({ active, payload, lens }) {
+function DistributionTooltip({ active, payload }) {
   const point = payload?.[0]?.payload;
   if (!active || !point) return null;
-  const above = 100 - point.percentile;
   return <ChartTooltipShell data-opening-economics-tooltip>
-    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{ordinal(point.percentile)} PERCENTILE</p>
-    <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--text-primary)]">{lens === "return" ? `${ratioAsPercent(point.value)} retained` : `${money(point.value)} per pack equivalent`}</p>
-    <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">{point.percentile}% of modeled product-opening outcomes {lens === "return" ? "retain this much purchase value" : "finish at this value"} or less.</p>
-    <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{above}% finish above this {lens === "return" ? "level" : "value"}.</p>
+    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{point.label} recovery</p>
+    <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--text-primary)]">{ratioAsPercent(point.probability)} of openings</p>
+    <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">Share of modeled openings whose gross card value falls in this purchase-cost recovery range.</p>
   </ChartTooltipShell>;
 }
 
-function LandmarkLegend({ lens, scope }) {
-  const rows = lens === "return"
-    ? [["Recover Cost", 1, ratioAsPercent], ["Typical Retention", scope.typicalRetention, ratioAsPercent], ["Mean Outcome Retention", scope.meanOutcomeRetention, ratioAsPercent]]
-    : [["Typical Opening", scope.typicalOpeningPerPack, money], ["Average Model Break-Even", scope.averageModelBreakEvenPerPack, money]];
-  return <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[var(--text-secondary)]" aria-label="Chart landmarks">
-    {rows.map(([label, value, formatter], index) => <li key={label} className="inline-flex items-center gap-1.5"><span className="inline-block h-px w-3" style={{ backgroundColor: index === 0 ? PRIMARY_LINE_COLOR : REFERENCE_STROKE }} />{label} <strong className="font-medium tabular-nums text-[var(--text-primary)]">{formatter(value)}</strong></li>)}
-  </ul>;
+function PercentileTooltip({ active, payload }) {
+  const point = payload?.[0]?.payload;
+  if (!active || !point) return null;
+  return <ChartTooltipShell data-opening-economics-percentile-tooltip><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">P{String(point.percentile).padStart(2, "0")}</p><p className="mt-1 text-sm font-semibold tabular-nums text-[var(--text-primary)]">{ratioAsPercent(point.value)} recovery</p><p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">{point.percentile}% of modeled opening outcomes recover this share of purchase cost or less.</p></ChartTooltipShell>;
+}
+
+export function readExactRecoveryBuckets(scope) {
+  const required = [["0_10", 0, 0.1], ["10_25", 0.1, 0.25], ["25_50", 0.25, 0.5], ["50_75", 0.5, 0.75], ["75_100", 0.75, 1], ["100_plus", 1, null]];
+  const rows = Array.isArray(scope?.normalizedReturnBuckets) ? scope.normalizedReturnBuckets.map((bucket) => ({ ...bucket, probability: finiteNumber(bucket?.probability) })) : [];
+  const valid = rows.length === required.length && rows.every((row, index) => row.key === required[index][0] && row.label && finiteNumber(row.lowerBound) === required[index][1] && finiteNumber(row.upperBound) === required[index][2] && row.probability !== null && row.probability >= 0 && row.probability <= 1);
+  return valid && Math.abs(rows.reduce((sum, row) => sum + row.probability, 0) - 1) <= 1e-9 ? rows : [];
+}
+
+export function readLegacyReturnPercentiles(scope) {
+  const distribution = scope?.normalizedReturnPercentiles;
+  const points = Array.from({ length: 99 }, (_, index) => { const percentile = index + 1; const key = `p${String(percentile).padStart(2, "0")}`; return { percentile, value: finiteNumber(distribution?.[key]) }; });
+  return points.every((point) => point.value !== null && point.value >= 0) ? points : [];
 }
 
 export default function OpeningEconomicsDistribution({ scope, targets = [] }) {
-  const [lens, setLens] = useState("return");
-  const chartId = useId().replaceAll(":", "");
-  const distribution = lens === "return" ? scope.normalizedReturnPercentiles : scope.valuePerPackPercentiles;
-  const formatter = lens === "return" ? ratioAsPercent : money;
-  const points = Array.from({ length: 99 }, (_, index) => {
-    const percentile = index + 1;
-    const key = `p${String(percentile).padStart(2, "0")}`;
-    return { percentile, value: Number(distribution?.[key]) };
-  }).filter((point) => Number.isFinite(point.value) && point.value > 0);
+  const buckets = readExactRecoveryBuckets(scope);
+  const percentilePoints = buckets.length ? [] : readLegacyReturnPercentiles(scope);
   const metrics = [
     ["Modeled Return on Spend", ratioAsPercent(scope.modeledReturnOnSpend), "Weighted aggregate EV divided by weighted aggregate cost."],
     ["Typical Retention", ratioAsPercent(scope.typicalRetention), "Median of the weighted normalized-return distribution."],
@@ -68,46 +60,32 @@ export default function OpeningEconomicsDistribution({ scope, targets = [] }) {
     ["Typical Opening / Pack", money(scope.typicalOpeningPerPack), "The weighted median modeled opening result."],
   ];
   const identities = targets.map((target) => ({ target, image: target.logo_image_url || target.symbol_image_url }));
-  const gradientId = `opening-economics-area-${chartId}`;
-  const glowId = `opening-economics-glow-${chartId}`;
-  const evAboveP75 = Number(scope.averageModelBreakEvenPerPack) > Number(scope.valuePerPackPercentiles?.p75);
 
   return <section className="set-glass-surface overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 shadow-[0_18px_44px_rgba(0,0,0,0.24)] sm:p-5" data-opening-economics-distribution>
     <div className="grid grid-cols-2 gap-4 border-b border-[var(--border-subtle)] pb-4 lg:grid-cols-4" data-opening-headline-metrics>
       {metrics.map(([label, value, help]) => <div key={label}><p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]" title={help}>{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">{value ?? <Dash />}</p><p className="mt-1 hidden text-[10px] leading-relaxed text-[var(--text-secondary)] sm:block">{help}</p></div>)}
     </div>
-
     <div className="grid grid-cols-3 gap-3 border-b border-[var(--border-subtle)] py-4" data-opening-value-snapshot>
       {valueSnapshot.map(([label, value, help]) => <div key={label} title={help}><p className="text-[9px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p><p className="mt-1 text-lg font-semibold tabular-nums text-[var(--text-primary)] sm:text-xl">{value ?? <Dash />}</p></div>)}
     </div>
-
-    <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
-      <div><h3 className="text-base font-semibold text-[var(--text-primary)]">Opening Distribution</h3><p className="mt-1 text-xs text-[var(--text-secondary)]">Measured P01–P99 percentile curve across the weighted modeled product cohort.</p></div>
-      <div className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-1"><button type="button" onClick={() => setLens("return")} aria-pressed={lens === "return"} className="rounded-md px-3 py-1.5 text-xs aria-pressed:bg-[rgba(45,212,191,0.14)] aria-pressed:text-[var(--text-primary)]">Return %</button><button type="button" onClick={() => setLens("value")} aria-pressed={lens === "value"} className="rounded-md px-3 py-1.5 text-xs aria-pressed:bg-[rgba(45,212,191,0.14)] aria-pressed:text-[var(--text-primary)]">Value / Pack</button></div>
-    </div>
-
-    <div className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-3 py-2.5" data-opening-how-to-read>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">How to read this</p>
-      <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{lens === "return" ? "Move left to right from more common lower outcomes toward rarer higher outcomes. Each point shows the share of purchase cost retained at that percentile. The 100% line is full cost recovery." : "Each point shows modeled card value per pack equivalent at that percentile. The logarithmic value axis keeps the long right tail readable."}</p>
-      <p className="mt-1 text-xs font-medium text-[var(--text-primary)]">{lens === "return" ? `Half of modeled openings retain ${ratioAsPercent(scope.typicalRetention)} of cost or less, and about ${ratioAsPercent(scope.chanceToRecoverCost)} recover their full purchase price.` : `The typical result is ${money(scope.typicalOpeningPerPack)} per pack equivalent compared with ${money(scope.averageModelBreakEvenPerPack)} in long-run modeled value.`}</p>
-      {lens === "value" && evAboveP75 ? <p className="mt-1 text-xs text-[var(--text-secondary)]" data-ev-above-p75>The long-run modeled average sits above the 75th percentile. Higher-end outcomes pull the average above what most modeled openings experience.</p> : null}
-    </div>
-
-    {points.length === 99 ? <ChartFrame className="mt-4 h-[17rem] w-full sm:h-[21rem]" data-percentile-points="99">
-      <ResponsiveContainer width="100%" height="100%"><ComposedChart data={points} margin={getMinimalPlotMargin({ top: 12, bottom: 8, rightExtra: 8 })}>
-        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={PRIMARY_LINE_COLOR} stopOpacity={AREA_GRADIENT_TOP_OPACITY} /><stop offset="100%" stopColor={PRIMARY_LINE_COLOR} stopOpacity={AREA_GRADIENT_BOTTOM_OPACITY} /></linearGradient><filter id={glowId} x="-10%" y="-16%" width="120%" height="132%"><feGaussianBlur stdDeviation="1.6" /></filter></defs>
-        <CartesianGrid stroke={GRID_STROKE} strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
-        <XAxis dataKey="percentile" type="number" domain={[1, 99]} ticks={[1, 25, 50, 75, 99]} tickLine={false} axisLine={false} tickFormatter={(value) => `P${String(value).padStart(2, "0")}`} />
-        <YAxis scale={lens === "value" ? "log" : "auto"} domain={lens === "value" ? ["auto", "auto"] : [0, "auto"]} tickLine={false} axisLine={false} tickFormatter={formatter} width={58} />
-        <Tooltip content={<PercentileTooltip lens={lens} />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
-        {lens === "return" ? <><ReferenceLine y={1} stroke={PRIMARY_LINE_COLOR} strokeDasharray="6 6" /><ReferenceLine y={Number(scope.typicalRetention)} stroke={REFERENCE_STROKE} strokeDasharray="4 5" /><ReferenceLine y={Number(scope.meanOutcomeRetention)} stroke={REFERENCE_STROKE} strokeDasharray="2 6" /></> : <><ReferenceLine y={Number(scope.typicalOpeningPerPack)} stroke={REFERENCE_STROKE} strokeDasharray="4 5" /><ReferenceLine y={Number(scope.averageModelBreakEvenPerPack)} stroke={REFERENCE_STROKE} strokeDasharray="2 6" /></>}
-        <Area type="linear" dataKey="value" stroke="none" fill={`url(#${gradientId})`} isAnimationActive={false} tooltipType="none" />
-        <Line type="linear" dataKey="value" stroke={PRIMARY_LINE_COLOR} strokeWidth={7} strokeOpacity={PRIMARY_GLOW_OPACITY} filter={`url(#${glowId})`} dot={false} activeDot={false} isAnimationActive={false} tooltipType="none" />
-        <Line type="linear" dataKey="value" stroke={PRIMARY_LINE_COLOR} strokeWidth={2.5} dot={false} activeDot={ACTIVE_DOT_STYLE} isAnimationActive={false} />
-      </ComposedChart></ResponsiveContainer>
-    </ChartFrame> : <p className="mt-5 text-sm text-[var(--text-secondary)]">The canonical P01–P99 percentile curve is unavailable.</p>}
-    <LandmarkLegend lens={lens} scope={scope} />
-
+    <div className="mt-5"><h3 className="text-base font-semibold text-[var(--text-primary)]">{buckets.length ? "How openings usually turn out" : percentilePoints.length ? "Opening outcome range" : "How openings usually turn out"}</h3><p className="mt-1 text-xs text-[var(--text-secondary)]">{buckets.length ? "Share of modeled openings by purchase-cost recovery." : percentilePoints.length ? "Modeled purchase-cost recovery across the opening distribution." : "Share of modeled openings by purchase-cost recovery."}</p></div>
+    {buckets.length === 6 ? <>
+      <ChartFrame className="mt-4 h-[17rem] w-full sm:h-[21rem]" data-recovery-buckets="6">
+        <ResponsiveContainer width="100%" height="100%"><BarChart data={buckets} margin={getMinimalPlotMargin({ top: 18, bottom: 8, rightExtra: 8 })}>
+          <CartesianGrid stroke={GRID_STROKE} strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
+          <XAxis dataKey="label" interval={0} tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+          <YAxis domain={[0, "auto"]} tickLine={false} axisLine={false} tickFormatter={ratioAsPercent} width={46} />
+          <Tooltip content={<DistributionTooltip />} cursor={{ fill: "rgba(255,255,255,0.035)" }} />
+          <Bar dataKey="probability" fill={PRIMARY_LINE_COLOR} radius={[5, 5, 0, 0]} isAnimationActive={false} />
+        </BarChart></ResponsiveContainer>
+      </ChartFrame>
+      <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6" aria-label="Opening recovery distribution">
+        {buckets.map((bucket) => <li key={bucket.key} className="rounded-md border border-[var(--border-subtle)] px-2 py-2 text-center"><span className="block text-[10px] text-[var(--text-secondary)]">{bucket.label}</span><strong className="mt-0.5 block text-xs tabular-nums text-[var(--text-primary)]">{ratioAsPercent(bucket.probability)}</strong></li>)}
+      </ul>
+    </> : percentilePoints.length === 99 ? <>
+      <ChartFrame className="mt-4 h-[17rem] w-full sm:h-[21rem]" data-legacy-percentile-points="99"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={percentilePoints} margin={getMinimalPlotMargin({ top: 12, bottom: 8, rightExtra: 8 })}><CartesianGrid stroke={GRID_STROKE} strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} /><XAxis dataKey="percentile" type="number" domain={[1, 99]} ticks={[1, 25, 50, 75, 99]} tickLine={false} axisLine={false} tickFormatter={(value) => `P${String(value).padStart(2, "0")}`} /><YAxis domain={[0, "auto"]} tickLine={false} axisLine={false} tickFormatter={ratioAsPercent} width={52} /><Tooltip content={<PercentileTooltip />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} /><ReferenceLine y={1} stroke={PRIMARY_LINE_COLOR} strokeDasharray="6 6" /><Area type="linear" dataKey="value" stroke="none" fill={PRIMARY_LINE_COLOR} fillOpacity={0.12} isAnimationActive={false} /><Line type="linear" dataKey="value" stroke={PRIMARY_LINE_COLOR} strokeWidth={2.5} dot={false} isAnimationActive={false} /></ComposedChart></ResponsiveContainer></ChartFrame>
+      <p className="mt-3 text-xs leading-relaxed text-[var(--text-secondary)]">Move left to right from more common lower outcomes toward rarer higher outcomes. Each point is a published percentile position; it is not a frequency bucket.</p>
+    </> : <p className="mt-5 text-sm text-[var(--text-secondary)]">The modeled recovery distribution is unavailable.</p>}
     {identities.length ? <div className="mt-4 border-t border-[var(--border-subtle)] pt-3"><p className="text-[9px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">Sets represented</p><div className="mt-2 flex h-11 gap-1.5 overflow-hidden opacity-65">{identities.map(({ target, image }) => <span key={target.set_id || target.target_id} title={target.name} className="flex min-w-0 flex-1 items-center justify-center">{image ? <Image src={image} width={48} height={30} alt="" className="h-7 w-full object-contain" /> : <i className="h-2.5 w-2.5 rotate-45 border border-[rgb(var(--ex-teal))]" />}</span>)}</div></div> : null}
   </section>;
 }

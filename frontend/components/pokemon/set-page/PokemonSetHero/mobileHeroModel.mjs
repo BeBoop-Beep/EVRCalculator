@@ -79,7 +79,7 @@ export function selectMobileHeroModel(input = {}) {
       direction,
     },
     rip: {
-      label: cleanText(rip.label) || "Overall RIP",
+      label: cleanText(rip.label) || "RIP Score",
       hasRip,
       scoreText: score === null ? null : String(Math.round(score)),
       tierText,

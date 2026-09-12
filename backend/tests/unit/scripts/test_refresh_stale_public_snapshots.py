@@ -227,6 +227,80 @@ def test_rankings_publication_failure_is_recorded_without_fallback(monkeypatch):
     assert summary.global_failed == ["explore_rankings: incomplete cohort"]
 
 
+def test_rankings_unchanged_not_required_when_not_stale():
+    """CLASSIFICATION_UNCHANGED_NOT_REQUIRED — publisher never invoked, no attempt id."""
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", False, "current"),
+        commit=True, summary=summary,
+    )
+    outcome = summary.rankings_publication_outcome
+    assert outcome["classification"] == refresh.CLASSIFICATION_UNCHANGED_NOT_REQUIRED
+    assert outcome["attempt_id"] is None
+    assert outcome["publication_attempted"] is False
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    assert rankings_publication_legacy_status(outcome["classification"]) == "unchanged"
+
+
+def test_rankings_deferred_with_attempt_outcome_from_publication_error(monkeypatch):
+    """CLASSIFICATION_DEFERRED_WITH_ATTEMPT — publisher's own outcome is consumed directly."""
+    from backend.scripts.pokemon_explore_rankings_publisher import RankingsPublicationError
+    from backend.db.services.rankings_publication_lifecycle import CLASSIFICATION_DEFERRED_WITH_ATTEMPT
+
+    outcome_dict = refresh.RankingsPublicationOutcome(
+        classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+        reason_code="DEFERRED_SIMULATION_COHORT_INCOMPLETE", reason_detail="cohort incomplete",
+        attempt_id="attempt-9", publication_required=True, publication_attempted=False,
+    ).to_dict()
+
+    def _raise(*_args, **_kwargs):
+        raise RankingsPublicationError("deferred", outcome=outcome_dict)
+
+    monkeypatch.setattr(refresh, "publish_explore_rip_rankings_snapshot", _raise)
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", True, "invalid"),
+        commit=True, summary=summary,
+    )
+    assert summary.rankings_publication_outcome == outcome_dict
+    assert summary.rankings_publication_outcome["attempt_id"] == "attempt-9"
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    assert rankings_publication_legacy_status(
+        summary.rankings_publication_outcome["classification"]
+    ) == "deferred"
+
+
+def test_rankings_failed_with_attempt_outcome_fallback_for_unclassified_exception(monkeypatch):
+    """CLASSIFICATION_FAILED_WITH_ATTEMPT — an unclassified exception still resolves cleanly."""
+    monkeypatch.setattr(
+        refresh, "publish_explore_rip_rankings_snapshot",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("incomplete cohort")),
+    )
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", True, "invalid"),
+        commit=True, summary=summary,
+    )
+    outcome = summary.rankings_publication_outcome
+    assert outcome["classification"] == refresh.CLASSIFICATION_FAILED_WITH_ATTEMPT
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    assert rankings_publication_legacy_status(outcome["classification"]) == "failed"
+
+
+def test_rankings_explicit_operator_skip_sets_outcome(monkeypatch, tmp_path):
+    """CLASSIFICATION_EXPLICIT_OPERATOR_SKIP — the --skip-explore-rankings branch in main()."""
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+
+    outcome = refresh.RankingsPublicationOutcome(
+        classification=refresh.CLASSIFICATION_EXPLICIT_OPERATOR_SKIP,
+        reason_code="SKIP_EXPLORE_RANKINGS_FLAG",
+        reason_detail="--skip-explore-rankings was set",
+        publication_required=False, publication_attempted=False,
+    ).to_dict()
+    assert outcome["classification"] == refresh.CLASSIFICATION_EXPLICIT_OPERATOR_SKIP
+    assert rankings_publication_legacy_status(outcome["classification"]) == "skipped"
+
+
 def test_rankings_without_canonical_metadata_is_stale(monkeypatch):
     monkeypatch.setattr(refresh, "_latest_for_explore_rankings", lambda _client: (None, []))
     monkeypatch.setattr(
@@ -244,7 +318,7 @@ def test_rankings_without_canonical_metadata_is_stale(monkeypatch):
 def _canonical_rankings_payload():
     return {
         "targets": [{
-            "overallRipV10": {"rank": 1},
+            "overallRipV12": {"rank": 1},
             "overallRipRankComparisonStatus1d": "unavailable",
         }],
         "meta": {
@@ -287,7 +361,7 @@ def _rankings_payload_with_cohort(*, ranked_targets, ranked_set_count=22):
     payload["targets"] = [
         {
             "targetId": f"ranked-{index}",
-            "overallRipV10": {"rank": index + 1},
+            "overallRipV12": {"rank": index + 1},
             "overallRipRankComparisonStatus1d": "unavailable",
         }
         for index in range(ranked_targets)
@@ -312,7 +386,7 @@ def test_rankings_allows_34_total_targets_when_only_22_are_canonically_ranked(mo
     assert result.stale is False
     assert len(payload["targets"]) == 34
     assert payload["targets"] is original_targets
-    assert all("overallRipV10" not in target for target in payload["targets"][22:])
+    assert all("overallRipV12" not in target for target in payload["targets"][22:])
 
 
 @pytest.mark.parametrize("ranked_targets", [21, 23])
@@ -347,6 +421,44 @@ def test_canonical_rankings_shape_is_fresh(monkeypatch):
     )
     result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
     assert result.stale is False
+
+
+def test_legacy_v10_keyed_targets_are_stale_not_silently_fresh(monkeypatch):
+    """Regression: Sept-8 zero rankings-publication-attempt rows.
+
+    The stored `pokemon_explore_rankings_snapshot_latest` payload can, on any
+    given day, still carry targets keyed by a RETIRED canonical version (here,
+    `overallRipV10` from before the V12 cutover) if the row was last written
+    before a canonical-version cutover. This freshness check used to hardcode
+    `overallRipV10` when counting `ranked_targets`, so a row shaped like the
+    CURRENT canonical contract (V12) but never actually rebuilt under it would
+    fail the ranked-target-key match and someone might assume that always
+    forces a rebuild. It does not save you the other direction: a genuinely
+    STALE V10-shaped row that still happens to satisfy the (wrong) V10 key
+    check reads as "fresh" and `_maybe_rebuild_rankings` returns without ever
+    calling `publish_explore_rip_rankings_snapshot` - so NO rankings
+    publication attempt row is ever created, silently. This is the exact
+    "zero rows in pokemon_rankings_publication_attempts" failure mode: not a
+    persisted deferral, not an exception, just a freshness check that agreed
+    with a version key nothing still writes.
+
+    The fix routes the ranked-target lookup through
+    `canonical_overall_rip_target_key()` - the SAME single authority the
+    publisher and the readiness/lifecycle gate use - so this check can never
+    again drift onto a retired version's key while the publisher has moved on.
+    """
+    payload = _rankings_payload_with_cohort(ranked_targets=22)
+    # Simulate the drift directly: rewrite the canonical-shaped fixture back
+    # onto the retired V10 key, as a row genuinely last built pre-cutover would
+    # be shaped.
+    for target in payload["targets"][:22]:
+        target["overallRipV10"] = target.pop("overallRipV12")
+    _stub_rankings_payload(monkeypatch, payload)
+
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+
+    assert result.stale is True
+    assert result.reason == "complete public ranked cohort marker/count invalid"
 
 
 def test_a_structurally_perfect_snapshot_on_an_obsolete_contract_is_stale(monkeypatch):

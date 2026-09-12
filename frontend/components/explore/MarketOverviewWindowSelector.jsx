@@ -40,7 +40,7 @@ export default function MarketOverviewWindowSelector({ options = [], value, onCh
       aria-label="Market performance time range"
       aria-describedby={ariaDescription ? descriptionId : undefined}
       onKeyDown={handleKeyDown}
-      className="grid min-w-0 w-full grid-cols-7 gap-1.5 desk:flex desk:w-auto desk:flex-wrap"
+      className="flex min-w-max flex-nowrap gap-1.5 desk:min-w-0 desk:justify-end"
     >
       {items.map((item) => {
         const isActive = value === item.key;
@@ -59,8 +59,7 @@ export default function MarketOverviewWindowSelector({ options = [], value, onCh
             tabIndex={isActive ? 0 : -1}
             onClick={() => { if (item.available) onChange?.(item.key); }}
             className={[
-              "min-w-0 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
-              "max-desk:inline-flex max-desk:min-h-11 max-desk:items-center max-desk:justify-center max-desk:px-2 desk:px-2.5",
+              "inline-flex min-h-10 min-w-[2.65rem] items-center justify-center whitespace-nowrap rounded-md border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65 disabled:cursor-not-allowed disabled:opacity-40",
               isActive
                 ? "border-[rgba(45,212,191,0.34)] bg-[rgba(45,212,191,0.10)] text-[rgb(45,212,191)]"

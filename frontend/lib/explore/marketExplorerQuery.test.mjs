@@ -56,6 +56,26 @@ test("explicit physical instruments are non-empty, bounded, sorted, and order-st
   assert.notEqual(left.contractVersion, "pokemon-market-explorer-query-v3-variant");
 });
 
+test("filtered specs omit stale explicit membership and exact specs omit stale filters", () => {
+  const filtered = normalizeQuerySpec({
+    membershipMode: "filters", instrumentIds: ["stale"],
+    segmentIds: ["sir"], priceSegmentIds: ["intermediate"], releaseAgeCohortIds: ["new"],
+  });
+  assert.equal("membershipMode" in filtered, false);
+  assert.equal("instrumentIds" in filtered, false);
+  assert.deepEqual(filtered.segmentIds, ["sir"]);
+  const exact = normalizeQuerySpec({
+    membershipMode: "explicit", instrumentIds: ["variant-a"],
+    segmentIds: ["sir"], priceSegmentIds: ["intermediate"], releaseAgeCohortIds: ["new"],
+    mode: "chase", topN: 10,
+  });
+  assert.deepEqual(exact.segmentIds, []);
+  assert.deepEqual(exact.priceSegmentIds, []);
+  assert.deepEqual(exact.releaseAgeCohortIds, []);
+  assert.equal(exact.mode, "all");
+  assert.notEqual(buildQueryKey(filtered), buildQueryKey(exact));
+});
+
 test("differing markets do not collide", () => {
   assert.notEqual(
     buildQueryKey({ mode: QUERY_MODE_CHASE, segmentIds: ["sir"] }),

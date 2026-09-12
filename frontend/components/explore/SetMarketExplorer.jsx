@@ -127,23 +127,66 @@ function formatMarketIndex(value) {
   return Number.isFinite(number) ? number.toFixed(2) : "—";
 }
 
+/** "Jun 30, 2026", or a neutral fallback when the field is absent. */
+function formatAsOfDate(value) {
+  if (!value) return "an unknown date";
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return "an unknown date";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
+}
+
+/** current > stale > unavailable, for the value sort and tie-breaks. */
+function statusRank(status) {
+  return status === "current" ? 0 : status === "stale" ? 1 : 2;
+}
+
 /**
- * Rank every priced target by canonical current Set Value — once, and
- * independently of the search/era/sort controls, so "#1" always means "first
- * in the market" rather than "first in whatever you filtered to".
+ * The Set Market's universe is every published membership row — current,
+ * stale AND unavailable. Certification/readiness (valueStatus) is
+ * annotation on each row, never a filter: a set the backend cannot
+ * currently certify a value for must stay discoverable (search, era filter,
+ * tracked-set count) exactly like the fix in pokemon_explore_set_value_service
+ * intends. Only "current" rows are eligible for a numeric market rank —
+ * that rank is computed once here, over the full current cohort, so it never
+ * renumbers under search/era filtering.
  */
-function buildRankedRows(targets) {
-  return (Array.isArray(targets) ? targets : [])
-    .map((target) => ({ target, value: Number(target?.currentSetValue) }))
-    .filter(({ value }) => Number.isFinite(value) && value > 0)
-    .sort((a, b) => b.value - a.value || String(a.target?.name || "").localeCompare(String(b.target?.name || "")))
-    .map((row, index) => ({
-      ...row,
-      position: index + 1,
-      setId: String(row.target?.setId || ""),
-      name: String(row.target?.name || row.target?.setId || "Unknown Set"),
-      era: String(row.target?.era || "Pokémon"),
-    }));
+function buildMembershipRows(targets) {
+  const rows = (Array.isArray(targets) ? targets : []).map((target) => {
+    const numericValue = Number(target?.currentSetValue);
+    const hasValue = target?.currentSetValue !== null && target?.currentSetValue !== undefined && Number.isFinite(numericValue) && numericValue > 0;
+    const rawStatus = target?.valueStatus;
+    const status = rawStatus === "current" || rawStatus === "stale" || rawStatus === "unavailable"
+      ? rawStatus
+      // Legacy/back-compat snapshots without valueStatus: infer from value.
+      : hasValue ? "current" : "unavailable";
+    return {
+      target,
+      setId: String(target?.setId || ""),
+      name: String(target?.name || target?.setId || "Unknown Set"),
+      era: String(target?.era || "Pokémon"),
+      status,
+      value: hasValue ? numericValue : null,
+      position: null,
+    };
+  });
+
+  rows
+    .filter((row) => row.status === "current" && row.value !== null)
+    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name))
+    .forEach((row, index) => { row.position = index + 1; });
+
+  // Deterministic Set Value order across ALL statuses: current (by value
+  // desc), then stale (by value desc), then unavailable (name only — never
+  // coerce a null value to zero for sorting). Name breaks every tie.
+  const byValue = [...rows].sort((a, b) => {
+    const rankDiff = statusRank(a.status) - statusRank(b.status);
+    if (rankDiff !== 0) return rankDiff;
+    if (a.status === "unavailable") return a.name.localeCompare(b.name);
+    return (b.value ?? 0) - (a.value ?? 0) || a.name.localeCompare(b.name);
+  });
+  byValue.forEach((row, index) => { row.order = index; });
+
+  return rows;
 }
 
 export function resolveSetMarketRowAction({ isMasterDetail, isActive, clickCount }) {
@@ -191,16 +234,35 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
     if (resultsTopRef.current.getBoundingClientRect().top < headerOffset) scrollToTarget(resultsTopRef.current, true);
   };
 
-  const ranked = useMemo(() => buildRankedRows(targets), [targets]);
+  // ALL membership rows — current + stale + unavailable — for search, era
+  // filter, sort and the tracked-set count. Only "current" rows carry a
+  // numeric `position`; that rank is fixed at build time (see
+  // buildMembershipRows) and never recomputed for a filtered view.
+  const membership = useMemo(() => buildMembershipRows(targets), [targets]);
+
+  // Deterministic Set Value order: current (by value) → stale (by value) →
+  // unavailable (by name). This is also the default list order.
+  const orderedByValue = useMemo(
+    () => [...membership].sort((a, b) => a.order - b.order),
+    [membership]
+  );
+
+  // The current-certified cohort, in rank order — used only to pick the
+  // default #1 selection. An unavailable/stale row must never win the
+  // default just because its name sorts first.
+  const rankedCurrent = useMemo(
+    () => membership.filter((row) => row.status === "current" && row.position !== null).sort((a, b) => a.position - b.position),
+    [membership]
+  );
 
   const eras = useMemo(
-    () => [...new Set(ranked.map((row) => row.era))].sort((a, b) => a.localeCompare(b)),
-    [ranked]
+    () => [...new Set(membership.map((row) => row.era))].sort((a, b) => a.localeCompare(b)),
+    [membership]
   );
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const filtered = ranked.filter((row) => {
+    const filtered = orderedByValue.filter((row) => {
       if (era !== ALL_ERAS && row.era !== era) return false;
       if (!needle) return true;
       return row.name.toLowerCase().includes(needle) || row.era.toLowerCase().includes(needle);
@@ -209,20 +271,21 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
       return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
     }
     if (sortKey === "change") {
-      // Unranked movements sink rather than sorting as zero — "no comparable
-      // snapshot" is not "flat".
+      // Unranked/non-comparable movements sink rather than sorting as zero —
+      // "no comparable snapshot" is not "flat". Unavailable rows have no
+      // movement at all and always sink to the bottom.
       return [...filtered].sort((a, b) => {
-        const left = a.target?.windows?.[listWindowKey]?.percent;
-        const right = b.target?.windows?.[listWindowKey]?.percent;
+        const left = a.status === "unavailable" ? null : a.target?.windows?.[listWindowKey]?.percent;
+        const right = b.status === "unavailable" ? null : b.target?.windows?.[listWindowKey]?.percent;
         const leftValid = Number.isFinite(left);
         const rightValid = Number.isFinite(right);
         if (leftValid !== rightValid) return leftValid ? -1 : 1;
-        if (!leftValid) return a.position - b.position;
-        return right - left || a.position - b.position;
+        if (!leftValid) return a.order - b.order;
+        return right - left || a.order - b.order;
       });
     }
     return filtered;
-  }, [ranked, query, era, sortKey, listWindowKey]);
+  }, [orderedByValue, query, era, sortKey, listWindowKey]);
 
   useEffect(() => {
     if (isMasterDetail || !returnThresholdRef.current || typeof IntersectionObserver === "undefined") {
@@ -236,12 +299,14 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
     return () => observer.disconnect();
   }, [isMasterDetail, visible.length]);
 
-  // The selection is sticky and defaults to the #1 set by canonical Set Value.
+  // The selection is sticky and defaults to the #1 CURRENT-certified set.
   // Deliberately NOT derived from the filtered list: typing in the search box
-  // must not silently repoint the analysis pane at whatever floated to the top.
+  // must not silently repoint the analysis pane at whatever floated to the
+  // top, and an unavailable/stale row must never become the default just
+  // because its name sorts first.
   const selected = useMemo(
-    () => ranked.find((row) => row.setId === selectedSetId) || ranked[0] || null,
-    [ranked, selectedSetId]
+    () => membership.find((row) => row.setId === selectedSetId) || rankedCurrent[0] || membership[0] || null,
+    [membership, rankedCurrent, selectedSetId]
   );
 
   const selectSet = (setId, { openDetail = false } = {}) => {
@@ -281,6 +346,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
     if (!isMasterDetail || !browserIsDesktop) return undefined;
     const setId = selected?.setId;
     if (!setId) return undefined;
+    if (selected?.status === "unavailable") return undefined;
     if (["1D", "7D", "30D"].includes(activeDetailWindowKey)) return undefined;
 
     const cached = detailHistoryCache.current.get(setId) || null;
@@ -309,7 +375,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
         if (!cancelled) setDetailHistoryState({ setId, status: "error", history: [], days, error });
       });
     return () => { cancelled = true; };
-  }, [isMasterDetail, selected?.setId, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
+  }, [isMasterDetail, selected?.setId, selected?.status, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
 
   const detailTrend = usesBootstrapDetailTrend
     ? bootstrapDetailTrend
@@ -330,7 +396,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
       )
     : null;
 
-  if (!ranked.length) {
+  if (!membership.length) {
     return (
       <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="set-market-heading">
         <div className={`${styles.divider} px-3 py-3 sm:px-4`}>
@@ -357,35 +423,60 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
           ) : (
             <ul aria-label="Tracked Pokémon sets, ranked by canonical current Set Value">
               {visible.map((row, index) => {
-                const movement = movementWithIndexReturn(row.target, listWindowKey);
-                const miniTrend = selectSetMarketMiniTrend(row.target, listWindowKey);
+                const movement = row.status === "unavailable" ? null : movementWithIndexReturn(row.target, listWindowKey);
+                const miniTrend = row.status === "unavailable" ? [] : selectSetMarketMiniTrend(row.target, listWindowKey);
                 const isActive = selected?.setId === row.setId;
                 return (
                   <li key={row.setId} ref={index === Math.min(5, visible.length - 1) ? returnThresholdRef : undefined} data-set-market-return-threshold={index === Math.min(5, visible.length - 1) ? "true" : undefined}>
                     <button
                       type="button"
                       data-set-market-row={row.setId}
+                      data-set-market-row-status={row.status}
                       aria-current={isActive ? "true" : undefined}
                       onClick={(event) => activateSetRow(event, row, isActive)}
                       title={isMasterDetail && isActive ? `Open ${row.name}` : undefined}
                       className={`${styles.setListRow} ${isActive ? styles.setListRowActive : ""}`}
                     >
-                      <span className="text-[12px] font-semibold tabular-nums text-[var(--text-secondary)]">{`#${row.position}`}</span>
+                      <span className="text-[12px] font-semibold tabular-nums text-[var(--text-secondary)]">
+                        {row.position ? `#${row.position}` : "—"}
+                      </span>
                       <SetLogo target={row.target} name={row.name} />
                       <span className="min-w-0">
                         <span className="block truncate text-[13px] font-medium text-[var(--text-primary)]">{row.name}</span>
-                        <span className="block truncate text-[10px] text-[var(--text-secondary)]">{row.era}</span>
-                      </span>
-                      <span className="hidden justify-self-center max-desk:block">
-                        <MiniMarketSparkline points={miniTrend} color={toneOf(directionOf(movement?.amount))} />
-                      </span>
-                      <span className="min-w-0 text-right">
-                        <span className="block text-[13px] font-semibold tabular-nums text-[var(--text-primary)]">{compactCurrency.format(row.value)}</span>
-                        <span className="block text-[10px] font-medium">
-                          <ChangePercent movement={movement} windowKey={listWindowKey} />
+                        <span className="block truncate text-[10px] text-[var(--text-secondary)]">
+                          {row.era}
+                          {row.status === "stale" ? (
+                            <span className="ml-1 rounded-sm bg-[rgba(234,179,8,0.16)] px-1 py-px font-semibold uppercase tracking-wide text-[9px] text-[rgb(202,138,4)]">Stale</span>
+                          ) : null}
                         </span>
                       </span>
-                      <span className="sr-only">{`Select ${row.name} to inspect its Set Market analysis.`}</span>
+                      <span className="hidden justify-self-center max-desk:block">
+                        {row.status !== "unavailable" ? (
+                          <MiniMarketSparkline points={miniTrend} color={toneOf(directionOf(movement?.amount))} />
+                        ) : null}
+                      </span>
+                      <span className="min-w-0 text-right">
+                        {row.status === "unavailable" ? (
+                          <>
+                            <span className="block text-[13px] font-semibold text-[var(--text-secondary)]">Value unavailable</span>
+                            <span className="block text-[10px] font-medium text-[var(--text-secondary)]">N/A</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="block text-[13px] font-semibold tabular-nums text-[var(--text-primary)]">{compactCurrency.format(row.value)}</span>
+                            <span className="block text-[10px] font-medium">
+                              {row.status === "stale"
+                                ? <span className="text-[var(--text-secondary)]">{`Stale · as of ${formatAsOfDate(row.target?.setValueAsOf)}`}</span>
+                                : <ChangePercent movement={movement} windowKey={listWindowKey} />}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                      <span className="sr-only">
+                        {`Select ${row.name} to inspect its Set Market analysis.`}
+                        {row.status === "stale" ? " Stale Set Value." : ""}
+                        {row.status === "unavailable" ? " Set Value unavailable." : ""}
+                      </span>
                     </button>
                   </li>
                 );
@@ -408,23 +499,38 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
                 ? <a href={detailHref} className="rounded hover:text-[var(--brand-light)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]">{selected.name}</a>
                 : selected.name}
             </h3>
-            <span className="flex-none text-[13px] font-semibold tabular-nums text-[var(--text-secondary)]">{`#${selected.position}`}</span>
+            <span className="flex-none text-[13px] font-semibold tabular-nums text-[var(--text-secondary)]">{selected.position ? `#${selected.position}` : "NR"}</span>
           </div>
-          <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{selected.era}</p>
+          <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">
+            {selected.era}
+            {selected.status === "stale" ? (
+              <span className="ml-1.5 rounded-sm bg-[rgba(234,179,8,0.16)] px-1 py-px font-semibold uppercase tracking-wide text-[9px] text-[rgb(202,138,4)]">Stale</span>
+            ) : null}
+            {selected.status === "unavailable" ? (
+              <span className="ml-1.5 rounded-sm bg-[rgba(148,163,184,0.16)] px-1 py-px font-semibold uppercase tracking-wide text-[9px] text-[var(--text-secondary)]">Unavailable</span>
+            ) : null}
+          </p>
         </div>
       </div>
 
       <div className="mt-3">
         <p>
           <span data-set-market-detail-value className="text-[24px] font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-            {currency.format(selected.value)}
+            {selected.value !== null ? currency.format(selected.value) : "Set Value unavailable"}
           </span>
         </p>
         <div data-set-market-detail-secondary-metrics className="mt-1 space-y-0 leading-tight">
-          <p data-set-market-detail-window={activeDetailWindowKey}>
-            <ChangeText movement={detailMovement} windowKey={activeDetailWindowKey} className="text-[13px] font-semibold" />
-            {detailMovement?.coverage === "partial" ? <span className="text-[10px] text-[var(--text-secondary)]"> · since first available</span> : null}
-          </p>
+          {selected.status === "unavailable" ? (
+            <p className="text-[13px] font-semibold text-[var(--text-secondary)]">N/A · no certified Set Value yet</p>
+          ) : (
+            <p data-set-market-detail-window={activeDetailWindowKey}>
+              <ChangeText movement={detailMovement} windowKey={activeDetailWindowKey} className="text-[13px] font-semibold" />
+              {detailMovement?.coverage === "partial" ? <span className="text-[10px] text-[var(--text-secondary)]"> · since first available</span> : null}
+            </p>
+          )}
+          {selected.status === "stale" ? (
+            <p className="text-[11px] font-medium text-[rgb(202,138,4)]">{`Stale — Set Value as of ${formatAsOfDate(selected.target?.setValueAsOf)}`}</p>
+          ) : null}
           <p data-set-market-detail-index className="text-[11px] font-medium text-[var(--text-secondary)]">
             Market Index <span className="tabular-nums text-[var(--text-primary)]">{formatMarketIndex(selected.target?.marketIndex?.currentValue)}</span>
           </p>
@@ -475,7 +581,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
       <div className={`${styles.divider} px-3 py-3 sm:px-4`}>
         <div className="flex items-center gap-2">
           <h2 id="set-market-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Set Market</h2>
-          <span className="ml-auto text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">{`${ranked.length} tracked sets`}</span>
+          <span className="ml-auto text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">{`${membership.length} tracked sets`}</span>
         </div>
 
         {/* Toolbar. Search, era and sort all read metadata the snapshot already

@@ -23,11 +23,11 @@ export async function generateMetadata({ params }) {
     return buildRouteMetadata({
       path: SETS_BASE_PATH,
       title: "Pokémon TCG Set Catalog — inDex",
-      description: "Browse Pokémon TCG sets and open one for its Overall RIP and opening analysis.",
+      description: "Browse Pokémon TCG sets and open one for its RIP Score and opening analysis.",
     });
   }
 
-  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 150 }).catch(() => null);
+  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 200 }).catch(() => null);
   const selectedTarget = findTargetBySetSlug(
     Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [],
     rawSetSegment,
@@ -40,17 +40,17 @@ export async function generateMetadata({ params }) {
   if (!setName) {
     return buildRouteMetadata({
       path: canonicalPath,
-      title: "Pokémon Set Overall RIP & Opening Analysis — inDex",
-      description: "Overall RIP, Financial RIP, Collector Appeal and modeled opening outcomes for this Pokémon set.",
+      title: "Pokémon Set RIP Score & Opening Analysis — inDex",
+      description: "RIP Score, Financial RIP, Chase Accessibility, Collector Appeal and modeled opening outcomes for this Pokémon set.",
     });
   }
 
   return buildRouteMetadata({
     path: canonicalPath,
-    title: `${setName} Overall RIP, Expected Value & Opening Analysis — inDex`,
-    description: `Is ${setName} worth ripping? See its Overall RIP, Financial RIP, Collector Appeal, expected value and modeled opening outcomes on inDex.`,
-    ogTitle: `${setName} — Overall RIP & Opening Analysis`,
-    ogDescription: `Overall RIP, Financial RIP, Collector Appeal and modeled pack outcomes for ${setName}.`,
+    title: `${setName} RIP Score, Expected Value & Opening Analysis — inDex`,
+    description: `Is ${setName} worth ripping? See its RIP Score, Financial RIP, Chase Accessibility, Collector Appeal, expected value and modeled opening outcomes on inDex.`,
+    ogTitle: `${setName} — RIP Score & Opening Analysis`,
+    ogDescription: `RIP Score, Financial RIP, Chase Accessibility, Collector Appeal and modeled pack outcomes for ${setName}.`,
   });
 }
 
@@ -70,7 +70,7 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
   // If neither the fresh directory nor its last-known-good snapshot is
   // available, propagate the technical failure. Treating it as an empty
   // authoritative directory would turn a backend outage into a false 404.
-  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 150 });
+  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 200 });
   const targetsMs = Date.now() - targetsStartedAt;
   const targets = Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [];
   const defaultTarget = targetsPayload?.default_target || null;

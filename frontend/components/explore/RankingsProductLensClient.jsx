@@ -34,7 +34,7 @@ const FAMILY_ORDER = [
   "enhanced_booster_box",
 ];
 const SORTS = [
-  { value: "overallRipLeaderScore", label: "Overall RIP" },
+  { value: "overallRipLeaderScore", label: "RIP Score" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
   { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
@@ -97,11 +97,11 @@ function FormatStrength({ row }) {
           : "Ranks within format";
   const tone = tier ? getTierTone(tier) : null;
   return (
-    <div className="flex min-w-[10rem] items-start gap-2.5">
+    <div className="flex w-full items-start gap-2.5">
       <span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border" style={{ borderColor: tone?.accentColor || "var(--accent)" }} />
-      <span>
+      <span className="min-w-0">
         <strong className="block text-xs text-[var(--text-primary)]">{heading}</strong>
-        <span className="mt-1 block text-[10.5px] text-[var(--text-secondary)]">
+        <span className="mt-1 block whitespace-normal break-words text-[10.5px] text-[var(--text-secondary)]">
           {rank && size ? `#${rank} of ${size} ${familyLabel(row?.productFamilyLabel || "product")}` : "Format rank unavailable"}
         </span>
       </span>
@@ -116,10 +116,25 @@ function ProductRows({ rows, overall, entitled }) {
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className={styles.table}>
+        <table className={`${styles.table} ${styles.productsTable}`}>
+          <colgroup>
+            <col className={styles.colRank} />
+            <col className={styles.colProduct} />
+            <col className={styles.colOverall} />
+            <col className={styles.colTier} />
+            <col className={styles.colFinancial} />
+            <col className={styles.colChase} />
+            <col className={styles.colCollector} />
+            <col className={styles.colPrice} />
+            <col className={styles.colUnits} />
+            <col className={styles.colCommitted} />
+            <col className={styles.colEv} />
+            <col className={styles.colRecover} />
+            <col className={styles.colFormat} />
+          </colgroup>
           <thead className={styles.head}>
             <tr>
-              <th scope="col">Rank</th><th scope="col">Product / Set</th><th scope="col">Overall RIP</th><th scope="col">Tier</th>
+              <th scope="col">Rank</th><th scope="col">Product / Set</th><th scope="col">RIP Score</th><th scope="col">Tier</th>
               {/*
                 Market-Based Opening Quality is an explanatory GROUPING
                 header only — it carries no score/rank/tier/sort of its own.
@@ -132,6 +147,15 @@ function ProductRows({ rows, overall, entitled }) {
               <th scope="col" data-chase-accessibility-header title={CHASE_ACCESSIBILITY_HELP}>Chase Accessibility</th>
               <th scope="col">Collector Appeal</th>
               <th scope="col">{overall ? "Unit Price" : "Market Price"}</th>
+              {/*
+                Units and Committed are separate desktop columns (each
+                strategy row's actual quantity/committed capital, not the
+                Opening Budget ceiling), so the Product/Set identity cell
+                below no longer needs to fit that data alongside the
+                thumbnail and product name.
+              */}
+              <th scope="col">Units</th>
+              <th scope="col">Committed</th>
               <th scope="col">Expected Value</th><th scope="col">Chance to Recover Cost</th><th scope="col">Format Strength</th>
             </tr>
           </thead>
@@ -140,15 +164,14 @@ function ProductRows({ rows, overall, entitled }) {
               const rank = overall ? row?.budgetRank : row?.familyRank;
               const price = overall ? row?.unitPrice : row?.marketPrice;
               const href = buildSealedProductHref(row) || "#";
-              const chase = chaseAccessibilityDisplay(row?.chaseAccessibility);
+              const quantity = numeric(row?.quantity);
+              const committed = numeric(row?.actualCommittedCapital);
               return (
                 <tr key={row?.sealedProductId} className={styles.row}>
                   <td className={styles.numeric}>{entitled ? `#${rank ?? "—"}` : <PremiumMetricLock />}</td>
                   <td>
                     <Link href={href} className={styles.rowLink}>
-                      <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`}>
-                        {overall && entitled ? <Strategy row={row} /> : null}
-                      </RankedProductIdentity>
+                      <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`} />
                     </Link>
                   </td>
                   <td className={styles.numeric}>{entitled ? <RipScoreBadge score={row?.overallRipLeaderScore} tier={row?.publicTier} /> : <PremiumMetricLock />}</td>
@@ -164,6 +187,8 @@ function ProductRows({ rows, overall, entitled }) {
                   </td>
                   <td className={styles.numeric}>{entitled && numeric(row?.collectorAppealScore) !== null ? `${formatPublicRipScore(row.collectorAppealScore)} / 10` : entitled ? "Unavailable" : <PremiumMetricLock />}</td>
                   <td className={styles.numeric}>{numeric(price) === null ? "Unavailable" : money.format(price)}</td>
+                  <td className={styles.numeric}>{overall && entitled ? (quantity === null ? "Unavailable" : quantity) : "—"}</td>
+                  <td className={styles.numeric}>{overall && entitled ? (committed === null ? "Unavailable" : money.format(committed)) : "—"}</td>
                   <td className={styles.numeric}>{entitled ? (numeric(row?.expectedValue) === null ? "Unavailable" : money.format(row.expectedValue)) : <PremiumMetricLock />}</td>
                   <td className={styles.numeric}>{entitled ? recovery(row?.chanceToRecoverCost) : <PremiumMetricLock />}</td>
                   <td>{entitled ? <FormatStrength row={row} /> : <PremiumMetricLock />}</td>
@@ -188,7 +213,7 @@ function ProductRows({ rows, overall, entitled }) {
                 </RankedProductIdentity>
                 <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
                 {/*
-                  Peer supporting scores beneath Overall RIP.
+                  Peer supporting scores beneath RIP Score.
                 */}
                 {entitled ? (
                   <span className="mt-1 block text-[10px] text-[var(--text-secondary)]">

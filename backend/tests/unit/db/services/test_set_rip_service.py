@@ -52,7 +52,14 @@ def test_frozen_formula_distinct_families_multi_sku_equal_votes_and_missing_omit
     }), set_targets=targets)
     a = next(row for row in result["sets"] if row["setId"] == "a")
     # Loose mean=(1 + 2/3)/2=5/6; sleeved=0; bundle=1. Each family gets one equal vote.
-    assert a["score"] == pytest.approx(((5 / 6) + 0 + 1) / 3 * 100)
+    # Raw standing score is then leader-curved to the cohort's best raw score
+    # (a and b are tied leaders at 61.11 raw, so a lands at exactly 100).
+    assert a["score"] == pytest.approx(100.0)
+    # The raw pre-curve aggregate survives leader normalization unchanged
+    # under its own field - it is never overwritten by the public curve.
+    assert a["modelScore"] == pytest.approx(61.111111, rel=1e-4)
+    assert a["leaderNormalizedScore"] == pytest.approx(100.0)
+    assert a["publicScore"] == pytest.approx(100.0)
     assert a["skuEvidenceCount"] == 4
     assert a["participatingFamilies"] == ["booster_bundle", "loose_booster_pack", "sleeved_booster_pack"]
     assert {x["family"]: x["skuCount"] for x in a["familyScores"]}["loose_booster_pack"] == 2
@@ -79,7 +86,9 @@ def test_display_family_price_enrichment_preserves_scoring_and_uses_lowest_multi
     loose = next(item for item in a["displayFamilyScores"] if item["family"] == "loose_booster_pack")
     assert (loose["skuCount"], loose["minMarketPrice"], loose["maxMarketPrice"]) == (2, 167.87, 189.42)
     assert len(loose["productIds"]) == 2
-    assert a["score"] == pytest.approx((((5 / 6) + 1) / 2) * 100)
+    # a's raw standing score (91.67) is the cohort leader, so the leader-curved
+    # public score lands at exactly 100.
+    assert a["score"] == pytest.approx(100.0)
     c = next(row for row in result["sets"] if row["setId"] == "c")
     assert all(item["minMarketPrice"] is None for item in c["displayFamilyScores"])
 
@@ -161,6 +170,31 @@ def test_ranked_targets_reads_the_v10_rank_contract_key():
     v9_only = {"set_id": "b", "calculation_run_id": "run-b", "overallRipV9": {"rank": 1}}
     ranked = service._ranked_targets([v10_only, v9_only])
     assert ranked == [v10_only]
+
+
+def test_ranked_targets_v12_only_is_rankable_via_canonical_authority():
+    v12_only = {"set_id": "a", "calculation_run_id": "run-a", "overallRipV12": {"rank": 1}}
+    v9_only = {"set_id": "b", "calculation_run_id": "run-b", "overallRipV9": {"rank": 1}}
+    ranked = service._ranked_targets([v12_only, v9_only])
+    assert ranked == [v12_only]
+
+
+def test_ranked_targets_v12_contract_shape_is_also_canonical():
+    v11_contract_only = {"set_id": "a", "calculation_run_id": "run-a",
+                          "publicRipContractV11": {"overallRip": {"rank": 1}}}
+    ranked = service._ranked_targets([v11_contract_only])
+    assert ranked == [v11_contract_only]
+
+
+def test_ranked_targets_v10_never_wins_over_v12_when_both_present():
+    both = {"set_id": "a", "calculation_run_id": "run-a",
+            "overallRipV10": {"rank": 5}, "overallRipV12": {"rank": 1}}
+    ranked = service._ranked_targets([both])
+    # Presence in the ranked cohort is decided by V12 (canonical), not by
+    # whichever version happens to carry a rank first - both are present
+    # here, and the target must still resolve via V12's authority.
+    assert ranked == [both]
+    assert (both.get("overallRipV12") or {}).get("rank") == 1
 
 
 def test_no_raw_scores_or_research_harness_dependency():

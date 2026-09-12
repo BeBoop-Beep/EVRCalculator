@@ -7,6 +7,7 @@ import pytest
 
 from backend.db.services.market_explorer_query_planner import (
     MarketExplorerBuildInProgress,
+    MarketExplorerCacheRefreshing,
     MarketExplorerL1Cache,
     MarketExplorerPublishFailed,
     MarketExplorerQueryPlanner,
@@ -18,6 +19,7 @@ from backend.db.services.market_explorer_query_planner import (
     publication_scope_key,
     resolve_cards_canonical_through,
     resolve_canonical_through,
+    resolve_explorer_comparison_through,
     _BuildLeaseHeartbeat,
 )
 from backend.domain.pokemon.market_explorer_query import (
@@ -160,13 +162,20 @@ class WatermarkQuery:
 
 
 class WatermarkClient:
-    def __init__(self, *, coverage_latest="2026-08-29", quality=None, has_history=True):
+    def __init__(self, *, coverage_latest="2026-08-29", quality=None, has_history=True,
+                 snapshot_rows=None):
         self.coverage_latest = coverage_latest
         self.quality = quality or [
             {"market_date": "2026-08-27", "tcg": "pokemon", "status": "READY"},
             {"market_date": "2026-08-28", "tcg": "pokemon", "status": "READY"},
         ]
         self.has_history = has_history
+        # Production canonical rows use scope='market'; a stray scope='global'
+        # row must not be readable by this predicate (section E regression).
+        self.snapshot_rows = snapshot_rows if snapshot_rows is not None else [{
+            "tcg": "pokemon", "scope": "market",
+            "comparison_as_of": "2026-08-27",
+        }]
 
     def table(self, name):
         if name == "pokemon_set_value_daily_history_coverage":
@@ -178,6 +187,8 @@ class WatermarkClient:
             return WatermarkQuery(self.quality)
         if name == "sets":
             return WatermarkQuery([])
+        if name == "pokemon_explore_set_value_snapshot_latest":
+            return WatermarkQuery(self.snapshot_rows)
         raise AssertionError(name)
 
 
@@ -240,6 +251,44 @@ def test_open_interval_ahead_does_not_advance_beyond_quality_authority():
     assert resolve_canonical_through(client, spec) == "2026-08-28"
 
 
+def test_explorer_comparison_watermark_clips_newer_source_projection():
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    assert resolve_explorer_comparison_through(WatermarkClient(), spec) == "2026-08-27"
+
+
+def test_explorer_comparison_watermark_resolves_scope_market_row():
+    # A scope='market' row with market_date='2026-09-09' must resolve directly
+    # when no scope='global' row exists at all -- the production shape.
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    quality = [
+        {"market_date": "2026-09-08", "tcg": "pokemon", "status": "READY"},
+        {"market_date": "2026-09-09", "tcg": "pokemon", "status": "READY"},
+        {"market_date": "2026-09-10", "tcg": "pokemon", "status": "READY"},
+    ]
+    client = WatermarkClient(
+        coverage_latest="2026-09-10", quality=quality,
+        snapshot_rows=[{"tcg": "pokemon", "scope": "market", "comparison_as_of": "2026-09-09"}],
+    )
+    assert resolve_explorer_comparison_through(client, spec) == "2026-09-09"
+
+
+def test_explorer_comparison_watermark_does_not_read_scope_global_rows():
+    # A newer V2 source date must not let a custom comparison exceed the
+    # prepared Explorer publication date; a stray scope='global' row must be
+    # invisible to this predicate rather than silently satisfying it.
+    spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
+    quality = [
+        {"market_date": "2026-09-09", "tcg": "pokemon", "status": "READY"},
+        {"market_date": "2026-09-10", "tcg": "pokemon", "status": "READY"},
+    ]
+    client = WatermarkClient(
+        coverage_latest="2026-09-10", quality=quality,
+        snapshot_rows=[{"tcg": "pokemon", "scope": "global", "comparison_as_of": "2026-09-10"}],
+    )
+    with pytest.raises(RuntimeError, match="no comparison date"):
+        resolve_explorer_comparison_through(client, spec)
+
+
 def test_cards_watermark_no_history_scope_does_not_invent_a_date():
     spec = normalize_query_spec(mode=MODE_ALL, set_ids=["set-a"])
     with pytest.raises(RuntimeError, match="no scoped history"):
@@ -257,6 +306,20 @@ def test_set_value_ahead_keeps_ready_d2_l2_as_true_hit():
         novel_builder=lambda *_: pytest.fail("D2 L2 is current"),
     )
     assert result.execution_source == "persistent_cache"
+
+
+def test_stale_ready_cache_with_owned_lease_is_typed_as_refreshing():
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = FakePersistent({
+        "status": "ready", "computed_through": "2026-08-27",
+        "series_payload": payload("2026-08-27"),
+    }, claim=False)
+    with pytest.raises(MarketExplorerCacheRefreshing):
+        planner().execute(
+            spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+            canonical_through=lambda: "2026-08-28",
+            novel_builder=lambda *_: pytest.fail("lease follower must not build"),
+        )
 
 
 def test_quality_forward_publication_moves_generation_and_appends_d1_d2():
@@ -955,6 +1018,37 @@ def test_existing_stale_status_still_forces_full_rebuild_not_recovery():
     assert result.execution_source == "novel_interval"
 
 
+def test_summary_stale_ready_base_is_captured_before_claim_without_full_read():
+    class SummaryOnlyPersistent(FakePersistent):
+        def read(self, fingerprint, summary=False):
+            self.calls.append(("read", summary))
+            assert summary is True
+            return copy.deepcopy(self.row)
+
+        def claim(self, **kwargs):
+            self.calls.append("claim")
+            self.row["status"] = "building"
+            return True
+
+    spec = normalize_query_spec(mode=MODE_ALL)
+    persistent = SummaryOnlyPersistent({
+        "status": "ready", "computed_from": "2026-04-07",
+        "computed_through": "2026-09-02",
+        "series_payload": payload("2026-09-02", start="2026-04-07"),
+    })
+    starts = []
+    result = planner().execute(
+        spec=spec, prepared=PreparedEquivalenceRegistry(), persistent=persistent,
+        canonical_through=lambda: "2026-09-03", summary=True,
+        novel_builder=lambda start, end: starts.append(start) or
+            payload("2026-09-03", start="2026-09-02"),
+    )
+    assert starts == ["2026-09-02"]
+    assert persistent.calls.index(("read", True)) < persistent.calls.index("claim")
+    assert persistent.calls.count(("read", True)) == 1
+    assert "currentConstituents" not in result.payload
+
+
 def test_corrupted_global_shaped_failed_artifact_is_not_recoverable():
     """A production-observed corruption shape: computed_through advanced,
     constituent_count still the old (large) value, but series_payload/
@@ -1008,6 +1102,7 @@ class StagedRpcClient:
         self.finalize_result = finalize_result
         self.raise_on = raise_on  # rpc name to raise an exception for
         self.batch_calls = []
+        self.prepare_calls = []
         self.trim_calls = []
         self.stage_calls = []
         self.finalize_calls = []
@@ -1019,6 +1114,9 @@ class StagedRpcClient:
         if name == "renew_pokemon_market_explorer_query_cache_build":
             self.renew_calls.append(params)
             return _Resp(True)
+        if name == "prepare_pokemon_market_explorer_query_cache_constituents":
+            self.prepare_calls.append(params)
+            return _Resp(0)
         if name == "upsert_pokemon_market_explorer_query_cache_constituent_batch":
             self.batch_calls.append(params)
             n = len(params["p_items"]) if self.batch_result is None else self.batch_result
@@ -1059,6 +1157,7 @@ def test_staged_publish_uses_constituent_batches():
     ok = cache.publish(fingerprint="f" * 64, token="tok",
                        payload=_make_payload(1200))
     assert ok is True
+    assert len(client.prepare_calls) == 1
     assert len(client.batch_calls) == 3  # 500 + 500 + 200 at batch size 500
 
 
@@ -1082,6 +1181,14 @@ def test_batch_failure_returns_false():
     cache = PersistentMarketExplorerCache(client)
     assert cache.publish(fingerprint="f" * 64, token="tok",
                          payload=_make_payload(10)) is False
+
+
+def test_prepare_failure_stops_before_first_upsert():
+    client = StagedRpcClient(raise_on="prepare_pokemon_market_explorer_query_cache_constituents")
+    cache = PersistentMarketExplorerCache(client)
+    assert cache.publish(fingerprint="f" * 64, token="tok",
+                         payload=_make_payload(10)) is False
+    assert client.batch_calls == []
 
 
 def test_partial_batch_count_mismatch_returns_false():

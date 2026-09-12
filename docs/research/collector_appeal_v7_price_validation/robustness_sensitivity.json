@@ -1,0 +1,41 @@
+[
+  {
+    "sample": "full",
+    "n": 4331,
+    "spearman": 0.2608028227897939,
+    "withinSet": {
+      "sets": 22,
+      "medianRho": 0.31764708442997636,
+      "weightedMeanRho": 0.29910491268326117,
+      "positivePct": 95.45454545454545,
+      "materiallyPositivePct": 72.72727272727273,
+      "negativePct": 4.545454545454546
+    }
+  },
+  {
+    "sample": "exclude_top_1_pct",
+    "n": 4287,
+    "spearman": 0.2416640852643666,
+    "withinSet": {
+      "sets": 22,
+      "medianRho": 0.2874183090543594,
+      "weightedMeanRho": 0.2810005043571396,
+      "positivePct": 95.45454545454545,
+      "materiallyPositivePct": 72.72727272727273,
+      "negativePct": 4.545454545454546
+    }
+  },
+  {
+    "sample": "exclude_top_5_pct",
+    "n": 4114,
+    "spearman": 0.2027702588298428,
+    "withinSet": {
+      "sets": 22,
+      "medianRho": 0.25328485730853534,
+      "weightedMeanRho": 0.24371498766204824,
+      "positivePct": 95.45454545454545,
+      "materiallyPositivePct": 59.09090909090909,
+      "negativePct": 4.545454545454546
+    }
+  }
+]

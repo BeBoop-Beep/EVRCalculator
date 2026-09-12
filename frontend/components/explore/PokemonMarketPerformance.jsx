@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import InfoPopover from "@/components/ui/InfoPopover";
 import MarketOverviewWindowSelector from "./MarketOverviewWindowSelector";
+import MarketChartViewToggle from "./MarketChartViewToggle";
 import MarketPerformanceChart from "./MarketPerformanceChart";
+import { MARKET_CHART_VIEW_INDEX, MARKET_CHART_VIEW_PERFORMANCE } from "./marketPerformanceDomain.mjs";
 import {
   buildMarketPerformanceSeries,
   changeDirection,
@@ -28,6 +30,8 @@ import { ANALYTICAL_ACTION_CLASS, MARKET_EXPLORER_HREF } from "@/components/ui/a
 // read one selection, so the two can never disagree about which window is on
 // screen. Availability is still decided by the backend, upstream.
 const SUB_LABEL = "Chain-linked price performance. New-set additions do not create artificial jumps.";
+const PERFORMANCE_NOTE = "Selected-window performance. Each market starts at 0% at its first available observation.";
+const INDEX_NOTE = "Canonical Market Index. Timeframe changes which dates are shown; index levels remain based on each market's lifetime chain-linked history.";
 
 function toneOf(direction) {
   if (direction === "positive") return POSITIVE_VALUE_COLOR;
@@ -44,6 +48,7 @@ export function filterMarketPerformanceModel(model, visibleMarketKeys) {
 }
 
 export default function PokemonMarketPerformance({ overview, options = [], selectedWindow, selectedLabel = "", onWindowChange, visibleMarketKeys, onToggleMarket, isSinceFirstAvailable = false, displayStartDate = null }) {
+  const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_PERFORMANCE);
   const model = useMemo(
     () => (selectedWindow ? buildMarketPerformanceSeries(overview, selectedWindow) : null),
     [overview, selectedWindow]
@@ -97,12 +102,16 @@ export default function PokemonMarketPerformance({ overview, options = [], selec
               );
             })}
           </ul>
-          <MarketOverviewWindowSelector
-            options={options}
-            value={selectedWindow}
-            onChange={onWindowChange}
-            ariaDescription="Sets the window for both this chart and the Market Overview period column beside it."
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
+            <MarketOverviewWindowSelector
+              options={options}
+              value={selectedWindow}
+              onChange={onWindowChange}
+              ariaDescription="Sets the window for both this chart and the Market Overview period column beside it."
+            />
+          </div>
+          <p data-market-chart-view-note className="text-[10px] text-[var(--text-secondary)]">{viewMode === MARKET_CHART_VIEW_INDEX ? INDEX_NOTE : PERFORMANCE_NOTE}</p>
           {isSinceFirstAvailable ? (
             <p data-market-performance-coverage-note className="text-[10px] font-medium uppercase tracking-[0.07em] text-[var(--text-secondary)]">
               Since first available{displayStartDate ? ` · ${formatShortDate(displayStartDate)}` : ""}
@@ -112,7 +121,7 @@ export default function PokemonMarketPerformance({ overview, options = [], selec
       </div>
       <div className="min-w-0 flex-1 px-3 py-3 sm:px-4">
         {visibleModel?.available
-          ? <MarketPerformanceChart model={visibleModel} plotClassName="h-40 desk:h-[13.5rem]" />
+          ? <MarketPerformanceChart model={visibleModel} timeframe={selectedWindow} viewMode={viewMode} plotClassName="h-40 desk:h-[13.5rem]" />
           : (
             <p role="status" data-market-performance-unavailable className="py-10 text-center text-sm text-[var(--text-secondary)]">
               {selectedLabel ? describeUnavailableWindow(selectedLabel) : "Market performance history is unavailable."}

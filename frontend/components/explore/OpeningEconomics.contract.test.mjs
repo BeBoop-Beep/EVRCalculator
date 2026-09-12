@@ -163,14 +163,15 @@ test("the distribution is not presented as a smooth or normal curve", () => {
   assert.ok(!/gaussian|normal curve|bell/i.test(overall));
 });
 
-test("V3 basis and all P01-P99 values drive distribution geometry", () => {
+test("V3 exact recovery buckets drive distribution geometry directly", () => {
   assert.equal(PUBLISHED.basis, "all_modeled_products_per_pack_equivalent");
-  assert.ok(distribution.includes("Array.from({ length: 99 }"));
-  assert.ok(distribution.includes('data-percentile-points="99"'));
-  assert.ok(distribution.includes("scope.normalizedReturnPercentiles"));
-  assert.ok(distribution.includes("scope.valuePerPackPercentiles"));
-  assert.ok(!/18\s*\+\s*index\s*\*\s*10/.test(distribution));
-  assert.ok(!distribution.includes("resolveLooseBoosterPackArtwork"));
+  assert.ok(distribution.includes("scope.normalizedReturnBuckets"));
+  assert.ok(distribution.includes('data-recovery-buckets="6"'));
+  assert.ok(distribution.includes("<BarChart"));
+  assert.ok(distribution.includes("<Bar dataKey=\"probability\""));
+  assert.ok(distribution.includes("const percentilePoints = buckets.length ? [] : readLegacyReturnPercentiles(scope)"));
+  assert.ok(!distribution.includes("interpolat"));
+  assert.ok(!distribution.includes("valuePerPackPercentiles"));
 });
 
 test("the active distribution preserves all four global headline metrics", () => {
@@ -191,28 +192,23 @@ test("Overall adds the three-value snapshot and one active distribution", () => 
   for (const field of ["averageCostPerPack", "averageModelBreakEvenPerPack", "typicalOpeningPerPack"]) assert.ok(distribution.includes(`scope.${field}`));
 });
 
-test("Overall reuses the inDex frame, shared visual system, area, glow, and tooltip shell", () => {
+test("Overall reuses the inDex frame, shared visual system, bars, and tooltip shell", () => {
   assert.ok(distribution.includes("<ChartFrame"));
   assert.ok(chartFrame.includes("ResizeObserver"));
   assert.ok(distribution.includes("chartVisualSystem.mjs"));
   assert.ok(chartVisualSystem.includes("POSITIVE_VALUE_COLOR"));
-  assert.ok(distribution.includes("<Area"));
-  assert.ok(distribution.includes("linearGradient"));
-  assert.ok(distribution.includes("feGaussianBlur"));
-  assert.ok(distribution.includes("<PercentileTooltip"));
+  assert.ok(distribution.includes("<BarChart"));
+  assert.ok(distribution.includes("<DistributionTooltip"));
   assert.ok(distribution.includes("<ChartTooltipShell"));
   assert.ok(chartTooltipShell.includes("shadow-[0_14px_32px_rgba(0,0,0,0.38)]"));
   assert.ok(!distribution.includes("contentStyle="));
 });
 
-test("tooltip explains percentile shares and all published landmarks remain direct", () => {
-  assert.ok(distribution.includes("100 - point.percentile"));
-  assert.ok(distribution.includes("% of modeled product-opening outcomes"));
-  assert.ok(distribution.includes("% finish above"));
-  assert.ok(distribution.includes("<ReferenceLine y={1}"));
-  for (const field of ["typicalRetention", "meanOutcomeRetention", "typicalOpeningPerPack", "averageModelBreakEvenPerPack"]) assert.ok(distribution.includes(`scope.${field}`));
-  assert.ok(distribution.includes('lens === "value" && evAboveP75'));
-  assert.ok(distribution.includes("scope.valuePerPackPercentiles?.p75"));
+test("tooltip explains exact recovery shares and buckets stay in published order", () => {
+  assert.ok(distribution.includes("point.probability"));
+  assert.ok(distribution.includes("Share of modeled openings whose gross card value"));
+  assert.ok(distribution.includes("scope.normalizedReturnBuckets"));
+  assert.ok(!distribution.includes(".sort("));
 });
 
 test("Overall removes era preview and every dead legacy presentation", () => {
@@ -404,9 +400,9 @@ test("percentiles are named as positions, never as probabilities", () => {
   }
 });
 
-test("the range is labeled with its scale and carries a text equivalent", () => {
-  assert.ok(distribution.includes("logarithmic value axis"));
-  assert.ok(distribution.includes("The logarithmic value axis"));
+test("the primary chart asks the plain-language recovery question", () => {
+  assert.ok(distribution.includes("How openings usually turn out"));
+  assert.ok(distribution.includes("Share of modeled openings by purchase-cost recovery."));
 });
 
 test("Modeled Return and Typical Retention are never presented as the same thing", () => {

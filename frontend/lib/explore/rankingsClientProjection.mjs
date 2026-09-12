@@ -106,7 +106,21 @@ const BASE_SCALAR_FIELDS = Object.freeze([
  * it, and it is the single heaviest thing in the contract.
  */
 const BLOCK_LEAVES = Object.freeze({
-  setRipV1: ["score", "tier", "rank", "cohortSize", "rankable", "methodologyVersion", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount", "familyScores", "displayFamilyScores"],
+  // `score`/`tier`/`rank` are leader-normalized (see
+  // compute_leader_normalized_scores / public_leader_rip_tier in
+  // backend/rankings/public_relative.py, applied in set_rip_service.py) - same
+  // field names, current public scale. `chaseAccessibility` is the SET-level
+  // authority (backend/db/services/chase_accessibility_set_ranking.py) copied
+  // through verbatim; ExploreTableClient's ChaseAccessibilityCell reads
+  // `target.setRipV1.chaseAccessibility` directly, so this leaf must not be
+  // dropped at the client boundary the way it was at the SQL lens boundary.
+  // `score` remains the leader-normalized PUBLIC value (0-100, current
+  // display scale) for backward compatibility with every existing reader.
+  // `modelScore` is the raw pre-curve mean-standing aggregate, preserved
+  // unmutated by the leader curve. `leaderNormalizedScore`/`publicScore` are
+  // explicit aliases of the same public value `score` already carries - see
+  // backend/db/services/set_rip_service.py for the field contract.
+  setRipV1: ["score", "modelScore", "leaderNormalizedScore", "publicScore", "tier", "rank", "cohortSize", "rankable", "methodologyVersion", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount", "familyScores", "displayFamilyScores", "chaseAccessibility"],
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV9: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV10: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
@@ -125,6 +139,21 @@ const BLOCK_LEAVES = Object.freeze({
   top_chase: ["card_name", "current_market_price", "implied_odds_one_in_n", "packs_for_50_percent_chance"],
   ripDecision: ["topChase"],
   rip_decision: ["top_chase"],
+});
+
+/**
+ * Narrower leaf list for the ANONYMOUS/Basic public Set RIP leaderboard
+ * (`projectRankingsClientPublicSetLeaderboard`). Unlike `BLOCK_LEAVES.setRipV1`
+ * (used by the paid `projectRankingsClientPlus` path), this list deliberately
+ * excludes `score`, `modelScore`, `leaderNormalizedScore`, `familyScores`,
+ * `displayFamilyScores`, `participatingFamilyCount`, `participatingFamilies`,
+ * `skuEvidenceCount`, and `chaseAccessibility` — those are paid evidence and
+ * must never reach an anonymous/Basic API response. Do not widen this list to
+ * match `BLOCK_LEAVES.setRipV1`; add fields explicitly by name only after
+ * confirming a public consumer needs them.
+ */
+const PUBLIC_BLOCK_LEAVES = Object.freeze({
+  setRipV1: ["publicScore", "tier", "rank", "cohortSize", "rankable", "methodologyVersion"],
 });
 
 /** The canonical-contract blocks `readCanonicalBlock` consumes, leaf by leaf. */
@@ -187,6 +216,18 @@ function projectTarget(target) {
   // sourced from the top-level fields above (the same objects, unwrapped).
   const contractV11 = projectContract(target.publicRipContractV11);
   if (contractV11 !== undefined) out.publicRipContractV11 = contractV11;
+  const collectorAppeal = projectLeaves(
+    target?.publicCollectorAppealContractV1?.collectorAppeal,
+    CONTRACT_LEAVES,
+  );
+  if (collectorAppeal !== undefined) {
+    const rosterDesirability = projectLeaves(target?.publicCollectorAppealContractV1?.components?.rosterDesirability, ["score"]);
+    const desirableOutcomeFrequency = projectLeaves(target?.publicCollectorAppealContractV1?.components?.desirableOutcomeFrequency, ["rawValue", "displayPercent", "status", "statusReason"]);
+    const components = {};
+    if (rosterDesirability !== undefined) components.rosterDesirability = rosterDesirability;
+    if (desirableOutcomeFrequency !== undefined) components.desirableOutcomeFrequency = desirableOutcomeFrequency;
+    out.publicCollectorAppealContractV1 = { collectorAppeal, ...(Object.keys(components).length ? { components } : {}) };
+  }
 
   return out;
 }
@@ -209,7 +250,7 @@ export function projectRankingsClientPublicSetLeaderboard(targets) {
   if (!Array.isArray(targets)) return [];
   return targets.map((target) => {
     const projected = projectLeaves(target, BASE_SCALAR_FIELDS) || {};
-    const setRip = projectLeaves(target?.setRipV1, BLOCK_LEAVES.setRipV1);
+    const setRip = projectLeaves(target?.setRipV1, PUBLIC_BLOCK_LEAVES.setRipV1);
     if (setRip !== undefined) projected.setRipV1 = setRip;
     return projected;
   });
@@ -236,4 +277,4 @@ export const RANKINGS_CLIENT_FIELDS = Object.freeze([
   ),
 ]);
 
-export { SCALAR_FIELDS, BLOCK_LEAVES, CONTRACT_BLOCKS, CONTRACT_LEAVES };
+export { SCALAR_FIELDS, BLOCK_LEAVES, PUBLIC_BLOCK_LEAVES, CONTRACT_BLOCKS, CONTRACT_LEAVES };

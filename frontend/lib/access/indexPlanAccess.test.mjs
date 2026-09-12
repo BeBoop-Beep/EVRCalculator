@@ -17,8 +17,8 @@ import {
 } from "./indexPlanAccess.mjs";
 
 test("locked commercial capability sets fail closed and Premium inherits Plus", () => {
-  assert.equal(PLUS_FEATURES.size, 10);
-  assert.equal(PREMIUM_FEATURES.size, 7);
+  assert.equal(PLUS_FEATURES.size, 11);
+  assert.equal(PREMIUM_FEATURES.size, 11);
   for (const feature of PLUS_FEATURES) {
     assert.equal(hasIndexFeatureAccess(null, feature), false);
     assert.equal(hasIndexFeatureAccess("plus", feature), true);
@@ -73,19 +73,26 @@ test("a subsequently resolved Premium user replaces an initially locked auth sta
 test("Market Explorer has three levels and Premium inherits Plus", () => {
   const basic = resolveMarketExplorerPlanAccess({ index_plan: null });
   assert.equal(basic.accessMode, "basic");
+  assert.equal(basic.canBrowsePreparedMarkets, true);
+  assert.equal(basic.canComparePreparedMarkets, false);
+  assert.equal(basic.canUseAnalyticalScreens, false);
   assert.equal(basic.canUsePreparedMarketIntelligence, false);
   assert.equal(basic.canBuildCustomMarkets, false);
 
   const plus = resolveMarketExplorerPlanAccess({ index_plan: "plus" });
   assert.equal(plus.accessMode, "plus");
   assert.equal(plus.canUsePreparedMarketIntelligence, true);
-  assert.equal(plus.canBuildCustomMarkets, true);
-  assert.equal(plus.canBuildSingleAxisMarket, true);
+  assert.equal(plus.canComparePreparedMarkets, true);
+  assert.equal(plus.canUseAnalyticalScreens, true);
+  assert.equal(plus.canUseAdvancedMarketRanking, true);
+  assert.equal(plus.canBuildCustomMarkets, false);
+  assert.equal(plus.canBuildSingleAxisMarket, false);
   assert.equal(plus.canBuildCompoundMarket, false);
 
   const premium = resolveMarketExplorerPlanAccess({ index_plan: "premium" });
   assert.equal(premium.accessMode, "premium");
   assert.equal(premium.canUsePreparedMarketIntelligence, true);
+  assert.equal(premium.canComparePreparedMarkets, true);
   assert.equal(premium.canBuildCustomMarkets, true);
   assert.equal(premium.canBuildCompoundMarket, true);
   assert.equal(premium.canUseCustomRankedComposition, true);
@@ -94,7 +101,8 @@ test("Market Explorer has three levels and Premium inherits Plus", () => {
 test("query access counts scope and segment axes and reserves ranking for Premium", () => {
   const scope = { eraIds: ["sv"], setIds: ["tef"], segmentIds: [], mode: "all" };
   assert.deepEqual(evaluateMarketQueryAccess("plus", scope).activeFilterAxes, ["scope"]);
-  assert.equal(evaluateMarketQueryAccess("plus", scope).allowed, true);
+  assert.equal(evaluateMarketQueryAccess("plus", scope).allowed, false);
+  assert.equal(evaluateMarketQueryAccess("premium", scope).allowed, true);
   const compound = { ...scope, segmentIds: ["sir"] };
   assert.equal(evaluateMarketQueryAccess("plus", compound).allowed, false);
   assert.equal(evaluateMarketQueryAccess("premium", compound).allowed, true);
@@ -102,8 +110,8 @@ test("query access counts scope and segment axes and reserves ranking for Premiu
 });
 
 test("Pass 3 axes mirror backend packaging", () => {
-  assert.equal(evaluateMarketQueryAccess("plus", { priceSegmentIds: ["premium"], mode: "all" }).allowed, true);
-  assert.equal(evaluateMarketQueryAccess("plus", { releaseAgeCohortIds: ["new"], mode: "all" }).allowed, true);
+  assert.equal(evaluateMarketQueryAccess("plus", { priceSegmentIds: ["premium"], mode: "all" }).allowed, false);
+  assert.equal(evaluateMarketQueryAccess("plus", { releaseAgeCohortIds: ["new"], mode: "all" }).allowed, false);
   assert.equal(evaluateMarketQueryAccess("plus", { pokemonIds: ["149"], mode: "all" }).allowed, false);
   assert.equal(evaluateMarketQueryAccess("premium", { pokemonIds: ["149"], mode: "all" }).allowed, true);
   assert.equal(evaluateMarketQueryAccess("plus", { setIds: ["sv8"], priceSegmentIds: ["premium"], mode: "all" }).allowed, false);
@@ -140,7 +148,8 @@ test("the plan hierarchy is not duplicated — the ladder reuses the shared help
   for (const plan of [null, "plus", "premium"]) {
     const access = resolveMarketExplorerPlanAccess({ index_plan: plan });
     assert.equal(access.canUsePreparedMarketIntelligence, hasIndexPlusAccess(plan));
-    assert.equal(access.canBuildCustomMarkets, hasIndexPlusAccess(plan));
+    assert.equal(access.canComparePreparedMarkets, hasIndexPlusAccess(plan));
+    assert.equal(access.canBuildCustomMarkets, hasIndexPremiumAccess(plan));
     assert.equal(access.canBuildCompoundMarket, hasIndexPremiumAccess(plan));
   }
 });
@@ -148,4 +157,14 @@ test("the plan hierarchy is not duplicated — the ladder reuses the shared help
 test("plan labels use the exact product language", () => {
   assert.equal(INDEX_PLAN_LABELS.plus, "Index Plus");
   assert.equal(INDEX_PLAN_LABELS.premium, "Index Premium");
+});
+
+test("exact-instrument execution is Premium even when discovery is visible to Plus", () => {
+  const explicit = { membershipMode: "explicit", instrumentIds: ["variant-a"] };
+  const plus = evaluateMarketQueryAccess("plus", explicit);
+  const premium = evaluateMarketQueryAccess("premium", explicit);
+  assert.equal(plus.allowed, false);
+  assert.equal(plus.requiredPlan, "premium");
+  assert.equal(plus.capability, "market_explorer_explicit_instruments");
+  assert.equal(premium.allowed, true);
 });

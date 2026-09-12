@@ -1,0 +1,18 @@
+corr(D_pokemon, D_trainer) over 68 sets with trainer evidence: 0.989
+corr(D_pokemon, cand_A): 1.0000
+corr(D_pokemon, cand_B1): 1.0000
+corr(D_pokemon, cand_B2): 1.0000
+corr(D_pokemon, pokemonGroupCount): 0.999
+corr(D_pokemon, trainerGroupCount): 0.995
+corr(D_pokemon, totalCards): 0.998
+corr(D_pokemon, functionalGroups): 0.995
+
+corr(cand_B1, pokemonGroupCount): 0.999
+corr(cand_B1, trainerGroupCount): 0.996
+corr(cand_B1, totalCards): 0.998
+corr(cand_B1, functionalGroups): 0.995
+
+SENSITIVITY: perturbing D_trainer by pct, measuring cand_B1 rank churn vs baseline
+  +/-5% trainer noise: max rank shift over 30 trials=2, mean shift=0.030, count(shift>2 obs)=0/3840
+  +/-10% trainer noise: max rank shift over 30 trials=2, mean shift=0.062, count(shift>2 obs)=0/3840
+  +/-20% trainer noise: max rank shift over 30 trials=2, mean shift=0.108, count(shift>2 obs)=0/3840

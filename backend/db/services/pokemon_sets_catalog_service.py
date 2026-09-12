@@ -103,17 +103,27 @@ def _resolve_pokemon_tcg_id(client: Any) -> Optional[str]:
     return None
 
 
-def _resolve_card_count(set_row: Dict[str, Any]) -> Optional[int]:
-    for key in ("official_card_count", "printed_total", "total_cards", "card_count"):
-        value = _to_optional_int(set_row.get(key))
-        if value is not None and value >= 0:
-            return value
-    return None
-
-
+# NOTE: `series`, `official_card_count`, `printed_total`, `total_cards`, and
+# `set_code` are NOT columns on the canonical `public.sets` table (verified
+# against backend/db/migrations and every other reader of the `sets` table --
+# see backend/db/services/pokemon_market_rollout_cohort.py's
+# `_CORE_SET_COLUMNS`, backend/db/services/pokemon_scrape_runtime_preflight.py,
+# and backend/db/services/pokemon_era_set_sync_service.py's use of
+# `abbreviation`). Selecting any of them causes PostgREST to fail the whole
+# query with 42703 (`column sets.<name> does not exist`), which is what took
+# GET /tcgs/pokemon/sets down. Card count is sourced from the
+# get_pokemon_canonical_card_counts_by_set RPC below, era name comes from the
+# `eras` lookup table, and set code is derived from `abbreviation` /
+# `pokemon_api_set_id` -- none of those need a same-named column on `sets`.
+#
+# `is_subset` is selected so the catalog can filter to canonical ROOT sets
+# only (COALESCE(is_subset, false) = false), matching the same root-set
+# membership semantics as the decoupled get_pokemon_set_route_directory RPC.
+# This is catalog scope, not RIP/Rankings eligibility -- do not add any
+# simulation-support or Rankings-membership filtering here.
 _SETS_PROJECTION = (
-    "id,name,canonical_key,pokemon_api_set_id,era_id,series,release_date,"
-    "official_card_count,printed_total,total_cards,set_code,abbreviation,"
+    "id,name,canonical_key,pokemon_api_set_id,era_id,release_date,"
+    "abbreviation,is_subset,"
     "logo_image_url,symbol_image_url,hero_image_url"
 )
 
@@ -155,10 +165,16 @@ def _load_canonical_card_counts(set_ids: List[str]) -> Dict[str, int]:
 
 
 def _load_primary_sets(client: Any, tcg_id: str) -> List[Dict[str, Any]]:
+    # Canonical root-set membership: COALESCE(is_subset, false) = false. This
+    # is catalog scope only -- it must NOT be narrowed further by RIP/
+    # simulation support or Rankings/market publication readiness. A set can
+    # have a valid canonical catalog entry with no supported RIP simulation;
+    # that must not 404 or disappear from this listing.
     result = (
         client.table("sets")
         .select(_SETS_PROJECTION)
         .eq("tcg_id", tcg_id)
+        .or_("is_subset.is.null,is_subset.eq.false")
         .order("release_date", desc=True)
         .order("name")
         .execute()
@@ -291,9 +307,6 @@ def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
         # Do not fall back to public.cards/card_variants here; those rows can be
         # marketplace or variant inflated.
         resolved_card_count = canonical_card_counts.get(set_id, 0)
-        official_card_count = _to_optional_int(set_row.get("official_card_count"))
-        printed_total = _to_optional_int(set_row.get("printed_total"))
-        total_cards = _to_optional_int(set_row.get("total_cards"))
 
         resolved_slug = canonical_key or _slugify(name) or _slugify(set_id)
 
@@ -306,14 +319,19 @@ def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
                 "era_id": era_id,
                 "era": era_name,
                 "era_name": era_name,
-                "series": _to_optional_str(set_row.get("series")),
+                # `series` is not a canonical `sets` column; era is the
+                # source of truth for grouping. Left present (null) only for
+                # backward-compatible payload shape.
+                "series": None,
                 "release_date": _to_optional_str(set_row.get("release_date")),
                 "card_count": resolved_card_count,
-                "official_card_count": official_card_count,
-                "printed_total": printed_total,
-                "total_cards": total_cards,
-                "set_code": _to_optional_str(set_row.get("set_code"))
-                or _to_optional_str(set_row.get("abbreviation"))
+                # Card totals are resolved entirely from the canonical
+                # checklist RPC above (`card_count`); `sets` carries no
+                # official/printed/total card-count columns.
+                "official_card_count": None,
+                "printed_total": None,
+                "total_cards": None,
+                "set_code": _to_optional_str(set_row.get("abbreviation"))
                 or pokemon_api_set_id,
                 "pokemon_api_set_id": pokemon_api_set_id,
                 "logo_url": _to_optional_str(set_row.get("logo_image_url")),

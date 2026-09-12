@@ -1,10 +1,17 @@
 from pathlib import Path
 
 from backend.db.services.explore_page_service import ExplorePageError
+from backend.db.services.public_rip_publication_contract import (
+    canonical_overall_rip_target_key,
+    canonical_publication_identity,
+)
+from backend.desirability.chase_accessibility import CHASE_ACCESSIBILITY_VERSION
 from backend.scripts import pokemon_snapshot_builders
 from backend.scripts.pokemon_snapshot_builders import SIMULATION_DEPENDENT_SECTIONS
 from backend.scripts.set_value_scope_invariants import SetValueScopeInvariantError
 import pytest
+
+_FIXTURE_IDENTITY = canonical_publication_identity()
 
 
 def _empty_movement_windows_payload():
@@ -1561,6 +1568,38 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
                     "overallRipV8": {"score": 73.0, "rank": 15, "tier": "D", "cohortSize": 22},
                     "overallRipV10": {"score": 75.0, "rank": 12, "tier": "C", "cohortSize": 22},
                     "publicRipContractV10": {"contractVersion": "public_rip_contract_v10"},
+                    # Canonical V12/V11 authority, required alongside V10 now
+                    # that a fresh ranked row must satisfy the canonical
+                    # completeness gate (`_assert_canonical_set_page_contract_
+                    # complete`), not just the historical V10 one.
+                    "financialRipV4": {
+                        "score": 75.0, "rank": 12, "status": "ready", "rankable": True,
+                        "scoreVersion": _FIXTURE_IDENTITY["financialRipVersion"],
+                    },
+                    "overallRipV12": {
+                        "score": 75.0, "rank": 12, "status": "ready", "rankable": True,
+                        "version": _FIXTURE_IDENTITY["overallRipVersion"],
+                    },
+                    "publicRipContractV11": {
+                        "contractVersion": _FIXTURE_IDENTITY["publicRipContractVersion"],
+                        "canonicalOverallRipVersion": _FIXTURE_IDENTITY["overallRipVersion"],
+                        "overallRipV12": {
+                            "score": 75.0, "rank": 12,
+                            "version": _FIXTURE_IDENTITY["overallRipVersion"],
+                        },
+                        "overallRipV12Composition": {
+                            "version": _FIXTURE_IDENTITY["overallRipVersion"],
+                            "inputs": {
+                                "financialRip": "financial_rip_v4",
+                                "chaseAccessibility": "chase_accessibility_v1",
+                                "collectorAppeal": "collector_appeal_v5",
+                            },
+                        },
+                        "chaseAccessibility": {
+                            "version": CHASE_ACCESSIBILITY_VERSION,
+                            "calculationRunId": "run-b",
+                        },
+                    },
                     "publicRipContractV8": {
                         "collectorAppeal": {
                             "components": {
@@ -1736,6 +1775,357 @@ def test_canonical_set_page_completeness_allows_unsupported_historical_set():
     )
 
 
+# --- Canonical V12/V11 completeness gate (PART 2/3/4/5) ---------------------
+
+from backend.db.services.public_rip_publication_contract import (  # noqa: E402
+    canonical_overall_rip_target_key,
+    canonical_publication_identity,
+)
+from backend.desirability.chase_accessibility import CHASE_ACCESSIBILITY_VERSION  # noqa: E402
+from typing import Any, Dict  # noqa: E402
+
+
+def _canonical_v12_payload(**overrides: Any) -> Dict[str, Any]:
+    """A complete, canonically-ranked fresh set page payload.
+
+    Built entirely off the live authorities (``canonical_overall_rip_target_key``/
+    ``canonical_publication_identity``) so this fixture tracks any future
+    cutover automatically instead of hardcoding a literal that could drift.
+    """
+    identity = canonical_publication_identity()
+    overall_key = canonical_overall_rip_target_key()
+    payload: Dict[str, Any] = {
+        # V10 is computed unconditionally alongside V12 in production (see
+        # explore_rip_statistics_service.py) - every genuinely fresh ranked row
+        # carries it. Present here so the freshness signal (rank under EITHER
+        # `overall_key` or `overallRipV10`) matches production reality.
+        "overallRipV10": {
+            "score": 85.0,
+            "rank": 3,
+            "status": "ready",
+            "rankable": True,
+        },
+        "publicRipContractV10": {"contractVersion": "public_rip_contract_v10"},
+        overall_key: {
+            "score": 88.5,
+            "rank": 3,
+            "status": "ready",
+            "rankable": True,
+            "version": identity["overallRipVersion"],
+        },
+        "financialRipV4": {
+            "score": 90.0,
+            "rank": 2,
+            "status": "ready",
+            "rankable": True,
+            # The real Financial RIP V4 contract
+            # (backend/calculations/evr/financial_rip_v4.py) stamps
+            # "scoreVersion" - it never emits a top-level "version" field.
+            "scoreVersion": identity["financialRipVersion"],
+        },
+        "publicRipContractV11": {
+            "contractVersion": identity["publicRipContractVersion"],
+            "canonicalOverallRipVersion": identity["overallRipVersion"],
+            "overallRipV12": {
+                "score": 88.5,
+                "rank": 3,
+                "version": identity["overallRipVersion"],
+            },
+            "overallRipV12Composition": {
+                "version": identity["overallRipVersion"],
+                "inputs": {
+                    "financialRip": "financial_rip_v4",
+                    "chaseAccessibility": "chase_accessibility_v1",
+                    "collectorAppeal": "collector_appeal_v5",
+                },
+            },
+            "chaseAccessibility": {
+                "version": CHASE_ACCESSIBILITY_VERSION,
+                "calculationRunId": "run-current",
+            },
+        },
+    }
+    for key, value in overrides.items():
+        payload[key] = value
+    return payload
+
+
+def test_complete_canonical_v12_fresh_row_passes():
+    pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+        _canonical_v12_payload(), set_id="set-1"
+    )
+
+
+def test_v10_only_fresh_supported_row_fails():
+    identity = canonical_publication_identity()
+    payload = {
+        "overallRipV10": {
+            "score": 80.0, "rank": 5, "status": "ready", "rankable": True,
+        },
+        "publicRipContractV10": {"contractVersion": "public_rip_contract_v10"},
+    }
+    with pytest.raises(RuntimeError):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_missing_overall_rip_v12_fails():
+    payload = _canonical_v12_payload()
+    overall_key = canonical_overall_rip_target_key()
+    del payload[overall_key]
+    with pytest.raises(RuntimeError):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_v12_wrong_version_fails():
+    payload = _canonical_v12_payload()
+    overall_key = canonical_overall_rip_target_key()
+    payload[overall_key]["version"] = "some_other_version"
+    with pytest.raises(RuntimeError, match="version"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_v12_non_ready_unrankable_fails():
+    payload = _canonical_v12_payload()
+    overall_key = canonical_overall_rip_target_key()
+    payload[overall_key]["status"] = "unavailable_missing_input"
+    payload[overall_key]["rankable"] = False
+    with pytest.raises(RuntimeError):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_missing_public_rip_contract_v11_fails():
+    payload = _canonical_v12_payload()
+    del payload["publicRipContractV11"]
+    with pytest.raises(RuntimeError, match="publicRipContractV11 is missing"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_wrong_v11_contract_version_fails():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["contractVersion"] = "public_rip_contract_v99"
+    with pytest.raises(RuntimeError, match="contractVersion"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_wrong_canonical_overall_rip_version_fails():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["canonicalOverallRipVersion"] = "some_other_version"
+    with pytest.raises(RuntimeError, match="canonicalOverallRipVersion"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_wrong_composition_financial_input_fails():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["overallRipV12Composition"]["inputs"]["financialRip"] = "financial_rip_v3"
+    with pytest.raises(RuntimeError, match="financialRip"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_wrong_composition_collector_input_fails():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["overallRipV12Composition"]["inputs"]["collectorAppeal"] = "collector_appeal_v4"
+    with pytest.raises(RuntimeError, match="collectorAppeal"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_wrong_composition_chase_input_fails():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["overallRipV12Composition"]["inputs"]["chaseAccessibility"] = "chase_accessibility_v0"
+    with pytest.raises(RuntimeError, match="chaseAccessibility"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_missing_financial_v4_authority_fails():
+    payload = _canonical_v12_payload()
+    del payload["financialRipV4"]
+    with pytest.raises(RuntimeError, match="financialRipV4"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_wrong_financial_v4_authority_score_version_fails():
+    payload = _canonical_v12_payload()
+    payload["financialRipV4"]["scoreVersion"] = "financial_rip_v2"
+    with pytest.raises(RuntimeError, match="financialRipV4.scoreVersion"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_missing_financial_v4_score_version_fails():
+    # The real Financial RIP V4 contract never emits a top-level "version"
+    # field - only "scoreVersion". A row missing scoreVersion must fail even
+    # if score/rank/status/rankable all look complete.
+    payload = _canonical_v12_payload()
+    del payload["financialRipV4"]["scoreVersion"]
+    with pytest.raises(RuntimeError, match="financialRipV4.scoreVersion"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_financial_v4_top_level_version_field_alone_does_not_satisfy_canonical_check():
+    # A "version" field is not part of the real Financial V4 contract - adding
+    # one (without scoreVersion) must NOT be accepted as a fallback/alias.
+    payload = _canonical_v12_payload()
+    del payload["financialRipV4"]["scoreVersion"]
+    payload["financialRipV4"]["version"] = canonical_publication_identity()[
+        "financialRipVersion"
+    ]
+    with pytest.raises(RuntimeError, match="financialRipV4.scoreVersion"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_collector_version_not_canonical_v5_fails(monkeypatch):
+    payload = _canonical_v12_payload()
+    monkeypatch.setattr(pokemon_snapshot_builders, "COLLECTOR_APPEAL_V5_VERSION", "collector_appeal_v4")
+    with pytest.raises(RuntimeError, match="Collector Appeal"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_chase_accessibility_wrong_version_fails():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["chaseAccessibility"]["version"] = "chase_accessibility_v0"
+    with pytest.raises(RuntimeError, match="chaseAccessibility.version"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_chase_accessibility_missing_calculation_run_id_fails():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["chaseAccessibility"]["calculationRunId"] = None
+    with pytest.raises(RuntimeError, match="calculationRunId"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_chase_accessibility_calculation_run_id_mismatch_vs_frozen_run_fails():
+    # publicRipContractV11.chaseAccessibility.calculationRunId is projected
+    # from the Chase Accessibility row's own calculation_run_id. The frozen
+    # Rankings target for this fresh row already establishes decision_run_id
+    # as the expected run, so a Chase Accessibility row from a different run
+    # must be rejected, not silently accepted.
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["chaseAccessibility"]["calculationRunId"] = "run-B"
+    target = _canonical_v12_payload()
+    target["calculation_run_id"] = "run-A"
+    with pytest.raises(RuntimeError, match="chaseAccessibility.calculationRunId"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1",
+            matching_rankings_target=target, decision_run_id="run-A",
+        )
+
+
+def test_chase_accessibility_calculation_run_id_matches_frozen_run_passes():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["chaseAccessibility"]["calculationRunId"] = "run-A"
+    target = _canonical_v12_payload()
+    target["calculation_run_id"] = "run-A"
+    pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+        payload, set_id="set-1",
+        matching_rankings_target=target, decision_run_id="run-A",
+    )
+
+
+def test_rankings_target_calculation_run_id_mismatch_vs_frozen_run_fails():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["chaseAccessibility"]["calculationRunId"] = "run-A"
+    target = _canonical_v12_payload()
+    target["calculation_run_id"] = "run-B"
+    with pytest.raises(RuntimeError, match="matching_rankings_target.calculation_run_id"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1",
+            matching_rankings_target=target, decision_run_id="run-A",
+        )
+
+
+def test_set_page_v12_rank_mismatch_vs_rankings_target_fails():
+    payload = _canonical_v12_payload()
+    overall_key = canonical_overall_rip_target_key()
+    target = _canonical_v12_payload()
+    target["calculation_run_id"] = "run-current"
+    target[overall_key]["rank"] = 99
+    target["publicRipContractV11"]["overallRipV12"]["rank"] = 99
+    with pytest.raises(RuntimeError, match="rank"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1",
+            matching_rankings_target=target, decision_run_id="run-current",
+        )
+
+
+def test_set_page_v12_score_mismatch_vs_rankings_target_fails():
+    payload = _canonical_v12_payload()
+    overall_key = canonical_overall_rip_target_key()
+    target = _canonical_v12_payload()
+    target["calculation_run_id"] = "run-current"
+    target[overall_key]["score"] = 12.34
+    target["publicRipContractV11"]["overallRipV12"]["score"] = 12.34
+    with pytest.raises(RuntimeError, match="score"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1",
+            matching_rankings_target=target, decision_run_id="run-current",
+        )
+
+
+def test_v11_projected_v12_rank_score_mismatch_vs_direct_block_fails():
+    payload = _canonical_v12_payload()
+    payload["publicRipContractV11"]["overallRipV12"]["rank"] = 999
+    with pytest.raises(RuntimeError, match="overallRipV12.rank"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_exact_run_rank_score_parity_passes():
+    payload = _canonical_v12_payload()
+    target = _canonical_v12_payload()
+    target["calculation_run_id"] = "run-current"
+    pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+        payload, set_id="set-1",
+        matching_rankings_target=target, decision_run_id="run-current",
+    )
+
+
+def test_non_simulation_carry_forward_page_not_forced_to_fabricate_v12():
+    # A page with no rank under the canonical overall_key (unsupported /
+    # historical / carry-forward) is exempt from every V12/V11/Financial V4
+    # check - it must not raise, and nothing here fabricates those fields.
+    overall_key = canonical_overall_rip_target_key()
+    payload = {overall_key: {"rank": None}}
+    pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+        payload, set_id="historical-set"
+    )
+    assert "publicRipContractV11" not in payload
+    assert "financialRipV4" not in payload
+
+
 def test_current_run_top_chase_is_built_without_rankings_and_replaces_stale_input(monkeypatch):
     observed = {}
     monkeypatch.setattr(
@@ -1779,6 +2169,108 @@ def test_current_run_top_chase_identity_mismatch_is_rejected():
                              "topChase": {"sourceCalculationRunId": "run-a"}}},
             set_id="set-1", expected_run_id="run-b", required=True,
         )
+
+
+def test_current_run_sealed_products_block_mismatch_is_rejected():
+    """Target run RUN_A but the whole sealedProducts block carries RUN_B.
+
+    Mirrors the Top Chase mismatch test above but for the sealed-product
+    section: `_assert_current_run_rip_decision` must fail closed rather than
+    accept a set page whose product economics come from a different run than
+    the one it claims to publish.
+    """
+    with pytest.raises(RuntimeError, match="sealed products run mismatch"):
+        pokemon_snapshot_builders._assert_current_run_rip_decision(
+            {"ripDecision": {
+                "contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
+                "sourceCalculationRunId": "run-a",
+                "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{"sourceCalculationRunId": "run-b"}]},
+                "topChase": {"sourceCalculationRunId": "run-a"},
+            }},
+            set_id="set-1", expected_run_id="run-a", required=True,
+        )
+
+
+def test_current_run_single_sealed_product_mismatch_is_rejected():
+    """The block-level sourceCalculationRunId agrees with the target run, but
+    ONE product row inside it was smuggled in from a different run (e.g. a
+    partial re-fetch that only refreshed some rows). This is the case
+    `build_sealed_product_decision_contract`'s own uniqueness check would
+    already have caught upstream, but `_assert_current_run_rip_decision` is
+    the last-line publication guard and must independently reject it too.
+    """
+    with pytest.raises(RuntimeError, match="modeled product run mismatch"):
+        pokemon_snapshot_builders._assert_current_run_rip_decision(
+            {"ripDecision": {
+                "contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
+                "sourceCalculationRunId": "run-a",
+                "sourceSealedMarketClassificationVersion": "v",
+                "sourceSealedProductResultCount": 2,
+                "sourceSealedProductResultsUpdatedAt": "2026-08-18T10:00:00Z",
+                "sealedProducts": {
+                    "sourceCalculationRunId": "run-a",
+                    "productCount": 2,
+                    "products": [
+                        {"sourceCalculationRunId": "run-a"},
+                        {"sourceCalculationRunId": "run-b"},
+                    ],
+                },
+                "topChase": {"sourceCalculationRunId": "run-a"},
+            }},
+            set_id="set-1", expected_run_id="run-a", required=True,
+        )
+
+
+def test_current_run_missing_classification_provenance_is_rejected():
+    """Target/products/Top Chase all agree on RUN_A, but the sealed-market
+    classification version (the provenance of the unsupported-products list)
+    is missing. A frozen-authority-changed race can produce exactly this
+    shape (product rows read for RUN_A, market snapshot read moments later
+    against a since-reclassified market), so this must fail closed too.
+    """
+    with pytest.raises(RuntimeError, match="classification provenance is missing"):
+        pokemon_snapshot_builders._assert_current_run_rip_decision(
+            {"ripDecision": {
+                "contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
+                "sourceCalculationRunId": "run-a",
+                "sourceSealedMarketClassificationVersion": None,
+                "sealedProducts": {"sourceCalculationRunId": "run-a", "productCount": 1, "products": [{"sourceCalculationRunId": "run-a"}]},
+                "topChase": {"sourceCalculationRunId": "run-a"},
+            }},
+            set_id="set-1", expected_run_id="run-a", required=True,
+        )
+
+
+def test_top_chase_card_identity_cannot_cross_set_boundaries():
+    """Top Chase's card/variant identity is bound to the SAME `calculation_run_id`
+    that scoped the sealed-product read (`calculation_run_id` is per-set, per
+    the invariant documented in rip_decision_service._load_current_run_product_rows),
+    so a card from a foreign set cannot enter through `build_top_chase_contract`
+    without the run id itself already being wrong -- which the run-id mismatch
+    guard above independently catches. This test proves the contrapositive at
+    the publication-guard boundary: even if a foreign-set card were smuggled in
+    under the CORRECT run id (e.g. a data bug in simulation_input_cards), this
+    guard has no set-identity field to check on topChase and would NOT catch it.
+    This is a real, named gap (see report Part 2 item 6) rather than a proven
+    protection, and this test documents that the guard is silent on it: it
+    passes because nothing here checks card set identity, not because the
+    boundary is enforced.
+    """
+    pokemon_snapshot_builders._assert_current_run_rip_decision(
+        {"ripDecision": {
+            "contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
+            "sourceCalculationRunId": "run-a",
+            "sourceSealedMarketClassificationVersion": "v",
+            "sourceSealedProductResultCount": 1,
+            "sourceSealedProductResultsUpdatedAt": "2026-08-18T10:00:00Z",
+            "sealedProducts": {"sourceCalculationRunId": "run-a", "productCount": 1, "products": [{"sourceCalculationRunId": "run-a"}]},
+            "topChase": {
+                "sourceCalculationRunId": "run-a",
+                "cardId": "card-from-set-B",  # no set-identity field exists on topChase to check
+            },
+        }},
+        set_id="set-A", expected_run_id="run-a", required=True,
+    )
 
 
 def test_build_assertion_uses_internal_provenance_guards_without_self_comparison():

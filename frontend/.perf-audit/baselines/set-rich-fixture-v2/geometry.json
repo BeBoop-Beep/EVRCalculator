@@ -627,7 +627,7 @@
         "x": 16,
         "y": 263,
         "width": 1168,
-        "height": 3090.7,
+        "height": 3235.2,
         "display": "grid",
         "position": "static",
         "gridTemplateColumns": "1168px",
@@ -642,7 +642,7 @@
       "Market Value Trend": false,
       "Set Signals": false
     },
-    "screenshotSha256": "99c86faefba6b0fe7960ab8cc55b016571fe883138fe7e5750b63b0dcbe08ad2"
+    "screenshotSha256": "2757ef36d9c1e41a12dbf39db3fe1d6690fe21ceedbd99e7f9e7f2f0d31cd32f"
   },
   "prismatic-evolutions__boundary__market": {
     "geometry": {
@@ -919,7 +919,7 @@
         "x": 16,
         "y": 263,
         "width": 1169,
-        "height": 3090.7,
+        "height": 3235.2,
         "display": "grid",
         "position": "static",
         "gridTemplateColumns": "1169px",
@@ -934,7 +934,7 @@
       "Market Value Trend": false,
       "Set Signals": false
     },
-    "screenshotSha256": "ad381029bdafe923f0e4a2bc3cc6585f8f46bfcecc71aa3348d7d6d9b2b28df2"
+    "screenshotSha256": "fbc5e78eb2901ce08f3e90a9496b03d5f5e4495381d040ff75655a60655e0e62"
   },
   "prismatic-evolutions__above-boundary__market": {
     "geometry": {
@@ -1503,7 +1503,7 @@
         "x": 16,
         "y": 251,
         "width": 1408,
-        "height": 2373.7,
+        "height": 2518.2,
         "display": "grid",
         "position": "static",
         "gridTemplateColumns": "1408px",
@@ -1518,7 +1518,7 @@
       "Market Value Trend": false,
       "Set Signals": false
     },
-    "screenshotSha256": "0b1c6d7286b040478ade0ba634c9eaac4733dd1dfe74cb75055acb496c73cc40"
+    "screenshotSha256": "ff7404617ebd61f8cafeb1931d7c0b04af148cedfb6052474993bfd82de5cbb0"
   },
   "ascended-heroes__desktop__market": {
     "geometry": {
@@ -1750,5 +1750,66 @@
       "Set Signals": false
     },
     "screenshotSha256": "d8ca05183efe7053013ef91e7f1dc64971713b46b275275bfdc9d10d1c0fa439"
+  },
+  "prismatic-evolutions__tablet__rip": {
+    "geometry": {
+      "contextShell": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "contents",
+        "position": "static",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "contextHeader": {
+        "exists": true,
+        "visible": false,
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "position": "relative",
+        "gridTemplateColumns": "none",
+        "childCount": 1
+      },
+      "stickyTabs": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 85,
+        "width": 736,
+        "height": 156,
+        "display": "block",
+        "position": "sticky",
+        "gridTemplateColumns": "none",
+        "childCount": 2
+      },
+      "root": {
+        "exists": true,
+        "visible": true,
+        "x": 16,
+        "y": 257,
+        "width": 736,
+        "height": 4664.4,
+        "display": "grid",
+        "position": "static",
+        "gridTemplateColumns": "736px",
+        "childCount": 6
+      }
+    },
+    "visibleLabels": {
+      "RIP": true,
+      "Market": true,
+      "Cards & Products": false,
+      "Pull Rates": true,
+      "Market Value Trend": false,
+      "Set Signals": false
+    },
+    "screenshotSha256": "50c2686de31bce79a1dbdee1c20022f5978460cbada7913bc9777bfd46301ee1"
   }
 }

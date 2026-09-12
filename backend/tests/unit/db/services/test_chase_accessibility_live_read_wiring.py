@@ -44,7 +44,24 @@ def _patch_snapshot_row(monkeypatch, payload_json):
 
 
 def test_critical_payload_projects_chase_accessibility_fields_when_ready(monkeypatch):
-    _patch_snapshot_row(monkeypatch, {"summary": {}, "rip": {}})
+    presentation = {
+        "value": 0.00234,
+        "percent": 0.234,
+        "status": "ready",
+        "version": CHASE_ACCESSIBILITY_VERSION,
+        "chaseDepth": 12.5,
+        "mappedHcMass": 1.0,
+        "modelScore": 53.91,
+        "publicScore": 72.99,
+        "setRank": 7,
+        "setCohortSize": 22,
+        "cohortId": "cohort-22",
+    }
+    _patch_snapshot_row(monkeypatch, {
+        "summary": {},
+        "rip": {},
+        "publicRipContractV11": {"chaseAccessibility": presentation},
+    })
     monkeypatch.setattr(svc, "create_service_role_client", lambda: object())
     monkeypatch.setattr(svc, "read_chase_accessibility_snapshot", lambda *, set_id, client: svc.project_chase_accessibility(_fake_row()))
 
@@ -56,6 +73,7 @@ def test_critical_payload_projects_chase_accessibility_fields_when_ready(monkeyp
     assert payload["chaseAccessibilityVersion"] == CHASE_ACCESSIBILITY_VERSION
     assert payload["chaseDepth"] == 12.5
     assert payload["mappedHcMass"] == 1.0
+    assert payload["chaseAccessibilityPresentation"] == presentation
 
 
 def test_critical_payload_reports_null_never_zero_when_unavailable(monkeypatch):

@@ -38,9 +38,86 @@ FAILED_PUBLICATION_CONTRACT = "FAILED_PUBLICATION_CONTRACT"
 FAILED_PUBLICATION_RPC = "FAILED_PUBLICATION_RPC"
 FAILED_POST_PUBLICATION_PARITY = "FAILED_POST_PUBLICATION_PARITY"
 
+# An attempt that was left in `evaluating` forever because the process that
+# started it never reached its own finish call (crash / forced restart mid
+# publication - see the Sept-8 incident this reconciliation exists to make
+# structurally impossible). Reuses the existing terminal `failed` status
+# rather than inventing a new status value, since the attempts table's status
+# vocabulary is defined outside this repo and is not something this change
+# may alter (no schema changes in scope here).
+ORPHANED_ATTEMPT_SUPERSEDED = "ORPHANED_ATTEMPT_SUPERSEDED"
+
+# Explicit publication routing modes. Every attempt records which one it was
+# so "did this publication coordinate the Set-page generation or not" is
+# never something that has to be inferred after the fact from which RPC name
+# happens to appear in a log line.
+PUBLICATION_MODE_RANKINGS_ONLY = "rankings_only"
+PUBLICATION_MODE_COORDINATED_SET_PAGES = "coordinated_set_pages"
+
+# The single explicit terminal classification every commit-capable Rankings
+# workflow invocation must resolve to. Never inferred from a handful of
+# separate booleans after the fact.
+CLASSIFICATION_PUBLISHED = "PUBLISHED"
+CLASSIFICATION_DEFERRED_WITH_ATTEMPT = "DEFERRED_WITH_ATTEMPT"
+CLASSIFICATION_FAILED_WITH_ATTEMPT = "FAILED_WITH_ATTEMPT"
+CLASSIFICATION_UNCHANGED_NOT_REQUIRED = "UNCHANGED_NOT_REQUIRED"
+CLASSIFICATION_EXPLICIT_OPERATOR_SKIP = "EXPLICIT_OPERATOR_SKIP"
+CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION = "PIPELINE_FAILED_BEFORE_RANKINGS_DECISION"
+
+
+@dataclass
+class RankingsPublicationOutcome:
+    """One explicit result object for a Rankings publication decision.
+
+    Callers should prefer reading this over inferring state from several
+    separate booleans/strings. Only the fields needed to make the lifecycle
+    outcome unambiguous are carried here - this is not a general
+    observability payload.
+    """
+
+    classification: str
+    reason_code: str
+    reason_detail: str
+    attempt_id: Optional[str] = None
+    publication_id: Optional[str] = None
+    publication_mode: Optional[str] = None
+    publication_required: bool = False
+    publication_attempted: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
+
+
+# THE ONE conversion from a `RankingsPublicationOutcome.classification` to the
+# legacy free-text `rankings_publication_status` string older callers still
+# read. Kept here, next to the classification constants themselves, so no
+# call site ever hand-writes a second decision tree that could drift from
+# this mapping. A successful terminal path must NEVER map to "not_attempted" -
+# see CLASSIFICATION_UNCHANGED_NOT_REQUIRED, which is the explicit "nothing
+# to do" terminal state this mapping resolves to "unchanged", not to
+# "not_attempted".
+_CLASSIFICATION_TO_LEGACY_STATUS: Dict[str, str] = {
+    CLASSIFICATION_PUBLISHED: "published",
+    CLASSIFICATION_DEFERRED_WITH_ATTEMPT: "deferred",
+    CLASSIFICATION_FAILED_WITH_ATTEMPT: "failed",
+    CLASSIFICATION_UNCHANGED_NOT_REQUIRED: "unchanged",
+    CLASSIFICATION_EXPLICIT_OPERATOR_SKIP: "skipped",
+    CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION: "pipeline_failed",
+}
+
+
+def rankings_publication_legacy_status(classification: Optional[str]) -> str:
+    """Legacy `rankings_publication_status` string for one outcome classification.
+
+    Unknown/missing classification maps to "not_attempted" - the ONLY place
+    that legacy sentinel may still originate, and only for a classification
+    this mapping does not recognise (never for one of the six known ones).
+    """
+    return _CLASSIFICATION_TO_LEGACY_STATUS.get(str(classification or ""), "not_attempted")
 
 
 def source_run_fingerprint(source_run_ids: Mapping[str, Any]) -> str:
@@ -310,9 +387,62 @@ def read_active_publication(client: Any) -> Dict[str, Any]:
     return row or {}
 
 
+def reconcile_orphaned_rankings_publication_attempts(
+    client: Any, *, market_date: Optional[str], exclude_attempt_id: Optional[str] = None,
+) -> int:
+    """Terminally close any `evaluating` attempt left behind by a process that
+    never reached its own finish call for this market date.
+
+    This is what makes the Sept-8 incident (publication `85d7ce0b-...`
+    succeeding while its triggering attempt `fd215ea3-...` stayed `evaluating`
+    forever) structurally impossible going forward: the process that started
+    that attempt never got to call `finish_rankings_publication_attempt`
+    (interrupted mid-publication), so no amount of correctness inside that
+    single call graph can close it - only a LATER attempt for the same date
+    can. This is called at the start of every new attempt for a market date,
+    so an orphan can survive at most until the next publication cycle for
+    that date, never indefinitely.
+
+    Reuses the existing terminal `failed` status rather than introducing a
+    new status value: the attempts table's status vocabulary is owned outside
+    this repo and schema/constraint changes are out of scope here.
+    """
+    if not market_date:
+        return 0
+    rows = list(
+        client.table("pokemon_rankings_publication_attempts")
+        .select("id")
+        .eq("attempted_market_date", market_date)
+        .eq("status", "evaluating")
+        .execute()
+        .data or []
+    )
+    reconciled = 0
+    for row in rows:
+        stale_id = row.get("id")
+        if not stale_id or stale_id == exclude_attempt_id:
+            continue
+        finish_rankings_publication_attempt(
+            client, stale_id, status="failed", reason_code=ORPHANED_ATTEMPT_SUPERSEDED,
+            detail=(
+                "attempt never reached a terminal state (process interrupted before "
+                "finishing); closed as orphaned when a later attempt was started for "
+                f"market_date={market_date}"
+            ),
+        )
+        reconciled += 1
+    return reconciled
+
+
 def start_rankings_publication_attempt(
     client: Any, report: RankingsReadinessReport, *, prior: Optional[Mapping[str, Any]] = None,
+    publication_mode: Optional[str] = None,
 ) -> str:
+    # Close out any orphan from a previous, interrupted process BEFORE opening
+    # a new attempt for the same date - see
+    # `reconcile_orphaned_rankings_publication_attempts` for why this is the
+    # only place such an orphan can ever be closed.
+    reconcile_orphaned_rankings_publication_attempts(client, market_date=report.market_date)
     attempt_id = str(uuid4())
     prior = dict(prior or {})
     client.table("pokemon_rankings_publication_attempts").insert({
@@ -330,7 +460,12 @@ def start_rankings_publication_attempt(
         "prior_active_publication_id": prior.get("id"),
         "previous_active_market_date": prior.get("market_date"),
         "contract_versions": report.contract_versions,
-        "diagnostics": {"problems": report.problems},
+        # `publicationMode` travels inside the existing free-form `diagnostics`
+        # jsonb column rather than a new column, since a schema change is out
+        # of scope here. It records, unambiguously and per-attempt, whether
+        # this publication was routed rankings-only or through the
+        # coordinated Set-page RPC (see PUBLICATION_MODE_* above).
+        "diagnostics": {"problems": report.problems, "publicationMode": publication_mode},
     }).execute()
     return attempt_id
 

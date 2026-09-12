@@ -5,6 +5,7 @@ import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { getAuthenticatedUserFromCookiesWithTimeout } from "@/lib/authServer";
 import { resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
 import { getExploreSetValueMarket } from "@/lib/explore/exploreSetValueMarketServer";
+import { getMarketExplorerPreparedDirectory } from "@/lib/explore/marketExplorerPreparedServer";
 import { resolveInitialExplorerState } from "@/lib/explore/marketExplorerState.mjs";
 import {
   resolveCardSegmentReconciliation,
@@ -36,13 +37,14 @@ export const metadata = buildRouteMetadata({
 });
 
 export default async function MarketExplorerPage({ searchParams }) {
-  const [resolvedSearchParams, payload, auth] = await Promise.all([
+  const [resolvedSearchParams, payload, auth, preparedDirectory] = await Promise.all([
     Promise.resolve(searchParams).catch(() => null),
     getExploreSetValueMarket().catch(() => null),
     // PLAN, NOT LOGIN, decides what this workspace offers. Resolved here so the
     // first paint is already correct; a failure or timeout yields no user,
     // which is basic access — the gate fails CLOSED.
     getAuthenticatedUserFromCookiesWithTimeout().catch(() => ({ user: null })),
+    getMarketExplorerPreparedDirectory(),
   ]);
   const user = auth?.user || null;
   const planAccess = resolveMarketExplorerPlanAccess(user);
@@ -61,6 +63,10 @@ export default async function MarketExplorerPage({ searchParams }) {
   const initialState = resolveInitialExplorerState(
     overview, resolvedSearchParams, sealedSegments, cardSegments
   );
+  const requestedPreparedKey = typeof resolvedSearchParams?.prepared === "string"
+    ? resolvedSearchParams.prepared.trim() : "";
+  const initialPreparedKey = preparedDirectory.some((market) => market.market_key === requestedPreparedKey)
+    ? requestedPreparedKey : null;
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
@@ -72,33 +78,6 @@ export default async function MarketExplorerPage({ searchParams }) {
     // page's wrapper — /Market and every other route are untouched.
     <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-[118rem] px-4 pb-20 pt-3 desk:px-6 desk:pt-5 sm:px-6 lg:px-8 2xl:px-10`}>
       <PageArtworkAtmosphere src={getExploreBackground("pokemon")} dataAttribute="data-market-ambient-artwork" visibilityClassName="hidden desk:block" loading="lazy" />
-
-      {/* Compact research header. Deliberately not a hero — this is a workspace. */}
-      <header className="mb-3 flex flex-col gap-1 desk:mb-4 desk:gap-2 desk:flex-row desk:items-end desk:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[20px] font-semibold text-[var(--text-primary)] desk:text-2xl">Market Explorer</h1>
-            {/* Names the level the visitor is ACTUALLY on, rather than
-                advertising one plan to everyone. */}
-            <span data-market-explorer-plan-badge data-market-explorer-plan={planAccess.accessMode} className="inline-flex flex-none items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              {planAccess.accessMode === "premium" ? "Index Premium"
-                : planAccess.accessMode === "plus" ? "Index Plus"
-                : "Basic"}
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">Compare performance across Pokémon market segments.</p>
-        </div>
-        {coverageSummary.length ? (
-          <p data-market-coverage-summary className="flex flex-wrap items-center gap-x-1 gap-y-0 text-[10px] leading-tight tabular-nums text-[var(--text-secondary)] desk:justify-end desk:gap-x-1.5 desk:text-right desk:text-[11px]">
-            {coverageSummary.map((part, index) => (
-              <span key={part} className="whitespace-nowrap">
-                {index > 0 ? <span aria-hidden="true" className="mr-1.5 opacity-60">·</span> : null}
-                {part}
-              </span>
-            ))}
-          </p>
-        ) : null}
-      </header>
 
       {/* The entitlement boundary. Market Explorer ITSELF is open to everyone —
           the Asset Market layer is the public market pulse, and hiding the
@@ -115,6 +94,9 @@ export default async function MarketExplorerPage({ searchParams }) {
           topChaseSegmentStatus={topChaseSegmentStatus}
           initialState={initialState}
           user={user}
+          coverageSummary={coverageSummary}
+          preparedDirectory={preparedDirectory}
+          initialPreparedKey={initialPreparedKey}
         />
       </MarketExplorerAccessGate>
     </div>

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 from backend.db.services.pokemon_card_market_delta_contract import (
     MOVEMENT_CONTRACT_VERSION,
@@ -222,8 +223,7 @@ def build_global_card_movers_row(
     }
 
 
-def read_explore_card_movers_snapshot(*, limit: Any = LIMIT, client: Any = None) -> Dict[str, Any]:
-    active = client or service_read_client
+def _read_explore_card_movers_snapshot_once(active: Any, *, limit: Any) -> Dict[str, Any]:
     started = time.perf_counter()
     rows = list((active.table(TABLE).select("payload_json,market_date,updated_at,card_count").eq("tcg", "pokemon").eq("scope", "explore")
                  .eq("window_key", "7D").limit(1).execute()).data or [])
@@ -241,6 +241,16 @@ def read_explore_card_movers_snapshot(*, limit: Any = LIMIT, client: Any = None)
     payload["meta"] = {**(payload.get("meta") or {}), "source": TABLE}
     logger.info("market_read route=/explore/card-market-movers dbDurationMs=%s majorReads=1 cardCount=%s", db_ms, rows[0].get("card_count"))
     return payload
+
+
+def read_explore_card_movers_snapshot(*, limit: Any = LIMIT, client: Any = None) -> Dict[str, Any]:
+    if client is not None:
+        return _read_explore_card_movers_snapshot_once(client, limit=limit)
+    return run_public_read_with_retry(
+        lambda active: _read_explore_card_movers_snapshot_once(active, limit=limit),
+        operation_name="explore_card_movers_snapshot",
+        initial_client=service_read_client,
+    )
 
 
 def upsert_explore_card_movers_snapshot(row: Mapping[str, Any], *, client: Any) -> None:

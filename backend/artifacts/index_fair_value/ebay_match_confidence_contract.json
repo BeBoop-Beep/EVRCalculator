@@ -1,0 +1,13 @@
+{
+  "version": "ebay_match_confidence_contract_v1",
+  "states": {
+    "EXACT_HIGH_CONFIDENCE": "Compatible normalized name, collector number, set/approved alias, language, raw state, and every material variant dimension; no exclusion evidence.",
+    "EXACT_MEDIUM_CONFIDENCE": "Name and collector number compatible but one non-catastrophic set or variant signal is missing.",
+    "AMBIGUOUS": "Competing canonical or market-variant interpretations remain.",
+    "REJECTED": "Wrong identity, language, graded state, bundle/lot, sealed/accessory, proxy, or ineligible condition."
+  },
+  "initialAuthorityEligible": ["EXACT_HIGH_CONFIDENCE"],
+  "automaticFallbackToAccepted": false,
+  "priceUsedForIdentity": false,
+  "activationGate": "Independent frozen benchmark precision >=99% and Wilson 95% lower bound >=98%."
+}

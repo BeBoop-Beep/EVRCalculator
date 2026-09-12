@@ -155,7 +155,7 @@ export default function ProductChaseIntelligenceSection({ sealedProductId, setId
     <section className="rounded-2xl border p-6" data-product-chase-intelligence>
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-lg font-semibold">Product Chase Intelligence · Index Premium</h3>
-        <InfoPopover text="Chase Access is a separate measure from Overall RIP. It describes how reachable this set's most important collectible value is through this product's packs at a budget you choose - it is not a financial return score." />
+        <InfoPopover text="Chase Access is a separate measure from RIP Score. It describes how reachable this set's most important collectible value is through this product's packs at a budget you choose - it is not a financial return score." />
       </div>
       <p className="mt-1.5 max-w-2xl text-sm text-[var(--text-secondary)]">
         At this budget, how much access does this product give you to the

@@ -83,7 +83,7 @@ test("TCGs shares the primary nav typography, spacing and visible focus ring", (
   // Explore and TCGs are one set of siblings built from one class recipe.
   // Tools was removed as a destination; the recipe itself is unchanged.
   const tabs = primaryNav.match(/\$\{navTabBase\} inline-flex items-center justify-center/g) || [];
-  assert.equal(tabs.length, 4, "Rankings, Market, TCGs, and Articles must share the primary tab recipe");
+  assert.equal(tabs.length, 5, "Rankings, Market, Explorer, TCGs, and Articles must share the primary tab recipe");
   assert.ok(headerSource.includes("px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium"), "primary nav typography and spacing are unchanged");
   assert.ok(
     headerSource.includes("focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"),
@@ -110,6 +110,7 @@ test("Tools is gone from every header surface", () => {
 test("the primary public architecture and account destinations are present", () => {
   assert.ok(primaryNav.includes('href="/Rankings"'));
   assert.ok(primaryNav.includes('href="/Market"'));
+  assert.ok(primaryNav.includes("href={MARKET_EXPLORER_NAV_HREF}"));
   assert.ok(primaryNav.includes('href="/Articles"'));
   assert.ok(headerSource.includes('aria-haspopup="dialog"'));
   assert.ok(headerSource.includes("<AuthPopover"));

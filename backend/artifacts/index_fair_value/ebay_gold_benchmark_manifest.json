@@ -1,0 +1,74 @@
+{
+  "version": "ebay_gold_benchmark_manifest_v1",
+  "source": "ebay_manual_gold_labels.csv",
+  "sourceQueueFingerprint": "8686420fdd5551b313833b40c87b98b360032081dbc0f05352f3a6adf186ba5e",
+  "sourceRows": 1050,
+  "sourceCards": 70,
+  "splitMethod": "per-card stable SHA-256 ordering; first 30 cards 7/3/5, remaining 40 cards 6/4/5",
+  "partitionSizes": {
+    "DEVELOPMENT": 450,
+    "VALIDATION": 250,
+    "FINAL_BLIND_TEST": 350
+  },
+  "splitFingerprint": "b12aa1d8877bbedb0255480b43d2da530b14bc5301e56f15024eba5292768d79",
+  "stratificationCounts": {
+    "DEVELOPMENT": {
+      "rows": 450,
+      "cards": 70,
+      "promo": 2,
+      "variant_risk": 361,
+      "set_omitted": 92,
+      "number_omitted": 96,
+      "graded": 55,
+      "non_english": 8,
+      "lot_bundle": 1,
+      "sealed_accessory": 14
+    },
+    "VALIDATION": {
+      "rows": 250,
+      "cards": 70,
+      "promo": 1,
+      "variant_risk": 199,
+      "set_omitted": 51,
+      "number_omitted": 62,
+      "graded": 25,
+      "non_english": 3,
+      "lot_bundle": 0,
+      "sealed_accessory": 10
+    },
+    "FINAL_BLIND_TEST": {
+      "rows": 350,
+      "cards": 70,
+      "promo": 3,
+      "variant_risk": 278,
+      "set_omitted": 71,
+      "number_omitted": 83,
+      "graded": 49,
+      "non_english": 2,
+      "lot_bundle": 5,
+      "sealed_accessory": 16
+    }
+  },
+  "labelTaxonomyVersion": "ebay_gold_taxonomy_v1",
+  "labels": [
+    "EXACT_TARGET_MATCH",
+    "RELATED_BUT_WRONG_VARIANT",
+    "WRONG_SET",
+    "WRONG_CARD_NUMBER",
+    "WRONG_LANGUAGE",
+    "GRADED",
+    "LOT_OR_BUNDLE",
+    "SEALED_OR_ACCESSORY",
+    "CONDITION_INELIGIBLE",
+    "AMBIGUOUS",
+    "OTHER"
+  ],
+  "confidence": [
+    "HIGH",
+    "MEDIUM",
+    "LOW"
+  ],
+  "reviewToolVersion": "ebay_gold_reviewer_v1",
+  "sourceImmutable": true,
+  "finalBlindAccess": "Denied to matcher-development loader until frozen matcher commit and fingerprint manifest is supplied."
+}

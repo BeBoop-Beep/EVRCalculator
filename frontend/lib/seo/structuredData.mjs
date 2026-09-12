@@ -60,7 +60,7 @@ export const SITE_ALTERNATE_NAMES = Object.freeze([
  * say on the page, and names no score, weight or formula.
  */
 export const SITE_ENTITY_DESCRIPTION =
-  "inDex is a Pokémon TCG opening-intelligence platform: simulated pack openings, expected value, and Overall RIP rankings for Pokémon sets.";
+  "inDex is a Pokémon TCG opening-intelligence platform: simulated pack openings, expected value, and RIP Score rankings for Pokémon sets.";
 
 /** `/icon-512.png` — the 512x512 PNG `public/manifest.json` already ships. */
 const LOGO_PATH = "/icon-512.png";

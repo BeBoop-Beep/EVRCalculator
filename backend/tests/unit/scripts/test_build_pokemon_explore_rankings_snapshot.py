@@ -22,7 +22,10 @@ def test_rankings_publishes_when_gate_disabled(monkeypatch):
     assert len(published) == 1
     assert published[0][0] is client
     assert published[0][1] == {
-        "limit": command.DEFAULT_RANKINGS_LIMIT, "market_date": None, "commit": True,
+        "limit": command.DEFAULT_RANKINGS_LIMIT,
+        "market_date": None,
+        "commit": True,
+        "set_page_generation_id": None,
     }
 
 

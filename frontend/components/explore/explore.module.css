@@ -100,6 +100,67 @@
   table-layout: fixed;
 }
 
+/* Products table (RankingsProductLensClient) width contract.
+ *
+ * `table-layout: fixed` sizes every column strictly from its <col> width and
+ * never from cell content, so a colgroup is the ONLY lever for column width
+ * here - per-cell min-w-[Nrem] hacks fight this layout mode instead of
+ * controlling it. The column set intentionally sums to well over 100%: Rank
+ * is narrow (a 1-2 digit number), Product/Set carries a thumbnail + full
+ * product name and gets the largest share, and Format Strength gets enough
+ * room to wrap copy like "#12 of 22 Loose Booster Packs" instead of clipping
+ * it. `.productsTable` uses `width: 100%` so the table fits within the viewport
+ * and column widths are proportionally scaled to fit. The `overflow-x-auto` wrapper
+ * on the desktop display block ensures legibility without forcing a wider-than-viewport
+ * rendering - the table never intentionally exceeds the viewport width.
+ */
+.productsTable {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.colRank {
+  width: 2.75rem;
+}
+
+.colProduct {
+  width: 13rem;
+}
+
+.colSetPackIdentity {
+  width: 19rem;
+}
+
+.colSetPackMetric {
+  width: 7.75rem;
+}
+
+.colOverall,
+.colFinancial,
+.colCollector,
+.colPrice,
+.colEv {
+  width: 6rem;
+}
+
+.colTier {
+  width: 3.5rem;
+}
+
+.colChase,
+.colCommitted,
+.colRecover {
+  width: 7rem;
+}
+
+.colUnits {
+  width: 4rem;
+}
+
+.colFormat {
+  width: 10rem;
+}
+
 /* One shared Product Family Snapshot surface. Family values are unboxed data
    columns; short, quiet dividers organize them without creating mini-cards. */
 .surface :global(.set-rip-family-snapshot) {
@@ -1081,6 +1142,55 @@
   display: block;
 }
 
+/* Phase 7 information architecture: broad intent zones, with the comparison
+ * workspace carrying the strongest visual weight. Internal tools keep their
+ * own compact separators instead of becoming a wall of nested cards. */
+.explorerZone {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ex-line);
+  border-radius: 0.9rem;
+}
+
+.explorerZonePrimary {
+  border-color: rgba(45, 212, 191, 0.24);
+  box-shadow: 0 16px 48px rgba(2, 6, 23, 0.18), inset 0 1px rgba(153, 246, 228, 0.05);
+}
+
+.explorerZoneHeader {
+  padding: 1rem 0.9rem 0.8rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: linear-gradient(110deg, rgba(13, 148, 136, 0.09), rgba(14, 116, 144, 0.035) 55%, transparent);
+}
+
+.explorerZoneEyebrow {
+  color: rgb(45, 212, 191);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.explorerZoneTitle { margin-top: 0.2rem; color: var(--text-primary); font-size: 1.05rem; font-weight: 700; }
+.explorerZoneDescription { margin-top: 0.2rem; color: var(--text-secondary); font-size: 0.75rem; line-height: 1.45; }
+
+.explorerInspectionGrid,
+.explorerBuildGrid { display: grid; min-width: 0; }
+
+.explorerInspectionGrid > *,
+.explorerBuildPath { min-width: 0; border-top: 1px solid var(--border-subtle); }
+
+@media (min-width: 768px) {
+  .explorerZoneHeader { padding: 1.1rem 1rem 0.9rem; }
+  .explorerInspectionGrid { grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.75fr); }
+  .explorerInspectionGrid > :last-child { border-left: 1px solid var(--border-subtle); }
+}
+
+@media (min-width: 1200px) {
+  .explorerBuildGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .explorerBuildPath + .explorerBuildPath { border-left: 1px solid var(--border-subtle); }
+}
+
 /* THE RAIL IS FIXED; THE CHART TAKES EVERYTHING ELSE.
  *
  * The previous 20fr/80fr split meant that widening the workspace widened the
@@ -1097,8 +1207,13 @@
      * proportional rail resolved to 243px at 1280, and anything wider than
      * that would have taken width away from the chart at exactly the width
      * where it has the least to spare. */
-    grid-template-columns: 15rem minmax(0, 1fr);
+    grid-template-columns: 18rem minmax(0, 1fr);
+    grid-template-areas:
+      "rail signals"
+      "rail active"
+      "rail chart";
     align-items: stretch;
+    column-gap: 1rem;
   }
 }
 
@@ -1106,32 +1221,49 @@
  * reading measure — and stops there. Every pixel beyond this is the chart's. */
 @media (min-width: 1440px) {
   .marketExplorerAnalysis {
-    grid-template-columns: 17rem minmax(0, 1fr);
+    grid-template-columns: 20rem minmax(0, 1fr);
   }
 }
 
 @media (min-width: 1536px) {
   .marketExplorerAnalysis {
-    grid-template-columns: 19rem minmax(0, 1fr);
+    grid-template-columns: 21rem minmax(0, 1fr);
   }
 }
 
 @media (min-width: 1200px) {
 
   .marketExplorerAnalysis > [data-market-explorer-chart-pane] {
-    order: 2;
-    border-left: 1px solid var(--ex-line);
+    grid-area: chart;
   }
 
   .marketExplorerAnalysis > [data-market-explorer-filters] {
-    order: 1;
+    grid-area: rail;
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+    min-height: 100%;
+    border: 1px solid var(--ex-line);
+    border-radius: 0.75rem;
+    background: rgba(2, 6, 23, 0.58);
+    backdrop-filter: blur(14px);
   }
+
+  .marketExplorerAnalysis > [data-market-explorer-signals] { grid-area: signals; }
+  .marketExplorerAnalysis > [data-market-explorer-active-strip] { grid-area: active; }
 }
 
 @media (max-width: 1199.98px) {
+  .marketExplorerAnalysis { display: flex; flex-direction: column; gap: 0.75rem; }
   .marketExplorerAnalysis > [data-market-explorer-filters] {
-    border-top: 1px solid var(--ex-line);
+    order: 4;
+    border: 1px solid var(--ex-line);
+    border-radius: 0.75rem;
+    background: rgba(2, 6, 23, 0.5);
   }
+  .marketExplorerAnalysis > [data-market-explorer-signals] { order: 1; overflow-x: auto; }
+  .marketExplorerAnalysis > [data-market-explorer-active-strip] { order: 2; overflow-x: auto; }
+  .marketExplorerAnalysis > [data-market-explorer-chart-pane] { order: 3; }
 }
 
 :global([data-theme="light"]) .marketExplorerAnalysis > [data-market-explorer-chart-pane],

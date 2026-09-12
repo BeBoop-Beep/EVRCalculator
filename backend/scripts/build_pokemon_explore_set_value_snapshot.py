@@ -29,6 +29,10 @@ from backend.db.services.canonical_market_overview import (
     build_canonical_market_overview,
     resolve_canonical_overview_sets,
 )
+from backend.db.services.pokemon_market_rollout_cohort import (
+    MARKET_ROOT_AUTHORITY_CUTOVER_DATE,
+    resolve_market_root_cohort,
+)
 from backend.scripts.pokemon_snapshot_builders import get_client
 
 MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
@@ -79,8 +83,8 @@ def parser() -> argparse.ArgumentParser:
     return result
 
 
-def _load_sets(client, *, market_date: str):
-    """Staged market-domain Set Value cohort, independent of RIP eligibility."""
+def _legacy_load_sets(client, *, market_date: str):
+    """Historical Set Market cohort exactly as it was published pre-cutover."""
     rows = list((
         client.table(MARKET_READY_VIEW)
         .select(
@@ -112,13 +116,43 @@ def _load_sets(client, *, market_date: str):
     ]
 
 
-def _load_canonical_histories(client, set_ids, *, through_date: str):
-    """Canonical parent/subset Set Value history plus staged current-day overlay.
+def _load_sets(client, *, market_date: str):
+    """Set Market roots aligned with the global Market authority.
 
-    Historical points retain the strict per-day canonical certification rule.
-    For an activated rollout era, the current Market value is the materialized
-    latest-known canonical basket, which may carry a small number of stale NM
-    constituents while still meeting the explicit >=95% rollout threshold.
+    Sep 8 and earlier retain the already-published Set Market cohort verbatim.
+    Sep 9+ uses the shared root resolver, including structurally valid prior-
+    basket continuity roots that must not disappear because of same-day
+    freshness policy.
+    """
+    day = str(market_date)[:10]
+    if day < MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
+        return _legacy_load_sets(client, market_date=day)
+    return [
+        {
+            "id": row.get("id"),
+            "name": row.get("name"),
+            "canonical_key": row.get("canonical_key"),
+            "era": row.get("era"),
+            "release_date": row.get("release_date"),
+            "logo_image_url": row.get("logo_image_url"),
+            "symbol_image_url": row.get("symbol_image_url"),
+            "market_scope": "standard",
+            "market_publication_ready": True,
+            "current_certification_status": row.get("market_current_certification_status"),
+        }
+        for row in resolve_market_root_cohort(client, market_date=day)
+    ]
+
+
+def _load_canonical_histories(client, set_ids, *, through_date: str):
+    """Canonical parent/subset Set Value history plus current-day authority overlay.
+
+    Historical points retain strict per-day canonical certification. Before the
+    global cutover, only explicitly activated rollout rows may overlay the
+    current day, preserving the old contract. After the cutover, every root in
+    the shared Market authority may use its exact-date materialized Standard Set
+    Value. That row can contain last-trustworthy component observations while
+    retaining their real source dates; no price is fabricated or relabelled.
     """
     grouped = defaultdict(list)
     limit_date = str(through_date)[:10]
@@ -143,17 +177,19 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 "set_value": row.get("set_value"),
             })
 
+    post_cutover = limit_date >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE
     for offset in range(0, len(set_ids), 100):
         batch = set_ids[offset:offset + 100]
-        rows = list((
+        query = (
             client.table("pokemon_set_value_daily_history")
             .select("set_id,snapshot_date,set_value,source")
             .in_("set_id", batch)
             .eq("snapshot_date", limit_date)
             .eq("value_scope", "standard")
-            .eq("source", ROLLOUT_STANDARD_SOURCE)
-            .execute()
-        ).data or [])
+        )
+        if not post_cutover:
+            query = query.eq("source", ROLLOUT_STANDARD_SOURCE)
+        rows = list(query.execute().data or [])
         for row in rows:
             set_id = str(row.get("set_id"))
             grouped[set_id] = [

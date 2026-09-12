@@ -1,0 +1,6560 @@
+{
+  "count": 253,
+  "rows": [
+    {
+      "canonical_card_id": "00ceb1e8-180f-4787-9c00-bace9b4b2c3b",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Lotad",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "00f5824f-e3ff-4b9e-b335-9c81935c14f7",
+      "variant_ids": [
+        "94e7d412-4e44-4ca7-b19c-043ea12f882f"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Chansey",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "01757660-7278-4b16-af6b-dd7e0d6e8ab3",
+      "variant_ids": [
+        "4e846fe7-78d2-430c-afd1-eced06328bac"
+      ],
+      "set_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "set": "EX Trainer Kit 2 Minun",
+      "era": "EX",
+      "card_name": "Arcanine",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "03a20548-00b4-4b52-a20e-9bd99a292703",
+      "variant_ids": [],
+      "set_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "set": "EX Trainer Kit Latios",
+      "era": "EX",
+      "card_name": "Zigzagoon",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "03a4788e-b588-4dfc-8fdb-06527d78e946",
+      "variant_ids": [
+        "e95512ed-9e23-4f62-af28-ea608405a5ac"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Chespin",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "05f7bc04-8454-47bb-abce-5ecc06b018f5",
+      "variant_ids": [
+        "9c5da28c-4e11-46d3-af45-8a1c5aad0615"
+      ],
+      "set_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "set": "EX Trainer Kit Latias",
+      "era": "EX",
+      "card_name": "Torchic",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "065b3acf-d236-41c3-acf1-03077141b410",
+      "variant_ids": [
+        "0a1ef8a3-057b-454f-9de2-faef88fe42ba"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Cubone",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "06d4ea03-dd14-4de9-b127-7072982e88ff",
+      "variant_ids": [
+        "54de87dc-ec52-47fd-8224-66359d95321c"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Scraggy",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0737728f-5821-48ac-a9cc-cd99d938c5ef",
+      "variant_ids": [
+        "aad80a5c-3bb1-4acf-840f-fe3b845cd4bf"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Flaaffy",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "087ff05e-a941-4f7f-9e12-5ca3b08c4cd0",
+      "variant_ids": [
+        "ebd9063d-604f-4c88-94e3-0c0481e70b57"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Jigglypuff",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "09a3e583-d56f-4b8f-842e-e24e7b6ed583",
+      "variant_ids": [
+        "a169fa96-87ff-4c4b-9704-19a9f494ea27",
+        "c9ab6b23-b57a-477b-8fe7-9bc8b8581f0b"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Chespin",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "09a89953-cb04-422d-8749-f9a21c0046ba",
+      "variant_ids": [
+        "0a23cc1a-45b7-4888-bb0a-493f74070589"
+      ],
+      "set_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "set": "EX Trainer Kit 2 Minun",
+      "era": "EX",
+      "card_name": "Vulpix",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0a028e28-ecf2-4423-97f7-9d5bd56259af",
+      "variant_ids": [
+        "4b6e936d-2784-4eaa-8b2c-1f8ff58a2836"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Eevee",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0b66a797-68e0-4435-b6a9-de1a9a1094d9",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Litten",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0be320c1-4996-4765-a229-1bc406012237",
+      "variant_ids": [
+        "542d7432-4c8d-42f5-840d-f0104439efa8"
+      ],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Grumpig",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0def4e21-ac8f-4e84-bb73-9d33b00da727",
+      "variant_ids": [
+        "0eb4a410-830e-49a4-84a1-f22a66cc0384",
+        "8c062767-f7e8-4884-a17b-e1a7bd5fe08d"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Delphox",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0e39d336-1692-4e53-8128-44b927db5bf4",
+      "variant_ids": [
+        "e30192e2-dcb4-4522-8653-7a7ddac3288b"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Ledyba",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0e60d4f8-15e4-47d1-8ef9-d4bf03399a97",
+      "variant_ids": [
+        "852bfd7f-d4f9-4693-99ae-7543bf9a1a4c"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Snivy",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0e6d06eb-7905-46fe-aaac-bc3fa57a24da",
+      "variant_ids": [],
+      "set_id": "e9063738-f85d-4e2c-8cbe-9a5dc98883e9",
+      "set": "Pokémon Futsal Collection",
+      "era": "Other",
+      "card_name": "Eevee on the Ball",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0f634769-d4f0-4d17-85ab-d67b4625de12",
+      "variant_ids": [
+        "7dc48c4b-9ef2-4cab-bfe4-7efdaa7b4427",
+        "9a1f5e3e-368e-42f5-b933-d02751a18b10"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Totodile",
+      "card_number": "18",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "0f9d5532-6fd5-4456-bfd7-97076c46b0a6",
+      "variant_ids": [
+        "bc67211f-a199-482b-a921-3aa4e9b2e119"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Munna",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "109c5d5c-2e57-481d-90b2-9f0a130c93c4",
+      "variant_ids": [
+        "e9cfc07e-0301-47c0-9bd3-f18ce4cd90ff"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Blitzle",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "11035253-8fc1-459e-a993-0ae3bb356540",
+      "variant_ids": [
+        "27d83284-1736-477b-8091-41dce5b46041"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Poké Ball",
+      "card_number": "35",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "pokeball"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "123a483c-fc9a-4d29-875b-dd6e7aff7de9",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Staryu",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "126ce9c7-2177-4c8a-8524-4742e2fcc620",
+      "variant_ids": [
+        "edeae981-4f38-41e1-9d17-01fab94e11a3"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Raticate",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "12c1d604-d19a-4b4c-a5ab-fa5c103a0992",
+      "variant_ids": [
+        "3c742164-394c-4fa7-8354-ffb4d669eb95"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Dedenne",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1350e1c9-5888-41e8-83a7-8b6202d4b4a7",
+      "variant_ids": [
+        "c3bb98f2-8614-439a-9d1c-4925f1775e2f"
+      ],
+      "set_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "set": "EX Trainer Kit Latias",
+      "era": "EX",
+      "card_name": "Combusken",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "14941c26-51f1-417e-8018-763bb92626be",
+      "variant_ids": [
+        "d8c1840e-cdbf-45a0-b5a7-aa6fdcc40a53"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Dewott",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "14efd07e-e2ce-4abe-88b3-6242336f2082",
+      "variant_ids": [
+        "797c7786-ed8e-479c-977d-4ac27850a4e0"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Tepig",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "15718dda-7762-4f0e-9d08-7dc9641a3444",
+      "variant_ids": [
+        "91c9accf-dca2-4679-9d5e-fade54e731a5",
+        "f4e02f39-74fc-4830-8ca0-58112e4b08e2"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Piplup",
+      "card_number": "20",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "15b7aaa6-8cf7-40a4-b441-fe8e74da82a8",
+      "variant_ids": [],
+      "set_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "set": "EX Trainer Kit Latios",
+      "era": "EX",
+      "card_name": "Pikachu",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "18c1d258-16cf-4529-b643-d4f910029585",
+      "variant_ids": [
+        "844bea8a-65f6-444a-950e-c9fa953521b0"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Skitty",
+      "card_number": "28",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1a10efcf-94a2-4482-8bdf-8e87145c5198",
+      "variant_ids": [],
+      "set_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "set": "EX Trainer Kit 2 Minun",
+      "era": "EX",
+      "card_name": "Potion",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1ccfd2cd-57e5-4929-837c-06fa449814de",
+      "variant_ids": [
+        "49ecf0d3-fc9b-4d62-b9e7-2c2255b48658"
+      ],
+      "set_id": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+      "set": "Dragon Vault",
+      "era": "Black and White",
+      "card_name": "Exp. Share",
+      "card_number": "18",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "MISSING_SOURCE_METADATA",
+      "confidence": "none",
+      "unresolved_reason": "missing_source_metadata"
+    },
+    {
+      "canonical_card_id": "1dfb158a-629f-4f00-bf40-b2a5c2c07ff3",
+      "variant_ids": [
+        "b10eb7c8-d554-41bc-a480-5e95b14eee02"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Togepi",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1e381e41-29b4-4aef-80b9-e272f3a7e8ed",
+      "variant_ids": [
+        "4822ebd5-22dd-410b-a265-349f4ca8db79"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Torchic",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1e5488e0-2b18-4541-a9ea-bee903383047",
+      "variant_ids": [
+        "b6085df5-90ac-49e2-a7f0-297cd56d4b2b"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Alomomola",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1ebe0d4b-1576-450e-837e-68ea2c144591",
+      "variant_ids": [
+        "e49209fb-ecaa-495f-a336-de48f4f0232d"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Caterpie",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1eee1c22-5fbb-48f9-bf97-1a062d7a54cc",
+      "variant_ids": [
+        "adc99065-90b6-45c2-9fbf-b152c8da0911"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Pikachu",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1ef8911a-285d-4489-851a-67bb6c92ec21",
+      "variant_ids": [
+        "199f792f-da06-4255-a71b-c23ba2cf79d7",
+        "a63f0ee6-3b91-4d50-b6e6-ebdd05695d01"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Froakie",
+      "card_number": "22",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1f5ac846-be96-45ec-8de5-d59ff14f1818",
+      "variant_ids": [
+        "0e585841-de7c-4f18-82c7-b7a5e1f0ba08",
+        "b6c446a0-e9ad-428e-9774-e800ce65ac8e"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Scorbunny",
+      "card_number": "16",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "1fadd220-17ae-48e1-b5c3-f295d53db319",
+      "variant_ids": [
+        "b10333dd-577f-40f6-a6e2-e8438c6ae721"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Starmie",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "201d0211-953d-4246-9b71-9c794603ceae",
+      "variant_ids": [
+        "5c31ae40-2535-46cd-b569-04ee016e3555"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Tentacruel",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "244c2ff3-a2ec-4b4e-bdb5-9041b07179f0",
+      "variant_ids": [],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Potion",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "24ce648b-d3bd-4b79-b490-0df1846d294d",
+      "variant_ids": [
+        "8f2bd58c-33df-44f2-8b82-54a2cf456cfd"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Rowlet",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "26ad2b53-3338-4e7f-a58a-aa98519a324e",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Pikipek",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "285ba705-52aa-4a08-baa3-335d70903853",
+      "variant_ids": [
+        "3237fdc5-7b76-4313-8b85-aeb52d9bf0ba",
+        "e88bee47-eb5f-4e81-aa6b-580c02d481a2"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Fennekin",
+      "card_number": "14",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "28e63bcd-a938-45cd-af88-55fe285b258d",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Skitty",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "29a366ff-a6b0-46ac-b6c9-ed1b90905066",
+      "variant_ids": [
+        "127ebd99-f2f5-4b3e-ac4e-5f1005dccdab"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Magnemite",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "2b79b8ad-accd-4d47-8b57-b2e4fad1be75",
+      "variant_ids": [
+        "2ed832b0-58b6-4bf6-b3ab-19122580f8ae"
+      ],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Spoink",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "2d5028da-ad17-4cd5-afcd-8aa6d8a13dba",
+      "variant_ids": [
+        "9a36e185-7fcf-4459-9047-d68a20f6a612"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Axew",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "2d653934-578a-454e-a736-1f0eaf1df5f3",
+      "variant_ids": [
+        "a3591c8a-90cf-40aa-b9b0-1f09777b5a94"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Audino",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "303ee1d7-159e-4f83-8992-e4f52c002559",
+      "variant_ids": [],
+      "set_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "set": "EX Trainer Kit 2 Minun",
+      "era": "EX",
+      "card_name": "Energy Search",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "331d98fb-0a93-4bc8-9f09-e46afa309566",
+      "variant_ids": [
+        "a6bf029b-84ef-49cd-a7da-9b49b4ec8ef9",
+        "dc7ed8a0-32d0-4373-830b-f79f5aab7a80"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Snivy",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "33dd2c66-f3de-495e-b700-bf2baf685089",
+      "variant_ids": [
+        "9d8bbbf0-ac60-4af5-94a8-52e6f971afd4",
+        "fdf0af69-d588-4d4d-a18c-4cf46d944903"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Bulbasaur",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "359624b2-636e-4ebb-a468-f0bfbf10d4f7",
+      "variant_ids": [],
+      "set_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "set": "EX Trainer Kit Latios",
+      "era": "EX",
+      "card_name": "Magnemite",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "36e98023-eb33-447f-b069-a49ceceb4568",
+      "variant_ids": [
+        "29069f35-3dac-44c8-846d-67c66b61a96c"
+      ],
+      "set_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "set": "EX Trainer Kit Latias",
+      "era": "EX",
+      "card_name": "Bagon",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "37a17894-0846-4f20-8b4b-77c50e0c94a7",
+      "variant_ids": [
+        "fd470e6d-69db-42e8-b1e0-3551efb0f6f5"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Drilbur",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "39c9e98e-4da4-4c65-967a-1e1978e240ea",
+      "variant_ids": [
+        "73448452-68a2-4ff2-b55d-ea61c45d55fb"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Furfrou",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "3afe6880-aa93-4d0b-b271-8e0a3aeb1190",
+      "variant_ids": [
+        "70cbdddd-55cb-41ef-8bd5-84b4f57c329b"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Potion",
+      "card_number": "37",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "3cdaab22-23cf-467f-9660-23d784ee2878",
+      "variant_ids": [
+        "c4ac2390-bc2e-4f18-ac72-388ea5b2d3f0"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Furfrou",
+      "card_number": "32",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "3e9a026b-9c2b-4152-9aa2-7f499e59c35c",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Cosmog",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "3ed3b720-4e71-4963-997b-cfa4f8ff3fbd",
+      "variant_ids": [
+        "cbe9cc33-0dd6-49ad-bbb0-70c19dc4f30e"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Jigglypuff",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "3fc59379-9377-461a-97e7-686fb54d9fe6",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Electrike",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "41005383-fb67-42f3-8d37-363d46cb1d16",
+      "variant_ids": [
+        "53f6af4d-4dac-4ee1-9d98-1bb84788e515"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Lapras",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "43941f69-a54f-4bfd-84ee-b9c877c380fc",
+      "variant_ids": [
+        "8d984454-1d0f-4461-93ab-abf1bf0ed162"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Bibarel",
+      "card_number": "16",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "43a8998a-02b1-4f8c-9c38-48ed7e47729b",
+      "variant_ids": [
+        "e22bdff8-5401-4c60-b749-f5562b64017f"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Swirlix",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "45c46efb-47f4-4387-8e7b-31e324538565",
+      "variant_ids": [
+        "e9244251-5999-44ea-a4d3-c05cc1e4cb5d"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Pidove",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "47c97573-1009-463d-a36a-0155a84eb690",
+      "variant_ids": [
+        "7a70ab3a-c12b-4885-9188-b4d687fa7166"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Pansear",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "495875b4-398f-41de-b85c-61b3e8a46e29",
+      "variant_ids": [
+        "8448aea0-10df-45c7-a6f3-893a75f8f739"
+      ],
+      "set_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "set": "EX Trainer Kit Latias",
+      "era": "EX",
+      "card_name": "Skitty",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "496331ff-8317-4acd-9bc1-217bf9899e0d",
+      "variant_ids": [],
+      "set_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "set": "EX Trainer Kit Latias",
+      "era": "EX",
+      "card_name": "Potion",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "49a8d9f1-7372-4123-ad4a-39e037299b85",
+      "variant_ids": [
+        "484236bb-f1b1-49ee-8ed9-8be51e37ca0d"
+      ],
+      "set_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "set": "EX Trainer Kit Latias",
+      "era": "EX",
+      "card_name": "Numel",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "4bf260a6-b361-4d95-b337-e2679a7662c9",
+      "variant_ids": [
+        "6778d3ee-f699-4a4b-9e7b-54e85807b8a7"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Pikachu",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "4cf72eff-f3d5-4128-9f49-6593ab80f3c3",
+      "variant_ids": [
+        "db2634c2-f6e1-4e39-995c-12d83e4d51b7"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Inkay",
+      "card_number": "18",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "4d2bbeff-4bd8-443f-9077-1895fb1d4084",
+      "variant_ids": [],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Energy Search",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "4d6e42da-436e-440d-b453-ee4459a51a38",
+      "variant_ids": [
+        "6a0da282-9644-4778-85f3-abd3d16d73e2"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Bunnelby",
+      "card_number": "30",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "4e7dd74a-4336-4546-8089-f4bc3142076c",
+      "variant_ids": [
+        "d7f3f639-ae6f-4d39-b803-f6782c54788e"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Ledyba",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "reverse-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "4f1c8d5b-7dfa-43df-a4cd-1df0cc911336",
+      "variant_ids": [
+        "828588f4-686e-4afb-af05-790c8529390d"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Victini",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "4fe54ad5-6dfe-43a7-9d82-f023641e2abd",
+      "variant_ids": [
+        "472f0ba5-9eaa-40b9-826d-e7772304c7b3"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Klang",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "50f5fd0e-ea2d-46d0-a20b-d0f6d9d21d4e",
+      "variant_ids": [
+        "f640f2c2-6424-4963-9bf5-eb9a0e9e589f"
+      ],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Beldum",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "513b63ed-8916-4afc-9768-28a7566550ee",
+      "variant_ids": [
+        "5fa19619-925e-4bdd-8913-c94c12533603"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Cutiefly",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "51bf4c00-2162-4bab-8ec6-3638ec2a1210",
+      "variant_ids": [
+        "28def65e-9421-47be-afb4-7482002265c9"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Tierno",
+      "card_number": "39",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "51c2bcab-374a-41b9-8807-bfc0b8225e9c",
+      "variant_ids": [
+        "f7100bac-63c6-4cda-b6e7-1cda610c1dea"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Totodile",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "53adbb93-bf9a-4613-bf1b-af372270fa62",
+      "variant_ids": [
+        "4d0d3b01-335d-4e12-8e78-cd7e732fdc9c"
+      ],
+      "set_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "set": "EX Trainer Kit 2 Minun",
+      "era": "EX",
+      "card_name": "Charmander",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "5423370e-38ba-468c-a505-02628d2e5ed9",
+      "variant_ids": [
+        "fcb25367-cfd7-466e-8531-9d662aec2c74"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Emolga",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "5492df26-8d17-4d4c-801a-54b9290a7ac1",
+      "variant_ids": [
+        "41f03649-3856-40b4-9bbf-9534973a42a2"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Pansage",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "570f1497-5c1e-4bbc-a8d8-b585558e0d38",
+      "variant_ids": [
+        "dce7eddb-aeed-47ee-a1d4-d41d834f5bfb"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Pangoro",
+      "card_number": "13",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "58ca4fd4-1928-4598-a3c3-8d8826133c15",
+      "variant_ids": [
+        "06572214-ea5f-4208-9af5-612f6f3ca972",
+        "c85def46-2ba7-4df9-af52-5611c9574faf"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Quilladin",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "5937ba5a-f474-445f-b25f-eefe5df8a4ae",
+      "variant_ids": [
+        "521c2af7-3c08-47e9-999a-2e8342c0e077"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Woobat",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "59b2ca8d-8945-44a6-90b0-91b9b2aaa69e",
+      "variant_ids": [
+        "67d3236a-554b-454e-b0b9-8b659f813a03"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Rattata",
+      "card_number": "15",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "5a622a80-08d9-4255-99a9-2efc9c2048f3",
+      "variant_ids": [
+        "f0d008f6-023d-4b4a-8a72-1ba88c594bd7"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Miltank",
+      "card_number": "27",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "5ff6521d-8ed2-4ba6-876f-9636877daa38",
+      "variant_ids": [
+        "c9f0b091-ab83-4567-acbd-70225b9f1bca"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Ninetales",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "60a36d9b-b32c-4b15-8a30-79843dc13afb",
+      "variant_ids": [
+        "e286a075-ca1d-4c65-be00-0b6998f2cc60"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Onix",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "644965da-9363-445a-b8dc-2b038d98fb18",
+      "variant_ids": [
+        "8a7fa698-00aa-4e85-a1c0-97a84f7c292a"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Weedle",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "65569a58-99a5-4d3e-a429-36db51605e11",
+      "variant_ids": [],
+      "set_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "set": "EX Trainer Kit Latios",
+      "era": "EX",
+      "card_name": "Potion",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "677216c0-95cb-41be-9fd1-7a1595ac128c",
+      "variant_ids": [
+        "e1826b72-5265-4163-bdce-abdd3a5c7ebf"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Pawniard",
+      "card_number": "19",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "6776fa40-58bd-42df-b47c-721932822be7",
+      "variant_ids": [
+        "ab0e9f90-4c80-4b44-a891-3a0d0b96c4c8"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Vileplume",
+      "card_number": "17",
+      "rarity": null,
+      "printing_types": [
+        "reverse-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "67f451b0-9a04-42c5-aa79-b9e6ebe6256f",
+      "variant_ids": [
+        "39e64c8f-d415-42e6-a4ea-e092d27e2626"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Tynamo",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "6b930962-0752-4db7-b6e1-b24c868eb8fd",
+      "variant_ids": [
+        "759968f2-8731-4500-8b02-6d9eeca89fc5"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Meowth",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "6c0e8031-c24c-4a5a-9a43-781886ddda72",
+      "variant_ids": [
+        "7861f217-fa06-4d29-99bc-ada0de62ea3c"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Bisharp",
+      "card_number": "20",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "6d98ec5e-15f7-4ff0-a32e-1ef11abd7a13",
+      "variant_ids": [
+        "10def0c5-20f5-4525-ae66-02cd07091d62"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Pansage",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "6dda5727-4943-42a5-a386-9c56ae832dc8",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Meditite",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "6e696441-fdb6-4462-a5e2-a0d6236cee27",
+      "variant_ids": [
+        "4380a757-5804-4915-96b1-0b6abd4ec78b"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Machop",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "6ecf462b-88ae-4e15-8503-40f70ffa1f1f",
+      "variant_ids": [
+        "35225bc7-b798-4fbb-b6b8-d2af2cbee512",
+        "9edaee01-4971-4cfb-beae-88a34ce3b3cf"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Chesnaught",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "70005fde-e2b3-4645-9a39-00e410a21dab",
+      "variant_ids": [
+        "b5fb216c-8607-4936-b44e-8ecf6ca952d0",
+        "b702a5ff-3f29-4776-8640-c22fbd621a07"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Tepig",
+      "card_number": "13",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "701ed89d-c4d7-443b-96ca-4d9f994e633c",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Marill",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "70f8fa45-d4a6-40b0-8b3c-16693af8bf6b",
+      "variant_ids": [
+        "147d0efc-f7f6-4754-ab05-1db8b845eec2",
+        "98adae3f-752e-4433-b853-96c5c31e5e34"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Grookey",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "71529584-29e2-495b-8992-4c1dfc9c448d",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Pikachu",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "72a12784-aeb8-4c35-87c7-8a91dc4f80d1",
+      "variant_ids": [
+        "6f446010-b0c3-438e-88c2-72e498a6ad4b"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Snubbull",
+      "card_number": "22",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "72b5ed44-acd0-470e-aed8-388cac2d7d5b",
+      "variant_ids": [
+        "5f184354-11ec-4dab-840f-b76f695ae655",
+        "704921c1-da20-4495-bacc-1d9d6227dda1"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Torchic",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "72bead41-9e06-4473-b4b1-dded64fa444b",
+      "variant_ids": [
+        "b12a3041-e9ae-4796-9c02-1181c0365b89",
+        "fb51fe64-d89f-41a5-bfff-83bedf569da1"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Mudkip",
+      "card_number": "19",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "72d52d37-fd7a-42f4-bff1-faade57607a1",
+      "variant_ids": [
+        "99c900ca-10a5-4d26-a8e3-2b5ebf96493b"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Eevee",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "732079ba-2dd3-4099-abf0-338886161af1",
+      "variant_ids": [
+        "051f0f86-a706-4d26-b8d6-edb9d380f725",
+        "ca46533f-3583-438a-83cf-61b15bc830ee"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Popplio",
+      "card_number": "23",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "7784843e-6999-46e7-bd3c-67eb4c92a3bf",
+      "variant_ids": [
+        "e1d840e9-0015-4d68-bd98-5f35c4063b18"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Slugma",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "77e9a3fe-9891-44a1-97d4-41754108f0ec",
+      "variant_ids": [
+        "779481a4-9c64-40cf-a34f-603cba1c4480"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Swirlix",
+      "card_number": "24",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "79c38070-138a-4a50-94a9-3c18fce269f6",
+      "variant_ids": [
+        "c2f35a66-c1ae-40c7-884b-7070d33ef28f"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Froakie",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "7abbef8a-dbef-4fa5-a876-f60a3f1b8447",
+      "variant_ids": [
+        "f8266af2-1543-423a-a835-ca85203ac827"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Crushing Hammer",
+      "card_number": "34",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "7e05a4d5-a71f-4f00-b806-a9c61c21ad28",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Cutiefly",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "7f24fab7-4fce-491c-aad2-49a1a0f74623",
+      "variant_ids": [],
+      "set_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "set": "EX Trainer Kit Latios",
+      "era": "EX",
+      "card_name": "Linoone",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "7f4299ae-ba72-4806-a7f9-ba99f8cf534f",
+      "variant_ids": [
+        "d534608e-e6ad-4fec-a45c-54203462a0a4"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Fennekin",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "7fe87791-37a2-4f1f-8d15-cb17b7d139b4",
+      "variant_ids": [],
+      "set_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "set": "EX Trainer Kit Latios",
+      "era": "EX",
+      "card_name": "Latios",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "7ffc8e5c-d39f-49fe-8e31-2604c35cca2c",
+      "variant_ids": [
+        "916827b0-e6d8-4dd3-8151-5d79dcb4b46e",
+        "d7f689ee-4910-45f5-ae42-560886588a82"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Rowlet",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8198afaa-294e-4b9c-8eef-82258bb58b93",
+      "variant_ids": [
+        "ca5edc79-8974-4dff-b3ed-903792bc335f"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Gossifleur",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "839b2aa7-7202-4d6f-abe5-69e28a7f9bbb",
+      "variant_ids": [
+        "53c715a2-882a-41f4-8f47-8d629a22445e"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Psyduck",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8401ad6f-5811-4eb4-8981-b90b0941e961",
+      "variant_ids": [
+        "25da51b3-0c32-4b35-a3f7-0bc22a4e2940"
+      ],
+      "set_id": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+      "set": "Dragon Vault",
+      "era": "Black and White",
+      "card_name": "First Ticket",
+      "card_number": "19",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "MISSING_SOURCE_METADATA",
+      "confidence": "none",
+      "unresolved_reason": "missing_source_metadata"
+    },
+    {
+      "canonical_card_id": "8471e2d7-4e96-4590-b102-d8c8466c6a81",
+      "variant_ids": [
+        "eb79dcd4-084d-49d7-b99e-e43610259e26"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Smeargle",
+      "card_number": "15",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "856cdd67-8799-4a8b-922b-7b23efbb1b44",
+      "variant_ids": [
+        "388d0e6d-7a1c-4157-9e19-02df87937174"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Mewtwo",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "85d67feb-9080-474d-86ee-64b0a69dc1f1",
+      "variant_ids": [
+        "cce9d6db-ab75-4d76-a3fc-6dafaf292bf8"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Mew",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "reverse-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "86120d21-130f-4b67-bda9-48fab4b8aaed",
+      "variant_ids": [
+        "48a8cd52-589e-4a6a-88c9-a448b344ed04"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Bidoof",
+      "card_number": "29",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "87927605-8cb8-474d-af24-b603f9dd9f0d",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Zigzagoon",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "886c308f-7ac9-4d6b-b399-4b730d6ec0cd",
+      "variant_ids": [
+        "f83a4ea6-fc5b-4916-acc5-1aea011da7a5"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Panpour",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8b158ab3-fd96-4f86-988d-07fe3a75d5d0",
+      "variant_ids": [
+        "c720df8e-6306-4030-9f2c-595c36b4deac"
+      ],
+      "set_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "set": "EX Trainer Kit 2 Minun",
+      "era": "EX",
+      "card_name": "Growlithe",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8b77e70d-ee24-4211-b1ee-9bc6ded0405f",
+      "variant_ids": [
+        "11f0553d-d943-4a7e-aeb6-7cc1709fd215"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Honedge",
+      "card_number": "21",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8c76a1f7-d061-4979-8309-5250529c6380",
+      "variant_ids": [
+        "e73d3b73-3af2-41bd-88c7-c23f475eeb31"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Lucario",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8d0a2b9b-0b05-4e96-a066-6338e2fc2bd2",
+      "variant_ids": [
+        "8d923eee-fd03-4da7-8572-b3df48a88e1e"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Marill",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "reverse-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8d8aceeb-3bc2-4ebf-9407-f894cb000013",
+      "variant_ids": [
+        "9bd9cd0a-8154-4042-b402-997f5be3663f",
+        "beef5de5-f3f7-4935-abd5-5e790a6c3e5c"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Litten",
+      "card_number": "15",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8dadeca3-f3cf-4539-b472-47f8987d671d",
+      "variant_ids": [
+        "a592b104-54f9-438d-bd32-e6178b9eb0c8"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Weedle",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8ecb3018-e226-4a16-bb03-0b3db738e5b4",
+      "variant_ids": [],
+      "set_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "set": "EX Trainer Kit Latias",
+      "era": "EX",
+      "card_name": "Energy Search",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "8fcc6948-101a-4393-b3b6-c31624fafb2d",
+      "variant_ids": [
+        "7ef0fc62-596e-4fb8-be90-0e6b0502e2ae"
+      ],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Electrike",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "90751415-b44d-47a4-9388-0368e5e4e022",
+      "variant_ids": [
+        "63eedbd3-c7e8-40d1-95ba-52b430555e88",
+        "e97f2b25-0b9a-44e7-aaed-af1a1fcb4436"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Braixen",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "908a1ac3-0697-48b2-a950-87f83105b876",
+      "variant_ids": [
+        "4ddd6d0b-46b6-4b4f-9734-80271b541eca"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Porygon",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "913d4022-8e03-468f-a68d-f3745e418e26",
+      "variant_ids": [
+        "8414bf11-311d-45f9-88f2-80231752d8bc"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Fletchling",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9176e1b9-358b-4383-ac2d-ec3bfec3b418",
+      "variant_ids": [
+        "a8f29aaf-6dfa-4dca-af70-45cc489ba47b"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Klink",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "927f74fd-abbb-476f-94ff-9c101f5fefc5",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Alolan Diglett",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "933d4781-32c3-4384-a375-666b6d105f00",
+      "variant_ids": [
+        "11efe289-821b-445c-8ea8-10434ecb53ec"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Zapdos",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "936c501a-4f04-424f-bc1e-44155d3323a7",
+      "variant_ids": [
+        "babf35a5-ca0e-4bca-86bf-5c2055a063f2",
+        "d86a6645-b79c-4c70-b9c7-bf845bb146f2"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Cyndaquil",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "93be16e6-3993-43c3-9ebd-ed0819891003",
+      "variant_ids": [
+        "5ca9dfa9-6f6c-479e-be8b-420c9362c7c9"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Eevee",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "942aa1b5-ef61-45c0-ad9b-6303fed4eea7",
+      "variant_ids": [
+        "d9fb0011-a8bf-43ce-ac08-83b312a74fef"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Bastiodon",
+      "card_number": "14",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "94de1a42-c363-4794-bb2d-b75f05f8aea6",
+      "variant_ids": [
+        "f2e7c317-ab01-451a-9903-dd0d8e3b5241"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Mankey",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9544ce32-aeb0-4d01-9fd0-e8c945b666fb",
+      "variant_ids": [
+        "523a2fce-385c-486e-b40b-f179be47df5a",
+        "cca97126-765d-477d-b7f1-bf95b1ced2d1"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Froakie",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "959479c8-aba6-4dd0-a58c-fac879e2f151",
+      "variant_ids": [
+        "8264b063-f853-464f-ba93-38cafe4820f6"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Diglett",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "973565a9-6047-4be2-87b8-194b396c9fb4",
+      "variant_ids": [
+        "29e12ffe-53ae-4943-bf09-d48608d5d2ae"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Alolan Meowth",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "97cc0551-9db7-4b17-8390-8ccdc37f8773",
+      "variant_ids": [
+        "bdb77cd7-79af-4321-af14-bb96e962dc26"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Pignite",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9879b53d-5d57-4a56-9e78-04de75583edf",
+      "variant_ids": [
+        "4de2ef7d-ba40-4828-9cc1-bbbb1c621542"
+      ],
+      "set_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "set": "EX Trainer Kit 2 Minun",
+      "era": "EX",
+      "card_name": "Mareep",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "98fd2a30-3fc0-41b8-afbb-6920ea5a9771",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Torchic",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "99156858-1203-46d3-9de6-e8633d1ca1ed",
+      "variant_ids": [
+        "3a5873fc-e378-494c-bf21-5ad6fc19b2d5"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Venusaur",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "994d2dee-0a66-4975-a817-932340dd29b8",
+      "variant_ids": [
+        "e50efd40-3ffb-4748-baa8-092365060020"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Pikachu",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9a893f63-ada7-44e5-99e0-41f5676a9514",
+      "variant_ids": [
+        "ffeb57ae-b506-48f7-a319-97f1908094d9"
+      ],
+      "set_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "set": "EX Trainer Kit 2 Minun",
+      "era": "EX",
+      "card_name": "Minun",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9bcb6cfe-76f6-43b1-8727-1d5004f27f57",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Pikachu",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9ca0c406-59f0-4d25-8e75-778694e05bd5",
+      "variant_ids": [
+        "3c6606ed-0737-44ac-9dde-0b23206fe178",
+        "59ac84d4-8da8-424a-ac7a-1325470fc866"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Fennekin",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9cd432c9-2773-418a-ba55-198193c6e804",
+      "variant_ids": [
+        "12f7dbe6-bfa0-4f44-8a76-0084b98329de",
+        "3d532bd2-8a01-4413-b3dd-aff5a55846b7"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Chespin",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9db05fee-43ed-4699-958c-32e9200a220a",
+      "variant_ids": [
+        "ce6d53b0-e3d1-405d-a8f7-f47e77801b4d"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Fennekin",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9e183940-635c-46ce-bf44-37ca9feb4c9a",
+      "variant_ids": [
+        "ee79c01d-d25f-4b81-a400-9be3ffe8a20a"
+      ],
+      "set_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "set": "EX Trainer Kit 2 Minun",
+      "era": "EX",
+      "card_name": "Celio's Network",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9effc733-8583-4095-b474-b84dbaa46f32",
+      "variant_ids": [
+        "b0748830-b8bf-4b66-980f-57d12dd80e26"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Sandile",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9f55f1c2-eb2f-4d22-a743-55497e6f89b3",
+      "variant_ids": [
+        "c76c7003-d232-4f39-9735-9d37e80fe398"
+      ],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Plusle",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "9f7a8164-e410-49ec-a00a-097a3f063d69",
+      "variant_ids": [
+        "2b963950-1d31-447b-8640-d17fdd9532bd"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Exeggutor",
+      "card_number": "13",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "a24f1a98-1863-43f1-8373-125272cddeb3",
+      "variant_ids": [
+        "2ad502a7-ebd6-4f9c-a459-e2f168e66984"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Dratini",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "a33b4756-8d43-4b9c-9a19-98d55689a033",
+      "variant_ids": [
+        "36cd3900-f12c-4733-bcab-4d19f2459403"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Growlithe",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "a3bb33f0-beab-4468-b80c-1c6f60b17d16",
+      "variant_ids": [],
+      "set_id": "e9063738-f85d-4e2c-8cbe-9a5dc98883e9",
+      "set": "Pokémon Futsal Collection",
+      "era": "Other",
+      "card_name": "Pikachu on the Ball",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "a4209c19-1e35-43c3-87b2-acfe4d992b84",
+      "variant_ids": [
+        "8cbb3825-7842-44af-97d8-50fed1587c75"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Cherrim",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "a44bfb11-0a90-4a38-9269-c5174d5dbf26",
+      "variant_ids": [
+        "bff7bdbd-c0b2-4d24-a053-494de86362f4"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Gyarados",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "a731fe6e-9223-455d-9adc-f8512adaa159",
+      "variant_ids": [],
+      "set_id": "e9063738-f85d-4e2c-8cbe-9a5dc98883e9",
+      "set": "Pokémon Futsal Collection",
+      "era": "Other",
+      "card_name": "Scorbunny on the Ball",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "a996dce0-c5a5-46fa-9479-9e76d1062866",
+      "variant_ids": [
+        "2a731415-a972-4f6e-8b8f-66f16ea6d4c2"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Chinchou",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "a9ea5bd0-8af6-468d-8115-2b61b2150522",
+      "variant_ids": [
+        "cc8899b7-edca-4da2-8f44-4fa898b1f94b"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Furfrou",
+      "card_number": "33",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "aa0e5fa8-5fab-4e22-9d40-17a43da043e2",
+      "variant_ids": [
+        "4b960398-7f72-45f6-840e-d3482b838798",
+        "f4efbeaf-e8f6-49d0-9321-690e7eb9f360"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Chikorita",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "aa7eef72-c0a0-4d76-a90c-4bf6a829b385",
+      "variant_ids": [
+        "f6485002-0795-429e-8627-3707ebf97007"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Alolan Dugtrio",
+      "card_number": "11",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "aac9acdc-64b1-4c87-b7e5-4ae520628bea",
+      "variant_ids": [
+        "a2ce3900-f650-47ff-9f89-e18fef608168"
+      ],
+      "set_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "set": "EX Trainer Kit Latias",
+      "era": "EX",
+      "card_name": "Latias",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ab7c8f9c-5129-4bbd-87d9-a91e43a0a0b1",
+      "variant_ids": [
+        "bdfe68bb-143c-4940-bd7e-4f2165eaf533"
+      ],
+      "set_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "set": "EX Trainer Kit Latias",
+      "era": "EX",
+      "card_name": "Delcatty",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "abbd4906-bcb0-46c3-8947-42d11e8ed7e4",
+      "variant_ids": [
+        "82199f46-4279-49cd-a64a-089c945c9cb6"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Snubbull",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ae8e50cc-5686-4b92-b906-21b545947aaf",
+      "variant_ids": [
+        "3d7623da-fb0f-4693-90c0-a49e2c0ab800",
+        "80c5fdf4-0c70-41f5-add9-e89909d442aa"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Charmander",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "aee0770a-2df5-4adb-8f5e-5127918f3eff",
+      "variant_ids": [],
+      "set_id": "e9063738-f85d-4e2c-8cbe-9a5dc98883e9",
+      "set": "Pokémon Futsal Collection",
+      "era": "Other",
+      "card_name": "Grookey on the Ball",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "b020cb4d-49eb-4884-9f61-a9ff2f2113da",
+      "variant_ids": [
+        "1077111d-ad63-4b9d-8a89-6cbb98752752"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Ivysaur",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "b154538a-8975-4f88-ac81-a97728c75421",
+      "variant_ids": [
+        "b323a018-049e-4a1e-9ce2-6a144ade0eb8"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Magikarp",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "b41c2a84-d21e-4f43-a04e-cf77185c277e",
+      "variant_ids": [
+        "80aae08a-62d5-4c90-bbd9-5f751c475b31",
+        "abbe5a9a-c1ce-4ab6-a0c4-25fb26bff85b"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Pikachu",
+      "card_number": "25",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "b67c361f-3298-452c-9a5b-ff173d4c0a4c",
+      "variant_ids": [
+        "9d1d509e-5033-4352-9785-6805c7fbd488"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Vulpix",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "b753488d-38d1-4422-b571-ad5bf7bd37ef",
+      "variant_ids": [
+        "dd894f79-454b-4e59-879c-94a100409374"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Wartortle",
+      "card_number": "15",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "b7738fde-7a97-4008-a8ea-d4c1ea8677f5",
+      "variant_ids": [
+        "636613d6-8c4a-4be6-9abb-7532a9ab4838"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Farfetch'd",
+      "card_number": "25",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "b87ea346-615d-47b2-ac56-687987da7824",
+      "variant_ids": [],
+      "set_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "set": "EX Trainer Kit Latios",
+      "era": "EX",
+      "card_name": "Magneton",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "b9b4e27b-afa1-4f61-806d-59aea17a70f6",
+      "variant_ids": [
+        "1ff2ae3e-d510-4feb-a7a7-cdec69bc6863"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Horsea",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ba1605d3-80de-4f28-9d06-048811787699",
+      "variant_ids": [],
+      "set_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "set": "EX Trainer Kit Latios",
+      "era": "EX",
+      "card_name": "Energy Search",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "baab64f0-e006-43fa-98e1-ae734acf3b78",
+      "variant_ids": [
+        "5a4c8733-82fd-4cbe-9ba1-b073312faf33"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Inkay",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "bb095398-d53a-49f1-81bc-4cc0bd29abc8",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Mudkip",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "bcf6a388-8668-4052-b20e-f1cb9cc2d0fb",
+      "variant_ids": [
+        "36a7817f-d808-4dc7-9ba1-31abc2254eae"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Mew",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "be8f9be7-8576-4992-9d25-a126b511b882",
+      "variant_ids": [
+        "90418720-e581-4740-91f7-9c0aab2b5695"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Bewear",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "bebd9409-fa72-486c-ac26-2dacefbe85f5",
+      "variant_ids": [
+        "25d4d152-6973-4d83-bbd8-26fe66ad0479",
+        "e0aea05c-6dd1-4b82-820c-670cc3053960"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Oshawott",
+      "card_number": "21",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "bfcf81dc-40bf-48e8-bf76-27b3269e6f11",
+      "variant_ids": [
+        "7197dc1c-dd78-458b-b5ad-5c2efdd149b3"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Poochyena",
+      "card_number": "16",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "c15927cf-bd42-492d-b85a-f66d799b38ee",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Popplio",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "c1826221-1220-4da2-9977-6b9acedf48bc",
+      "variant_ids": [
+        "a9952dac-c94f-4c38-99e6-84084aca49ad"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Lickitung",
+      "card_number": "16",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "c29191ef-e39e-4172-9be5-8a1fd579cf71",
+      "variant_ids": [
+        "71a6e042-67b8-4b03-ad97-63c837ee4f27"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Pidgeot",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "c2a7fd09-c8dc-4f42-bfe4-663e07e4ff48",
+      "variant_ids": [
+        "3a8e482c-f4e8-446c-b31e-a036ffe4e67c",
+        "895066d8-0b86-416b-abe0-28f73cc382b0"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Greninja",
+      "card_number": "14",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "c4e95fe7-f82d-4550-8c8b-f871ec338bb1",
+      "variant_ids": [
+        "3e9b90cc-43d6-4883-b8cd-6054d923b699"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Skuntank",
+      "card_number": "13",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "c54d106e-5340-4298-a543-319c73b46206",
+      "variant_ids": [
+        "9151202d-e8f8-4271-be9a-2c0f375ce14c"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Oshawott",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "c9c2f4df-151b-421f-bda1-839d7214f6e3",
+      "variant_ids": [
+        "f5e44088-140b-4acd-a059-96b88bb13d84"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Onix",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "cbaf3750-0a56-463a-8f21-84a0208ba491",
+      "variant_ids": [
+        "6cf74c73-584e-4476-b253-bd9a247612a7",
+        "ee73f34e-214b-4a30-a715-2e20c409eff1"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Frogadier",
+      "card_number": "13",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "cbd3c6f0-79ff-48bd-bd24-951bd24f8658",
+      "variant_ids": [
+        "078a7469-8e56-4d12-8f55-6cc8b39337b9"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Slowpoke",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "cc6352be-e760-4d7e-8f58-75a58df84895",
+      "variant_ids": [
+        "08e75c66-50c7-4fba-b2c5-10f6e61ba130"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Gastly",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "cc7a2857-c853-41bd-bf11-216bedef8db6",
+      "variant_ids": [
+        "c99a5186-59c7-4f1b-92c4-84b11ec80006"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Dwebble",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ccca9365-f652-4d81-b180-0e40f314c6d4",
+      "variant_ids": [
+        "c1b1ab2d-409e-48ea-b8f9-df00b010aa11"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Clauncher",
+      "card_number": "15",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ce3b4e14-79ae-4fc9-a4b0-e45e0b11c76f",
+      "variant_ids": [
+        "badeae2f-29fa-4381-b8f4-104848da81d9"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Honedge",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ce5eec01-75fd-46e3-baa9-97f872e21b01",
+      "variant_ids": [
+        "22c1bc02-47fd-4e15-a775-6606dbb11840"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Mightyena",
+      "card_number": "17",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "cf2a14de-09a3-41f3-9cf6-c6a0a4e87cb2",
+      "variant_ids": [
+        "ac6d6f37-9898-4ed1-b312-09aea6377bcb"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Maractus",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "d012f6a6-4bdf-4bc0-9381-2c423e1dc5ed",
+      "variant_ids": [
+        "581e1f44-43d8-4e62-a338-6a51ccb38f13"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Growlithe",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "d3030b21-8566-4756-b95f-728405e8b1a6",
+      "variant_ids": [
+        "e6dd8fae-1dd4-45ae-a4bd-24d786e69dfc"
+      ],
+      "set_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "set": "McDonald's Collection 2014",
+      "era": "Other",
+      "card_name": "Bunnelby",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "d31f990d-5e82-43a2-9865-d33b14682cab",
+      "variant_ids": [],
+      "set_id": "e9063738-f85d-4e2c-8cbe-9a5dc98883e9",
+      "set": "Pokémon Futsal Collection",
+      "era": "Other",
+      "card_name": "Sobble on the Ball",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "d5257443-a7db-40b9-b8d4-d0d91f303275",
+      "variant_ids": [
+        "b122a702-6d2f-46cf-bd9e-da2fa92ab6ba"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Drampa",
+      "card_number": "14",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "d56239e3-268c-4f3b-a291-b20b3ae86f08",
+      "variant_ids": [
+        "547e6761-414e-4930-8b9e-ebaf6134851d"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Lapras",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "d7814f40-df1d-41f7-a3a8-50d70e6c2fed",
+      "variant_ids": [
+        "44783d18-09d2-4b83-942c-294affc1b5ea"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Lapras",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "d825dd79-cdc3-45de-9123-5609eaba26e7",
+      "variant_ids": [
+        "05efc87b-0afd-43e3-bbef-9468de9ffd95"
+      ],
+      "set_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "set": "McDonald's Collection 2011",
+      "era": "Other",
+      "card_name": "Zorua",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "dae4d8ae-0e2f-4b83-87af-5b1540d2a226",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Grubbin",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "dd1b893b-11ad-4a29-9df3-e1beea857cb5",
+      "variant_ids": [
+        "077796a6-fd89-4669-a72e-a232406bd45b"
+      ],
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set": "McDonald's Collection 2016",
+      "era": "Other",
+      "card_name": "Scraggy",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "dd301708-3686-4035-84fb-41c1f5cf111a",
+      "variant_ids": [
+        "27edb228-18dc-448a-a89b-affa4b385194"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Magmar",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "dd652e29-05c3-49df-b004-a744b278291d",
+      "variant_ids": [
+        "3cfc0083-95be-4d2b-895a-3e7fd6a1f263"
+      ],
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "set": "Pokémon Rumble",
+      "era": "Other",
+      "card_name": "Heatran",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "de08a41c-5cf5-4f32-8dd2-b7dd07e4eb0a",
+      "variant_ids": [
+        "860364e3-dd99-43a1-a19a-086fba4aa3d0"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Butterfree",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "df462bc0-feea-4f8a-b119-10b50238fa14",
+      "variant_ids": [
+        "10fbdd97-274b-46ec-9525-c56ab72a4658"
+      ],
+      "set_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "set": "McDonald's Collection 2018",
+      "era": "Other",
+      "card_name": "Pikachu",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "df6a185a-d695-40db-8151-c95f351e48e9",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Yungoos",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "e029d919-d877-4742-a064-a71bd87107be",
+      "variant_ids": [
+        "2d747640-0a7f-4a4b-9451-b947257ab3a4"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Togepi",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "reverse-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "e09c1584-d4cd-4978-afdb-415016b5ae20",
+      "variant_ids": [
+        "57ffeb7f-190a-4dac-87e9-547641a655f5",
+        "da27560e-4303-40ae-adf5-818180fab489"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Chimchar",
+      "card_number": "12",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "e1fd64f3-48bf-4ca3-9e88-db20d998f6c9",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Crabrawler",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "e2d77ee0-fb6f-4961-8013-e0c40c315bda",
+      "variant_ids": [
+        "972367ff-a2ac-42f0-a3a4-9ae62b7d7e24"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Alolan Sandshrew",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "e37ac07c-858f-413b-b6f6-f2dbf80ac25c",
+      "variant_ids": [
+        "3fc52604-9569-4c73-ac75-439d2e55c94b"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Purrloin",
+      "card_number": "9",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "e4f89055-bac6-4ddd-8174-008f4d1f1738",
+      "variant_ids": [
+        "6dd3a2fb-5103-4467-856e-b9a547b09d83"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Pokémon Catcher",
+      "card_number": "36",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "e65da3b7-81bd-4f7b-a265-8dc4bf7b7558",
+      "variant_ids": [
+        "1fef0210-402c-4207-8265-f7ad8f150798",
+        "2ccdf07a-145c-4fc9-90f8-f7ea23f3433b"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Sobble",
+      "card_number": "24",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "e73092d9-b6fc-441a-bd31-595a0b5ec49f",
+      "variant_ids": [],
+      "set_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "set": "EX Trainer Kit Latios",
+      "era": "EX",
+      "card_name": "Electrike",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "e7b2393d-9eaf-4fcf-9f0e-f4e1805a2ad8",
+      "variant_ids": [
+        "622abdc5-d5f7-4550-a8ad-2ec339779cc0"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Switch",
+      "card_number": "38",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ea87728b-e74c-4195-945d-ae85ac1a1b69",
+      "variant_ids": [
+        "ac9a0431-f14e-408b-800a-435e51b70ba9"
+      ],
+      "set_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "set": "McDonald's Collection 2012",
+      "era": "Other",
+      "card_name": "Servine",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "eb4bb5fa-0de5-4642-ab7f-af9077460433",
+      "variant_ids": [
+        "2cab2f6a-c7dc-44a2-9adb-b403ed80bd8f",
+        "7339a7e6-a8c1-4f2c-b96f-03e9c3b65ebf"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Treecko",
+      "card_number": "3",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "eb885aa4-67c6-4406-a373-7e530220008c",
+      "variant_ids": [
+        "220c4e2e-5039-4cb3-a1cf-887e2224ab78"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Pikachu",
+      "card_number": "6",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ebda6a31-4b2a-449f-9651-0a18b4cfcf70",
+      "variant_ids": [],
+      "set_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "set": "McDonald's Collection 2015",
+      "era": "Other",
+      "card_name": "Treecko",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ec355625-39b1-432d-9d30-d0fb8fbb757f",
+      "variant_ids": [
+        "bac27ddc-4aa2-4b1a-99ba-607063714a82",
+        "e6787815-762f-4679-afbd-d77f8061b7a6"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Squirtle",
+      "card_number": "17",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ec4f075e-9c7b-4615-b11e-5a87767b4ebd",
+      "variant_ids": [
+        "8c655bc1-cd41-4c0d-a5c7-8758ab3cabc1"
+      ],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Meowth",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ec96913b-80b2-41ef-a8ce-7480594e6f7a",
+      "variant_ids": [
+        "8c92e3c6-63b3-435e-a10c-eb9e0fa061f9"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Primeape",
+      "card_number": "18",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ee7c0e53-6276-4b8c-884f-974d8d7855f2",
+      "variant_ids": [
+        "70d4bc2d-8327-40ca-8433-07141bd0a0e1"
+      ],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Professor Cozmo's Discovery",
+      "card_number": "10",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "efd9d576-f411-4d11-9342-3bf8fe90d0d8",
+      "variant_ids": [
+        "2f168b09-79f9-4d09-b117-f7d64f698282"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Fletchling",
+      "card_number": "31",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "f3853996-311c-407e-a358-068cab1bd8e9",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Alolan Meowth",
+      "card_number": "8",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "f3c8774e-9109-4eff-a3b4-be3e33c4202d",
+      "variant_ids": [
+        "a4703f0a-2b04-4193-8885-8ee27680146c"
+      ],
+      "set_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "set": "McDonald's Collection 2022",
+      "era": "Other",
+      "card_name": "Pikachu",
+      "card_number": "7",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "f41b7c6d-89b7-4ad9-8424-4ab0083e5b9a",
+      "variant_ids": [],
+      "set_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "set": "McDonald's Collection 2017",
+      "era": "Other",
+      "card_name": "Rowlet",
+      "card_number": "1",
+      "rarity": null,
+      "printing_types": [],
+      "special_types": [],
+      "editions": [],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "f4bf008c-d41b-4f06-876e-cd4efc234aa7",
+      "variant_ids": [
+        "1da9bd65-a3f7-418d-beac-9ffdda71b4ba"
+      ],
+      "set_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "set": "McDonald's Collection 2019",
+      "era": "Other",
+      "card_name": "Alolan Exeggutor",
+      "card_number": "2",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "f51e5c3f-3f3f-4779-a26e-8b39295af85d",
+      "variant_ids": [
+        "6058e339-f01f-4892-96ef-9e80c4cc981c"
+      ],
+      "set_id": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+      "set": "Dragon Vault",
+      "era": "Black and White",
+      "card_name": "Kyurem",
+      "card_number": "21",
+      "rarity": null,
+      "printing_types": [
+        "holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "MISSING_SOURCE_METADATA",
+      "confidence": "none",
+      "unresolved_reason": "missing_source_metadata"
+    },
+    {
+      "canonical_card_id": "f9c727e9-7c42-4917-9d48-5d567ed3f467",
+      "variant_ids": [
+        "a387e058-29ef-4d3b-8f48-d97a537b75c8"
+      ],
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "set": "Southern Islands",
+      "era": "Other",
+      "card_name": "Slowking",
+      "card_number": "14",
+      "rarity": null,
+      "printing_types": [
+        "reverse-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "fbba4f57-2751-4fb5-b777-375c0ba10b42",
+      "variant_ids": [
+        "1d789603-e4a5-4ca4-8680-2ee589b8123c"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Snorlax",
+      "card_number": "26",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "fdc2fcde-1224-4206-8e2d-5b2b203bee93",
+      "variant_ids": [
+        "1ddfc1b2-5cfc-4739-bdf5-50bc79007ceb",
+        "683567b1-97fc-4757-a53a-ed432b80de3a"
+      ],
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set": "McDonald's Collection 2021",
+      "era": "Other",
+      "card_name": "Turtwig",
+      "card_number": "4",
+      "rarity": null,
+      "printing_types": [
+        "holo",
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "ff5df1ed-e4b6-4b95-97ef-1448ab51cd8f",
+      "variant_ids": [
+        "beca7a7a-21a9-4f95-a305-eded26280a0c"
+      ],
+      "set_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "set": "Kalos Starter Set",
+      "era": "XY",
+      "card_name": "Granbull",
+      "card_number": "23",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    },
+    {
+      "canonical_card_id": "fff453ad-f581-4207-8273-76145e12864a",
+      "variant_ids": [
+        "79d7a310-5400-49bb-8db4-0c23a6215b48"
+      ],
+      "set_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "set": "EX Trainer Kit 2 Plusle",
+      "era": "EX",
+      "card_name": "Metang",
+      "card_number": "5",
+      "rarity": null,
+      "printing_types": [
+        "non-holo"
+      ],
+      "special_types": [
+        "None"
+      ],
+      "editions": [
+        "None"
+      ],
+      "era_local_label": null,
+      "treatment_key": null,
+      "semantic_attributes": [],
+      "resolution": "UNSUPPORTED_LEGACY_STRUCTURE",
+      "confidence": "none",
+      "unresolved_reason": "unsupported_legacy_structure"
+    }
+  ]
+}

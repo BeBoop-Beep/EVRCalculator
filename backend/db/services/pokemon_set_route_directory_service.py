@@ -19,8 +19,8 @@ ROUTE_DIRECTORY_COLUMNS = (
 logger = logging.getLogger(__name__)
 
 
-def get_pokemon_set_route_directory_payload(limit: int = 150) -> Dict[str, Any]:
-    resolved_limit = max(1, min(int(limit or 150), 200))
+def get_pokemon_set_route_directory_payload(limit: int = 200) -> Dict[str, Any]:
+    resolved_limit = max(1, min(int(limit or 200), 200))
     try:
         projected = list(
             run_public_read_with_retry(

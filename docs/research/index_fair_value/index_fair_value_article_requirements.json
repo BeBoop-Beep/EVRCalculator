@@ -1,0 +1,7 @@
+{
+  "version":"index_fair_value_article_evidence_f1_v1",
+  "machineReadableOnly":true,
+  "requiredOutputs":["predicted Fair Value versus actual price","residual distribution","accuracy by price band","accuracy by era","actual-card examples","largest model-market gaps with omitted-variable cautions","feature and driver explanation","Fair Value Range calibration at 50/80/90 percent","comparison against the July 2026 failed appraisal model","methodology, scope, exclusions, and limitations"],
+  "prohibitedClaims":["undervalued","overvalued","buy","sell","gap will close","completed-sales target"],
+  "provenanceRule":"Every number and example must resolve to a versioned artifact, dataset fingerprint, model run, target date, and validation fold."
+}

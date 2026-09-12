@@ -1,0 +1,19 @@
+{
+  "study":"treatment_preference_t2_price_independent_evidence",
+  "supportedAttributes":[],
+  "crossEraPortability":"INSUFFICIENT",
+  "attributes":[
+    {"attribute":"illustration_led","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"Enthusiasm exists, but card, subject, artist, and treatment are not separated."},
+    {"attribute":"full_art","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"No controlled price-blind contrast located."},
+    {"attribute":"alternate_artwork","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"Editorial and community language is not a controlled outcome."},
+    {"attribute":"textured","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"No Pokémon-specific matched collector choice located."},
+    {"attribute":"gold_or_gilded","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"Only unreproducible discussion or market-contaminated evidence."},
+    {"attribute":"rainbow","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"Only unreproducible discussion or market-contaminated evidence."},
+    {"attribute":"shiny","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"No controlled price-blind contrast located."},
+    {"attribute":"gallery_style","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"No controlled price-blind contrast located."},
+    {"attribute":"premium_frame","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"No controlled price-blind contrast located."},
+    {"attribute":"character_scene","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"Favorite-art commentary changes composition, subject, and artist simultaneously."},
+    {"attribute":"special_foil","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"General foil appreciation does not establish a Pokémon treatment ordering."},
+    {"attribute":"vintage_specialty","qualitativePlausibility":"LOW","authorityConfidence":"INSUFFICIENT","reason":"Historical anecdotes are rarity, ownership, and value confounded."}
+  ]
+}

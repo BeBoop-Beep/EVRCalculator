@@ -13,6 +13,7 @@ import { evaluateMarketQueryAccess } from "@/lib/access/indexPlanAccess.mjs";
 import { resolvePreparedSeriesForSpec } from "@/lib/explore/marketExplorerPreparedResolution.mjs";
 import {
   INITIAL_MARKET_EXPLORER_BUILDER_DRAFT,
+  compatibleSetIds,
   marketExplorerBuilderDraftReducer,
 } from "@/lib/explore/marketExplorerBuilderDraft.mjs";
 
@@ -29,23 +30,26 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     let rows = draft.eraIds.length ? assetSets.filter((entry) => draft.eraIds.includes(entry.eraId)) : assetSets;
     const compatibility = options?.compatibility || {};
     const segmentMap = draft.asset === QUERY_ASSET_CARDS
-      ? compatibility.cardSegmentSetIds : compatibility.sealedFamilySetIds;
-    const allowedFor = (ids, map) => ids.length
-      ? new Set(ids.flatMap((id) => map?.[id] || [])) : null;
-    const segmentAllowed = allowedFor(draft.segmentIds, segmentMap);
-    const pokemonAllowed = allowedFor(draft.pokemonIds, compatibility.pokemonSetIds);
-    if (segmentAllowed) rows = rows.filter((entry) => segmentAllowed.has(entry.id));
-    if (pokemonAllowed) rows = rows.filter((entry) => pokemonAllowed.has(entry.id));
+      ? (compatibility.cardRaritySetIds || compatibility.cardSegmentSetIds) : compatibility.sealedFamilySetIds;
+    const allowed = compatibleSetIds([
+      { ids: draft.segmentIds, map: segmentMap },
+      { ids: draft.pokemonIds, map: compatibility.pokemonSetIds },
+    ]);
+    if (allowed) rows = rows.filter((entry) => allowed.has(entry.id));
     return rows;
   }, [assetSets, draft.asset, draft.eraIds, draft.segmentIds, draft.pokemonIds, options]);
   const segments = useMemo(() => {
     if (draft.asset === "sealed") return options?.sealedProductFamilies?.segments || [];
-    return options?.cardSegments?.segments || options?.segments?.segments || [];
+    // cardSegments fallback is read-only compatibility for an already-loaded
+    // pre-Phase-3 payload; every newly published snapshot carries cardRarities.
+    return options?.cardRarities?.rarities || options?.cardSegments?.segments || [];
   }, [options, draft.asset]);
   const pokemonOptions = useMemo(() => draft.asset === QUERY_ASSET_CARDS ? (options?.pokemon || []) : [], [options, draft.asset]);
   const priceSegments = useMemo(() => options?.priceSegments?.[draft.asset] || [], [options, draft.asset]);
   const releaseAgeCohorts = useMemo(() => options?.releaseAgeCohorts || [], [options]);
-  const spec = useMemo(() => normalizeQuerySpec(draft), [draft]);
+  const spec = useMemo(() => {
+    try { return normalizeQuerySpec(draft); } catch { return null; }
+  }, [draft]);
   const labels = useMemo(() => ({
     eraNames: Object.fromEntries(eraOptions.map((entry) => [entry.id, entry.label])),
     setNames: Object.fromEntries(assetSets.map((entry) => [entry.id, entry.label])),
@@ -54,13 +58,13 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     priceSegmentNames: Object.fromEntries(priceSegments.map((entry) => [entry.id, entry.label])),
     releaseAgeNames: Object.fromEntries(releaseAgeCohorts.map((entry) => [entry.id, entry.label])),
   }), [eraOptions, assetSets, segments, pokemonOptions, priceSegments, releaseAgeCohorts]);
-  const preview = useMemo(() => buildQueryLabel(spec, labels), [spec, labels]);
-  const access = useMemo(() => evaluateMarketQueryAccess(currentPlan, spec), [currentPlan, spec]);
-  const prepared = useMemo(() => resolvePreparedSeriesForSpec(spec, preparedSeries), [spec, preparedSeries]);
-  const queryKey = useMemo(() => buildQueryKey(spec), [spec]);
+  const preview = useMemo(() => spec ? buildQueryLabel(spec, labels) : "Select at least one exact item", [spec, labels]);
+  const access = useMemo(() => spec ? evaluateMarketQueryAccess(currentPlan, spec) : { allowed: false, requiredPlan: "premium" }, [currentPlan, spec]);
+  const prepared = useMemo(() => spec ? resolvePreparedSeriesForSpec(spec, preparedSeries) : null, [spec, preparedSeries]);
+  const queryKey = useMemo(() => spec ? buildQueryKey(spec) : null, [spec]);
   const alreadyActive = useMemo(() => (activeSeries || []).some((series) =>
     (prepared && series.key === prepared.key) ||
-    (series.spec && buildQueryKey(series.spec) === queryKey)
+    (queryKey && series.spec && buildQueryKey(series.spec) === queryKey)
   ), [activeSeries, prepared, queryKey]);
 
   const setAsset = useCallback((asset) => {
@@ -76,16 +80,16 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     const nextSegments = field === "segmentIds" ? next : draft.segmentIds;
     const nextPokemon = field === "pokemonIds" ? next : draft.pokemonIds;
     const segmentMap = draft.asset === QUERY_ASSET_CARDS
-      ? compatibility.cardSegmentSetIds : compatibility.sealedFamilySetIds;
-    const permitted = [
-      nextSegments.length ? new Set(nextSegments.flatMap((id) => segmentMap?.[id] || [])) : null,
-      nextPokemon.length ? new Set(nextPokemon.flatMap((id) => compatibility.pokemonSetIds?.[id] || [])) : null,
-    ].filter(Boolean);
+      ? (compatibility.cardRaritySetIds || compatibility.cardSegmentSetIds) : compatibility.sealedFamilySetIds;
+    const permitted = compatibleSetIds([
+      { ids: nextSegments, map: segmentMap },
+      { ids: nextPokemon, map: compatibility.pokemonSetIds },
+    ]);
     dispatch({ type: "field", field, value: next });
-    if (permitted.length) dispatch({
+    if (permitted) dispatch({
       type: "field",
       field: "setIds",
-      value: draft.setIds.filter((id) => permitted.every((allowed) => allowed.has(id))),
+      value: draft.setIds.filter((id) => permitted.has(id)),
     });
   }, [draft.asset, draft.pokemonIds, draft.segmentIds, draft.setIds, options]);
   const setEraIds = useCallback((value) => {
@@ -104,7 +108,12 @@ export default function useMarketExplorerBuilderDraft({ options, currentPlan, pr
     setPokemonIds: (value) => setDimensionWithSetReconciliation("pokemonIds", value),
     setPriceSegmentIds: (value) => setField("priceSegmentIds", value),
     setReleaseAgeCohortIds: (value) => setField("releaseAgeCohortIds", value),
-    setMode: (value) => setField("mode", value),
+    setMembershipMode: (value) => setField("membershipMode", value),
+    setExactItems: (value) => {
+      const items = Array.isArray(value) ? value : [];
+      dispatch({ type: "field", field: "exactItems", value: items });
+      dispatch({ type: "field", field: "instrumentIds", value: items.map((item) => item.instrumentId) });
+    },
     replace: (value) => dispatch({ type: "replace", draft: value }),
     clear: () => dispatch({ type: "clear" }),
   };

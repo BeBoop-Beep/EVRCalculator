@@ -160,7 +160,7 @@ class FakeClient:
             return _RpcResult(rows)
 
         if name in (svc.FILTERED_COHORT_RPC, svc.DAILY_PROJECTION_RPC,
-                    svc.V1_DAILY_PROJECTION_RPC, svc.V2_DAILY_PROJECTION_RPC,
+                    svc.V2_DAILY_PROJECTION_RPC,
                     svc.V2_INTERVAL_FALLBACK_RPC, svc.MATERIALIZED_SERIES_RPC):
             segment_ids = set(payload.get("p_segment_ids") or [])
             price_segments = set(payload.get("p_price_segment_ids") or [])
@@ -707,13 +707,13 @@ def test_broad_materialized_price_axis_uses_one_day_statements():
     svc.load_filtered_daily_cohort_rows(
         Client(), [f"set-{index}" for index in range(165)],
         start_date="2026-05-18", end_date="2026-05-21", card_ids=None,
-        price_segment_ids=["obtainable"], rpc_name=svc.V1_DAILY_PROJECTION_RPC,
+        price_segment_ids=["obtainable"], rpc_name=svc.V2_DAILY_PROJECTION_RPC,
     )
     assert calls == [
         (svc.MATERIALIZED_SERIES_RPC, "2026-05-18", "2026-05-18"),
         (svc.MATERIALIZED_SERIES_RPC, "2026-05-19", "2026-05-19"),
         (svc.MATERIALIZED_SERIES_RPC, "2026-05-20", "2026-05-20"),
-        (svc.V1_DAILY_PROJECTION_RPC, "2026-05-21", "2026-05-21"),
+        (svc.V2_DAILY_PROJECTION_RPC, "2026-05-21", "2026-05-21"),
     ]
 
 
@@ -737,12 +737,12 @@ def test_daily_projection_coverage_requires_every_set_and_full_range():
         def in_(self, *_args): return self
         def execute(self):
             return _RpcResult([
-                {"set_id": "set-a", "first_market_date": "2026-04-11", "computed_through": "2026-08-31"},
-                {"set_id": "set-b", "first_market_date": "2026-04-11", "computed_through": "2026-08-31"},
+                {"set_id": "set-a", "retained_from": "2026-04-11", "computed_through": "2026-08-31"},
+                {"set_id": "set-b", "retained_from": "2026-04-11", "computed_through": "2026-08-31"},
             ])
     class Client:
         def table(self, name):
-            assert name == "pokemon_market_explorer_card_daily_coverage"
+            assert name == svc.V2_COVERAGE_TABLE
             return Query()
     assert svc.daily_projection_covers(Client(), ["set-a", "set-b"],
         start_date="2026-04-11", end_date="2026-08-31")
@@ -756,11 +756,11 @@ def test_daily_projection_coverage_allows_staggered_set_starts():
         def in_(self, *_args): return self
         def execute(self):
             return _RpcResult([
-                {"set_id": "set-a", "first_market_date": "2026-04-11",
+                {"set_id": "set-a", "retained_from": "2026-04-11",
                  "computed_through": "2026-08-31"},
-                {"set_id": "set-b", "first_market_date": "2026-04-23",
+                {"set_id": "set-b", "retained_from": "2026-04-11",
                  "computed_through": "2026-08-31"},
-                {"set_id": "set-c", "first_market_date": "2026-08-01",
+                {"set_id": "set-c", "retained_from": "2026-04-11",
                  "computed_through": "2026-08-31"},
             ])
     class Client:
@@ -776,9 +776,9 @@ def test_daily_projection_coverage_rejects_stale_late_start_set():
         def in_(self, *_args): return self
         def execute(self):
             return _RpcResult([
-                {"set_id": "set-a", "first_market_date": "2026-04-11",
+                {"set_id": "set-a", "retained_from": "2026-04-11",
                  "computed_through": "2026-08-31"},
-                {"set_id": "set-b", "first_market_date": "2026-04-23",
+                {"set_id": "set-b", "retained_from": "2026-04-11",
                  "computed_through": "2026-08-30"},
             ])
     class Client:
@@ -959,12 +959,19 @@ def test_filter_options_publication_excludes_catalog_only_sets(monkeypatch):
                 return _Query([])
             if name == "pokemon_set_sealed_market_snapshot_latest":
                 return _Query([])
+            if name == "pokemon_market_explorer_card_current_metadata":
+                return _Query([{"canonical_card_id": row["id"], "set_id": row["set_id"],
+                                "rarity": row.get("rarity")} for row in CARDS])
             return super().table(name)
 
     options = svc.build_market_explorer_filter_options(Client())
     set_ids = {row["id"] for row in options["sets"]}
     assert set_ids == {"set-ah", "set-pe"}
     assert "set-ev" not in set_ids  # would appear if the raw SETS fixture leaked through
+    assert len(options["cardRarities"]["rarities"]) == 39
+    assert len(options["cardSegments"]["segments"]) == 9
+    assert "cardRaritySetIds" in options["compatibility"]
+    assert "cardSegmentSetIds" not in options["compatibility"]
 
 
 # ---------------------------------------------------------------------------
@@ -1037,90 +1044,45 @@ def test_uncovered_multi_day_query_remains_interval_fallback():
 
 
 class _MaterializedCoverageClient:
-    def __init__(self, *, v1=True, v2=True, retained="2026-05-29"):
-        self.v1 = v1
+    def __init__(self, *, v2=True, retained="2026-05-30", through="2026-09-06"):
         self.v2 = v2
         self.retained = retained
+        self.through = through
 
     def table(self, name):
-        if name == "pokemon_market_explorer_card_daily_coverage":
-            return _Query([{"set_id": "set-a", "computed_through": "2026-09-06"}] if self.v1 else [])
         if name == svc.V2_COVERAGE_TABLE:
             return _Query([{"set_id": "set-a", "retained_from": self.retained,
-                            "computed_through": "2026-09-06"}] if self.v2 else [])
-        if name == "pokemon_market_date_quality":
-            return _Query([
-                {"market_date": "2026-05-29", "tcg": "pokemon", "status": "REJECTED"},
-                {"market_date": "2026-05-30", "tcg": "pokemon", "status": "READY"},
-                {"market_date": "2026-05-31", "tcg": "pokemon", "status": "READY"},
-            ])
+                            "computed_through": self.through}] if self.v2 else [])
         raise AssertionError(name)
 
 
 @pytest.mark.parametrize(("start", "end", "expected"), [
     ("2026-05-30", "2026-09-06", "v2_daily"),
-    ("2026-04-07", "2026-05-30", "v1_daily"),
-    ("2026-04-07", "2026-09-06", "materialized_hybrid"),
+    ("2026-04-07", "2026-05-30", "interval_fallback"),
+    ("2026-04-07", "2026-09-06", "interval_fallback"),
 ])
-def test_materialized_route_uses_dynamic_approved_bridge(start, end, expected):
-    route, bridge = svc.resolve_materialized_history_route(
+def test_materialized_route_is_v2_daily_or_interval_only(start, end, expected):
+    route, boundary = svc.resolve_materialized_history_route(
         _MaterializedCoverageClient(), ["set-a"], start_date=start, end_date=end,
     )
     assert route == expected
-    assert bridge == "2026-05-30"
+    assert boundary == "2026-05-30"
 
 
-def test_materialized_route_uses_interval_only_when_coverage_is_missing():
-    route, bridge = svc.resolve_materialized_history_route(
-        _MaterializedCoverageClient(v1=False, v2=False), ["set-a"],
+def test_materialized_route_uses_interval_when_v2_coverage_is_missing():
+    route, boundary = svc.resolve_materialized_history_route(
+        _MaterializedCoverageClient(v2=False), ["set-a"],
         start_date="2026-04-07", end_date="2026-09-06",
     )
-    assert (route, bridge) == ("interval_fallback", None)
+    assert (route, boundary) == ("interval_fallback", None)
 
 
-def test_hybrid_retains_v1_bridge_drops_v2_duplicate_and_uses_v2_basket(monkeypatch):
-    calls = []
-    v2_basket = [{"cardVariantId": "latest", "canonicalCardId": "latest",
-                  "marketPrice": 3.0, "marketDate": "2026-05-31"}]
-
-    def loader(_client, _sets, *, start_date, end_date, rpc_name, **_kwargs):
-        calls.append((rpc_name, start_date, end_date))
-        if rpc_name == svc.V1_DAILY_PROJECTION_RPC:
-            return ([{"marketDate": "2026-05-29", "constituentCount": 1,
-                      "eligibleUniverseCount": 1, "basketValue": 1,
-                      "commonCount": 0, "commonCurrentValue": 0,
-                      "commonPreviousValue": 0},
-                     {"marketDate": "2026-05-30", "constituentCount": 1,
-                      "eligibleUniverseCount": 1, "basketValue": 2,
-                      "commonCount": 1, "commonCurrentValue": 2,
-                      "commonPreviousValue": 1}], [{"cardVariantId": "bridge"}])
-        return ([{"marketDate": "2026-05-30", "constituentCount": 1,
-                  "eligibleUniverseCount": 1, "basketValue": 2,
-                  "commonCount": 0, "commonCurrentValue": 0,
-                  "commonPreviousValue": 0},
-                 {"marketDate": "2026-05-31", "constituentCount": 1,
-                  "eligibleUniverseCount": 1, "basketValue": 3,
-                  "commonCount": 1, "commonCurrentValue": 3,
-                  "commonPreviousValue": 2}], v2_basket)
-
-    monkeypatch.setattr(svc, "resolve_materialized_history_route",
-                        lambda *_a, **_k: ("materialized_hybrid", "2026-05-30"))
-    monkeypatch.setattr(svc, "resolve_scope_history_bounds",
-                        lambda *_a, **_k: ("2026-05-29", "2026-05-31"))
-    monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", loader)
-    result = _run(mode=MODE_ALL, set_ids=["set-ah"],
-                  start_date="2026-05-29", end_date="2026-05-31")
-
-    assert calls == [
-        (svc.V1_DAILY_PROJECTION_RPC, "2026-05-29", "2026-05-30"),
-        (svc.V2_DAILY_PROJECTION_RPC, "2026-05-30", "2026-05-31"),
-    ]
-    assert [row[0] for row in result["trend"]] == [
-        "2026-05-29", "2026-05-30", "2026-05-31",
-    ]
-    assert result["trackedValueHistory"][-1]["value"] == 3.0
-    assert result["currentConstituents"][0]["cardVariantId"] == "latest"
-    assert result["diagnostics"]["executionEngine"] == "materialized_hybrid"
+def test_materialized_route_uses_interval_when_v2_is_stale():
+    route, boundary = svc.resolve_materialized_history_route(
+        _MaterializedCoverageClient(through="2026-09-05"), ["set-a"],
+        start_date="2026-05-30", end_date="2026-09-06",
+    )
+    assert (route, boundary) == ("interval_fallback", None)
 
 
 def test_an_unrelated_database_error_still_propagates():

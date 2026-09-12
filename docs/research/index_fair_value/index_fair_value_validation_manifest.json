@@ -1,0 +1,12 @@
+{
+  "version":"index_fair_value_validation_f1_v1",
+  "primaryGrouping":"outer GroupKFold/leave-whole-canonical-root-set-out; child subsets travel with parent; related physical variants share canonical identity and group",
+  "secondaryStressTests":["leave-era-out where sample permits","identity-family holdout","modern-only versus vintage policy audit"],
+  "randomCardSplit":false,
+  "nestedValidation":true,
+  "primaryMetrics":["median_absolute_dollar_error","mean_absolute_dollar_error","rmse_dollars","MdAPE","MAPE_where_actual_price_floor_is_safe","log_price_MAE","log_price_RMSE","OOS_R2","held_out_Spearman","within_10_pct","within_20_pct","within_30_pct","within_50_pct"],
+  "priceBands":["under_5","5_to_under_10","10_to_under_25","25_to_under_50","50_to_under_100","100_to_under_250","250_plus"],
+  "bandLock":"May merge adjacent bands only from pre-model cohort counts; record change before outcome inspection.",
+  "breakdowns":["price_band","era","set","age_band","Treatment","Collector_Appeal_band","scarcity_band"],
+  "uncertainty":{"candidate":"group-aware split conformal on absolute log residuals; residual quantile and quantile-regression sensitivity checks","nominalCoverage":[0.5,0.8,0.9],"auditBy":["price_band","era","Treatment","age_band"],"minimumRule":"report coverage and median width; no interval is product-eligible if a material cohort is severely undercovered"}
+}

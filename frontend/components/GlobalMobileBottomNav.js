@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/components/AuthContext";
 import { TCGS_NAV_HREF } from "@/lib/navigation/tcgsNav.mjs";
+import { MARKET_EXPLORER_NAV_HREF, isExplorerNavRouteActive, isMarketNavRouteActive } from "@/lib/navigation/marketNav.mjs";
 
 function normalizePath(value) {
   if (typeof value !== "string" || value.length === 0) {
@@ -43,15 +44,12 @@ function navItemIcon(id, isActive) {
     );
   }
 
-  if (id === "articles") {
-    // The open-book glyph carried over unchanged from the destination this
-    // slot used to hold: same 24x24 grid, same h-5 w-5 box, same 1.85 stroke
-    // and round caps/joins as every other icon here. Only the destination
-    // changed, so the visual language must not.
+  if (id === "rankings") {
     return (
       <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-5 w-5 ${activeClass}`} fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4.5 5.5A3.5 3.5 0 0 1 8 2h4v17H8a3.5 3.5 0 0 0-3.5 3Z" />
-        <path d="M19.5 5.5A3.5 3.5 0 0 0 16 2h-4v17h4a3.5 3.5 0 0 1 3.5 3Z" />
+        <path d="M5 19V11" />
+        <path d="M12 19V5" />
+        <path d="M19 19v-9" />
       </svg>
     );
   }
@@ -99,7 +97,7 @@ export default function GlobalMobileBottomNav() {
   const items = useMemo(
     () => [
       {
-        id: "explore",
+        id: "rankings",
         label: "Rankings",
         href: "/Rankings",
         isActive: isPathMatch(normalizedPathname, ["/Rankings", "/Explore"], { caseInsensitive: true }),
@@ -108,19 +106,19 @@ export default function GlobalMobileBottomNav() {
         id: "market",
         label: "Market",
         href: "/Market",
-        isActive: isPathMatch(normalizedPathname, ["/Market"], { caseInsensitive: true }),
+        isActive: isMarketNavRouteActive(normalizedPathname),
+      },
+      {
+        id: "explore",
+        label: "Explorer",
+        href: MARKET_EXPLORER_NAV_HREF,
+        isActive: isExplorerNavRouteActive(normalizedPathname),
       },
       {
         id: "tcgs",
         label: "TCGs",
         href: TCGS_NAV_HREF,
         isActive: isPathMatch(normalizedPathname, ["/TCGs"], { caseInsensitive: true }),
-      },
-      {
-        id: "articles",
-        label: "Articles",
-        href: "/Articles",
-        isActive: isPathMatch(normalizedPathname, ["/Articles"], { caseInsensitive: true }),
       },
       {
         id: "profile",

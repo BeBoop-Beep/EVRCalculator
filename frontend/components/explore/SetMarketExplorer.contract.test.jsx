@@ -46,8 +46,23 @@ const TARGETS = [
     windows: { "1D": movement(1.2, 0.03), "7D": movement(-73.2, -2.0), "30D": movement(5, 0.1), lifetime: movement(50, 1.4) },
     marketIndex: { movements: { "1D": movement(1.2, 0.03), "7D": movement(-73.2, -2.0), "30D": movement(5, 0.1), SinceTracking: movement(50, 1.4) } },
   },
-  // Unpriced targets are not sets the market can rank, and must not appear.
-  { setId: "set-d", canonicalKey: "no-value", name: "Unpriced Set", era: "Sword & Shield", currentSetValue: null, trend: [], windows: {} },
+  // Stale: real, computed Set Value; certification failed freshness (the
+  // Paldean Fates shape from the backend fix). Must stay visible, searchable
+  // by "paldean" or "fates", show its real value, and never get a numeric
+  // rank.
+  {
+    setId: "set-d", canonicalKey: "paldeanFates", name: "Paldean Fates", era: "Scarlet & Violet",
+    logoUrl: "https://example.test/d.png", currentSetValue: 2602.30, trend, recentDailyTrend: trend,
+    windows: { "1D": movement(0, 0), "7D": movement(0, 0), "30D": movement(0, 0), lifetime: movement(0, 0) },
+    valueStatus: "stale", setValueAsOf: "2026-06-30", certificationStatus: "PRICE_FRESHNESS_STALE",
+  },
+  // Unavailable: no computable Set Value at all. Must stay visible/searchable
+  // but never renders $0.00/NaN and never gets a numeric rank.
+  {
+    setId: "set-e", canonicalKey: "no-value", name: "Unpriced Set", era: "Sword & Shield",
+    currentSetValue: null, trend: [], windows: {}, valueStatus: "unavailable", setValueAsOf: null,
+    certificationStatus: "CANONICAL_PRICE_IDENTITY_MISSING",
+  },
 ];
 
 function render(props = {}) {
@@ -70,10 +85,88 @@ const detailName = (renderer) => textOf(renderer.root.findAll((node) => node.pro
 const detailValue = (renderer) => textOf(renderer.root.findAll((node) => node.props?.["data-set-market-detail-value"] !== undefined)[0]);
 const charts = (renderer) => renderer.root.findAll((node) => node.props?.["data-market-sparkline"] !== undefined || node.props?.["aria-label"]?.toString().includes("Set Value trend"));
 
-test("the list renders every priced set, ranked by published Set Value", () => {
+// Supersedes the old "unpriced targets are omitted, not shown as zero"
+// contract: membership (current + stale + unavailable) != rankability
+// (current only). Every published row is a Set Market member and must stay
+// visible; only current-certified rows earn a numeric rank.
+test("the list renders every membership row — current, stale AND unavailable", () => {
   const renderer = render();
   const labels = rows(renderer).map((node) => node.props["data-set-market-row"]);
-  assert.deepEqual(labels, ["set-a", "set-b", "set-c"], "unpriced targets are omitted, not shown as zero");
+  assert.deepEqual(labels, ["set-a", "set-b", "set-c", "set-d", "set-e"]);
+});
+
+test("only current-certified rows get a numeric rank; stale/unavailable show a neutral marker", () => {
+  const renderer = render();
+  const byId = (id) => rows(renderer).find((node) => node.props["data-set-market-row"] === id);
+  assert.match(textOf(byId("set-a")), /#1/);
+  assert.match(textOf(byId("set-b")), /#2/);
+  assert.match(textOf(byId("set-c")), /#3/);
+  assert.doesNotMatch(textOf(byId("set-d")), /#\d/);
+  assert.doesNotMatch(textOf(byId("set-e")), /#\d/);
+});
+
+test("stale set shows its real Set Value with a visible Stale indicator, never a fake rank", () => {
+  const renderer = render();
+  const staleRow = textOf(rows(renderer).find((node) => node.props["data-set-market-row"] === "set-d"));
+  assert.match(staleRow, /Paldean Fates/);
+  assert.match(staleRow, /\$2,602/);
+  assert.match(staleRow, /Stale/);
+});
+
+test("unavailable set renders 'Value unavailable', never $0.00/NaN, and no fake rank", () => {
+  const renderer = render();
+  const unavailableRow = textOf(rows(renderer).find((node) => node.props["data-set-market-row"] === "set-e"));
+  assert.match(unavailableRow, /Value unavailable/);
+  assert.doesNotMatch(unavailableRow, /\$0\.00/);
+  assert.doesNotMatch(unavailableRow, /NaN/);
+});
+
+test("paldean fates is searchable by 'paldean' and by 'fates'", () => {
+  const renderer = render();
+  const search = renderer.root.findAll((node) => node.props?.type === "search")[0];
+  TestRenderer.act(() => { search.props.onChange({ target: { value: "paldean" } }); });
+  assert.deepEqual(rows(renderer).map((node) => node.props["data-set-market-row"]), ["set-d"]);
+  TestRenderer.act(() => { search.props.onChange({ target: { value: "fates" } }); });
+  assert.deepEqual(rows(renderer).map((node) => node.props["data-set-market-row"]), ["set-d"]);
+});
+
+test("the unavailable set remains visible/searchable by name", () => {
+  const renderer = render();
+  const search = renderer.root.findAll((node) => node.props?.type === "search")[0];
+  TestRenderer.act(() => { search.props.onChange({ target: { value: "unpriced" } }); });
+  assert.deepEqual(rows(renderer).map((node) => node.props["data-set-market-row"]), ["set-e"]);
+});
+
+test("tracked-set count reflects full membership, not just current/positive rows", () => {
+  const renderer = render();
+  const header = textOf(renderer.root.findAll((node) => node.props?.["data-set-market-top"] !== undefined)[0]);
+  assert.match(header, /5 tracked sets/);
+});
+
+test("filtering the list does not renumber the market-wide current ranks", () => {
+  const renderer = render();
+  const search = renderer.root.findAll((node) => node.props?.type === "search")[0];
+  TestRenderer.act(() => { search.props.onChange({ target: { value: "black" } }); });
+  assert.match(textOf(rows(renderer)[0]), /#3/, "Black Bolt keeps its market-wide rank of 3 even though it is first in the filtered view");
+});
+
+test("desktop: selecting the stale set works and shows the real value plus a Stale label", () => {
+  const renderer = render();
+  const staleRowButton = rows(renderer).find((node) => node.props["data-set-market-row"] === "set-d");
+  TestRenderer.act(() => { staleRowButton.props.onClick(); });
+  assert.match(detailName(renderer), /Paldean Fates/);
+  assert.match(detailValue(renderer), /\$2,602/);
+  assert.match(textOf(detail(renderer)), /Stale/);
+});
+
+test("desktop: selecting the unavailable set does not crash and shows Set Value unavailable", () => {
+  const renderer = render();
+  const unavailableRowButton = rows(renderer).find((node) => node.props["data-set-market-row"] === "set-e");
+  TestRenderer.act(() => { unavailableRowButton.props.onClick(); });
+  assert.match(detailName(renderer), /Unpriced Set/);
+  assert.match(detailValue(renderer), /Set Value unavailable/);
+  assert.doesNotMatch(textOf(detail(renderer)), /\$0\.00/);
+  assert.doesNotMatch(textOf(detail(renderer)), /NaN/);
 });
 
 test("rank is market-wide and comes from the published Set Value, not from the filter", () => {
@@ -134,12 +227,14 @@ test("search narrows the list without repointing the analysis pane", () => {
   assert.match(textOf(rows(renderer)[0]), /#3/);
 });
 
-test("the era filter offers only eras the snapshot actually publishes", () => {
+// Era options must derive from ALL membership rows, including "Sword &
+// Shield" which is represented only by the unavailable row (set-e).
+test("the era filter offers every era the snapshot publishes, including eras only stale/unavailable rows carry", () => {
   const renderer = render();
   const trigger = renderer.root.find((node) => node.type === "button" && node.props["aria-label"] === "Filter by era");
   TestRenderer.act(() => { trigger.props.onClick(); });
   const eraOptions = renderer.root.findAll((node) => node.props?.role === "option").map((node) => textOf(node).replace(/\s*✓$/, ""));
-  assert.deepEqual(eraOptions, ["All Eras", "Mega Evolution", "Scarlet & Violet"]);
+  assert.deepEqual(eraOptions, ["All Eras", "Mega Evolution", "Scarlet & Violet", "Sword & Shield"]);
 });
 
 test("desktop row drill-in selects first, then navigates the selected row exactly once", () => {
@@ -188,12 +283,38 @@ test("the sort control reorders without inventing a metric", () => {
   const openSort = () => renderer.root.find((node) => node.type === "button" && node.props["aria-label"] === "Sort sets").props.onClick();
   TestRenderer.act(openSort);
   TestRenderer.act(() => { renderer.root.findAll((node) => node.props?.role === "option").find((node) => textOf(node) === "Sort: Set Name").props.onClick(); });
-  assert.deepEqual(rows(renderer).map((node) => node.props["data-set-market-row"]), ["set-a", "set-c", "set-b"]);
+  assert.deepEqual(
+    rows(renderer).map((node) => node.props["data-set-market-row"]),
+    ["set-a", "set-c", "set-d", "set-b", "set-e"]
+  );
 
   TestRenderer.act(openSort);
   TestRenderer.act(() => { renderer.root.findAll((node) => node.props?.role === "option").find((node) => textOf(node) === "Sort: Change").props.onClick(); });
-  // Published 7D percentages: -2.0 (c) > -3.9 (b) > -11.8 (a).
-  assert.deepEqual(rows(renderer).map((node) => node.props["data-set-market-row"]), ["set-c", "set-b", "set-a"]);
+  // Published 7D percentages: 0 (d, stale-but-real) > -2.0 (c) > -3.9 (b) > -11.8 (a).
+  // set-e (unavailable) has no comparable movement at all and sinks below every
+  // row with a valid one — "missing != flat".
+  assert.deepEqual(
+    rows(renderer).map((node) => node.props["data-set-market-row"]),
+    ["set-d", "set-c", "set-b", "set-a", "set-e"]
+  );
+});
+
+test("sort-by-value is deterministic across current, stale and unavailable", () => {
+  const renderer = render();
+  // Default sort is "value": current (by value desc) → stale (by value) →
+  // unavailable (name only).
+  assert.deepEqual(
+    rows(renderer).map((node) => node.props["data-set-market-row"]),
+    ["set-a", "set-b", "set-c", "set-d", "set-e"]
+  );
+});
+
+test("no new per-set list fetch exists — the list mounts from the snapshot alone", () => {
+  const renderer = render();
+  // Every list row's mini trend/value comes straight off the published
+  // target; nothing in the row markup should hint at a per-row network call.
+  assert.equal(rows(renderer).length, 5);
+  assert.ok(charts(renderer).length <= 1, "still exactly the one shared detail chart, not one per row");
 });
 
 // useMediaQuery answers `true` for (min-width: 1200px) on the first paint, so

@@ -8,7 +8,7 @@ test("RIP and Market directory technical failure propagates instead of fabricati
   const bodyStart = page.indexOf("export default async function TcgSetRipStatisticsPage");
   const body = page.slice(bodyStart);
   assert.match(body, /const targetsPayload = await getPokemonSetRouteDirectory/);
-  assert.doesNotMatch(body, /getPokemonSetRouteDirectory\(\{ limit: 150 \}\)\.catch/);
+  assert.doesNotMatch(body, /getPokemonSetRouteDirectory\(\{ limit: 200 \}\)\.catch/);
   assert.doesNotMatch(body, /getRipStatisticsTargets/);
 });
 

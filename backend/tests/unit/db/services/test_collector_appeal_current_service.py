@@ -1,4 +1,4 @@
-from backend.db.services.collector_appeal_current_service import build_public_collector_appeal_contract
+from backend.db.services.collector_appeal_current_service import build_public_card_collector_appeal,build_public_collector_appeal_contract
 
 
 def _row(status="scored"):
@@ -23,3 +23,19 @@ def test_unavailable_contract_never_falls_back_to_roster_score():
     assert contract["collectorAppeal"]["rank"] is None
     assert contract["components"]["rosterDesirability"]["score"]==99
     assert contract["components"]["desirableOutcomeFrequency"]["rawValue"] is None
+
+
+def test_corrected_v6_scope_keeps_functional_treatment_and_scarcity_diagnostic_only():
+    row=_row();row["model_version"]="pokemon_collector_appeal_v6_corrected_complete_trends_v2"
+    scope=build_public_collector_appeal_contract(row)["collectorAppeal"]["subjectScope"]
+    assert scope["modeled"] == ["Pokémon", "Trainers"]
+    assert set(scope["diagnosticOnly"]) == {"eligible neutral functional cards", "Treatment", "Scarcity"}
+    assert scope["notYetModeled"] == ["Artist"]
+
+
+def test_card_contract_preserves_unknown_playability_as_missing_evidence():
+    card=build_public_card_collector_appeal({"collector_card_appeal_score":75,"score_status":"scored","subject_policy":"trainer","subject_baseline_score":75,"playability_score":0,"playability_lift":0,"confidence":"insufficient","treatment_input_excluded":True,"hit_eligibility_independent":True,"model_run_id":"run","model_version":"model","component_inputs_json":{"subjectType":"trainer","subjectIdentity":"Iono","playabilityStatus":"unknown","neutralBaseline":False}})
+    assert card["subject"]["identity"]=="Iono"
+    assert card["playability"]["score"] is None
+    assert card["playability"]["status"]=="unknown"
+    assert card["artistModeled"] is False and card["treatmentExcluded"] is True
