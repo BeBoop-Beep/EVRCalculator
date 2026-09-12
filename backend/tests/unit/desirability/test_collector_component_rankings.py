@@ -42,10 +42,24 @@ def test_exact_artist_and_playability_ablation_recalculates_artist_headroom():
 def test_missing_is_unavailable_not_zero_and_ranking_is_deterministic():
     rows = [card("b", "2", "B", baseline=60), card("a", "1", "A", baseline=60),
             card("c", "3", "", baseline=None, play=None, artist=None)]
-    ranked = build_component_ranking_rows(rows, "run")
+    ranked = build_component_ranking_rows(rows, "run", eligible_set_ids={"a", "b", "c"})
     by_set = {row["set_id"]: row for row in ranked}
     assert by_set["a"]["drivers_json"]["pokemonAppeal"]["rank"] == 1
     assert by_set["b"]["drivers_json"]["pokemonAppeal"]["rank"] == 2
     assert by_set["c"]["drivers_json"]["pokemonAppeal"]["rawValue"] is None
     assert by_set["c"]["drivers_json"]["pokemonAppeal"]["status"] == "unavailable"
     assert all(row["model_run_id"] == "run" and row["methodology_version"] == METHODOLOGY_VERSION for row in ranked)
+
+
+def test_unsupported_catalog_set_cannot_shift_rank_or_public_score():
+    supported = [card("ranked-a", "1", "A", baseline=80), card("ranked-b", "2", "B", baseline=60)]
+    before = build_component_ranking_rows(
+        supported, "run", eligible_set_ids={"ranked-a", "ranked-b"}
+    )
+    after = build_component_ranking_rows(
+        supported + [card("mcdonalds-unsupported", "3", "Extreme", baseline=100, artist=100)],
+        "run", eligible_set_ids={"ranked-a", "ranked-b"},
+    )
+    assert before == after
+    assert {row["set_id"] for row in after} == {"ranked-a", "ranked-b"}
+    assert all(row["drivers_json"]["pokemonAppeal"]["cohortSize"] == 2 for row in after)

@@ -368,16 +368,24 @@ def persist_built_model(client, built, *, as_of_date):
             client.table(table).insert(rows[index:index+100]).execute()
     # Prepared UI diagnostics are tied to this exact immutable model run. They
     # are explanatory ablations only and never feed the V7 headline formula.
-    component_rows = build_component_ranking_rows(persisted[0], run_id)
-    for index in range(0, len(component_rows), 100):
-        client.table("pokemon_set_collector_component_rankings").insert(
-            component_rows[index:index+100]
-        ).execute()
+    eligible_set_ids = [
+        row["set_id"] for row in persisted[2]
+        if row.get("score_status") == "scored" and row.get("collector_appeal_score") is not None
+    ]
+    component_rows = build_component_ranking_rows(
+        persisted[0], run_id, eligible_set_ids=eligible_set_ids
+    )
+    client.rpc("replace_pokemon_set_collector_component_rankings", {
+        "p_model_run_id": run_id, "p_rows": component_rows,
+    }).execute()
     card_rank_rows = build_card_collector_ranking_rows(persisted[0], run_id)
     for index in range(0, len(card_rank_rows), 100):
         client.table("pokemon_card_collector_appeal_rankings").insert(
             card_rank_rows[index:index+100]
         ).execute()
+    client.rpc("hydrate_pokemon_card_collector_appeal_rankings", {
+        "p_model_run_id": run_id,
+    }).execute()
     validation = client.rpc("validate_pokemon_collector_appeal_model_run",{
         "p_model_run_id":run_id,"p_diagnostics":{"builder":"build_pokemon_collector_appeal_v7_expanded.py",
         "explicitSourceAuthority":manifest["sourceAuthority"],"formulaInvariant":True}}).execute().data
