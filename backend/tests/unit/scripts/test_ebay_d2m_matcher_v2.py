@@ -1,10 +1,16 @@
 from collections import Counter
+import json
+from pathlib import Path
 import pytest
 from backend.scripts.ebay_d2m_matcher_v2 import (
     MATCHER_VERSION, classify_listing, classify_product_object, rule_fingerprint,
 )
 from backend.scripts.ebay_gold_access import load_partition
 from backend.scripts.ebay_gold_review_server import read_history, reconstruct_effective_state
+
+OUT=Path(__file__).resolve().parents[3]/"artifacts/index_fair_value"
+def artifact(name):
+    return json.loads((OUT/name).read_text(encoding="utf-8"))
 
 def target(**changes):
     value={"card_name":"Furret","set_name":"Journey Together","card_number":"168",
@@ -23,6 +29,8 @@ def listing(title,condition="Ungraded"):
  "Furret card sleeves 168/159",
  "Furret card protector 168/159",
  "Furret card stand 168/159",
+ "Furret deck box 168/159",
+ "Furret top loader 168/159",
 ])
 def test_accessory_product_ontology_precedes_identity(title):
     result=classify_listing(target(),listing(title))
@@ -83,4 +91,37 @@ def test_expanded_development_has_zero_catastrophic_high_rows():
     assert distribution["AMBIGUOUS"]==18
 
 def test_v2_fingerprint_is_stable():
-    assert rule_fingerprint()=="b5b1a1b32df3a93b00d73741be478b68ffd1e8d432c529e3b0aec3072468354b"
+    assert rule_fingerprint()=="a2ac052891df2745f2a2dde8b615a5ccbf1ef23a777eb2a0310e35aef94f6d5e"
+
+def test_expanded_manifest_has_exact_effective_corpus_contract():
+    manifest=artifact("ebay_d2m_v2_expanded_development_manifest.json")
+    assert (manifest["rows"],manifest["positive_count"],manifest["negative_count"],
+            manifest["ambiguous_count"],manifest["binary_denominator"])==(700,447,235,18,682)
+    assert len(manifest["membership_and_label_fingerprint"])==64
+    assert manifest["final_blind_used"] is False
+
+def test_expanded_metrics_meet_diagnostic_targets_with_zero_high_errors():
+    metrics=artifact("ebay_d2m_v2_expanded_metrics.json")
+    assert metrics["high"]["accepted"]==metrics["high"]["tp"]==298
+    assert metrics["high"]["fp"]==0
+    assert metrics["high"]["wilson_95"][0]>=.98
+    assert metrics["high"]["card_coverage"]>=.80
+    assert metrics["medium"]["authority"]=="DIAGNOSTIC_ONLY"
+    assert artifact("ebay_d2m_v2_coverage_analysis.json")["cards_still_lacking_high"]==11
+
+def test_all_accessory_examples_feed_general_ontology():
+    ontology=artifact("ebay_d2m_v2_accessory_ontology.json")
+    assert len(ontology["expanded_development_examples"])==19
+    assert all(not row["card_itself_sold"] for row in ontology["expanded_development_examples"])
+    assert "Extended Art Custom Case" not in ontology["families"].values()
+
+def test_final_freeze_manifest_is_complete_and_guard_remains_closed_without_it():
+    freeze=artifact("ebay_d2m_v2_final_freeze_manifest.json")
+    assert freeze["matcher_version"]==MATCHER_VERSION
+    assert freeze["matcher_fingerprint"]==rule_fingerprint()
+    assert freeze["frozen_commit"]=="3d70f0032fbc7e39d759a0e13669c1c6bc475367"
+    assert freeze["logic_frozen"] is True
+    assert freeze["final_blind_rows_from_original_manifest"]==350
+    assert freeze["final_blind_labels_accessed"] is False
+    with pytest.raises(PermissionError):
+        load_partition("FINAL_BLIND_TEST")

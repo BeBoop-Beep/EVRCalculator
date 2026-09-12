@@ -20,12 +20,12 @@ MULTI_CARD_RE=re.compile(
  r"\bcard\(s\)|\b[2-9]\s*x\b",re.I)
 SEALED_PRODUCT_RE=re.compile(
  r"\b(?:booster (?:box|pack|bundle)|elite trainer box|etb|display box|factory sealed|"
- r"collection box|deck box|tin|blister)\b",re.I)
+ r"collection box|tin|blister)\b",re.I)
 ACCESSORY_PATTERNS={
  "ART_CASE":r"\b(?:extended|full)[- ]?art(?:work)?\s+(?:custom\s+)?(?:display\s+)?case\b",
  "DISPLAY_CASE":r"\b(?:acrylic|magnetic|custom|display)\s+(?:card\s+)?(?:case|holder|frame)\b",
- "HOLDER_FRAME":r"\b(?:card\s+protector|card\s+holder|framed\s+display|card\s+stand)\b",
- "STORAGE_DISPLAY":r"\b(?:binder(?:\s+insert)?|sleeves?|storage\s+(?:box|case))\b",
+ "HOLDER_FRAME":r"\b(?:card\s+protector|card\s+holder|framed\s+display|card\s+stand|top ?loader)\b",
+ "STORAGE_DISPLAY":r"\b(?:binder(?:\s+insert)?|sleeves?|deck\s+box|storage\s+(?:box|case))\b",
  "NON_CARD_REPLICA":r"\b(?:blanket|poster|proxy|custom card|metal card)\b",
  "NO_CARD":r"\bno\s+card\b",
 }

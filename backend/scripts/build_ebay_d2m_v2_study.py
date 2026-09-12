@@ -108,13 +108,15 @@ def main():
   "rejected":"Non-single product object or explicit identity conflict.",
   "medium_authority":"DIAGNOSTIC_ONLY"})
 
- exact_cards={r["canonical_card_id"] for _,r,g,_ in results if g==POS}
- missing=sorted(exact_cards-high_cards);coverage_rows=[]
+ all_cards={r["canonical_card_id"] for _,r,_,_ in results}
+ missing=sorted(all_cards-high_cards);coverage_rows=[]
  for card_id in missing:
   members=[(r,x) for _,r,g,x in results if g==POS and r["canonical_card_id"]==card_id]
-  coverage_rows.append({"canonical_card_id":card_id,"card_name":members[0][0]["target_card_name"],
+  any_member=next(r for _,r,_,_ in results if r["canonical_card_id"]==card_id)
+  coverage_rows.append({"canonical_card_id":card_id,"card_name":any_member["target_card_name"],
    "states":dict(Counter(x["identity_state"] for _,x in members)),
-   "causes":dict(Counter(x["reason"] for _,x in members))})
+   "causes":dict(Counter(x["reason"] for _,x in members)) if members else
+     {"QUERY_RETURNED_NO_EXACT_GOLD_LISTING":1}})
  v1medium={(p,r["benchmark_row_id"]) for p,r,g,x in results if g==POS and
   __import__("backend.scripts.ebay_d2m_matcher",fromlist=["classify_listing"]).classify_listing(target(r),listing(r))["identity_state"]=="MEDIUM_CONFIDENCE"}
  promoted=sum(1 for p,r,g,x in results if (p,r["benchmark_row_id"]) in v1medium and x["identity_state"]=="HIGH_CONFIDENCE")
