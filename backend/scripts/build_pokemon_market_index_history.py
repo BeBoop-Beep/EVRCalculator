@@ -59,8 +59,14 @@ def parser():
     return p
 
 
-def _rollout_source_materialization(client, market_date: str) -> dict:
-    """Use exactly the public rollout universe, never generic/Price Storage rollout."""
+def _rollout_source_materialization(client, market_date: str, *, allow_candidate: bool = False) -> dict:
+    """Use exactly the public rollout universe, never generic/Price Storage rollout.
+
+    ``allow_candidate`` must be True only for dry-run/preview evaluation --
+    see ``public_root_materialization`` for the FINAL-vs-candidate provenance
+    contract. A --commit publish must always call this with
+    ``allow_candidate=False`` (the default).
+    """
     day = str(market_date)[:10]
     roots = list(
         client.table("pokemon_market_public_rollout_root_sets_v1")
@@ -83,7 +89,7 @@ def _rollout_source_materialization(client, market_date: str) -> dict:
             .in_("value_scope", ["standard", "top10"])
             .execute().data or []
         )
-    return public_root_materialization(root_ids, source_rows, day)
+    return public_root_materialization(root_ids, source_rows, day, allow_candidate=allow_candidate)
 
 
 def build(client, *, market_date=None, backfill=False, from_date=None, commit=False, accepted_dates=None):
@@ -93,25 +99,46 @@ def build(client, *, market_date=None, backfill=False, from_date=None, commit=Fa
     # neutralized explicitly instead of being misreported as price performance.
     rollout_refresh = None
     if market_date and not backfill:
-        materialization = _rollout_source_materialization(client, str(market_date)[:10])
-        if commit and not materialization["ready"]:
-            response = client.rpc(
-                ROLLOUT_REFRESH_RPC,
-                {"p_market_date": str(market_date)[:10]},
-            ).execute()
-            rollout_refresh = getattr(response, "data", None)
-            # Recheck the root provenance; an incomplete refresh is not success.
-            materialization = _rollout_source_materialization(client, str(market_date)[:10])
-            if not materialization["ready"]:
-                raise RuntimeError("public root source remains incomplete after rollout refresh")
-        else:
+        day = str(market_date)[:10]
+        if not commit:
+            # Dry-run/preview: candidate provenance is an acceptable input.
+            # Zero writes ever happen on this path; report the provenance
+            # state explicitly so callers never mistake a preview for a
+            # publishable result.
+            materialization = _rollout_source_materialization(client, day, allow_candidate=True)
             rollout_refresh = {
-                "status": "already_materialized" if materialization["ready"] else "dry_run",
+                "status": "preview",
                 **materialization,
             }
-        if not materialization["ready"]:
-            raise RuntimeError("public root source is not materialized; refusing member-only index inputs")
-        rows = build_rollout_market_index_rows(client, market_date=str(market_date)[:10])
+            if not materialization["ready"]:
+                raise RuntimeError(
+                    "public root source is not materialized (preview, candidate provenance "
+                    "allowed); refusing member-only index inputs"
+                )
+        else:
+            # Commit: FINAL provenance only. If only candidate rows exist,
+            # invoke the canonical finalizer and re-require FINAL before any
+            # persistence happens.
+            materialization = _rollout_source_materialization(client, day, allow_candidate=False)
+            if not materialization["ready"]:
+                response = client.rpc(
+                    ROLLOUT_REFRESH_RPC,
+                    {"p_market_date": day},
+                ).execute()
+                rollout_refresh = getattr(response, "data", None)
+                # Recheck strictly against FINAL provenance; an incomplete or
+                # still-candidate-only refresh is not success.
+                materialization = _rollout_source_materialization(client, day, allow_candidate=False)
+                if not materialization["ready"]:
+                    raise RuntimeError(
+                        "public root source remains incomplete after rollout finalizer "
+                        f"(provenanceState={materialization['provenanceState']})"
+                    )
+            else:
+                rollout_refresh = {"status": "already_materialized", **materialization}
+            if not materialization["ready"]:
+                raise RuntimeError("public root source is not materialized; refusing member-only index inputs")
+        rows = build_rollout_market_index_rows(client, market_date=day)
         persisted = persist_rollout_market_index_rows(client, rows) if commit else 0
     else:
         rows = build_market_index_history(
