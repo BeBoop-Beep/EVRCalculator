@@ -28,6 +28,7 @@ from backend.desirability.collector_appeal import collector_appeal_v4_frequency_
 from backend.desirability.collector_appeal_inputs import load_pull_rate_model
 from backend.desirability.opening_appeal import union_probability_from_cards
 from backend.desirability.rarity_buckets import classify_rarity
+from backend.desirability.collector_component_rankings import build_component_ranking_rows
 
 MODEL_VERSION = "pokemon_collector_appeal_v7_expanded_price_blind_v1"
 FROZEN_FORMULA_FINGERPRINT = "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b"
@@ -357,12 +358,20 @@ def persist_built_model(client, built, *, as_of_date):
     client.table("pokemon_collector_appeal_model_run_sources").insert([
         {"model_run_id":run_id,"source_run_id":source_id,"source_position":position}
         for position,source_id in enumerate(source_ids,1)]).execute()
+    persisted = persistence_rows(built,run_id)
     for table, rows in zip(("pokemon_card_collector_appeal_scores",
                             "pokemon_set_collector_desirability_scores",
                             "pokemon_set_collector_appeal_scores"),
-                           persistence_rows(built,run_id)):
+                           persisted):
         for index in range(0,len(rows),100):
             client.table(table).insert(rows[index:index+100]).execute()
+    # Prepared UI diagnostics are tied to this exact immutable model run. They
+    # are explanatory ablations only and never feed the V7 headline formula.
+    component_rows = build_component_ranking_rows(persisted[0], run_id)
+    for index in range(0, len(component_rows), 100):
+        client.table("pokemon_set_collector_component_rankings").insert(
+            component_rows[index:index+100]
+        ).execute()
     validation = client.rpc("validate_pokemon_collector_appeal_model_run",{
         "p_model_run_id":run_id,"p_diagnostics":{"builder":"build_pokemon_collector_appeal_v7_expanded.py",
         "explicitSourceAuthority":manifest["sourceAuthority"],"formulaInvariant":True}}).execute().data

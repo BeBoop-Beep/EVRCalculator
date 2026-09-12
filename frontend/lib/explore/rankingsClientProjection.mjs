@@ -226,7 +226,13 @@ function projectTarget(target) {
     const components = {};
     if (rosterDesirability !== undefined) components.rosterDesirability = rosterDesirability;
     if (desirableOutcomeFrequency !== undefined) components.desirableOutcomeFrequency = desirableOutcomeFrequency;
-    out.publicCollectorAppealContractV1 = { collectorAppeal, ...(Object.keys(components).length ? { components } : {}) };
+    const sourceDrivers = target?.publicCollectorAppealContractV1?.drivers;
+    const drivers = {};
+    for (const key of ["pokemonAppeal", "trainerAppeal", "artistImpact", "playabilityImpact"]) {
+      const projected = projectLeaves(sourceDrivers?.[key], ["rawValue", "publicScore", "relativeScore", "rank", "cohortSize", "status", "statusReason", "methodologyVersion"]);
+      if (projected !== undefined) drivers[key] = projected;
+    }
+    out.publicCollectorAppealContractV1 = { collectorAppeal, ...(Object.keys(components).length ? { components } : {}), ...(Object.keys(drivers).length ? { drivers } : {}) };
   }
 
   return out;

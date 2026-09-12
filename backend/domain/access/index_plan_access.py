@@ -401,6 +401,84 @@ def _project_opening_scope(scope: Mapping[str, Any]) -> dict[str, Any]:
     return result
 
 
+def project_set_rankings_lens_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
+    """Dedicated compact response for `/explore/rankings/lens/sets`."""
+    plus = has_index_feature_access(plan, FEATURE_SET_RIP_ANALYTICS)
+    result = {
+        "targets": [
+            _project_set_rankings_plus_target(target) if plus else _project_public_set_leaderboard_target(target)
+            for target in payload.get("targets", []) if isinstance(target, Mapping)
+        ],
+        "meta": _pick(payload.get("meta") or {}, _RANKINGS_META_FIELDS),
+        "access": {"rankingsIntelligence": plus, "requiredPlan": "plus"},
+    }
+    return result
+
+
+_SET_LENS_SCALARS = _BASE_TARGET_FIELDS | frozenset({
+    "pack_cost", "mean_value", "median_value", "prob_profit", "expected_loss_when_losing",
+    "mean_value_to_cost_ratio", "p95_value_to_cost_ratio", "p99_value_to_cost_ratio",
+    "previousOverallRipRank1d", "overallRipRankComparisonStatus1d",
+    "previousFinancialRipRank1d", "financialRipRankComparisonStatus1d",
+})
+_HEADLINE_FIELDS = frozenset({
+    "score", "relativeScore", "leaderNormalizedScore", "rank", "cohortSize",
+    "rankedSetCount", "tier", "status", "statusReason",
+})
+_SET_RIP_PLUS_FIELDS = _PUBLIC_SET_RIP_FIELDS | frozenset({
+    "score", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount",
+})
+_FAMILY_FIELDS = frozenset({"family", "score", "rank", "tier", "cohortSize", "skuCount"})
+_CHASE_FIELDS = frozenset({
+    "value", "status", "statusReason", "percent", "setRank", "tier", "version",
+    "chaseDepth", "publicScore", "setCohortSize",
+})
+_DRIVER_FIELDS = frozenset({
+    "rawValue", "publicScore", "relativeScore", "rank", "cohortSize", "status",
+    "statusReason", "methodologyVersion",
+})
+
+
+def _project_set_rankings_plus_target(target: Mapping[str, Any]) -> dict[str, Any]:
+    """Leaf-level authority for the paid Set hub; unknown fields fail closed."""
+    result = _pick(target, _SET_LENS_SCALARS)
+    set_rip = target.get("setRipV1")
+    if isinstance(set_rip, Mapping):
+        compact = _pick(set_rip, _SET_RIP_PLUS_FIELDS)
+        compact["familyScores"] = [
+            _pick(row, _FAMILY_FIELDS) for row in set_rip.get("familyScores", []) if isinstance(row, Mapping)
+        ]
+        chase = set_rip.get("chaseAccessibility")
+        if isinstance(chase, Mapping): compact["chaseAccessibility"] = _pick(chase, _CHASE_FIELDS)
+        result["setRipV1"] = compact
+    for key in ("overallRipV12", "financialRipV4"):
+        if isinstance(target.get(key), Mapping): result[key] = _pick(target[key], _HEADLINE_FIELDS)
+    chase = target.get("rankingsChase")
+    if isinstance(chase, Mapping):
+        result["rankingsChase"] = _pick(chase, frozenset({"cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"}))
+    contract = target.get("publicCollectorAppealContractV1")
+    if isinstance(contract, Mapping):
+        components = contract.get("components") or {}
+        compact_contract = {
+            "contractVersion": contract.get("contractVersion"),
+            "collectorAppeal": _pick(contract.get("collectorAppeal") or {}, _HEADLINE_FIELDS | frozenset({"modelVersion"})),
+            "components": {
+                "rosterDesirability": _pick(components.get("rosterDesirability") or {}, frozenset({"score", "rank", "rankedSetCount"})),
+                "desirableOutcomeFrequency": _pick(components.get("desirableOutcomeFrequency") or {}, frozenset({"rawValue", "displayPercent", "status", "statusReason", "isFinancialMetric"})),
+            },
+            "financialDistinction": contract.get("financialDistinction"),
+        }
+        drivers = contract.get("drivers")
+        if isinstance(drivers, Mapping):
+            compact_contract["drivers"] = {
+                key: _pick(value, _DRIVER_FIELDS) for key, value in drivers.items()
+                if key in {"pokemonAppeal", "trainerAppeal", "artistImpact", "playabilityImpact"} and isinstance(value, Mapping)
+            }
+            compact_contract["driversExplanation"] = contract.get("driversExplanation")
+        result["publicCollectorAppealContractV1"] = compact_contract
+    return result
+
+
 def project_opening_economics_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
     """Keep the global educational contract public; tier detailed breakdowns."""
     plus = has_index_feature_access(plan, FEATURE_PACK_ECONOMICS)

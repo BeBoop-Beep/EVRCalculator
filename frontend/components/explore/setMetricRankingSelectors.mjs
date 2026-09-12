@@ -14,7 +14,9 @@ export function readSetCollectorAppealRanking(target) {
   const components = target?.publicCollectorAppealContractV1?.components || {};
   const roster = components.rosterDesirability || {};
   const frequency = components.desirableOutcomeFrequency || {};
-  return { publicScore: headline.publicScore, rank: headline.rank, cohortSize: headline.cohortSize, tier: headline.tier, status: headline.status, statusReason: headline.statusReason, rosterScore: number(roster.score), frequencyRawValue: number(frequency.rawValue), frequencyDisplayPercent: number(frequency.displayPercent) };
+  const drivers = target?.publicCollectorAppealContractV1?.drivers || {};
+  const driver = (key) => ({ publicScore: number(drivers[key]?.publicScore ?? drivers[key]?.relativeScore), rawValue: number(drivers[key]?.rawValue), rank: number(drivers[key]?.rank), cohortSize: number(drivers[key]?.cohortSize), status: drivers[key]?.status || null });
+  return { publicScore: headline.publicScore, rank: headline.rank, cohortSize: headline.cohortSize, tier: headline.tier, status: headline.status, statusReason: headline.statusReason, rosterScore: number(roster.score), frequencyRawValue: number(frequency.rawValue), frequencyDisplayPercent: number(frequency.displayPercent), pokemonAppeal: driver("pokemonAppeal"), trainerAppeal: driver("trainerAppeal"), artistImpact: driver("artistImpact"), playabilityImpact: driver("playabilityImpact") };
 }
 
 export function readChaseAccessibilitySetRanking(target) {

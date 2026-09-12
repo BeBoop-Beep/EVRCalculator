@@ -29,7 +29,22 @@ def load_current_set_collector_appeal(set_ids: Optional[Iterable[str]] = None, *
         # Deployment-order compatibility: before the authority migration/view
         # exists, the standalone contract is absent rather than synthesized.
         return {}
-    return {str(row["set_id"]): row for row in rows}
+    result = {str(row["set_id"]): row for row in rows}
+    # One cohort read, never one request per Rankings row. Deployment-order
+    # compatibility keeps the headline available until the prepared migration
+    # exists; diagnostics are optional presentation support, not score inputs.
+    try:
+        driver_query = resolved.table("pokemon_set_collector_component_rankings_current_v").select(
+            "model_run_id,set_id,drivers_json,methodology_version"
+        )
+        if ids: driver_query = driver_query.in_("set_id", ids)
+        for driver in list(driver_query.execute().data or []):
+            set_id = str(driver["set_id"])
+            if set_id in result and str(result[set_id].get("model_run_id")) == str(driver.get("model_run_id")):
+                result[set_id]["component_drivers_json"] = driver.get("drivers_json") or {}
+    except Exception:
+        pass
+    return result
 
 
 def load_set_collector_appeal_for_model(
@@ -211,7 +226,7 @@ def build_public_collector_appeal_contract(row: Optional[Dict[str, Any]]) -> Opt
             "notYetModeled": ["Artist", "Treatment", "Energy"],
             "note": "Pokémon, Trainers, and eligible functional cards are modeled. Artist is not modeled; Treatment and Energy are excluded.",
         }
-    return {
+    contract = {
         "contractVersion": PUBLIC_CONTRACT_VERSION,
         "collectorAppeal": {"score": row.get("collector_appeal_score") if scored else None,"absoluteScore":row.get("collector_appeal_score") if scored else None,"relativeScore":row.get("collector_appeal_score") if scored else None,"rank":row.get("collector_appeal_rank") if scored else None,"rankedSetCount":22,"tier":None,"status":row.get("score_status"),"statusReason":row.get("score_status_reason"),"version":"collector_appeal","modelVersion":row.get("model_version"),"modelRunId":row.get("model_run_id"),"asOfDate":str(row.get("as_of_date")) if row.get("as_of_date") else None,
             "subjectScope":subject_scope},
@@ -222,6 +237,14 @@ def build_public_collector_appeal_contract(row: Optional[Dict[str, Any]]) -> Opt
         "definition":"Collector Appeal measures how compelling a set's collectible roster is and how often a modeled pack can deliver a desirable card.",
         "financialDistinction":"A desirable outcome can still be worth less than the pack price.",
     }
+    drivers = row.get("component_drivers_json")
+    if isinstance(drivers, dict):
+        contract["drivers"] = drivers
+        contract["driversExplanation"] = (
+            "These diagnostics explain different sources of collectible strength; "
+            "they are not four equal weights summed to Collector Appeal."
+        )
+    return contract
 
 
 def attach_public_collector_appeal_contracts(targets, *, client=None):

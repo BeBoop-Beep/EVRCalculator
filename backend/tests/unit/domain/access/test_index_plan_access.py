@@ -22,6 +22,7 @@ from backend.domain.access.index_plan_access import (
     project_product_family_rankings_response,
     project_product_rankings_response,
     project_rankings_response,
+    project_set_rankings_lens_response,
     project_set_page_response,
     project_set_rip_simulation_evidence_response,
     project_sealed_product_detail_response,
@@ -67,6 +68,33 @@ def _sim_evidence_fixture():
 def _assert_no_sentinel(value):
     import json
     assert _SIM_EVIDENCE_SENTINEL not in json.dumps(value)
+
+
+def test_set_rankings_plus_projection_is_compact_and_driver_allowlisted():
+    huge = "x" * 1_100_000
+    payload = {"targets": [{"id": "s", "name": "Set", "publicAnalyticsStatus": "analytics_ready",
+        "setRipV1": {"publicScore": 90, "rank": 1, "tier": "S", "cohortSize": 22,
+            "rankable": True, "methodologyVersion": "v", "displayFamilyScores": [huge],
+            "familyScores": [{"family": "box", "score": 90, "productIds": [huge]}]},
+        "overallRipV12": {"leaderNormalizedScore": 80, "rank": 1, "components": {"audit": huge}},
+        "financialRipV4": {"leaderNormalizedScore": 70, "rank": 2, "audit": huge},
+        "publicRipContractV11": {"audit": huge}, "openingExperience": {"cards": [huge]},
+        "publicCollectorAppealContractV1": {"collectorAppeal": {"relativeScore": 75, "rank": 3},
+            "drivers": {"pokemonAppeal": {"rawValue": 70, "publicScore": 90, "rank": 1,
+                "cohortSize": 22, "methodologyVersion": "d", "cards": [huge]}}}}], "meta": {}}
+    projected = project_set_rankings_lens_response(payload, "plus")
+    import json
+    encoded = json.dumps(projected)
+    assert len(encoded) < 5000
+    assert "publicRipContractV11" not in encoded and "openingExperience" not in encoded
+    assert "displayFamilyScores" not in encoded and "productIds" not in encoded and huge not in encoded
+    assert projected["targets"][0]["publicCollectorAppealContractV1"]["drivers"]["pokemonAppeal"]["rank"] == 1
+
+
+def test_set_rankings_basic_leaks_no_collector_drivers():
+    payload = {"targets": [{"id": "s", "setRipV1": {"publicScore": 1},
+        "publicCollectorAppealContractV1": {"drivers": {"pokemonAppeal": {"publicScore": 99}}}}], "meta": {}}
+    assert "publicCollectorAppealContractV1" not in project_set_rankings_lens_response(payload, None)["targets"][0]
 
 
 @pytest.mark.parametrize("plan", [None, "unknown", "base"])
@@ -339,7 +367,7 @@ def _rankings_target():
         "publicRipContractV10": {"overallRip": {"rank": 3}},
         "overallRipV12": {"rank": 2, "relativeScore": 70.0},
         "publicRipContractV11": {"overallRip": {"rank": 2}},
-        "chaseAccessibility": {"chaseAccessibility": 0.01},
+        "setRipV1": {"chaseAccessibility": {"value": 0.01, "publicScore": 50}},
     }
 
 
@@ -354,15 +382,14 @@ def test_base_rankings_projection_cannot_see_v12_or_v10_intelligence():
     assert result["access"]["rankingsIntelligence"] is False
 
 
-def test_plus_rankings_projection_receives_v12_and_v11():
-    result = project_rankings_response({"targets": [_rankings_target()]}, plan=INDEX_PLAN_PLUS)
+def test_plus_rankings_projection_receives_compact_current_v12_only():
+    result = project_set_rankings_lens_response({"targets": [_rankings_target()]}, plan=INDEX_PLAN_PLUS)
     target = result["targets"][0]
     assert target["overallRipV12"]["rank"] == 2
-    assert target["publicRipContractV11"]["overallRip"]["rank"] == 2
-    assert target["chaseAccessibility"]["chaseAccessibility"] == 0.01
-    # Historical V10 data is preserved for existing Plus consumers.
-    assert target["overallRipV10"]["rank"] == 3
-    assert target["publicRipContractV10"]["overallRip"]["rank"] == 3
+    assert target["setRipV1"]["chaseAccessibility"]["value"] == 0.01
+    assert "publicRipContractV11" not in target
+    assert "overallRipV10" not in target
+    assert "publicRipContractV10" not in target
 
 
 def _product_family_ranking_row():

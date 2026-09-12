@@ -78,6 +78,7 @@ from backend.domain.access.index_plan_access import (
     project_public_era_rankings_response,
     project_opening_economics_response,
     project_rankings_response,
+    project_set_rankings_lens_response,
     project_sealed_market_response,
     project_sealed_product_detail_response,
     project_set_page_response,
@@ -1100,7 +1101,7 @@ def get_explore_rankings_lens(
         payload = get_pokemon_explore_rankings_lens_payload(lens=normalized_lens, limit=limit)
         plan = access_context["plan"]
         if normalized_lens == "sets":
-            return _tiered_response(project_rankings_response(payload, plan))
+            return _tiered_response(project_set_rankings_lens_response(payload, plan))
         if normalized_lens == "eras":
             entitled = has_index_feature_access(plan, FEATURE_SET_RIP_ANALYTICS)
             return _tiered_response({
