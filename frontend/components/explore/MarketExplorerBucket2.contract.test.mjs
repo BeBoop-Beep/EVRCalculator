@@ -51,7 +51,7 @@ test("Screens are independently gated prepared discovery with local result state
 test("Build modal is Exact Basket only while filtered editing opens the sidebar", async () => {
   const client = await read("./MarketExplorerClient.jsx");
   const query = await read("./MarketExplorerQueryBuilder.jsx");
-  const build = client.slice(client.indexOf('data-market-explorer-zone="build"'), client.indexOf("</aside>"));
+  const build = client.slice(client.indexOf('data-market-explorer-zone="build"'), client.indexOf('data-market-explorer-zone="compare"'));
   assert.match(build, /<MarketExplorerExactBasket/);
   assert.doesNotMatch(build, /<MarketExplorerQueryBuilder|Custom Filtered|role="tablist"/);
   assert.match(client, /membershipMode === "explicit"\) setBuilderOpen\(true\)/);

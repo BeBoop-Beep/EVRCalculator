@@ -117,8 +117,12 @@ export default function MarketExplorerClient({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const dialog = builderDialogRef.current;
+    if (typeof dialog?.showModal === "function" && !dialog.open) dialog.showModal();
     const focusable = () => [...(dialog?.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])];
-    requestAnimationFrame(() => focusable()[0]?.focus());
+    requestAnimationFrame(() => {
+      const search = dialog?.querySelector("[data-market-exact-search]");
+      if (search) search.focus(); else focusable()[0]?.focus();
+    });
     const keydown = (event) => {
       if (event.key === "Escape") { event.preventDefault(); setBuilderOpen(false); return; }
       if (event.key !== "Tab") return;
@@ -128,7 +132,7 @@ export default function MarketExplorerClient({
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
     document.addEventListener("keydown", keydown);
-    return () => { document.removeEventListener("keydown", keydown); document.body.style.overflow = previousOverflow; document.querySelector("[data-market-explorer-build-trigger]")?.focus(); };
+    return () => { document.removeEventListener("keydown", keydown); if (dialog?.open) dialog.close(); document.body.style.overflow = previousOverflow; document.querySelector("[data-market-explorer-build-trigger]")?.focus(); };
   }, [builderOpen]);
   // ONE detail target at a time. Four selected markets must not produce four
   // constituent tables; the user names the one they are inspecting.
@@ -358,21 +362,15 @@ export default function MarketExplorerClient({
           </div>
         </div>
         </section>
-        <section ref={builderDialogRef} role="dialog" aria-modal="true" aria-hidden={!builderOpen} data-market-explorer-builder-overlay data-market-explorer-zone="build" className={`${builderOpen ? "fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-[var(--surface-page)] shadow-2xl desk:inset-x-1/2 desk:bottom-auto desk:top-1/2 desk:max-h-[88vh] desk:w-[min(64rem,calc(100vw-3rem))] desk:-translate-x-1/2 desk:-translate-y-1/2 desk:rounded-2xl" : "hidden"} ${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="build-markets-zone-heading">
-          <div className={styles.explorerZoneHeader}>
-            <p className={styles.explorerZoneEyebrow}>Build · Premium</p>
-            <h2 id="build-markets-zone-heading" className={styles.explorerZoneTitle}>Build Your Market</h2>
-            <p className={styles.explorerZoneDescription}>Hand-pick an exact basket of instruments.</p>
-            <button type="button" aria-label="Close Build Your Market" onClick={() => setBuilderOpen(false)} className="absolute right-4 top-4 min-h-11 min-w-11 rounded-full border border-[var(--border-subtle)] text-xl">×</button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div data-market-explorer-build-path="exact" className={styles.explorerBuildPath}>
+      </aside>
+        <dialog ref={builderDialogRef} role="dialog" aria-modal="true" aria-hidden={!builderOpen} data-market-explorer-builder-overlay data-market-explorer-zone="build" className={builderOpen ? "fixed inset-0 z-[9999] m-0 flex h-full max-h-none w-full max-w-none items-stretch justify-center border-0 bg-slate-950/80 p-0 backdrop-blur-sm desk:items-center desk:p-6" : "hidden"} aria-labelledby="build-markets-zone-heading">
+          <div className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[var(--surface-page)] shadow-2xl desk:h-[82vh] desk:max-h-[86vh] desk:w-[min(74rem,calc(100vw-3rem))] desk:rounded-2xl`}>
+            <div data-market-explorer-build-path="exact" className="flex min-h-0 flex-1 flex-col">
               <MarketExplorerExactBasket currentPlan={indexPlan} editingSeries={editingSeries}
-                onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} />
+                onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} onClose={() => setBuilderOpen(false)} />
             </div>
           </div>
-        </section>
-      </aside>
+        </dialog>
       {/* 1 — the ASSET CLASS selector cards. Submarkets and benchmarks
              deliberately do not become top-level cards. */}
       {/* 2 — Explore Segments beside the Market Comparison chart. */}

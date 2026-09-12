@@ -7,34 +7,52 @@ const exact = await readFile(new URL("./MarketExplorerExactBasket.jsx", import.m
 const builder = await readFile(new URL("./MarketExplorerQueryBuilder.jsx", import.meta.url), "utf8");
 const client = await readFile(new URL("./MarketExplorerClient.jsx", import.meta.url), "utf8");
 
-test("Exact Basket is one standalone top-level Premium workspace", () => {
+test("Build Your Market is one direct Premium instrument workspace", () => {
+  assert.equal((client.match(/role="dialog"/g) || []).length, 1);
   assert.match(client, /<MarketExplorerExactBasket/);
+  assert.match(exact, /<MarketExplorerExactItemPicker/);
   assert.doesNotMatch(builder, /<MarketExplorerExactItemPicker/);
+  assert.doesNotMatch(`${picker}${exact}`, />Exact Basket<|Create Exact Basket|Build Basket|Update Basket/);
+  assert.doesNotMatch(picker, /className="fixed inset-0|role="dialog"/);
   assert.match(exact, /requires Index Premium/i);
 });
 
-test("mixed search scopes affect discovery and preserve qualified selection", () => {
+test("Cards and Products scopes preserve qualified canonical search", () => {
   assert.match(picker, /useState\("all"\)/);
-  assert.match(picker, /\["all", "cards", "sealed"\]/);
+  assert.match(picker, /value: "all", label: "All"/);
+  assert.match(picker, /value: "cards", label: "Cards"/);
+  assert.match(picker, /value: "sealed", label: "Products"/);
+  assert.match(picker, /instruments\/search\?q=/);
+  assert.match(picker, /asset=\$\{scope\}/);
   assert.match(picker, /item\.asset.*item\.instrumentId/);
-  assert.match(picker, /25 \/ 25 selected/);
+  assert.match(picker, /25 \/ 25 selected — remove an item to add another/);
 });
 
-test("Exact has no Builder narrowing or composition controls", () => {
-  assert.doesNotMatch(picker, /narrowingSummary|Additional Builder filters|Clear narrowing filters/);
-  assert.doesNotMatch(exact, /eraIds|setIds|segmentIds|pokemonIds|priceSegmentIds|releaseAgeCohortIds|topN/);
+test("the modal has stable header, scroll body, and footer without redundant Close", () => {
+  assert.match(picker, /<header className=/);
+  assert.match(picker, /overflow-y-auto/);
+  assert.match(picker, /<footer className="flex-none/);
+  assert.match(picker, /aria-label="Close Build Your Market"/);
+  assert.doesNotMatch(picker, />Close<\/button>/);
+  assert.match(client, /data-market-exact-search/);
+  assert.match(client, /event\.key === "Escape"/);
+  assert.match(client, /data-market-explorer-build-trigger/);
 });
 
-test("editing restores definition authority and translates V1 in memory", () => {
+test("editing restores V2 and V1 definitions without changing methodology", () => {
   assert.match(exact, /contractVersion === MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION/);
   assert.match(exact, /spec\.instrumentIds/);
   assert.match(exact, /spec\.instruments/);
-  assert.match(exact, /onUpdateQuery/);
-  assert.match(picker, /Save as new/);
+  assert.match(exact, /onUpdateQuery\?\.\(editingSeries\.instanceId/);
+  assert.match(picker, /Save as New/);
+  assert.match(exact, /Update Market/);
+  assert.doesNotMatch(exact, /eraIds|setIds|segmentIds|pokemonIds|priceSegmentIds|releaseAgeCohortIds|topN/);
 });
 
-test("one-unit methodology and DB-owned price/share fields are explicit", () => {
-  assert.match(picker, /One physical unit/);
-  assert.match(picker, /item\.marketPrice/);
-  assert.match(picker, /item\.valueSharePercent/);
+test("qualified identity, bounds, and optional DB-owned prices remain explicit", () => {
+  assert.match(exact, /QUERY_MEMBERSHIP_EXPLICIT/);
+  assert.match(picker, /MAX_EXPLICIT_INSTRUMENTS/);
+  assert.match(picker, /item\.marketPrice != null/);
+  assert.match(picker, /item\.valueSharePercent != null/);
+  assert.doesNotMatch(picker, /quantity|customWeight/i);
 });

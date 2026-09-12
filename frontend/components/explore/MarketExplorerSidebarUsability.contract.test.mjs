@@ -36,9 +36,11 @@ test("Active Markets anchors actions and delegates Clear all to clearGraph", asy
   assert.ok(active.indexOf("data-market-explorer-active-clear-all") < active.indexOf("data-market-explorer-active-chip-scroll"));
 });
 
-test("Builder defaults collapsed and Exact Basket advertises individual selection", async () => {
+test("Builder defaults collapsed and Build Your Market opens direct selection", async () => {
   const builder = await read("./MarketExplorerQueryBuilder.jsx");
   const exact = await read("./MarketExplorerExactBasket.jsx");
+  const picker = await read("./MarketExplorerExactItemPicker.jsx");
   assert.doesNotMatch(builder, /hidden min-h-0 flex-1 flex-col desk:flex/);
-  assert.match(exact, /Pick individual cards or sealed products/);
+  assert.match(exact, /<MarketExplorerExactItemPicker/);
+  assert.match(picker, /Choose the exact Cards and Products you want to track together/);
 });

@@ -14,26 +14,33 @@ function editItems(series) {
   return (spec.instruments || []).map((item) => ({ ...(metadata.get(`${item.asset}:${item.instrumentId}`) || {}), ...item }));
 }
 
-export default function MarketExplorerExactBasket({ currentPlan, editingSeries, onAddQuery, onUpdateQuery, onCancelEdit }) {
-  const [open, setOpen] = useState(false);
+export default function MarketExplorerExactBasket({ currentPlan, editingSeries, onAddQuery, onUpdateQuery, onCancelEdit, onClose }) {
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
   const premium = currentPlan === "premium";
   const editingExact = editingSeries?.spec?.membershipMode === QUERY_MEMBERSHIP_EXPLICIT;
-  useEffect(() => { if (editingExact) { setItems(editItems(editingSeries)); setOpen(true); setMessage(""); } }, [editingExact, editingSeries?.instanceId]);
+  useEffect(() => {
+    if (!editingExact) return;
+    setItems(editItems(editingSeries));
+    setMessage("");
+  }, [editingExact, editingSeries]);
   const spec = useMemo(() => { try { return normalizeQuerySpec({ membershipMode: QUERY_MEMBERSHIP_EXPLICIT, instruments: items }); } catch { return null; } }, [items]);
   const build = async (saveAsNew = false) => {
-    if (!premium) { setStatus("locked"); setMessage("Exact Basket requires Index Premium."); return; }
+    if (!premium) { setStatus("locked"); setMessage("Build Your Market requires Index Premium."); return; }
     if (!spec) return;
     setStatus("building"); setMessage("");
     try {
       const outcome = editingExact && !saveAsNew ? await onUpdateQuery?.(editingSeries.instanceId, spec, { exactItems: items }) : await onAddQuery?.(spec, { exactItems: items });
-      setStatus("success"); setMessage(outcome === "updated" ? "Basket updated." : outcome === "duplicate" ? "This basket is already active." : "Basket added to comparison.");
-      if (outcome !== "duplicate") { setOpen(false); if (editingExact) onCancelEdit?.(); }
-    } catch (error) { setStatus("error"); setMessage(error?.message || "Unable to build Exact Basket."); }
+      setStatus("success");
+      setMessage(outcome === "updated" ? "Market updated." : outcome === "duplicate" ? "This market is already active." : "Market added to comparison.");
+      if (outcome !== "duplicate") {
+        if (editingExact) onCancelEdit?.();
+        else setItems([]);
+        onClose?.();
+      }
+    } catch (error) { setStatus("error"); setMessage(error?.message || "Unable to build your market."); }
   };
-  return <section data-market-explorer-exact-basket className="px-4 py-3"><div className="flex items-center gap-3"><div className="flex-1"><h2 className="text-sm font-semibold">Exact Basket <span className="text-[10px] text-[var(--text-secondary)]">Premium</span></h2><p className="text-xs text-[var(--text-secondary)]">Pick individual cards or sealed products. Choose 1–25 items; each contributes one physical unit.</p></div><button type="button" data-market-exact-open disabled={!premium} onClick={() => setOpen(true)} className="min-h-11 rounded-md border px-4">{premium ? "Create Exact Basket" : "Requires Premium"}</button></div>
-    <MarketExplorerExactItemPicker open={open} selectedItems={items} onChange={setItems} onClose={() => setOpen(false)} onCancelEdit={editingExact ? () => { setOpen(false); onCancelEdit?.(); } : null} onBuild={() => build(false)} onSaveAsNew={editingExact ? () => build(true) : null} buildLabel={editingExact ? "Update Basket" : "Build Basket"} buildStatus={status} buildMessage={message} executionLocked={!premium} />
-  </section>;
+  const cancelEdit = editingExact ? () => { onCancelEdit?.(); onClose?.(); } : null;
+  return <MarketExplorerExactItemPicker selectedItems={items} onChange={setItems} onClose={onClose} onCancelEdit={cancelEdit} onBuild={() => build(false)} onSaveAsNew={editingExact ? () => build(true) : null} buildLabel={editingExact ? "Update Market" : "Build Market"} buildStatus={status} buildMessage={message} executionLocked={!premium} />;
 }

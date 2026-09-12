@@ -24,7 +24,7 @@ test("Market Explorer uses a graph-first desktop workspace and compact mobile co
   const overview = source.indexOf("data-market-explorer-signals", compare);
   const results = source.indexOf("data-market-explorer-compare-results", compare);
   assert.ok(explore >= 0 && compare >= 0 && filter >= 0 && build >= 0);
-  assert.ok(build < sidebarEnd && sidebarEnd < compare, "all tools belong to one sidebar");
+  assert.ok(filter < sidebarEnd && sidebarEnd < build && build < compare, "sidebar tools precede the independent overlay and graph");
   assert.ok(source.indexOf("<MarketExplorerBrowse", explore) < compare);
   assert.ok(source.indexOf("<MarketExplorerScreens", explore) < compare);
   assert.ok(active < graph && graph < results);
