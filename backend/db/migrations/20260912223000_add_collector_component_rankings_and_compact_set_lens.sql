@@ -2,14 +2,12 @@ begin;
 
 create table if not exists public.pokemon_set_collector_component_rankings (
   model_run_id uuid not null references public.pokemon_collector_appeal_model_runs(id),
-  set_id uuid not null references public.pokemon_sets(id),
+  set_id uuid not null references public.sets(id),
   drivers_json jsonb not null,
   methodology_version text not null,
   created_at timestamptz not null default timezone('utc', now()),
   primary key (model_run_id, set_id)
 );
-create index if not exists pokemon_set_collector_component_rankings_current_idx
-  on public.pokemon_set_collector_component_rankings(model_run_id, set_id);
 alter table public.pokemon_set_collector_component_rankings enable row level security;
 revoke all on public.pokemon_set_collector_component_rankings from public, anon, authenticated;
 grant select, insert on public.pokemon_set_collector_component_rankings to service_role;

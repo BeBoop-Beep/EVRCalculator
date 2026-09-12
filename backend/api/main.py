@@ -59,6 +59,7 @@ from backend.db.services.frontend_proxy_service import (
 )
 from backend.domain.access.index_plan_access import (
     FEATURE_CARD_CHASE_EFFICIENCY,
+    FEATURE_CARD_COLLECTOR_APPEAL,
     FEATURE_MARKET_BREADTH,
     FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
     FEATURE_PACK_ECONOMICS,
@@ -164,6 +165,7 @@ from backend.db.services.pokemon_market_explorer_query_service import (
     MarketExplorerQueryUnavailable,
     run_market_explorer_query,
 )
+from backend.db.services.card_collector_appeal_query_service import query_card_collector_appeal
 from backend.db.services.market_explorer_options_snapshot import (
     MarketExplorerOptionsUnavailable,
     read_market_explorer_options_snapshot,
@@ -452,6 +454,27 @@ def _require_card_chase_efficiency(
                 "requiredFeature": FEATURE_CARD_CHASE_EFFICIENCY,
             },
         )
+    return user_id
+
+
+def _require_card_collector_appeal(
+    *, authorization: Optional[str], token_cookie: Optional[str]
+) -> str:
+    """Gate prepared card Collector Appeal before any database access."""
+    user_id = _require_authenticated_user_id(
+        authorization=authorization, token_cookie=token_cookie
+    )
+    if not has_index_feature_access(
+        _resolve_index_plan(authorization, token_cookie), FEATURE_CARD_COLLECTOR_APPEAL
+    ):
+        emit_security_event("entitlement_denied", route="card_collector_appeal",
+                            policy_class=POLICY_RANKED_INTELLIGENCE, user_id=user_id,
+                            required_capability=FEATURE_CARD_COLLECTOR_APPEAL, authenticated=True)
+        raise HTTPException(status_code=403, detail={
+            "message": "Collector Appeal card rankings require Index Plus.",
+            "code": "CARD_COLLECTOR_APPEAL_PLUS_REQUIRED",
+            "requiredFeature": FEATURE_CARD_COLLECTOR_APPEAL,
+        })
     return user_id
 
 
@@ -1200,6 +1223,31 @@ def get_card_chase_efficiency_rankings(
     except Exception:
         logger.exception("/explore/card-chase-efficiency unexpected error")
         return JSONResponse(content={"message": "Unable to load Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
+
+
+@app.get("/explore/card-collector-appeal")
+def get_card_collector_appeal_rankings(
+    request: Request,
+    page: int = Query(default=1, ge=1), page_size: int = Query(default=50, ge=1, le=100),
+    search: Optional[str] = Query(default=None), era: Optional[str] = Query(default=None),
+    set_id: Optional[str] = Query(default=None, alias="set"), rarity: Optional[str] = Query(default=None),
+    sort: str = Query(default="rank"), direction: str = Query(default="asc"),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    user_id = _require_card_collector_appeal(authorization=authorization, token_cookie=token_cookie)
+    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
+                        route="/explore/card-collector-appeal")
+    try:
+        return _tiered_response(query_card_collector_appeal(
+            service_read_client, page=page, page_size=page_size, search=search,
+            era=era, set_id=set_id, rarity=rarity, sort=sort, direction=direction,
+        ))
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "CARD_COLLECTOR_APPEAL_QUERY_INVALID"}, status_code=400)
+    except Exception:
+        logger.exception("/explore/card-collector-appeal unexpected error")
+        return JSONResponse(content={"message": "Unable to load Collector Appeal", "code": "CARD_COLLECTOR_APPEAL_FAILED"}, status_code=500)
 
 
 @app.get("/explore/product-chase-intelligence")

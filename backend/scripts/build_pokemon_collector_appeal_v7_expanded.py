@@ -29,6 +29,7 @@ from backend.desirability.collector_appeal_inputs import load_pull_rate_model
 from backend.desirability.opening_appeal import union_probability_from_cards
 from backend.desirability.rarity_buckets import classify_rarity
 from backend.desirability.collector_component_rankings import build_component_ranking_rows
+from backend.desirability.card_collector_rankings import build_card_collector_ranking_rows
 
 MODEL_VERSION = "pokemon_collector_appeal_v7_expanded_price_blind_v1"
 FROZEN_FORMULA_FINGERPRINT = "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b"
@@ -371,6 +372,11 @@ def persist_built_model(client, built, *, as_of_date):
     for index in range(0, len(component_rows), 100):
         client.table("pokemon_set_collector_component_rankings").insert(
             component_rows[index:index+100]
+        ).execute()
+    card_rank_rows = build_card_collector_ranking_rows(persisted[0], run_id)
+    for index in range(0, len(card_rank_rows), 100):
+        client.table("pokemon_card_collector_appeal_rankings").insert(
+            card_rank_rows[index:index+100]
         ).execute()
     validation = client.rpc("validate_pokemon_collector_appeal_model_run",{
         "p_model_run_id":run_id,"p_diagnostics":{"builder":"build_pokemon_collector_appeal_v7_expanded.py",

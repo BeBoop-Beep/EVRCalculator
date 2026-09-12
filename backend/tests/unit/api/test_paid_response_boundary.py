@@ -276,6 +276,19 @@ def test_chase_efficiency_is_premium_and_gate_precedes_reader(monkeypatch):
     assert reads == [True]
 
 
+def test_card_collector_appeal_is_plus_and_gate_precedes_reader(monkeypatch):
+    _install_auth(monkeypatch)
+    reads = []
+    monkeypatch.setattr(main, "query_card_collector_appeal", lambda *args, **kwargs: reads.append(True) or {"value": PLUS_VALUE})
+    client = TestClient(main.app)
+    assert client.get("/explore/card-collector-appeal").status_code == 401
+    assert client.get("/explore/card-collector-appeal", headers=_headers("base-token")).status_code == 403
+    assert reads == []
+    assert client.get("/explore/card-collector-appeal", headers=_headers("plus-token")).status_code == 200
+    assert client.get("/explore/card-collector-appeal", headers=_headers("premium-token")).status_code == 200
+    assert reads == [True, True]
+
+
 SENTINEL_PAID_ONLY_VALUE = "SENTINEL_PAID_ONLY_VALUE"
 
 

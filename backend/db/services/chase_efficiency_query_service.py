@@ -33,7 +33,7 @@ def _latest_snapshot(client: Any) -> Optional[Dict[str, Any]]:
     return latest
 
 
-def _public_row(row: Dict[str, Any]) -> Dict[str, Any]:
+def _public_row(row: Dict[str, Any], image_urls: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     probability = float(row["exact_pull_probability"]) if row.get("exact_pull_probability") is not None else None
     market_price = float(row["current_near_mint_market_price"]) if row.get("current_near_mint_market_price") is not None else None
     pack_cost = float(row["best_verified_pack_equivalent_cost"]) if row.get("best_verified_pack_equivalent_cost") is not None else None
@@ -42,6 +42,7 @@ def _public_row(row: Dict[str, Any]) -> Dict[str, Any]:
     overall_rank = row.get("overall_rank"); overall_size = row.get("overall_cohort_size")
     return {
         "cardVariantId": row.get("card_variant_id"), "canonicalCardId": row.get("canonical_card_id"),
+        "imageSmallUrl": (image_urls or {}).get(str(row.get("canonical_card_id"))),
         "setId": row.get("set_id"), "eraId": row.get("era_id"), "cardName": row.get("card_name"),
         "rarity": row.get("canonical_rarity"), "printingType": row.get("printing_type"),
         "specialType": row.get("special_type"), "artwork": row.get("artwork"),
@@ -97,9 +98,15 @@ def query_chase_efficiency(client: Any, *, page: int = 1, page_size: int = 50, s
     start = (page - 1) * page_size
     response = query.order(sort_column, desc=direction == "desc").order("card_variant_id").range(start, start + page_size - 1).execute()
     total = int(getattr(response, "count", None) or 0)
+    rows = list(response.data or [])
+    card_ids = sorted({str(row["canonical_card_id"]) for row in rows if row.get("canonical_card_id")})
+    image_urls = {}
+    if card_ids:
+        image_rows = client.table("pokemon_canonical_cards").select("id,image_small_url").in_("id", card_ids).execute().data or []
+        image_urls = {str(row["id"]): row.get("image_small_url") for row in image_rows}
     return {"available": True, "marketDate": latest["market_date"], "page": page, "pageSize": page_size,
             "total": total, "totalPages": math.ceil(total / page_size) if total else 0,
-            "rows": [_public_row(row) for row in (response.data or [])]}
+            "rows": [_public_row(row, image_urls) for row in rows]}
 
 
 def get_card_chase_efficiency(client: Any, *, set_id: str, card_id: str, variant_id: Optional[str]) -> Dict[str, Any]:

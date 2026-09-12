@@ -28,7 +28,10 @@ test("Era lens returns the prepared public contract without an entitlement lock"
 
 test("Product and Card entitlement branches remain present", () => {
   assert.match(route, /if \(lens === "products"\)/);
-  assert.match(lazy, /if \(!canViewCardChaseEfficiency\) return Promise\.resolve\(null\)/);
+  assert.match(lazy, /CardRankingsHub/);
+  assert.match(lazy, /canViewCollectorAppeal=\{canViewCardCollectorAppeal\}/);
+  assert.match(lazy, /canViewChaseEfficiency=\{canViewCardChaseEfficiency\}/);
+  assert.doesNotMatch(lazy, /card-chase-efficiency\?|card-collector-appeal\?/);
 });
 
 // The three tests above are source-string checks: they prove the route CALLS
