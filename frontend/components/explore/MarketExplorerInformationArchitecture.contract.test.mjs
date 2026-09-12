@@ -17,11 +17,13 @@ test("Market Explorer uses a graph-first desktop workspace and compact mobile co
   const explore = source.indexOf('data-market-explorer-zone="explore"');
   const compare = source.indexOf('data-market-explorer-zone="compare"');
   const build = source.indexOf('data-market-explorer-zone="build"');
+  const sidebarEnd = source.indexOf("</aside>", explore);
   const active = source.indexOf("data-market-explorer-active-strip", compare);
   const graph = source.indexOf("data-market-explorer-graph", compare);
   const overview = source.indexOf("data-market-explorer-signals", compare);
   const results = source.indexOf("data-market-explorer-compare-results", compare);
   assert.ok(explore >= 0 && compare >= 0 && build >= 0);
+  assert.ok(build < sidebarEnd && sidebarEnd < compare, "all tools belong to one sidebar");
   assert.ok(source.indexOf("<MarketExplorerBrowse", explore) < compare);
   assert.ok(source.indexOf("<MarketExplorerScreens", explore) < compare);
   assert.ok(active < graph && graph < results);

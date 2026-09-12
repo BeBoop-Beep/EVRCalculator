@@ -307,6 +307,27 @@ export default function MarketExplorerClient({
             onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={comparePrepared} />
         </div>
         </section>
+        <section data-market-explorer-zone="build" className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="build-markets-zone-heading">
+          <div className={styles.explorerZoneHeader}>
+            <p className={styles.explorerZoneEyebrow}>Build · Premium</p>
+            <h2 id="build-markets-zone-heading" className={styles.explorerZoneTitle}>Build Your Market</h2>
+            <p className={styles.explorerZoneDescription}>Use filters for a dynamic market or hand-pick an exact basket.</p>
+          </div>
+          <div className={styles.explorerBuildGrid}>
+            <div data-market-explorer-build-path="filtered" className={styles.explorerBuildPath}>
+              <MarketExplorerQueryBuilder optionsProvided options={options} optionsStatus={optionsStatus} optionsMessage={optionsMessage}
+                onRetryOptions={retryOptions} optionsRetrying={optionsRetrying} benchmarkEntries={benchmarkEntries}
+                preparedSeries={comparableSeries} activeSeries={selectedSeries} onAddPrepared={addPrepared} onAddQuery={addQuery}
+                onUpdateQuery={updateQuery} editingSeries={editingSeries?.spec?.membershipMode === "explicit" ? null : editingSeries}
+                onCancelEdit={() => setEditingSeriesId(null)} onToggleBenchmark={toggleMarket} selectedSeriesCount={selectedSeries.length}
+                isAuthenticated={isAuthenticated} currentPlan={indexPlan} accessMode={accessMode} coverageSummary={coverageSummary} />
+            </div>
+            <div data-market-explorer-build-path="exact" className={styles.explorerBuildPath}>
+              <MarketExplorerExactBasket currentPlan={indexPlan} editingSeries={editingSeries}
+                onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} />
+            </div>
+          </div>
+        </section>
       </aside>
       {/* 1 — the ASSET CLASS selector cards. Submarkets and benchmarks
              deliberately do not become top-level cards. */}
@@ -314,7 +335,7 @@ export default function MarketExplorerClient({
       <section
         data-market-explorer-analysis
         data-market-explorer-zone="compare"
-        className={`order-2 flex min-w-0 flex-col ${styles.explorerZone} ${styles.explorerZonePrimary} ${styles.surfaceQuiet} set-glass-surface desk:order-none desk:col-start-2 desk:row-span-2`}
+        className={`order-2 flex min-w-0 flex-col ${styles.explorerZone} ${styles.explorerZonePrimary} ${styles.surfaceQuiet} set-glass-surface desk:order-none desk:col-start-2`}
         aria-labelledby="compare-markets-zone-heading"
       >
         <div className="sr-only">
@@ -398,28 +419,6 @@ export default function MarketExplorerClient({
           </div>
         </div>
       </div>
-      </section>
-
-      <section data-market-explorer-zone="build" className={`${mobileToolsOpen ? "block" : "hidden"} order-4 ${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface desk:order-none desk:col-start-1 desk:block`} aria-labelledby="build-markets-zone-heading">
-        <div className={styles.explorerZoneHeader}>
-          <p className={styles.explorerZoneEyebrow}>Build · Premium</p>
-          <h2 id="build-markets-zone-heading" className={styles.explorerZoneTitle}>Build Your Market</h2>
-          <p className={styles.explorerZoneDescription}>Use filters for a dynamic market or hand-pick an exact basket.</p>
-        </div>
-        <div className={styles.explorerBuildGrid}>
-          <div data-market-explorer-build-path="filtered" className={styles.explorerBuildPath}>
-            <MarketExplorerQueryBuilder optionsProvided options={options} optionsStatus={optionsStatus} optionsMessage={optionsMessage}
-              onRetryOptions={retryOptions} optionsRetrying={optionsRetrying} benchmarkEntries={benchmarkEntries}
-              preparedSeries={comparableSeries} activeSeries={selectedSeries} onAddPrepared={addPrepared} onAddQuery={addQuery}
-              onUpdateQuery={updateQuery} editingSeries={editingSeries?.spec?.membershipMode === "explicit" ? null : editingSeries}
-              onCancelEdit={() => setEditingSeriesId(null)} onToggleBenchmark={toggleMarket} selectedSeriesCount={selectedSeries.length}
-              isAuthenticated={isAuthenticated} currentPlan={indexPlan} accessMode={accessMode} coverageSummary={coverageSummary} />
-          </div>
-          <div data-market-explorer-build-path="exact" className={styles.explorerBuildPath}>
-            <MarketExplorerExactBasket currentPlan={indexPlan} editingSeries={editingSeries}
-              onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} />
-          </div>
-        </div>
       </section>
 
       <div className="order-5 desk:col-span-2"><MarketExplorerMethodology /></div>
