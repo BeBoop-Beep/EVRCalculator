@@ -1,0 +1,13 @@
+{
+  "version": "ebay_revised_cost_model_d2_v1",
+  "cohortCards": 4349,
+  "defaultBrowseCallsPerDay": 5000,
+  "onePageCallsPerCard": 1,
+  "onePageWeeklyCalls": 4349,
+  "onePageMonthlyCallsAt52Over12": 18846,
+  "dailyHeadroomAfterOnePageFullCapture": 651,
+  "paginationSubsetCost": null,
+  "hardenedMethodologyCost": null,
+  "status": "BLOCKED_UNTIL_MATCHER_AND_PAGINATION_POLICY_ARE_VALIDATED",
+  "noPaidTierAssumed": true
+}

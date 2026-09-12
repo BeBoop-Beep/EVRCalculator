@@ -1,0 +1,19 @@
+{
+  "version": "ebay_matcher_d2_benchmark_v1",
+  "status": "NOT_RUN_PENDING_FROZEN_GOLD_LABELS",
+  "acceptancePrerequisite": "All benchmark rows independently reviewed before matcher revision",
+  "preRegisteredGate": {
+    "highConfidencePrecisionMinimumPct": 99,
+    "wilson95LowerBoundMinimumPct": 98,
+    "cardLevelUsableCoverageMinimumPct": 80,
+    "catastrophicWrongCardAccepted": 0,
+    "gradedAccepted": 0,
+    "nonEnglishAccepted": 0,
+    "lotBundleAccepted": 0
+  },
+  "precision": null,
+  "wilson95ConfidenceInterval": null,
+  "recall": null,
+  "cardCoverage": null,
+  "ambiguityRate": null
+}

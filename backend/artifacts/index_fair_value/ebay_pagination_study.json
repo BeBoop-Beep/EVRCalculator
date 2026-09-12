@@ -1,0 +1,9 @@
+{
+  "version": "ebay_pagination_study_d2_v1",
+  "status": "DEFERRED_PENDING_IDENTITY_BENCHMARK",
+  "firstPageLimit": 100,
+  "firstPageBias": null,
+  "supplyCountRequirement": "Follow returned next links until the approved capture boundary; query total is diagnostic only and is not authoritative listing depth.",
+  "priceDistributionRequirement": "A bounded first-page sample may be evaluated only after high-confidence identity exists; stability at 1/2/5 pages remains unmeasured.",
+  "reason": "Comparing provisional-match aggregates across pages would quantify matcher behavior, not true listing supply."
+}

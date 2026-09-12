@@ -1,0 +1,14 @@
+{
+  "version": "ebay_matcher_d1_benchmark_v1",
+  "status": "BLOCKED_PENDING_INDEPENDENT_HUMAN_REVIEW",
+  "goldRowsAvailable": 1050,
+  "goldRowsCompleted": 0,
+  "precision": null,
+  "recall": null,
+  "f1": null,
+  "acceptedListingCount": null,
+  "falsePositiveRate": null,
+  "falseNegativeRate": null,
+  "stratifiedMetrics": null,
+  "reason": "D1 matcher output is not ground truth and cannot be used to label or score itself."
+}

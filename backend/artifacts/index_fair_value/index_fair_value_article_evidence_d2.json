@@ -1,0 +1,12 @@
+{
+  "version": "index_fair_value_article_evidence_d2_v1",
+  "sequence": [
+    "Structural model failed within price bands",
+    "Target-blind local-market model improved but still failed",
+    "D1 Browse pilot showed broad provisional coverage without measured identity precision",
+    "D2 froze a 1050-listing blinded benchmark but stopped before matcher revision because independent labels were not yet supplied"
+  ],
+  "scientificControl": "Matcher predictions were not reused as human truth.",
+  "authorityAccepted": false,
+  "fairValueModelFitPerformed": false
+}
