@@ -13,5 +13,6 @@ export function readPublicSetRip(target) {
     publicScore: optionalNumber(scoreAuthority),
     rank: optionalNumber(block.rank),
     tier: block.tier || null,
+    cohortSize: optionalNumber(block.cohortSize),
   };
 }

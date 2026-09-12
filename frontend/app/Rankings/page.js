@@ -11,13 +11,13 @@ export { default } from "../Explore/page";
 
 export const metadata = buildRouteMetadata({
   path: "/Rankings",
-  title: "Best Pokémon Sets to Rip Right Now — inDex",
+  title: "Pokémon Rankings — Sets, Products, Cards, and Eras | inDex",
   // "RIP Score" is the current public name of the headline metric (see
   // /Articles/how-rip-score-works and the set page verdict card); the retired "RIP Score" label
   // must not come back through metadata.
   description:
-    "Current Pokémon set rankings by RIP Score, with peer Financial RIP, Chase Accessibility, Collector Appeal, and modeled opening economics fields.",
-  ogTitle: "Best Pokémon Sets to Rip Right Now",
+    "Compare Pokémon sets, eras, products, and cards across RIP Score, opening economics, and other ranking systems.",
+  ogTitle: "Pokémon Rankings",
   ogDescription:
     "See which Pokémon sets rank strongest to open right now, ranked by RIP Score with opening economics and collector appeal.",
 });

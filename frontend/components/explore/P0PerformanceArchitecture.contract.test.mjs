@@ -23,8 +23,7 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
     "OpeningEconomicsOverall",
     "OpeningEconomicsEras",
     "EraRankings",
-    "SetPackMetrics",
-    "ExploreTableClient",
+    "SetRankingsHub",
     "CardChaseEfficiencyRankings",
     "RankingsProductLensClient",
   ]) {
@@ -33,8 +32,10 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
   assert.ok(source.includes('/api/explore/rankings/lens?lens=sets'));
   assert.ok(source.includes('/api/explore/rankings/lens?lens=eras'));
   assert.ok(source.includes('const [lens, setActiveLens]'));
-  assert.ok(source.includes('const [setAnalysisLens, setSetAnalysisLens]'));
-  assert.ok(!source.includes('const [setLens, setSetLens]'));
+  assert.ok(!source.includes('setAnalysisLens'), "Set sub-navigation belongs to the lazy Set hub");
+  const hub = read("components/explore/SetRankingsHub.jsx");
+  for (const moduleName of ["SetRipScoreLeaderboard", "SetPackMetrics", "ExploreTableClient"]) assert.ok(hub.includes(`import("./${moduleName}")`));
+  assert.ok(!hub.includes("fetch("), "Set tabs must reuse the cohort supplied by RankingsLazyClient");
 });
 
 test("canonical Set rankings cohort is isolated behind the Sets lens endpoint", () => {

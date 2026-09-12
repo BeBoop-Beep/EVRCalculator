@@ -46,6 +46,7 @@
 import { getScoreForMode } from "../../constants/exploreRankingConfig.mjs";
 import { readCanonicalBlock, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
+import { readPublicSetRip } from "./setRipPublicPresentation.mjs";
 
 export const SORT_DESC = "desc";
 export const SORT_ASC = "asc";
@@ -183,7 +184,7 @@ export const RANKINGS_SORT_COLUMNS = {
   setRip: {
     id: "setRip",
     label: "Set RIP",
-    read: (target) => toNumber(target?.setRipV1?.score),
+    read: (target) => readPublicSetRip(target).publicScore,
   },
   overall: {
     id: "overall",

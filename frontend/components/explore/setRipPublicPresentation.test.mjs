@@ -6,7 +6,7 @@ import { readPublicSetRip } from "./setRipPublicPresentation.mjs";
 test("public Set Rankings renders publicScore, rank, and tier without paid score", () => {
   const target = { setRipV1: { publicScore: 83.6, rank: 4, tier: "A", cohortSize: 21 } };
   const result = readPublicSetRip(target);
-  assert.deepEqual(result, { publicScore: 83.6, rank: 4, tier: "A" });
+  assert.deepEqual(result, { publicScore: 83.6, rank: 4, tier: "A", cohortSize: 21 });
   assert.equal(formatPublicRipScore(result.publicScore), "8.4");
   assert.equal(`#${result.rank}`, "#4");
   assert.equal(result.tier, "A");

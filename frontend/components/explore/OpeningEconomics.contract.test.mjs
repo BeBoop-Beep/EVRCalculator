@@ -169,7 +169,8 @@ test("V3 exact recovery buckets drive distribution geometry directly", () => {
   assert.ok(distribution.includes('data-recovery-buckets="6"'));
   assert.ok(distribution.includes("<BarChart"));
   assert.ok(distribution.includes("<Bar dataKey=\"probability\""));
-  assert.ok(!distribution.includes("normalizedReturnPercentiles"));
+  assert.ok(distribution.includes("const percentilePoints = buckets.length ? [] : readLegacyReturnPercentiles(scope)"));
+  assert.ok(!distribution.includes("interpolat"));
   assert.ok(!distribution.includes("valuePerPackPercentiles"));
 });
 

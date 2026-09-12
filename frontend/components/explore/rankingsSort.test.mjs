@@ -310,6 +310,12 @@ test("the default sort is Set RIP descending", () => {
   assert.equal(RANKINGS_DEFAULT_SORT.direction, SORT_DESC);
 });
 
+test("Set RIP sorting uses publicScore authority and keeps explicit null unavailable", () => {
+  assert.equal(readSortValue({ setRipV1: { publicScore: 8.7, score: 99 } }, "setRip"), 8.7);
+  assert.equal(readSortValue({ setRipV1: { publicScore: null, score: 99 } }, "setRip"), null);
+  assert.equal(readSortValue({ setRipV1: { score: 7.2 } }, "setRip"), 7.2);
+});
+
 test("the default sort returns the canonical order untouched", () => {
   const rows = sortRankingsRows(CANONICAL, RANKINGS_DEFAULT_SORT);
   assert.deepEqual(names(rows), ["alpha", "bravo", "charlie", "delta"]);
