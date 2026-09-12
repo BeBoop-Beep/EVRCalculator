@@ -97,6 +97,7 @@ export default function MarketExplorerClient({
   } = useMarketExplorerSelection({ overview, sealedSegments, cardSegments, initialState, hasExternalSeries: Boolean(initialPreparedKey) });
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
   const [compareUpgradeVisible, setCompareUpgradeVisible] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [preparedActiveKeys, setPreparedActiveKeys] = useState(() => initialPreparedKey ? [initialPreparedKey] : []);
   const [loadedPreparedSeries, setLoadedPreparedSeries] = useState([]);
   // ONE detail target at a time. Four selected markets must not produce four
@@ -268,14 +269,14 @@ export default function MarketExplorerClient({
       data-market-explorer-timeframe={timeframe || ""}
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
       data-market-explorer-access-mode={accessMode}
-      className="space-y-3 desk:space-y-4"
+      className="grid min-w-0 gap-3 desk:grid-cols-[minmax(19rem,22rem)_minmax(0,1fr)] desk:items-start desk:gap-4"
     >
-      <header data-market-explorer-product-header className="px-1 pb-2 pt-1">
+      <header data-market-explorer-product-header className="px-1 pb-2 pt-1 desk:col-span-2">
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">Market Explorer</h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">Explore. Compare. Build your own Pokémon markets.</p>
       </header>
       {compareUpgradeVisible ? (
-        <section data-market-explorer-compare-upgrade role="status" className={`${styles.surfaceQuiet} set-glass-surface px-4 py-4`}>
+        <section data-market-explorer-compare-upgrade role="status" className={`${styles.surfaceQuiet} set-glass-surface px-4 py-4 desk:col-span-2`}>
           <div className="flex flex-wrap items-start gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">Compare markets with Index+</h2>
@@ -286,36 +287,48 @@ export default function MarketExplorerClient({
           </div>
         </section>
       ) : null}
-      <section data-market-explorer-zone="explore" className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="explore-markets-zone-heading">
+      <button type="button" data-market-explorer-mobile-tools aria-expanded={mobileToolsOpen}
+        onClick={() => setMobileToolsOpen((open) => !open)}
+        className="order-1 flex min-h-11 items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 text-sm font-semibold text-[var(--text-primary)] desk:hidden">
+        Markets / Tools <span aria-hidden="true">{mobileToolsOpen ? "−" : "+"}</span>
+      </button>
+      <aside id="explorer-controls" data-market-explorer-sidebar className={`${mobileToolsOpen ? "block" : "hidden"} order-3 min-w-0 space-y-3 desk:order-none desk:col-start-1 desk:row-start-2 desk:block desk:max-h-[calc(100vh-7rem)] desk:overflow-y-auto`}>
+        <section data-market-explorer-zone="explore" className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="explore-markets-zone-heading">
         <div className={styles.explorerZoneHeader}>
-          <p className={styles.explorerZoneEyebrow}>01 / Discover</p>
-          <h2 id="explore-markets-zone-heading" className={styles.explorerZoneTitle}>Explore Markets</h2>
+          <p className={styles.explorerZoneEyebrow}>Explore</p>
+          <h2 id="explore-markets-zone-heading" className={styles.explorerZoneTitle}>Browse Markets</h2>
           <p className={styles.explorerZoneDescription}>Browse published Set, Era, and curated markets.</p>
         </div>
         <MarketExplorerBrowse directory={preparedDirectory} activeKeys={preparedActiveKeys}
           canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared} />
-      </section>
+        <div data-market-explorer-sidebar-section="analyze" className="border-t border-[var(--border-subtle)] px-3 py-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
+          <MarketExplorerScreens canUse={canComparePreparedMarkets}
+            onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={comparePrepared} />
+        </div>
+        </section>
+      </aside>
       {/* 1 — the ASSET CLASS selector cards. Submarkets and benchmarks
              deliberately do not become top-level cards. */}
       {/* 2 — Explore Segments beside the Market Comparison chart. */}
       <section
         data-market-explorer-analysis
         data-market-explorer-zone="compare"
-        className={`${styles.explorerZone} ${styles.explorerZonePrimary} ${styles.surfaceQuiet} set-glass-surface`}
+        className={`order-2 flex min-w-0 flex-col ${styles.explorerZone} ${styles.explorerZonePrimary} ${styles.surfaceQuiet} set-glass-surface desk:order-none desk:col-start-2 desk:row-span-2`}
         aria-labelledby="compare-markets-zone-heading"
       >
-        <div className={styles.explorerZoneHeader}>
+        <div className="sr-only">
           <p className={styles.explorerZoneEyebrow}>02 / Research</p>
           <h2 id="compare-markets-zone-heading" className={styles.explorerZoneTitle}>Compare &amp; Analyze</h2>
           <p className={styles.explorerZoneDescription}>Inspect active markets on one timeline, then examine composition and context.</p>
         </div>
-        <div data-market-explorer-signals className="px-3 pb-3 sm:px-4">
+        <div data-market-explorer-signals className="order-3 border-t border-[var(--border-subtle)] px-3 py-3 sm:px-4">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Market overview</p>
           <div className="grid grid-cols-3 gap-2 desk:gap-3">
             {assetCards.map((entry) => <MarketExplorerSeriesCard key={entry.key} entry={entry} timeframe={timeframe} timeframeLabel={timeframeLabel} />)}
           </div>
         </div>
-        <div data-market-explorer-active-strip className="min-w-0 overflow-x-auto border-y border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
+        <div data-market-explorer-active-strip className="order-1 min-w-0 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
           <MarketExplorerActiveMarkets
             series={selectedSeries}
             activeSeriesId={activeDetailSeriesId}
@@ -333,16 +346,18 @@ export default function MarketExplorerClient({
             timeframe={timeframe}
           />
         </div>
-        <MarketExplorerChart
-          overview={overview}
-          selectedSeries={visibleSeries}
-          totalActiveCount={selectedSeries.length}
-          timeframe={timeframe}
-          timeframeLabel={timeframeLabel}
-          timeframeOptions={timeframeOptions}
-          onTimeframeChange={setRequestedTimeframe}
-          onClearGraph={clearGraph}
-        />
+        <div data-market-explorer-graph className="order-2 min-w-0">
+          <MarketExplorerChart
+            overview={overview}
+            selectedSeries={visibleSeries}
+            totalActiveCount={selectedSeries.length}
+            timeframe={timeframe}
+            timeframeLabel={timeframeLabel}
+            timeframeOptions={timeframeOptions}
+            onTimeframeChange={setRequestedTimeframe}
+            onClearGraph={clearGraph}
+          />
+        </div>
 
       {/* 3 — the advanced lane, collapsed and sitting directly beneath the
              workspace it feeds rather than stranded below unrelated content. */}
@@ -359,7 +374,7 @@ export default function MarketExplorerClient({
           reads naturally after the reader has seen one market's composition;
           Methodology is reference material and never sits between two
           interactive result sections. */}
-      <div data-market-explorer-compare-results className="border-t border-[var(--border-subtle)]" aria-label="Market comparison analysis">
+      <div data-market-explorer-compare-results className="order-4 border-t border-[var(--border-subtle)]" aria-label="Market comparison analysis">
         <MarketExplorerDetails
           // VISIBLE, not merely active: comparison reflects what the chart is
           // currently showing ("compare what I see"). A hidden market stays a
@@ -378,8 +393,6 @@ export default function MarketExplorerClient({
               onSelectSeries={setRequestedDetailSeriesId} onEditSeries={beginEdit} />
           </section>
           <div className="min-w-0">
-            <MarketExplorerScreens canUse={canComparePreparedMarkets}
-              onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={comparePrepared} />
             <MarketExplorerContextRanking market={selectedSeries.find((entry) => entry.key === activeDetailSeriesId)} timeframe={timeframe}
               canUse={canComparePreparedMarkets} onUpgrade={() => setCompareUpgradeVisible(true)} />
           </div>
@@ -387,9 +400,9 @@ export default function MarketExplorerClient({
       </div>
       </section>
 
-      <section data-market-explorer-zone="build" className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="build-markets-zone-heading">
+      <section data-market-explorer-zone="build" className={`${mobileToolsOpen ? "block" : "hidden"} order-4 ${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface desk:order-none desk:col-start-1 desk:block`} aria-labelledby="build-markets-zone-heading">
         <div className={styles.explorerZoneHeader}>
-          <p className={styles.explorerZoneEyebrow}>03 / Construct</p>
+          <p className={styles.explorerZoneEyebrow}>Build · Premium</p>
           <h2 id="build-markets-zone-heading" className={styles.explorerZoneTitle}>Build Your Market</h2>
           <p className={styles.explorerZoneDescription}>Use filters for a dynamic market or hand-pick an exact basket.</p>
         </div>
@@ -409,7 +422,7 @@ export default function MarketExplorerClient({
         </div>
       </section>
 
-      <MarketExplorerMethodology />
+      <div className="order-5 desk:col-span-2"><MarketExplorerMethodology /></div>
     </div>
   );
 }
