@@ -45,6 +45,6 @@ test("chart toolbar keeps the primary toggle left and responsive timeframes righ
   assert.ok(chart.indexOf("<MarketChartViewToggle") < chart.indexOf("<MarketExplorerTimeframeSelector"));
   assert.match(chart, /desk:flex-row/);
   assert.match(toggle, /min-h-10/);
-  assert.match(toggle, /rgba\(45,212,191,0\.18\)/);
+  assert.match(toggle, /bg-cyan-400\/15/);
   assert.match(windows, /min-w-max flex-nowrap/);
 });

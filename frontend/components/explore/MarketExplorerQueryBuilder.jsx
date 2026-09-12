@@ -560,7 +560,7 @@ export default function MarketExplorerQueryBuilder({
           data-market-builder-mobile-toggle
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen((value) => !value)}
-          className="ml-auto rounded-md border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--text-secondary)] desk:hidden"
+          className="ml-auto rounded-md border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--text-secondary)]"
         >
           {mobileOpen ? "Hide" : "Build"}
         </button>
@@ -569,7 +569,7 @@ export default function MarketExplorerQueryBuilder({
         className={
           mobileOpen
             ? "flex min-h-0 flex-1 flex-col"
-            : "hidden min-h-0 flex-1 flex-col desk:flex"
+            : "hidden min-h-0 flex-1 flex-col"
         }
       >
         {body}

@@ -10,6 +10,7 @@ import MarketExplorerActiveMarkets from "./MarketExplorerActiveMarkets";
 import MarketExplorerMethodology from "./MarketExplorerMethodology";
 import MarketExplorerBrowse from "./MarketExplorerBrowse";
 import MarketExplorerScreens from "./MarketExplorerScreens";
+import MarketExplorerRarityMarkets from "./MarketExplorerRarityMarkets";
 import MarketExplorerContextRanking from "./MarketExplorerContextRanking";
 import MarketExplorerExactBasket from "./MarketExplorerExactBasket";
 import { buildPreparedSeries } from "@/lib/explore/marketExplorerPrepared.mjs";
@@ -167,6 +168,7 @@ export default function MarketExplorerClient({
 
   const selectPrepared = useCallback((seriesId) => {
     setPreparedActiveKeys([seriesId]);
+    setRequestedDetailSeriesId(seriesId);
     clearAllSelection();
     clearAllQueries();
     setHiddenSeriesKeys(new Set());
@@ -303,7 +305,8 @@ export default function MarketExplorerClient({
           canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared} />
         <div data-market-explorer-sidebar-section="analyze" className="border-t border-[var(--border-subtle)] px-3 py-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
-          <MarketExplorerScreens canUse={canComparePreparedMarkets}
+          <MarketExplorerRarityMarkets directory={preparedDirectory} activeKeys={preparedActiveKeys} onSelect={selectPrepared} />
+          <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys}
             onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={comparePrepared} />
         </div>
         </section>
@@ -349,7 +352,7 @@ export default function MarketExplorerClient({
             {assetCards.map((entry) => <MarketExplorerSeriesCard key={entry.key} entry={entry} timeframe={timeframe} timeframeLabel={timeframeLabel} />)}
           </div>
         </div>
-        <div data-market-explorer-active-strip className="order-1 min-w-0 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
+        <div data-market-explorer-active-strip className="order-1 min-w-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
           <MarketExplorerActiveMarkets
             series={selectedSeries}
             activeSeriesId={activeDetailSeriesId}
@@ -364,6 +367,7 @@ export default function MarketExplorerClient({
             onToggleVisibility={toggleSeriesVisibility}
             onShowAll={showAllSeries}
             onHideAll={hideAllActiveSeries}
+            onClearAll={clearGraph}
             timeframe={timeframe}
           />
         </div>

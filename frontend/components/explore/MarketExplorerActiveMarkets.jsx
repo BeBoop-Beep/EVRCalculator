@@ -40,6 +40,7 @@ export default function MarketExplorerActiveMarkets({
   onToggleVisibility,
   onShowAll,
   onHideAll,
+  onClearAll,
   timeframe = "7D",
 }) {
   if (!series.length) return null;
@@ -61,15 +62,14 @@ export default function MarketExplorerActiveMarkets({
         <div
           role="group"
           aria-label="Visibility, all markets"
-          aria-hidden={series.length <= 1 ? "true" : undefined}
-          className={`flex flex-none items-center gap-1 ${series.length <= 1 ? "invisible pointer-events-none" : ""}`}
+          className="flex flex-none items-center gap-1"
         >
             <button
               type="button"
               disabled={series.length <= 1}
               data-market-explorer-active-show-all
               onClick={onShowAll}
-              className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+              className={`rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] ${series.length <= 1 ? "invisible pointer-events-none" : ""}`}
             >
               Show all
             </button>
@@ -78,16 +78,18 @@ export default function MarketExplorerActiveMarkets({
               disabled={series.length <= 1}
               data-market-explorer-active-hide-all
               onClick={onHideAll}
-              className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+              className={`rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] ${series.length <= 1 ? "invisible pointer-events-none" : ""}`}
             >
               Hide all
             </button>
+            <button type="button" data-market-explorer-active-clear-all onClick={onClearAll} className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)] transition-colors hover:border-red-300/40 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60">Clear all</button>
         </div>
       </div>
       {/* Keep one stable row. The parent already owns horizontal overflow; a
           desktop-only wrap made adding/removing a prepared Reference Market
           change this grid row's height and let browser scroll anchoring jolt
           content below it. Selection should change data, not page geometry. */}
+      <div data-market-explorer-active-chip-scroll className="min-w-0 overflow-x-auto">
       <ul className="flex min-w-max flex-nowrap gap-1.5">
         {series.map((entry) => {
           const isActive = entry.key === activeSeriesId;
@@ -162,6 +164,7 @@ export default function MarketExplorerActiveMarkets({
           );
         })}
       </ul>
+      </div>
     </section>
   );
 }
