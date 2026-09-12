@@ -2,7 +2,16 @@ import csv,html,json
 from pathlib import Path
 import pytest
 from backend.scripts.ebay_gold_access import load_partition
-from backend.scripts.ebay_gold_review_server import SHORTCUTS,append_event,page
+from backend.scripts.ebay_gold_review_server import (
+    SHORTCUTS,
+    append_event,
+    build_undo_event,
+    next_review_index,
+    page,
+    read_history,
+    reconstruct_effective_state,
+    review_summary,
+)
 from backend.scripts.prepare_ebay_d2h_benchmark import LABELS
 OUT=Path(__file__).resolve().parents[3]/'artifacts/index_fair_value'
 def test_partition_is_complete_unique_and_all_cards_present():
@@ -34,3 +43,74 @@ def test_review_page_hides_matcher_and_price_information():
     assert html.escape(row['listing_title']) in markup
     assert 'D1 matcher' not in markup and 'Fair Value' not in markup
     assert row['price_json'] not in markup
+
+
+def _event(row_id, action='label', **extra):
+    return {
+        'partition':'DEVELOPMENT','reviewer_id':'Donny','row_id':row_id,
+        'action':action,'label':LABELS[0],'confidence':'HIGH',**extra,
+    }
+
+
+def test_prior_labels_survive_restart_and_resume_at_next_unlabeled(tmp_path):
+    rows=load_partition('DEVELOPMENT',purpose='human_review')
+    path=tmp_path/'history.jsonl'
+    append_event(_event(rows[0]['benchmark_row_id']),path)
+    append_event(_event(rows[0]['benchmark_row_id']),path)
+    append_event(_event(rows[1]['benchmark_row_id']),path)
+    state=reconstruct_effective_state(
+        read_history(path),'DEVELOPMENT','Donny',
+        [row['benchmark_row_id'] for row in rows],
+    )
+    assert len(state['labels'])==2
+    assert next_review_index(rows,state)==2
+    assert review_summary(state,450)['unlabeled_count']==448
+
+
+def test_undo_is_append_only_and_reconstructs_previous_state(tmp_path):
+    rows=load_partition('DEVELOPMENT',purpose='human_review')[:3]
+    ids=[row['benchmark_row_id'] for row in rows]
+    path=tmp_path/'history.jsonl'
+    append_event(_event(ids[0]),path)
+    append_event(_event(ids[1],action='skip'),path)
+    before=path.read_bytes()
+    undo=build_undo_event(read_history(path),'DEVELOPMENT','Donny',ids)
+    assert undo['reverses_action']=='skip' and undo['reverses_row_id']==ids[1]
+    append_event(undo,path)
+    assert path.read_bytes().startswith(before)
+    state=reconstruct_effective_state(read_history(path),'DEVELOPMENT','Donny',ids)
+    assert set(state['labels'])=={ids[0]}
+    assert not state['skipped']
+
+
+def test_notes_and_skips_do_not_complete_rows_and_skips_remain_addressable():
+    rows=load_partition('DEVELOPMENT',purpose='human_review')[:3]
+    ids=[row['benchmark_row_id'] for row in rows]
+    events=[
+        _event(ids[0],action='note',note='check image'),
+        _event(ids[0],action='skip'),
+    ]
+    for number,event in enumerate(events,1):
+        event['_event_id']=f'legacy:{number}'
+    state=reconstruct_effective_state(events,'DEVELOPMENT','Donny',ids)
+    assert not state['labels']
+    assert state['skipped']=={ids[0]}
+    assert review_summary(state,3)['unlabeled_count']==3
+    assert next_review_index(rows,state)==1
+    assert next_review_index(rows,state,after=2)==1
+
+
+def test_all_development_rows_remain_addressable():
+    rows=load_partition('DEVELOPMENT',purpose='human_review')
+    state=reconstruct_effective_state([], 'DEVELOPMENT','Donny',
+                                      [row['benchmark_row_id'] for row in rows])
+    visited={next_review_index(rows,state,after=index-1) for index in range(len(rows))}
+    assert visited==set(range(450))
+
+
+def test_state_is_partition_and_reviewer_scoped():
+    rows=load_partition('DEVELOPMENT',purpose='human_review')[:1]
+    row_id=rows[0]['benchmark_row_id']
+    event=_event(row_id);event['_event_id']='legacy:1'
+    assert reconstruct_effective_state([event],'DEVELOPMENT','Other',[row_id])['labels']=={}
+    assert reconstruct_effective_state([event],'VALIDATION','Donny',[row_id])['labels']=={}
