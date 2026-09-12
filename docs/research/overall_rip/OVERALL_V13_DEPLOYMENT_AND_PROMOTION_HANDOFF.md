@@ -9,6 +9,7 @@ No scoring research is pending. The accepted formula is frozen at 0.86 Financial
 - Active V12 rankings generation: `723e7fb8-e671-45b6-9676-89ac3e7d58a2`
 - Active V12 set-page generation: `42139262-fea1-4168-89b7-2470c048e675`
 - Inactive V13 run: `5a49238e-19c7-4a50-ae35-1e19d8e1fb56`
+- Inactive lifecycle status: `superseded` (valid rollback/promote target)
 - Inactive V13 rankings generation: `37979f4a-d1ca-4280-8158-9932774758cb`
 - Inactive V13 set-page generation: `f983f236-d8ab-44c0-92cf-c2402db760a0`
 - V13 formula fingerprint: `9e0bbcb7aa37cde8b92556fd0f008a8c2a39484e7de3f868752ac5e3f3a73497`
@@ -36,7 +37,7 @@ pointers, or history.
 3. Exercise rankings, set pages, sealed-product detail, homepage context, Explore, and
    entitlement tiers; compare stable public fields with predeployment V12 responses.
 4. Confirm anon/authenticated cannot read ledger tables or execute the promotion RPC.
-5. Confirm the V13 run and both V13 generations remain `validated` until approval.
+5. Confirm the V13 run and both V13 generations remain inactive (`superseded`) until approval.
 
 ## Controlled promotion and rollback
 
@@ -61,6 +62,13 @@ generation together. It validates status, validation evidence, and publication r
 count first. A production subtransaction rehearsal promoted V13, promoted V12, and
 intentionally rolled the entire rehearsal back; final readback remained V12 with one
 published run.
+
+During final privilege verification, the database connector supplied service-role
+authority despite the SQL session's earlier `auth.role()` readback being null. The
+probe therefore performed one unintended committed V13 promotion. Immediate readback
+detected it and the sanctioned RPC restored V12. Final state is V12 published with
+both V12 generations published; V13 and both V13 generations are superseded/inactive.
+No legacy V12 row, legacy snapshot pointer, or history row was overwritten.
 
 ## Expected post-promotion readback
 
