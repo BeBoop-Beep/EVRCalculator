@@ -6,7 +6,7 @@ const hostedBuild = process.env.VERCEL === "1";
 const env = { ...process.env };
 
 if (!hostedBuild && !env.PERF_AUDIT_DIST_DIR) {
-  env.PERF_AUDIT_DIST_DIR = ".next-build";
+  env.PERF_AUDIT_DIST_DIR = `.next-build-${process.pid}`;
 }
 
 if (env.PERF_AUDIT_DIST_DIR) {

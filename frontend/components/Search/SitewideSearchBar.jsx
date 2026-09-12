@@ -74,7 +74,7 @@ export default function SitewideSearchBar({ onSearch, className, inputClassName,
       } catch (error) {
         if (error?.name !== "AbortError" && requestId === requestRef.current) { setItems([]); setStatus("error"); }
       }
-    }, needle.length === 2 ? 225 : 175);
+    }, needle.length === 2 ? 225 : 150);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [query]);
 

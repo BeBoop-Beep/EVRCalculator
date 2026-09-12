@@ -6,7 +6,7 @@ const source = await readFile(new URL("./SitewideSearchBar.jsx", import.meta.url
 const route = await readFile(new URL("../../app/api/search/route.js", import.meta.url), "utf8");
 
 test("header typeahead is debounced, abortable, stale-safe, and preserves free-text fallback", () => {
-  assert.match(source, /needle\.length === 2 \? 225 : 175/);
+  assert.match(source, /needle\.length === 2 \? 225 : 150/);
   assert.match(source, /new AbortController\(\)/);
   assert.match(source, /requestId !== requestRef\.current/);
   assert.match(source, /activeIndex >= 0.*choose\(items\[activeIndex\]\).*submit\(\)/s);
