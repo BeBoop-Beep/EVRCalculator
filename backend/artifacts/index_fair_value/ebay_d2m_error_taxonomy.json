@@ -1,0 +1,137 @@
+{
+  "version": "ebay_d2m_error_taxonomy_v1",
+  "development_only": true,
+  "classes": {
+    "AMBIGUOUS": {
+      "count": 17,
+      "d2_states": {
+        "REJECT": 16,
+        "AMBIGUOUS": 1
+      },
+      "rule_outcomes": {
+        "SEALED_OR_ACCESSORY": 3,
+        "LOT_OR_BUNDLE": 11,
+        "GRADED": 1,
+        "NAME_CONFLICT": 1,
+        "INSUFFICIENT_INDEPENDENT_EVIDENCE": 1
+      },
+      "distinct_cards": 13,
+      "distinct_sets": 8,
+      "resolution": "SECOND_REVIEW"
+    },
+    "CONDITION_INELIGIBLE": {
+      "count": 0,
+      "d2_states": {},
+      "rule_outcomes": {},
+      "distinct_cards": 0,
+      "distinct_sets": 0,
+      "resolution": "HARD_REJECTION_OR_CONFLICT"
+    },
+    "GRADED": {
+      "count": 77,
+      "d2_states": {
+        "REJECT": 77
+      },
+      "rule_outcomes": {
+        "GRADED": 76,
+        "SEALED_OR_ACCESSORY": 1
+      },
+      "distinct_cards": 43,
+      "distinct_sets": 17,
+      "resolution": "HARD_REJECTION_OR_CONFLICT"
+    },
+    "LOT_OR_BUNDLE": {
+      "count": 11,
+      "d2_states": {
+        "REJECT": 11
+      },
+      "rule_outcomes": {
+        "LOT_OR_BUNDLE": 11
+      },
+      "distinct_cards": 8,
+      "distinct_sets": 7,
+      "resolution": "HARD_REJECTION_OR_CONFLICT"
+    },
+    "OTHER": {
+      "count": 0,
+      "d2_states": {},
+      "rule_outcomes": {},
+      "distinct_cards": 0,
+      "distinct_sets": 0,
+      "resolution": "HARD_REJECTION_OR_CONFLICT"
+    },
+    "RELATED_BUT_WRONG_VARIANT": {
+      "count": 23,
+      "d2_states": {
+        "REJECT": 22,
+        "MEDIUM_CONFIDENCE": 1
+      },
+      "rule_outcomes": {
+        "WRONG_CARD_NUMBER": 7,
+        "NAME_CONFLICT": 2,
+        "LOT_OR_BUNDLE": 1,
+        "WRONG_VARIANT": 12,
+        "BASE_PARALLEL_NOT_EXPLICIT": 1
+      },
+      "distinct_cards": 10,
+      "distinct_sets": 6,
+      "resolution": "HARD_REJECTION_OR_CONFLICT"
+    },
+    "SEALED_OR_ACCESSORY": {
+      "count": 9,
+      "d2_states": {
+        "REJECT": 9
+      },
+      "rule_outcomes": {
+        "SEALED_OR_ACCESSORY": 8,
+        "LOT_OR_BUNDLE": 1
+      },
+      "distinct_cards": 9,
+      "distinct_sets": 8,
+      "resolution": "HARD_REJECTION_OR_CONFLICT"
+    },
+    "WRONG_CARD_NUMBER": {
+      "count": 29,
+      "d2_states": {
+        "REJECT": 29
+      },
+      "rule_outcomes": {
+        "NAME_CONFLICT": 3,
+        "WRONG_CARD_NUMBER": 25,
+        "LOT_OR_BUNDLE": 1
+      },
+      "distinct_cards": 9,
+      "distinct_sets": 6,
+      "resolution": "HARD_REJECTION_OR_CONFLICT"
+    },
+    "WRONG_LANGUAGE": {
+      "count": 5,
+      "d2_states": {
+        "REJECT": 5
+      },
+      "rule_outcomes": {
+        "WRONG_LANGUAGE": 5
+      },
+      "distinct_cards": 5,
+      "distinct_sets": 4,
+      "resolution": "HARD_REJECTION_OR_CONFLICT"
+    },
+    "WRONG_SET": {
+      "count": 2,
+      "d2_states": {
+        "REJECT": 2
+      },
+      "rule_outcomes": {
+        "GRADED": 1,
+        "WRONG_CARD_NUMBER": 1
+      },
+      "distinct_cards": 2,
+      "distinct_sets": 2,
+      "resolution": "HARD_REJECTION_OR_CONFLICT"
+    }
+  },
+  "leave_error_type_out_diagnostic": {
+    "method": "Reusable lexical/identity rules; diversity measured across cards and sets.",
+    "validation_is_independent_test": true
+  }
+}

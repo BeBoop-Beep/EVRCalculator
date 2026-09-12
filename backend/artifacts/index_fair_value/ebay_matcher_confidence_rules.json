@@ -1,0 +1,17 @@
+{
+  "version": "index_fair_value_ebay_d2m_v1",
+  "high": [
+    "name+number+set+non-base variant compatible",
+    "name+number+explicit variant, set absent, no conflict"
+  ],
+  "medium": [
+    "base name+number+set with parallel unspecified"
+  ],
+  "ambiguous": [
+    "multiple numbers or insufficient independent evidence"
+  ],
+  "reject": [
+    "hard exclusion or identity conflict"
+  ],
+  "condition_is_separate": true
+}

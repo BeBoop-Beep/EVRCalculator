@@ -1,0 +1,106 @@
+{
+  "version": "ebay_set_alias_registry_v1",
+  "provenance": "Canonical set names and established abbreviations observed in Development.",
+  "aliases": {
+    "Ascended Heroes": [
+      "ascended heroes",
+      "ascended heros",
+      "asc en",
+      "asc"
+    ],
+    "Black Bolt": [
+      "black bolt",
+      "blk en",
+      "blk"
+    ],
+    "Chaos Rising": [
+      "chaos rising"
+    ],
+    "Destined Rivals": [
+      "destined rivals",
+      "destined rival",
+      "dri"
+    ],
+    "Journey Together": [
+      "journey together",
+      "jit"
+    ],
+    "Mega Evolution": [
+      "mega evolution",
+      "mega evolutions",
+      "me01"
+    ],
+    "Obsidian Flames": [
+      "obsidian flames",
+      "obf"
+    ],
+    "Paldea Evolved": [
+      "paldea evolved",
+      "pal en",
+      "pal"
+    ],
+    "Paldean Fates": [
+      "paldean fates",
+      "paf"
+    ],
+    "Paradox Rift": [
+      "paradox rift",
+      "par en",
+      "par"
+    ],
+    "Phantasmal Flames": [
+      "phantasmal flames"
+    ],
+    "Pitch Black": [
+      "pitch black"
+    ],
+    "Prismatic Evolutions": [
+      "prismatic evolutions",
+      "prismatic ev",
+      "pre en",
+      "pre"
+    ],
+    "Scarlet and Violet 151": [
+      "scarlet violet 151",
+      "sv 151",
+      "mew en"
+    ],
+    "Scarlet and Violet Base Set": [
+      "scarlet violet base set",
+      "scarlet violet base",
+      "sv01",
+      "svi"
+    ],
+    "Shrouded Fable": [
+      "shrouded fable",
+      "sv6 5"
+    ],
+    "Stellar Crown": [
+      "stellar crown",
+      "scr en",
+      "scr"
+    ],
+    "Surging Sparks": [
+      "surging sparks",
+      "ssp"
+    ],
+    "Temporal Forces": [
+      "temporal forces",
+      "temporal force",
+      "sv05",
+      "tef en",
+      "tef"
+    ],
+    "Twilight Masquerade": [
+      "twilight masquerade",
+      "sv06",
+      "twm en",
+      "twm"
+    ],
+    "White Flare": [
+      "white flare",
+      "wht en",
+      "wht"
+    ]
+  }
+}

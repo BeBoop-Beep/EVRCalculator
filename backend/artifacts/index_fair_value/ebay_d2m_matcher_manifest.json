@@ -1,0 +1,20 @@
+{
+  "matcher_version": "index_fair_value_ebay_d2m_v1",
+  "logic_frozen": true,
+  "rule_config_fingerprint": "d47384a38912b59bb073c0b7a655e3120424154fa1617faaca541c86d53f2e1c",
+  "query_contract_version": "ebay_browse_query_d1_unchanged_v1",
+  "query_changes": "NONE",
+  "development_api_calls": 0,
+  "set_alias_registry_version": "ebay_set_alias_registry_v1",
+  "variant_rule_version": "ebay_variant_identity_rules_v1",
+  "condition_policy_version": "ebay_raw_condition_policy_v1",
+  "development_partition_sha256": "0d32445d1eb41ca026cc20a2a86f79411640396803b580ef854a679dc6c38d84",
+  "review_history_sha256_at_freeze": "83f91a6316277cc084506673ba9d95b995af94967d1f7a7515e4da7082fc77aa",
+  "validation_policy_family": [
+    "HIGH_CONFIDENCE_ONLY",
+    "HIGH_PLUS_MEDIUM_WITH_MANUAL_REVIEW"
+  ],
+  "validation_labels_accessed": false,
+  "final_blind_labels_accessed": false,
+  "fair_value_fitted": false
+}
