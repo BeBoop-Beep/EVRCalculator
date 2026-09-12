@@ -1,0 +1,31 @@
+{
+  "version": "ebay_d2m_v2_expanded_metrics_v1",
+  "development_only": true,
+  "high": {
+    "accepted": 298,
+    "tp": 298,
+    "fp": 0,
+    "tn": 235,
+    "fn": 149,
+    "precision": 1.0,
+    "wilson_95": [
+      0.98727326,
+      1.0
+    ],
+    "recall": 0.66666667,
+    "card_coverage_count": 59,
+    "card_coverage": 0.84285714,
+    "false_positive_breakdown": {}
+  },
+  "medium": {
+    "count": 33,
+    "gold_breakdown": {
+      "EXACT_TARGET_MATCH": 32,
+      "RELATED_BUT_WRONG_VARIANT": 1
+    },
+    "authority": "DIAGNOSTIC_ONLY"
+  },
+  "ambiguous_count": 39,
+  "rejected_count": 330,
+  "diagnostic_targets_met": true
+}

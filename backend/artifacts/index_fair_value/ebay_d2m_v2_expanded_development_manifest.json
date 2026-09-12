@@ -1,0 +1,14 @@
+{
+  "version": "ebay_d2m_v2_expanded_development_manifest_v1",
+  "rows": 700,
+  "original_development_rows": 450,
+  "v1_validation_v2_development_rows": 250,
+  "positive_count": 447,
+  "negative_count": 235,
+  "ambiguous_count": 18,
+  "binary_denominator": 682,
+  "membership_and_label_fingerprint": "99413bfdf3918ec844b49fa383693659fbf96b1ba9acfbd21cad38f46a555d08",
+  "source_partitions_immutable": true,
+  "status_note": "Former VALIDATION is V1_VALIDATION / V2_DEVELOPMENT; not independent for v2.",
+  "final_blind_used": false
+}

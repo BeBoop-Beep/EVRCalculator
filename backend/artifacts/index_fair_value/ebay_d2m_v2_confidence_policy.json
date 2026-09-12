@@ -1,0 +1,8 @@
+{
+  "version": "ebay_d2m_v2_confidence_policy_v1",
+  "high": "SINGLE_RAW_CARD plus compatible name, number, set/language/variant evidence and no conflict.",
+  "medium": "SINGLE_RAW_CARD base rarity with name+number+set but unresolved parallel.",
+  "ambiguous": "Single-card identity lacks independent evidence or has multiple numbers.",
+  "rejected": "Non-single product object or explicit identity conflict.",
+  "medium_authority": "DIAGNOSTIC_ONLY"
+}

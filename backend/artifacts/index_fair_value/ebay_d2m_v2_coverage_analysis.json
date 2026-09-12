@@ -1,0 +1,132 @@
+{
+  "version": "ebay_d2m_v2_coverage_analysis_v1",
+  "high_covered_cards": 59,
+  "cards_still_lacking_high": 11,
+  "missing_cards": [
+    {
+      "canonical_card_id": "2a67a99c-dbba-4c41-846c-39ed4659c916",
+      "card_name": "Grubbin",
+      "states": {
+        "MEDIUM_CONFIDENCE": 4,
+        "AMBIGUOUS": 1
+      },
+      "causes": {
+        "BASE_PARALLEL_NOT_EXPLICIT": 4,
+        "INSUFFICIENT_INDEPENDENT_EVIDENCE": 1
+      }
+    },
+    {
+      "canonical_card_id": "2bf67447-75e1-4e97-ac08-c7f3e7f2c88c",
+      "card_name": "Dhelmise",
+      "states": {
+        "MEDIUM_CONFIDENCE": 3
+      },
+      "causes": {
+        "BASE_PARALLEL_NOT_EXPLICIT": 3
+      }
+    },
+    {
+      "canonical_card_id": "50f67b41-059d-4c14-842f-8b48fba46bc2",
+      "card_name": "Lt. Surge's Bargain",
+      "states": {
+        "REJECTED": 2,
+        "MEDIUM_CONFIDENCE": 3
+      },
+      "causes": {
+        "WRONG_VARIANT": 1,
+        "BASE_PARALLEL_NOT_EXPLICIT": 3,
+        "MULTI_CARD_OFFER": 1
+      }
+    },
+    {
+      "canonical_card_id": "55096ab6-1773-47c4-bbff-20c1db011223",
+      "card_name": "Victini",
+      "states": {
+        "MEDIUM_CONFIDENCE": 3,
+        "REJECTED": 1
+      },
+      "causes": {
+        "BASE_PARALLEL_NOT_EXPLICIT": 3,
+        "WRONG_CARD_NUMBER": 1
+      }
+    },
+    {
+      "canonical_card_id": "640cd931-d97f-4173-ad9d-3ab86f91d92c",
+      "card_name": "Pecharunt ex",
+      "states": {
+        "REJECTED": 1
+      },
+      "causes": {
+        "MULTI_CARD_OFFER": 1
+      }
+    },
+    {
+      "canonical_card_id": "740ad74c-8c0c-411f-9ec7-2c734210b8f1",
+      "card_name": "Arbok",
+      "states": {
+        "MEDIUM_CONFIDENCE": 2,
+        "REJECTED": 1
+      },
+      "causes": {
+        "BASE_PARALLEL_NOT_EXPLICIT": 2,
+        "MULTI_CARD_OFFER": 1
+      }
+    },
+    {
+      "canonical_card_id": "8a2827bc-48b7-4dfd-b240-501fe24100b9",
+      "card_name": "Bronzor",
+      "states": {
+        "MEDIUM_CONFIDENCE": 8
+      },
+      "causes": {
+        "BASE_PARALLEL_NOT_EXPLICIT": 8
+      }
+    },
+    {
+      "canonical_card_id": "8a2cce32-ad4f-4468-8a28-8a9ea9653365",
+      "card_name": "Leavanny",
+      "states": {},
+      "causes": {
+        "QUERY_RETURNED_NO_EXACT_GOLD_LISTING": 1
+      }
+    },
+    {
+      "canonical_card_id": "cdfc0223-40ef-4e4b-a9f2-3a809ae1c3df",
+      "card_name": "Flareon",
+      "states": {
+        "REJECTED": 1,
+        "AMBIGUOUS": 4
+      },
+      "causes": {
+        "MULTI_CARD_OFFER": 1,
+        "INSUFFICIENT_INDEPENDENT_EVIDENCE": 4
+      }
+    },
+    {
+      "canonical_card_id": "ec8fec81-b57d-442a-baf0-91882c40de6e",
+      "card_name": "Team Rocket's Giovanni",
+      "states": {
+        "MEDIUM_CONFIDENCE": 3,
+        "REJECTED": 2
+      },
+      "causes": {
+        "BASE_PARALLEL_NOT_EXPLICIT": 3,
+        "WRONG_VARIANT": 2
+      }
+    },
+    {
+      "canonical_card_id": "ecfe51fb-3435-4e1c-8542-8809cd6f95ff",
+      "card_name": "Coalossal",
+      "states": {
+        "MEDIUM_CONFIDENCE": 6,
+        "REJECTED": 1
+      },
+      "causes": {
+        "BASE_PARALLEL_NOT_EXPLICIT": 6,
+        "MULTI_CARD_OFFER": 1
+      }
+    }
+  ],
+  "former_medium_rows_promoted_to_high": 0,
+  "medium_incremental_cards": 8
+}

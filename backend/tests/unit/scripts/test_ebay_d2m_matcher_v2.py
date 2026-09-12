@@ -119,7 +119,7 @@ def test_final_freeze_manifest_is_complete_and_guard_remains_closed_without_it()
     freeze=artifact("ebay_d2m_v2_final_freeze_manifest.json")
     assert freeze["matcher_version"]==MATCHER_VERSION
     assert freeze["matcher_fingerprint"]==rule_fingerprint()
-    assert freeze["frozen_commit"]=="3d70f0032fbc7e39d759a0e13669c1c6bc475367"
+    assert freeze["frozen_commit"]=="52656c6d1cf6803bbf2ec4f6fc5b14493d68b302"
     assert freeze["logic_frozen"] is True
     assert freeze["final_blind_rows_from_original_manifest"]==350
     assert freeze["final_blind_labels_accessed"] is False
