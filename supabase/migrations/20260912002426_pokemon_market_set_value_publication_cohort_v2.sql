@@ -5,7 +5,7 @@
 -- that force-sets market_publication_ready=true for certain sets. Neither of
 -- those must ever again decide Sep 10+ Market root membership -- membership
 -- is now exclusively public.pokemon_market_root_authority (see
--- 20260911235824_pokemon_market_root_authority.sql). v1 is left
+-- 20260912002422_pokemon_market_root_authority.sql). v1 is left
 -- unchanged and keeps serving pre-Sep10 historical behavior exactly as it did
 -- (some code paths -- _canonical_market_root_cohort for 2026-09-09 -- still
 -- read it intentionally and must not be disturbed).
@@ -70,6 +70,7 @@ COMMENT ON VIEW public.pokemon_market_set_value_publication_cohort_v2 IS
     'the frozen authority for pre-2026-09-10 historical behavior.';
 
 REVOKE ALL ON public.pokemon_market_set_value_publication_cohort_v2 FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.pokemon_market_set_value_publication_cohort_v2 FROM service_role;
 GRANT SELECT ON public.pokemon_market_set_value_publication_cohort_v2 TO service_role;
 
 COMMIT;

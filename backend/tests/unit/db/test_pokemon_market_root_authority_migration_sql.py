@@ -115,6 +115,70 @@ def test_authority_and_v2_migrations_are_mirrored_byte_identical_in_both_trees()
         assert mirror.read_bytes() == migration.read_bytes()
 
 
+def test_authority_table_is_backend_read_only_with_rls_and_explicit_acl_reset():
+    sql = _statements(AUTHORITY_MIGRATION.read_text(encoding="utf-8")).upper()
+    compact = re.sub(r"\s+", " ", sql)
+    assert "ALTER TABLE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY ENABLE ROW LEVEL SECURITY" in compact
+    for role in ("PUBLIC", "ANON", "AUTHENTICATED", "SERVICE_ROLE"):
+        assert f"REVOKE ALL ON TABLE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY FROM {role}" in compact
+    assert "GRANT SELECT ON TABLE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY TO SERVICE_ROLE" in compact
+    assert not re.search(
+        r"GRANT\s+(?:INSERT|UPDATE|DELETE|ALL).*POKEMON_MARKET_ROOT_AUTHORITY.*SERVICE_ROLE",
+        compact,
+    )
+
+
+def test_authority_identity_sequence_is_unavailable_to_runtime_roles():
+    sql = _statements(AUTHORITY_MIGRATION.read_text(encoding="utf-8")).upper()
+    compact = re.sub(r"\s+", " ", sql)
+    for role in ("PUBLIC", "ANON", "AUTHENTICATED", "SERVICE_ROLE"):
+        assert (
+            "REVOKE ALL ON SEQUENCE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY_ID_SEQ "
+            f"FROM {role}"
+        ) in compact
+    assert not re.search(
+        r"GRANT\s+[^;]*ON\s+SEQUENCE\s+PUBLIC\.POKEMON_MARKET_ROOT_AUTHORITY_ID_SEQ",
+        compact,
+    )
+
+
+def test_authority_trigger_helper_cannot_be_invoked_by_runtime_roles():
+    sql = _statements(AUTHORITY_MIGRATION.read_text(encoding="utf-8")).upper()
+    compact = re.sub(r"\s+", " ", sql)
+    function = "PUBLIC.SET_POKEMON_MARKET_ROOT_AUTHORITY_UPDATED_AT()"
+    for role in ("PUBLIC", "ANON", "AUTHENTICATED", "SERVICE_ROLE"):
+        assert f"REVOKE ALL ON FUNCTION {function} FROM {role}" in compact
+    assert not re.search(rf"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+{re.escape(function)}", compact)
+
+
+def test_cohort_v2_is_security_invoker_and_service_role_select_only():
+    sql = _statements(V2_VIEW_MIGRATION.read_text(encoding="utf-8")).upper()
+    compact = re.sub(r"\s+", " ", sql)
+    assert "WITH (SECURITY_INVOKER = TRUE)" in compact
+    assert (
+        "REVOKE ALL ON PUBLIC.POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V2 "
+        "FROM PUBLIC, ANON, AUTHENTICATED"
+    ) in compact
+    assert (
+        "REVOKE ALL ON PUBLIC.POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V2 "
+        "FROM SERVICE_ROLE"
+    ) in compact
+    assert (
+        "GRANT SELECT ON PUBLIC.POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V2 "
+        "TO SERVICE_ROLE"
+    ) in compact
+    assert not re.search(
+        r"GRANT\s+(?:INSERT|UPDATE|DELETE|ALL).*POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V2",
+        compact,
+    )
+
+
+def test_cohort_v2_comment_references_the_final_authority_migration_name():
+    sql = V2_VIEW_MIGRATION.read_text(encoding="utf-8")
+    assert "20260912002422_pokemon_market_root_authority.sql" in sql
+    assert "20260911235824_pokemon_market_root_authority.sql" not in sql
+
+
 # --- (6.1-6.5) SQL contract behavioral simulation ---------------------------
 #
 # No live Postgres is available, so the view's actual JOIN/WHERE behavior is

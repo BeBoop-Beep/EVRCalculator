@@ -232,4 +232,24 @@ BEGIN
 END
 $$;
 
+ALTER TABLE public.pokemon_market_root_authority
+    ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public.pokemon_market_root_authority FROM PUBLIC;
+REVOKE ALL ON TABLE public.pokemon_market_root_authority FROM anon;
+REVOKE ALL ON TABLE public.pokemon_market_root_authority FROM authenticated;
+REVOKE ALL ON TABLE public.pokemon_market_root_authority FROM service_role;
+
+GRANT SELECT ON TABLE public.pokemon_market_root_authority TO service_role;
+
+REVOKE ALL ON SEQUENCE public.pokemon_market_root_authority_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE public.pokemon_market_root_authority_id_seq FROM anon;
+REVOKE ALL ON SEQUENCE public.pokemon_market_root_authority_id_seq FROM authenticated;
+REVOKE ALL ON SEQUENCE public.pokemon_market_root_authority_id_seq FROM service_role;
+
+REVOKE ALL ON FUNCTION public.set_pokemon_market_root_authority_updated_at() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.set_pokemon_market_root_authority_updated_at() FROM anon;
+REVOKE ALL ON FUNCTION public.set_pokemon_market_root_authority_updated_at() FROM authenticated;
+REVOKE ALL ON FUNCTION public.set_pokemon_market_root_authority_updated_at() FROM service_role;
+
 COMMIT;
