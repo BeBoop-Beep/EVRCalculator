@@ -1,0 +1,11 @@
+{
+  "version": "ebay_d2v_medium_metrics_v1",
+  "count": 12,
+  "true_positives": 12,
+  "precision": 1.0,
+  "recall_contribution": 0.07058824,
+  "false_positive_breakdown": {},
+  "incremental_card_coverage_count": 6,
+  "combined_card_coverage_count": 60,
+  "recommendation": "DIAGNOSTIC_ONLY"
+}

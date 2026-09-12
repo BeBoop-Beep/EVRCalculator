@@ -1,0 +1,44 @@
+{
+  "version": "ebay_d2v_card_coverage_v1",
+  "total_cards": 70,
+  "high_covered_count": 54,
+  "high_coverage": 0.77142857,
+  "zero_high_card_ids": [
+    "2a67a99c-dbba-4c41-846c-39ed4659c916",
+    "2bf67447-75e1-4e97-ac08-c7f3e7f2c88c",
+    "2e5780f8-1769-4d26-9e3e-87e4a27d4dfe",
+    "301185dd-2bde-4699-80bd-8b2a3cfd8f7f",
+    "4299cd6b-98e3-4e65-865f-26a39b19fe5b",
+    "50f67b41-059d-4c14-842f-8b48fba46bc2",
+    "55096ab6-1773-47c4-bbff-20c1db011223",
+    "640cd931-d97f-4173-ad9d-3ab86f91d92c",
+    "740ad74c-8c0c-411f-9ec7-2c734210b8f1",
+    "8a2827bc-48b7-4dfd-b240-501fe24100b9",
+    "8a2cce32-ad4f-4468-8a28-8a9ea9653365",
+    "966bcb61-bf43-4cd7-8287-42f4bb9fa76d",
+    "ae4a6acb-3a88-4547-a165-7a617bfb2ce8",
+    "cdfc0223-40ef-4e4b-a9f2-3a809ae1c3df",
+    "ec8fec81-b57d-442a-baf0-91882c40de6e",
+    "ecfe51fb-3435-4e1c-8542-8809cd6f95ff"
+  ],
+  "only_medium_card_ids": [
+    "50f67b41-059d-4c14-842f-8b48fba46bc2",
+    "55096ab6-1773-47c4-bbff-20c1db011223",
+    "740ad74c-8c0c-411f-9ec7-2c734210b8f1",
+    "8a2827bc-48b7-4dfd-b240-501fe24100b9",
+    "ec8fec81-b57d-442a-baf0-91882c40de6e",
+    "ecfe51fb-3435-4e1c-8542-8809cd6f95ff"
+  ],
+  "only_rejected_or_ambiguous_card_ids": [
+    "2a67a99c-dbba-4c41-846c-39ed4659c916",
+    "2bf67447-75e1-4e97-ac08-c7f3e7f2c88c",
+    "2e5780f8-1769-4d26-9e3e-87e4a27d4dfe",
+    "301185dd-2bde-4699-80bd-8b2a3cfd8f7f",
+    "4299cd6b-98e3-4e65-865f-26a39b19fe5b",
+    "640cd931-d97f-4173-ad9d-3ab86f91d92c",
+    "8a2cce32-ad4f-4468-8a28-8a9ea9653365",
+    "966bcb61-bf43-4cd7-8287-42f4bb9fa76d",
+    "ae4a6acb-3a88-4547-a165-7a617bfb2ce8",
+    "cdfc0223-40ef-4e4b-a9f2-3a809ae1c3df"
+  ]
+}
