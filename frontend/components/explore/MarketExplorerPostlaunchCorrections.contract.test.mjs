@@ -62,7 +62,7 @@ test("build failures remain beside both CTAs with structured accessible state", 
 test("accepted chart-first hierarchy remains intact", () => {
   const client = read("./MarketExplorerClient.jsx");
   assert.equal((client.match(/<MarketExplorerActiveMarkets/g) || []).length, 1);
-  assert.ok(client.indexOf("<MarketExplorerConstituents") < client.indexOf("<MarketExplorerDetails"));
+  assert.ok(client.indexOf("<MarketExplorerDetails") < client.indexOf("<MarketExplorerConstituents"));
   assert.ok(client.indexOf("<MarketExplorerDetails") < client.indexOf("<MarketExplorerMethodology"));
   assert.ok(client.includes("data-market-explorer-active-strip"));
   assert.ok(client.includes("data-market-explorer-chart-pane") || read("./MarketExplorerChart.jsx").includes("data-market-explorer-chart-pane"));

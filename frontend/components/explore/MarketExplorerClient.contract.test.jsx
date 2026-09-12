@@ -1128,20 +1128,18 @@ test("hiding an active market drops it from Market Comparison Analysis but keeps
   assert.ok(picker.includes("sealedMarket") || picker.length <= 1);
 });
 
-test("the lower-page section order is Active Markets, then Constituents, then Comparison Analysis, then Methodology", () => {
+test("the lower-page section order is Active Markets, then Comparison Detail, then Constituents, then Methodology", () => {
   const renderer = render();
-  const workspace = renderer.root.findAll(
-    (node) => node.props?.["data-market-explorer-workspace"] !== undefined
-  )[0];
-  const sectionLabels = renderer.root.findAll(
-    (node) => node.type === "section" && typeof node.props?.["aria-label"] === "string", { deep: true }
-  ).map((node) => node.props["aria-label"]);
-  const activeIdx = sectionLabels.indexOf("Active markets");
-  const constituentsIdx = sectionLabels.indexOf("Current market constituents");
-  const comparisonIdx = sectionLabels.indexOf("Market comparison analysis");
-  assert.ok(activeIdx >= 0 && constituentsIdx >= 0 && comparisonIdx >= 0);
-  assert.ok(activeIdx < constituentsIdx, "Active Markets must precede Constituents");
-  assert.ok(constituentsIdx < comparisonIdx, "Constituents must precede Comparison Analysis");
+  const orderedNodes = renderer.root.findAll((node) =>
+    node.props?.["data-market-explorer-active-markets"] !== undefined
+    || node.props?.["data-market-explorer-details"] !== undefined
+    || node.props?.["data-market-explorer-constituents"] !== undefined
+    || node.props?.["data-market-explorer-methodology"] !== undefined
+  );
+  const markers = orderedNodes.map((node) => Object.keys(node.props).find((key) => key.startsWith("data-market-explorer-")));
+  assert.ok(markers.indexOf("data-market-explorer-active-markets") < markers.indexOf("data-market-explorer-details"));
+  assert.ok(markers.indexOf("data-market-explorer-details") < markers.indexOf("data-market-explorer-constituents"));
+  assert.ok(markers.indexOf("data-market-explorer-constituents") < markers.indexOf("data-market-explorer-methodology"));
   const methodology = renderer.root.findAll(
     (node) => node.props?.["data-market-explorer-methodology"] !== undefined
   )[0];

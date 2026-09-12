@@ -1169,16 +1169,12 @@
 .explorerZoneTitle { margin-top: 0.2rem; color: var(--text-primary); font-size: 1.05rem; font-weight: 700; }
 .explorerZoneDescription { margin-top: 0.2rem; color: var(--text-secondary); font-size: 0.75rem; line-height: 1.45; }
 
-.explorerInspectionGrid,
 .explorerBuildGrid { display: grid; min-width: 0; }
 
-.explorerInspectionGrid > *,
 .explorerBuildPath { min-width: 0; border-top: 1px solid var(--border-subtle); }
 
 @media (min-width: 768px) {
   .explorerZoneHeader { padding: 1.1rem 1rem 0.9rem; }
-  .explorerInspectionGrid { grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.75fr); }
-  .explorerInspectionGrid > :last-child { border-left: 1px solid var(--border-subtle); }
 }
 
 @media (min-width: 1200px) {

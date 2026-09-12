@@ -277,6 +277,7 @@ export default function MarketExplorerClient({
     () => resolveActiveDetailSeriesId(selectedSeries, requestedDetailSeriesId),
     [selectedSeries, requestedDetailSeriesId]
   );
+  const activeDetailMarket = selectedSeries.find((entry) => entry.key === activeDetailSeriesId) || null;
   const editingSeries = useMemo(() => querySeries.find((series) => series.instanceId === editingSeriesId) || null, [querySeries, editingSeriesId]);
   const beginEdit = useCallback((series) => {
     setEditingSeriesId(series.instanceId);
@@ -431,14 +432,11 @@ export default function MarketExplorerClient({
              queries used to render their own duplicate row, which showed the
              same markets twice and let the two disagree. Their one unique
              contribution, the index level, moved onto the chip. */}
-      {/* ACCEPTED LOWER-PAGE ORDER: Active Markets -> Constituents -> Market
-          Comparison Analysis -> Methodology. Constituents answers "what is
-          inside the one market I'm inspecting" right after Active Markets
-          names it; Comparison Analysis is the cross-market summary table and
-          reads naturally after the reader has seen one market's composition;
-          Methodology is reference material and never sits between two
-          interactive result sections. */}
-      <div data-market-explorer-compare-results className="order-4 border-t border-[var(--border-subtle)]" aria-label="Market comparison analysis">
+      {/* ACCEPTED LOWER-PAGE ORDER: Comparison Detail -> Current Constituents
+          -> Selected Set Analysis (Set markets only) -> Methodology. These are
+          full-width research sections; no desktop split or empty non-Set
+          placeholder belongs in this workspace. */}
+      <div data-market-explorer-compare-results className="order-4 border-t border-[var(--border-subtle)]">
         <MarketExplorerDetails
           // VISIBLE, not merely active: comparison reflects what the chart is
           // currently showing ("compare what I see"). A hidden market stays a
@@ -451,16 +449,12 @@ export default function MarketExplorerClient({
           onInspect={setRequestedDetailSeriesId}
           timeframe={timeframe}
         />
-        <div className={styles.explorerInspectionGrid}>
-          <section aria-label="Current market constituents" className="min-w-0">
-            <MarketExplorerConstituents selectedSeries={selectedSeries} activeSeriesId={activeDetailSeriesId}
-              onSelectSeries={setRequestedDetailSeriesId} onEditSeries={beginEdit} />
-          </section>
-          <div className="min-w-0">
-            <MarketExplorerContextRanking market={selectedSeries.find((entry) => entry.key === activeDetailSeriesId)} timeframe={timeframe}
-              canUse={canComparePreparedMarkets} onUpgrade={() => setCompareUpgradeVisible(true)} />
-          </div>
-        </div>
+        <MarketExplorerConstituents selectedSeries={selectedSeries} activeSeriesId={activeDetailSeriesId}
+          onSelectSeries={setRequestedDetailSeriesId} onEditSeries={beginEdit} />
+        {activeDetailMarket?.marketType === "set" ? (
+          <MarketExplorerContextRanking market={activeDetailMarket} timeframe={timeframe}
+            canUse={canComparePreparedMarkets} onUpgrade={() => setCompareUpgradeVisible(true)} />
+        ) : null}
       </div>
       </section>
 
