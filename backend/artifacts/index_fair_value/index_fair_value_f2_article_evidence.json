@@ -1,0 +1,14 @@
+{
+  "version": "index_fair_value_f2_article_evidence_v1",
+  "selectedStructuralModel": "C",
+  "status": "INDEX_FAIR_VALUE_F2_MODEL_NOT_SUPPORTED",
+  "sources": {
+    "actualVsOOF": "index_fair_value_f2_oof_predictions.csv",
+    "oldVsNew": "index_fair_value_f2_baseline_results.json + model_results",
+    "priceBands": "index_fair_value_f2_price_band_results.json",
+    "heldOutSets": "index_fair_value_f2_set_results.json",
+    "componentAddition": "index_fair_value_f2_nested_feature_results.json",
+    "residualsAndExamples": "index_fair_value_f2_residual_diagnostics.json"
+  },
+  "articleWritten": false
+}
