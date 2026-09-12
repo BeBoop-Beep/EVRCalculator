@@ -1,0 +1,29 @@
+{
+  "matcher_version": "index_fair_value_ebay_d2m_v2",
+  "matcher_fingerprint": "a2ac052891df2745f2a2dde8b615a5ccbf1ef23a777eb2a0310e35aef94f6d5e",
+  "gold_fingerprint": "40da9c4ccbe030124d608c59673902f662e14835cc0d8c4b4fffb89231b97a7a",
+  "code_commit": "ece085640a013d2803b0364ddf358ef6b1390854",
+  "evaluation_timestamp": "2026-09-12T23:20:59.787335+00:00",
+  "expanded_development": {
+    "precision": 1.0,
+    "wilson_95": [
+      0.98727326,
+      1.0
+    ],
+    "recall": 0.66666667,
+    "card_coverage": 0.84285714,
+    "ambiguity_rate": 0.05571429,
+    "rejection_rate": 0.47142857
+  },
+  "final_blind": {
+    "precision": 0.9869281,
+    "wilson_95": [
+      0.95359605,
+      0.99640786
+    ],
+    "recall": 0.68325792,
+    "card_coverage": 0.84285714,
+    "ambiguity_rate": 0.06571429,
+    "rejection_rate": 0.46571429
+  }
+}

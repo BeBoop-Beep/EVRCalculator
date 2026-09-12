@@ -63,7 +63,21 @@ def test_gold_fingerprint_stability_and_incomplete_freeze_rejected(tmp_path):
         freeze_gold([{"benchmark_row_id":"1"}], {"1":base("AMBIGUOUS")}, {"decisions":{}, "unreviewed":{"1"}}, "Donny", tmp_path/"review.jsonl", tmp_path/"audit.jsonl", tmp_path/"manifest.json")
 
 
-def test_no_final_blind_prediction_artifact_exists():
+def test_no_final_blind_prediction_artifact_existed_before_gold_freeze():
+    import csv
+    import subprocess
     from backend.scripts.ebay_gold_access import OUT
-    names = [path.name.lower() for path in OUT.iterdir()]
-    assert not any("final_blind" in name and ("prediction" in name or "metrics" in name) for name in names)
+    prediction = OUT / "ebay_d2f_final_blind_predictions.csv"
+    if not prediction.exists():
+        return
+    with prediction.open(encoding="utf-8", newline="") as handle:
+        first = next(csv.DictReader(handle))
+    code_commit = first["code_commit"]
+    assert subprocess.run(
+        ["git", "merge-base", "--is-ancestor", "5cfc39f9e7b003a474ab1f02411fbbdd099eb059", code_commit],
+        cwd=OUT, check=False,
+    ).returncode == 0
+    assert subprocess.run(
+        ["git", "cat-file", "-e", f"{code_commit}:backend/artifacts/index_fair_value/{prediction.name}"],
+        cwd=OUT, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    ).returncode != 0
