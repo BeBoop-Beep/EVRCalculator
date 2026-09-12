@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
-import { canonicalCardQueryKey, createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.mjs";
+import { createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
 
@@ -14,7 +14,7 @@ const lensModules = {
   eraEconomics: () => import("./OpeningEconomicsEras"),
   eras: () => import("./EraRankings"),
   sets: () => import("./SetRankingsHub"),
-  cards: () => import("./CardChaseEfficiencyRankings"),
+  cards: () => import("./CardRankingsHub"),
   products: () => import("./RankingsProductLensClient"),
 };
 const OpeningEconomicsOverall = dynamic(lensModules.overall, { loading: LensSkeleton });
@@ -22,7 +22,7 @@ const RankingsOverviewHighlights = dynamic(lensModules.overviewHighlights, { loa
 const OpeningEconomicsEras = dynamic(lensModules.eraEconomics, { loading: LensSkeleton });
 const EraRankings = dynamic(lensModules.eras, { loading: LensSkeleton });
 const SetRankingsHub = dynamic(lensModules.sets, { loading: LensSkeleton });
-const CardChaseEfficiencyRankings = dynamic(lensModules.cards, { loading: LensSkeleton });
+const CardRankingsHub = dynamic(lensModules.cards, { loading: LensSkeleton });
 const RankingsProductLensClient = dynamic(lensModules.products, { loading: LensSkeleton });
 
 function LensSkeleton() {
@@ -47,7 +47,7 @@ export default function RankingsLazyClient({
   loadError,
   rankingsMarketDate = null,
 }) {
-  const { canViewRankingsIntelligence, canViewCardChaseEfficiency, authStatus, requestKey } = useRankingsAccess();
+  const { canViewRankingsIntelligence, canViewCardChaseEfficiency, canViewCardCollectorAppeal, authStatus, requestKey } = useRankingsAccess();
   const [lens, setActiveLens] = useState("overall");
   const [eraLens, setEraLens] = useState("rankings");
   const [setEntryView, setSetEntryView] = useState("ripScore");
@@ -121,13 +121,6 @@ export default function RankingsLazyClient({
     return { state: { status: "ready", productFamilyRankings: payload.productFamilyRankings || null, overallProductRankings: payload.overallProductRankings || null }, overallResult: model.normalizeOverallProductResult(payload.overallProductRankings) };
   }), [sessionCache]);
 
-  const warmCards = useCallback(() => {
-    if (!canViewCardChaseEfficiency) return Promise.resolve(null);
-    const params = new URLSearchParams({ page: "1", page_size: "50", sort: "chase_efficiency", direction: "desc" });
-    const key = canonicalCardQueryKey(params);
-    return sessionCache.request(key, () => fetch(`/api/explore/card-chase-efficiency?${params}`, { cache: "no-store" }).then((response) => readLens(response, "Unable to load card rankings")));
-  }, [canViewCardChaseEfficiency, sessionCache]);
-
   useEffect(() => {
     if (lens === "eras" && eraLens === "rankings") loadEra({ foreground: true });
   }, [lens, eraLens, loadEra]);
@@ -160,7 +153,7 @@ export default function RankingsLazyClient({
       await idle(() => loadSets());
     })();
     return () => { warmGeneration.current += 1; };
-  }, [authStatus, canViewRankingsIntelligence, canViewCardChaseEfficiency, loadEra, loadSets, warmCards, warmProducts]);
+  }, [authStatus, canViewRankingsIntelligence, loadEra, loadSets]);
 
   const changeLens = (next) => {
     markRankingsLens(next, "selected");
@@ -168,7 +161,6 @@ export default function RankingsLazyClient({
     if (next === "eras") loadEra({ foreground: true });
     if (next === "sets") { setSetEntryView("ripScore"); loadSets({ foreground: true }); }
     if (next === "products") warmProducts().catch(() => null);
-    if (next === "cards") warmCards().catch(() => null);
     setActiveLens(next);
     if (next !== "sets") setSelectedEra(null);
     if (next === "eras") setEraLens("rankings");
@@ -179,7 +171,6 @@ export default function RankingsLazyClient({
     if (next === "eras") loadEra();
     if (next === "sets") loadSets();
     if (next === "products") warmProducts().catch(() => null);
-    if (next === "cards" && canViewCardChaseEfficiency) warmCards().catch(() => null);
   };
 
   const visibleEraState = eraState.cacheIdentity === sessionCache.identity ? eraState : { status: "idle", contract: null, marketDate: rankingsMarketDate };
@@ -273,7 +264,7 @@ export default function RankingsLazyClient({
       ) : lens === "products" ? (
         <RankingsProductLensClient key={sessionCache.identity} sessionCache={sessionCache} />
       ) : (
-        <CardChaseEfficiencyRankings key={sessionCache.identity} entitled={canViewCardChaseEfficiency} targets={targets} sessionCache={sessionCache} />
+        <CardRankingsHub key={sessionCache.identity} canViewCollectorAppeal={canViewCardCollectorAppeal} canViewChaseEfficiency={canViewCardChaseEfficiency} targets={targets} sessionCache={sessionCache} />
       )}
     </>
   );

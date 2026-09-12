@@ -53,6 +53,7 @@ export const FEATURE_MARKET_EXPLORER_PREPARED_COMPARE = "market_explorer_prepare
 export const FEATURE_MARKET_EXPLORER_ANALYTICAL_SCREENS = "market_explorer_analytical_screens";
 export const FEATURE_MARKET_EXPLORER_ADVANCED_RANKING = "market_explorer_advanced_ranking";
 export const FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency";
+export const FEATURE_CARD_COLLECTOR_APPEAL = "card_collector_appeal";
 export const FEATURE_PRODUCT_RIP = "product_rip";
 export const FEATURE_DETAILED_OPENING_ECONOMICS = "detailed_opening_economics";
 export const FEATURE_SET_PACK_ECONOMICS = "set_pack_economics";
@@ -71,6 +72,7 @@ export const FEATURE_CHASE_RANKINGS = "chase_rankings";
 export const FEATURE_PRODUCT_CHASE_INTELLIGENCE = "product_chase_intelligence";
 
 export const PLUS_FEATURES = Object.freeze(new Set([
+  FEATURE_CARD_COLLECTOR_APPEAL,
   FEATURE_PRODUCT_RIP, FEATURE_DETAILED_OPENING_ECONOMICS,
   FEATURE_SET_PACK_ECONOMICS, FEATURE_ERA_PACK_ECONOMICS,
   FEATURE_MARKET_BREADTH, FEATURE_CARD_PULL_ODDS,
@@ -174,6 +176,7 @@ export function resolveRankingsPlanAccess(user) {
   return {
     canViewRankingsIntelligence: hasIndexPlusAccess(indexPlan),
     canViewCardChaseEfficiency: hasIndexFeatureAccess(indexPlan, FEATURE_CARD_CHASE_EFFICIENCY),
+    canViewCardCollectorAppeal: hasIndexFeatureAccess(indexPlan, FEATURE_CARD_COLLECTOR_APPEAL),
     accessMode: indexPlan || "basic",
   };
 }
