@@ -16,20 +16,21 @@ test("Market Explorer uses a graph-first desktop workspace and compact mobile co
 
   const explore = source.indexOf('data-market-explorer-zone="explore"');
   const compare = source.indexOf('data-market-explorer-zone="compare"');
+  const filter = source.indexOf('data-market-explorer-sidebar-section="filter"');
   const build = source.indexOf('data-market-explorer-zone="build"');
   const sidebarEnd = source.indexOf("</aside>", explore);
   const active = source.indexOf("data-market-explorer-active-strip", compare);
   const graph = source.indexOf("data-market-explorer-graph", compare);
   const overview = source.indexOf("data-market-explorer-signals", compare);
   const results = source.indexOf("data-market-explorer-compare-results", compare);
-  assert.ok(explore >= 0 && compare >= 0 && build >= 0);
+  assert.ok(explore >= 0 && compare >= 0 && filter >= 0 && build >= 0);
   assert.ok(build < sidebarEnd && sidebarEnd < compare, "all tools belong to one sidebar");
   assert.ok(source.indexOf("<MarketExplorerBrowse", explore) < compare);
   assert.ok(source.indexOf("<MarketExplorerScreens", explore) < compare);
   assert.ok(active < graph && graph < results);
   assert.match(source.slice(overview, overview + 160), /order-3/);
   assert.match(source.slice(graph, graph + 120), /order-2/);
-  assert.ok(source.indexOf("<MarketExplorerQueryBuilder", build) > build);
+  assert.ok(source.indexOf("<MarketExplorerQueryBuilder", filter) > filter);
   assert.ok(source.indexOf("<MarketExplorerExactBasket", build) > build);
   assert.equal(source.match(/<MarketExplorerBrowse/g)?.length, 1);
   assert.equal(source.match(/<MarketExplorerScreens/g)?.length, 1);

@@ -102,7 +102,7 @@ export default function MarketExplorerClient({
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
   const [compareUpgradeVisible, setCompareUpgradeVisible] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
-  const [builderTab, setBuilderTab] = useState("filtered");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [preparedActiveKeys, setPreparedActiveKeys] = useState(() => initialPreparedKey ? [initialPreparedKey] : []);
@@ -274,7 +274,12 @@ export default function MarketExplorerClient({
     [selectedSeries, requestedDetailSeriesId]
   );
   const editingSeries = useMemo(() => querySeries.find((series) => series.instanceId === editingSeriesId) || null, [querySeries, editingSeriesId]);
-  const beginEdit = useCallback((series) => { setEditingSeriesId(series.instanceId); setRequestedDetailSeriesId(series.key); }, []);
+  const beginEdit = useCallback((series) => {
+    setEditingSeriesId(series.instanceId);
+    setRequestedDetailSeriesId(series.key);
+    if (series.spec?.membershipMode === "explicit") setBuilderOpen(true);
+    else { setFiltersOpen(true); setMobileToolsOpen(true); }
+  }, []);
 
   // Only the PUBLISHED asset-class cards get a top-level card; the graded
   // placeholder is a disabled rail option, not a card with no numbers in it.
@@ -336,27 +341,32 @@ export default function MarketExplorerClient({
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
           <MarketExplorerRarityMarkets directory={preparedDirectory} activeKeys={preparedActiveKeys} onSelect={selectPrepared} />
           <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys}
-            onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={comparePrepared} />
+            onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={selectPrepared} />
+        </div>
+        <div data-market-explorer-sidebar-section="filter" className="border-t border-[var(--border-subtle)] px-3 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Filter · Premium</p>
+          <button type="button" data-market-explorer-filter-toggle aria-expanded={filtersOpen} aria-controls="market-explorer-custom-filters" disabled={!canBuildCustomMarkets} onClick={() => setFiltersOpen((open) => !open)} className="mt-2 flex min-h-10 w-full items-center justify-between rounded-md border border-[var(--border-subtle)] px-3 text-left text-xs font-semibold text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60">
+            <span>Custom Filters{!canBuildCustomMarkets ? " · Locked" : ""}</span><span aria-hidden="true">{filtersOpen ? "−" : "+"}</span>
+          </button>
+          <div id="market-explorer-custom-filters" hidden={!filtersOpen} className="mt-2 overflow-hidden rounded-md border border-[var(--border-subtle)]">
+            <MarketExplorerQueryBuilder presentation="sidebar" optionsProvided options={options} optionsStatus={optionsStatus} optionsMessage={optionsMessage}
+              onRetryOptions={retryOptions} optionsRetrying={optionsRetrying} benchmarkEntries={benchmarkEntries}
+              preparedSeries={comparableSeries} activeSeries={selectedSeries} onAddPrepared={addPrepared} onAddQuery={addQuery}
+              onUpdateQuery={updateQuery} editingSeries={editingSeries?.spec?.membershipMode === "explicit" ? null : editingSeries}
+              onCancelEdit={() => setEditingSeriesId(null)} onToggleBenchmark={toggleMarket} selectedSeriesCount={selectedSeries.length}
+              isAuthenticated={isAuthenticated} currentPlan={indexPlan} accessMode={accessMode} coverageSummary={coverageSummary} />
+          </div>
         </div>
         </section>
         <section ref={builderDialogRef} role="dialog" aria-modal="true" aria-hidden={!builderOpen} data-market-explorer-builder-overlay data-market-explorer-zone="build" className={`${builderOpen ? "fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-[var(--surface-page)] shadow-2xl desk:inset-x-1/2 desk:bottom-auto desk:top-1/2 desk:max-h-[88vh] desk:w-[min(64rem,calc(100vw-3rem))] desk:-translate-x-1/2 desk:-translate-y-1/2 desk:rounded-2xl" : "hidden"} ${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="build-markets-zone-heading">
           <div className={styles.explorerZoneHeader}>
             <p className={styles.explorerZoneEyebrow}>Build · Premium</p>
             <h2 id="build-markets-zone-heading" className={styles.explorerZoneTitle}>Build Your Market</h2>
-            <p className={styles.explorerZoneDescription}>Use filters for a dynamic market or hand-pick an exact basket.</p>
+            <p className={styles.explorerZoneDescription}>Hand-pick an exact basket of instruments.</p>
             <button type="button" aria-label="Close Build Your Market" onClick={() => setBuilderOpen(false)} className="absolute right-4 top-4 min-h-11 min-w-11 rounded-full border border-[var(--border-subtle)] text-xl">×</button>
           </div>
-          <div role="tablist" aria-label="Market creation path" className="flex gap-2 border-y border-[var(--border-subtle)] px-4 py-3">{[["filtered", "Custom Filtered"], ["exact", "Exact Basket"]].map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={builderTab === id} onClick={() => setBuilderTab(id)} className={`min-h-10 rounded-md border px-4 text-sm font-semibold ${builderTab === id ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)]"}`}>{label}</button>)}</div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <div hidden={builderTab !== "filtered"} data-market-explorer-build-path="filtered" className={styles.explorerBuildPath}>
-              <MarketExplorerQueryBuilder optionsProvided options={options} optionsStatus={optionsStatus} optionsMessage={optionsMessage}
-                onRetryOptions={retryOptions} optionsRetrying={optionsRetrying} benchmarkEntries={benchmarkEntries}
-                preparedSeries={comparableSeries} activeSeries={selectedSeries} onAddPrepared={addPrepared} onAddQuery={addQuery}
-                onUpdateQuery={updateQuery} editingSeries={editingSeries?.spec?.membershipMode === "explicit" ? null : editingSeries}
-                onCancelEdit={() => setEditingSeriesId(null)} onToggleBenchmark={toggleMarket} selectedSeriesCount={selectedSeries.length}
-                isAuthenticated={isAuthenticated} currentPlan={indexPlan} accessMode={accessMode} coverageSummary={coverageSummary} />
-            </div>
-            <div hidden={builderTab !== "exact"} data-market-explorer-build-path="exact" className={styles.explorerBuildPath}>
+            <div data-market-explorer-build-path="exact" className={styles.explorerBuildPath}>
               <MarketExplorerExactBasket currentPlan={indexPlan} editingSeries={editingSeries}
                 onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} />
             </div>

@@ -74,6 +74,7 @@ export default function MarketExplorerQueryBuilder({
   onAddPrepared,
   onToggleBenchmark,
   preflightResult = null,
+  presentation = "default",
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -531,6 +532,9 @@ export default function MarketExplorerQueryBuilder({
       </div>
     </div>
   );
+  if (presentation === "sidebar") {
+    return <section data-market-explorer-filters data-market-builder-asset={draft.asset} data-market-builder-presentation="sidebar" className="flex min-w-0 flex-col">{body}</section>;
+  }
   return (<>
     <section
       data-market-explorer-filters

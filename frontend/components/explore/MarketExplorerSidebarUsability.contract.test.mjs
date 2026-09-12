@@ -24,7 +24,7 @@ test("Analyze owns canonical rarity markets and Screens before Build", async () 
   assert.ok(analyze < rarityMount && rarityMount < screens && screens < build);
   assert.match(rarity, /Special Illustration Rare/);
   assert.match(rarity, /\.filter\(Boolean\)/);
-  assert.match(rarity, /aria-pressed=\{active\}/);
+  assert.match(rarity, /aria-selected=\{active\}/);
 });
 
 test("Active Markets anchors actions and delegates Clear all to clearGraph", async () => {
