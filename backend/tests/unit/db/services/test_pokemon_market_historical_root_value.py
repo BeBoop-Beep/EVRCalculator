@@ -6,7 +6,7 @@ from backend.db.services import pokemon_market_historical_root_value as svc
 
 
 class Query:
-    def __init__(self, client, name, rows): self.client, self.name, self.rows = client, name, list(rows)
+    def __init__(self, client, name, rows): self.client, self.name, self.rows, self.changes = client, name, list(rows), None
     def select(self, *_a): return self
     def eq(self, key, value): self.rows = [r for r in self.rows if r.get(key) == value]; return self
     def lte(self, key, value): self.rows = [r for r in self.rows if str(r.get(key)) <= str(value)]; return self
@@ -14,7 +14,12 @@ class Query:
     def limit(self, value): self.rows = self.rows[:value]; return self
     def upsert(self, rows, **_kwargs): self.client.writes.extend(rows); return self
     def insert(self, rows): self.client.writes.extend(rows); return self
-    def execute(self): return SimpleNamespace(data=self.rows)
+    def update(self, changes): self.changes = changes; return self
+    def execute(self):
+        if self.changes:
+            for row in self.rows: row.update(self.changes)
+            self.client.writes.extend({"id": row.get("id"), **self.changes} for row in self.rows)
+        return SimpleNamespace(data=self.rows)
 
 
 class Client:
@@ -96,7 +101,7 @@ def test_existing_conflict_fails_and_identical_is_idempotent(monkeypatch):
     base["standard"]={"value_scope":"standard","set_value":"1.00","priced_card_count":1,"total_card_count":1,"canonical_card_count":1,"linked_card_count":1,"included_card_count":1,"constituent_card_ids":[],"source":svc.STANDARD_SOURCE}
     base["top10"]={"value_scope":"top10","set_value":"2.00","priced_card_count":10,"total_card_count":10,"canonical_card_count":10,"linked_card_count":10,"included_card_count":10,"constituent_card_ids":[],"source":svc.TOP10_SOURCE}
     monkeypatch.setattr(svc,"calculate_root_as_of",lambda *_a,**_k:base)
-    client.tables[svc.HISTORY_TABLE]=[{"set_id":"root","snapshot_date":"2026-09-10","value_scope":"standard","set_value":"1.00","priced_card_count":1,"total_card_count":1,"canonical_card_count":1,"included_card_count":1}]
+    client.tables[svc.HISTORY_TABLE]=[{"set_id":"root","snapshot_date":"2026-09-10","value_scope":"standard","set_value":"1.00","priced_card_count":1,"total_card_count":1,"canonical_card_count":1,"included_card_count":1,"coverage_pct":"100.00"}]
     rows=svc.plan_historical_root_backfill(client,["root"],"2026-09-10","2026-09-10")
     assert rows[0]["action"] == "noop_identical"
     client.tables[svc.HISTORY_TABLE][0]["set_value"]="9.00"
@@ -117,3 +122,20 @@ def test_commit_inserts_only_missing_rows_with_guard_allowlisted_sources(monkeyp
 def test_guard_migration_allowlists_only_intended_backfill_sources():
     sql = open("supabase/migrations/20260908211701_price_storage_v2_serving_cutover.sql", encoding="utf-8").read()
     assert svc.STANDARD_SOURCE in sql and svc.TOP10_SOURCE in sql
+
+
+def test_explicit_normalization_changes_only_exact_source(monkeypatch):
+    client = fixture_client(); projection={"coverage_pct":"100.00","member_set_ids":["root"]}
+    projection["standard"]={"value_scope":"standard","set_value":"1.00","priced_card_count":1,"total_card_count":1,"canonical_card_count":1,"linked_card_count":1,"included_card_count":1,"constituent_card_ids":[],"source":svc.STANDARD_SOURCE}
+    projection["top10"]={"value_scope":"top10","set_value":"2.00","priced_card_count":10,"total_card_count":10,"canonical_card_count":10,"linked_card_count":10,"included_card_count":10,"constituent_card_ids":[],"source":svc.TOP10_SOURCE}
+    monkeypatch.setattr(svc,"calculate_root_as_of",lambda *_a,**_k:projection)
+    client.tables[svc.HISTORY_TABLE]=[
+        {"id":"s","set_id":"root","snapshot_date":"2026-09-10","value_scope":"standard","set_value":"1.00","priced_card_count":1,"total_card_count":1,"canonical_card_count":1,"linked_card_count":1,"included_card_count":1,"coverage_pct":"100.00","source":"generic"},
+        {"id":"t","set_id":"root","snapshot_date":"2026-09-10","value_scope":"top10","set_value":"2.00","priced_card_count":10,"total_card_count":10,"canonical_card_count":10,"linked_card_count":10,"included_card_count":10,"coverage_pct":"100.00","source":"candidate"},
+    ]
+    default=svc.execute_historical_root_backfill(client,["root"],"2026-09-10","2026-09-10",commit=True)
+    assert {r["action"] for r in default} == {"noop_identical"} and not client.writes
+    changed=svc.execute_historical_root_backfill(client,["root"],"2026-09-10","2026-09-10",commit=True,normalize_provenance=True)
+    assert {r["action"] for r in changed} == {"normalize_provenance"}
+    assert {r["source"] for r in client.tables[svc.HISTORY_TABLE]} == {svc.STANDARD_SOURCE,svc.TOP10_SOURCE}
+    assert all(set(write) == {"id","source"} for write in client.writes)

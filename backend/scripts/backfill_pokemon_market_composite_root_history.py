@@ -15,9 +15,11 @@ def main() -> None:
     parser.add_argument("--start-date", required=True)
     parser.add_argument("--end-date", required=True)
     parser.add_argument("--commit", action="store_true")
+    parser.add_argument("--normalize-provenance", action="store_true")
     args = parser.parse_args()
     result = execute_historical_root_backfill(
         supabase, args.set_id, args.start_date, args.end_date, commit=args.commit,
+        normalize_provenance=args.normalize_provenance,
     )
     print(json.dumps({"commit": args.commit, "rows": result}, indent=2, sort_keys=True))
 

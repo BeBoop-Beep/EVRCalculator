@@ -105,7 +105,7 @@ def _dates(start_date: str, end_date: str) -> list[str]:
 
 
 def plan_historical_root_backfill(client: Any, root_set_ids: Sequence[str], start_date: str,
-                                  end_date: str) -> list[dict[str, Any]]:
+                                  end_date: str, *, normalize_provenance: bool = False) -> list[dict[str, Any]]:
     roots = sorted(set(str(value) for value in root_set_ids))
     if not roots or len(roots) > MAX_ROOTS:
         raise ValueError(f"root count must be between 1 and {MAX_ROOTS}")
@@ -122,7 +122,7 @@ def plan_historical_root_backfill(client: Any, root_set_ids: Sequence[str], star
         for root in roots:
             projection = calculate_root_as_of(client, root, day)
             existing = _rows(client.table(HISTORY_TABLE).select(
-                "set_id,snapshot_date,value_scope,set_value,priced_card_count,total_card_count,canonical_card_count,included_card_count,coverage_pct,source"
+                "id,set_id,snapshot_date,value_scope,set_value,priced_card_count,total_card_count,canonical_card_count,linked_card_count,included_card_count,coverage_pct,source"
             ).eq("set_id", root).eq("snapshot_date", day).in_("value_scope", ["standard", "top10"]).execute())
             by_scope = {str(row["value_scope"]): row for row in existing}
             for scope in ("standard", "top10"):
@@ -132,22 +132,33 @@ def plan_historical_root_backfill(client: Any, root_set_ids: Sequence[str], star
                     same = (_money(old["set_value"]) == _money(value["set_value"])
                             and int(old["priced_card_count"]) == value["priced_card_count"]
                             and int(old["total_card_count"]) == value["total_card_count"]
-                            and int(old.get("canonical_card_count") or 0) == value["canonical_card_count"]
-                            and int(old.get("included_card_count") or 0) == value["included_card_count"])
+                            and _money(old.get("coverage_pct")) == _money(projection["coverage_pct"]))
                     if not same:
                         raise RuntimeError(f"conflicting approved history for {root} {day} {scope}")
-                    action = "noop_identical"
+                    action = ("noop_identical" if old.get("source") == value["source"] or not normalize_provenance
+                              else "normalize_provenance")
                 else:
                     action = "insert"
                 planned.append({**value, "set_id": root, "snapshot_date": day,
                                 "coverage_pct": projection["coverage_pct"], "action": action,
-                                "member_set_ids": projection["member_set_ids"]})
+                                "member_set_ids": projection["member_set_ids"],
+                                "existing_row_id": old.get("id") if old else None,
+                                "existing_source": old.get("source") if old else None,
+                                "existing_material": ({key: old.get(key) for key in (
+                                    "set_id", "snapshot_date", "value_scope", "set_value",
+                                    "priced_card_count", "total_card_count", "canonical_card_count",
+                                    "linked_card_count", "included_card_count", "coverage_pct",
+                                )} if old else None)})
     return planned
 
 
 def execute_historical_root_backfill(client: Any, root_set_ids: Sequence[str], start_date: str,
-                                     end_date: str, *, commit: bool = False) -> list[dict[str, Any]]:
-    plan = plan_historical_root_backfill(client, root_set_ids, start_date, end_date)
+                                     end_date: str, *, commit: bool = False,
+                                     normalize_provenance: bool = False) -> list[dict[str, Any]]:
+    plan = plan_historical_root_backfill(
+        client, root_set_ids, start_date, end_date,
+        normalize_provenance=normalize_provenance,
+    )
     if not commit:
         return plan
     rows = [{key: row[key] for key in (
@@ -158,4 +169,33 @@ def execute_historical_root_backfill(client: Any, root_set_ids: Sequence[str], s
         # INSERT (not upsert) is deliberate: a concurrent row appearing after
         # planning must raise a uniqueness error rather than overwrite history.
         client.table(HISTORY_TABLE).insert(rows).execute()
+    for row in (item for item in plan if item["action"] == "normalize_provenance"):
+        query = client.table(HISTORY_TABLE).update({"source": row["source"]})
+        expected_material = row["existing_material"]
+        for key in ("id", "set_id", "snapshot_date", "value_scope", "set_value",
+                    "priced_card_count", "total_card_count", "canonical_card_count", "linked_card_count",
+                    "included_card_count", "coverage_pct", "source"):
+            expected = (row["existing_row_id"] if key == "id" else row["existing_source"]
+                        if key == "source" else expected_material[key])
+            query = query.eq(key, expected)
+        changed = _rows(query.execute())
+        if len(changed) != 1:
+            raise RuntimeError(f"concurrent provenance normalization mismatch for {row['set_id']} {row['snapshot_date']} {row['value_scope']}")
+        verified = _rows(client.table(HISTORY_TABLE).select(
+            "id,set_id,snapshot_date,value_scope,set_value,priced_card_count,total_card_count,canonical_card_count,included_card_count,coverage_pct,source"
+        ).eq("id", row["existing_row_id"]).limit(2).execute())
+        post = verified[0] if len(verified) == 1 else {}
+        material_ok = (
+            post.get("source") == row["source"]
+            and str(post.get("set_id")) == row["set_id"]
+            and str(post.get("snapshot_date"))[:10] == row["snapshot_date"]
+            and str(post.get("value_scope")) == row["value_scope"]
+            and _money(post.get("set_value")) == _money(expected_material["set_value"])
+            and _money(post.get("coverage_pct")) == _money(expected_material["coverage_pct"])
+            and all(int(post.get(k) or 0) == int(expected_material[k] or 0) for k in (
+                "priced_card_count", "total_card_count", "canonical_card_count", "linked_card_count", "included_card_count"
+            ))
+        )
+        if not material_ok:
+            raise RuntimeError("provenance normalization postcondition failed")
     return plan
