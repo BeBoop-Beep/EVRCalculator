@@ -45,9 +45,22 @@ export const QUICK_MARKET_KEYS = Object.freeze([
   "curated:new-releases", "curated:established", "curated:global-top10",
 ]);
 
+export function normalizePreparedDirectorySearch(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 export function groupPreparedDirectory(rows = [], search = "") {
-  const term = search.trim().toLowerCase();
-  const visible = rows.filter((row) => !term || row.label.toLowerCase().includes(term));
+  const terms = normalizePreparedDirectorySearch(search).split(" ").filter(Boolean);
+  const visible = rows.filter((row) => {
+    if (!terms.length) return true;
+    const label = normalizePreparedDirectorySearch(row.label);
+    return terms.every((term) => label.includes(term));
+  });
   const eras = visible.filter((row) => row.market_type === "era").sort((a, b) => a.label.localeCompare(b.label));
   const eraById = new Map(rows.filter((row) => row.market_type === "era").map((row) => [row.era_id, row]));
   const sets = new Map();

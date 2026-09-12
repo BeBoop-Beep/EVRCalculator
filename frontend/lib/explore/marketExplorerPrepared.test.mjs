@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPreparedSeries, groupPreparedDirectory, QUICK_MARKET_KEYS } from "./marketExplorerPrepared.mjs";
+import { buildPreparedSeries, groupPreparedDirectory, normalizePreparedDirectorySearch, QUICK_MARKET_KEYS } from "./marketExplorerPrepared.mjs";
 
 const era = { market_key: "era:e1", market_type: "era", era_id: "e1", label: "Scarlet & Violet" };
 const set = { market_key: "set:s1", market_type: "set", set_id: "s1", parent_era_id: "e1", label: "Temporal Forces", current_value: 123, source_as_of: "2026-09-10", comparison_as_of: "2026-09-08", comparison_value: 120, comparison_index_value: 105, history_available: true, return_7d_pct: 2, return_30d_pct: 4, return_90d_pct: 8, return_1y_pct: null };
@@ -18,6 +18,19 @@ test("accepted directory inventory exposes all 106 Sets and 17 Eras", () => {
   const grouped = groupPreparedDirectory([...eras, ...sets]);
   assert.equal(grouped.eras.length, 17);
   assert.equal(grouped.sets.reduce((sum, group) => sum + group.rows.length, 0), 106);
+});
+
+test("prepared-directory search is instant, case-insensitive, punctuation-tolerant, and token based", () => {
+  const rows = [
+    era,
+    set,
+    { market_key: "set:evolving", market_type: "set", parent_era_id: "e2", label: "Evolving Skies" },
+    { market_key: "curated:global-top10", market_type: "curated", label: "Global Top 10" },
+  ];
+  assert.equal(groupPreparedDirectory(rows, "TEMPORAL").sets[0].rows[0].label, "Temporal Forces");
+  assert.equal(groupPreparedDirectory(rows, "evolv").sets[0].rows[0].label, "Evolving Skies");
+  assert.equal(groupPreparedDirectory(rows, "top global").quick[0].label, "Global Top 10");
+  assert.equal(normalizePreparedDirectorySearch("Sword & Shield!"), "sword shield");
 });
 
 test("the exact six prepared Quick Market identities exclude contextual Top 10", () => {

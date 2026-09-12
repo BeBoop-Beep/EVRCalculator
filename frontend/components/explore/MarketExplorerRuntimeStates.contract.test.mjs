@@ -11,9 +11,21 @@ const preflightProxy = read("../../app/api/market/explorer/query/preflight/route
 
 test("directory unavailable, canonical empty, and search no-match have distinct UI copy", () => {
   assert.match(browse, /Market directory is temporarily unavailable\./);
-  assert.match(browse, /No canonical markets are currently published\./);
-  assert.match(browse, /No matching markets\./);
+  assert.match(browse, /No canonical \$\{categoryLabel\} are currently published\./);
+  assert.match(browse, /No matching \$\{categoryLabel\}\./);
   assert.match(browse, /location\?\.reload\(\)/);
+});
+
+test("directory interaction remains local, bounded, and keyboard accessible", () => {
+  assert.doesNotMatch(browse, /fetch\s*\(/);
+  assert.match(browse, /max-h-\[min\(25rem,55vh\)\]/);
+  assert.match(browse, /overflow-y-auto/);
+  assert.match(browse, /event\.key === "ArrowDown"/);
+  assert.match(browse, /event\.key === "ArrowUp"/);
+  assert.match(browse, /event\.key === "Enter"/);
+  assert.match(browse, /event\.key === "Escape"/);
+  assert.match(browse, /close\(true\)/);
+  assert.match(browse, /aria-pressed=\{active\}/);
 });
 
 test("prepared Screen and query proxies preserve safe structured transport codes", () => {

@@ -10,7 +10,8 @@ test("directory selection is immediate, keyboard accessible, and visually distin
   assert.match(browse, /border-\[rgb\(45,212,191\)\]/);
   assert.match(browse, /border-sky-400 bg-sky-400\/10/);
   for (const key of ["ArrowDown", "ArrowUp", "Enter", "Escape"]) assert.match(browse, new RegExp(`event\\.key === "${key}"`));
-  assert.match(browse, /openHighlighted\(\)/);
+  assert.match(browse, /choose\(rows\[Math\.min\(highlightedIndex, rows\.length - 1\)\]\.market_key\)/);
+  assert.match(browse, /close\(true\)/, "Escape returns focus to the category trigger");
 });
 
 test("Analyze owns canonical rarity markets and Screens before Build", async () => {
