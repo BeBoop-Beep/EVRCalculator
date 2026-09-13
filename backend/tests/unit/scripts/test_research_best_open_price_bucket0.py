@@ -4,6 +4,7 @@ from backend.desirability.weighted_rip import compute_overall_rip_v12
 from backend.scripts.research_best_open_price_bucket0 import (
     _historical_authority,
     _verify_v12_parity,
+    interval_probe_cents,
     quantity_price_interval_cents,
 )
 
@@ -46,6 +47,13 @@ def test_quantity_price_interval_rejects_nonpositive_inputs():
         quantity_price_interval_cents(0, 1)
     with pytest.raises(ValueError):
         quantity_price_interval_cents(100, 0)
+
+
+def test_interval_probes_span_quartiles_and_deduplicate_narrow_intervals():
+    assert interval_probe_cents(100, 200) == [100, 125, 150, 175, 200]
+    assert interval_probe_cents(7, 8) == [7, 8]
+    with pytest.raises(ValueError):
+        interval_probe_cents(2, 1)
 
 
 def test_historical_authority_is_deterministic_across_row_order():

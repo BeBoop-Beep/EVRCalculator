@@ -1,16 +1,15 @@
 """Read-only Bucket-0 harness for Best-Open Price research.
 
 This deliberately does not publish and does not claim to calculate production
-thresholds.  It pins one published Full Market snapshot, reconstructs selected
+thresholds. It pins one published Full Market snapshot, reconstructs bounded
 candidate strategies through the canonical V3 -> V4 -> V12 chain, and measures
-the work that a threshold engine must perform.  A finite ``--max-quantities``
-is an explicit research compute guard: products that do not win inside it are
-reported as unresolved, never assigned a fabricated price floor.
+the work that a threshold engine must perform. Products that do not win in the
+bounded probes are reported as unresolved, never assigned a fabricated floor.
 
 Example:
     python -m backend.scripts.research_best_open_price_bucket0 \
       --snapshot-id c8853793-a2ac-4a62-a9a4-f5df7f9ed8a1 \
-      --product-limit 3 --max-quantities 3
+      --product-limit 3
 """
 
 from __future__ import annotations
@@ -60,6 +59,15 @@ def quantity_price_interval_cents(budget_cents: int, quantity: int) -> tuple[int
     low = budget_cents // (quantity + 1) + 1
     high = budget_cents // quantity
     return low, high
+
+
+def interval_probe_cents(low: int, high: int) -> list[int]:
+    """Five deterministic, deduplicated cent probes spanning an interval."""
+    if low < 1 or high < low:
+        raise ValueError("invalid cent interval")
+    width = high - low
+    return sorted({low, low + round(width * 0.25), low + round(width * 0.5),
+                   low + round(width * 0.75), high})
 
 
 def _rows(response: Any) -> list[dict[str, Any]]:
@@ -229,17 +237,50 @@ def _comparator_row(row: Mapping[str, Any], budget: float) -> dict[str, Any]:
     }
 
 
-def run(snapshot_id: str, *, product_limit: int, max_quantities: int) -> dict[str, Any]:
+def _representative_sample(source_rows: Sequence[Mapping[str, Any]]) -> dict[str, list[str]]:
+    """Preregister a deterministic discontinuity sample from persisted fields."""
+    ordered = sorted(source_rows, key=lambda row: int(row["budget_rank_v12"]))
+    reasons: dict[str, list[str]] = defaultdict(list)
+    choices = {
+        "current_leader": ordered[0],
+        "another_top_5": ordered[min(1, len(ordered) - 1)],
+        "rank_6_20": ordered[min(9, len(ordered) - 1)],
+        "middle_ranked": ordered[(len(ordered) - 1) // 2],
+        "bottom_quartile": ordered[min(len(ordered) - 1, math.ceil(len(ordered) * 0.75) - 1)],
+        "cheapest_highest_q": max(ordered, key=lambda row: (int(row["quantity"]), -int(row["budget_rank_v12"]))),
+        "expensive_low_q": min(ordered, key=lambda row: (int(row["quantity"]), -float(row["product_market_price"]))),
+    }
+    # Published rows do not carry the guaranteed value; this reason is filled
+    # later from exact simulation products when one exists.
+    for reason, row in choices.items():
+        reasons[str(row["sealed_product_id"])].append(reason)
+    # Ensure several families even when rank/price selections overlap.
+    seen_families = set()
+    for row in ordered:
+        family = str(row.get("product_family"))
+        if family not in seen_families:
+            reasons[str(row["sealed_product_id"])].append(f"family:{family}")
+            seen_families.add(family)
+        if len(seen_families) >= 4:
+            break
+    return dict(reasons)
+
+
+def run(snapshot_id: str, *, product_limit: int, max_quantities: int = 2) -> dict[str, Any]:
     client = get_client()
     tracemalloc.start()
     total_started = time.perf_counter()
     t = time.perf_counter()
     snapshot, source_rows, all_source_rows = _load_source(client, snapshot_id)
     historical = _historical_authority(snapshot, source_rows)
+    authority_seconds = time.perf_counter() - t
+    t = time.perf_counter()
     all_parity = _verify_v12_parity(all_source_rows, label="whole snapshot")
     full_market_parity = _verify_v12_parity(source_rows, label="Full Market")
+    parity_seconds = time.perf_counter() - t
+    t = time.perf_counter()
     products = _load_exact_source_products(client, source_rows, str(snapshot["pinned_price_as_of"]))
-    source_seconds = time.perf_counter() - t
+    product_source_seconds = time.perf_counter() - t
     fingerprint = cohort_fingerprint(products, str(snapshot["pinned_price_as_of"]))
     if fingerprint != snapshot.get("cohort_fingerprint"):
         raise RuntimeError("pinned cohort fingerprint does not match the published source snapshot")
@@ -248,6 +289,13 @@ def run(snapshot_id: str, *, product_limit: int, max_quantities: int) -> dict[st
     source_by_id = {str(r["sealed_product_id"]): r for r in source_rows}
     if set(by_id) != set(source_by_id):
         raise RuntimeError("pinned cohort SKU identities do not exactly match Full Market rows")
+    sample_reasons = _representative_sample(source_rows)
+    guaranteed_products = sorted(
+        (p for p in products if float(p.get("guaranteed_component_market_value") or 0) > 0),
+        key=lambda p: int(source_by_id[str(p["sealed_product_id"])]["budget_rank_v12"]),
+    )
+    if guaranteed_products:
+        sample_reasons.setdefault(str(guaranteed_products[0]["sealed_product_id"]), []).append("guaranteed_component")
     selected = sorted(products, key=lambda p: int(source_by_id[str(p["sealed_product_id"])]["budget_rank_v12"]))
     if product_limit > 0:
         # Include both ends of the ranking while keeping deterministic size.
@@ -258,6 +306,8 @@ def run(snapshot_id: str, *, product_limit: int, max_quantities: int) -> dict[st
     per_product = []
     budget = float(snapshot["full_market_budget"])
     budget_cents = int(round(budget * 100))
+    quantity_cache_hits = 0
+    quantity_cache_misses = 0
 
     for product in selected:
         pid = str(product["sealed_product_id"])
@@ -279,7 +329,12 @@ def run(snapshot_id: str, *, product_limit: int, max_quantities: int) -> dict[st
             base_seconds = 0.0
 
         current_q = int(source["quantity"])
-        quantities = range(1, min(budget_cents, current_q + max_quantities) + 1)
+        quantities = {current_q, current_q + 1, current_q + 2}
+        if int(source["budget_rank_v12"]) == 1:
+            quantities.update({current_q - 1, current_q - 2})
+        if pid in sample_reasons:
+            quantities.update({current_q + 4, current_q + 8, current_q + 16})
+        quantities = sorted(q for q in quantities if 1 <= q <= budget_cents)
         probes = 0
         q_seconds = financial_seconds = v12_seconds = comparator_seconds = 0.0
         winning_prices: list[int] = []
@@ -294,16 +349,21 @@ def run(snapshot_id: str, *, product_limit: int, max_quantities: int) -> dict[st
                 canonical_set_key=f"budget:{pid}", run_fingerprint=None,
             )
             q_seconds += time.perf_counter() - t
-            # Endpoint probes reveal within-interval direction without claiming
-            # a proof. Bucket 1 will make exhaustive/fallback verification cheap.
+            quantity_cache_misses += 1
             endpoint_results = []
-            for cents in sorted({low, high}):
+            for cents in interval_probe_cents(low, high):
                 t = time.perf_counter()
-                scored = score_budget_strategy(values, q * cents / 100.0,
-                    product.get("collector_appeal_score"), chase_accessibility_raw=a_raw)
-                elapsed = time.perf_counter() - t
-                financial_seconds += elapsed
-                v12_seconds += 0.0  # V12 is included in score_budget_strategy; retained as an explicit field.
+                scored = score_budget_strategy(
+                    values, q * cents / 100.0, product.get("collector_appeal_score")
+                )
+                financial_seconds += time.perf_counter() - t
+                t = time.perf_counter()
+                overall_v12 = compute_overall_rip_v12(
+                    scored["financialRipV4Score"], a_raw, product.get("collector_appeal_score")
+                )
+                v12_seconds += time.perf_counter() - t
+                scored["overallRipV12Score"] = overall_v12["score"]
+                scored["overallRipV12Rankable"] = overall_v12["rankable"]
                 candidate = {"sealedProductId": pid, "targetBudget": budget,
                     "actualCommittedCapital": q * cents / 100.0, **scored}
                 t = time.perf_counter()
@@ -311,6 +371,7 @@ def run(snapshot_id: str, *, product_limit: int, max_quantities: int) -> dict[st
                 comparator_seconds += time.perf_counter() - t
                 won = bool(ranked and ranked[0]["sealedProductId"] == pid)
                 endpoint_results.append({"priceCents": cents, "wins": won,
+                    "financialRipV4Score": scored.get("financialRipV4Score"),
                     "overallRipV12Score": scored.get("overallRipV12Score")})
                 probes += 1
                 if won:
@@ -318,24 +379,30 @@ def run(snapshot_id: str, *, product_limit: int, max_quantities: int) -> dict[st
             inspected.append({"quantity": q, "lowPriceCents": low, "highPriceCents": high,
                               "endpointProbes": endpoint_results})
 
-        monotonicity_violations = sum(
-            1 for interval in inspected
-            if len(interval["endpointProbes"]) == 2
-            and interval["endpointProbes"][0]["overallRipV12Score"] < interval["endpointProbes"][1]["overallRipV12Score"]
-        )
+        monotonicity = {"financialRipV4": 0, "overallRipV12": 0, "comparator": 0}
+        for interval in inspected:
+            points = interval["endpointProbes"]
+            for cheaper, dearer in zip(points, points[1:]):
+                if cheaper["financialRipV4Score"] < dearer["financialRipV4Score"]:
+                    monotonicity["financialRipV4"] += 1
+                if cheaper["overallRipV12Score"] < dearer["overallRipV12Score"]:
+                    monotonicity["overallRipV12"] += 1
+                if not cheaper["wins"] and dearer["wins"]:
+                    monotonicity["comparator"] += 1
 
         per_product.append({
             "sealedProductId": pid, "setId": str(product["set_id"]),
             "currentRank": int(source["budget_rank_v12"]),
             "currentMarketPrice": float(source["product_market_price"]),
             "benchmarkSealedProductId": str(benchmark["sealed_product_id"]),
-            "status": "research_candidate_found_not_exact" if winning_prices else "unresolved_compute_guard",
+            "status": "bounded_candidate_found_not_exact" if winning_prices else "unresolved_bounded_study",
             "highestWinningEndpointPrice": max(winning_prices) / 100.0 if winning_prices else None,
             "lowestQuantityInspected": min(quantities), "highestQuantityInspected": max(quantities),
             "priceEvaluationCount": probes, "baseDistributionSeconds": base_seconds,
-            "quantityDistributionSeconds": q_seconds, "financialV3V4AndV12Seconds": financial_seconds,
-            "comparatorSeconds": comparator_seconds, "intervals": inspected,
-            "monotonicityViolationCount": monotonicity_violations,
+            "quantityDistributionSeconds": q_seconds, "financialV3V4Seconds": financial_seconds,
+            "v12TransformSeconds": v12_seconds, "comparatorSeconds": comparator_seconds,
+            "sampleReasons": sample_reasons.get(pid, []), "intervals": inspected,
+            "monotonicityViolations": monotonicity,
         })
 
     end_snapshot, end_full_rows, _ = _load_source(client, snapshot_id)
@@ -344,6 +411,14 @@ def run(snapshot_id: str, *, product_limit: int, max_quantities: int) -> dict[st
         raise RuntimeError("source authority changed between research start and completion")
     _, peak_bytes = tracemalloc.get_traced_memory()
     tracemalloc.stop()
+    process_memory: dict[str, Any] = {"available": False}
+    try:
+        import psutil
+        memory = psutil.Process().memory_info()
+        process_memory = {"available": True, "workingSetBytes": memory.rss,
+                          "peakWorkingSetBytes": getattr(memory, "peak_wset", None)}
+    except (ImportError, OSError):
+        pass
 
     return {
         "thresholdMethodVersion": METHOD_VERSION,
@@ -357,14 +432,30 @@ def run(snapshot_id: str, *, product_limit: int, max_quantities: int) -> dict[st
             "authorityUnchangedAtCompletion": True},
         "cohort": {"skuCount": len(products), "setCount": len({str(p["set_id"]) for p in products})},
         "parity": {"wholeSnapshot": all_parity, "fullMarket": full_market_parity},
-        "guard": {"maxAdditionalQuantitiesFromCurrent": max_quantities,
+        "guard": {"boundedCoreQuantities": ["q0", "q0+1", "q0+2"],
+                  "leaderAdditionalQuantities": ["q0-1", "q0-2"],
+                  "sampleAdditionalQuantities": ["q0+4", "q0+8", "q0+16"],
                   "meaning": "research only; unresolved is reported, no price floor is inferred"},
-        "timings": {"sourceAndCohortLoadSeconds": source_seconds,
+        "timings": {"sourceAuthorityLoadSeconds": authority_seconds,
+                    "historicalV12ParitySeconds": parity_seconds,
+                    "exactProductSourceLoadSeconds": product_source_seconds,
                     "artifactLoadSeconds": artifact_seconds,
+                    "baseDistributionSeconds": sum(p["baseDistributionSeconds"] for p in per_product),
+                    "quantityDistributionSeconds": sum(p["quantityDistributionSeconds"] for p in per_product),
+                    "financialV3V4Seconds": sum(p["financialV3V4Seconds"] for p in per_product),
+                    "v12TransformSeconds": sum(p["v12TransformSeconds"] for p in per_product),
+                    "comparatorSeconds": sum(p["comparatorSeconds"] for p in per_product),
                     "totalWallClockSeconds": time.perf_counter() - total_started,
-                    "peakTracedMemoryBytes": peak_bytes},
+                    "peakTracedMemoryBytes": peak_bytes,
+                    "processMemoryAtCompletion": process_memory},
         "monotonicity": {"intervalsChecked": sum(len(p["intervals"]) for p in per_product),
-                         "violationCount": sum(p["monotonicityViolationCount"] for p in per_product)},
+                         "adjacentPricePairsChecked": sum(max(0, len(i["endpointProbes"]) - 1)
+                                                           for p in per_product for i in p["intervals"]),
+                         "violations": {key: sum(p["monotonicityViolations"][key] for p in per_product)
+                                        for key in ("financialRipV4", "overallRipV12", "comparator")}},
+        "quantityCache": {"hits": quantity_cache_hits, "misses": quantity_cache_misses,
+                          "note": "no cross-product quantity reuse; canonical product keys remain isolated"},
+        "quantityDiscontinuitySample": {"productCount": len(sample_reasons), "selection": sample_reasons},
         "products": per_product,
     }
 
@@ -373,7 +464,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--snapshot-id", required=True)
     parser.add_argument("--product-limit", type=int, default=3)
-    parser.add_argument("--max-quantities", type=int, default=2)
+    parser.add_argument("--max-quantities", type=int, default=2,
+                        help="deprecated compatibility flag; bounded study is locked to q0+1/q0+2")
     parser.add_argument("--output", type=Path, default=Path("docs/research/best_open_price_bucket0_results.json"))
     args = parser.parse_args(argv)
     result = run(args.snapshot_id, product_limit=args.product_limit, max_quantities=args.max_quantities)
