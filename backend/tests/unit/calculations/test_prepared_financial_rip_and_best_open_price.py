@@ -125,9 +125,9 @@ def test_authority_version_cache_isolation_and_cleanup():
         ExactBestOpenPriceSearch("p", 100, 10, 10, 2, {}, lambda q: None, "a", "a", False)
     engine = _engine(leader=False, budget=100, current=10, winning=set(range(1, 6)))
     engine.search()
-    assert engine.cache_misses == len(engine._quantities)
+    assert engine.cache_misses == len(engine._constructed_quantities)
     engine.clear()
-    assert not engine._quantities and not engine._evaluations
+    assert not engine._quantities and not engine._constructed_quantities and not engine._evaluations
 
 
 def test_extreme_quantity_guard_returns_unresolved_without_fabrication():
@@ -136,3 +136,9 @@ def test_extreme_quantity_guard_returns_unresolved_without_fabrication():
     assert result["status"] == "unresolved_extreme_quantity"
     assert result["threshold"] is None
     assert max(result["physicalQuantitiesConstructed"]) <= 20
+
+
+def test_observed_fixed_interval_monotonicity_inversion_uses_exact_fallback():
+    engine = _engine(leader=False, budget=100, current=100, winning={74, 75})
+    result = engine._solve_interval(1)
+    assert result["priceCents"] == 75

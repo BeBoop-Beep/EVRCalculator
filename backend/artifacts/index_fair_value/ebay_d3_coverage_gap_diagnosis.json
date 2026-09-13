@@ -1,0 +1,104 @@
+{
+  "version": "ebay_d3_coverage_gap_diagnosis_v1",
+  "missing_card_count": 15,
+  "per_card": {
+    "152906c9-3b9f-4f16-bb22-cb4241c7386b": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 42,
+      "d1_returned": 100
+    },
+    "21e9ddc5-2751-4886-9e08-a1c6e2cc14e4": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 58,
+      "d1_returned": 100
+    },
+    "24f40ecd-605f-4d62-b748-afed33706583": {
+      "cause": "D",
+      "reason": "even a permissive title-only classifier found mostly ambiguous/near-zero exact matches",
+      "d1_exact": 1,
+      "d1_returned": 100,
+      "ambiguous_rate": 0.83
+    },
+    "2a67a99c-dbba-4c41-846c-39ed4659c916": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 21,
+      "d1_returned": 52
+    },
+    "2bf67447-75e1-4e97-ac08-c7f3e7f2c88c": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 27,
+      "d1_returned": 76
+    },
+    "3c75f577-62ee-4bdf-865c-ab2384f4379b": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 54,
+      "d1_returned": 100
+    },
+    "50f67b41-059d-4c14-842f-8b48fba46bc2": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 87,
+      "d1_returned": 100
+    },
+    "55096ab6-1773-47c4-bbff-20c1db011223": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 14,
+      "d1_returned": 100
+    },
+    "740ad74c-8c0c-411f-9ec7-2c734210b8f1": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 83,
+      "d1_returned": 100
+    },
+    "8a2827bc-48b7-4dfd-b240-501fe24100b9": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 33,
+      "d1_returned": 63
+    },
+    "8a2cce32-ad4f-4468-8a28-8a9ea9653365": {
+      "cause": "D",
+      "reason": "even a permissive title-only classifier found mostly ambiguous/near-zero exact matches",
+      "d1_exact": 1,
+      "d1_returned": 100,
+      "ambiguous_rate": 0.83
+    },
+    "cdfc0223-40ef-4e4b-a9f2-3a809ae1c3df": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 25,
+      "d1_returned": 81
+    },
+    "d09b2fb5-41b6-4d1e-88cf-629402434501": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 27,
+      "d1_returned": 99
+    },
+    "ec8fec81-b57d-442a-baf0-91882c40de6e": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 84,
+      "d1_returned": 100
+    },
+    "ecfe51fb-3435-4e1c-8542-8809cd6f95ff": {
+      "cause": "E",
+      "reason": "ample exact-match inventory existed (D1); the 6-row coverage-cohort sample simply missed it -- a search-allocation/sampling-depth issue, not a matcher-safety issue",
+      "d1_exact": 10,
+      "d1_returned": 100
+    }
+  },
+  "cause_counts": {
+    "E": 13,
+    "D": 2
+  },
+  "recoverable_via_search_allocation_alone": 13,
+  "methodology": "Uses only D1 pilot single-page retrieval evidence (a different, more permissive classifier than v3) as a proxy for 'did useful inventory exist at all' -- never opens the historical blind cohorts."
+}

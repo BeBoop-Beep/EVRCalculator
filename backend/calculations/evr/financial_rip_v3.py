@@ -268,10 +268,13 @@ class PreparedFinancialRipDistribution:
             minimum_base=float(sorted_values[0]), maximum_base=float(sorted_values[-1]),
             mean_base=float(array.mean()), median_base=float(np.median(array)),
             p05_base=float(np.percentile(array, 5)), p95_base=float(np.percentile(array, 95)),
-            p99_base=float(np.percentile(array, 99)), distinct_outcome_count=int(np.unique(sorted_values).size),
+            p99_base=float(np.percentile(array, 99)),
+            distinct_outcome_count=cls._shifted_distinct_count(sorted_values, offset),
             top_1_count=top_1_count, top_5_count=top_5_count,
-            jackpot_mean_base=float(jackpot.mean()) if jackpot.size else 0.0,
-            realistic_mean_base=float(realistic.mean()) if realistic.size else 0.0,
+            # Preserve exact NumPy materialized-shift reduction semantics for
+            # the small rank tails (1% and 4%) without copying the full vector.
+            jackpot_mean_base=(float((jackpot + offset).mean()) - offset) if jackpot.size else 0.0,
+            realistic_mean_base=(float((realistic + offset).mean()) - offset) if realistic.size else 0.0,
             excluding_jackpot_mean_base=float(excluding.mean()) if excluding.size else 0.0,
             total_base_value=float(array.sum()),
             jackpot_base_value=float(jackpot.sum()) if jackpot.size else 0.0,
@@ -294,13 +297,41 @@ class PreparedFinancialRipDistribution:
         if parsed is None:
             return self._invalid(REASON_NON_FINITE_OUTCOMES, "The uniform value offset is non-finite.")
         from dataclasses import replace
-        return replace(self, value_offset=self.value_offset + parsed)
+        offset = self.value_offset + parsed
+        return replace(self, value_offset=offset,
+                       distinct_outcome_count=self._shifted_distinct_count(self.sorted_base_values, offset))
+
+    @staticmethod
+    def _shifted_distinct_count(sorted_values: np.ndarray, offset: float) -> int:
+        """Match ``np.unique(values + offset)`` with bounded temporary memory."""
+        if sorted_values.size == 0:
+            return 0
+        distinct = 1
+        previous = float(sorted_values[0] + offset)
+        chunk_size = 65_536
+        for start in range(1, int(sorted_values.size), chunk_size):
+            shifted = sorted_values[start:start + chunk_size] + offset
+            distinct += int(np.count_nonzero(shifted[1:] != shifted[:-1]))
+            if float(shifted[0]) != previous:
+                distinct += 1
+            previous = float(shifted[-1])
+        return distinct
 
     def _value(self, base: float) -> float:
         return base + self.value_offset
 
     def _count_below(self, threshold: float) -> int:
-        return int(np.searchsorted(self.sorted_base_values, threshold - self.value_offset, side="left"))
+        index = int(np.searchsorted(
+            self.sorted_base_values, threshold - self.value_offset, side="left"
+        ))
+        # IEEE-754 addition/subtraction are not exact inverses at a boundary.
+        # Correct the normally tiny neighborhood using the exact materialized
+        # comparison semantics without scanning or allocating the vector.
+        while index > 0 and float(self.sorted_base_values[index - 1] + self.value_offset) >= threshold:
+            index -= 1
+        while index < self.n and float(self.sorted_base_values[index] + self.value_offset) < threshold:
+            index += 1
+        return index
 
     def _sum_first(self, count: int) -> float:
         return float(self.prefix_base_sums[count]) + self.value_offset * count

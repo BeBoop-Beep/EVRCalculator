@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Mapping, Optional
 
@@ -79,7 +80,9 @@ class ExactBestOpenPriceSearch:
     expected_source_authority_fingerprint: str
     model_versions_match: bool = True
     max_quantity_to_construct: int = 4096
-    _quantities: Dict[int, PreparedCanonicalCandidate] = field(default_factory=dict, init=False)
+    max_cached_quantities: int = 4
+    _quantities: Dict[int, PreparedCanonicalCandidate] = field(default_factory=OrderedDict, init=False)
+    _constructed_quantities: set[int] = field(default_factory=set, init=False)
     _evaluations: Dict[tuple[int, int], Dict[str, Any]] = field(default_factory=dict, init=False)
     cache_hits: int = field(default=0, init=False)
     cache_misses: int = field(default=0, init=False)
@@ -99,11 +102,15 @@ class ExactBestOpenPriceSearch:
     def _candidate(self, quantity: int) -> PreparedCanonicalCandidate:
         if quantity in self._quantities:
             self.cache_hits += 1
+            self._quantities.move_to_end(quantity)
             return self._quantities[quantity]
         candidate = self.prepare_quantity(quantity)
         if candidate.product_id != self.product_id or candidate.quantity != quantity:
             raise BestOpenPriceSearchError("quantity cache identity mismatch")
         self._quantities[quantity] = candidate
+        self._constructed_quantities.add(quantity)
+        while len(self._quantities) > self.max_cached_quantities:
+            self._quantities.popitem(last=False)
         self.cache_misses += 1
         return candidate
 
@@ -133,10 +140,24 @@ class ExactBestOpenPriceSearch:
         if bounds is None:
             return None
         low, high = bounds
-        low_result = self.evaluate_price(low)
+        sentinels = sorted({low, low + (high - low) // 4, (low + high) // 2,
+                            low + (3 * (high - low)) // 4, high})
+        sentinel_results = [self.evaluate_price(price) for price in sentinels]
+        seen_loss = False
+        inversion = False
+        for probed in sentinel_results:
+            if not probed["wins"]:
+                seen_loss = True
+            elif seen_loss:
+                inversion = True
+        if inversion:
+            winners = [self.evaluate_price(c) for c in range(low, high + 1)
+                       if self.evaluate_price(c)["wins"]]
+            return max(winners, key=lambda row: row["priceCents"]) if winners else None
+        low_result = sentinel_results[0]
         if not low_result["wins"]:
             return None
-        high_result = self.evaluate_price(high)
+        high_result = sentinel_results[-1]
         if high_result["wins"]:
             return high_result
         left, right = low, high
@@ -168,7 +189,22 @@ class ExactBestOpenPriceSearch:
             if (not self.is_leader and price + 1 <= self.current_price_cents) or self.is_leader:
                 if self.evaluate_price(price + 1)["wins"]:
                     raise BestOpenPriceSearchError("returned threshold is not maximal by one cent")
-        return self._payload("exact", result, started)
+        payload = self._payload("exact", result, started)
+        next_price = price + 1 if price < self.budget_cents else None
+        next_wins = None
+        if next_price is not None and (self.is_leader or next_price <= self.current_price_cents):
+            next_wins = bool(self.evaluate_price(next_price)["wins"])
+        low, high = quantity_price_interval_cents(self.budget_cents, int(result["quantity"]))
+        payload["exactness"] = {
+            "thresholdWins": True, "nextPriceCents": next_price,
+            "nextPriceWins": next_wins,
+            "oneCentMaximal": next_wins is not True,
+            "quantityIntervalLowCents": low, "quantityIntervalHighCents": high,
+            "nextCentCrossesQuantityBoundary": (
+                next_price is not None and self.budget_cents // next_price != int(result["quantity"])
+            ),
+        }
+        return payload
 
     def _search_non_leader(self) -> Optional[Dict[str, Any]]:
         # This is a compute guard, not a price floor: crossing it returns an
@@ -242,11 +278,13 @@ class ExactBestOpenPriceSearch:
                 "currentPriceCents": self.current_price_cents,
                 "threshold": dict(result) if result else None,
                 "benchmarkProductId": self.benchmark.get("sealedProductId"),
+                "benchmarkOverallRipV12Score": self.benchmark.get("overallRipV12Score"),
                 "evaluationCount": len(self._evaluations),
-                "physicalQuantitiesConstructed": sorted(self._quantities),
+                "physicalQuantitiesConstructed": sorted(self._constructed_quantities),
                 "quantityCacheHits": self.cache_hits, "quantityCacheMisses": self.cache_misses,
                 "wallSeconds": time.perf_counter() - started}
 
     def clear(self) -> None:
         self._evaluations.clear()
         self._quantities.clear()
+        self._constructed_quantities.clear()

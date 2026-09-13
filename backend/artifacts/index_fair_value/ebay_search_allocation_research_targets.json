@@ -1,0 +1,82 @@
+[
+  {
+    "canonical_card_id": "0b81872e-b089-49e9-aec3-16a535b12efb",
+    "card_variant_id": "0057b67c-a140-400c-b308-2a6d046cb043",
+    "card_name": "Haxorus",
+    "card_number": "147",
+    "set_name": "Black Bolt",
+    "era": "Scarlet and Violet",
+    "treatment_key": "illustration_rare",
+    "collector_appeal": 61.03166984050266,
+    "pull_probability": 0.001325,
+    "target_market_price_usd": 66.29,
+    "query": {
+      "query": "Haxorus 147 Black Bolt Pokemon card",
+      "marketplace": "EBAY_US",
+      "category_id": "183454",
+      "limit": 100,
+      "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+      "version": "index_fair_value_ebay_supply_d1_v1"
+    }
+  },
+  {
+    "canonical_card_id": "0dde3317-5162-49d1-b5c9-6b206a086d2c",
+    "card_variant_id": "7a7c3304-cc14-4aab-9f7b-b88270d4228c",
+    "card_name": "Tinkatuff",
+    "card_number": "166",
+    "set_name": "Paldean Fates",
+    "era": "Scarlet and Violet",
+    "treatment_key": "shiny_rare",
+    "collector_appeal": 36.029793278727844,
+    "pull_probability": 0.002023,
+    "target_market_price_usd": 6.62,
+    "query": {
+      "query": "Tinkatuff 166 Paldean Fates Pokemon card",
+      "marketplace": "EBAY_US",
+      "category_id": "183454",
+      "limit": 100,
+      "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+      "version": "index_fair_value_ebay_supply_d1_v1"
+    }
+  },
+  {
+    "canonical_card_id": "10a47631-ea19-4b62-8a93-4b1b3e6b3013",
+    "card_variant_id": "780a248c-87ff-4879-955c-3d6bea287aca",
+    "card_name": "Lt. Surge's Bargain",
+    "card_number": "185",
+    "set_name": "Mega Evolution",
+    "era": "Mega Evolution",
+    "treatment_key": "special_illustration_rare",
+    "collector_appeal": 0.37595836743062766,
+    "pull_probability": 0.000941,
+    "target_market_price_usd": 16.37,
+    "query": {
+      "query": "Lt. Surge's Bargain 185 Mega Evolution Pokemon card",
+      "marketplace": "EBAY_US",
+      "category_id": "183454",
+      "limit": 100,
+      "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+      "version": "index_fair_value_ebay_supply_d1_v1"
+    }
+  },
+  {
+    "canonical_card_id": "147a436d-4ccc-43d1-b19a-20b74d2ff723",
+    "card_variant_id": "a86eb8d9-0e89-4e02-879a-d587dbfe0252",
+    "card_name": "Carmine",
+    "card_number": "217",
+    "set_name": "Twilight Masquerade",
+    "era": "Scarlet and Violet",
+    "treatment_key": "special_illustration_rare",
+    "collector_appeal": 83.19954820945692,
+    "pull_probability": 0.001067,
+    "target_market_price_usd": 54.28,
+    "query": {
+      "query": "Carmine 217 Twilight Masquerade Pokemon card",
+      "marketplace": "EBAY_US",
+      "category_id": "183454",
+      "limit": 100,
+      "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+      "version": "index_fair_value_ebay_supply_d1_v1"
+    }
+  }
+]
