@@ -20,7 +20,13 @@ from backend.db.services.publication_gate import (
     evaluate_publication_gate,
     gate_decision_report,
 )
-from backend.db.services.market_publication_gate import enforce_market_publication_gate
+from backend.db.services.market_publication_gate import (
+    enforce_market_publication_gate,
+    resolve_market_publication_date,
+)
+from backend.db.services.pokemon_market_rollout_preparation import (
+    prepare_market_rollout_candidate,
+)
 from backend.db.services.market_date_quality import market_index_accepted_dates
 from backend.db.services.set_publication_revalidation import (
     log_revalidation_diagnostics,
@@ -1978,8 +1984,16 @@ def _run_market_quality_index_phase(
     summary: RefreshSummary,
 ) -> Tuple[bool, Optional[List[Dict[str, Any]]]]:
     """Persist one quality authority, then build both Market index families."""
+    try:
+        target_candidate = resolve_market_publication_date(client, market_date)
+        prepare_market_rollout_candidate(
+            client, target_candidate, commit=commit,
+        )
+    except Exception as exc:
+        summary.global_failed.append(f"market_candidate_preparation: {exc}")
+        return False, None
     enforcement = enforce_market_publication_gate(
-        client, commit=commit, market_date=market_date,
+        client, commit=commit, market_date=target_candidate,
         entry_point="stale public snapshot refresh")
     decision = enforcement.decision
     evaluation = decision.evaluation or {}
@@ -2032,6 +2046,21 @@ def _run_market_quality_index_phase(
         accepted = market_index_accepted_dates(client, through_date=target)
         if not commit:
             accepted.add(target)
+        if commit:
+            from backend.scripts.build_pokemon_market_index_history import (
+                ROLLOUT_REFRESH_RPC, _rollout_source_materialization,
+            )
+            materialization = _rollout_source_materialization(
+                client, target, allow_candidate=False)
+            if not materialization["ready"]:
+                client.rpc(ROLLOUT_REFRESH_RPC, {"p_market_date": target}).execute()
+                materialization = _rollout_source_materialization(
+                    client, target, allow_candidate=False)
+            if not materialization["ready"]:
+                raise RuntimeError(
+                    "public root source remains incomplete after rollout finalizer "
+                    f"(provenanceState={materialization['provenanceState']})"
+                )
         index_rows = build_rollout_market_index_rows(client, market_date=target)
 
         # Fail-closed invariant: the current rollout authority (never a
