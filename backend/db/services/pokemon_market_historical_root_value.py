@@ -275,7 +275,7 @@ def execute_historical_root_backfill(client: Any, root_set_ids: Sequence[str], s
         if len(changed) != 1:
             raise RuntimeError(f"concurrent provenance normalization mismatch for {row['set_id']} {row['snapshot_date']} {row['value_scope']}")
         verified = _rows(client.table(HISTORY_TABLE).select(
-            "id,set_id,snapshot_date,value_scope,set_value,priced_card_count,total_card_count,canonical_card_count,included_card_count,coverage_pct,source"
+            "id,set_id,snapshot_date,value_scope,set_value,priced_card_count,total_card_count,canonical_card_count,linked_card_count,included_card_count,coverage_pct,source"
         ).eq("id", row["existing_row_id"]).limit(2).execute())
         post = verified[0] if len(verified) == 1 else {}
         material_ok = (

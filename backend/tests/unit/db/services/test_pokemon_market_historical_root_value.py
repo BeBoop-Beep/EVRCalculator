@@ -6,8 +6,8 @@ from backend.db.services import pokemon_market_historical_root_value as svc
 
 
 class Query:
-    def __init__(self, client, name, rows): self.client, self.name, self.rows, self.changes = client, name, list(rows), None
-    def select(self, *_a): return self
+    def __init__(self, client, name, rows): self.client, self.name, self.rows, self.changes, self.selected = client, name, list(rows), None, None
+    def select(self, fields="*", *_a): self.selected = None if fields == "*" else fields.split(","); return self
     def eq(self, key, value): self.rows = [r for r in self.rows if r.get(key) == value]; return self
     def lte(self, key, value): self.rows = [r for r in self.rows if str(r.get(key)) <= str(value)]; return self
     def in_(self, key, values): self.rows = [r for r in self.rows if r.get(key) in values]; return self
@@ -19,7 +19,10 @@ class Query:
         if self.changes:
             for row in self.rows: row.update(self.changes)
             self.client.writes.extend({"id": row.get("id"), **self.changes} for row in self.rows)
-        return SimpleNamespace(data=self.rows)
+        rows = self.rows
+        if self.selected is not None:
+            rows = [{key: row.get(key) for key in self.selected} for row in rows]
+        return SimpleNamespace(data=rows)
 
 
 class Client:
@@ -141,6 +144,47 @@ def test_explicit_normalization_changes_only_exact_source(monkeypatch):
     assert {r["action"] for r in changed} == {"normalize_provenance"}
     assert {r["source"] for r in client.tables[svc.HISTORY_TABLE]} == {svc.STANDARD_SOURCE,svc.TOP10_SOURCE}
     assert all(set(write) == {"id","source"} for write in client.writes)
+    assert client.tables[svc.HISTORY_TABLE][0]["linked_card_count"] == 1
+    assert client.tables[svc.HISTORY_TABLE][1]["linked_card_count"] == 10
+    assert client.tables[svc.HISTORY_TABLE][0]["set_value"] == "1.00"
+    assert client.tables[svc.HISTORY_TABLE][1]["set_value"] == "2.00"
+
+
+def test_normalization_postread_missing_linked_count_fails_closed(monkeypatch):
+    old = {
+        "id": "s", "set_id": "root", "snapshot_date": "2026-09-10",
+        "value_scope": "standard", "set_value": "1.00", "priced_card_count": 1,
+        "total_card_count": 1, "canonical_card_count": 1, "linked_card_count": 1,
+        "included_card_count": 1, "coverage_pct": "100.00", "source": "generic",
+    }
+    planned = {
+        **old, "source": svc.STANDARD_SOURCE, "action": "normalize_provenance",
+        "existing_row_id": "s", "existing_source": "generic",
+        "existing_material": {key: old[key] for key in (
+            "set_id", "snapshot_date", "value_scope", "set_value", "priced_card_count",
+            "total_card_count", "canonical_card_count", "linked_card_count",
+            "included_card_count", "coverage_pct",
+        )},
+    }
+
+    class MissingLinkedQuery(Query):
+        def execute(self):
+            result = super().execute()
+            if self.selected is not None and self.selected and self.selected[0] == "id":
+                result.data = [{key: value for key, value in row.items()
+                                if key != "linked_card_count"} for row in result.data]
+            return result
+
+    class MissingLinkedClient(Client):
+        def table(self, name): return MissingLinkedQuery(self, name, self.tables.get(name, []))
+
+    client = MissingLinkedClient({svc.HISTORY_TABLE: [old]}, {})
+    monkeypatch.setattr(svc, "plan_historical_root_backfill", lambda *_a, **_k: [planned])
+    with pytest.raises(RuntimeError, match="provenance normalization postcondition failed"):
+        svc.execute_historical_root_backfill(
+            client, ["root"], "2026-09-10", "2026-09-10",
+            commit=True, normalize_provenance=True,
+        )
 
 
 def repair_projection(standard="427.72", top10="295.20", count=91):
