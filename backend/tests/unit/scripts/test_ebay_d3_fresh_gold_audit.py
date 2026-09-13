@@ -71,6 +71,9 @@ def test_frozen_fresh_gold_manifest_reconstructs_without_matcher_data():
     assert manifest["matcher_predictions_consulted"] is False
 
 
-def test_no_d3_certification_metrics_or_matcher_gold_comparison_exists():
-    names=[path.name.lower() for path in OUT.iterdir()]
-    assert not any("d3" in name and ("certification_metric" in name or "matcher_gold" in name or "gold_matcher" in name or "scoring" in name) for name in names)
+def test_fresh_gold_freeze_remains_matcher_blind_after_certification():
+    gold_manifest=json.loads(GOLD_MANIFEST.read_text(encoding="utf-8"))
+    certification=json.loads((OUT/"ebay_d3_v3_final_certification_manifest.json").read_text(encoding="utf-8"))
+    assert gold_manifest["matcher_predictions_consulted"] is False
+    assert certification["human_gold_fingerprint"]==gold_manifest["effective_human_gold_fingerprint"]
+    assert certification["review_queue_fingerprint"]==gold_manifest["original_review_queue_fingerprint"]
