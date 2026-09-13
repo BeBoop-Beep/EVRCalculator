@@ -1,12 +1,18 @@
 import html
+import hashlib
 import json
+from pathlib import Path
 
 from backend.scripts.ebay_d3_fresh_gold_audit import (
-    append_audit_event, build_audit_queue, build_undo, effective_gold_fingerprint,
+    AUDIT_HISTORY, GOLD_MANIFEST, append_audit_event, build_audit_queue, build_undo, effective_gold_fingerprint,
     effective_labels, has_human_visible_graded_evidence, read_audit_history,
     reconstruct_audit_state,
 )
 from backend.scripts.ebay_d3_gold_audit_server import page
+from backend.scripts.ebay_gold_access import load_partition
+from backend.scripts.ebay_gold_review_server import read_history, reconstruct_effective_state
+
+OUT=Path(__file__).resolve().parents[3]/"artifacts/index_fair_value"
 
 
 def base(label):return {"label":label,"confidence":"HIGH"}
@@ -47,3 +53,24 @@ def test_append_only_undo_and_effective_reconstruction(tmp_path):
 
 def test_effective_gold_fingerprint_is_order_stable():
     assert effective_gold_fingerprint({"2":"GRADED","1":"EXACT_TARGET_MATCH"})==effective_gold_fingerprint({"1":"EXACT_TARGET_MATCH","2":"GRADED"})
+
+
+def test_frozen_fresh_gold_manifest_reconstructs_without_matcher_data():
+    manifest=json.loads(GOLD_MANIFEST.read_text(encoding="utf-8"))
+    rows=load_partition("D3_BLIND_REVIEW",purpose="human_review");ids=[row["benchmark_row_id"] for row in rows]
+    base_state=reconstruct_effective_state(read_history(),"D3_BLIND_REVIEW","Donny",ids)
+    queue=build_audit_queue(rows,base_state["labels"])
+    audit_state=reconstruct_audit_state(read_audit_history(),"Donny",[row["benchmark_row_id"] for row in queue])
+    labels=effective_labels(base_state["labels"],audit_state)
+    assert len(labels)==704 and not base_state["skipped"] and not base_state["unlabeled"]
+    assert len(queue)==len(audit_state["decisions"])==43 and not audit_state["unreviewed"]
+    assert effective_gold_fingerprint(labels)==manifest["effective_human_gold_fingerprint"]=="635365a6773910f8acb5c57efecba81163e187c147eb34f844a50a71bdf85a8c"
+    assert hashlib.sha256(AUDIT_HISTORY.read_bytes()).hexdigest()==manifest["audit_history_fingerprint"]
+    assert hashlib.sha256((OUT/"ebay_gold_review_history.jsonl").read_bytes()).hexdigest()==manifest["review_history_fingerprint"]
+    assert hashlib.sha256((OUT/"ebay_d3_blind_review_queue.csv").read_bytes()).hexdigest()==manifest["original_review_queue_fingerprint"]
+    assert manifest["matcher_predictions_consulted"] is False
+
+
+def test_no_d3_certification_metrics_or_matcher_gold_comparison_exists():
+    names=[path.name.lower() for path in OUT.iterdir()]
+    assert not any("d3" in name and ("certification_metric" in name or "matcher_gold" in name or "gold_matcher" in name or "scoring" in name) for name in names)
