@@ -1,0 +1,302 @@
+{
+  "version": "index_fair_value_forward_validation_preregistration_v1",
+  "frozen_on": "2026-09-13",
+  "status": "PREREGISTERED_NOT_EVALUATED",
+  "research_only": true,
+  "authority": {
+    "status": "FAIR_VALUE_HISTORY_SIGNAL_PROMISING",
+    "source_artifact": "backend/artifacts/index_fair_value/index_fair_value_market_history_readiness.json",
+    "as_of": "2026-09-12",
+    "cohort_cards": 4349,
+    "root_sets": 22,
+    "direct_history_start": "2026-06-27",
+    "direct_history_end": "2026-09-12",
+    "median_prior_observations": 73,
+    "known_missing_dates": ["2026-08-29"],
+    "interpretation": "PROMISING_DATA_SIGNAL_NOT_VALIDATED_FAIR_VALUE",
+    "price_authority": "TCGPLAYER_MARKET_PRICE_TRANSACTION_DERIVED_AGGREGATE",
+    "limitations": [
+      "same provider supplies retained historical features and target",
+      "no individual completed-sale rows",
+      "no transaction counts, quantities, sale timestamps, or true liquidity evidence",
+      "short-window persistence likely explains much of the retrospective gain",
+      "eBay active-listing asks are excluded as price authority"
+    ],
+    "diagnostic_reference": {
+      "model": "PLUS_HISTORY",
+      "log_r2": 0.99803254,
+      "dollar_r2": 0.99961202,
+      "mae": 0.14908158,
+      "rmse": 0.94105091,
+      "mdape_pct": 2.83376552,
+      "within_30_pct": 98.18349046,
+      "spearman": 0.99526953,
+      "positive_dollar_r2_price_bands": 7,
+      "total_price_bands": 7,
+      "use": "context_only_not_a_validation_result"
+    }
+  },
+  "persistence_baselines": {
+    "P0": {
+      "name": "PRIOR_OBSERVATION",
+      "definition": "Most recent canonical TCGplayer Market Price whose availability timestamp is strictly before origin time.",
+      "maximum_staleness_calendar_days": 3,
+      "otherwise": "unavailable"
+    },
+    "P1": {
+      "name": "7_DAY_ROBUST_LEVEL",
+      "definition": "Median of observed canonical Market Prices in [origin-7 calendar days, origin), with no synthetic daily fill.",
+      "minimum_observed_days": 4,
+      "otherwise": "unavailable"
+    },
+    "P2": {
+      "name": "30_DAY_ROBUST_LEVEL",
+      "definition": "Median of observed canonical Market Prices in [origin-30 calendar days, origin), with no synthetic daily fill.",
+      "minimum_observed_days": 14,
+      "otherwise": "unavailable"
+    },
+    "P3": {
+      "name": "LOCAL_LOG_LINEAR_TREND",
+      "definition": "Fit unweighted ordinary least squares of log(price) on elapsed calendar days over observed points in [origin-30 calendar days, origin); anchor at the fitted line and extrapolate exactly h calendar days for h in {1,7,30}.",
+      "minimum_observed_days": 14,
+      "minimum_calendar_span_days": 14,
+      "slope_cap": null,
+      "fallback": "unavailable; do not substitute another baseline"
+    },
+    "selection_of_model_1": {
+      "holdout_use": "FORBIDDEN",
+      "procedure": "Select one of P0-P3 using only preregistered rolling-origin validation dates strictly before the final training cutoff.",
+      "ranking": [
+        "lowest global MdAPE",
+        "lowest global RMSE",
+        "highest count of price bands with positive dollar R2",
+        "simpler baseline in order P0, P1, P2, P3"
+      ],
+      "freeze_before": "hashing final holdout predictions"
+    }
+  },
+  "feature_families": {
+    "A_LEVEL_PERSISTENCE": [
+      "prior absolute price",
+      "7/30-day rolling median price",
+      "7/30-day rolling mean price",
+      "fixed half-life 7-day exponentially weighted price level"
+    ],
+    "B_DYNAMIC_HISTORY": [
+      "log returns at fixed 7/30/60/90-day windows",
+      "log-price velocity",
+      "return volatility",
+      "drawdown",
+      "dimensionless distance from rolling median",
+      "unchanged-state persistence",
+      "observation and state-change staleness",
+      "relative return versus set, era, and Treatment peers with target card excluded",
+      "fixed recent-versus-long-term regime indicators"
+    ],
+    "C_STRUCTURAL": [
+      "Collector Appeal",
+      "Pull Scarcity",
+      "Treatment",
+      "lifecycle",
+      "era and set structure",
+      "other frozen leakage-safe price-blind fields"
+    ],
+    "D_MARKET_ANCHOR": [
+      "frozen defensible F2R target-blind peer/market-anchor features"
+    ],
+    "separation_rule": "Every feature must be registered under exactly one family before the cutoff; unregistered or silently cross-family features are forbidden.",
+    "dynamic_exclusion": "Family B excludes raw absolute lagged price, rolling absolute price levels, and transformations from which absolute lagged price is directly recoverable."
+  },
+  "future_models": {
+    "common_estimator": "Fixed Ridge(alpha=1.0) on log target with fold-local median imputation, missing indicators, and standardization; no hyperparameter search.",
+    "references": {
+      "STRUCTURAL_BASELINE": "Frozen F2 structural baseline reproduced without refitting against holdout.",
+      "F2R_BASELINE": "Frozen failed F2R target-blind market-anchor baseline reproduced without refitting against holdout."
+    },
+    "MODEL_0": "P0 only",
+    "MODEL_1": "One pre-holdout-selected simple baseline from P0-P3",
+    "MODEL_2": "B dynamic history only; no absolute lagged price level",
+    "MODEL_3": "C structural + B dynamic",
+    "MODEL_4": "C structural + D market anchor + B dynamic",
+    "MODEL_5": "C structural + D market anchor + A level/persistence + B dynamic",
+    "primary_comparisons": [
+      "MODEL_2 vs STRUCTURAL_BASELINE",
+      "MODEL_4 vs F2R_BASELINE",
+      "MODEL_5 vs MODEL_1"
+    ],
+    "prohibitions": [
+      "no final model fit or tuning before readiness",
+      "no high-capacity estimator substitution",
+      "no feature or threshold changes after holdout reveal"
+    ]
+  },
+  "temporal_leakage_contract": {
+    "availability": "For an origin T, each input must have an immutable captured/available timestamp strictly less than T. A date-d daily snapshot becomes eligible no earlier than completion of ingestion and therefore cannot predict date d.",
+    "embargo": "At least one calendar day: an origin on date d can use at most a successfully retained snapshot from d-1.",
+    "forbidden": [
+      "same-day target-derived values",
+      "future observations or centered windows",
+      "future backfill or future-derived rollups",
+      "normalization using target/holdout periods",
+      "revisions learned or written after origin T",
+      "retrospective use of a backfilled row without evidence that it was originally available before T"
+    ],
+    "missing_dates": "Use observed points only. Do not synthesize daily prices. P0 may carry the latest prior observation for at most 3 calendar days and must expose staleness; otherwise the feature is unavailable.",
+    "window_minimums": {
+      "7_calendar_days": 4,
+      "30_calendar_days": 14,
+      "60_calendar_days": 30,
+      "90_calendar_days": 45
+    },
+    "missing_feature_handling": "Training-fold median imputation with an explicit missingness indicator is permitted for learned models; future or global imputation is forbidden.",
+    "peer_features": "Computed as of T with the target card excluded from peer aggregates.",
+    "provenance": "Persist source row identifiers, captured timestamps, feature-window bounds, code/feature-registry hash, cutoff, cohort hash, and prediction hash."
+  },
+  "future_holdout": {
+    "evaluate_now": false,
+    "minimum_readiness": "At least 90% of the frozen eligible cohort has 180 directly retained daily observations; every scored card must individually have 180.",
+    "preferred_maturity": "Twelve complete selected-card monthly regimes where feasible.",
+    "cutoff": "Choose calendar date C only after readiness, before inspecting any outcome after C; train and select using data available through C only.",
+    "development_validation": "Expanding-window rolling origins strictly before C, with all preprocessing inside each origin and reports grouped by canonical root set.",
+    "final_period": "Thirty contiguous daily origins C+1 through C+30. Freeze one model per registered comparison at C, generate predictions at each origin using only then-available features, hash predictions before any corresponding outcomes are read, and wait through C+60 so 30-day targets mature.",
+    "panels": {
+      "recurring": "Primary panel: frozen eligible cards/root sets previously observed by C.",
+      "unseen_roots": "Secondary panel: genuinely new canonical root sets after C, reported separately when at least 3 roots and 30 cards are available; never pooled to rescue the primary result."
+    },
+    "optimization": "No model, feature, cohort, baseline, threshold, or conclusion-gate optimization against the final period.",
+    "availability_reporting": "Report prediction coverage and missingness; metrics use paired rows available to both models in a comparison, and unavailability may not be silently dropped."
+  },
+  "horizons_calendar_days": [1, 7, 30],
+  "horizon_contract": "For origin T and horizon h, score only the exact provider observation date T+h. If absent, that card-origin-horizon is unavailable; do not substitute the next observation. Horizons diagnose persistence and do not redefine Fair Value as forecasting.",
+  "metrics": ["log_r2", "dollar_r2", "mae", "rmse", "mdape_pct", "within_30_pct", "spearman"],
+  "price_bands": [
+    {"id": "under_5", "minimum_inclusive": null, "maximum_exclusive": 5},
+    {"id": "5_to_under_10", "minimum_inclusive": 5, "maximum_exclusive": 10},
+    {"id": "10_to_under_25", "minimum_inclusive": 10, "maximum_exclusive": 25},
+    {"id": "25_to_under_50", "minimum_inclusive": 25, "maximum_exclusive": 50},
+    {"id": "50_to_under_100", "minimum_inclusive": 50, "maximum_exclusive": 100},
+    {"id": "100_to_under_250", "minimum_inclusive": 100, "maximum_exclusive": 250},
+    {"id": "250_plus", "minimum_inclusive": 250, "maximum_exclusive": null}
+  ],
+  "price_band_contract": {
+    "basis": "Exact future target TCGplayer Market Price, assigned only after predictions are frozen.",
+    "per_band_metrics": ["n", "dollar_r2", "mae", "mdape_pct", "within_30_pct"],
+    "high_value_visibility": "List every target >=100 USD individually with card/root identity, origin, horizon, actual, each prediction, absolute error, and percentage error.",
+    "small_n": "Always show n; mark inference descriptive when n<30 and never pool bands to hide failure."
+  },
+  "materiality": {
+    "uncertainty": "Paired 2000-replicate block bootstrap by canonical root set and origin date, deterministic seed 20260913; report 95% intervals.",
+    "coverage_gate": "At least 90% paired prediction coverage globally and 80% in each price band at the decision horizon.",
+    "primary_30_day_gate": {
+      "comparison": "MODEL_5 vs MODEL_1",
+      "all_required": {
+        "dollar_r2_absolute_gain_at_least": 0.05,
+        "mae_relative_reduction_at_least_pct": 10,
+        "rmse_relative_reduction_at_least_pct": 10,
+        "mdape_relative_reduction_at_least_pct": 10,
+        "mdape_absolute_reduction_at_least_percentage_points": 2,
+        "within_30_absolute_gain_at_least_percentage_points": 5,
+        "log_r2_not_worse_by_more_than": 0.01,
+        "spearman_not_worse_by_more_than": 0.01,
+        "bootstrap_95pct_interval_for_mae_improvement_excludes_zero": true
+      }
+    },
+    "supporting_7_day_gate": {
+      "comparison": "MODEL_5 vs MODEL_1",
+      "all_required": {
+        "dollar_r2_absolute_gain_at_least": 0.02,
+        "mae_relative_reduction_at_least_pct": 5,
+        "rmse_relative_reduction_at_least_pct": 5,
+        "mdape_absolute_reduction_at_least_percentage_points": 1,
+        "within_30_absolute_gain_at_least_percentage_points": 2
+      }
+    },
+    "incremental_signal_gates": {
+      "MODEL_2_vs_STRUCTURAL_BASELINE_at_30_days": "At least +0.05 dollar R2, 10% lower MAE, and 10% lower MdAPE.",
+      "MODEL_4_vs_F2R_BASELINE_at_30_days": "At least +0.05 dollar R2, 10% lower MAE, and 10% lower MdAPE."
+    },
+    "consistency_gates": [
+      "At least two-thirds of eligible root sets have lower 30-day MdAPE for MODEL_5 than MODEL_1.",
+      "At least 5 of 7 price bands have positive MODEL_5 dollar R2.",
+      "Both 100-250 and 250-plus bands have positive MODEL_5 dollar R2 and at least 10% lower MAE than MODEL_1; if either has n<30, this gate remains unresolved rather than passed.",
+      "One-day results are descriptive and cannot satisfy the decision by themselves."
+    ],
+    "rationale": "Thresholds require gains larger than ordinary rounding/provider noise, materially repair the known F2/F2R dollar-tail weakness, and prevent excellent one-day same-provider persistence from being called independent Fair Value evidence."
+  },
+  "conclusion_gates": {
+    "HISTORY_TRACKER_ONLY": "Collection and coverage pass, but MODEL_5 does not pass the 30-day persistence gate or the dynamic-only incremental gates; history may track or denoise provider price but independent Fair Value is unproven.",
+    "FAIR_VALUE_HISTORY_SUPPORTED": "Temporal integrity and coverage pass; every 30-day and supporting 7-day materiality gate passes; MODEL_2 and MODEL_4 pass their incremental gates; root, band, and high-value consistency gates pass. This supports continued Fair Value research, not automatic production publication.",
+    "FAIR_VALUE_NEEDS_TRANSACTION_DATA": "Use when temporal/data maturity is inadequate, prospective history fails materially, or either high-value band remains negative, underpowered, or unstable, indicating sale-level liquidity and/or independent multi-source evidence is required.",
+    "precedence": "Integrity violation or unresolved high-value gate prevents FAIR_VALUE_HISTORY_SUPPORTED. If collection is healthy and persistence alone wins, use HISTORY_TRACKER_ONLY; otherwise use FAIR_VALUE_NEEDS_TRANSACTION_DATA."
+  },
+  "collection_health": {
+    "status": "HEALTHY_WITH_ONE_KNOWN_GAP",
+    "as_of": "2026-09-12",
+    "pathway": "Existing canonical daily TCGplayer ingestion writes append-only/latest-wins daily rows to public.card_variant_price_observations; Price Storage V2 and monthly rollups are downstream derived stores.",
+    "latest_is_expected_for_audit_date": true,
+    "current_all_canonical": {
+      "cards": 19856,
+      "usable_dates": 77,
+      "calendar_days": 78,
+      "p10_depth": 71,
+      "median_depth": 75,
+      "p90_depth": 76,
+      "cards_ge_90": 0,
+      "cards_ge_120": 0,
+      "cards_ge_180": 0,
+      "missing_dates": ["2026-08-29"]
+    },
+    "f1_before_frozen_targets": {
+      "cards": 4349,
+      "p10_depth": 67,
+      "median_depth": 73,
+      "p90_depth": 74,
+      "cards_ge_90": 0,
+      "cards_ge_120": 0,
+      "cards_ge_180": 0
+    },
+    "monitoring_change_needed": false,
+    "reason": "The canonical pipeline already retains daily observations and downstream rollups. Existing observation tables can answer readiness; a second collector or historical mutation would add risk without new authority.",
+    "future_readiness_report": [
+      "as_of and latest retained date",
+      "cohort and cohort fingerprint",
+      "p10/median/p90 directly retained daily depth",
+      "cards and percentages at >=90, >=120, and >=180 observed days",
+      "calendar-date gaps and per-card missingness",
+      "complete selected-card monthly regime count",
+      "ingestion/run failures and late/backfilled rows kept separate"
+    ]
+  },
+  "readiness_milestones": {
+    "assumption": "One usable observation per card per calendar day after 2026-09-12, with no further gaps; dates use current all-canonical p10 depth 71 so they approximate 90%-cohort readiness.",
+    "90_daily_observations": "2026-10-01",
+    "120_daily_observations": "2026-10-31",
+    "180_daily_observations": "2026-12-30",
+    "twelve_monthly_regimes": {
+      "status": "NOT_READY",
+      "current_broader_rollup_buckets": 5,
+      "current_complete_selected_card_months": 2,
+      "earliest_estimate": "2027-07-01",
+      "basis": "Twelve complete selected-card calendar months from July 2026 through June 2027, evaluated after June closes."
+    },
+    "not_promises": true
+  },
+  "security_advisory_separate": {
+    "action_taken": "NONE",
+    "rls_observed_disabled": [
+      "private.pokemon_card_chase_efficiency_publication_jobs",
+      "private.pokemon_card_chase_efficiency_publication_rows",
+      "public.pokemon_market_public_era_rollout_v1"
+    ],
+    "note": "The public table requires a separate access/policy audit. Do not blindly enable RLS because existing readers/writers may depend on current access."
+  },
+  "actions": {
+    "final_fair_value_model_fit": false,
+    "future_holdout_inspected": false,
+    "ebay_asks_used_as_price_authority": false,
+    "collection_code_changed": false,
+    "database_writes": 0,
+    "production_mutations": "NONE",
+    "deployment": false
+  }
+}
