@@ -364,7 +364,7 @@ export default function RankingsProductLensClient({ sessionCache }) {
     const load = () => fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", signal: controller.signal })
       .then((response) => response.json())
       .then((payload) => normalizeOverallProductResult(payload));
-    (sessionCache ? sessionCache.request(`products:${next}`, load) : load())
+    (sessionCache ? sessionCache.request(`products:budget:${next}`, load) : load())
       .then((nextResult) => {
         if (!controller.signal.aborted && identityAtRequest === requestKey) setOverallResult(nextResult);
       })
