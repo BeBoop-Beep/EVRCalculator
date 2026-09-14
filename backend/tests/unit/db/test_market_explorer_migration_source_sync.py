@@ -44,11 +44,42 @@ PROMPT1_LEDGER_MIRRORS = {
         "8a9bc6cb215d5352d3836ea92f67c7503ea9925d92646714f5a9e2766c46ae91",
 }
 
+PHASE2_SEARCH_LEDGER_MD5 = {
+    "20260911153742_market_explorer_phase2_enable_pg_trgm": "a9f2a818cb67519ee57158cd560ed77a",
+    "20260911154138_market_explorer_phase2_card_search_fts": "6ed68aa308da90df7f30d78f2881dbe2",
+    "20260911154222_market_explorer_phase2_card_name_trgm": "2c5a1a60fb8c06dd32e777627eda201f",
+    "20260911154613_market_explorer_phase2_canonical_instrument_search_v2": "0cb94dddaf76bf6714116db590b822b1",
+}
+
+PHASE3_OPTIONS_LEDGER_MD5 = {
+    "20260911182748_market_explorer_phase3_filter_rarity_key": "8eda8d5e71a6003a908c5a78df6f27e6",
+    "20260911182822_market_explorer_phase3_use_full_rarity_filter_for_custom_queries": "ed8fcf7e8a9e80e6ddebf63f8c111dbb",
+    "20260911183142_market_explorer_phase3_options_snapshot_contract": "b0ce4b2272f0328cb84050de233376f3",
+    "20260911183523_market_explorer_phase3_options_snapshot_least_privilege": "8c24634ed0c1db7ccadeb775b9b650cf",
+}
+
+PHASE5_PREPARED_MIRRORS = {
+    "20260911200732_market_explorer_phase5_prepared_directory_serving_contract": "6338d0a85b16eeec33f628621540d033",
+    "20260911200916_market_explorer_phase5_refresh_prepared_directory": "f0e0071263c2424f1981516c4bc3fb10",
+    "20260911201029_market_explorer_phase5_contextual_set_rankings": "66f9a79a0dcdc5e23fb1707be86b9c88",
+    "20260911201307_market_explorer_phase5_fix_contextual_ranking_metadata_join": "545fbfc912f1bcaa36743c041c9e4ec8",
+}
+
+PHASE6_EXACT_MIRRORS = {
+    "20260911211011_market_explorer_phase6_exact_basket_v2_contract": "49f8184f49c9edface89cb12983686c8",
+    "20260911211033_market_explorer_phase6_search_exact_eligibility": "ad8084a3f9ee4fd26d16ce32dcd0a537",
+    "20260911211130_market_explorer_phase6_preserve_stale_exact_basket_state": "35a28f3e34fbe111103018fede255388",
+    "20260911211254_market_explorer_phase6_separate_leaf_identity_from_price_state": "fa2cb59a708700fcfe37b379bc56eda3",
+}
+
 
 def test_prompt1_sources_use_actual_ledger_versions_and_match_statement_bytes():
     """apply_migration stored the submitted SQL with one trailing CRLF."""
     for stem, ledger_sha256 in PROMPT1_LEDGER_MIRRORS.items():
-        source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        # Git's Windows checkout may materialize CRLF. The ledger stores the
+        # submitted LF statement plus one trailing CRLF, so normalize only for
+        # this byte assertion without rewriting the frozen migration.
+        source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes().replace(b"\r\n", b"\n")
         assert hashlib.sha256(source + b"\r\n").hexdigest() == ledger_sha256
     for obsolete in (
         "20260907200000_add_market_explorer_exact_instrument_foundation.sql",
@@ -63,6 +94,49 @@ def test_recent_production_mirrors_are_text_identical_to_supabase_lineage():
         backend_text = (MIGRATIONS_DIR / f"{stem}.sql").read_text(encoding="utf-8")
         lineage_text = (ROOT / "supabase/migrations" / f"{stem}.sql").read_text(encoding="utf-8")
         assert backend_text == lineage_text
+
+
+def test_phase2_search_mirrors_match_live_ledger_statements_and_both_trees():
+    for stem, ledger_md5 in PHASE2_SEARCH_LEDGER_MD5.items():
+        backend_source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        supabase_source = (ROOT / "supabase/migrations" / f"{stem}.sql").read_bytes()
+        assert backend_source == supabase_source
+        assert hashlib.md5(backend_source.rstrip(b"\r\n")).hexdigest() == ledger_md5
+
+
+def test_phase2_search_rpc_is_bounded_ranked_and_service_role_only():
+    sql = _sql("20260911154613_market_explorer_phase2_canonical_instrument_search_v2")
+    assert "p_asset text default 'all'" in sql
+    assert "least(greatest(coalesce(p_limit, 20), 1), 50)" in sql
+    assert "order by c.relevance_score desc" in sql
+    assert "revoke all on function public.search_pokemon_market_explorer_instruments_v2" in sql
+    assert "to service_role" in sql
+
+
+def test_phase3_options_mirrors_match_live_ledger_and_both_trees():
+    for stem, ledger_md5 in PHASE3_OPTIONS_LEDGER_MD5.items():
+        backend_source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        supabase_source = (ROOT / "supabase/migrations" / f"{stem}.sql").read_bytes()
+        assert backend_source == supabase_source
+        assert hashlib.md5(backend_source.rstrip(b"\r\n")).hexdigest() == ledger_md5
+
+
+def test_phase5_prepared_migrations_are_identical_in_both_canonical_trees():
+    for stem, ledger_md5 in PHASE5_PREPARED_MIRRORS.items():
+        backend_source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        assert backend_source == (
+            ROOT / "supabase/migrations" / f"{stem}.sql"
+        ).read_bytes()
+        normalized = backend_source.replace(b"\r\n", b"\n").rstrip(b"\n")
+        assert hashlib.md5(normalized).hexdigest() == ledger_md5
+
+
+def test_phase6_exact_migrations_are_identical_in_both_canonical_trees():
+    for stem, ledger_md5 in PHASE6_EXACT_MIRRORS.items():
+        backend_source = (MIGRATIONS_DIR / f"{stem}.sql").read_bytes()
+        assert backend_source == (ROOT / "supabase/migrations" / f"{stem}.sql").read_bytes()
+        normalized = backend_source.replace(b"\r\n", b"\n").rstrip(b"\n")
+        assert hashlib.md5(normalized).hexdigest() == ledger_md5
 
 
 def _sql(stem: str) -> str:

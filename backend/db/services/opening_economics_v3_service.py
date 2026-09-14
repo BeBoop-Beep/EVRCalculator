@@ -195,7 +195,7 @@ def build_opening_economics_v3(client: Any, *, market_date: str, statuses: Seque
             recovery_audits.sort(key=lambda item: abs(item["contributionDelta"]), reverse=True)
             if {row["set_id"] for row in usable} != set(set_ids):
                 raise OpeningEconomicsV3Error("not every canonical set has eligible product economics")
-            global_scope = _identity(build_scope(usable, paths), usable)
+            global_scope = _identity(build_scope(usable, paths, include_recovery_buckets=True), usable)
             set_scopes, era_groups = [], {}
             for set_id in sorted(set_ids):
                 subset = [row for row in usable if str(row["set_id"]) == set_id]

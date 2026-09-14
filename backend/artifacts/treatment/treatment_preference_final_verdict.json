@@ -1,0 +1,10 @@
+{
+  "study":"treatment_preference_t2_price_independent_evidence",
+  "verdict":"TREATMENT_PREFERENCE_INSUFFICIENT_EVIDENCE",
+  "collectorImpact":"TREATMENT_SHOULD_REMAIN_DIAGNOSTIC",
+  "authorityType":"D_NO_SCORE",
+  "marketValidation":"NOT_RUN_INELIGIBLE",
+  "appealTreatmentInteraction":"NOT_RUN_INELIGIBLE",
+  "reason":"The construct is plausible, but no reproducible, adequately sampled, price-independent collector outcome isolates treatment from subject, artist, and scarcity.",
+  "productionMutations":0
+}

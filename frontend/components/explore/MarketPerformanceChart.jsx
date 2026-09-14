@@ -6,11 +6,16 @@ import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
 import {
   TAP_MOVEMENT_THRESHOLD_PX,
   classifyPointerGesture,
-  clampTooltipX,
 } from "./compactSparklineInteraction.mjs";
+import { positionMarketPerformanceTooltip } from "./marketPerformanceTooltipPosition.mjs";
 import {
-  MARKET_INDEX_REFERENCE_VALUE,
   buildMarketPerformanceDomain,
+  buildRelativePerformanceDomain,
+  isMarketIndexReferenceVisible,
+  MARKET_CHART_VIEW_INDEX,
+  MARKET_CHART_VIEW_PERFORMANCE,
+  MARKET_INDEX_REFERENCE_VALUE,
+  projectMarketChartValues,
 } from "./marketPerformanceDomain.mjs";
 import { formatIndexValue, formatMarketDate, formatShortDate } from "@/lib/explore/marketOverviewPresentation.mjs";
 
@@ -44,51 +49,65 @@ export function resolveAreaOpacity(seriesCount) {
   return Math.max(0.03, (BASE_AREA_OPACITY * AREA_OPACITY_FULL_AT) / count);
 }
 
-export default function MarketPerformanceChart({ model, className = "", plotClassName = "h-56 desk:h-[19rem]" }) {
+export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]" }) {
   const [activeIndex, setActiveIndex] = useState(null);
-  const [tooltipX, setTooltipX] = useState(null);
   const [tooltipAnchor, setTooltipAnchor] = useState(null);
+  const [tooltipSize, setTooltipSize] = useState({ width: 248, height: 160 });
   const pointerMode = usePointerMode();
   const containerRef = useRef(null);
+  const tooltipRef = useRef(null);
   const gestureRef = useRef(null);
   const chartId = useId().replace(/:/g, "");
 
   const dates = Array.isArray(model?.dates) ? model.dates : [];
-  const series = Array.isArray(model?.series) ? model.series : [];
+  const rawSeries = Array.isArray(model?.series) ? model.series : [];
+  const isIndexView = viewMode === MARKET_CHART_VIEW_INDEX;
+  const series = rawSeries.map((entry) => ({
+    ...entry,
+    rawValues: entry.values || [],
+    values: projectMarketChartValues(entry.values || [], viewMode),
+    performanceValues: projectMarketChartValues(entry.values || [], MARKET_CHART_VIEW_PERFORMANCE),
+  }));
 
-  const clearSelection = () => { setActiveIndex(null); setTooltipX(null); setTooltipAnchor(null); };
-  const anchorFromBounds = (bounds) => ({ left: bounds.left, top: bounds.top });
-  const selectAtClientX = (clientX) => {
+  const clearSelection = () => { setActiveIndex(null); setTooltipAnchor(null); };
+  const anchorFromBounds = (bounds, source = "keyboard", pointerYRatio = null) => ({
+    bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom, width: bounds.width, height: bounds.height },
+    source,
+    pointerYRatio,
+  });
+  const selectAtPointer = (clientX, clientY) => {
     const element = containerRef.current;
     if (!element || dates.length === 0) return;
     const bounds = element.getBoundingClientRect();
     const ratio = bounds.width > 0 ? (clientX - bounds.left) / bounds.width : 0;
     const clamped = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0));
     setActiveIndex(Math.round(clamped * Math.max(dates.length - 1, 0)));
-    setTooltipX(clampTooltipX({ chartLeft: bounds.left, chartWidth: bounds.width, pointerX: clientX - bounds.left, tooltipWidth: 248, viewportWidth: typeof window === "undefined" ? bounds.width : window.innerWidth, gutter: 8 }));
-    setTooltipAnchor(anchorFromBounds(bounds));
+    const yRatio = bounds.height > 0 ? (clientY - bounds.top) / bounds.height : 0.5;
+    setTooltipAnchor(anchorFromBounds(bounds, "pointer", Math.max(0, Math.min(1, yRatio))));
   };
   const handlePointerMove = (event) => {
-    if (event.pointerType === "mouse") return selectAtClientX(event.clientX);
+    if (event.pointerType === "mouse") return selectAtPointer(event.clientX, event.clientY);
     const gesture = gestureRef.current;
     if (!gesture) return;
     const kind = classifyPointerGesture({ startX: gesture.startX, startY: gesture.startY, currentX: event.clientX, currentY: event.clientY, threshold: TAP_MOVEMENT_THRESHOLD_PX });
     if (kind === "scroll") gestureRef.current = null;
-    if (kind === "scrub") { gesture.moved = true; selectAtClientX(event.clientX); }
+    if (kind === "scrub") { gesture.moved = true; selectAtPointer(event.clientX, event.clientY); }
   };
   const handlePointerUp = (event) => {
     if (event.pointerType === "mouse") return;
     const gesture = gestureRef.current;
     gestureRef.current = null;
     if (!gesture || gesture.moved) return;
-    selectAtClientX(event.clientX);
+    selectAtPointer(event.clientX, event.clientY);
   };
 
   useEffect(() => {
     if (activeIndex === null || typeof window === "undefined") return undefined;
     const reanchor = () => {
       const element = containerRef.current;
-      if (element) setTooltipAnchor(anchorFromBounds(element.getBoundingClientRect()));
+      if (element) setTooltipAnchor((current) => current
+        ? anchorFromBounds(element.getBoundingClientRect(), current.source, current.pointerYRatio)
+        : current);
     };
     window.addEventListener("scroll", reanchor, true);
     window.addEventListener("resize", reanchor);
@@ -97,6 +116,30 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
       window.removeEventListener("resize", reanchor);
     };
   }, [activeIndex]);
+
+  useEffect(() => {
+    const element = tooltipRef.current;
+    if (!element || activeIndex === null) return undefined;
+    const measure = () => {
+      const bounds = element.getBoundingClientRect();
+      setTooltipSize((current) => {
+        const measuredWidth = Number.isFinite(bounds.width) && bounds.width > 0 ? bounds.width : current.width;
+        const heightCandidate = Math.max(
+          Number.isFinite(bounds.height) ? bounds.height : 0,
+          Number.isFinite(element.scrollHeight) ? element.scrollHeight : 0,
+        );
+        const measuredHeight = heightCandidate > 0 ? heightCandidate : current.height;
+        return current.width === measuredWidth && current.height === measuredHeight
+          ? current
+          : { width: measuredWidth, height: measuredHeight };
+      });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [activeIndex, series.length, viewMode]);
 
   const allValues = series.flatMap((entry) => (entry.values || []).filter((value) => value !== null).map((value) => ({ value })));
   if (series.length === 0) {
@@ -114,12 +157,18 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
     );
   }
 
-  const [domainMin, domainMax] = buildMarketPerformanceDomain(allValues);
+  const [domainMin, domainMax] = isIndexView
+    ? buildMarketPerformanceDomain(allValues, timeframe)
+    : buildRelativePerformanceDomain(allValues);
   const yRange = domainMax - domainMin || 1;
   const xRange = Math.max(dates.length - 1, 1);
   const xAt = (index) => 2 + (index / xRange) * (VIEW_WIDTH - 4);
   const yAt = (value) => PLOT_BOTTOM - ((value - domainMin) / yRange) * (PLOT_BOTTOM - PLOT_TOP);
-  const referenceY = yAt(MARKET_INDEX_REFERENCE_VALUE);
+  const referenceValue = isIndexView ? MARKET_INDEX_REFERENCE_VALUE : 0;
+  const referenceY = yAt(referenceValue);
+  const referenceVisible = isIndexView ? isMarketIndexReferenceVisible([domainMin, domainMax]) : true;
+  const gridValues = [0.25, 0.5, 0.75].map((ratio) => domainMin + (domainMax - domainMin) * ratio);
+  const domainPrecision = domainMax - domainMin < 2 ? 2 : domainMax - domainMin < 10 ? 1 : 0;
 
   const drawn = series.map((entry) => {
     const coordinates = (entry.values || [])
@@ -140,11 +189,27 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
         label: entry.label,
         color: entry.color,
         value: entry.values?.[activeIndex] ?? null,
+        rawValue: entry.rawValues?.[activeIndex] ?? null,
+        performanceValue: entry.performanceValues?.[activeIndex] ?? null,
         point: entry.pointMeta?.[activeIndex] || null,
       }));
   const spokenReading = activeDate
-    ? `${formatMarketDate(activeDate)}. ${activeReadings.map((reading) => `${reading.label} index ${reading.value === null ? "unavailable" : formatIndexValue(reading.value)}${reading.point?.isCarriedForward ? `, previous close carried from ${formatMarketDate(reading.point.sourceDate)}` : ""}`).join(". ")}.`
+    ? `${formatMarketDate(activeDate)}. ${activeReadings.map((reading) => `${reading.label} index ${reading.rawValue === null ? "unavailable" : formatIndexValue(reading.rawValue)}, ${timeframe} performance ${reading.performanceValue === null ? "unavailable" : `${reading.performanceValue.toFixed(2)} percent`}${reading.point?.isCarriedForward ? `, previous close carried from ${formatMarketDate(reading.point.sourceDate)}` : ""}`).join(". ")}.`
     : null;
+  const tooltipPosition = activeIndex === null || !tooltipAnchor
+    ? null
+    : positionMarketPerformanceTooltip({
+        chartBounds: tooltipAnchor.bounds,
+        crosshairX: tooltipAnchor.bounds.width * (xAt(activeIndex) / VIEW_WIDTH),
+        pointerY: tooltipAnchor.pointerYRatio === null
+          ? null
+          : tooltipAnchor.bounds.top + tooltipAnchor.bounds.height * tooltipAnchor.pointerYRatio,
+        tooltipWidth: tooltipSize.width,
+        tooltipHeight: tooltipSize.height,
+        viewportWidth: typeof window === "undefined" ? tooltipAnchor.bounds.right : window.innerWidth,
+        viewportHeight: typeof window === "undefined" ? tooltipAnchor.bounds.bottom : window.innerHeight,
+        interactionSource: tooltipAnchor.source,
+      });
 
   const gradientPrefix = `market-performance-${chartId}`;
   const areaOpacity = resolveAreaOpacity(drawn.length);
@@ -154,15 +219,16 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
       <div
         ref={containerRef}
         data-market-performance-chart
+        data-market-chart-view={viewMode}
         data-market-performance-domain-min={domainMin}
         data-market-performance-domain-max={domainMax}
         data-pointer-mode={pointerMode}
         role="img"
         tabIndex={0}
         aria-label={spokenReading
-          ? `Pokémon Market Performance. Reference line represents Market Index 100. Selected ${spokenReading}`
-          : `Pokémon Market Performance, ${formatMarketDate(dates[0])} to ${formatMarketDate(dates[dates.length - 1])}. Reference line represents Market Index 100. Use left and right arrow keys to inspect daily index values.`}
-        className={["group relative z-10 touch-pan-y overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65", plotClassName].join(" ")}
+          ? `${isIndexView ? "Pokémon canonical Market Index" : "Pokémon selected-window percentage performance"}. Selected ${spokenReading}`
+          : `${isIndexView ? "Pokémon canonical Market Index" : "Pokémon selected-window percentage performance"}, ${formatMarketDate(dates[0])} to ${formatMarketDate(dates[dates.length - 1])}. Use left and right arrow keys to inspect daily values.`}
+        className={["group relative z-10 touch-pan-y overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65", plotClassName].join(" ")}
         onPointerDown={(event) => { if (event.pointerType !== "mouse") gestureRef.current = { startX: event.clientX, startY: event.clientY, moved: false }; }}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -171,8 +237,7 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
         onFocus={(event) => {
           const bounds = event.currentTarget.getBoundingClientRect();
           setActiveIndex(dates.length - 1);
-          setTooltipX(clampTooltipX({ chartLeft: bounds.left, chartWidth: bounds.width, pointerX: bounds.width / 2, tooltipWidth: 248, viewportWidth: typeof window === "undefined" ? bounds.width : window.innerWidth }));
-          setTooltipAnchor(anchorFromBounds(bounds));
+          setTooltipAnchor(anchorFromBounds(bounds, "keyboard"));
         }}
         onBlur={clearSelection}
         onKeyDown={(event) => {
@@ -181,7 +246,7 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
             const step = event.key === "ArrowRight" ? 1 : -1;
             const base = activeIndex === null ? dates.length - 1 : activeIndex;
             setActiveIndex(Math.max(0, Math.min(dates.length - 1, base + step)));
-            setTooltipAnchor(anchorFromBounds(event.currentTarget.getBoundingClientRect()));
+            setTooltipAnchor(anchorFromBounds(event.currentTarget.getBoundingClientRect(), "keyboard"));
           } else if (event.key === "Escape") {
             clearSelection();
           }
@@ -196,10 +261,11 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
               </linearGradient>
             ))}
           </defs>
+          {gridValues.map((value) => <line key={value} data-market-performance-grid x1="2" x2={VIEW_WIDTH - 2} y1={yAt(value)} y2={yAt(value)} stroke="rgba(148,163,184,0.13)" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
           {drawn.map((entry) => (entry.coordinates.length
             ? <path key={`${entry.key}-area`} data-market-performance-area={entry.key} d={`M ${entry.polyline.replaceAll(" ", " L ")} L ${entry.coordinates[entry.coordinates.length - 1].x.toFixed(2)},${PLOT_BOTTOM} L ${entry.coordinates[0].x.toFixed(2)},${PLOT_BOTTOM} Z`} fill={`url(#${gradientPrefix}-${entry.key})`} />
             : null))}
-          <line data-market-performance-reference="100" x1="2" x2={VIEW_WIDTH - 2} y1={referenceY} y2={referenceY} stroke="rgba(255,255,255,0.16)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          {referenceVisible ? <line data-market-performance-reference={referenceValue} x1="2" x2={VIEW_WIDTH - 2} y1={referenceY} y2={referenceY} stroke="rgba(255,255,255,0.28)" strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
           {drawn.map((entry) => (entry.coordinates.length >= 2
             ? <polyline key={`${entry.key}-line`} data-market-performance-series={entry.key} points={entry.polyline} fill="none" stroke={entry.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             : null))}
@@ -207,14 +273,15 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
             <line data-market-performance-guide x1={xAt(activeIndex)} x2={xAt(activeIndex)} y1={PLOT_TOP} y2={PLOT_BOTTOM} stroke="rgba(255,255,255,0.2)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           )}
         </svg>
-        <span
+        {gridValues.map((value) => <span key={value} aria-hidden="true" className="pointer-events-none absolute right-1 text-[9px] tabular-nums text-[var(--text-secondary)]" style={{ top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, transform: "translateY(-50%)" }}>{isIndexView ? formatIndexValue(value) : `${value > 0 ? "+" : ""}${value.toFixed(domainPrecision)}%`}</span>)}
+        {referenceVisible ? <span
           data-market-performance-reference-label
           aria-hidden="true"
           className="pointer-events-none absolute left-[2.5%] text-[9px] leading-none text-[var(--text-secondary)]"
           style={{ top: `${(referenceY / VIEW_HEIGHT) * 100}%`, transform: "translateY(-115%)" }}
         >
-          100
-        </span>
+          {isIndexView ? formatIndexValue(referenceValue) : "0%"}
+        </span> : null}
         {activeIndex === null ? null : drawn.map((entry) => {
           const value = entry.values?.[activeIndex] ?? null;
           if (value === null) return null;
@@ -228,12 +295,15 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
             />
           );
         })}
-        {activeDate && tooltipX !== null && tooltipAnchor && typeof document !== "undefined"
+        {activeDate && tooltipPosition && typeof document !== "undefined"
           ? createPortal(
               <div
+                ref={tooltipRef}
                 data-market-performance-tooltip
-                className="pointer-events-none fixed z-[80] min-w-[11rem] max-w-[min(16rem,calc(100vw-1rem))] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]"
-                style={{ left: tooltipAnchor.left + tooltipX, top: tooltipAnchor.top - 10, transform: "translate(-50%, -100%)" }}
+                data-market-performance-tooltip-horizontal={tooltipPosition.horizontalPlacement}
+                data-market-performance-tooltip-vertical={tooltipPosition.verticalPlacement}
+                className="pointer-events-none fixed z-[80] overflow-y-auto rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]"
+                style={{ left: tooltipPosition.left, top: tooltipPosition.top, width: tooltipPosition.width, maxHeight: tooltipPosition.maxHeight }}
               >
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatMarketDate(activeDate)}</p>
                 <ul className="mt-1 space-y-0.5">
@@ -241,8 +311,9 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
                     <li key={reading.key} className="flex items-center justify-between gap-3 text-[11px]">
                       <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
                         <span aria-hidden="true" className="inline-block h-2 w-2 rounded-[2px]" style={{ backgroundColor: reading.color }} />
-                        <span>
-                          {reading.label}
+                          <span>
+                            {reading.label}
+                            <span className="block text-[9px]">{isIndexView ? "Canonical index" : `${timeframe} performance`}</span>
                           {reading.point?.isCarriedForward ? (
                             <span data-market-performance-carried-source={reading.key} className="block text-[9px]">
                               Last observed {formatShortDate(reading.point.sourceDate)}
@@ -250,7 +321,19 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
                           ) : null}
                         </span>
                       </span>
-                      <span className="font-semibold tabular-nums text-[var(--text-primary)]">{reading.value === null ? "—" : formatIndexValue(reading.value)}</span>
+                      <span className="text-right font-semibold tabular-nums text-[var(--text-primary)]">
+                        {isIndexView ? (
+                          <>
+                            <span className="block">Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
+                            <span className="block text-[9px] font-normal text-[var(--text-secondary)]">{timeframe} Performance {reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="block">{reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
+                            <span className="block text-[9px] font-normal text-[var(--text-secondary)]">Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
+                          </>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>

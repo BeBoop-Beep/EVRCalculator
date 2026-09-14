@@ -5,7 +5,7 @@ import { selectChaseAccessibilityPresentation } from "../../explore/chaseAccessi
 const rip = fs.readFileSync(new URL("./ProductRipSection.jsx", import.meta.url), "utf8");
 const detail = fs.readFileSync(new URL("./SealedProductDetailClient.jsx", import.meta.url), "utf8");
 test("Product RIP is Overall above three peer cards", () => {
-  assert.ok(rip.indexOf('label="Overall RIP"') < rip.indexOf('data-three-pillar-summary="product"'));
+  assert.ok(rip.indexOf('label="RIP Score"') < rip.indexOf('data-three-pillar-summary="product"'));
   for (const label of ["Financial RIP", "Chase Accessibility", "Collector Appeal"]) assert.ok(rip.includes(label));
   assert.doesNotMatch(rip, /data-market-based-opening-quality/);
 });

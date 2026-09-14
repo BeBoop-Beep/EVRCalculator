@@ -119,3 +119,18 @@ test("a malformed body is rejected before it reaches the backend", async () => {
     backend.restore();
   }
 });
+
+test("an options transport failure remains distinct from empty options", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new TypeError("connection refused"); };
+  try {
+    const response = await GET(request({ cookie: SESSION_COOKIE }));
+    assert.equal(response.status, 503);
+    assert.deepEqual(JSON.parse(await response.text()), {
+      message: "Market Explorer query service is temporarily unavailable",
+      code: "MARKET_EXPLORER_QUERY_PROXY_UNAVAILABLE",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

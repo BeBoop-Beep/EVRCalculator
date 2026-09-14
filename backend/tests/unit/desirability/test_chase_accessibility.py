@@ -347,11 +347,12 @@ def test_canonical_overall_rip_is_now_v12_at_eighty_six_four_ten():
     assert CANONICAL_OVERALL_RIP_WEIGHTS["collector_appeal"] == pytest.approx(0.10)
 
 
-def test_chase_accessibility_is_not_wired_into_overall_rip():
+def test_chase_accessibility_is_wired_only_into_canonical_v12_overall_rip():
     from backend.desirability import weighted_rip
     source = inspect.getsource(weighted_rip)
-    assert "chase_accessibility" not in source
-    assert "ChaseAccessibility" not in source
+    assert "def compute_overall_rip_v12(" in source
+    assert "chase_accessibility_overall_score(" in source
+    assert "0.86 * financial_rip_v4 + 0.04 * chase_accessibility_overall_score" in source
 
 
 # --------------------------------------------------------------------------

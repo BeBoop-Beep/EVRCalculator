@@ -1,0 +1,7 @@
+{
+  "version": "ebay_metric_sensitivity_d2_v1",
+  "status": "BLOCKED_PENDING_D1_AND_D2_GOLD_BENCHMARKS",
+  "metrics": ["listing count", "seller count", "median", "p25", "p75", "IQR", "minimum", "auction count", "fixed-price count"],
+  "d1VsD2": null,
+  "reason": "No D2 matcher may be frozen and no aggregate comparison may be interpreted before independent labels exist."
+}

@@ -1,0 +1,53 @@
+=== PHASE 4: SYNTHETIC ARCHETYPES ===
+archetype                    n   appeal   rawMass       D
+1_5_elite                    5       95     4.743   54.64
+2_10_elite                  10       95     9.487   79.43
+3_20_elite                  20       95    18.974   95.77
+4_5_mediocre                 5       65     2.739   36.65
+5_10_mediocre               10       65     5.477   59.86
+6_20_mediocre               20       65    10.954   83.89
+7_5elite_15neutral          20       95     4.743   54.64
+8_5elite_50neutral          55       95     4.743   54.64
+9_1_iconic_only              1       99     0.990   15.21
+10_30_moderate              30       70    18.974   95.77
+11_broad_weak               60       55    18.974   95.77
+12_narrow_elite              3       98     2.939   38.73
+
+Q: Can a broad weak roster outrank a narrow elite roster?
+  broad weak (60x appeal=55): D=95.77  vs  narrow elite (3x appeal=98): D=38.73  -> broad_beats_narrow=True
+
+Q: how many mediocre(65) Pokemon needed to match/overpower 1 elite(95)?
+  n=   1 mediocre(65) -> D=  8.72 vs 1 elite(95) D=14.62  <
+  n=   2 mediocre(65) -> D= 16.69 vs 1 elite(95) D=14.62  >=
+  n=   3 mediocre(65) -> D= 23.96 vs 1 elite(95) D=14.62  >=
+  n=   5 mediocre(65) -> D= 36.65 vs 1 elite(95) D=14.62  >=
+  n=  10 mediocre(65) -> D= 59.86 vs 1 elite(95) D=14.62  >=
+  n=  15 mediocre(65) -> D= 74.57 vs 1 elite(95) D=14.62  >=
+  n=  20 mediocre(65) -> D= 83.89 vs 1 elite(95) D=14.62  >=
+  n=  30 mediocre(65) -> D= 93.53 vs 1 elite(95) D=14.62  >=
+  n=  40 mediocre(65) -> D= 97.40 vs 1 elite(95) D=14.62  >=
+  n=  60 mediocre(65) -> D= 99.58 vs 1 elite(95) D=14.62  >=
+  n=  80 mediocre(65) -> D= 99.93 vs 1 elite(95) D=14.62  >=
+  n= 100 mediocre(65) -> D= 99.99 vs 1 elite(95) D=14.62  >=
+
+Q: how many mediocre(65) needed to overpower 5 elite(95)?
+  n=   5 mediocre(65) -> D= 36.65 vs 5 elite(95) D=54.64  <
+  n=  10 mediocre(65) -> D= 59.86 vs 5 elite(95) D=54.64  >=
+  n=  20 mediocre(65) -> D= 83.89 vs 5 elite(95) D=54.64  >=
+  n=  30 mediocre(65) -> D= 93.53 vs 5 elite(95) D=54.64  >=
+  n=  40 mediocre(65) -> D= 97.40 vs 5 elite(95) D=54.64  >=
+  n=  60 mediocre(65) -> D= 99.58 vs 5 elite(95) D=54.64  >=
+  n=  80 mediocre(65) -> D= 99.93 vs 5 elite(95) D=54.64  >=
+  n= 100 mediocre(65) -> D= 99.99 vs 5 elite(95) D=54.64  >=
+  n= 120 mediocre(65) -> D=100.00 vs 5 elite(95) D=54.64  >=
+
+Q: does adding neutral-50 pokemon change D? (should be no)
+  base(5x80)=47.5598  +50 neutral(50)s=47.5598  changed=False
+
+Q: does adding barely-above-neutral (51) accumulate too much mass?
+  +  10x appeal=51 -> D=58.57 (base=47.56, delta=11.01)
+  +  30x appeal=51 -> D=74.14 (base=47.56, delta=26.58)
+  +  60x appeal=51 -> D=87.25 (base=47.56, delta=39.69)
+  + 100x appeal=51 -> D=95.03 (base=47.56, delta=47.47)
+  + 200x appeal=51 -> D=99.53 (base=47.56, delta=51.97)
+

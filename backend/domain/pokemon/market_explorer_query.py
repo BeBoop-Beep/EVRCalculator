@@ -46,14 +46,17 @@ from backend.domain.pokemon.market_index import (
 
 MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v3-variant"
 MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1-explicit-instrument"
+MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION_V2 = "pokemon-market-explorer-query-v2-qualified-explicit-instrument"
 MARKET_EXPLORER_FINGERPRINT_VERSION = "market-explorer-fingerprint-v1"
 MARKET_EXPLORER_SERVICE_VERSIONS = {
     "cards": "pokemon-market-explorer-query-service-v2-variant",
     "sealed": "pokemon-sealed-market-explorer-query-service-v1",
+    "mixed": "pokemon-market-explorer-exact-basket-v2",
 }
 MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS = {
     "cards": "pokemon-physical-market-instrument-v1",
     "sealed": "pokemon-sealed-product-market-instrument-v1",
+    "mixed": "pokemon-qualified-leaf-one-unit-v1",
 }
 
 FILTER_AXIS_SCOPE = "scope"
@@ -71,6 +74,7 @@ MAX_EXPLICIT_INSTRUMENTS = 25
 ASSET_CARDS = "cards"
 ASSET_SEALED = "sealed"
 SUPPORTED_ASSETS = (ASSET_CARDS, ASSET_SEALED)
+ASSET_MIXED = "mixed"
 
 MODE_ALL = "all"
 MODE_CHASE = "chase"
@@ -150,6 +154,7 @@ def normalize_query_spec(
     top_n: int | None = None,
     membership_mode: str | None = None,
     instrument_ids: Iterable[Any] | None = None,
+    instruments: Iterable[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """The canonical form of a Market Explorer query.
 
@@ -158,8 +163,20 @@ def normalize_query_spec(
     never means "an empty universe", so a freshly-opened filter panel describes
     the whole market rather than nothing.
     """
+    qualified = []
+    for raw in instruments or ():
+        if not isinstance(raw, Mapping):
+            raise MarketExplorerQueryError("each explicit instrument must be an object")
+        item_asset = str(raw.get("asset") or "").strip().lower()
+        item_id = str(raw.get("instrumentId") or "").strip()
+        if item_asset not in SUPPORTED_ASSETS or not item_id:
+            raise MarketExplorerQueryError("explicit instruments require asset cards|sealed and instrumentId")
+        qualified.append((item_asset, item_id))
+    qualified = sorted(set(qualified))
     asset_key = str(asset or "").strip()
-    if asset_key not in SUPPORTED_ASSETS:
+    if qualified:
+        asset_key = (qualified[0][0] if len({item[0] for item in qualified}) == 1 else ASSET_MIXED)
+    if asset_key not in (*SUPPORTED_ASSETS, ASSET_MIXED):
         raise MarketExplorerQueryError(f"unsupported asset: {asset!r}")
 
     membership = str(membership_mode or MEMBERSHIP_FILTERS).strip().lower()
@@ -167,16 +184,25 @@ def normalize_query_spec(
         raise MarketExplorerQueryError(f"unsupported membership mode: {membership_mode!r}")
     explicit_ids = _clean_ids(instrument_ids)
     if membership == MEMBERSHIP_EXPLICIT:
-        if not explicit_ids:
-            raise MarketExplorerQueryError("explicit membership requires at least one instrumentId")
-        if len(explicit_ids) > MAX_EXPLICIT_INSTRUMENTS:
-            raise MarketExplorerQueryError("explicit membership supports at most 25 instrumentIds")
+        explicit_count = len(qualified) if qualified else len(explicit_ids)
+        if not explicit_count:
+            raise MarketExplorerQueryError("explicit membership requires at least one instrument")
+        if explicit_count > MAX_EXPLICIT_INSTRUMENTS:
+            raise MarketExplorerQueryError("explicit membership supports at most 25 instruments")
+
+    # Exact Basket is an independent leaf-instrument definition. Stale scope,
+    # peer-filter, and ranking fields from a prior Builder state are
+    # deterministically removed; they never narrow explicit membership.
+    exact_membership = membership == MEMBERSHIP_EXPLICIT
 
     mode_key = str(mode or "").strip()
     if mode_key not in SUPPORTED_MODES:
         raise MarketExplorerQueryError(f"unsupported market mode: {mode!r}")
 
-    if mode_key == MODE_CHASE:
+    if exact_membership:
+        mode_key = MODE_ALL
+        resolved_top_n = None
+    elif mode_key == MODE_CHASE:
         resolved_top_n = DEFAULT_CHASE_TOP_N if top_n is None else int(top_n)
         if resolved_top_n <= 0:
             raise MarketExplorerQueryError("chase topN must be a positive integer")
@@ -190,21 +216,21 @@ def normalize_query_spec(
     # key are different vocabularies over different universes, and a spec that
     # mixed them would describe no market at all. Rejecting here means the
     # engines below never have to ask whether their segment list is theirs.
-    cleaned_segments = _clean_ids(segment_ids)
-    unknown = [value for value in cleaned_segments if value not in segment_vocabulary(asset_key)]
+    cleaned_segments = () if exact_membership else _clean_ids(segment_ids)
+    unknown = [value for value in cleaned_segments if value not in segment_vocabulary(asset_key)] if not exact_membership else []
     if unknown:
         raise MarketExplorerQueryError(
             f"segment(s) {unknown!r} are not valid for asset {asset_key!r}"
         )
 
-    cleaned_pokemon = _clean_ids(pokemon_ids)
+    cleaned_pokemon = () if exact_membership else _clean_ids(pokemon_ids)
     if asset_key == ASSET_SEALED and cleaned_pokemon:
         raise MarketExplorerQueryError("Pokemon filtering is supported for cards only")
-    cleaned_price_segments = _clean_ids(price_segment_ids)
+    cleaned_price_segments = () if exact_membership else _clean_ids(price_segment_ids)
     unknown_price = sorted(set(cleaned_price_segments) - set(PRICE_SEGMENT_IDS))
     if unknown_price:
         raise MarketExplorerQueryError(f"unknown price segment(s): {unknown_price}")
-    cleaned_release_ages = _clean_ids(release_age_cohort_ids)
+    cleaned_release_ages = () if exact_membership else _clean_ids(release_age_cohort_ids)
     unknown_release = sorted(set(cleaned_release_ages) - set(RELEASE_AGE_COHORT_IDS))
     if unknown_release:
         raise MarketExplorerQueryError(f"unknown release-age cohort(s): {unknown_release}")
@@ -212,8 +238,8 @@ def normalize_query_spec(
     normalized = {
         "contractVersion": MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
         "asset": asset_key,
-        "eraIds": _clean_ids(era_ids),
-        "setIds": _clean_ids(set_ids),
+        "eraIds": () if exact_membership else _clean_ids(era_ids),
+        "setIds": () if exact_membership else _clean_ids(set_ids),
         "segmentIds": cleaned_segments,
         "pokemonIds": cleaned_pokemon,
         "priceSegmentIds": cleaned_price_segments,
@@ -225,9 +251,16 @@ def normalize_query_spec(
     # existing filter query. Explicit membership alone opts into a distinct,
     # collision-proof contract and adds its two new identity fields.
     if membership == MEMBERSHIP_EXPLICIT:
-        normalized["contractVersion"] = MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION
+        normalized["contractVersion"] = (MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION_V2
+                                         if qualified else MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION)
         normalized["membershipMode"] = MEMBERSHIP_EXPLICIT
-        normalized["instrumentIds"] = explicit_ids
+        if qualified:
+            normalized["instruments"] = tuple(
+                {"asset": item_asset, "instrumentId": item_id}
+                for item_asset, item_id in qualified
+            )
+        else:
+            normalized["instrumentIds"] = explicit_ids
     return normalized
 
 
@@ -239,9 +272,9 @@ def segment_vocabulary(asset: str) -> frozenset[str]:
     them, and are never restated here.
     """
     if asset == ASSET_CARDS:
-        from backend.domain.pokemon.card_rarity_taxonomy import RAW_CARD_SEGMENT_DEFINITIONS
+        from backend.domain.pokemon.card_rarity_taxonomy import FILTER_RARITY_DEFINITIONS
 
-        return frozenset(str(definition["key"]) for definition in RAW_CARD_SEGMENT_DEFINITIONS)
+        return frozenset(str(definition["key"]) for definition in FILTER_RARITY_DEFINITIONS)
     if asset == ASSET_SEALED:
         from backend.domain.pokemon.sealed_market_segments import SEALED_SEGMENT_DEFINITIONS
 
@@ -294,7 +327,9 @@ def query_key(spec: Mapping[str, Any]) -> str:
         f"topN={spec['topN'] if spec['topN'] is not None else 'na'}",
     ]
     if spec.get("membershipMode") == MEMBERSHIP_EXPLICIT:
-        parts.insert(1, _key_part("instrument", spec["instrumentIds"]))
+        identities = (tuple(f"{item['asset']}:{item['instrumentId']}" for item in spec.get("instruments", ()))
+                      or spec.get("instrumentIds", ()))
+        parts.insert(1, _key_part("instrument", identities))
         parts.insert(1, "membership=explicit")
     return "|".join(parts)
 
@@ -329,7 +364,10 @@ def fingerprint_payload(
     }
     if spec.get("membershipMode") == MEMBERSHIP_EXPLICIT:
         payload["spec"]["membershipMode"] = MEMBERSHIP_EXPLICIT
-        payload["spec"]["instrumentIds"] = list(spec["instrumentIds"])
+        if spec.get("contractVersion") == MARKET_EXPLORER_EXPLICIT_QUERY_CONTRACT_VERSION_V2:
+            payload["spec"]["instruments"] = [dict(item) for item in spec["instruments"]]
+        else:
+            payload["spec"]["instrumentIds"] = list(spec["instrumentIds"])
     return payload
 
 

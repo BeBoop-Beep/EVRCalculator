@@ -7,6 +7,9 @@ const FIXTURE_PORT = 8011;
 const NEXT_PORT = 3130;
 const mode = process.argv.includes("--capture") ? "capture" : "verify";
 const skipBuild = process.argv.includes("--skip-build");
+const fixtureSuite = process.env.FIXTURE_SUITE || "set-rich-v1";
+const visualScript = process.env.VISUAL_SCRIPT || ".perf-audit/set-rich-visual-parity.mjs";
+const visualBaseline = process.env.VISUAL_BASELINE || "set-rich-fixture-v2";
 
 function run(command, args, env = {}) {
   return new Promise((resolve, reject) => {
@@ -67,20 +70,21 @@ function terminate(child) {
 
 try {
   await waitFor(`${backend}/__fixture__/health`, "fixture server");
-  const manifest = JSON.parse(readFileSync(".perf-audit/fixtures/set-rich-v1/manifest.json", "utf8"));
+  const manifest = JSON.parse(readFileSync(`.perf-audit/fixtures/${fixtureSuite}/manifest.json`, "utf8"));
   for (const [route, entry] of Object.entries(manifest.routes)) {
     if (entry.critical === false) continue;
-    const response = await fetch(`${backend}${route}`);
+    const response = await fetch(`${backend}${route}`, { headers: { "x-fixture-preflight": "1" } });
     if (!response.ok) throw new Error(`Critical fixture preflight failed: ${route} HTTP ${response.status}`);
   }
   await waitForPort(NEXT_PORT, "Next production server");
-  await run("node", [".perf-audit/set-rich-visual-parity.mjs", `--${mode}`], {
+  await run("node", [visualScript, `--${mode}`], {
     BASE: `http://127.0.0.1:${NEXT_PORT}`,
-    SET_VISUAL_BASELINE: "set-rich-fixture-v2",
+    FIXTURE_BASE: backend,
+    SET_VISUAL_BASELINE: visualBaseline,
   });
   const report = await (await fetch(`${backend}/__fixture__/report`)).json();
   console.log(JSON.stringify(report, null, 2));
-  if (report.unexpectedRequests.length || report.unusedCriticalFixtures.length) {
+  if (report.unexpectedBrowserRequests.length || report.unusedBrowserCriticalFixtures.length) {
     throw new Error("Fixture completeness assertion failed");
   }
 } finally {

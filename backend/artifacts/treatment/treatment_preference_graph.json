@@ -1,0 +1,16 @@
+{
+  "study":"treatment_preference_t2_price_independent_evidence",
+  "nodes":["alternate_artwork","full_art","gold_or_gilded","illustration_led","rainbow","shiny","special_foil","textured","vintage_specialty"],
+  "edges":[
+    {"treatmentA":"rainbow","treatmentB":"gold_or_gilded","era":"Sword & Shield","evidenceClass":"B","acceptedDirectPreference":false,"direction":"CONFLICTING_OR_UNRECOVERABLE","sourceIds":["reddit_rainbow_vs_gold"],"structuralIdentification":"CONTROL_COHORTS_EXIST_SEPARATELY"},
+    {"treatmentA":"illustration_led","treatmentB":"full_art","era":"Scarlet & Violet","evidenceClass":"B","acceptedDirectPreference":false,"direction":"NOT_IDENTIFIED","sourceIds":["reddit_illustration_rares_hill","reddit_ir_art_hardest"],"structuralIdentification":"CONTROL_COHORTS_EXIST_SEPARATELY"},
+    {"treatmentA":"vintage_specialty","treatmentB":"special_foil","era":"Vintage","evidenceClass":"B","acceptedDirectPreference":false,"direction":"NOT_IDENTIFIED","sourceIds":["pokebeach_favorite_card_art"],"structuralIdentification":"CONTROL_COHORTS_EXIST_SEPARATELY"}
+  ],
+  "directPreferenceEdgeCount":0,
+  "indirectOnlyEdgeCount":3,
+  "connectedTreatmentCount":0,
+  "disconnectedTreatments":["alternate_artwork","full_art","gold_or_gilded","illustration_led","rainbow","shiny","special_foil","textured","vintage_specialty"],
+  "cardinalScoringEligible":false,
+  "ordinalScoringEligible":false,
+  "warning":"Structural comparability is not a preference outcome; indirect edges cannot authorize transitive inference."
+}

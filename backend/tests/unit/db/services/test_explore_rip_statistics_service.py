@@ -192,6 +192,35 @@ def test_rankings_top_chase_run_mismatch_refuses_stale_publication(monkeypatch):
         )
 
 
+def test_rankings_top_chase_missing_lineage_refuses_publication(monkeypatch):
+    rows = [{"set_id": "set-1", "payload_json": {"ripDecision": {"topChase": {
+        "cardName": "Unproven", "currentMarketPrice": 10,
+        "impliedOddsOneInN": 20, "packsFor50PercentChance": 14,
+    }}}}]
+    with pytest.raises(RuntimeError, match="without source lineage"):
+        service._load_rankings_top_chase_lookup(
+            [{"set_id": "set-1", "calculation_run_id": "run-current"}],
+            sources={}, warnings=[], snapshot_rows=rows,
+        )
+
+
+def test_rankings_top_chase_uses_explicit_staged_generation_authority(monkeypatch):
+    client = _Client({"pokemon_set_page_snapshot_latest": lambda _q: (_ for _ in ()).throw(
+        AssertionError("active snapshot must not be read for coordinated publication")
+    )})
+    monkeypatch.setattr(service, "service_read_client", client)
+    chase = {"cardName": "Fresh", "currentMarketPrice": 12,
+             "impliedOddsOneInN": 30, "packsFor50PercentChance": 21,
+             "sourceCalculationRunId": "run-current"}
+    lookup = service._load_rankings_top_chase_lookup(
+        [{"set_id": "set-1", "calculation_run_id": "run-current"}],
+        sources={}, warnings=[],
+        snapshot_rows=[{"set_id": "set-1", "payload_json": {"ripDecision": {"topChase": chase}}}],
+    )
+    assert lookup == {"set-1": chase}
+    assert client.calls == []
+
+
 def test_missing_canonical_chase_stays_unavailable(monkeypatch):
     client = _Client({"pokemon_set_page_snapshot_latest": lambda _q: [
         {"set_id": "set-1", "payload_json": {"ripDecision": {"topChase": {

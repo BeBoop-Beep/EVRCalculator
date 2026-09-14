@@ -859,3 +859,24 @@ test("selecting a market again after Clear Graph cancels explicitlyCleared", () 
   assert.equal(reselected.explicitlyCleared, false);
   assert.deepEqual(reselected.assetUniverse, ["raw"]);
 });
+
+test("Basic prepared selection replaces every prior prepared market atomically", () => {
+  const available = {
+    assetKeys: ["raw", "sealedMarket"],
+    sealedFamilyIds: ["sealed:boosterBox"],
+    cardSegmentIds: ["card:raw:specialIllustrationRare"],
+  };
+  const state = {
+    assetUniverse: ["raw"],
+    sealedFamilyIds: ["sealed:boosterBox"],
+    segmentIds: ["card:raw:specialIllustrationRare"],
+  };
+  const replaced = reduceExplorerSelection(state, {
+    type: EXPLORER_SELECTION_ACTIONS.replacePrepared,
+    seriesId: "sealedMarket",
+    available,
+  });
+  assert.deepEqual(replaced, {
+    assetUniverse: ["sealedMarket"], sealedFamilyIds: [], segmentIds: [], explicitlyCleared: false,
+  });
+});

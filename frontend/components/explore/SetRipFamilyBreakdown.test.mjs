@@ -82,6 +82,28 @@ function renderedText(renderer) {
   return values.join("");
 }
 
+// Isolates the text under one data-attributed JSON node from the full
+// renderer.toJSON() tree. A react-test-renderer TestInstance (what
+// `renderer.root.find(...)` returns) has no `.toJSON()` of its own, so
+// walking the raw JSON tree by the same data attribute is what actually
+// scopes the assertion to one cell instead of silently reading nothing.
+function findJsonNode(node, predicate) {
+  if (!node || typeof node !== "object") return null;
+  if (predicate(node)) return node;
+  const children = Array.isArray(node.children) ? node.children : [];
+  for (const child of children) {
+    const found = findJsonNode(child, predicate);
+    if (found) return found;
+  }
+  return null;
+}
+
+function columnText(renderer, columnKey) {
+  const node = findJsonNode(renderer.toJSON(), (candidate) => candidate?.props?.["data-rankings-family-column"] === columnKey);
+  assert.ok(node, `expected to find a data-rankings-family-column="${columnKey}" cell`);
+  return renderedText({ toJSON: () => node });
+}
+
 test("Rankings renders every enriched family as a text-first module", () => {
   const renderer = render(React.createElement(FamilySnapshot, { setRip: enrichedFamilies, layout: "modules" }));
   assert.equal(renderer.root.findAll((node) => node.props["data-family-module"] !== undefined).length, 6);
@@ -185,6 +207,44 @@ test("family prices format one SKU, multiple SKUs, and reject zero or invalid va
   assert.equal(formatFamilyMarketPrice({ skuCount: 2, minMarketPrice: 167.87 }), "from $167.87");
   assert.equal(formatFamilyMarketPrice({ skuCount: 1, minMarketPrice: 0 }), null);
   assert.equal(formatFamilyMarketPrice({ skuCount: 1, minMarketPrice: "bad" }), null);
+});
+
+test("not entitled locks desktop family cells even when a column has zero entries (Task 4 fix)", () => {
+  // Reviewer finding on Task 4: RankingsFamilyCells used to render the
+  // unlocked "—" placeholder whenever a column had no entries, regardless of
+  // entitlement — bypassing the lock precisely in the "no underlying data"
+  // case the spec calls out. Not entitled must lock even here.
+  const setRip = { familyScores: [{ family: "booster_bundle", score: 92.3, tier: "S", rank: 3, cohortSize: 20 }] };
+  const renderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
+    React.createElement(RankingsFamilyCells, { setRip, canViewProductRipIntelligence: false })
+  ))));
+  const text = columnText(renderer, "booster-box");
+  assert.ok(text.includes("Plus RIP"));
+  assert.ok(!text.includes("—"));
+});
+
+test("entitled with zero entries still renders the existing em-dash placeholder (regression guard)", () => {
+  const setRip = { familyScores: [{ family: "booster_bundle", score: 92.3, tier: "S", rank: 3, cohortSize: 20 }] };
+  const renderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
+    React.createElement(RankingsFamilyCells, { setRip, canViewProductRipIntelligence: true })
+  ))));
+  const text = columnText(renderer, "booster-box");
+  assert.ok(text.includes("—"));
+  assert.ok(!text.includes("Plus RIP"));
+});
+
+test("not entitled locks the mobile FamilySnapshot even when there are zero families (Task 4 fix)", () => {
+  const renderer = render(React.createElement(FamilySnapshot, { setRip: { familyScores: [] }, layout: "modules", canViewProductRipIntelligence: false }));
+  const text = renderedText(renderer);
+  assert.ok(text.includes("Plus RIP"));
+  assert.ok(!text.includes("Family scores unavailable"));
+});
+
+test("entitled with zero families still renders 'Family scores unavailable' (regression guard)", () => {
+  const renderer = render(React.createElement(FamilySnapshot, { setRip: { familyScores: [] }, layout: "modules", canViewProductRipIntelligence: true }));
+  const text = renderedText(renderer);
+  assert.ok(text.includes("Family scores unavailable"));
+  assert.ok(!text.includes("Plus RIP"));
 });
 
 test("free family cells hide RIP intelligence but keep price; paid cells show both", () => {

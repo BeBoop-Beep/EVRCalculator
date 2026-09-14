@@ -83,7 +83,7 @@ test("A: V10-only data renders a presentation-safe explanation and never claims 
   // V10 is historical/rollback lineage as of the 2026-09-03 cutover (Overall
   // RIP V12 is canonical) - `canonical` reflects that real, current state.
   assert.equal(explanation.canonical, false);
-  assert.equal(explanation.headline, "Overall RIP combines Financial RIP with Collector Appeal.");
+  assert.equal(explanation.headline, "RIP Score combines Financial RIP with Collector Appeal.");
   assert.equal(explanation.marketBased, null);
   assert.equal(/accessibility/i.test(explanation.headline), false);
 });
@@ -95,7 +95,7 @@ test("A: explicit V12 contract data renders a presentation-safe headline with an
   assert.equal(explanation.canonical, true);
   assert.equal(
     explanation.headline,
-    "Overall RIP combines Market-Based Opening Quality with Collector Appeal."
+    "RIP Score combines Market-Based Opening Quality with Collector Appeal."
   );
   assert.ok(explanation.marketBased);
   assert.equal(explanation.marketBased.explanatoryOnly, true);
@@ -122,7 +122,7 @@ test("B: Market-Based grouping is mathematically consistent and explanatory-only
 test("J: shadow safety — a generic fixture carrying BOTH versions still resolves V10 until the caller explicitly opts into the V11 contract", () => {
   const explanation = selectOverallRipExplanationHierarchy(AMBIENT_BOTH_VERSIONS_SOURCE);
   assert.equal(explanation.version, "v10");
-  assert.equal(explanation.headline, "Overall RIP combines Financial RIP with Collector Appeal.");
+  assert.equal(explanation.headline, "RIP Score combines Financial RIP with Collector Appeal.");
 });
 
 test("J: an explicit V11-contract fixture renders the V12 explanation", () => {

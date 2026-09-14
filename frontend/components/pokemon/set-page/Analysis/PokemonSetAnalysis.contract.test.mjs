@@ -5,7 +5,7 @@ import test from "node:test";
 const source = fs.readFileSync(new URL("./PokemonSetAnalysisClient.jsx", import.meta.url), "utf8");
 
 test("Set Analysis exposes approved peer overview and independent breakdown sections", () => {
-  for (const label of ["Overall RIP", "Financial RIP", "Chase Accessibility", "Collector Appeal"])
+  for (const label of ["RIP Score", "Financial RIP", "Chase Accessibility", "Collector Appeal"])
     assert.match(source, new RegExp(label));
   for (const section of ["financial-rip", "chase-accessibility", "collector-appeal"])
     assert.match(source, new RegExp(`\\["${section}"`));

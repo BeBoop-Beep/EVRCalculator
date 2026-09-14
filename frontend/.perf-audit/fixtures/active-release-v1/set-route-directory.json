@@ -1,0 +1,7 @@
+{
+  "targets": [
+    { "target_type": "set", "target_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29", "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29", "name": "Ascended Heroes", "canonical_key": "ascendedHeroes", "slug": "ascendedHeroes", "era": "Mega Evolution" },
+    { "target_type": "set", "target_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6", "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6", "name": "Prismatic Evolutions", "canonical_key": "prismaticEvolutions", "slug": "prismaticEvolutions", "era": "Scarlet and Violet" }
+  ],
+  "meta": { "source": "candidate_fixture", "count": 2, "stale": false }
+}

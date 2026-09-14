@@ -2,7 +2,7 @@ import json
 import logging
 
 from backend.api.paid_abuse_control import (
-    POLICY_CUSTOM_QUERY, POLICY_INTERACTIVE_DETAIL, POLICY_RANKED_INTELLIGENCE,
+    POLICY_CUSTOM_QUERY, POLICY_INSTRUMENT_SEARCH, POLICY_INTERACTIVE_DETAIL, POLICY_RANKED_INTELLIGENCE,
     PaidAnalyticsLimiter,
 )
 
@@ -56,6 +56,19 @@ def test_representative_human_flow_stays_below_shared_policy_budgets():
         policy = POLICY_RANKED_INTELLIGENCE if route.startswith("rankings") else POLICY_INTERACTIVE_DETAIL
         assert limiter.check(policy_name=policy, user_id="human", route=route,
                              headers={}, client_host="human-network", request_id=str(index)).allowed
+
+
+def test_debounced_search_has_an_independent_finite_bucket():
+    limiter = PaidAnalyticsLimiter(clock=lambda: 100.0)
+    for index in range(30):
+        assert limiter.check(policy_name=POLICY_INSTRUMENT_SEARCH, user_id="human", route="search",
+                             headers={}, client_host="human-network", request_id=str(index)).allowed
+    assert not limiter.check(policy_name=POLICY_INSTRUMENT_SEARCH, user_id="human", route="search",
+                             headers={}, client_host="human-network", request_id="31").allowed
+    # Search traffic did not spend even one request from the custom-build bucket.
+    for index in range(5):
+        assert limiter.check(policy_name=POLICY_CUSTOM_QUERY, user_id="human", route="build",
+                             headers={}, client_host="human-network", request_id=f"build-{index}").allowed
 
 
 def test_telemetry_contains_no_request_secrets(caplog):

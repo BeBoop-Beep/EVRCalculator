@@ -1,0 +1,178 @@
+{
+  "controlFreezeVersion": "collector_appeal_v6_corrected_control_freeze_v1",
+  "frozenAt": "2026-09-11T19:02:07.1030605Z",
+  "environment": "production",
+  "git": {
+    "branch": "develop",
+    "startingHead": "1cde8c9295218002680d514fbb30392514af58bc"
+  },
+  "collectorAuthority": {
+    "scope": "standalone_collector_appeal",
+    "modelVersion": "pokemon_collector_appeal_v6_corrected_complete_trends_v2",
+    "modelRunId": "84833101-e658-49ea-82e2-033f7d4d8e09",
+    "modelFingerprint": "2b43616e6e77f9aa1db3c4d6e924292c14b041035d04818566570d353ffba786",
+    "status": "published",
+    "validationPassed": true,
+    "promotedAt": "2026-09-11T18:58:05.725472+00:00",
+    "currentPointerConfirmed": true
+  },
+  "lineage": {
+    "trendsSourceRunId": "77792597-7fb4-48e9-bd52-3034061f9d3e",
+    "trendsCaptureHash": "c8614e5041c279853ad87600226777beb844371289bbef07d41b25c6aa5428db",
+    "pokemonComposite": {
+      "version": "pokemon_desirability_raw_75_25_complete_trends_v2_v1",
+      "fingerprint": "4cf7f4a84a5c0ba71e32fd3c7a368966bb34db06d1155774c8f0d9d3355f0f02"
+    },
+    "correctedC3b": {
+      "version": "collector_c3b_corrected_raw_pokemon_v1",
+      "fingerprint": "22690b5fadad79bbcd65dcf39737aea54b647613634428b8608151350f7bbced"
+    },
+    "dFreezeFingerprint": "3bb56da6353fe55e787a893a1250ed1a54d7670cef85d024323fea42612067a6",
+    "productionDOutputFingerprint": "71fe75bb9a85c5a7477eafb58ce0fcfe1c04b2e8a8d6eee3b81f3463e012774e",
+    "trainerLambda": 0.15,
+    "trainerDomain": "separate",
+    "fAuthority": {
+      "version": "generalized_desirable_outcome_frequency_v1",
+      "fingerprint": "d8684f2302ce94666b9cc9cdd98c4963dca416e610a37379feea6badf81df33c"
+    },
+    "c5Authority": {
+      "version": "collector_c5_frozen_signed_frequency_v1",
+      "fingerprint": "df338d9af4dcc93cd0a4b0d4bee0f4f424019c9438ab88324154ce5df8f4ca17"
+    }
+  },
+  "counts": {
+    "cardRows": 18293,
+    "setComponentRows": 128,
+    "setAppealRows": 128,
+    "scoredSets": 22,
+    "unavailableSets": 106
+  },
+  "setPageGeneration": {
+    "generationId": "04e77451-516f-40b8-bea7-64c26c97c3d3",
+    "status": "published",
+    "activatedAt": "2026-09-11T18:58:06.026382+00:00",
+    "publicMembershipCount": 210,
+    "rebuiltMembers": 22,
+    "carriedForwardMembers": 188,
+    "collectorModelRunId": "84833101-e658-49ea-82e2-033f7d4d8e09",
+    "validationPassed": true
+  },
+  "productionReadback": {
+    "passed": true,
+    "currentViewsUseOnlySelectedRun": true,
+    "repeatedReadsStable": true,
+    "cardInvariants": {
+      "negativeLiftRows": 0,
+      "unknownPlayabilityNonzeroLiftRows": 0,
+      "artistModeledRows": 0
+    },
+    "representativeCards": {
+      "pokemonZeroLift": {
+        "cardId": "c3585a61-3732-4704-9c7e-23075a1b6d1e",
+        "name": "Gengar",
+        "baseline": 96.8443,
+        "playability": null,
+        "playabilityLift": 0,
+        "final": 96.8443
+      },
+      "trainer": {
+        "cardId": "152906c9-3b9f-4f16-bb22-cb4241c7386b",
+        "name": "Giovanni's Charisma",
+        "subjectPolicy": "trainer",
+        "baseline": 100,
+        "final": 100
+      },
+      "playabilityLifted": {
+        "cardId": "0a62c09d-f51f-4623-bd6f-46a5a54fd785",
+        "name": "Lillie's Determination",
+        "subjectPolicy": "trainer",
+        "baseline": 97.42105263157893,
+        "playability": 95.889143974002,
+        "playabilityLift": 0.19177828794800397,
+        "final": 97.91563874260274
+      }
+    },
+    "unsupportedFinalIsNull": true,
+    "unavailableRenderedAsNumericZero": false
+  },
+  "setPageSmoke": {
+    "passed": true,
+    "surface": "production current-snapshot data plane",
+    "supportedSetIds": [
+      "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "41a0ac1c-27ca-444b-8665-8ba35e583a3b"
+    ],
+    "unsupportedSetIds": [
+      "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+      "0010d2ec-894e-4c17-855d-5de6ff6fd204"
+    ],
+    "carriedForwardPageChecked": true,
+    "membershipLoss": 0,
+    "staleGenerationMismatch": false,
+    "transportOrServerError": false,
+    "supportedContractsExposeCorrectedMetadata": true,
+    "unsupportedCurrentAuthorityRemainsNull": true
+  },
+  "overallNonInterference": {
+    "passed": true,
+    "freshRowsChecked": 22,
+    "overallVersion": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+    "overallCollectorAuthority": "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2",
+    "financialAuthority": "financial_rip_v4",
+    "chaseAccessibilityAuthorityExact": true,
+    "v11ProjectedV12ScoreRankParity": true,
+    "rankingsDecisionCalculationRunParity": true,
+    "correctedV6UsedInsideOverall": false
+  },
+  "entitlementSmoke": {
+    "passed": true,
+    "plansChecked": ["Basic", "Plus", "Premium"],
+    "lockedValuesRemainHidden": true,
+    "nullToZeroLeakage": false,
+    "entitlementBypass": false,
+    "premiumInheritsPlus": true,
+    "note": "Existing public standalone Collector contract and paid-field response boundaries were preserved; no entitlement code changed during cutover."
+  },
+  "numericParity": {
+    "passed": true,
+    "artifactSetCount": 128,
+    "databaseSetCount": 128,
+    "tolerance": 1e-7,
+    "mismatchCount": 0,
+    "fields": ["D_pokemon", "D_trainer", "trainer_lift_points", "D_final", "F", "frequency_modifier", "collector_appeal"],
+    "fDeltaExtremesChecked": {
+      "smallest": {"setId": "d001d563-988b-4f8e-904f-acb926748e22", "delta": -0.04433183825376685},
+      "largest": {"setId": "142d3869-9d39-48b6-a810-751af2aac748", "delta": 0.016897724293407634}
+    }
+  },
+  "rollback": {
+    "previousCollectorCurrentModelRunId": null,
+    "previousCollectorPointerState": "absent",
+    "previousPublishedCollectorFallback": "0efa3c8f-918d-49d7-ad5e-3ae37278058f",
+    "previousActiveSetPageGenerationId": "5aeaf07c-1310-4986-9391-10ca074167cf",
+    "sanctionedCommands": {
+      "restoreExactPreviousCollectorPointer": "select public.select_pokemon_collector_appeal_current(null);",
+      "selectPreviousPublishedCollectorFallback": "select public.select_pokemon_collector_appeal_current('0efa3c8f-918d-49d7-ad5e-3ae37278058f'::uuid);",
+      "reactivatePreviousSetPageGeneration": "select public.activate_pokemon_set_page_snapshot_generation('5aeaf07c-1310-4986-9391-10ca074167cf'::uuid);"
+    },
+    "rollbackPerformed": false
+  },
+  "tests": {
+    "backend": {"passed": 88, "failed": 0, "warnings": 4},
+    "frontend": {"passed": 28, "failed": 0},
+    "diffCheckPassed": true
+  },
+  "productionMutations": [
+    "promote_pokemon_collector_appeal_model_run(84833101-e658-49ea-82e2-033f7d4d8e09)",
+    "activate_pokemon_set_page_snapshot_generation(04e77451-516f-40b8-bea7-64c26c97c3d3)"
+  ],
+  "knownExclusions": [
+    "Artist is not yet part of V6.",
+    "Treatment is diagnostic-only.",
+    "Scarcity is diagnostic-only.",
+    "Price was not used to construct or tune V6.",
+    "Appeal-to-Price validation is the next validation layer.",
+    "Historical Appeal is intentionally deferred until the final expanded Appeal contract."
+  ]
+}

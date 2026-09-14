@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.domain.pokemon.market_index import resolve_market_window_target
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 
@@ -156,14 +157,21 @@ def compact_trend(points: Sequence[Mapping[str, Any]], limit: int = MAX_TREND_PO
 
 
 def _select_eligible_sets(sets: Iterable[Mapping[str, Any]]) -> tuple[List[Dict[str, Any]], bool]:
-    """Return eligible rows and whether the explicit market-authority path is active."""
+    """Return eligible rows and whether the explicit market-authority path is active.
+
+    MARKET PAGE MEMBERSHIP != MARKET VALUE CERTIFICATION. In market-authority
+    mode, `market_publication_ready` (and the rest of the certification
+    metadata carried on each row) is annotation only -- it must never remove a
+    canonical Standard root set from this cohort. Certification failure is
+    rendered downstream as a `valueStatus` of "stale" or "unavailable" on the
+    published row, never as a dropped row.
+    """
     rows = [dict(row) for row in sets]
     market_authority_mode = any("market_publication_ready" in row for row in rows)
     if market_authority_mode:
         eligible = [
             row for row in rows
-            if row.get("market_publication_ready") is True
-            and str(row.get("market_scope") or "standard") == "standard"
+            if str(row.get("market_scope") or "standard") == "standard"
         ]
     else:
         eligible = [
@@ -172,6 +180,35 @@ def _select_eligible_sets(sets: Iterable[Mapping[str, Any]]) -> tuple[List[Dict[
             and is_public_analytics_eligible(row)
         ]
     return eligible, market_authority_mode
+
+
+def _unavailable_set_value_row(pokemon_set: Mapping[str, Any], set_id: str) -> Dict[str, Any]:
+    """A canonical Standard root set with no computable Set Value at all.
+
+    Renders honestly as "unavailable" -- never a fabricated or borrowed
+    number -- while remaining present (discoverable/searchable) on the
+    Market page, per the membership/certification separation this module
+    enforces.
+    """
+    return {
+        "setId": set_id,
+        "canonicalKey": pokemon_set.get("canonical_key"),
+        "name": pokemon_set.get("name") or pokemon_set.get("set_name"),
+        "era": pokemon_set.get("era") or pokemon_set.get("era_name"),
+        "logoUrl": pokemon_set.get("logo_image_url"),
+        "symbolUrl": pokemon_set.get("symbol_image_url"),
+        "currentSetValue": None,
+        "setValueAsOf": None,
+        "windows": {},
+        "trend": [],
+        "recentDailyTrend": [],
+        "historyStartDate": None,
+        "historyEndDate": None,
+        "historyPointCount": 0,
+        "valueStatus": "unavailable",
+        "lastUpdated": None,
+        "certificationStatus": pokemon_set.get("market_current_certification_status"),
+    }
 
 
 def build_global_set_value_row(
@@ -202,15 +239,21 @@ def build_global_set_value_row(
         dashboard = dashboard_by_set.get(set_id)
         prepared_index = None
 
+        value_status = "current"
         if market_authority_mode:
-            # New production contract: certification + canonical root-set history
-            # are Set Value authority. Dashboard data is optional enrichment only.
+            # MEMBERSHIP != CERTIFICATION. Certification/readiness is annotated
+            # on the published row (valueStatus, certificationStatus) below; it
+            # must never remove this set from the Market page's result set. A
+            # set with no canonical history at all is genuinely unable to be
+            # valued -- that (and only that) renders as "unavailable" rather
+            # than a fabricated or borrowed number.
             if not canonical:
                 missing.append(set_id)
+                published.append(_unavailable_set_value_row(pokemon_set, set_id))
                 continue
             if canonical[-1]["date"] != target_market_date:
                 stale.append({"setId": set_id, "canonicalDate": canonical[-1]["date"]})
-                continue
+                value_status = "stale"
             if dashboard:
                 dashboard_date = _text(dashboard.get("latest_market_date"))
                 if dashboard_date == target_market_date:
@@ -275,6 +318,10 @@ def build_global_set_value_row(
             "historyEndDate": current["date"],
             "historyPointCount": len(canonical),
         }
+        if market_authority_mode:
+            published_row["valueStatus"] = value_status
+            published_row["lastUpdated"] = current["date"]
+            published_row["certificationStatus"] = pokemon_set.get("market_current_certification_status")
         if prepared_index is not None:
             published_row["marketIndex"] = {
                 "currentValue": prepared_index.get("currentValue"),
@@ -304,8 +351,12 @@ def build_global_set_value_row(
     }
 
     if market_authority_mode:
-        blocked = bool(missing or stale or mismatched or len(published) != len(eligible))
-        error_message = "certified Market Set Value histories are incomplete or stale"
+        # Missing/stale sets are now PUBLISHED with an honest valueStatus
+        # annotation (see the per-set loop above) rather than dropped, so they
+        # no longer block the whole snapshot. The only remaining failure mode
+        # is a pipeline defect: some eligible set produced no row at all.
+        blocked = bool(mismatched or len(published) != len(eligible))
+        error_message = "certified Market Set Value histories failed to publish for one or more eligible sets"
     else:
         blocked = bool(
             missing or stale or mismatched or missing_market_index_ids
@@ -316,7 +367,13 @@ def build_global_set_value_row(
     if blocked:
         raise ExploreSetValueUnavailable(error_message, diagnostics=diagnostics)
 
-    published.sort(key=lambda row: (-row["currentSetValue"], str(row["name"] or row["setId"])))
+    published.sort(
+        key=lambda row: (
+            row.get("currentSetValue") is None,
+            -(row["currentSetValue"] or 0),
+            str(row["name"] or row["setId"]),
+        )
+    )
     built_at = built_at or datetime.now(timezone.utc).isoformat()
     index_generation = str((market_overview or {}).get("sourceGenerationFingerprint") or "")
     fingerprint = hashlib.sha256("\n".join([target_market_date, *sorted(generation), index_generation]).encode()).hexdigest()
@@ -360,8 +417,7 @@ def build_global_set_value_row(
     }
 
 
-def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segments: bool = False) -> Dict[str, Any]:
-    active = client or service_read_client
+def _read_explore_set_value_snapshot_once(active: Any, *, include_explorer_segments: bool) -> Dict[str, Any]:
     started = time.perf_counter()
     rows = list((active.table(TABLE).select("payload_json,market_date,updated_at,payload_size_bytes").eq("tcg", "pokemon").eq("scope", "market").limit(1).execute()).data or [])
     db_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -381,9 +437,28 @@ def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segm
     return payload
 
 
+def read_explore_set_value_snapshot(*, client: Any = None, include_explorer_segments: bool = False) -> Dict[str, Any]:
+    # The whole logical read (base row + the initialSelectedSetMovers fallback
+    # read, when needed) is wrapped as ONE retryable unit: a transient failure
+    # partway through must not leave a half-read result, and it avoids retrying
+    # pieces independently with their own separate circuit/backoff state.
+    if client is not None:
+        # An explicit client (tests, batch/back-office callers) opts out of the
+        # bounded-retry wrapper and reads directly with the given client.
+        return _read_explore_set_value_snapshot_once(client, include_explorer_segments=include_explorer_segments)
+    return run_public_read_with_retry(
+        lambda active: _read_explore_set_value_snapshot_once(active, include_explorer_segments=include_explorer_segments),
+        operation_name="explore_set_value_snapshot",
+        initial_client=service_read_client,
+    )
+
+
 def read_market_explorer_snapshot(*, client: Any = None) -> Dict[str, Any]:
     """Read the authoritative publication without the /Market payload slimming."""
-    return read_explore_set_value_snapshot(client=client, include_explorer_segments=True)
+    payload = read_explore_set_value_snapshot(client=client, include_explorer_segments=True)
+    overview = payload.get("marketOverview") if isinstance(payload, Mapping) else None
+    comparison_as_of = overview.get("marketDate") if isinstance(overview, Mapping) else None
+    return {**payload, "comparisonAsOf": str(comparison_as_of)[:10] if comparison_as_of else None}
 
 
 def upsert_explore_set_value_snapshot(row: Mapping[str, Any], *, client: Any) -> None:

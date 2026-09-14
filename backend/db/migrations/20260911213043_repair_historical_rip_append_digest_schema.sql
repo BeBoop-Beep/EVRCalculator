@@ -1,0 +1,2 @@
+-- Production repair marker. The preceding checked-in migration already uses
+-- extensions.digest; this version records the one-time live function repair.

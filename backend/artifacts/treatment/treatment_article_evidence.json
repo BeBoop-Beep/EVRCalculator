@@ -1,0 +1,40 @@
+{
+  "study":"treatment_preference_t2_price_independent_evidence",
+  "articleStatus":"NEGATIVE_RESULT_READY",
+  "taxonomyCoverage":{
+    "eligibleCards":18293,
+    "mappedCards":18040,
+    "unresolvedCards":253,
+    "coverageRate":0.9861695730607336,
+    "taxonomy":"pokemon_card_treatment_taxonomy_v3",
+    "taxonomyFingerprint":"85fdb2344d9ae7842a91bf0b3b0a434e02e99298be4cb025c8b3826066f67ddc"
+  },
+  "treatmentScarcitySeparation":{
+    "principle":"Treatment describes presentation; scarcity is a separate control and cannot construct preference.",
+    "scarcityMatchedContrastCount":87,
+    "scarcityMatchedFingerprint":"d9f40b5d4d20781ea057972054c3a5999fc6a5a733cf7239ef21b2e02b367adb"
+  },
+  "matchedStructuralExamples":[
+    {"identificationTier":"A","variantIds":["c23cc5b8-d1ab-4232-a43f-de94e4d8b396","fb581300-3688-4653-86d9-db93c817ce70"],"interpretation":"same-card control opportunity; not a preference observation"},
+    {"identificationTier":"A","variantIds":["2b950828-466f-4581-9753-ddd566105af8","95452e56-4162-4de5-a10f-9a1698931edf"],"interpretation":"same-card control opportunity; not a preference observation"}
+  ],
+  "cohortSummary":{
+    "sameCard":2,
+    "sameSubject":6251,
+    "scarcityMatched":87,
+    "eraLocal":6253
+  },
+  "sourceSummary":{"directFormatFound":2,"usableDirectTreatmentSources":0,"indirectQualitative":6,"expertOrDesign":3,"marketContaminatedRejected":4,"unusable":1},
+  "eraResults":[
+    {"era":"Scarlet & Violet","verdict":"INSUFFICIENT_EVIDENCE"},
+    {"era":"Sword & Shield","verdict":"INSUFFICIENT_EVIDENCE"},
+    {"era":"Sun & Moon","verdict":"INSUFFICIENT_EVIDENCE"},
+    {"era":"XY","verdict":"INSUFFICIENT_EVIDENCE"},
+    {"era":"Vintage","verdict":"INSUFFICIENT_EVIDENCE"}
+  ],
+  "preferenceGraph":{"directEdges":0,"indirectOnlyEdges":3,"cardinalScoringEligible":false},
+  "marketValidation":{"status":"NOT_RUN_INELIGIBLE"},
+  "verdict":"TREATMENT_PREFERENCE_INSUFFICIENT_EVIDENCE",
+  "collectorImpact":"TREATMENT_SHOULD_REMAIN_DIAGNOSTIC",
+  "chartSourceArtifacts":["treatment_coverage_current.json","treatment_t2_research_cohorts.json","treatment_preference_sources.json","treatment_preference_era_evidence.json","treatment_semantic_attribute_evidence.json","treatment_preference_graph.json"]
+}

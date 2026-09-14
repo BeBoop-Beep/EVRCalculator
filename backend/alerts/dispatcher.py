@@ -11,7 +11,7 @@ Configuration:
 
 Usage:
     from backend.alerts.dispatcher import send_pending_alerts
-    
+
     summary = send_pending_alerts(limit=25)
     print(summary)  # {"fetched": 3, "sent": 3, "failed": 0}
 """
@@ -53,9 +53,18 @@ def _env_true(name: str, default: str = "false") -> bool:
     return os.getenv(name, default).strip().lower() in ("1", "true", "yes")
 
 
+def _positive_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        logger.warning("%s %s invalid (%s), using default %s", _ALERT_TAG, name, raw, default)
+        return default
+
+
 def _get_slack_webhook_url() -> str:
     """Get Slack incoming webhook URL from environment.
-    
+
     Raises:
         ValueError: If SLACK_ALERT_WEBHOOK_URL is not set.
     """
@@ -78,6 +87,18 @@ def _get_batch_size() -> int:
         return 25
 
 
+def _parse_timestamp(value: Any) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 # ---------------------------------------------------------------------------
 # Type definitions
 # ---------------------------------------------------------------------------
@@ -95,24 +116,10 @@ class AlertSummary(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 def fetch_pending_alerts(limit: int) -> List[Dict[str, Any]]:
-    """Fetch unsent alerts from public.alert_events.
-    
-    Query:
-        SELECT id, alert_type, severity, title, message, payload, created_at
-        FROM public.alert_events
-        WHERE sent = false
-        ORDER BY created_at ASC
-        LIMIT %s
-    
-    Args:
-        limit: Maximum number of alerts to fetch (should be >= 1).
-    
-    Returns:
-        List of alert row dicts. Empty only when the queue is genuinely empty.
-    """
+    """Fetch unsent, unsuppressed alerts from public.alert_events."""
     if limit < 1:
         limit = 1
-    
+
     try:
         result = (
             supabase.table("alert_events")
@@ -123,11 +130,9 @@ def fetch_pending_alerts(limit: int) -> List[Dict[str, Any]]:
             .limit(limit)
             .execute()
         )
-        
         rows = result.data if result and result.data else []
         logger.info("%s fetched %d pending alert(s)", _ALERT_TAG, len(rows))
         return rows
-    
     except Exception as exc:
         logger.error("%s failed to fetch pending alerts: %s", _ALERT_TAG, exc)
         # A database read failure is not an empty queue. Raising makes cron and
@@ -141,42 +146,26 @@ def fetch_pending_alerts(limit: int) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def format_slack_message(alert_row: Dict[str, Any]) -> Dict[str, Any]:
-    """Format an alert row as a Slack incoming webhook payload.
-    
-    Returns a Slack message with:
-        - Title and severity color
-        - Alert type, title, message
-        - Created timestamp
-        - Key fields from payload (run_id, job_name, status, metrics, etc.)
-    
-    Args:
-        alert_row: Alert row from public.alert_events.
-    
-    Returns:
-        Dict suitable for Slack incoming webhook POST.
-    """
+    """Format an alert row as a Slack incoming-webhook payload."""
     severity = alert_row.get("severity", "info").upper()
     alert_type = alert_row.get("alert_type", "unknown")
     title = alert_row.get("title", "(no title)")
     message = alert_row.get("message", "(no message)")
     created_at = alert_row.get("created_at", "")
     payload = alert_row.get("payload") or {}
-    
-    # Determine color based on severity
+
     color_map = {
-        "CRITICAL": "danger",      # red
-        "ERROR": "danger",         # red
-        "WARNING": "warning",      # orange/yellow
-        "INFO": "good",            # green
-        "DEBUG": "#808080",        # gray
+        "CRITICAL": "danger",
+        "ERROR": "danger",
+        "WARNING": "warning",
+        "INFO": "good",
+        "DEBUG": "#808080",
     }
     color = color_map.get(severity, "#808080")
-    
-    # Build field list from payload
     fields = []
-    
-    # Pipeline context first. The allowlist deliberately excludes secrets and
-    # raw provider payloads even if a caller accidentally includes them.
+
+    # The allowlist deliberately excludes secrets and raw provider payloads
+    # even if a caller accidentally includes them.
     for key, label in _FIELD_LABELS.items():
         value = payload.get(key)
         if value is None or value == "":
@@ -185,62 +174,24 @@ def format_slack_message(alert_row: Dict[str, Any]) -> Dict[str, Any]:
             value = ", ".join(str(item) for item in value[:20])
         fields.append({"title": label, "value": str(value)[:500], "short": key not in {"missing_sets"}})
 
-    # Priority 1: scrape run context
     if payload.get("run_id"):
-        fields.append({
-            "title": "Run ID",
-            "value": str(payload["run_id"])[:50],
-            "short": True,
-        })
+        fields.append({"title": "Run ID", "value": str(payload["run_id"])[:50], "short": True})
     if payload.get("job_name"):
-        fields.append({
-            "title": "Job",
-            "value": payload["job_name"],
-            "short": True,
-        })
+        fields.append({"title": "Job", "value": payload["job_name"], "short": True})
     if payload.get("source_system"):
-        fields.append({
-            "title": "Source",
-            "value": payload["source_system"],
-            "short": True,
-        })
+        fields.append({"title": "Source", "value": payload["source_system"], "short": True})
     if payload.get("status"):
-        fields.append({
-            "title": "Status",
-            "value": payload["status"],
-            "short": True,
-        })
-    
-    # Priority 2: metrics
+        fields.append({"title": "Status", "value": payload["status"], "short": True})
     if payload.get("items_attempted") is not None:
-        fields.append({
-            "title": "Attempted",
-            "value": str(payload["items_attempted"]),
-            "short": True,
-        })
+        fields.append({"title": "Attempted", "value": str(payload["items_attempted"]), "short": True})
     if payload.get("items_failed") is not None:
-        fields.append({
-            "title": "Failed",
-            "value": str(payload["items_failed"]),
-            "short": True,
-        })
+        fields.append({"title": "Failed", "value": str(payload["items_failed"]), "short": True})
     if payload.get("rate_limit_events") is not None and payload["rate_limit_events"] > 0:
-        fields.append({
-            "title": "Rate Limit Events",
-            "value": str(payload["rate_limit_events"]),
-            "short": True,
-        })
-    
-    # Priority 3: error context
+        fields.append({"title": "Rate Limit Events", "value": str(payload["rate_limit_events"]), "short": True})
     if payload.get("error_summary"):
-        fields.append({
-            "title": "Error Summary",
-            "value": str(payload["error_summary"])[:100],
-            "short": False,
-        })
-    
-    # Build Slack message
-    slack_payload = {
+        fields.append({"title": "Error Summary", "value": str(payload["error_summary"])[:100], "short": False})
+
+    return {
         "text": f"{severity} | {alert_type}",
         "username": "Scrape Alert",
         "icon_emoji": ":warning:" if severity in ("WARNING", "CRITICAL", "ERROR") else ":info:",
@@ -259,8 +210,6 @@ def format_slack_message(alert_row: Dict[str, Any]) -> Dict[str, Any]:
             }
         ],
     }
-    
-    return slack_payload
 
 
 # ---------------------------------------------------------------------------
@@ -268,50 +217,35 @@ def format_slack_message(alert_row: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def send_slack_alert(alert_row: Dict[str, Any], webhook_url: str) -> bool:
-    """Send an alert to Slack via incoming webhook.
-    
-    Args:
-        alert_row: Alert row from public.alert_events.
-        webhook_url: Slack incoming webhook URL.
-    
-    Returns:
-        True if the POST was successful (HTTP 200), False otherwise.
-        On failure, logs the error but does not raise.
-    """
+    """Send an alert to Slack via incoming webhook."""
     try:
         payload = format_slack_message(alert_row)
-        
         response = requests.post(
             webhook_url,
             json=payload,
             timeout=max(1.0, float(os.getenv("SLACK_ALERT_TIMEOUT_SECONDS", "10"))),
         )
-        
         if response.status_code == 200:
             alert_id = alert_row.get("id", "?")
             logger.info("%s sent alert id=%s to Slack", _ALERT_TAG, alert_id)
             return True
-        else:
-            alert_id = alert_row.get("id", "?")
-            logger.warning(
-                "%s Slack POST failed for alert id=%s: HTTP %d %s",
-                _ALERT_TAG,
-                alert_id,
-                response.status_code,
-                response.text[:200],
-            )
-            return False
-    
+        alert_id = alert_row.get("id", "?")
+        logger.warning(
+            "%s Slack POST failed for alert id=%s: HTTP %d %s",
+            _ALERT_TAG,
+            alert_id,
+            response.status_code,
+            response.text[:200],
+        )
+        return False
     except requests.Timeout:
         alert_id = alert_row.get("id", "?")
         logger.error("%s Slack POST timeout for alert id=%s", _ALERT_TAG, alert_id)
         return False
-    
     except requests.RequestException as exc:
         alert_id = alert_row.get("id", "?")
         logger.error("%s Slack POST failed for alert id=%s: %s", _ALERT_TAG, alert_id, exc)
         return False
-    
     except Exception as exc:
         alert_id = alert_row.get("id", "?")
         logger.error("%s unexpected error sending alert id=%s: %s", _ALERT_TAG, alert_id, exc)
@@ -323,40 +257,19 @@ def send_slack_alert(alert_row: Dict[str, Any], webhook_url: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def mark_alert_sent(alert_id: str) -> bool:
-    """Mark an alert as sent in public.alert_events.
-    
-    Query:
-        UPDATE public.alert_events
-        SET sent = true, sent_at = NOW()
-        WHERE id = %s
-    
-    This is only called after a successful Slack POST. If this UPDATE fails,
-    the alert will be retried on the next run.
-    
-    Args:
-        alert_id: UUID of the alert row to mark sent.
-    
-    Returns:
-        True if the update succeeded, False otherwise.
-    """
+    """Mark an alert sent only after successful Slack delivery."""
     try:
         result = (
             supabase.table("alert_events")
-            .update({
-                "sent": True,
-                "sent_at": datetime.now(timezone.utc).isoformat(),
-            })
+            .update({"sent": True, "sent_at": datetime.now(timezone.utc).isoformat()})
             .eq("id", alert_id)
             .execute()
         )
-        
         if result and result.data:
             logger.info("%s marked alert id=%s as sent", _ALERT_TAG, alert_id)
             return True
-        else:
-            logger.warning("%s mark_alert_sent id=%s returned no data", _ALERT_TAG, alert_id)
-            return False
-    
+        logger.warning("%s mark_alert_sent id=%s returned no data", _ALERT_TAG, alert_id)
+        return False
     except Exception as exc:
         logger.error("%s failed to mark alert id=%s as sent: %s", _ALERT_TAG, alert_id, exc)
         return False
@@ -367,85 +280,49 @@ def mark_alert_sent(alert_id: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def send_pending_alerts(limit: Optional[int] = None) -> AlertSummary:
-    """Fetch and send all pending alerts to Slack.
-    
-    This is the main entry point. It:
-        1. Fetches up to `limit` unsent alerts
-        2. For each alert:
-            a. Formats as Slack message
-            b. POSTs to Slack webhook
-            c. If successful, marks sent in DB
-        3. Continues on failure (does not abort)
-        4. Returns a summary of what happened
-    
-    Only marks alerts sent AFTER successful Slack delivery. Slack failures
-    do not mark the alert sent (it will retry on the next run).
-    
-    Database failures (fetch/mark sent) are logged but do not abort processing.
-    
-    Args:
-        limit: Max alerts to process. Defaults to ALERT_BATCH_SIZE env var or 25.
-    
-    Returns:
-        AlertSummary dict with fetched_count, sent_count, failed_count.
-    
-    Raises:
-        ValueError: If ALERTS_ENABLED=true but SLACK_ALERT_WEBHOOK_URL is missing.
-    """
+    """Fetch and send pending alerts, marking rows only after delivery."""
     if not _get_alerts_enabled():
         logger.info("%s ALERTS_ENABLED=false, skipping", _ALERT_TAG)
-        return {
-            "fetched_count": 0,
-            "sent_count": 0,
-            "failed_count": 0,
-        }
-    
+        return {"fetched_count": 0, "sent_count": 0, "failed_count": 0}
+
     if limit is None:
         limit = _get_batch_size()
-    
-    webhook_url = _get_slack_webhook_url()  # Raises if missing
+
+    webhook_url = _get_slack_webhook_url()
     try:
         backlog = get_dispatcher_health()
         logger.info(
             "%s backlog pending=%s oldest_age_minutes=%s",
-            _ALERT_TAG, backlog["pending_unsuppressed_count"],
+            _ALERT_TAG,
+            backlog["pending_unsuppressed_count"],
             backlog["oldest_pending_age_minutes"],
         )
     except Exception as exc:  # delivery may still proceed from the normal fetch
         logger.error("%s backlog health query failed: %s", _ALERT_TAG, exc)
 
-    # Fetch pending alerts
     alerts = fetch_pending_alerts(limit)
-    
     summary: AlertSummary = {
         "fetched_count": len(alerts),
         "sent_count": 0,
         "failed_count": 0,
         "errors": [],
     }
-    
     if not alerts:
         logger.info("%s no pending alerts to send", _ALERT_TAG)
         return summary
-    
-    # Process each alert
+
     for alert in alerts:
         alert_id = alert.get("id", "?")
-        
-        # Send to Slack
         if not send_slack_alert(alert, webhook_url):
             summary["failed_count"] += 1
             summary["errors"].append(f"alert {alert_id} failed to send to Slack")
             continue
-        
-        # Mark sent in DB
         if not mark_alert_sent(alert_id):
             summary["failed_count"] += 1
             summary["errors"].append(f"alert {alert_id} marked sent in DB failed")
             continue
-        
         summary["sent_count"] += 1
-    
+
     logger.info(
         "%s completed: fetched=%d sent=%d failed=%d",
         _ALERT_TAG,
@@ -453,26 +330,61 @@ def send_pending_alerts(limit: Optional[int] = None) -> AlertSummary:
         summary["sent_count"],
         summary["failed_count"],
     )
-    
     return summary
 
 
 def get_dispatcher_health() -> Dict[str, Any]:
-    """Read delivery/configuration health without exposing webhook contents."""
-    result = (supabase.table("alert_events")
-              .select("id,created_at", count="exact")
-              .eq("sent", False).is_("suppressed_at", "null")
-              .order("created_at", desc=False).limit(1).execute())
+    """Read delivery/configuration health without exposing webhook contents.
+
+    Configuration alone is not sufficient for a healthy dispatcher. A queue
+    whose oldest unsuppressed row is beyond the configured critical-age
+    threshold is unhealthy even when ALERTS_ENABLED and the webhook are set.
+    A recent successful send is reported separately as delivery progress; it
+    does not make an already-stale backlog healthy.
+    """
+    now = datetime.now(timezone.utc)
+    result = (
+        supabase.table("alert_events")
+        .select("id,created_at", count="exact")
+        .eq("sent", False)
+        .is_("suppressed_at", "null")
+        .order("created_at", desc=False)
+        .limit(1)
+        .execute()
+    )
     rows = list(result.data or [])
+    pending_count = int(getattr(result, "count", None) or len(rows))
     oldest = rows[0].get("created_at") if rows else None
+    oldest_dt = _parse_timestamp(oldest)
     age_minutes = None
-    if oldest:
-        parsed = datetime.fromisoformat(str(oldest).replace("Z", "+00:00"))
-        age_minutes = max(0, int((datetime.now(timezone.utc) - parsed).total_seconds() / 60))
-    sent_result = (supabase.table("alert_events")
-                   .select("sent_at").eq("sent", True)
-                   .order("sent_at", desc=True).limit(1).execute())
+    if oldest_dt:
+        age_minutes = max(0, int((now - oldest_dt).total_seconds() / 60))
+
+    sent_result = (
+        supabase.table("alert_events")
+        .select("sent_at")
+        .eq("sent", True)
+        .order("sent_at", desc=True)
+        .limit(1)
+        .execute()
+    )
     sent_rows = list(sent_result.data or [])
+    last_sent_at = sent_rows[0].get("sent_at") if sent_rows else None
+    last_sent_dt = _parse_timestamp(last_sent_at)
+
+    warning_count = _positive_int_env("ALERT_BACKLOG_WARNING_COUNT", 20)
+    critical_age = _positive_int_env("ALERT_BACKLOG_CRITICAL_AGE_MINUTES", 10)
+    backlog_warning = pending_count >= warning_count
+    backlog_critical = age_minutes is not None and age_minutes >= critical_age
+    backlog_healthy = not backlog_critical
+
+    recent_delivery = bool(
+        last_sent_dt
+        and (now - last_sent_dt).total_seconds() >= 0
+        and (now - last_sent_dt).total_seconds() / 60 < critical_age
+    )
+    delivery_progress_healthy = pending_count == 0 or not backlog_critical or recent_delivery
+
     alerts_enabled = _get_alerts_enabled()
     webhook_configured = bool(os.getenv("SLACK_ALERT_WEBHOOK_URL", "").strip())
     dispatcher_scheduled = _env_true("ALERT_DISPATCHER_SCHEDULED")
@@ -482,9 +394,16 @@ def get_dispatcher_health() -> Dict[str, Any]:
         for name in ("APP_ENV", "ENVIRONMENT", "NODE_ENV")
     )
     schedules_required = _env_true("ALERT_SCHEDULES_REQUIRED") or production_mode
-    healthy = alerts_enabled and webhook_configured
+
+    healthy = (
+        alerts_enabled
+        and webhook_configured
+        and backlog_healthy
+        and delivery_progress_healthy
+    )
     if schedules_required:
         healthy = healthy and dispatcher_scheduled and watchdog_scheduled
+
     health = {
         "alerts_enabled": alerts_enabled,
         "slack_webhook_configured": webhook_configured,
@@ -493,28 +412,40 @@ def get_dispatcher_health() -> Dict[str, Any]:
         "schedules_required": schedules_required,
         "production_mode": production_mode,
         "database_connected": True,
-        "pending_unsuppressed_count": int(getattr(result, "count", None) or len(rows)),
+        "pending_unsuppressed_count": pending_count,
         "oldest_pending_created_at": oldest,
         "oldest_pending_age_minutes": age_minutes,
-        "last_sent_at": sent_rows[0].get("sent_at") if sent_rows else None,
+        "last_sent_at": last_sent_at,
+        "backlog_warning_count": warning_count,
+        "backlog_critical_age_minutes": critical_age,
+        "backlog_warning": backlog_warning,
+        "backlog_critical": backlog_critical,
+        "backlog_healthy": backlog_healthy,
+        "recent_delivery": recent_delivery,
+        "delivery_progress_healthy": delivery_progress_healthy,
         "healthy": healthy,
     }
-    warning_count = int(os.getenv("ALERT_BACKLOG_WARNING_COUNT", "20"))
-    critical_age = int(os.getenv("ALERT_BACKLOG_CRITICAL_AGE_MINUTES", "10"))
-    if health["pending_unsuppressed_count"] >= warning_count:
-        logger.warning("%s ALERT BACKLOG pending=%s", _ALERT_TAG, health["pending_unsuppressed_count"])
-    if age_minutes is not None and age_minutes >= critical_age:
+
+    if backlog_warning:
+        logger.warning("%s ALERT BACKLOG pending=%s", _ALERT_TAG, pending_count)
+    if backlog_critical:
         logger.error("%s ALERT BACKLOG oldest_age_minutes=%s", _ALERT_TAG, age_minutes)
     return health
 
 
 def send_test_message() -> bool:
     """Send exactly one explicit test message; never queues or mutates an event."""
-    return send_slack_alert({"id": "health-check", "alert_type": "dispatcher_test",
-                             "severity": "info", "title": "✅ Alert dispatcher test",
-                             "message": "Explicit operator-requested Slack delivery test.",
-                             "payload": {"stage": "dispatcher", "status": "healthy"}},
-                            _get_slack_webhook_url())
+    return send_slack_alert(
+        {
+            "id": "health-check",
+            "alert_type": "dispatcher_test",
+            "severity": "info",
+            "title": "✅ Alert dispatcher test",
+            "message": "Explicit operator-requested Slack delivery test.",
+            "payload": {"stage": "dispatcher", "status": "healthy"},
+        },
+        _get_slack_webhook_url(),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -522,15 +453,7 @@ def send_test_message() -> bool:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    """CLI entry point for running the alert dispatcher.
-    
-    Usage:
-        python -m backend.alerts.dispatcher
-        python -m backend.alerts.dispatcher --limit 10
-    
-    Returns:
-        0 on success, 1 on error.
-    """
+    """CLI entry point for running the alert dispatcher."""
     parser = argparse.ArgumentParser(description="Send pending scrape alerts to Slack")
     parser.add_argument(
         "--limit",
@@ -538,14 +461,22 @@ def main() -> int:
         default=None,
         help="Max alerts to send (default: ALERT_BATCH_SIZE env or 25)",
     )
-    parser.add_argument("--health", "--health-check", dest="health_check", action="store_true",
-                        help="Check configuration, database connectivity, and pending backlog")
-    parser.add_argument("--send-test", action="store_true",
-                        help="Send one explicit test message (requires --health-check)")
+    parser.add_argument(
+        "--health",
+        "--health-check",
+        dest="health_check",
+        action="store_true",
+        help="Check configuration, database connectivity, and pending backlog",
+    )
+    parser.add_argument(
+        "--send-test",
+        action="store_true",
+        help="Send one explicit test message (requires --health-check)",
+    )
     args = parser.parse_args()
     if args.send_test and not args.health_check:
         parser.error("--send-test requires --health-check")
-    
+
     try:
         if args.health_check:
             health = get_dispatcher_health()
@@ -553,18 +484,16 @@ def main() -> int:
                 health["test_message_sent"] = send_test_message()
             print(json.dumps(health, indent=2, sort_keys=True))
             return 0 if health["database_connected"] and health["healthy"] and (
-                not args.send_test or health.get("test_message_sent")) else 1
+                not args.send_test or health.get("test_message_sent")
+            ) else 1
+
         logger.info("%s starting alert dispatch (limit=%s)", _ALERT_TAG, args.limit)
         summary = send_pending_alerts(limit=args.limit)
         logger.info("%s dispatch complete: %s", _ALERT_TAG, summary)
-        
-        # Exit with error code if any failed (for cron monitoring)
         return 0 if summary["failed_count"] == 0 else 1
-    
     except ValueError as exc:
         logger.error("%s config error: %s", _ALERT_TAG, exc)
         return 1
-    
     except Exception as exc:
         logger.exception("%s unexpected error: %s", _ALERT_TAG, exc)
         return 1
@@ -572,4 +501,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

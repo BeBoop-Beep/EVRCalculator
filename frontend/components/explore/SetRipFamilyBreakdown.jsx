@@ -114,9 +114,32 @@ export function FamilyScoreRow({ entry, compact = false, showTakeaway = false })
   );
 }
 
+function PlusRipLockButton({ onUnlockProductRip, compact = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onUnlockProductRip || undefined}
+      aria-label="Unlock Index Plus product RIP score, rank, and tier"
+      className={`${compact ? "rounded-md border px-2 py-1" : "inline-flex min-h-7 items-center gap-1 rounded-md border px-2 tracking-[0.08em]"} text-[10px] font-bold uppercase focus-visible:outline-none focus-visible:ring-2 ${PLUS_COMPACT_LOCK}`}
+    >
+      <span aria-hidden="true">🔒</span> Plus RIP
+    </button>
+  );
+}
+
 export function FamilySnapshot({ setRip, compact = false, layout = "rows", canViewProductRipIntelligence = true, onUnlockProductRip = null }) {
   const families = displayFamilyScores(setRip);
-  if (!families.length) return <span className="text-xs text-[var(--text-secondary)]">Family scores unavailable</span>;
+  // A populated-but-not-entitled family already locks correctly per module
+  // below (score/rank/tier hidden behind the Plus RIP button, price still
+  // shown). The gap was the EMPTY case: zero families used to fall straight
+  // through to the unlocked "Family scores unavailable" text regardless of
+  // entitlement, when a locked viewer must see the lock, not a data-missing
+  // message, even when there is no data at all.
+  if (!families.length) {
+    return !canViewProductRipIntelligence
+      ? <PlusRipLockButton onUnlockProductRip={onUnlockProductRip} compact />
+      : <span className="text-xs text-[var(--text-secondary)]">Family scores unavailable</span>;
+  }
   if (layout === "modules") {
     const wideColumnCount = Math.min(families.length, 7);
     return (
@@ -159,7 +182,7 @@ function FixedFamilyResult({ entry, identifier = null, canViewProductRipIntellig
       {canViewProductRipIntelligence ? <>
         <strong className="text-sm font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong>
         <span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span>
-      </> : <button type="button" onClick={onUnlockProductRip || undefined} aria-label="Unlock Index Plus product RIP score, rank, and tier" className={`inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-bold uppercase tracking-[0.08em] focus-visible:outline-none focus-visible:ring-2 ${PLUS_COMPACT_LOCK}`}><span aria-hidden="true">🔒</span> Plus RIP</button>}
+      </> : <PlusRipLockButton onUnlockProductRip={onUnlockProductRip} />}
       {price ? <span data-family-market-price className="whitespace-nowrap text-[10px] leading-none tabular-nums text-[var(--text-secondary)]">{price}</span> : null}
     </span>
   );
@@ -172,9 +195,17 @@ export function RankingsFamilyCells({ setRip, canViewProductRipIntelligence = fa
     return (
       <td key={column.key} data-rankings-family-column={column.key} className="px-1.5 text-center align-middle">
         {entries.length ? (
+          // A populated column already locks correctly per entry via
+          // FixedFamilyResult (Plus RIP button, price still shown) — that
+          // path predates this task and needed no change.
           <span className="flex flex-col items-center gap-2">
             {entries.map((entry) => <FixedFamilyResult key={entry.family} entry={entry} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} identifier={column.key === "special" ? (entry.family === "special_collection" ? "SPC" : "UPC") : null} />)}
           </span>
+        ) : !canViewProductRipIntelligence ? (
+          // The gap: an EMPTY column used to fall straight through to the
+          // unlocked "—" placeholder regardless of entitlement. Not entitled
+          // must lock here too, even though there is no underlying data.
+          <PlusRipLockButton onUnlockProductRip={onUnlockProductRip} />
         ) : <span className="text-xs text-[var(--text-secondary)]">—</span>}
       </td>
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatIndexValue } from "@/lib/explore/marketOverviewPresentation.mjs";
+import { formatChangePercent, formatIndexValue, getPricePerformanceChange } from "@/lib/explore/marketOverviewPresentation.mjs";
 
 // ---------------------------------------------------------------------------
 // ACTIVE MARKETS — the ONE answer to "what is on this chart right now".
@@ -34,11 +34,14 @@ export default function MarketExplorerActiveMarkets({
   activeSeriesId = null,
   onInspect,
   onRemove,
+  onEdit,
   canRemove = true,
   hiddenSeriesKeys = null,
   onToggleVisibility,
   onShowAll,
   onHideAll,
+  onClearAll,
+  timeframe = "7D",
 }) {
   if (!series.length) return null;
   const hidden = hiddenSeriesKeys instanceof Set ? hiddenSeriesKeys : new Set();
@@ -56,28 +59,38 @@ export default function MarketExplorerActiveMarkets({
             Select one to inspect its constituents. The eye toggles whether it is drawn on the chart.
           </p>
         </div>
-        {series.length > 1 ? (
-          <div role="group" aria-label="Visibility, all markets" className="flex flex-none items-center gap-1">
+        <div
+          role="group"
+          aria-label="Visibility, all markets"
+          className="flex flex-none items-center gap-1"
+        >
             <button
               type="button"
+              disabled={series.length <= 1}
               data-market-explorer-active-show-all
               onClick={onShowAll}
-              className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+              className={`rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] ${series.length <= 1 ? "invisible pointer-events-none" : ""}`}
             >
               Show all
             </button>
             <button
               type="button"
+              disabled={series.length <= 1}
               data-market-explorer-active-hide-all
               onClick={onHideAll}
-              className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+              className={`rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] ${series.length <= 1 ? "invisible pointer-events-none" : ""}`}
             >
               Hide all
             </button>
-          </div>
-        ) : null}
+            <button type="button" data-market-explorer-active-clear-all onClick={onClearAll} className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)] transition-colors hover:border-red-300/40 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60">Clear all</button>
+        </div>
       </div>
-      <ul className="flex min-w-0 flex-wrap gap-1.5">
+      {/* Keep one stable row. The parent already owns horizontal overflow; a
+          desktop-only wrap made adding/removing a prepared Reference Market
+          change this grid row's height and let browser scroll anchoring jolt
+          content below it. Selection should change data, not page geometry. */}
+      <div data-market-explorer-active-chip-scroll className="min-w-0 overflow-x-auto">
+      <ul className="flex min-w-max flex-nowrap gap-1.5">
         {series.map((entry) => {
           const isActive = entry.key === activeSeriesId;
           const isHidden = hidden.has(entry.key);
@@ -85,6 +98,7 @@ export default function MarketExplorerActiveMarkets({
           // their index level rides on the chip. Prepared markets already have
           // a card and would only be repeating themselves.
           const showsIndexValue = Boolean(entry.queryKey) && entry.indexValue !== undefined;
+          const periodChange = getPricePerformanceChange(entry, timeframe);
           return (
             <li key={entry.key}>
               <span
@@ -128,6 +142,10 @@ export default function MarketExplorerActiveMarkets({
                     {formatIndexValue(entry.indexValue)}
                   </span>
                 ) : null}
+                <span data-market-explorer-active-return={entry.key} className="flex-none text-[10px] tabular-nums text-[var(--text-secondary)]">{formatChangePercent(periodChange)}</span>
+                {entry.instanceId ? (
+                  <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${entry.label}`} onClick={() => onEdit?.(entry)} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
+                ) : null}
                 <button
                   type="button"
                   data-market-explorer-active-remove={entry.key}
@@ -146,6 +164,7 @@ export default function MarketExplorerActiveMarkets({
           );
         })}
       </ul>
+      </div>
     </section>
   );
 }

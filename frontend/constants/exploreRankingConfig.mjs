@@ -81,16 +81,19 @@ export const EXPLORE_RANKING_MODES = {
     title: "Best Sets to Rip Right Now",
     subtitle: "Sets ranked by the strongest overall opening profile.",
     tooltip: "Sets ranked by the strongest overall opening profile.",
-    scoreLabel: "OVERALL RIP",
+    scoreLabel: "RIP SCORE",
     tierLabel: "TIER",
     scoreKind: SCORE_KIND_PUBLIC,
     // The ONE canonical public RIP Score field. There is deliberately no
     // absolute/model field here: it is not a public number.
-    publicScoreField: "overallRipV10.leaderNormalizedScore",
-    rankField: "overallRipV10.rank",
-    rankedSetCountField: "overallRipV10.cohortSize",
-    tierField: "overallRipV10.tier",
-    description: "Overall RIP combines financial opening performance with collector appeal.",
+    // CANONICAL: overallRipV12 (90% Financial RIP V4 + 10% Collector Appeal
+    // V5), not the historical overallRipV10 - see canonicalRipV7.mjs and
+    // public_rip_contract_v11.py for the same precedence.
+    publicScoreField: "overallRipV12.leaderNormalizedScore",
+    rankField: "overallRipV12.rank",
+    rankedSetCountField: "overallRipV12.cohortSize",
+    tierField: "overallRipV12.tier",
+    description: "RIP Score combines financial opening performance with collector appeal.",
   },
   financial: {
     id: "financial",
@@ -242,7 +245,7 @@ export function getRankField(modeId) {
 }
 
 export function getTierField(modeId) {
-  return getModeConfig(modeId).tierField || "overallRipV10.tier";
+  return getModeConfig(modeId).tierField || "overallRipV12.tier";
 }
 
 export function getScoreForMode(target, modeId) {

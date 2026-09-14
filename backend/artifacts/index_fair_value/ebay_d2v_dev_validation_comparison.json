@@ -1,0 +1,22 @@
+{
+  "version": "ebay_d2v_dev_validation_comparison_v1",
+  "development": {
+    "precision": 1.0,
+    "recall": 0.70036101,
+    "card_coverage": 0.82857143,
+    "ambiguity_rate": 0.03777778
+  },
+  "validation": {
+    "precision": 0.98113208,
+    "recall": 0.61176471,
+    "card_coverage": 0.77142857,
+    "ambiguity_rate": 0.088
+  },
+  "delta_validation_minus_development": {
+    "precision": -0.01886792,
+    "recall": -0.0885963,
+    "card_coverage": -0.05714286,
+    "ambiguity_rate": 0.05022222
+  },
+  "finding": "Material degradation plus catastrophic accessory false positives."
+}

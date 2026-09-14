@@ -1,18 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import MarketExplorerTimeframeSelector from "./MarketOverviewWindowSelector";
+import MarketChartViewToggle from "./MarketChartViewToggle";
 import MarketPerformanceChart from "./MarketPerformanceChart";
+import { MARKET_CHART_VIEW_INDEX, MARKET_CHART_VIEW_PERFORMANCE } from "./marketPerformanceDomain.mjs";
 import {
-  MARKET_DIMENSION_LABELS,
-  changeDirection,
-  describeChange,
   describeUnavailableWindow,
-  formatChangePercent,
-  getPricePerformanceChange,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { buildExplorerChartModel } from "@/lib/explore/marketExplorerSeries.mjs";
-import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 
 // The Explorer's comparison chart.
 //
@@ -30,13 +26,8 @@ import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interp
 // The legend names each ACTIVE series and its return over the selected window.
 // Series identity is the market's own color; the return's green/red is
 // performance semantics only.
-const CHART_NOTE = "Chain-linked price performance, base 100. Constituents entering or leaving do not create artificial jumps.";
-
-function toneOf(direction) {
-  if (direction === "positive") return POSITIVE_VALUE_COLOR;
-  if (direction === "negative") return NEGATIVE_VALUE_COLOR;
-  return "var(--text-secondary)";
-}
+const PERFORMANCE_NOTE = "Selected-window performance. Each market starts at 0% at its first available observation; canonical Market Index remains available in the tooltip.";
+const INDEX_NOTE = "Canonical Market Index. Timeframe changes which dates are shown; index levels remain based on each market's lifetime chain-linked history.";
 
 export default function MarketExplorerChart({
   overview,
@@ -46,18 +37,12 @@ export default function MarketExplorerChart({
   timeframeLabel = "",
   timeframeOptions = [],
   onTimeframeChange,
-  onToggleSeries,
   onClearGraph,
-  onShowAll,
-  onHideAll,
 }) {
+  const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_PERFORMANCE);
   const visibleModel = useMemo(
     () => (timeframe ? buildExplorerChartModel(overview, selectedSeries, timeframe) : null),
     [overview, selectedSeries, timeframe]
-  );
-  const activeSeries = useMemo(
-    () => selectedSeries.filter((series) => series.available !== false),
-    [selectedSeries]
   );
   // "All" is each series' OWN tracked history, so the spoken span label is
   // simply the selected timeframe. It is deliberately NOT the shared
@@ -67,25 +52,28 @@ export default function MarketExplorerChart({
 
   return (
     <section data-market-explorer-chart-pane className="flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
-      <div className="flex flex-col gap-3 px-3 py-3 sm:px-4 desk:flex-row desk:items-start desk:justify-between desk:gap-6">
-        <div className="min-w-0">
-          <h2 id="market-explorer-chart-heading" className="text-[16px] font-semibold text-[var(--text-primary)]">
-            Market Comparison
-          </h2>
-          <p className="mt-1 text-xs text-[var(--text-secondary)]">{CHART_NOTE}</p>
+      <div className="px-3 py-3 sm:px-4">
+        <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
+        <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-6">
+          <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
+          <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0">
+            <MarketExplorerTimeframeSelector
+              options={timeframeOptions}
+              value={timeframe}
+              onChange={onTimeframeChange}
+              ariaDescription="Sets the timeframe for the chart and every selected-period return on this page. Each market is measured over its own history. Changing it does not change which markets are on the chart."
+            />
+          </div>
+        </div>
+        <div className="mt-2 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-2">
+          <div className="min-w-0 flex-1">
+          <p className="text-[10px] text-[var(--text-secondary)]">{viewMode === MARKET_CHART_VIEW_INDEX ? INDEX_NOTE : PERFORMANCE_NOTE}</p>
           {timeframe === "All" ? (
             <p data-market-explorer-all-span-note className="mt-1 text-[11px] text-[var(--text-secondary)]">
               All shows each selected market since its own tracking start, so lines may begin on different dates.
             </p>
           ) : null}
-        </div>
-        <div className="flex flex-col items-stretch gap-2 desk:flex-none desk:items-end">
-          <MarketExplorerTimeframeSelector
-            options={timeframeOptions}
-            value={timeframe}
-            onChange={onTimeframeChange}
-            ariaDescription="Sets the timeframe for the chart and every selected-period return on this page. Each market is measured over its own history. Changing it does not change which markets are on the chart."
-          />
+          </div>
           {/* GRAPH-LEVEL controls. Distinct from Builder Clear (which lives with
               the Builder and only resets the draft): these three act on what is
               CURRENTLY ON THE CHART. Show all / Hide all is one click instead of
@@ -95,33 +83,15 @@ export default function MarketExplorerChart({
             data-market-explorer-graph-controls
             role="group"
             aria-label="Graph controls"
-            className="flex flex-wrap items-center gap-1.5 text-[11px]"
+            className="flex flex-none flex-wrap items-center gap-1.5 text-[11px]"
           >
-            <button
-              type="button"
-              data-market-explorer-show-all
-              onClick={onShowAll}
-              disabled={!totalActiveCount}
-              className="rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
-            >
-              Show all
-            </button>
-            <button
-              type="button"
-              data-market-explorer-hide-all
-              onClick={onHideAll}
-              disabled={!totalActiveCount}
-              className="rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
-            >
-              Hide all
-            </button>
             <button
               type="button"
               data-market-explorer-clear-graph
               onClick={onClearGraph}
               disabled={!totalActiveCount}
               aria-label="Clear Graph: remove every active market from the chart"
-              className="rounded-full border border-[var(--border-subtle)] px-2.5 py-1 font-medium text-[var(--text-secondary)] transition-colors hover:border-[rgba(248,113,113,0.5)] hover:text-[rgb(248,113,113)] disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+              className="rounded-md px-2 py-1 font-medium text-[var(--text-secondary)] opacity-70 transition-colors hover:bg-[rgba(248,113,113,0.06)] hover:text-[rgb(248,113,113)] disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
             >
               Clear Graph
             </button>
@@ -139,31 +109,6 @@ export default function MarketExplorerChart({
         </p>
       ) : null}
 
-      <ul data-market-explorer-legend className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-3 pb-3 sm:px-4">
-        {activeSeries.map((series) => {
-          const change = getPricePerformanceChange(series, timeframe);
-          const direction = changeDirection(change);
-          return (
-            <li key={series.key} data-market-explorer-legend-item={series.key}>
-              <button
-                type="button"
-                data-market-explorer-legend-toggle={series.key}
-                aria-pressed="true"
-                onClick={() => onToggleSeries?.(series.key)}
-                className="inline-flex items-center gap-2 rounded text-xs transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
-              >
-                <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: series.color }} />
-                <span className="text-[var(--text-primary)]">{series.label}</span>
-                <span className="font-semibold tabular-nums" style={{ color: toneOf(direction) }}>
-                  <span aria-hidden="true">{formatChangePercent(change)}</span>
-                  <span className="sr-only">{describeChange(series.label, spanLabel, change, { dimension: MARKET_DIMENSION_LABELS.pricePerformance })}</span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-
       <div className="min-w-0 flex-1 px-3 pb-3 sm:px-4">
         {visibleModel?.available
           ? (
@@ -174,7 +119,9 @@ export default function MarketExplorerChart({
             // laptop would push the rail and the legend off-screen.
             <MarketPerformanceChart
               model={visibleModel}
-              plotClassName="h-[21rem] tab:h-[23rem] desk:h-[29rem] 2xl:h-[34rem]"
+              timeframe={timeframe}
+              viewMode={viewMode}
+              plotClassName="h-[24rem] tab:h-[30rem] desk:h-[38rem] 2xl:h-[42rem]"
             />
           )
           : (

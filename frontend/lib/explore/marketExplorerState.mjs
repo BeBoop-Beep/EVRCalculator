@@ -550,6 +550,7 @@ export const EXPLORER_SELECTION_ACTIONS = {
   toggleCardSegment: "toggleCardSegment",
   reconcile: "reconcile",
   clearAll: "clearAll",
+  replacePrepared: "replacePrepared",
 };
 
 const sameList = (left, right) =>
@@ -587,6 +588,16 @@ export function reduceExplorerSelection(state, action) {
   const cardIds = Array.isArray(available.cardSegmentIds) ? available.cardSegmentIds : [];
 
   switch (action?.type) {
+    case EXPLORER_SELECTION_ACTIONS.replacePrepared: {
+      const seriesId = action.seriesId;
+      return settle(state, {
+        ...state,
+        assetUniverse: assetKeys.includes(seriesId) ? [seriesId] : [],
+        sealedFamilyIds: sealedIds.includes(seriesId) ? [seriesId] : [],
+        segmentIds: cardIds.includes(seriesId) ? [seriesId] : [],
+        explicitlyCleared: false,
+      });
+    }
     case EXPLORER_SELECTION_ACTIONS.toggleMarket: {
       return settle(state, {
         ...state,

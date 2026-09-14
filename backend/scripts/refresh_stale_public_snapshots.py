@@ -20,7 +20,13 @@ from backend.db.services.publication_gate import (
     evaluate_publication_gate,
     gate_decision_report,
 )
-from backend.db.services.market_publication_gate import enforce_market_publication_gate
+from backend.db.services.market_publication_gate import (
+    enforce_market_publication_gate,
+    resolve_market_publication_date,
+)
+from backend.db.services.pokemon_market_rollout_preparation import (
+    prepare_market_rollout_candidate,
+)
 from backend.db.services.market_date_quality import market_index_accepted_dates
 from backend.db.services.set_publication_revalidation import (
     log_revalidation_diagnostics,
@@ -49,7 +55,23 @@ from backend.scripts.pokemon_snapshot_builders import (
     upsert_row,
     upsert_rows,
 )
-from backend.scripts.pokemon_explore_rankings_publisher import publish_explore_rip_rankings_snapshot
+from backend.scripts.pokemon_explore_rankings_publisher import (
+    RankingsPublicationError,
+    publish_explore_rip_rankings_snapshot,
+)
+from backend.db.services.rankings_publication_lifecycle import (
+    CLASSIFICATION_EXPLICIT_OPERATOR_SKIP,
+    CLASSIFICATION_FAILED_WITH_ATTEMPT,
+    CLASSIFICATION_UNCHANGED_NOT_REQUIRED,
+    RankingsPublicationOutcome,
+)
+
+# Stable reason code for the "Rankings were evaluated and found genuinely
+# current" terminal state (CLASSIFICATION_UNCHANGED_NOT_REQUIRED). Not part of
+# rankings_publication_lifecycle.py's DEFERRED_*/FAILED_* vocabulary — those
+# all describe why publication could NOT proceed; this describes why it was
+# never required in the first place.
+CANONICAL_RANKINGS_CURRENT = "CANONICAL_RANKINGS_CURRENT"
 from backend.scripts.build_pokemon_explore_card_movers_snapshot import build as build_explore_card_movers
 from backend.scripts.build_pokemon_explore_set_value_snapshot import build as build_explore_set_values
 
@@ -392,6 +414,13 @@ class RefreshSummary:
     global_skipped: List[str] = field(default_factory=list)
     global_failed: List[str] = field(default_factory=list)
     set_page_audit: Optional[SetPageFreshnessAudit] = None
+    # THE canonical, end-to-end Rankings result for this run: the same
+    # `RankingsPublicationOutcome` the publisher/lifecycle layer produced (or,
+    # for the two branches the publisher is never invoked on, the explicit
+    # outcome constructed at that decision point), stored as a plain dict via
+    # `.to_dict()` so it survives this dataclass's own JSON/asdict use
+    # unchanged. Never reconstructed from `global_rebuilt`/`global_failed`.
+    rankings_publication_outcome: Optional[Dict[str, Any]] = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -968,6 +997,13 @@ def _latest_for_explore_rankings(client: Any) -> Tuple[Optional[str], List[str]]
     for table, columns in (
         ("explore_rip_statistics_latest", ("updated_at", "run_at", "created_at")),
         ("simulation_latest_by_target", ("updated_at", "run_at")),
+        # Rankings readiness is deliberately evaluated only after these two
+        # authorities are available. Include their publication clocks in the
+        # stale decision so a run that deferred before either became ready is
+        # retried by the next normal refresh even when simulations themselves
+        # have not changed again.
+        ("pokemon_set_chase_accessibility_snapshot_latest", ("updated_at", "built_at")),
+        ("pokemon_collector_appeal_current", ("promoted_at",)),
         ("pokemon_set_market_dashboard_snapshot_latest", ("updated_at",)),
         ("pokemon_set_opening_desirability_latest", ("updated_at", "built_at", "created_at")),
     ):
@@ -1590,11 +1626,24 @@ def _global_snapshot_staleness(client: Any, *, family: str) -> FreshnessResult:
         cohort = meta.get("publicAnalyticsCohort") or {}
         ranked_count = int((cohort.get("overallRanked") or {}).get("rankedSetCount") or 0)
         targets = list(payload.get("targets") or [])
+        from backend.db.services.public_rip_publication_contract import (
+            canonical_overall_rip_target_key,
+        )
+
+        # BUG (Sept-8 zero rankings-publication-attempt rows): this used to
+        # hardcode "overallRipV10". The canonical Overall RIP model cut over to
+        # V12 (targets are now keyed "overallRipV12"), so the hardcoded V10 read
+        # here always found the field absent/stale-shaped and could misjudge the
+        # freshness verdict relative to what the publisher actually writes.
+        # Route through the SAME single canonical-target-key authority the
+        # publisher and readiness/lifecycle gate use, so this check can never
+        # silently drift onto a retired version's key again.
+        canonical_target_key = canonical_overall_rip_target_key()
         ranked_targets = [
             target
             for target in targets
             if isinstance(target, dict)
-            and (target.get("overallRipV10") or {}).get("rank") is not None
+            and (target.get(canonical_target_key) or {}).get("rank") is not None
         ]
         if any(not snapshot_meta.get(key) for key in ("publicationId", "marketDate", "builtAt")):
             return FreshnessResult(family, True, "canonical publication metadata missing", snapshot_updated_at, dependency_updated_at, checks)
@@ -1779,16 +1828,67 @@ def _maybe_rebuild_coordinated_market(
 
 
 def _maybe_rebuild_rankings(client: Any, rankings: FreshnessResult, *, commit: bool, summary: RefreshSummary) -> None:
+    """Publish the canonical Rankings leaderboard when it has gone stale.
+
+    ROUTING NOTE (Rankings-only, by design at this call site). This calls
+    `publish_explore_rip_rankings_snapshot` WITHOUT `set_page_generation_id`,
+    which is the explicit `rankings_only` publication mode (see
+    `PUBLICATION_MODE_RANKINGS_ONLY` in `rankings_publication_lifecycle.py`):
+    it advances the Rankings leaderboard alone and does NOT activate a new
+    Set-page snapshot generation. The coordinated mode that atomically
+    advances Rankings together with a Set-page generation lives in
+    `build_atomic_set_page_snapshot_generation.py`, which is a separate,
+    intentionally-not-wired-in-here entry point (its own generation
+    construction/activation guardrails are out of scope for this call site).
+    This function is not the place to change that routing: doing so would
+    mean constructing/activating a Set-page generation from inside a
+    staleness sweep, which is generation-construction territory.
+    """
     if not rankings.stale:
+        # Genuinely current: the publisher is never invoked, so this is the
+        # explicit CLASSIFICATION_UNCHANGED_NOT_REQUIRED terminal state, never
+        # a bare "not attempted".
+        summary.rankings_publication_outcome = RankingsPublicationOutcome(
+            classification=CLASSIFICATION_UNCHANGED_NOT_REQUIRED,
+            reason_code=CANONICAL_RANKINGS_CURRENT,
+            reason_detail=(
+                "active canonical Rankings publication is current; no rebuild required "
+                f"({rankings.reason})"
+            ),
+            publication_required=False, publication_attempted=False,
+        ).to_dict()
         return
     if not commit:
         summary.global_skipped.append(f"explore_rankings: dry-run {rankings.reason}")
         return
     try:
-        publish_explore_rip_rankings_snapshot(client, commit=True)
+        published_row = publish_explore_rip_rankings_snapshot(client, commit=True)
+        outcome = (published_row or {}).get("_rankingsPublicationOutcome") or {}
+        summary.rankings_publication_outcome = outcome
+        mode = outcome.get("publication_mode", "rankings_only")
+        logger.info(
+            "[rankings-publish] explore_rankings rebuilt publication_mode=%s attempt_id=%s publication_id=%s",
+            mode, outcome.get("attempt_id"), outcome.get("publication_id"),
+        )
         summary.global_rebuilt.append("explore_rankings")
+    except RankingsPublicationError as exc:
+        # The lifecycle layer already resolved a full classification
+        # (DEFERRED_WITH_ATTEMPT / FAILED_WITH_ATTEMPT) — consume it directly
+        # rather than re-deriving it from the exception's message.
+        logger.exception("rankings publication did not reach PUBLISHED")
+        summary.rankings_publication_outcome = exc.rankings_outcome
+        summary.global_failed.append(f"explore_rankings: {exc}")
     except Exception as exc:
+        # An unexpected exception the lifecycle layer never classified (e.g.
+        # raised before any attempt could be started). No attempt id is
+        # fabricated; this still reports FAILED_WITH_ATTEMPT-shaped data with
+        # attempt_id=None rather than silently losing the failure.
         logger.exception("failed explore rankings snapshot refresh")
+        summary.rankings_publication_outcome = RankingsPublicationOutcome(
+            classification=CLASSIFICATION_FAILED_WITH_ATTEMPT,
+            reason_code="UNEXPECTED_EXCEPTION", reason_detail=str(exc),
+            publication_required=True, publication_attempted=True,
+        ).to_dict()
         summary.global_failed.append(f"explore_rankings: {exc}")
 
 
@@ -1884,8 +1984,16 @@ def _run_market_quality_index_phase(
     summary: RefreshSummary,
 ) -> Tuple[bool, Optional[List[Dict[str, Any]]]]:
     """Persist one quality authority, then build both Market index families."""
+    try:
+        target_candidate = resolve_market_publication_date(client, market_date)
+        prepare_market_rollout_candidate(
+            client, target_candidate, commit=commit,
+        )
+    except Exception as exc:
+        summary.global_failed.append(f"market_candidate_preparation: {exc}")
+        return False, None
     enforcement = enforce_market_publication_gate(
-        client, commit=commit, market_date=market_date,
+        client, commit=commit, market_date=target_candidate,
         entry_point="stale public snapshot refresh")
     decision = enforcement.decision
     evaluation = decision.evaluation or {}
@@ -1938,6 +2046,21 @@ def _run_market_quality_index_phase(
         accepted = market_index_accepted_dates(client, through_date=target)
         if not commit:
             accepted.add(target)
+        if commit:
+            from backend.scripts.build_pokemon_market_index_history import (
+                ROLLOUT_REFRESH_RPC, _rollout_source_materialization,
+            )
+            materialization = _rollout_source_materialization(
+                client, target, allow_candidate=False)
+            if not materialization["ready"]:
+                client.rpc(ROLLOUT_REFRESH_RPC, {"p_market_date": target}).execute()
+                materialization = _rollout_source_materialization(
+                    client, target, allow_candidate=False)
+            if not materialization["ready"]:
+                raise RuntimeError(
+                    "public root source remains incomplete after rollout finalizer "
+                    f"(provenanceState={materialization['provenanceState']})"
+                )
         index_rows = build_rollout_market_index_rows(client, market_date=target)
 
         # Fail-closed invariant: the current rollout authority (never a
@@ -2495,6 +2618,17 @@ def _print_summary(summary: RefreshSummary) -> None:
     print(f"global rebuilt: {', '.join(summary.global_rebuilt) or 'none'}")
     print(f"global skipped: {', '.join(summary.global_skipped) or 'none'}")
     print(f"global failed: {', '.join(summary.global_failed) or 'none'}")
+    outcome = summary.rankings_publication_outcome or {}
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    print(
+        "Rankings: "
+        f"{outcome.get('classification', 'UNKNOWN')} "
+        f"reason={outcome.get('reason_code')} "
+        f"attempt={outcome.get('attempt_id')} "
+        f"publication={outcome.get('publication_id')} "
+        f"mode={outcome.get('publication_mode')} "
+        f"legacy_status={rankings_publication_legacy_status(outcome.get('classification'))}"
+    )
     for family in ("sealed_market", "cards", "market_dashboard", "set_page"):
         print(f"{family} rebuilt: {len(summary.rebuilt_sets[family])} {summary.rebuilt_sets[family][:20]}")
         print(f"{family} skipped: {len(summary.skipped_sets[family])} {summary.skipped_sets[family][:20]}")
@@ -2642,6 +2776,12 @@ def main() -> None:
     rankings_reason = rankings.reason
     if args.skip_explore_rankings:
         summary.global_skipped.append("explore_rankings: explicitly deferred by coordinated opening publication")
+        summary.rankings_publication_outcome = RankingsPublicationOutcome(
+            classification=CLASSIFICATION_EXPLICIT_OPERATOR_SKIP,
+            reason_code="SKIP_EXPLORE_RANKINGS_FLAG",
+            reason_detail="--skip-explore-rankings was set; Rankings branch explicitly deferred by the caller",
+            publication_required=False, publication_attempted=False,
+        ).to_dict()
     else:
         _maybe_rebuild_rankings(
             client,

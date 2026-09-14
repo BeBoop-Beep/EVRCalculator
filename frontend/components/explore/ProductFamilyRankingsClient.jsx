@@ -53,7 +53,7 @@ import {
 
 const FAMILY_SORT_OPTIONS = [
   { value: "alphabetical", label: "Alphabetical A–Z" },
-  { value: "overallRipLeaderScore", label: "Overall RIP" },
+  { value: "overallRipLeaderScore", label: "RIP Score" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
   { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
@@ -63,7 +63,7 @@ const FAMILY_SORT_OPTIONS = [
 ];
 const OVERALL_SORT_OPTIONS = [
   { value: "alphabetical", label: "Alphabetical A–Z" },
-  { value: "overallRipLeaderScore", label: "Overall RIP" },
+  { value: "overallRipLeaderScore", label: "RIP Score" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
   { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
@@ -116,11 +116,11 @@ const wholeMoney = new Intl.NumberFormat("en-US", {
 });
 const HELP = {
   overall:
-    "Overall RIP follows a leader-anchored curve: the cohort leader is 10.0 and every other product shows its absolute score as a share of that leader.",
+    "RIP Score follows a leader-anchored curve: the cohort leader is 10.0 and every other product shows its absolute score as a share of that leader.",
   financial:
     "Financial RIP uses its own leader-anchored curve: the financial leader is 10.0 and every other product is measured against it.",
   collector:
-    "Collector Appeal is the set's canonical collector-facing appeal score. Unlike Overall RIP and Financial RIP here, it is not standardized against the selected product cohort.",
+    "Collector Appeal is the set's canonical collector-facing appeal score. Unlike RIP Score and Financial RIP here, it is not standardized against the selected product cohort.",
   market:
     "The current tracked market price used for this product's RIP calculations.",
   ev: "Average modeled value across simulated openings.",
@@ -368,7 +368,7 @@ function ProductRankingsTable({
           ) : null}
           <SortMenuButton
             ariaLabel={canViewProductRipIntelligence
-              ? `Sort products. Current sort: ${(overall ? OVERALL_SORT_OPTIONS : FAMILY_SORT_OPTIONS).find((option) => option.value === sortKey)?.label || "Overall RIP"}, ${sortDirection === "asc" ? "ascending" : "descending"}.`
+              ? `Sort products. Current sort: ${(overall ? OVERALL_SORT_OPTIONS : FAMILY_SORT_OPTIONS).find((option) => option.value === sortKey)?.label || "RIP Score"}, ${sortDirection === "asc" ? "ascending" : "descending"}.`
               : "Sort products. Alphabetical sorting available; additional sorts require Index Plus."}
             value={sortKey}
             onChange={(next) => {
@@ -396,7 +396,7 @@ function ProductRankingsTable({
                   <th rowSpan={2}>Product / Set</th>
                   <th rowSpan={2}>
                     <RankedProductHeader text={HELP.overall}>
-                      Overall RIP
+                      RIP Score
                     </RankedProductHeader>
                   </th>
                   <th rowSpan={2}>

@@ -22,10 +22,32 @@ test("a same-page login hydrates identity before refreshing entitlement-aware RS
   const refreshStart = authContext.indexOf("const refreshUser");
   const refreshEnd = authContext.indexOf("const login", refreshStart);
   const refreshBlock = authContext.slice(refreshStart, refreshEnd);
-  const userUpdate = refreshBlock.indexOf("setUser(nextUser)");
-  assert.ok(userUpdate >= 0);
-  assert.ok(refreshBlock.indexOf("router.refresh()", userUpdate) > userUpdate);
-  assert.match(refreshBlock, /setAuthStatus\("resolving"\)/);
-  assert.match(refreshBlock, /finally[\s\S]*setAuthStatus\("resolved"\)/);
+  const authResolution = refreshBlock.indexOf('runAuthResolution("strong")');
+  assert.ok(authResolution >= 0);
+  assert.ok(refreshBlock.indexOf("router.refresh()", authResolution) > authResolution);
   assert.match(rankingsHook, /requestKey: `\$\{identity\}:\$\{access\.accessMode\}`/);
+});
+
+test("server initialUser owns first paint and route changes use one soft reconciliation", () => {
+  assert.match(authContext, /useState\(initialUser\)/);
+  assert.match(authContext, /if \(!initialUser\) void syncUser\(\)/);
+  assert.match(authContext, /if \(previousPathname !== pathname\) void syncUser\(\)/);
+  assert.match(authContext, /const syncUser = useCallback\(\(\) => runAuthResolution\("soft"\)/);
+  const syncStart = authContext.indexOf("const syncUser");
+  const refreshStart = authContext.indexOf("const refreshUser", syncStart);
+  assert.ok(!authContext.slice(syncStart, refreshStart).includes("router.refresh"));
+});
+
+test("latest auth request wins and a soft sync cannot supersede strong refresh", () => {
+  assert.match(authContext, /createAuthRequestCoordinator\(\)/);
+  assert.match(authContext, /requestCoordinatorRef\.current\.begin\(mode\)/);
+  assert.match(authContext, /requestCoordinatorRef\.current\.isCurrent\(request\)/);
+});
+
+test("only meaningful canonical auth changes increment authRevision", () => {
+  const commitStart = authContext.indexOf("const commitUser");
+  const resolutionStart = authContext.indexOf("const runAuthResolution", commitStart);
+  const commitBlock = authContext.slice(commitStart, resolutionStart);
+  assert.match(commitBlock, /canonicalUsersEqual/);
+  assert.equal((commitBlock.match(/setAuthRevision/g) || []).length, 1);
 });

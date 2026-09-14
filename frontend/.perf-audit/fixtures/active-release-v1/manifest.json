@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "capturedAt": "2026-09-08T00:00:00Z",
+  "authority": {
+    "marketDate": "2026-09-08",
+    "setGenerationId": "eed79a7b-fcb6-40ba-870a-10f8913be23a"
+  },
+  "routes": {
+    "/tcgs/pokemon/set-route-directory?limit=150": { "file": "set-route-directory.json", "status": 200, "contentType": "application/json", "critical": false },
+    "/explore/opening-economics": { "file": "opening-economics.json", "status": 200, "contentType": "application/json", "critical": true },
+    "/explore/rankings/lens/sets?limit=60": { "file": "set-rankings.json", "status": 200, "contentType": "application/json", "critical": true },
+    "/explore/rankings/lens/eras?limit=60": { "file": "../product-rankings-v1/empty.json", "status": 200, "contentType": "application/json", "critical": false },
+    "/explore/rankings/lens/products?limit=60": { "file": "../product-rankings-v1/products-lens.json", "status": 200, "contentType": "application/json", "critical": false },
+    "/explore/card-chase-efficiency?direction=desc&page=1&page_size=50&sort=chase_efficiency": { "file": "../product-rankings-v1/empty.json", "status": 200, "contentType": "application/json", "critical": false }
+  }
+}

@@ -22,6 +22,7 @@ from backend.domain.access.index_plan_access import (
     project_product_family_rankings_response,
     project_product_rankings_response,
     project_rankings_response,
+    project_set_rankings_lens_response,
     project_set_page_response,
     project_set_rip_simulation_evidence_response,
     project_sealed_product_detail_response,
@@ -67,6 +68,33 @@ def _sim_evidence_fixture():
 def _assert_no_sentinel(value):
     import json
     assert _SIM_EVIDENCE_SENTINEL not in json.dumps(value)
+
+
+def test_set_rankings_plus_projection_is_compact_and_driver_allowlisted():
+    huge = "x" * 1_100_000
+    payload = {"targets": [{"id": "s", "name": "Set", "publicAnalyticsStatus": "analytics_ready",
+        "setRipV1": {"publicScore": 90, "rank": 1, "tier": "S", "cohortSize": 22,
+            "rankable": True, "methodologyVersion": "v", "displayFamilyScores": [huge],
+            "familyScores": [{"family": "box", "score": 90, "productIds": [huge]}]},
+        "overallRipV12": {"leaderNormalizedScore": 80, "rank": 1, "components": {"audit": huge}},
+        "financialRipV4": {"leaderNormalizedScore": 70, "rank": 2, "audit": huge},
+        "publicRipContractV11": {"audit": huge}, "openingExperience": {"cards": [huge]},
+        "publicCollectorAppealContractV1": {"collectorAppeal": {"relativeScore": 75, "rank": 3},
+            "drivers": {"pokemonAppeal": {"rawValue": 70, "publicScore": 90, "rank": 1,
+                "cohortSize": 22, "methodologyVersion": "d", "cards": [huge]}}}}], "meta": {}}
+    projected = project_set_rankings_lens_response(payload, "plus")
+    import json
+    encoded = json.dumps(projected)
+    assert len(encoded) < 5000
+    assert "publicRipContractV11" not in encoded and "openingExperience" not in encoded
+    assert "displayFamilyScores" not in encoded and "productIds" not in encoded and huge not in encoded
+    assert projected["targets"][0]["publicCollectorAppealContractV1"]["drivers"]["pokemonAppeal"]["rank"] == 1
+
+
+def test_set_rankings_basic_leaks_no_collector_drivers():
+    payload = {"targets": [{"id": "s", "setRipV1": {"publicScore": 1},
+        "publicCollectorAppealContractV1": {"drivers": {"pokemonAppeal": {"publicScore": 99}}}}], "meta": {}}
+    assert "publicCollectorAppealContractV1" not in project_set_rankings_lens_response(payload, None)["targets"][0]
 
 
 @pytest.mark.parametrize("plan", [None, "unknown", "base"])
@@ -122,8 +150,8 @@ def test_paid_product_detail_receives_existing_snapshot_contract(plan):
 
 
 def test_locked_commercial_capability_sets_fail_closed_and_inherit():
-    assert len(_PLUS_FEATURES) == 12  # includes server response-boundary aliases
-    assert len(_PREMIUM_FEATURES) == 9  # includes exact-instrument Market Explorer membership
+    assert len(_PLUS_FEATURES) == 14  # includes server response-boundary aliases
+    assert len(_PREMIUM_FEATURES) == 11
     for feature in _PLUS_FEATURES:
         assert not has_index_feature_access(None, feature)
         assert has_index_feature_access("plus", feature)
@@ -175,6 +203,10 @@ def test_unrecognised_plans_normalize_to_none_rather_than_to_a_tier():
 def test_market_explorer_ladder_has_three_levels():
     assert resolve_market_explorer_plan_access(None) == {
         "accessMode": "basic",
+        "canBrowsePreparedMarkets": True,
+        "canComparePreparedMarkets": False,
+        "canUseAnalyticalScreens": False,
+        "canUseAdvancedMarketRanking": False,
         "canUsePreparedMarketIntelligence": False,
         "canBuildCustomMarkets": False,
         "canBuildSingleAxisMarket": False,
@@ -183,14 +215,22 @@ def test_market_explorer_ladder_has_three_levels():
     }
     assert resolve_market_explorer_plan_access({"index_plan": "plus"}) == {
         "accessMode": "plus",
+        "canBrowsePreparedMarkets": True,
+        "canComparePreparedMarkets": True,
+        "canUseAnalyticalScreens": True,
+        "canUseAdvancedMarketRanking": True,
         "canUsePreparedMarketIntelligence": True,
-        "canBuildCustomMarkets": True,
-        "canBuildSingleAxisMarket": True,
+        "canBuildCustomMarkets": False,
+        "canBuildSingleAxisMarket": False,
         "canBuildCompoundMarket": False,
         "canUseCustomRankedComposition": False,
     }
     assert resolve_market_explorer_plan_access({"index_plan": "premium"}) == {
         "accessMode": "premium",
+        "canBrowsePreparedMarkets": True,
+        "canComparePreparedMarkets": True,
+        "canUseAnalyticalScreens": True,
+        "canUseAdvancedMarketRanking": True,
         "canUsePreparedMarketIntelligence": True,
         "canBuildCustomMarkets": True,
         "canBuildSingleAxisMarket": True,
@@ -200,11 +240,12 @@ def test_market_explorer_ladder_has_three_levels():
 
 
 @pytest.mark.parametrize("asset", ["cards", "sealed"])
-def test_plus_can_build_one_axis_all_constituent_markets(asset):
+def test_only_premium_can_build_one_axis_all_constituent_markets(asset):
     scope = {"asset": asset, "eraIds": ("sv",), "setIds": (), "segmentIds": (), "mode": "all"}
     segment = {"asset": asset, "eraIds": (), "setIds": (), "segmentIds": ("segment",), "mode": "all"}
-    assert evaluate_market_query_access("plus", scope)["allowed"] is True
-    assert evaluate_market_query_access("plus", segment)["allowed"] is True
+    assert evaluate_market_query_access("plus", scope)["allowed"] is False
+    assert evaluate_market_query_access("plus", segment)["allowed"] is False
+    assert evaluate_market_query_access("premium", scope)["allowed"] is True
 
 
 def test_plus_cannot_build_compound_or_ranked_markets_but_premium_can():
@@ -225,8 +266,8 @@ def test_pass3_axis_packaging_is_centralized_and_fail_closed():
     scope_price = {"setIds": ("sv8",), "priceSegmentIds": ("premium",), "mode": "all"}
     segment_pokemon = {"segmentIds": ("sir",), "pokemonIds": ("149",), "mode": "all"}
 
-    assert evaluate_market_query_access("plus", price)["allowed"] is True
-    assert evaluate_market_query_access("plus", release)["allowed"] is True
+    assert evaluate_market_query_access("plus", price)["allowed"] is False
+    assert evaluate_market_query_access("plus", release)["allowed"] is False
     pokemon_access = evaluate_market_query_access("plus", pokemon)
     assert pokemon_access["allowed"] is False
     assert pokemon_access["requiredPlan"] == "premium"
@@ -326,7 +367,7 @@ def _rankings_target():
         "publicRipContractV10": {"overallRip": {"rank": 3}},
         "overallRipV12": {"rank": 2, "relativeScore": 70.0},
         "publicRipContractV11": {"overallRip": {"rank": 2}},
-        "chaseAccessibility": {"chaseAccessibility": 0.01},
+        "setRipV1": {"chaseAccessibility": {"value": 0.01, "publicScore": 50}},
     }
 
 
@@ -341,15 +382,14 @@ def test_base_rankings_projection_cannot_see_v12_or_v10_intelligence():
     assert result["access"]["rankingsIntelligence"] is False
 
 
-def test_plus_rankings_projection_receives_v12_and_v11():
-    result = project_rankings_response({"targets": [_rankings_target()]}, plan=INDEX_PLAN_PLUS)
+def test_plus_rankings_projection_receives_compact_current_v12_only():
+    result = project_set_rankings_lens_response({"targets": [_rankings_target()]}, plan=INDEX_PLAN_PLUS)
     target = result["targets"][0]
     assert target["overallRipV12"]["rank"] == 2
-    assert target["publicRipContractV11"]["overallRip"]["rank"] == 2
-    assert target["chaseAccessibility"]["chaseAccessibility"] == 0.01
-    # Historical V10 data is preserved for existing Plus consumers.
-    assert target["overallRipV10"]["rank"] == 3
-    assert target["publicRipContractV10"]["overallRip"]["rank"] == 3
+    assert target["setRipV1"]["chaseAccessibility"]["value"] == 0.01
+    assert "publicRipContractV11" not in target
+    assert "overallRipV10" not in target
+    assert "publicRipContractV10" not in target
 
 
 def _product_family_ranking_row():

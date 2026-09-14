@@ -1,0 +1,11 @@
+{
+  "version":"index_fair_value_model_families_f1_v1",
+  "selectionLock":"Do not add families or choose by final test performance.",
+  "families":[
+    {"id":"A","name":"regularized log-linear","target":"ln(price)","hyperparameters":"ridge/elastic-net strength selected by inner GroupKFold"},
+    {"id":"B","name":"interpretable nonlinear","target":"ln(price)","implementation":"GAM only if an approved dependency is already present; otherwise spline-expanded regularized linear model","hyperparameters":"inner grouped validation"},
+    {"id":"C","name":"tree boosted","target":"ln(price)","implementation":"one approved gradient-boosted tree implementation","interpretation":"permutation importance plus SHAP only if dependency approved","hyperparameters":"small fixed grid in inner grouped validation"},
+    {"id":"D","name":"market-conditional counterpart","target":"ln(price)","implementation":"best preregistered structural family plus fold-safe other-card peer median","hyperparameters":"same as parent family"}
+  ],
+  "backTransform":"Primary point estimate is exp(predicted log price). Also report a training-fold-only smearing correction as a separately labeled calibration candidate; never estimate correction on held-out outcomes."
+}

@@ -126,7 +126,7 @@ test("journey and product economics use canonical fields with recovery disclosur
   );
   assert.doesNotMatch(
     source,
-    /Overall RIP|Financial RIP|Collector Appeal|RIP Tier/,
+    /RIP Score|Financial RIP|Collector Appeal|RIP Tier/,
   );
 });
 

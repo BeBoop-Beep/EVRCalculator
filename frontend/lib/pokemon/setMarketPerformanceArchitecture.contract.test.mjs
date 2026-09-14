@@ -13,7 +13,7 @@ const signalsHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetMa
 const marketController = fs.readFileSync(new URL("../../hooks/pokemon/useSetMarketController.js", import.meta.url), "utf8");
 
 test("Market and RIP routes use the slim route directory", () => {
-  assert.match(route, /getPokemonSetRouteDirectory\(\{ limit: 150 \}\)/);
+  assert.match(route, /getPokemonSetRouteDirectory\(\{ limit: 200 \}\)/);
   assert.match(route, /requestedTargetType === "set"[\s\S]*getPokemonSetInitialSnapshots/);
 });
 

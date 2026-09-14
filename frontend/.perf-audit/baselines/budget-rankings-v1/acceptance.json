@@ -1,0 +1,179 @@
+{
+  "budget-rankings__desktop": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "screenshotPath": "D:\\EVRCalculator\\frontend\\.perf-audit\\baselines\\budget-rankings-v1\\budget-rankings__desktop.png",
+    "overflow": 0,
+    "network": {
+      "mode": "playback",
+      "expectedRequests": 7,
+      "preflightRequests": [
+        {
+          "route": "/explore/opening-economics",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/products?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-rankings/overall?budget=100",
+          "count": 1
+        }
+      ],
+      "browserRequests": [
+        {
+          "route": "/auth/me",
+          "count": 2
+        },
+        {
+          "route": "/explore/opening-economics",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/eras?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/sets?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/products?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/card-chase-efficiency?direction=desc&page=1&page_size=50&sort=chase_efficiency",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-rankings/overall?budget=100",
+          "count": 1
+        }
+      ],
+      "unexpectedPreflightRequests": [],
+      "unexpectedBrowserRequests": [],
+      "unusedBrowserCriticalFixtures": []
+    }
+  },
+  "budget-rankings__tablet": {
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "screenshotPath": "D:\\EVRCalculator\\frontend\\.perf-audit\\baselines\\budget-rankings-v1\\budget-rankings__tablet.png",
+    "overflow": 0,
+    "network": {
+      "mode": "playback",
+      "expectedRequests": 7,
+      "preflightRequests": [
+        {
+          "route": "/explore/opening-economics",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/products?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-rankings/overall?budget=100",
+          "count": 1
+        }
+      ],
+      "browserRequests": [
+        {
+          "route": "/auth/me",
+          "count": 2
+        },
+        {
+          "route": "/explore/opening-economics",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/eras?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/sets?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/products?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/card-chase-efficiency?direction=desc&page=1&page_size=50&sort=chase_efficiency",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-rankings/overall?budget=100",
+          "count": 1
+        }
+      ],
+      "unexpectedPreflightRequests": [],
+      "unexpectedBrowserRequests": [],
+      "unusedBrowserCriticalFixtures": []
+    }
+  },
+  "budget-rankings__mobile": {
+    "viewport": {
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "D:\\EVRCalculator\\frontend\\.perf-audit\\baselines\\budget-rankings-v1\\budget-rankings__mobile.png",
+    "overflow": 0,
+    "network": {
+      "mode": "playback",
+      "expectedRequests": 7,
+      "preflightRequests": [
+        {
+          "route": "/explore/opening-economics",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/products?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-rankings/overall?budget=100",
+          "count": 1
+        }
+      ],
+      "browserRequests": [
+        {
+          "route": "/auth/me",
+          "count": 2
+        },
+        {
+          "route": "/explore/opening-economics",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/eras?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/sets?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/rankings/lens/products?limit=60",
+          "count": 1
+        },
+        {
+          "route": "/explore/card-chase-efficiency?direction=desc&page=1&page_size=50&sort=chase_efficiency",
+          "count": 1
+        },
+        {
+          "route": "/explore/product-rankings/overall?budget=100",
+          "count": 1
+        }
+      ],
+      "unexpectedPreflightRequests": [],
+      "unexpectedBrowserRequests": [],
+      "unusedBrowserCriticalFixtures": []
+    }
+  }
+}

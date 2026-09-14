@@ -1,0 +1,57 @@
+[
+  {
+    "cohort": "ALL frozen eligible cards",
+    "n": 18293,
+    "sets": 128,
+    "missingFromFrozen": 0
+  },
+  {
+    "cohort": "ALL priced cards in exact-scarcity sets",
+    "n": 4331,
+    "sets": 22,
+    "eras": 2,
+    "missingFromFrozen": 13962
+  },
+  {
+    "cohort": "Pokemon Appeal available",
+    "n": 3703,
+    "sets": 22,
+    "eras": 2,
+    "missingFromFrozen": 14590
+  },
+  {
+    "cohort": "Trainer Appeal available",
+    "n": 280,
+    "sets": 22,
+    "eras": 2,
+    "missingFromFrozen": 18013
+  },
+  {
+    "cohort": "Artist Appeal available",
+    "n": 3220,
+    "sets": 16,
+    "eras": 2,
+    "missingFromFrozen": 15073
+  },
+  {
+    "cohort": "Pull Scarcity available",
+    "n": 4331,
+    "sets": 22,
+    "eras": 2,
+    "missingFromFrozen": 13962
+  },
+  {
+    "cohort": "Treatment available",
+    "n": 4331,
+    "sets": 22,
+    "eras": 2,
+    "missingFromFrozen": 13962
+  },
+  {
+    "cohort": "Appeal + Scarcity + Treatment",
+    "n": 4331,
+    "sets": 22,
+    "eras": 2,
+    "missingFromFrozen": 13962
+  }
+]

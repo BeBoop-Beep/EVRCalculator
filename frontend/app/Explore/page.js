@@ -8,12 +8,12 @@ import styles from "@/components/explore/explore.module.css";
 export default async function ExplorePage() {
   const backgroundUrl = getExploreBackground("pokemon");
 
-  // P0 performance rule: the default Overall lens is powered by the tiny
+  // P0 performance rule: the default Overview lens is powered by the tiny
   // opening-economics publication plus the slim set-route directory. The
   // canonical RIP targets cohort is intentionally absent from this route; it
   // is built only after the user asks for Sets, Eras or Products.
   const [directory, openingEconomics] = await Promise.all([
-    getPokemonSetRouteDirectory({ limit: 150 }).catch(() => null),
+    getPokemonSetRouteDirectory({ limit: 200 }).catch(() => null),
     getOpeningEconomics(),
   ]);
 
@@ -41,8 +41,8 @@ export default async function ExplorePage() {
         loading="lazy"
       />
       <header className="mb-5 w-full">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">Pokémon RIP Rankings</h1>
-        <p className="mt-1.5 text-sm text-[var(--text-secondary)]">Current prices, simulated opening outcomes, and collector appeal — compared in one place.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">Pokémon Rankings</h1>
+        <p className="mt-1.5 text-sm text-[var(--text-secondary)]">Compare Pokémon sets, eras, products, and cards across our ranking systems and modeled opening economics.</p>
       </header>
 
       <div data-rankings-data-surface className="w-full">

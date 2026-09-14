@@ -280,10 +280,10 @@ def test_positive_control_ready_actually_reaches_artifact_persistence(monkeypatc
                         lambda *a, **k: [{"market_date": "2026-08-19",
                                           "index_key": "raw",
                                           "source_generation_fingerprint": "fp"}])
-    monkeypatch.setattr(index_history, "resolve_eligible_sets", lambda _c: [{"id": "s"}])
+    monkeypatch.setattr(index_history, "resolve_market_root_cohort", lambda *_a, **_k: [{"id": "s"}])
     monkeypatch.setattr(index_history, "persist_index_rows",
                         lambda _c, rows: persisted.extend(rows) or len(rows))
-    monkeypatch.setattr("sys.argv", ["prog", "--commit", "--market-date", "2026-08-19"])
+    monkeypatch.setattr("sys.argv", ["prog", "--commit", "--market-date", "2026-08-19", "--backfill"])
 
     index_history.main()
 

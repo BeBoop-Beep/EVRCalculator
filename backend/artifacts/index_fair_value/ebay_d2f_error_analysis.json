@@ -1,0 +1,94 @@
+{
+  "matcher_version": "index_fair_value_ebay_d2m_v2",
+  "matcher_fingerprint": "a2ac052891df2745f2a2dde8b615a5ccbf1ef23a777eb2a0310e35aef94f6d5e",
+  "gold_fingerprint": "40da9c4ccbe030124d608c59673902f662e14835cc0d8c4b4fffb89231b97a7a",
+  "code_commit": "ece085640a013d2803b0364ddf358ef6b1390854",
+  "evaluation_timestamp": "2026-09-12T23:20:59.787335+00:00",
+  "high_false_positives": [
+    {
+      "benchmark_row_id": "D2-0310",
+      "target_card_name": "Charizard ex",
+      "target_set_name": "Paldean Fates",
+      "target_card_number": "234",
+      "listing_title": "Charizard EX #234/091 NM Paldean Fates Pokemon Card",
+      "human_gold_label": "GRADED",
+      "product_object_state": "SINGLE_RAW_CARD",
+      "identity_evidence": "{\"language\":\"COMPATIBLE\",\"name\":\"MATCH\",\"number\":{\"observed\":[\"234\"],\"state\":\"MATCH\",\"target\":\"234\"},\"product_object\":{\"reason\":\"NO_NON_CARD_OBJECT_EVIDENCE\",\"state\":\"SINGLE_RAW_CARD\"},\"raw\":\"COMPATIBLE\",\"set\":{\"conflicts\":[],\"matched\":[\"paldean fates\"],\"state\":\"EXACT\"},\"variant\":{\"conflicting_treatments\":[],\"matched\":[],\"parallel_terms\":[],\"state\":\"ABSENT\"}}",
+      "rejection_or_ambiguity_reason": "THREE_FACTOR_IDENTITY"
+    },
+    {
+      "benchmark_row_id": "D2-0674",
+      "target_card_name": "Houndour",
+      "target_set_name": "Obsidian Flames",
+      "target_card_number": "204",
+      "listing_title": "X2 Houndour Illustration Rare 204/197 Sv03: Pokemon TCG Obsidian Flames MINT",
+      "human_gold_label": "LOT_OR_BUNDLE",
+      "product_object_state": "SINGLE_RAW_CARD",
+      "identity_evidence": "{\"language\":\"COMPATIBLE\",\"name\":\"MATCH\",\"number\":{\"observed\":[\"204\"],\"state\":\"MATCH\",\"target\":\"204\"},\"product_object\":{\"reason\":\"NO_NON_CARD_OBJECT_EVIDENCE\",\"state\":\"SINGLE_RAW_CARD\"},\"raw\":\"COMPATIBLE\",\"set\":{\"conflicts\":[],\"matched\":[\"obsidian flames\"],\"state\":\"EXACT\"},\"variant\":{\"conflicting_treatments\":[],\"matched\":[\"illustration rare\"],\"parallel_terms\":[],\"state\":\"MATCH\"}}",
+      "rejection_or_ambiguity_reason": "THREE_FACTOR_IDENTITY"
+    }
+  ],
+  "false_negative_causes": {
+    "missing number evidence": 16,
+    "missing set evidence": 19,
+    "other": 3,
+    "product-object uncertainty": 9,
+    "variant uncertainty": 23
+  },
+  "marketplace_stress_cases": {
+    "extended_art_or_custom_cases": {
+      "count": 15,
+      "matcher_behavior": {
+        "REJECTED": 15
+      }
+    },
+    "choose_or_pick_your_card": {
+      "count": 21,
+      "matcher_behavior": {
+        "REJECTED": 21
+      }
+    },
+    "graded_cards": {
+      "count": 58,
+      "matcher_behavior": {
+        "HIGH_CONFIDENCE": 1,
+        "REJECTED": 57
+      }
+    },
+    "wrong_card_numbers": {
+      "count": 30,
+      "matcher_behavior": {
+        "AMBIGUOUS": 2,
+        "REJECTED": 28
+      }
+    },
+    "reverse_holo_or_parallel_mismatches": {
+      "count": 31,
+      "matcher_behavior": {
+        "AMBIGUOUS": 1,
+        "REJECTED": 30
+      }
+    },
+    "common_uncommon_rare_variant_ambiguity": {
+      "count": 19,
+      "matcher_behavior": {
+        "AMBIGUOUS": 1,
+        "MEDIUM_CONFIDENCE": 1,
+        "REJECTED": 17
+      }
+    },
+    "non_english_cards": {
+      "count": 1,
+      "matcher_behavior": {
+        "REJECTED": 1
+      }
+    },
+    "multi_card_offers": {
+      "count": 5,
+      "matcher_behavior": {
+        "REJECTED": 5
+      }
+    }
+  },
+  "descriptive_only": true
+}

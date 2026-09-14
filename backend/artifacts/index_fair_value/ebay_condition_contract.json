@@ -1,0 +1,8 @@
+{
+  "version": "ebay_condition_contract_v1",
+  "states": ["RAW_CONDITION_EXPLICIT_NM", "RAW_CONDITION_SELLER_STATED_NM", "RAW_CONDITION_UNGRADED_UNSPECIFIED", "RAW_CONDITION_OTHER", "GRADED"],
+  "supplyEligibility": ["RAW_CONDITION_EXPLICIT_NM", "RAW_CONDITION_SELLER_STATED_NM", "RAW_CONDITION_UNGRADED_UNSPECIFIED"],
+  "askingPriceEligibility": ["RAW_CONDITION_EXPLICIT_NM", "RAW_CONDITION_SELLER_STATED_NM"],
+  "nearMintAuthorityRule": "The eBay condition value Ungraded is not Near Mint evidence. Seller title NM language remains seller-stated, not independently verified.",
+  "gradedPolicy": "Always excluded from raw-card authorities."
+}

@@ -1,0 +1,107 @@
+{
+  "version": "ebay_d1_development_benchmark_v1",
+  "partition": "DEVELOPMENT",
+  "binary_rows": 433,
+  "ambiguous_excluded": 17,
+  "accepted_count_all_rows": 183,
+  "true_positives": 171,
+  "false_positives": [
+    {
+      "benchmark_row_id": "D2-0198",
+      "target_card": "Grubbin",
+      "listing_title": "Grubbin Reverse Holo 18/162 Temporal Forces Pokemon Card NM Art Kagemaru Himeno",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-0413",
+      "target_card": "Lt. Surge's Bargain",
+      "listing_title": "Pokemon Lt. Surge's Bargain (120/197) Mega Evolution LP REVERSE HOLO",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-0415",
+      "target_card": "Lt. Surge's Bargain",
+      "listing_title": "Lt. Surge's Bargain - 120/132 Reverse Holo Mega Evolution NM Pokemon",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-0417",
+      "target_card": "Lt. Surge's Bargain",
+      "listing_title": "Lt. Surge's Bargain 120/132 Mega Evolution Reverse Holo Pokemon Card",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-0419",
+      "target_card": "Lt. Surge's Bargain",
+      "listing_title": "120/132 Lt Surge's Bargain - ME01 Mega Evolution Reverse Holo NM Pokemon Trainer",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-0572",
+      "target_card": "Arbok",
+      "listing_title": "Arbok 101/162 Common Temporal Forces Pokemon Reverse Holo Near Mint",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-0573",
+      "target_card": "Arbok",
+      "listing_title": "Arbok #101/162 Common, Reverse Holo SV05: Temporal Forces Pokemon",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-0678",
+      "target_card": "Bronzor",
+      "listing_title": "2024 Scarlet & Violet Series - Temporal Forces Bronzor Common #68",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-1002",
+      "target_card": "Team Rocket's Giovanni",
+      "listing_title": "Team Rocket's Giovanni 204/217 Reverse Holo Pokemon ME: Ascended Heroes NM",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-1005",
+      "target_card": "Team Rocket's Giovanni",
+      "listing_title": "Team Rocket's Giovanni 204/217 - Reverse Holo Ascended Heroes Uncommon - NM -",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    },
+    {
+      "benchmark_row_id": "D2-1007",
+      "target_card": "Coalossal",
+      "listing_title": "Coalossal 95/162 Reverse Holo | Temporal Forces | Pokemon Card",
+      "gold_label": "RELATED_BUT_WRONG_VARIANT",
+      "d1_verdict": "EXACT_MATCH",
+      "failure": "D1 did not model treatment/parallel identity."
+    }
+  ],
+  "true_negatives": 145,
+  "false_negatives": 106,
+  "precision": 0.93956044,
+  "recall": 0.61732852,
+  "specificity": 0.92948718,
+  "f1": 0.74509804,
+  "false_positive_breakdown": {
+    "RELATED_BUT_WRONG_VARIANT": 11
+  }
+}

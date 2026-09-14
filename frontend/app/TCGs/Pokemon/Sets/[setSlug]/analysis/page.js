@@ -8,7 +8,7 @@ import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 
 export async function generateMetadata({ params }) {
   const { setSlug } = await params;
-  return buildRouteMetadata({ path: `/TCGs/Pokemon/Sets/${encodeURIComponent(toSetSlug(setSlug))}/analysis`, title: "Pokémon Set Deep Dive Analysis — inDex", description: "Detailed simulation, Financial RIP, Collector Appeal, and market context for this Pokémon set." });
+  return buildRouteMetadata({ path: `/TCGs/Pokemon/Sets/${encodeURIComponent(toSetSlug(setSlug))}/analysis`, title: "Pokémon Set Deep Dive Analysis — inDex", description: "Detailed simulation, Financial RIP, Chase Accessibility, Collector Appeal, and market context for this Pokémon set." });
 }
 
 export default async function PokemonSetAnalysisPage({ params }) {

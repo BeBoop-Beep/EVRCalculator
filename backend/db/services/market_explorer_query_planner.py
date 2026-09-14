@@ -31,12 +31,14 @@ logger = logging.getLogger(__name__)
 
 CACHE_TABLE = "pokemon_market_explorer_query_cache"
 SUMMARY_READ_RPC = "get_pokemon_market_explorer_query_cache_summary"
+BUILD_BASE_METADATA_RPC = "get_pokemon_market_explorer_query_cache_build_base_metadata"
 CONSTITUENT_PAGE_RPC = "get_pokemon_market_explorer_query_cache_constituent_page"
 CLAIM_RPC = "claim_pokemon_market_explorer_query_cache_build"
 PUBLISH_RPC = "publish_pokemon_market_explorer_query_cache_build"
 STAGE_RPC = "stage_pokemon_market_explorer_query_cache_build"
 STAGE_FROM_DETAIL_RPC = "stage_pokemon_market_explorer_query_cache_build_from_detail"
 UPSERT_CONSTITUENT_BATCH_RPC = "upsert_pokemon_market_explorer_query_cache_constituent_batch"
+PREPARE_CONSTITUENTS_RPC = "prepare_pokemon_market_explorer_query_cache_constituents"
 TRIM_CONSTITUENT_BATCH_RPC = "trim_pokemon_market_explorer_query_cache_constituent_batch"
 FINALIZE_BUILD_RPC = "finalize_pokemon_market_explorer_query_cache_build"
 RENEW_BUILD_RPC = "renew_pokemon_market_explorer_query_cache_build"
@@ -73,6 +75,10 @@ class PlannerResult:
 
 class MarketExplorerBuildInProgress(RuntimeError):
     """Another worker owns the bounded build lease and has not published yet."""
+
+
+class MarketExplorerCacheRefreshing(MarketExplorerBuildInProgress):
+    """A previously published market is being advanced to the comparison date."""
 
 
 class MarketExplorerPublishFailed(RuntimeError):
@@ -198,6 +204,12 @@ class PersistentMarketExplorerCache:
                 rows = list(self.client.rpc(SUMMARY_READ_RPC, {
                     "p_query_fingerprint": fingerprint,
                 }).execute().data or [])
+                if rows and rows[0].get("status") == "failed":
+                    metadata = list(self.client.rpc(BUILD_BASE_METADATA_RPC, {
+                        "p_query_fingerprint": fingerprint,
+                    }).execute().data or [])
+                    if metadata:
+                        rows[0].update(metadata[0])
             else:
                 rows = list((self.client.table(CACHE_TABLE).select(
                     "query_fingerprint,status,computed_from,computed_through,series_payload,"
@@ -221,7 +233,7 @@ class PersistentMarketExplorerCache:
         try:
             response = self.client.rpc(CLAIM_RPC, {
                 "p_query_fingerprint": fingerprint,
-                "p_query_contract_version": MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
+                "p_query_contract_version": str(spec.get("contractVersion") or MARKET_EXPLORER_QUERY_CONTRACT_VERSION),
                 "p_service_version": MARKET_EXPLORER_SERVICE_VERSIONS[asset],
                 "p_instrument_methodology_version":
                     MARKET_EXPLORER_INSTRUMENT_METHODOLOGY_VERSIONS[asset],
@@ -274,12 +286,38 @@ class PersistentMarketExplorerCache:
             constituents = list(payload.get("currentConstituents") or [])
             expected_count = len(constituents)
 
+            def rejected(stage_name: str, sentinel: Any, *, batch_offset: int | None = None,
+                         batch_count: int | None = None) -> bool:
+                logger.warning(
+                    "market_explorer_cache_publish_rejected fingerprint=%s stage=%s "
+                    "batchOffset=%s batchCount=%s expectedCount=%d sentinel=%s",
+                    fingerprint[:12], stage_name, batch_offset, batch_count,
+                    expected_count, sentinel,
+                )
+                return False
+
+            stage = "lease_before_upload"
+            if not self.renew(fingerprint=fingerprint, token=token):
+                return rejected(stage, False)
+
+            stage = "detail_prepare"
+            prepared = self.client.rpc(PREPARE_CONSTITUENTS_RPC, {
+                "p_query_fingerprint": fingerprint,
+                "p_build_token": token,
+            }).execute()
+            prepared_count = prepared.data if prepared.data is not None else -1
+            if int(prepared_count) < 0:
+                return rejected(stage, prepared_count)
+
             for start in range(0, expected_count, CONSTITUENT_BATCH_SIZE):
-                if not self.renew(fingerprint=fingerprint, token=token):
-                    return False
+                stage = "upsert_batch"
                 batch = constituents[start:start + CONSTITUENT_BATCH_SIZE]
+                if not self.renew(fingerprint=fingerprint, token=token):
+                    return rejected("lease_before_upload", False,
+                                    batch_offset=start, batch_count=len(batch))
                 if len(batch) > 1000:
-                    return False  # never send a batch over the production hard limit
+                    return rejected(stage, "oversized", batch_offset=start,
+                                    batch_count=len(batch))
                 result = self.client.rpc(UPSERT_CONSTITUENT_BATCH_RPC, {
                     "p_query_fingerprint": fingerprint,
                     "p_build_token": token,
@@ -287,11 +325,13 @@ class PersistentMarketExplorerCache:
                 }).execute()
                 affected = result.data if result.data is not None else -1
                 if affected is None or int(affected) < 0 or int(affected) != len(batch):
-                    return False
+                    return rejected(stage, affected, batch_offset=start,
+                                    batch_count=len(batch))
 
+            stage = "trim"
             while True:
                 if not self.renew(fingerprint=fingerprint, token=token):
-                    return False
+                    return rejected("lease_before_stage", False)
                 trimmed = self.client.rpc(TRIM_CONSTITUENT_BATCH_RPC, {
                     "p_query_fingerprint": fingerprint,
                     "p_build_token": token,
@@ -300,12 +340,13 @@ class PersistentMarketExplorerCache:
                 }).execute()
                 trimmed_count = trimmed.data if trimmed.data is not None else -1
                 if trimmed_count is None or int(trimmed_count) < 0:
-                    return False
+                    return rejected(stage, trimmed_count)
                 if int(trimmed_count) == 0:
                     break
 
             if not self.renew(fingerprint=fingerprint, token=token):
-                return False
+                return rejected("lease_before_stage", False)
+            stage = "stage_from_detail"
             staged = self.client.rpc(STAGE_FROM_DETAIL_RPC, {
                 "p_query_fingerprint": fingerprint,
                 "p_build_token": token,
@@ -321,20 +362,28 @@ class PersistentMarketExplorerCache:
                     (payload.get("reconciliation") or {}).get("eligibleUniverseCount"),
             }).execute()
             if not bool(staged.data):
-                return False
+                return rejected(stage, staged.data)
 
+            stage = "lease_before_finalize"
             if not self.renew(fingerprint=fingerprint, token=token):
-                return False
+                return rejected(stage, False)
+            stage = "finalize"
             finalized = self.client.rpc(FINALIZE_BUILD_RPC, {
                 "p_query_fingerprint": fingerprint,
                 "p_build_token": token,
             }).execute()
-            return bool(finalized.data)
+            if not bool(finalized.data):
+                return rejected(stage, finalized.data)
+            return True
         except Exception as exc:
             if self.metrics:
                 self.metrics.record("cache_build_failures", 0)
-            logger.warning("market_explorer_cache_publish_failed fingerprint=%s error=%s",
-                           fingerprint[:12], type(exc).__name__)
+            logger.warning(
+                "market_explorer_cache_publish_failed fingerprint=%s stage=%s "
+                "expectedCount=%s error=%s", fingerprint[:12],
+                locals().get("stage", "exception"), locals().get("expected_count", "unknown"),
+                type(exc).__name__,
+            )
             return False
 
     def constituent_page(self, fingerprint: str, *, limit: int = 100,
@@ -511,10 +560,28 @@ def _is_recoverable_failed_base(
     # a safe incremental base even though every field above looks present.
     constituent_count = row.get("constituent_count")
     current_constituents = row.get("current_constituents")
-    if current_constituents is None or not isinstance(current_constituents, list):
+    if isinstance(current_constituents, list):
+        detail_count = len(current_constituents)
+        nonnull_instrument_count = detail_count
+        unique_instrument_count = detail_count
+        min_rank = 1 if detail_count else None
+        max_rank = detail_count or None
+    else:
+        detail_count = row.get("detail_count")
+        nonnull_instrument_count = row.get("nonnull_instrument_count")
+        unique_instrument_count = row.get("unique_instrument_count")
+        min_rank = row.get("min_rank")
+        max_rank = row.get("max_rank")
+    if constituent_count is None or detail_count is None:
         return False
-    if constituent_count is not None and int(constituent_count) > 0:
-        if len(current_constituents) != int(constituent_count):
+    expected_count = int(constituent_count)
+    if int(detail_count) != expected_count:
+        return False
+    if expected_count:
+        if (int(nonnull_instrument_count or 0) != expected_count
+                or int(unique_instrument_count or 0) != expected_count
+                or int(min_rank or 0) != 1
+                or int(max_rank or 0) != expected_count):
             return False
 
     as_of = str(series_payload.get("asOf") or "")[:10]
@@ -583,12 +650,19 @@ class MarketExplorerQueryPlanner:
         def response(payload: Mapping[str, Any]) -> dict[str, Any]:
             if not summary:
                 return dict(payload)
+            if spec.get("instruments"):
+                # Exact V2 is capped at 25 leaves. Its coherent DB-owned prices
+                # and shares are part of the current basket state, not a broad
+                # constituent payload that should be paged away.
+                return {key: value for key, value in payload.items()
+                        if key != "membershipByDate"}
             return {key: value for key, value in payload.items()
                     if key not in ("currentConstituents", "membershipByDate")}
 
         def read_cache(*, full: bool = False) -> dict[str, Any] | None:
             return (persistent.read(fingerprint, summary=True)
-                    if summary and not full else persistent.read(fingerprint))
+                    if summary and not full and not spec.get("instruments")
+                    else persistent.read(fingerprint))
 
         prepared_payload = prepared.resolve(spec)
         if prepared_payload is not None:
@@ -629,6 +703,10 @@ class MarketExplorerQueryPlanner:
                         self.l1.put(l1_key, generation, payload)
                     return self._done(started, "persistent_cache", payload)
 
+            if row and row.get("status") in ("ready", "stale", "failed"):
+                raise MarketExplorerCacheRefreshing(
+                    "this Market Explorer query is refreshing to the comparison date"
+                )
             raise MarketExplorerBuildInProgress(
                 "an equivalent Market Explorer query is already being built"
             )
@@ -640,7 +718,10 @@ class MarketExplorerQueryPlanner:
         # trustworthy (see _is_recoverable_failed_base) is likewise a safe
         # incremental base -- it is never returned as a cache hit above, only
         # used here to avoid an unnecessary full historical cold rebuild.
-        build_row = read_cache(full=True) if summary else row
+        # Capture the complete bounded build base before claim mutates status.
+        # Summary reads carry series history and (for failed rows) compact
+        # detail-integrity metadata; they never transport constituent JSON.
+        build_row = row
         recoverable_failed_base = _is_recoverable_failed_base(build_row, spec, generation)
         previous = (
             str(build_row.get("computed_through"))[:10]
@@ -711,15 +792,30 @@ def resolve_cards_canonical_through(
     return through
 
 
-def resolve_canonical_through(client: Any, spec: Mapping[str, Any]) -> str:
-    """Narrow metadata-only publication watermark (one call for common scopes)."""
-    requested_sets = {str(value) for value in (spec.get("setIds") or ())}
-    era_ids = list(spec.get("eraIds") or ())
-    if era_ids:
-        era_rows = list((client.table("sets").select("id").in_("era_id", era_ids)
+def resolve_scope_set_ids(client: Any, era_ids: Iterable[Any], set_ids: Iterable[Any]) -> set[str]:
+    """Era -> Set expansion, intersected with any explicit Set selection.
+
+    Shared by every caller that needs the resolved Set ID scope for the
+    canonical authority in this module (watermark resolution, the Filtered
+    Cards preflight caller). An empty era list with a non-empty set list
+    returns the set list unchanged; an empty set list with a non-empty era
+    list returns every set in those eras; both empty returns an empty set,
+    which callers interpret as "global" per the query spec's own EMPTY MEANS
+    ALL convention.
+    """
+    requested_sets = {str(value) for value in (set_ids or ())}
+    resolved_era_ids = list(era_ids or ())
+    if resolved_era_ids:
+        era_rows = list((client.table("sets").select("id").in_("era_id", resolved_era_ids)
                          .execute()).data or [])
         era_sets = {str(row.get("id")) for row in era_rows if row.get("id")}
         requested_sets = requested_sets & era_sets if requested_sets else era_sets
+    return requested_sets
+
+
+def resolve_canonical_through(client: Any, spec: Mapping[str, Any]) -> str:
+    """Narrow metadata-only publication watermark (one call for common scopes)."""
+    requested_sets = resolve_scope_set_ids(client, spec.get("eraIds"), spec.get("setIds"))
 
     if spec["asset"] == "cards":
         return resolve_cards_canonical_through(client, requested_sets)
@@ -733,6 +829,19 @@ def resolve_canonical_through(client: Any, spec: Mapping[str, Any]) -> str:
     if not through:
         raise RuntimeError(f"{spec['asset']} market publication has no usable date")
     return through
+
+
+def resolve_explorer_comparison_through(client: Any, spec: Mapping[str, Any]) -> str:
+    """Accepted Explorer chart watermark, bounded by source publication."""
+    source_through = resolve_canonical_through(client, spec)
+    rows = list((client.table("pokemon_explore_set_value_snapshot_latest")
+                 .select("comparison_as_of:payload_json->marketOverview->>marketDate")
+                 .eq("tcg", "pokemon").eq("scope", "market")
+                 .limit(1).execute()).data or [])
+    comparison_as_of = str(rows[0].get("comparison_as_of") or "")[:10] if rows else ""
+    if not comparison_as_of:
+        raise RuntimeError("Market Explorer publication has no comparison date")
+    return min(source_through, comparison_as_of)
 
 # Existing prepared Cards parents/segments are canonical-card or set-aggregate
 # publications, not the variant/physical-instrument contract.  No production

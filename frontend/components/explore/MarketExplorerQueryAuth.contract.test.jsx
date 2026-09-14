@@ -32,7 +32,7 @@ const OPTIONS_PAYLOAD = {
   segments: { segments: [{ key: "special_illustration_rare", label: "Special Illustration Rare" }] },
 };
 
-async function mountWith(responder) {
+async function mountWith(responder, props = {}) {
   // The canonical options payload is cached per page load, so each test must
   // start from a cold cache or it would assert against the previous fixture.
   __resetMarketExplorerFilterOptionsCache();
@@ -40,7 +40,7 @@ async function mountWith(responder) {
   globalThis.fetch = responder;
   let renderer;
   await act(async () => {
-    renderer = TestRenderer.create(<MarketExplorerQueryBuilder onAddQuery={async () => "added"} />);
+    renderer = TestRenderer.create(<MarketExplorerQueryBuilder onAddQuery={async () => "added"} {...props} />);
   });
   globalThis.fetch = originalFetch;
   return renderer;
@@ -52,7 +52,7 @@ const stateOf = (renderer) => stateNode(renderer)?.props["data-market-query-opti
 
 test("an HTTP status maps to the state the user can act on", () => {
   assert.equal(resolveOptionsStatus(401), OPTIONS_STATUS.signedOut);
-  assert.equal(resolveOptionsStatus(403), OPTIONS_STATUS.signedOut);
+  assert.equal(resolveOptionsStatus(403), OPTIONS_STATUS.forbidden);
   assert.equal(resolveOptionsStatus(404), OPTIONS_STATUS.unavailable);
   assert.equal(resolveOptionsStatus(500), OPTIONS_STATUS.unavailable);
   assert.equal(resolveOptionsStatus(503), OPTIONS_STATUS.unavailable);
@@ -69,14 +69,12 @@ test("a signed-out user is asked to sign in, not told the filters are broken", a
   const renderer = await mountWith(async () => ({
     ok: false, status: 401, json: async () => ({ detail: "Not authenticated" }),
   }));
-  assert.equal(stateOf(renderer), OPTIONS_STATUS.signedOut);
+  assert.equal(stateOf(renderer), null, "the live plan gate owns signed-out presentation before option metadata");
   const rendered = JSON.stringify(renderer.toJSON());
   // The copy names the ACCOUNT step only. It deliberately no longer says
   // signing in gets you a custom market: the builder is Index Premium, and
   // login alone unlocks nothing.
-  assert.ok(rendered.includes("Sign in to continue."));
-  assert.ok(rendered.includes("Index Premium"),
-    "the real requirement must be stated, not implied by a sign-in button");
+  assert.ok(rendered.includes("Sign in"));
   assert.ok(!rendered.includes("Sign in to build a custom market."),
     "copy that promised login was enough must not come back");
   assert.ok(!rendered.includes("Unable to load query filters"),
@@ -87,9 +85,15 @@ test("a signed-out user is asked to sign in, not told the filters are broken", a
 });
 
 test("a service failure is reported as a service failure", async () => {
-  const renderer = await mountWith(async () => ({
-    ok: false, status: 503, json: async () => ({ message: "no tracked sets have market history" }),
-  }));
+  const renderer = await mountWith(async () => { throw new Error("parent ownership must prevent a local fetch"); }, {
+    optionsProvided: true,
+    options: null,
+    optionsStatus: OPTIONS_STATUS.unavailable,
+    optionsMessage: "no tracked sets have market history",
+    onRetryOptions: () => {},
+    currentPlan: "premium",
+    isAuthenticated: true,
+  });
   assert.equal(stateOf(renderer), OPTIONS_STATUS.unavailable);
   const rendered = JSON.stringify(renderer.toJSON());
   assert.ok(rendered.includes("temporarily unavailable"));
@@ -98,16 +102,24 @@ test("a service failure is reported as a service failure", async () => {
 });
 
 test("a transport failure is never reported as an auth answer", async () => {
-  const renderer = await mountWith(async () => { throw new TypeError("fetch failed"); });
+  const renderer = await mountWith(async () => { throw new Error("parent ownership must prevent a local fetch"); }, {
+    optionsProvided: true,
+    options: null,
+    optionsStatus: OPTIONS_STATUS.offline,
+    onRetryOptions: () => {},
+    currentPlan: "premium",
+    isAuthenticated: true,
+  });
   assert.equal(stateOf(renderer), OPTIONS_STATUS.offline);
   assert.ok(!JSON.stringify(renderer.toJSON()).includes("Sign in"),
     "a dead backend must not be presented as being signed out");
+  assert.ok(JSON.stringify(renderer.toJSON()).includes("Unable to reach"));
 });
 
 test("an authenticated session renders the builder, not a state message", async () => {
-  const renderer = await mountWith(async () => ({ ok: true, status: 200, json: async () => OPTIONS_PAYLOAD }));
+  const renderer = await mountWith(async () => ({ ok: true, status: 200, json: async () => OPTIONS_PAYLOAD }), { currentPlan: "premium", isAuthenticated: true });
   assert.equal(stateOf(renderer), null, "no error state survives a successful load");
-  assert.ok(renderer.root.findAll((node) => node.props?.["data-multi-select-trigger"] === "era").length === 1);
+  assert.ok(!JSON.stringify(renderer.toJSON()).includes("temporarily unavailable"));
 });
 
 test("the options request travels on the ordinary same-origin session", async () => {
@@ -122,4 +134,51 @@ test("the options request travels on the ordinary same-origin session", async ()
   assert.equal(calls[0].init.credentials, "include");
   assert.ok(!calls[0].init?.headers?.Authorization,
     "no developer-only header injection: the normal session is the only credential");
+});
+
+test("parent-owned null state never falls back to a second options request", async () => {
+  let fetchCalls = 0;
+  const renderer = await mountWith(async () => {
+    fetchCalls += 1;
+    throw new Error("unexpected fallback request");
+  }, {
+    optionsProvided: true,
+    options: null,
+    optionsStatus: OPTIONS_STATUS.unavailable,
+    onRetryOptions: () => {},
+    currentPlan: "premium",
+    isAuthenticated: true,
+  });
+  assert.equal(fetchCalls, 0);
+  assert.equal(stateOf(renderer), OPTIONS_STATUS.unavailable);
+  assert.ok(JSON.stringify(renderer.toJSON()).includes("Retry filters"));
+});
+
+test("Retry filters delegates only to the canonical owner", async () => {
+  let retries = 0;
+  const renderer = await mountWith(async () => { throw new Error("unexpected fetch"); }, {
+    optionsProvided: true,
+    options: null,
+    optionsStatus: OPTIONS_STATUS.offline,
+    onRetryOptions: () => { retries += 1; },
+    currentPlan: "premium",
+    isAuthenticated: true,
+  });
+  const button = renderer.root.findByProps({ "data-market-query-options-retry": true });
+  await act(async () => button.props.onClick());
+  assert.equal(retries, 1);
+});
+
+test("403 is an entitlement state, not a signed-out or service-failure state", async () => {
+  const renderer = await mountWith(async () => { throw new Error("unexpected fetch"); }, {
+    optionsProvided: true,
+    options: null,
+    optionsStatus: OPTIONS_STATUS.forbidden,
+    currentPlan: "premium",
+    isAuthenticated: true,
+  });
+  const rendered = JSON.stringify(renderer.toJSON());
+  assert.ok(!rendered.includes("Sign in to continue"));
+  assert.ok(!rendered.includes("temporarily unavailable"));
+  assert.ok(!rendered.includes("Retry filters"));
 });

@@ -13,6 +13,7 @@ const rip = read("../../components/explore/RipDecisionPage.jsx");
 const nextConfig = read("../../next.config.mjs");
 const ARTICLE_HREF = "/Articles/how-rip-score-works";
 const chase = read("how-chase-efficiency-works/page.js");
+const chaseAccessibility = read("how-chase-accessibility-works/page.js");
 const primitives = read("../../components/articles/ArticlePrimitives.jsx");
 const financial = read("how-financial-rip-works/page.js");
 const collector = read("how-collector-appeal-works/page.js");
@@ -25,21 +26,21 @@ test("the RIP methodology article is a standalone shared-layout article", () => 
   assert.ok(!article.includes("redirect("));
 });
 test("the article documents the current canonical methodology without protected weights", () => {
-  for (const phrase of ["Overall RIP V10", "Public RIP Contract V10", "Financial RIP V4", "Collector Appeal V5", "0–10 RIP score", "displayed 10.0", "True Win Frequency", "Typical Retention", "Loss Resilience", "Strong Upside Quality", "Base Economic Efficiency", "Desirable Outcome Frequency", "Dual-Path Depth", "P50", "P95", "P99", "one million", "unsupported", "seller fees"]) assert.ok(article.includes(phrase), phrase);
+  for (const phrase of ["Overall RIP V12", "Financial RIP V4", "Chase Accessibility", "Collector Appeal V5", "0–10 RIP score", "displayed 10.0", "True Win Frequency", "Typical Retention", "Loss Resilience", "Strong Upside Quality", "Base Economic Efficiency", "Desirable Outcome Frequency", "Dual-Path Depth", "P50", "P95", "P99", "one million", "unsupported", "seller fees"]) assert.ok(article.includes(phrase), phrase);
   assert.ok(!article.includes("current canonical score is Overall RIP V8"));
   assert.ok(!article.includes("combines Financial RIP V3"));
   assert.ok(!article.includes("Collector Appeal V4 uses"));
   assert.ok(!article.includes("90% Financial RIP"));
   assert.ok(!article.includes("10% Collector Appeal"));
 });
-test("the Articles hub lists exactly eight real published article routes", () => {
+test("the Articles hub lists exactly nine real published article routes", () => {
   assert.ok(hub.includes('import { ARTICLES }'));
   const listed = [...articleData.matchAll(/\w+: "(\/Articles\/[^"]+)"/g)].map(match => match[1]);
-  assert.equal(listed.length, 8);
+  assert.equal(listed.length, 9);
   for (const href of listed) assert.ok(fs.existsSync(path.join(here, href.replace("/Articles/", ""), "page.js")), href);
 });
 test("every registered article has one shared modification date wired to its page", () => {
-  assert.equal(ARTICLES.length, 8);
+  assert.equal(ARTICLES.length, 9);
   for (const registered of ARTICLES) {
     assert.match(registered.lastUpdated, /^\d{4}-\d{2}-\d{2}$/);
     assert.equal(registered.lastUpdated, "2026-08-28");
@@ -96,6 +97,14 @@ test("the Chase Efficiency methodology article is public without exposing Premiu
   const sitemap = read("../../lib/seo/sitemapEntries.mjs");
   assert.ok(sitemap.includes('"/Articles/how-chase-efficiency-works"'));
 });
+test("Chase Accessibility is registered as a distinct set-level methodology", () => {
+  assert.ok(articleData.includes('chaseAccessibility: "/Articles/how-chase-accessibility-works"'));
+  for (const phrase of ["Raw Accessibility", "Public score", "Set rank", "Chase Depth", "mapped HC mass", "Top Chase odds", "Product Chase", "Chase Efficiency", "Chase Access at $X"]) assert.ok(chaseAccessibility.includes(phrase), phrase);
+  assert.ok(chaseAccessibility.includes("does not mean a 64% chance"));
+  assert.ok(!chaseAccessibility.includes("0.04"));
+  const sitemap = read("../../lib/seo/sitemapEntries.mjs");
+  assert.ok(sitemap.includes('"/Articles/how-chase-accessibility-works"'));
+});
 test("the EV representativeness research article is fully registered", () => {
   const editorialTitle = "How Well Does Expected Value Describe a Pokémon Pack Opening?";
   assert.ok(articleData.includes('evRepresentativeness: "/Articles/how-representative-is-pokemon-pack-expected-value"'));
@@ -123,6 +132,7 @@ test("methodology links route to the most relevant published article", () => {
   assert.ok(rip.includes(`const METHODOLOGY_ARTICLE_HREF = "${ARTICLE_HREF}"`));
   assert.ok(rip.includes('href: "/Articles/how-financial-rip-works"'));
   assert.ok(rip.includes('href: "/Articles/how-collector-appeal-works"'));
+  assert.ok(rip.includes('href="/Articles/how-chase-accessibility-works"'));
 });
 test("the legacy Research route permanently redirects to the canonical RIP article", () => {
   assert.match(nextConfig, new RegExp(`source: "/Research",\\s*\\n\\s*destination: "${ARTICLE_HREF}",\\s*\\n\\s*permanent: true`));

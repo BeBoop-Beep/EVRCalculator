@@ -1,11 +1,21 @@
 import pytest
+from postgrest.exceptions import APIError
 
+from backend.db.services import pokemon_explore_card_movers_service as svc
+from backend.db.services import public_read_retry
 from backend.db.services.pokemon_explore_card_movers_service import (
     ExploreCardMoversUnavailable,
     build_global_card_movers_row,
     read_explore_card_movers_snapshot,
 )
 from backend.db.services.pokemon_card_market_delta_contract import WINDOW_CONVENTION
+
+
+@pytest.fixture(autouse=True)
+def _reset_circuit_breaker():
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
+    yield
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
 
 
 def movement(card_id, percent, amount, **extra):
@@ -117,3 +127,55 @@ def test_read_service_serves_only_prepared_snapshot_and_caps_limit():
     result = read_explore_card_movers_snapshot(client=_Client([{"payload_json": payload}]), limit=99)
     assert result["marketMovers"]["window"] == "7D"
     assert len(result["marketMovers"]["all"]) == 30
+
+
+def _transient_error(code="PGRST002"):
+    return APIError({"message": "schema cache unavailable", "code": code, "hint": None, "details": None})
+
+
+class _FlakyOnceClient:
+    def __init__(self, rows):
+        self.rows = rows
+        self.calls = 0
+
+    def table(self, _name):
+        return self
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, *_args):
+        return self
+
+    def limit(self, *_args):
+        return self
+
+    def execute(self):
+        self.calls += 1
+        if self.calls == 1:
+            raise _transient_error()
+        return _Result(self.rows)
+
+
+def test_no_client_path_retries_a_transient_failure_and_recovers(monkeypatch):
+    """D/B: no-client path wraps the read in run_public_read_with_retry; a first
+    transient failure is retried on a fresh client and the retry succeeds."""
+    payload = {"marketMovers": {"window": "7D", "all": [movement("a", 1, 1)]}, "meta": {}}
+    flaky = _FlakyOnceClient([{"payload_json": payload}])
+    monkeypatch.setattr(svc, "service_read_client", flaky)
+    real_retry = public_read_retry.run_public_read_with_retry
+    monkeypatch.setattr(
+        svc, "run_public_read_with_retry",
+        lambda op, **kwargs: real_retry(op, client_factory=lambda: flaky, **kwargs),
+    )
+    result = read_explore_card_movers_snapshot()
+    assert result["marketMovers"]["window"] == "7D"
+    assert flaky.calls == 2
+
+
+def test_no_client_path_does_not_retry_missing_snapshot():
+    """E: ExploreCardMoversUnavailable is a semantic/non-transient failure and
+    must not be retried."""
+    empty = _Client([])
+    with pytest.raises(ExploreCardMoversUnavailable):
+        read_explore_card_movers_snapshot(client=empty)

@@ -136,7 +136,12 @@ def test_quality_history_read_paginates_beyond_one_page():
             for i in range(total)]
     client = _PagingClient(rows)
 
-    result = mdq.read_market_date_quality_history(client)
+    # include_superseded=True: this test exercises the paging mechanism itself
+    # (does .range() get called repeatedly to avoid PostgREST's per-response
+    # cap), not the one-row-per-market_date v1/v2 dedup policy applied by
+    # default -- these fixture rows deliberately share one market_date to make
+    # a truncation failure mode obvious.
+    result = mdq.read_market_date_quality_history(client, include_superseded=True)
 
     assert len(result) == total, "an unpaginated read would truncate at PAGE_SIZE"
     assert client.calls[0] == (0, mdq.PAGE_SIZE - 1)
@@ -222,3 +227,70 @@ def test_latest_authority_falls_back_to_prior_good_date_when_current_is_blocked(
         {"market_date": "2026-08-18", "status": mdq.STATUS_DEGRADED},
     ])
     assert mdq.resolve_latest_accepted_market_date(client) == "2026-08-17"
+
+
+# --- Quality contract v1/v2 mixed-history compatibility ---------------------
+#
+# Fixture: Sep8 v1 READY; Sep9 v1 READY; Sep10 v1 READY (stale 111-set
+# evaluation); Sep10 v2 READY (fresh 106-set evaluation); Sep11 v2 READY.
+V1 = mdq.MARKET_QUALITY_CONTRACT_VERSION_LEGACY
+V2 = mdq.MARKET_QUALITY_CONTRACT_VERSION
+
+MIXED_HISTORY_FIXTURE = [
+    {"market_date": "2026-09-08", "status": STATUS_READY, "contract_version": V1,
+     "cohort_set_count": 22, "evidence_json": {}},
+    {"market_date": "2026-09-09", "status": STATUS_READY, "contract_version": V1,
+     "cohort_set_count": 111, "evidence_json": {}},
+    {"market_date": "2026-09-10", "status": STATUS_READY, "contract_version": V1,
+     "cohort_set_count": 111, "evidence_json": {}},
+    {"market_date": "2026-09-10", "status": STATUS_READY, "contract_version": V2,
+     "cohort_set_count": 106, "evidence_json": {}},
+    {"market_date": "2026-09-11", "status": STATUS_READY, "contract_version": V2,
+     "cohort_set_count": 106, "evidence_json": {}},
+]
+
+
+def test_sep8_sep9_remain_historically_accepted_under_legacy_v1():
+    client = _PagingClient(list(MIXED_HISTORY_FIXTURE))
+    accepted = mdq.accepted_market_dates(client)
+    assert {"2026-09-08", "2026-09-09"} <= accepted
+
+
+def test_sep10_current_authority_resolves_from_v2_not_stale_v1():
+    client = _PagingClient(list(MIXED_HISTORY_FIXTURE))
+    history = {row["market_date"]: row for row in mdq.read_market_date_quality_history(client)}
+    assert history["2026-09-10"]["contract_version"] == V2
+    assert history["2026-09-10"]["cohort_set_count"] == 106
+
+
+def test_sep10_stale_v1_row_remains_queryable_for_audit_but_not_authoritative():
+    client = _PagingClient(list(MIXED_HISTORY_FIXTURE))
+    raw = mdq.read_market_date_quality_history(client, include_superseded=True)
+    sep10_versions = {row["contract_version"] for row in raw if row["market_date"] == "2026-09-10"}
+    assert sep10_versions == {V1, V2}, "the stale v1 row must not be deleted"
+
+    # But the authoritative (default) read never surfaces it as the Sep 10 row.
+    authoritative = mdq.read_market_date_quality_history(client)
+    sep10_rows = [row for row in authoritative if row["market_date"] == "2026-09-10"]
+    assert len(sep10_rows) == 1
+    assert sep10_rows[0]["contract_version"] == V2
+
+
+def test_sep11_current_authority_resolves_from_v2():
+    client = _PagingClient(list(MIXED_HISTORY_FIXTURE))
+    assert mdq.resolve_latest_accepted_market_date(client) == "2026-09-11"
+    accepted = mdq.accepted_market_dates(client)
+    assert accepted == {"2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11"}
+
+
+def test_post_cutover_date_with_no_v2_row_fails_safe_not_incomplete_fallback_to_v1():
+    """A date >= cutover with only a v1 row (no v2 evaluated yet) must not be
+    treated as accepted by silently falling back to the stale v1 row."""
+    fixture = [row for row in MIXED_HISTORY_FIXTURE if not (
+        row["market_date"] == "2026-09-10" and row["contract_version"] == V2
+    )]
+    client = _PagingClient(fixture)
+    accepted = mdq.accepted_market_dates(client)
+    assert "2026-09-10" not in accepted
+    # Sep 8/9 (legitimately legacy-only) and Sep 11 (v2) are unaffected.
+    assert accepted == {"2026-09-08", "2026-09-09", "2026-09-11"}

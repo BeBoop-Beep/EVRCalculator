@@ -1,0 +1,33 @@
+{
+  "authority_status": "complete_persisted_and_validated",
+  "previous_partial_source_run_id": "2b46970a-ca14-4c4f-9b9d-ab3e49911613",
+  "complete_source_run_id": "77792597-7fb4-48e9-bd52-3034061f9d3e",
+  "old_capture_hash": "1beb2e02dcc636062309ccea6148674de788bcabd5d42068b5722cc4e5948c35",
+  "new_capture_hash": "c8614e5041c279853ad87600226777beb844371289bbef07d41b25c6aa5428db",
+  "complete_capture_path": "backend/artifacts/collector_v6_redesign_research/trends_v2_capture/complete_capture_v2.jsonl",
+  "targeted_retry_evidence_path": "backend/artifacts/collector_v6_redesign_research/trends_v2_capture/targeted_retry_v1.json",
+  "anchor_manifest_version": "pokemon_trends_anchor_ladder_manifest_v1",
+  "anchor_manifest_fingerprint": "009418a05f6b9631",
+  "frozen_ladder_ascending": ["Purugly", "Stunky", "Torkoal", "Lucario", "Charizard", "Pikachu"],
+  "capture_code_version": "capture_pokemon_trends_anchor_ladder_v2_r1",
+  "ingest_code_version": "ingest_pokemon_trends_v2_source_run_r1",
+  "calibration_version": "pokemon_trends_anchor_ladder_v2_manifest_v1",
+  "self_anchor_collision_rule": "Only when the frozen initial assignment equals the subject name, query the already-frozen adjacent lower rung; do not search or optimize an alternate anchor.",
+  "recovered_subjects": [
+    {"pokemon":"Pidgeot","assigned_anchor":"Torkoal","actual_query_anchor":"Torkoal","self_anchor_correction":false,"raw_target":59.75,"raw_anchor":37.28125,"global_relative":12.5674333612741,"provider_retry_count":0,"rate_limit_or_backoff_events":[],"classification":"SCORED","timestamp":"2026-09-10T19:44:17.988216+00:00","usable":true},
+    {"pokemon":"Skiploom","assigned_anchor":"Purugly","actual_query_anchor":"Purugly","self_anchor_correction":false,"raw_target":13.15625,"raw_anchor":13.15625,"global_relative":1.0,"provider_retry_count":0,"rate_limit_or_backoff_events":[],"classification":"SCORED","timestamp":"2026-09-10T19:44:26.450420+00:00","usable":true},
+    {"pokemon":"Torkoal","assigned_anchor":"Torkoal","actual_query_anchor":"Stunky","self_anchor_correction":true,"raw_target":60.375,"raw_anchor":15.8125,"global_relative":8.49010909090909,"provider_retry_count":0,"rate_limit_or_backoff_events":[],"classification":"SCORED","timestamp":"2026-09-10T19:44:35.023844+00:00","usable":true},
+    {"pokemon":"Latias","assigned_anchor":"Lucario","actual_query_anchor":"Lucario","self_anchor_correction":false,"raw_target":30.625,"raw_anchor":63.46875,"global_relative":54.91575480059084,"provider_retry_count":0,"rate_limit_or_backoff_events":[],"classification":"SCORED","timestamp":"2026-09-10T19:44:43.606880+00:00","usable":true},
+    {"pokemon":"Stunky","assigned_anchor":"Stunky","actual_query_anchor":"Purugly","self_anchor_correction":true,"raw_target":20.625,"raw_anchor":10.46875,"global_relative":1.9701492537313432,"provider_retry_count":0,"rate_limit_or_backoff_events":[],"classification":"SCORED","timestamp":"2026-09-10T19:44:52.073473+00:00","usable":true}
+  ],
+  "replacement_provenance": {"base_rows_reused_exactly":1020,"targeted_retry_replacements":5,"other_provider_calls":0},
+  "final_classifications": {"total":1025,"SCORED":998,"scored_zero_high_confidence":27,"failed":0,"missing_evidence":0,"insufficient_calibration":0},
+  "dry_run_proof": {"rows":1025,"unique_subjects":1025,"live_entity_matches":1025,"unmatched":0,"mutations":0},
+  "production_write_timestamp": "2026-09-11T17:52:46.555888+00:00",
+  "persisted_observations": 1025,
+  "exact_run_reader_proof": {"reader":"backend.db.services.pokemon_trends_v2_source_service.load_pokemon_trends_v2_run","rows":1025,"unique_pokedex_keys":1025,"status":"success"},
+  "idempotency_proof": "A second guarded ingestion resolved complete_source_run_id and reported mode=idempotent_skip with mutationsPerformed=0.",
+  "immutability_proof": {"previous_run_status":"partial_failure","previous_run_capture_hash":"1beb2e02dcc636062309ccea6148674de788bcabd5d42068b5722cc4e5948c35","previous_run_rows":1025,"terminal_append_only_guards":"existing source-run lifecycle and observation append-only triggers"},
+  "tests": ["focused self-anchor and normal-assignment regression tests","complete capture validation and null/classification tests","persistence bridge tests","exact-run reader tests","live dry run","idempotent second ingestion","python compilation","git diff --check"],
+  "future_binding_rule": "Corrected Collector V6 must bind to complete_source_run_id exactly; never resolve by latest Trends V2."
+}

@@ -31,7 +31,7 @@ import {
 // an availability list that no longer exists.
 // ---------------------------------------------------------------------------
 export default function useMarketExplorerSelection({
-  overview, sealedSegments, cardSegments, initialState,
+  overview, sealedSegments, cardSegments, initialState, hasExternalSeries = false,
 }) {
   const availableKeys = useMemo(() => resolveAvailableAssetKeys(overview), [overview]);
   const availableSealedIds = useMemo(
@@ -47,7 +47,7 @@ export default function useMarketExplorerSelection({
       // charts only SIR — so reconciliation is told there is other content
       // rather than resurrecting every market to avoid a blank chart.
       assetUniverse: reconcileAssetUniverse(initial?.assetUniverse, availableKeys, {
-        hasOtherSeries: sealedFamilyIds.length > 0 || segmentIds.length > 0,
+        hasOtherSeries: hasExternalSeries || sealedFamilyIds.length > 0 || segmentIds.length > 0,
       }),
       sealedFamilyIds,
       segmentIds,
@@ -58,7 +58,8 @@ export default function useMarketExplorerSelection({
     assetKeys: availableKeys,
     sealedFamilyIds: availableSealedIds,
     cardSegmentIds: availableCardIds,
-  }), [availableKeys, availableSealedIds, availableCardIds]);
+    hasExternalSeries,
+  }), [availableKeys, availableSealedIds, availableCardIds, hasExternalSeries]);
 
   // A re-published snapshot can add or drop a market or a submarket. Selection
   // follows it rather than pointing at a series that no longer exists. The
@@ -80,6 +81,9 @@ export default function useMarketExplorerSelection({
   const clearAll = useCallback(() => {
     dispatch({ type: EXPLORER_SELECTION_ACTIONS.clearAll, available });
   }, [available]);
+  const replacePrepared = useCallback((seriesId) => {
+    dispatch({ type: EXPLORER_SELECTION_ACTIONS.replacePrepared, seriesId, available });
+  }, [available]);
 
   const selectedSeriesIds = useMemo(() => resolveSelectedSeriesIds(selection), [selection]);
 
@@ -90,6 +94,7 @@ export default function useMarketExplorerSelection({
     toggleSealed,
     toggleCardSegment,
     clearAll,
+    replacePrepared,
     /** One entry point for the legend and the Active Markets chips, neither of
      *  which cares which axis a series came from. */
     toggleAny: (seriesId, removeQuery) => {

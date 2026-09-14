@@ -1,0 +1,10 @@
+{
+  "version": "ebay_authority_acceptance_d2_v1",
+  "activeSupply": "EBAY_ACTIVE_SUPPLY_AUTHORITY_NOT_READY",
+  "askingPrice": "EBAY_ASKING_PRICE_AUTHORITY_NOT_READY",
+  "fairValueSignal": "EBAY_FAIR_VALUE_SIGNAL_NOT_READY",
+  "completedSales": "LIMITED_RELEASE_NO_PATH_CONFIRMED",
+  "d3PersistentCollectorReady": false,
+  "blockingCondition": "The frozen 1050-row benchmark has zero independent human labels; precision, recall, confidence interval, contamination, and metric sensitivity cannot be established.",
+  "nextGate": "Complete blinded labels, conduct adjudication/double review, score D1, freeze evidence-driven D2 rules, then score D2 once against the same gold set."
+}

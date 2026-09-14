@@ -510,7 +510,7 @@ test("the page resolves the canonical bundle once, without defaulting to a legac
   const start = pageSource.indexOf("const canonicalRip = useMemo(");
   assert.ok(start >= 0, "the page must resolve one canonical bundle");
   const block = pageSource.slice(start, start + 400);
-  assert.match(block, /resolveCanonicalRipV7\(explorePayload, selectedTarget, summary\)/);
+  assert.match(block, /resolveCanonicalRipV7\(ripBootstrap\?\.canonicalSource, explorePayload, effectiveShellPayload, selectedTarget, summary\)/);
   assert.doesNotMatch(block, /overallRipV6/);
   assert.doesNotMatch(block, /overallRipV5/);
   assert.doesNotMatch(block, /ripCore/);

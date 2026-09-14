@@ -28,9 +28,9 @@ test("proxy route forwards to the backend Premium endpoint and enforces nothing 
   assert.doesNotMatch(routeSource, /index_plan|FEATURE_/);
 });
 
-test("never presented as part of Overall RIP", () => {
+test("never presented as part of RIP Score", () => {
   assert.doesNotMatch(source, /Overall RIP score|overallRipScore/);
-  assert.match(source, /separate measure from Overall RIP/);
+  assert.match(source, /separate measure from RIP Score/);
 });
 
 test("distinct from ProductRipSection - not rendered inside it, no shared JSX tree", () => {

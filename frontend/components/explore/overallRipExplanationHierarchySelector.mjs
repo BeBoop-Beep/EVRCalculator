@@ -145,7 +145,7 @@ function buildV12Explanation(source) {
   // + 10% Collector Appeal" style copy on normal user-facing surfaces.
   const headline =
     weights.financial !== null && weights.chaseAccessibility !== null && weights.collectorAppeal !== null
-      ? "Overall RIP combines Market-Based Opening Quality with Collector Appeal."
+      ? "RIP Score combines Market-Based Opening Quality with Collector Appeal."
       : null;
 
   return {
@@ -196,7 +196,7 @@ function buildV10Explanation(canonicalOverallBlock) {
     publicQuestion: OVERALL_RIP_PUBLIC_QUESTION,
     // PRESENTATION-SAFE: neutral wording, no weight-percentage disclosure
     // (V10's 90/10 split stays internal, same disclosure rule as V12).
-    headline: "Overall RIP combines Financial RIP with Collector Appeal.",
+    headline: "RIP Score combines Financial RIP with Collector Appeal.",
     // NEVER shown for V10: Chase Accessibility is not an Overall RIP V10 input,
     // so there is no Market-Based grouping to derive.
     marketBased: null,

@@ -81,6 +81,8 @@ import {
 } from "./chaseAccessibilityDisplay.mjs";
 import { FamilySnapshot, RANKINGS_FAMILY_COLUMNS, RankingsFamilyCells, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
+import { PremiumMetricLock } from "./RankedProductTablePrimitives.jsx";
+import { readPublicSetRip } from "./setRipPublicPresentation.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -132,9 +134,12 @@ function TopChaseCell({ target, compact = false }) {
  * column (`readOptionalRankingsChase` / `topChase`), which names a specific
  * chase card rather than measuring set-level pull accessibility.
  */
-function ChaseAccessibilityCell({ target, compact = false }) {
+function ChaseAccessibilityCell({ target, compact = false, entitled = false }) {
   const block = target?.setRipV1?.chaseAccessibility;
   const publicScore = Number.isFinite(Number(block?.publicScore)) ? Number(block.publicScore) : null;
+  if (!entitled) {
+    return <PremiumMetricLock />;
+  }
   if (publicScore === null) {
     return <span className="text-[11px] font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>;
   }
@@ -335,9 +340,13 @@ const RELATIVE_SCORE_TOOLTIP =
  * renders an explicit Unavailable state, never a fabricated zero and never a
  * substitute from another scale.
  */
-function ScoreCell({ target, modeId }) {
+function ScoreCell({ target, modeId, entitled = false }) {
   const rankColumnMode = useContext(RankColumnModeContext);
   const { value, kind, isPublic, rank, cohort } = readModeScore(target, modeId);
+
+  if (!entitled) {
+    return <PremiumMetricLock />;
+  }
 
   if (value === null) {
     return (
@@ -372,12 +381,21 @@ function ScoreCell({ target, modeId }) {
  * unavailable state. Financial is never hidden on mobile. No border per metric:
  * the label carries the meaning, the shared row carries the frame.
  */
-function MobileScoreBlock({ target, modeId, label }) {
+function MobileScoreBlock({ target, modeId, label, entitled = false }) {
   const rankColumnMode = useContext(RankColumnModeContext);
   const { value, kind, isPublic, rank, cohort } = readModeScore(target, modeId);
 
   const rankText =
     rankColumnMode === modeId ? null : formatRankText(rank, cohort, { compact: true, withCohort: false });
+
+  if (!entitled) {
+    return (
+      <div className="min-w-0">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">{label}</div>
+        <div className="mt-0.5"><PremiumMetricLock /></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-w-0" title={isPublic ? PUBLIC_SCORE_SCALE_NOTE : undefined}>
@@ -483,17 +501,6 @@ function RankingInsight({ setRip }) {
   return <div data-ranking-insight className="flex max-w-[15rem] items-start gap-2.5"><span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border border-[var(--ex-rank-accent,var(--accent))]" /><span><strong className="block text-xs leading-tight text-[var(--text-primary)]">{heading}</strong><span className="mt-1 block text-[10.5px] leading-[1.35] text-[var(--text-secondary)]">{explanation}</span></span></div>;
 }
 
-function readPublicSetRip(target) {
-  const block = target?.setRipV1 || {};
-  const score = Number(block.score);
-  const rank = Number(block.rank);
-  return {
-    publicScore: Number.isFinite(score) ? score : null,
-    rank: Number.isFinite(rank) ? rank : null,
-    tier: block.tier || null,
-  };
-}
-
 /**
  * A quantitative column heading that is also its own sort control.
  *
@@ -596,11 +603,9 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
   // The relative-vs-model explanation lives here as well as on the cell
   // titles: the stretched row link sits above the cells, so the module
   // popover is the reliable keyboard- and touch-accessible route to it.
-  const modeInfoText = `${
-    currentModeConfig?.tooltip ||
-    currentModeConfig?.description ||
-    "Sets ranked by the strongest overall opening profile."
-  } ${RELATIVE_SCORE_TOOLTIP}`;
+  const modeInfoText = RANKING_MODE_PICKER_ENABLED
+    ? `${currentModeConfig?.tooltip || currentModeConfig?.description || "Sets ranked by the strongest overall opening profile."} ${RELATIVE_SCORE_TOOLTIP}`
+    : "Advanced multi-metric comparison across RIP, Financial, Collector, Chase, family, and format-strength signals. Use a dedicated ranking tab for a focused view.";
 
   // The default Overall mode surfaces RIP Score AND Financial RIP side by
   // side; every other mode collapses to a single mode-scoped score column.
@@ -669,7 +674,9 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
     setSortMenuOpen(false);
   }
 
-  const modeTitle = currentModeConfig?.title || "Best Sets to Rip Right Now";
+  const modeTitle = RANKING_MODE_PICKER_ENABLED
+    ? currentModeConfig?.title || "Best Sets to Rip Right Now"
+    : "Compare Set Metrics";
   const tierLabel = currentModeConfig?.tierLabel || "Tier";
   const scoreLabel = currentModeConfig?.scoreLabel || "Score";
   const activeSortColumn = RANKINGS_SORT_COLUMNS[sort.column] || RANKINGS_SORT_COLUMNS.setRip;
@@ -684,10 +691,10 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
 
   return (
     <RankColumnModeContext.Provider value={selectedMode}>
-    <section className={`${styles.surface} ${styles.analyticsTableShell} set-glass-surface flex min-w-0 flex-col`} aria-label="Compare all sets" data-analytics-table-shell>
+    <section className={`${styles.surface} ${styles.analyticsTableShell} set-glass-surface flex min-w-0 flex-col`} aria-label="Compare Set Metrics" data-analytics-table-shell>
       <div className={`${styles.divider} px-3 py-3 sm:px-4 md:hidden`}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="min-w-0 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">Compare all sets</h2>
+          <h2 className="min-w-0 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">Compare Set Metrics</h2>
           <div className="relative flex-none" ref={sortMenuContainerRef}>
             <button
               type="button"
@@ -713,6 +720,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
             ) : null}
           </div>
         </div>
+        <p className="mt-1 text-xs text-[var(--text-secondary)]">Advanced multi-metric comparison. Use a dedicated ranking tab for a focused view.</p>
         <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]"><span className="text-[var(--text-primary)]">{activeSortLabel}</span><span aria-hidden="true" className="px-2">•</span><span className="tabular-nums">{displayedTargets.length}</span> shown · {canonicalTargets.length} ranked</p>
         {marketDate ? <p className="mt-1 text-[11px] tabular-nums text-[var(--text-secondary)]">Rankings data as of {marketDate}</p> : null}
         <TableSearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." ariaLabel="Search sets" containerClassName="mt-3" />
@@ -942,9 +950,9 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                       <td className={styles.numeric}><RipScoreBadge score={canonicalOverall.publicScore} tier={tier} /></td>
                       <td className="text-center"><RipTierMark tier={tier} /></td>
                       <RankingsFamilyCells setRip={target?.setRipV1} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
-                      <td className="text-center align-middle"><ScoreCell target={target} modeId="financial" /></td>
-                      <td className="text-center align-middle" data-chase-accessibility-cell><ChaseAccessibilityCell target={target} /></td>
-                      <td className="text-center align-middle"><ScoreCell target={target} modeId={COLLECTOR_APPEAL_COLUMN} /></td>
+                      <td className="text-center align-middle"><ScoreCell target={target} modeId="financial" entitled={canViewProductRipIntelligence} /></td>
+                      <td className="text-center align-middle" data-chase-accessibility-cell><ChaseAccessibilityCell target={target} entitled={canViewProductRipIntelligence} /></td>
+                      <td className="text-center align-middle"><ScoreCell target={target} modeId={COLLECTOR_APPEAL_COLUMN} entitled={canViewProductRipIntelligence} /></td>
                       <td className="align-middle"><RankingInsight setRip={target?.setRipV1} /></td>
                     </tr>
                   );
@@ -991,12 +999,12 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                         signals, using the same one-field-by-kind cells.
                       */}
                       <div className="mt-2 grid grid-cols-3 gap-x-3 gap-y-2 border-t border-[var(--border-subtle)] pt-2">
-                        <MobileScoreBlock target={target} modeId="financial" label="Financial RIP" />
+                        <MobileScoreBlock target={target} modeId="financial" label="Financial RIP" entitled={canViewProductRipIntelligence} />
                         <div data-chase-accessibility-mobile>
                           <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Chase Accessibility</div>
-                          <div className="mt-0.5"><ChaseAccessibilityCell target={target} compact /></div>
+                          <div className="mt-0.5"><ChaseAccessibilityCell target={target} compact entitled={canViewProductRipIntelligence} /></div>
                         </div>
-                        <MobileScoreBlock target={target} modeId={COLLECTOR_APPEAL_COLUMN} label="Collector Appeal" />
+                        <MobileScoreBlock target={target} modeId={COLLECTOR_APPEAL_COLUMN} label="Collector Appeal" entitled={canViewProductRipIntelligence} />
                       </div>
                       <p className="pt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Format Strength</p>
                       <RankingInsight setRip={target?.setRipV1} />

@@ -7,8 +7,8 @@ This script derives predecessor -> successor mappings from live semantic
 queries (never a hardcoded UUID list), merges predecessor price history into
 the successor's history using the existing source-winner rule, repairs the
 derived tables that assume one physical instrument per canonical/edition
-pair, and performs a narrowly scoped pilot re-projection for the two sets
-that already publish precomputed daily state (Fossil, Neo Genesis).
+pair, and force-rebuilds the bounded V2 Market Explorer daily projection for
+every affected set from V2 interval authority.
 
 Dry-run is the default-safe mode. Writes require ``--commit`` and use only
 the service-role client. This module makes zero live-database connections
@@ -26,6 +26,13 @@ from datetime import date
 from typing import Any, Iterable, Sequence
 
 from backend.db.clients.supabase_client import create_service_role_client
+from backend.scripts.publish_market_explorer_daily_projection import (
+    V2_COVERAGE_TABLE,
+    V2_DAILY_STATES_TABLE,
+    V2_INTERVAL_TABLE,
+    V2_RETENTION_DAYS,
+    publish_set_v2,
+)
 
 
 LOG = logging.getLogger("market_explorer_vintage_predecessor_repair")
@@ -37,13 +44,13 @@ VARIANTS_TABLE = "card_variants"
 SETS_TABLE = "sets"
 OBSERVATIONS_TABLE = "card_variant_price_observations"
 MONTHLY_ROLLUP_TABLE = "card_variant_price_monthly_rollups"
-INTERVAL_TABLE = "pokemon_card_variant_market_price_intervals"
+INTERVAL_TABLE = V2_INTERVAL_TABLE
 TOP_HITS_TABLE = "card_market_top_hits_by_edition_latest"
-DAILY_STATES_TABLE = "pokemon_market_explorer_card_daily_states"
+DAILY_STATES_TABLE = V2_DAILY_STATES_TABLE
 CACHE_TABLE = "pokemon_market_explorer_query_cache"
 CACHE_STATE_TABLE = "pokemon_market_explorer_cache_state"
 MERGE_LEDGER_TABLE = "pokemon_market_explorer_variant_merge_ledger"
-COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage"
+COVERAGE_TABLE = V2_COVERAGE_TABLE
 
 # RPCs the repair calls. These match the real production contract installed
 # by migrations 20260902221622_add_market_explorer_vintage_identity_repair_primitives
@@ -58,8 +65,6 @@ RETIRE_VARIANT_RPC = "retire_pokemon_card_variant_predecessor"
 # rebuild_pokemon_card_market_top_hits_by_edition() -- ZERO arguments; this is
 # a full-table rebuild, not scoped by set.
 REBUILD_TOP_HITS_RPC = "rebuild_pokemon_card_market_top_hits_by_edition"
-# reproject_pokemon_market_explorer_card_daily_states(p_set_ids uuid[], p_start_date date, p_end_date date)
-REPROJECT_DAILY_STATES_RPC = "reproject_pokemon_market_explorer_card_daily_states"
 # rebuild_pokemon_card_variant_price_monthly_rollups(p_card_variant_ids uuid[], p_start_month date, p_end_month date)
 REBUILD_MONTHLY_ROLLUPS_RPC = "rebuild_pokemon_card_variant_price_monthly_rollups"
 # invalidate_pokemon_market_explorer_query_cache_scoped(p_set_ids uuid[]) -- atomic:
@@ -83,9 +88,6 @@ FIRST_EDITIONS = {"first", "1st-edition", "1st edition"}
 # not stale predecessors of an explicit-edition successor.
 EXCLUDED_GENERIC_SET_NAMES = {"base", "base set 2"}
 
-# Pilot sets: the only two sets whose precomputed daily-state projection is
-# already published and therefore need row-level re-projection.
-PILOT_PROJECTION_SET_NAMES = {"fossil", "neo genesis"}
 
 
 def _fold(value: Any) -> str:
@@ -467,29 +469,29 @@ def retire_predecessor_variants(client: Any, *, commit: bool, mappings: Sequence
 
 
 def derive_pilot_projection_window(client: Any, set_ids: Sequence[str]) -> tuple[date, date]:
-    """Derive the (p_start_date, p_end_date) re-projection window from
-    ``pokemon_market_explorer_card_daily_coverage`` for the exact pilot set
-    scope: MIN(first_market_date) .. MAX(computed_through) across the
-    matched coverage rows. Never extends past ``computed_through``. Fails
-    closed (raises) if any pilot set in scope lacks a coverage row -- this
-    script has no authoritative fallback window to hand the RPC.
+    """Derive the bounded V2 rebuild window for every affected set.
+
+    The compatibility function name is retained because older callers import
+    it, but there is no longer a pilot-only projection. V2 coverage is the
+    sole authority: MIN(retained_from) .. MAX(computed_through). Missing
+    coverage fails closed.
     """
     if not set_ids:
-        raise ValueError("cannot derive a pilot projection window: no pilot set ids in scope")
+        raise ValueError("cannot derive a V2 projection window: no affected set ids in scope")
 
     rows = _paged(lambda: client.table(COVERAGE_TABLE)
-                  .select("set_id,first_market_date,computed_through")
+                  .select("set_id,retained_from,computed_through,retention_days")
                   .in_("set_id", list(set_ids)))
     rows_by_set: dict[str, dict[str, Any]] = {str(row["set_id"]): row for row in rows}
 
     missing = sorted(sid for sid in set_ids if sid not in rows_by_set)
     if missing:
         raise ValueError(
-            "missing pokemon_market_explorer_card_daily_coverage row(s) for pilot "
-            f"set(s) in scope; refusing to fall back to a default window: {missing}"
+            "missing V2 Market Explorer coverage row(s) for affected set(s); "
+            f"refusing to invent a rebuild window: {missing}"
         )
 
-    start_date = min(_to_date(row["first_market_date"]) for row in rows_by_set.values())
+    start_date = min(_to_date(row["retained_from"]) for row in rows_by_set.values())
     end_date = max(_to_date(row["computed_through"]) for row in rows_by_set.values())
     return start_date, end_date
 
@@ -497,31 +499,38 @@ def derive_pilot_projection_window(client: Any, set_ids: Sequence[str]) -> tuple
 def repair_pilot_projections(client: Any, *, commit: bool, mappings: Sequence[Mapping],
                              summary: Summary, projection_start: date | None = None,
                              projection_end: date | None = None) -> None:
-    """Re-project ``pokemon_market_explorer_card_daily_states`` rows, scoped
-    STRICTLY to Fossil and Neo Genesis -- the only two sets with an already
-    published pilot projection. Every other affected vintage set has no
-    published daily-state rows yet, so there is nothing to re-project there.
+    """Force-rebuild bounded V2 daily state for every affected set.
 
-    The repair window is derived from
-    ``pokemon_market_explorer_card_daily_coverage`` coverage rows for the
-    pilot sets in scope (MIN(first_market_date) .. MAX(computed_through)),
-    unless an explicit ``--projection-start``/``--projection-end`` CLI
-    override is supplied, in which case the coverage lookup is skipped
-    entirely.
+    The function name and summary keys are retained for compatibility with
+    the original repair CLI, but V2 has no Fossil/Neo-Genesis-only pilot.
+    Normal runs derive each set's through-date and retention from V2 coverage.
+    An explicit start/end override skips the coverage lookup; V2 still rebuilds
+    only its bounded retention window ending at ``projection_end``.
     """
-    pilot_mappings = [m for m in mappings if _fold(m.set_name) in PILOT_PROJECTION_SET_NAMES]
-    if not pilot_mappings:
+    if not mappings:
         return
 
     by_set: dict[str, list[Mapping]] = {}
-    for mapping in pilot_mappings:
+    for mapping in mappings:
         by_set.setdefault(mapping.set_name, []).append(mapping)
-    pilot_set_ids = sorted({m.set_id for m in pilot_mappings})
+    affected_set_ids = sorted({m.set_id for m in mappings})
 
+    coverage_by_set: dict[str, dict[str, Any]] = {}
     if projection_start is not None and projection_end is not None:
         start_date, end_date = projection_start, projection_end
     else:
-        start_date, end_date = derive_pilot_projection_window(client, pilot_set_ids)
+        rows = _paged(lambda: client.table(COVERAGE_TABLE)
+                      .select("set_id,retained_from,computed_through,retention_days")
+                      .in_("set_id", affected_set_ids))
+        coverage_by_set = {str(row["set_id"]): row for row in rows}
+        missing = sorted(sid for sid in affected_set_ids if sid not in coverage_by_set)
+        if missing:
+            raise ValueError(
+                "missing V2 Market Explorer coverage row(s) for affected set(s); "
+                f"refusing to invent a rebuild window: {missing}"
+            )
+        start_date = min(_to_date(row["retained_from"]) for row in coverage_by_set.values())
+        end_date = max(_to_date(row["computed_through"]) for row in coverage_by_set.values())
 
     summary.pilot_projection_window = {"start_date": str(start_date), "end_date": str(end_date)}
 
@@ -529,15 +538,23 @@ def repair_pilot_projections(client: Any, *, commit: bool, mappings: Sequence[Ma
         set_id = set_mappings[0].set_id
         if not commit:
             rows = _paged(lambda sid=set_id: client.table(DAILY_STATES_TABLE)
-                         .select("id").eq("set_id", sid))
+                         .select("card_variant_id").eq("set_id", sid))
             summary.pilot_projection_rows_touched[set_name] = len(rows)
             continue
-        response = client.rpc(REPROJECT_DAILY_STATES_RPC, {
-            "p_set_ids": [set_id],
-            "p_start_date": start_date,
-            "p_end_date": end_date,
-        }).execute()
-        summary.pilot_projection_rows_touched[set_name] = int(response.data or 0)
+
+        coverage = coverage_by_set.get(set_id) or {}
+        through_date = str(projection_end or coverage.get("computed_through"))[:10]
+        retention_days = int(coverage.get("retention_days") or V2_RETENTION_DAYS)
+        result = publish_set_v2(
+            client,
+            set_id=set_id,
+            through_date=through_date,
+            retention_days=retention_days,
+            force_rebuild=True,
+        )
+        summary.pilot_projection_rows_touched[set_name] = int(
+            result.get("actual_rows") or result.get("expected_rows") or 0
+        )
 
 
 def invalidate_targeted_caches(client: Any, *, commit: bool, mappings: Sequence[Mapping],
@@ -552,7 +569,7 @@ def invalidate_targeted_caches(client: Any, *, commit: bool, mappings: Sequence[
     read-then-write generation bump of its own -- it just calls the scoped
     RPC and trusts it to be atomic.
     """
-    affected_set_ids = {m.set_id for m in mappings if _fold(m.set_name) in PILOT_PROJECTION_SET_NAMES}
+    affected_set_ids = {m.set_id for m in mappings}
     if not affected_set_ids:
         return
 

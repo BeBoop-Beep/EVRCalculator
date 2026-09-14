@@ -18,6 +18,12 @@ module.exports = {
       screens: {
         tab: "600px",
         desk: "1200px",
+        // Shared full-desktop header breakpoint: the lowest width where main's
+        // restored nav spacing (logo + 5 primary destinations, incl. Explorer)
+        // fits next to the centered search track without collision. Below
+        // this, the whole header/bottom-nav contract collapses to compact
+        // mode together — see ResponsiveHeader.contract.test.mjs.
+        hdr: "1800px",
       },
       colors: {
         primary: "rgb(2 6 23)", // Dark slate base

@@ -1,0 +1,35 @@
+{
+  "acceptanceVersion": "collector_appeal_v7_promotion_acceptance_v1",
+  "acceptedAt": "2026-09-11T20:41:45.741820+00:00",
+  "modelRunId": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+  "previousModelRunId": "84833101-e658-49ea-82e2-033f7d4d8e09",
+  "generationId": "6bd24a8e-e0e1-4b33-86a1-a16d483f1b24",
+  "previousGenerationId": "04e77451-516f-40b8-bea7-64c26c97c3d3",
+  "prePromotion": {
+    "readyToPromote": true,
+    "sourceLineageExact": true,
+    "badSourceCount": 0,
+    "staleSourceCount": 0,
+    "candidateMembership": 210,
+    "freshRebuilt": 22,
+    "carriedForward": 188,
+    "candidateOverallPayloadChanges": 0,
+    "candidateMarketPayloadChanges": 0
+  },
+  "postPromotion": {
+    "currentPointerExact": true,
+    "activeGenerationExact": true,
+    "cardRows": 18293,
+    "setRows": 128,
+    "publicMembership": 210,
+    "membershipLoss": 0,
+    "artistNullNonzeroLiftRows": 0,
+    "negativeArtistLiftRows": 0,
+    "negativePlayabilityLiftRows": 0,
+    "pricePolicyViolations": 0,
+    "overallAuthorityUnchanged": true,
+    "rankingsPublicationUnchanged": true
+  },
+  "validationLimitation": "V7-specific incremental OOS R2 over V6 was +0.00089 and its bootstrap interval crossed zero.",
+  "result": "COLLECTOR_APPEAL_V7_CONTROL_FROZEN"
+}

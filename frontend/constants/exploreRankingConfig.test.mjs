@@ -20,7 +20,7 @@ const TARGET = {
   // CANONICAL. The public "RIP SCORE" and "FINANCIAL RIP" columns read these.
   // `score` and `relativeScore` differ deliberately so an assertion can tell
   // which layer a column resolved.
-  overallRipV10: { score: 29.07, relativeScore: 12.4, leaderNormalizedScore: 82.4, rank: 4, tier: "A", cohortSize: 21 },
+  overallRipV12: { score: 29.07, relativeScore: 12.4, leaderNormalizedScore: 82.4, rank: 4, tier: "A", cohortSize: 21 },
   financialRipV4: { score: 22.32, relativeScore: 11.8, leaderNormalizedScore: 61.8, rank: 12, tier: "B", cohortSize: 21 },
   // LEGACY, still served for audit consumers: Overall RIP v4 and Financial RIP
   // V2. Deliberately given DIFFERENT numbers so a regression that reads them
@@ -50,7 +50,7 @@ const TARGET = {
 // --- The canonical public columns -------------------------------------------
 
 test("the two canonical modes read the PUBLIC leader score and nothing else", () => {
-  assert.equal(getScoreField("overall"), "overallRipV10.leaderNormalizedScore");
+  assert.equal(getScoreField("overall"), "overallRipV12.leaderNormalizedScore");
   assert.equal(getScoreField("financial"), "financialRipV4.leaderNormalizedScore");
   assert.equal(getScoreForMode(TARGET, "overall"), 82.4);
   assert.equal(getScoreForMode(TARGET, "financial"), 61.8);
@@ -163,7 +163,6 @@ test("no mode publishes retired public vocabulary", () => {
   const forbidden = [
     /God Pull/i,
     /GOD PULL/,
-    /RIP Score/,
     /Relative RIP Index/,
     /Financial Quality/,
     /Opening Desirability/,
@@ -178,8 +177,8 @@ test("no mode publishes retired public vocabulary", () => {
   }
 });
 
-test("the canonical modes are labelled Overall RIP and Financial RIP", () => {
-  assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "OVERALL RIP");
+test("the canonical modes are labelled RIP Score and Financial RIP", () => {
+  assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "RIP SCORE");
   assert.equal(EXPLORE_RANKING_MODES.financial.scoreLabel, "FINANCIAL RIP");
   assert.equal(EXPLORE_RANKING_MODES.financial.label, "Financial RIP");
 });
@@ -195,7 +194,7 @@ test("Jackpot Upside is the only name for the top-1% ranking lens", () => {
 // --- Denominators and null-safety -------------------------------------------
 
 test("ranked-set count reads each mode's own cohort denominator", () => {
-  assert.equal(getRankedSetCountField("overall"), "overallRipV10.cohortSize");
+  assert.equal(getRankedSetCountField("overall"), "overallRipV12.cohortSize");
   assert.equal(getRankedSetCountForMode(TARGET, "overall"), 21);
   assert.equal(getRankedSetCountForMode(TARGET, "financial"), 21);
   assert.equal(getRankedSetCountForMode(TARGET, "desirability"), 135);
@@ -219,7 +218,7 @@ test("null-safe getters: missing objects never throw and return null", () => {
 
 test("a payload carrying ONLY the model score renders no public score", () => {
   // The exact stale-snapshot shape. It must not fall back to the absolute.
-  const absoluteOnly = { overallRipV10: { score: 30.0, rank: 2, cohortSize: 21 } };
+  const absoluteOnly = { overallRipV12: { score: 30.0, rank: 2, cohortSize: 21 } };
   assert.equal(getScoreForMode(absoluteOnly, "overall"), null);
   assert.equal(formatModeScore(getScoreForMode(absoluteOnly, "overall"), getScoreKind("overall")), "—");
   // Rank still resolves — it is a separate, still-valid backend field.

@@ -14,6 +14,14 @@ CONTRACT_VERSION = "pokemon-rip-stats-v3"
 METHODOLOGY_VERSION = "hierarchical_product_per_pack_empirical_v1"
 WEIGHTING_VERSION = "equal-set_equal-family_equal-sku-v1"
 QUANTILES = tuple(i / 100 for i in range(1, 100)) + (0.995, 0.999)
+RECOVERY_BUCKETS = (
+    ("0_10", "0-10%", 0.0, 0.10),
+    ("10_25", "10-25%", 0.10, 0.25),
+    ("25_50", "25-50%", 0.25, 0.50),
+    ("50_75", "50-75%", 0.50, 0.75),
+    ("75_100", "75-100%", 0.75, 1.00),
+    ("100_plus", "100%+", 1.00, None),
+)
 
 
 class OpeningEconomicsV3Error(ValueError):
@@ -217,6 +225,32 @@ class WeightedEmpiricalMixture:
         # >= boundary: subtract strict-less-than CDF.
         return 1.0 - self._cdf(1.0, normalized=True, side="left")
 
+    def recovery_buckets(self) -> list[dict[str, Any]]:
+        """Exact half-open normalized-return bins from the weighted ECDF."""
+        if not self.components:
+            raise OpeningEconomicsV3Error("recovery buckets require at least one component")
+        boundaries = {bound for _, _, low, high in RECOVERY_BUCKETS
+                      for bound in (low, high) if bound is not None}
+        strict_cdf = {
+            boundary: self._cdf(boundary, normalized=True, side="left")
+            for boundary in sorted(boundaries)
+        }
+        result = []
+        for key, label, lower, upper in RECOVERY_BUCKETS:
+            probability = ((1.0 if upper is None else strict_cdf[upper])
+                           - strict_cdf[lower])
+            result.append({
+                "key": key, "label": label, "lowerBound": lower,
+                "upperBound": upper, "probability": probability,
+            })
+        if not math.isclose(sum(row["probability"] for row in result), 1.0,
+                            rel_tol=0, abs_tol=1e-12):
+            raise OpeningEconomicsV3Error("recovery buckets do not sum to one")
+        if not math.isclose(result[-1]["probability"], self.recovery_probability(),
+                            rel_tol=0, abs_tol=1e-12):
+            raise OpeningEconomicsV3Error("100%+ bucket does not match recovery probability")
+        return result
+
     def cleanup(self) -> None:
         for component in self.components:
             if component.owns_file:
@@ -283,7 +317,7 @@ def aggregate_scalars(rows: Sequence[Mapping[str, Any]]) -> dict[str, float]:
             "meanOutcomeRetention": mean_retention, "chanceToRecoverCost": recovery}
 
 
-def build_scope(rows: Sequence[Mapping[str, Any]], component_paths: Mapping[str, tuple[str | os.PathLike[str], int]], *, qs: Iterable[float] = QUANTILES) -> dict[str, Any]:
+def build_scope(rows: Sequence[Mapping[str, Any]], component_paths: Mapping[str, tuple[str | os.PathLike[str], int]], *, qs: Iterable[float] = QUANTILES, include_recovery_buckets: bool = False) -> dict[str, Any]:
     weighted = assign_hierarchical_weights(rows)
     scalars = aggregate_scalars(rows)
     mixture = WeightedEmpiricalMixture(directory=Path(next(iter(component_paths.values()))[0]).parent)
@@ -302,7 +336,10 @@ def build_scope(rows: Sequence[Mapping[str, Any]], component_paths: Mapping[str,
             )
         raw = mixture.quantiles(qs)
         returns = mixture.quantiles(qs, normalized=True)
-        return {**scalars, "typicalOpeningPerPack": raw["p50"], "typicalRetention": returns["p50"],
-                "valuePerPackPercentiles": raw, "normalizedReturnPercentiles": returns}
+        result = {**scalars, "typicalOpeningPerPack": raw["p50"], "typicalRetention": returns["p50"],
+                  "valuePerPackPercentiles": raw, "normalizedReturnPercentiles": returns}
+        if include_recovery_buckets:
+            result["normalizedReturnBuckets"] = mixture.recovery_buckets()
+        return result
     finally:
         mixture.cleanup()

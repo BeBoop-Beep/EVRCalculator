@@ -4,25 +4,25 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
-import { canonicalCardQueryKey, createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.mjs";
+import { createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
 
 const lensModules = {
   overall: () => import("./OpeningEconomicsOverall"),
+  overviewHighlights: () => import("./RankingsOverviewHighlights"),
   eraEconomics: () => import("./OpeningEconomicsEras"),
   eras: () => import("./EraRankings"),
-  setEconomics: () => import("./SetPackMetrics"),
-  sets: () => import("./ExploreTableClient"),
-  cards: () => import("./CardChaseEfficiencyRankings"),
+  sets: () => import("./SetRankingsHub"),
+  cards: () => import("./CardRankingsHub"),
   products: () => import("./RankingsProductLensClient"),
 };
 const OpeningEconomicsOverall = dynamic(lensModules.overall, { loading: LensSkeleton });
+const RankingsOverviewHighlights = dynamic(lensModules.overviewHighlights, { loading: () => null });
 const OpeningEconomicsEras = dynamic(lensModules.eraEconomics, { loading: LensSkeleton });
 const EraRankings = dynamic(lensModules.eras, { loading: LensSkeleton });
-const SetPackMetrics = dynamic(lensModules.setEconomics, { loading: LensSkeleton });
-const ExploreTableClient = dynamic(lensModules.sets, { loading: LensSkeleton });
-const CardChaseEfficiencyRankings = dynamic(lensModules.cards, { loading: LensSkeleton });
+const SetRankingsHub = dynamic(lensModules.sets, { loading: LensSkeleton });
+const CardRankingsHub = dynamic(lensModules.cards, { loading: LensSkeleton });
 const RankingsProductLensClient = dynamic(lensModules.products, { loading: LensSkeleton });
 
 function LensSkeleton() {
@@ -47,10 +47,10 @@ export default function RankingsLazyClient({
   loadError,
   rankingsMarketDate = null,
 }) {
-  const { canViewRankingsIntelligence, canViewCardChaseEfficiency, authStatus, requestKey } = useRankingsAccess();
+  const { canViewRankingsIntelligence, canViewCardChaseEfficiency, canViewCardCollectorAppeal, authStatus, requestKey } = useRankingsAccess();
   const [lens, setActiveLens] = useState("overall");
   const [eraLens, setEraLens] = useState("rankings");
-  const [setAnalysisLens, setSetAnalysisLens] = useState("rankings");
+  const [setEntryView, setSetEntryView] = useState("ripScore");
   const [selectedEra, setSelectedEra] = useState(null);
   const [eraState, setEraState] = useState({ status: "idle", contract: null, marketDate: rankingsMarketDate });
   const [setsState, setSetsState] = useState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
@@ -121,13 +121,6 @@ export default function RankingsLazyClient({
     return { state: { status: "ready", productFamilyRankings: payload.productFamilyRankings || null, overallProductRankings: payload.overallProductRankings || null }, overallResult: model.normalizeOverallProductResult(payload.overallProductRankings) };
   }), [sessionCache]);
 
-  const warmCards = useCallback(() => {
-    if (!canViewCardChaseEfficiency) return Promise.resolve(null);
-    const params = new URLSearchParams({ page: "1", page_size: "50", sort: "chase_efficiency", direction: "desc" });
-    const key = canonicalCardQueryKey(params);
-    return sessionCache.request(key, () => fetch(`/api/explore/card-chase-efficiency?${params}`, { cache: "no-store" }).then((response) => readLens(response, "Unable to load card rankings")));
-  }, [canViewCardChaseEfficiency, sessionCache]);
-
   useEffect(() => {
     if (lens === "eras" && eraLens === "rankings") loadEra({ foreground: true });
   }, [lens, eraLens, loadEra]);
@@ -155,27 +148,22 @@ export default function RankingsLazyClient({
       await idle(() => Promise.all([
         lensModules.eras(),
         lensModules.eraEconomics(),
-        lensModules.setEconomics(),
-        canViewRankingsIntelligence ? loadEra() : Promise.resolve(null),
+        loadEra(),
       ]));
       await idle(() => loadSets());
-      await idle(() => warmProducts());
-      await idle(() => canViewCardChaseEfficiency ? Promise.all([lensModules.cards(), warmCards()]) : null);
     })();
     return () => { warmGeneration.current += 1; };
-  }, [authStatus, canViewRankingsIntelligence, canViewCardChaseEfficiency, loadEra, loadSets, warmCards, warmProducts]);
+  }, [authStatus, canViewRankingsIntelligence, loadEra, loadSets]);
 
   const changeLens = (next) => {
     markRankingsLens(next, "selected");
     lensModules[next]?.().then(() => markRankingsLens(next, "module-ready"));
     if (next === "eras") loadEra({ foreground: true });
-    if (next === "sets") loadSets({ foreground: true });
+    if (next === "sets") { setSetEntryView("ripScore"); loadSets({ foreground: true }); }
     if (next === "products") warmProducts().catch(() => null);
-    if (next === "cards") warmCards().catch(() => null);
     setActiveLens(next);
     if (next !== "sets") setSelectedEra(null);
     if (next === "eras") setEraLens("rankings");
-    if (next === "sets") setSetAnalysisLens("rankings");
   };
 
   const signalIntent = (next) => {
@@ -183,7 +171,6 @@ export default function RankingsLazyClient({
     if (next === "eras") loadEra();
     if (next === "sets") loadSets();
     if (next === "products") warmProducts().catch(() => null);
-    if (next === "cards" && canViewCardChaseEfficiency) warmCards().catch(() => null);
   };
 
   const visibleEraState = eraState.cacheIdentity === sessionCache.identity ? eraState : { status: "idle", contract: null, marketDate: rankingsMarketDate };
@@ -201,7 +188,7 @@ export default function RankingsLazyClient({
         onChange={changeLens}
         mobileScroll
         options={[
-          { value: "overall", label: "Overall" },
+          { value: "overall", label: "Overview" },
           { value: "eras", label: "Eras", onIntent: () => signalIntent("eras") },
           { value: "sets", label: "Sets", onIntent: () => signalIntent("sets") },
           { value: "products", label: "Products", onIntent: () => signalIntent("products") },
@@ -209,16 +196,16 @@ export default function RankingsLazyClient({
         ]}
       />
 
-      {(lens === "eras" || lens === "sets") ? (
-        <nav aria-label={`${lens === "eras" ? "Era" : "Set"} analysis`} className="mb-3 flex gap-2 overflow-x-auto pb-1" data-analysis-lens-tabs>
-          {[{ value: "rankings", label: "Rankings" }, { value: "economics", label: "Pack Economics" }].map((option) => {
-            const active = lens === "eras" ? eraLens : setAnalysisLens;
+      {lens === "eras" ? (
+        <nav aria-label="Era analysis" className="mb-3 flex gap-2 overflow-x-auto pb-1" data-analysis-lens-tabs>
+          {[{ value: "rankings", label: "Set Strength" }, { value: "economics", label: "Pack Economics" }].map((option) => {
+            const active = eraLens;
             return (
               <button
                 key={option.value}
                 type="button"
                 aria-pressed={active === option.value}
-                onClick={() => lens === "eras" ? setEraLens(option.value) : setSetAnalysisLens(option.value)}
+                onClick={() => setEraLens(option.value)}
                 className={`${styles.productFamilyTab} ${active === option.value ? styles.productFamilyTabActive : ""}`}
               >
                 {option.label}
@@ -229,17 +216,27 @@ export default function RankingsLazyClient({
       ) : null}
 
       {lens === "overall" ? (
-        <OpeningEconomicsOverall economics={openingEconomics} targets={targets} />
+        <>
+          <RankingsOverviewHighlights
+            setsState={visibleSetsState}
+            eraState={visibleEraState}
+            openingEconomics={openingEconomics}
+            onOpenTopSet={() => { setSetEntryView("ripScore"); setActiveLens("sets"); }}
+            onOpenTopEra={() => { setEraLens("rankings"); setActiveLens("eras"); }}
+            onOpenLowestCost={() => { setSetEntryView("packEconomics"); setActiveLens("sets"); }}
+          />
+          <OpeningEconomicsOverall economics={openingEconomics} targets={setTargets} />
+        </>
       ) : lens === "eras" ? (
         eraLens === "rankings" ? (
           visibleEraState.status === "ready" ? (
             <EraRankings
               contract={visibleEraState.contract}
               marketDate={visibleEraState.marketDate}
-              onSelectEra={(era) => {
-                setSelectedEra(era?.eraName || null);
-                setSetAnalysisLens("rankings");
-                setActiveLens("sets");
+                  onSelectEra={(era) => {
+                    setSelectedEra(era?.eraName || null);
+                    setSetEntryView("ripScore");
+                    setActiveLens("sets");
               }}
             />
           ) : visibleEraState.status === "locked" ? (
@@ -251,10 +248,10 @@ export default function RankingsLazyClient({
           <OpeningEconomicsEras
             economics={openingEconomics}
             canViewRankingsIntelligence={canViewRankingsIntelligence}
-            onSelectEra={(era) => {
-              setSelectedEra(era?.eraName || null);
-              setSetAnalysisLens("economics");
-              setActiveLens("sets");
+                onSelectEra={(era) => {
+                  setSelectedEra(era?.eraName || null);
+                  setSetEntryView("ripScore");
+                  setActiveLens("sets");
             }}
           />
         )
@@ -262,27 +259,12 @@ export default function RankingsLazyClient({
         visibleSetsState.status === "loading" || visibleSetsState.status === "idle" ? <LensSkeleton /> : setsUnavailable ? (
           <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Set rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => loadSets({ force: true, foreground: true })}>Retry</button></section>
         ) : (
-          <>
-            {selectedEra ? (
-              <div className="mb-3 flex flex-wrap items-center gap-2" data-era-filter-chip>
-                <span className="text-xs text-[var(--text-secondary)]">Showing sets from</span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)]">
-                  {selectedEra}
-                  <button type="button" onClick={() => setSelectedEra(null)} aria-label={`Clear the ${selectedEra} filter and show all sets`} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">×</button>
-                </span>
-              </div>
-            ) : null}
-            {setAnalysisLens === "economics" ? (
-              <SetPackMetrics sets={openingEconomics?.sets} targets={setTargets} eraFilter={selectedEra} marketDate={openingEconomics?.marketDate} canViewRankingsIntelligence={canViewRankingsIntelligence} />
-            ) : (
-              <ExploreTableClient targets={setTargets} loadError={loadError || setsUnavailable} canViewProductRipIntelligence eraFilter={selectedEra} />
-            )}
-          </>
+              <SetRankingsHub key={`${sessionCache.identity}:${setEntryView}`} initialView={setEntryView} targets={setTargets} openingEconomics={openingEconomics} loadError={loadError || setsUnavailable} canViewRankingsIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} onClearEraFilter={() => setSelectedEra(null)} marketDate={visibleSetsState.marketDate} />
         )
       ) : lens === "products" ? (
         <RankingsProductLensClient key={sessionCache.identity} sessionCache={sessionCache} />
       ) : (
-        <CardChaseEfficiencyRankings key={sessionCache.identity} entitled={canViewCardChaseEfficiency} targets={targets} sessionCache={sessionCache} />
+        <CardRankingsHub key={sessionCache.identity} canViewCollectorAppeal={canViewCardCollectorAppeal} canViewChaseEfficiency={canViewCardChaseEfficiency} targets={targets} sessionCache={sessionCache} />
       )}
     </>
   );

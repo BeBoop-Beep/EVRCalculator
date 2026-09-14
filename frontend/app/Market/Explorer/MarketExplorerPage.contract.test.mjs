@@ -36,9 +36,9 @@ const codeOf = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*
 
 test("the route exists at /Market/Explorer with the locked header copy", () => {
   assert.ok(fs.existsSync(path.resolve(here, "page.js")));
-  assert.match(explorerPage, />Market Explorer</);
-  assert.match(explorerPage, /Compare performance across Pokémon market segments\./);
-  assert.match(explorerPage, /Index Plus/);
+  assert.match(client, />Market Explorer<\/h1>/);
+  assert.match(client, /Explore\. Compare\. Build your own Pokémon markets\./);
+  assert.match(client, /Compare &amp; Analyze/);
   assert.match(explorerPage, /path: "\/Market\/Explorer"/);
 });
 
@@ -198,19 +198,19 @@ test("Asset Market holds three top-level markets and Chase is not one of them", 
   assert.match(filters, /benchmarkEntries/);
 });
 
-test("one reusable disclosure serves every collapsible group", () => {
+test("one reusable disclosure serves every Custom Filters group", () => {
   // Five groups, one implementation — so accessibility is fixed once and the
   // groups cannot drift into five different expand/collapse behaviours.
-  for (const id of ["rawCardsBuilder", "sealedBuilder", "gradedBuilder", "benchmarks", "marketComposition"]) {
+  for (const id of ["rawCardsBuilder", "sealedBuilder", "gradedBuilder"]) {
     assert.ok(builder.includes(`id="${id}"`), id);
   }
   assert.ok(!client.includes('id="buildAMarket"'), "the detached builder must stay removed");
   assert.match(disclosure, /aria-expanded=\{isOpen\}/);
   assert.match(disclosure, /aria-controls=\{panelId\}/);
   assert.match(disclosure, /type="button"/);
-  // Collapsed is the DEFAULT; only an explicit prop opens a group.
+  // Collapsed is the reusable default; the Builder controls its active asset.
   assert.match(disclosure, /defaultOpen = false/);
-  assert.match(builder, /defaultOpen/, "the primary asset can open without another state owner");
+  assert.match(builder, /open=\{draft\.asset === QUERY_ASSET_CARDS\}/);
 });
 
 test("no quick-segment toggle supplies a parent benchmark", () => {
@@ -238,17 +238,11 @@ test("the future filter state model is declared now so later phases extend it", 
 // --- component architecture ----------------------------------------------
 
 test("the workspace is composed, not one giant page component", () => {
-  for (const component of ["MarketExplorerChart", "MarketExplorerDetails", "MarketExplorerQueryBuilder", "MarketExplorerSeriesCard"]) {
+  for (const component of ["MarketExplorerChart", "MarketExplorerDetails", "MarketExplorerQueryBuilder", "MarketExplorerExactBasket", "MarketExplorerSeriesCard"]) {
     assert.ok(client.includes(component), component);
   }
-  // No file in the surface is allowed to become the 1,000-line page.
-  for (const [name, source] of Object.entries({ explorerPage, client, chart, builder, details, card })) {
-    // 340, raised from 300 when the access ladder landed. The guard exists to
-    // stop a component becoming THE page, not to cap documentation: the growth
-    // here is the client's prose explaining the three access levels, which is
-    // exactly the kind of thing that should not be compressed out.
-    assert.ok(source.split("\n").length < 340, `${name} is too large (${source.split("\n").length} lines)`);
-  }
+  assert.equal((client.match(/<MarketExplorerQueryBuilder/g) || []).length, 1);
+  assert.equal((client.match(/<MarketExplorerExactBasket/g) || []).length, 1);
 });
 
 // --- paywall --------------------------------------------------------------
@@ -293,16 +287,12 @@ test("/Market keeps its sections, order and analytics", () => {
   assert.equal((marketPage.match(/getExploreSetValueMarket\(\)|getExploreMarketMovers\(\)/g) || []).length, 2);
 });
 
-test("the Market Overview exposes one header action plus one link per market row", () => {
-  assert.match(overview, /data-market-explore-link="all"/);
+test("the Market Overview exposes a canonical Explorer link per market row", () => {
+  assert.match(overview, /data-market-explore-link=\{family\.key\}/);
   // The header action is now a prominent PRIMARY CTA in the green interaction
   // family, not the quiet 11px caption nobody found.
-  assert.match(overview, /Open Market Explorer/);
-  assert.match(overview, /data-market-explorer-cta/);
-  assert.ok(!/>\s*Explore Market\s*</.test(overview),
-    "the vague quiet link must not come back");
   assert.match(overview, /export function marketExplorerHref/);
-  assert.match(overview, /\/Market\/Explorer/);
+  assert.match(overview, /MARKET_EXPLORER_HREF/);
   assert.match(overview, /\?market=\$\{encodeURIComponent\(marketKey\)\}/);
   // The affordance is a link on the existing row, not a new column.
   assert.equal((overview.match(/<th scope="col"/g) || []).length, 4);

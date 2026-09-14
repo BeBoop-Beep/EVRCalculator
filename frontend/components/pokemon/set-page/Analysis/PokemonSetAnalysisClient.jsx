@@ -342,12 +342,12 @@ export default function PokemonSetAnalysisClient({
                       icon="analysis"
                       id="analysis-overview-title"
                       title={`Why ${setName} ranks ${readCanonicalBlock(canonical.overall).rank === null ? "where it does" : `#${Math.round(readCanonicalBlock(canonical.overall).rank)}`}`}
-                      description="Overall RIP considers financial outcomes, chase accessibility, and collector appeal."
+                      description="RIP Score considers financial outcomes, chase accessibility, and collector appeal."
                     />
                     <div className="mt-4 flex justify-center">
                       <div className="w-full max-w-md">
                         <ScoreCard
-                          label="Overall RIP"
+                          label="RIP Score"
                           icon="gauge"
                           role="overall"
                           block={canonical.overall}
@@ -411,7 +411,7 @@ export default function PokemonSetAnalysisClient({
                     <SectionHeading
                       icon="bulb"
                       title="How to read this result"
-                      description="Overall RIP is the canonical combined result. The supporting scores remain separate so unavailable inputs are visible instead of being filled with estimates."
+                      description="RIP Score is the canonical combined result. The supporting scores remain separate so unavailable inputs are visible instead of being filled with estimates."
                     />
                     <nav
                       aria-label="Explore score details"
@@ -568,6 +568,7 @@ export default function PokemonSetAnalysisClient({
                 <section aria-labelledby="analysis-chase-title" className="set-glass-surface rounded-2xl border p-4 sm:p-5">
                   <SectionHeading eyebrow="Set reachability" icon="trend" id="analysis-chase-title" title="Chase Accessibility Breakdown" description={chaseAccessibility.publicQuestion} />
                       <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-[var(--border-subtle)] p-4"><p className="text-xs text-[var(--text-secondary)]">Public score</p><p className="mt-2 text-3xl font-semibold">{chaseAccessibility.publicScore === null ? "—" : `${formatPublicRipScore(chaseAccessibility.publicScore)} /10`}</p>{chaseAccessibility.rank !== null && chaseAccessibility.cohortSize !== null ? <p className="mt-1 text-xs text-[var(--text-secondary)]">Set #{Math.round(chaseAccessibility.rank)} of {Math.round(chaseAccessibility.cohortSize)}</p> : null}</div>{chaseAccessibility.displayAccessibility !== null ? <div className="rounded-xl border border-[var(--border-subtle)] p-4"><p className="text-xs text-[var(--text-secondary)]">Raw Accessibility</p><p className="mt-2 text-3xl font-semibold">{chaseAccessibility.displayAccessibility.toFixed(2)}%</p></div> : null}</div>
+                      <Link href="/Articles/how-chase-accessibility-works" className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--accent)]">Read the Chase Accessibility methodology →</Link>
                 </section>
               ) : null}
               {activeSection === "collector-appeal" ? (

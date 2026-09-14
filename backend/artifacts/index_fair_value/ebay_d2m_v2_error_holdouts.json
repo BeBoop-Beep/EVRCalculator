@@ -1,0 +1,69 @@
+{
+  "version": "ebay_d2m_v2_error_holdouts_v1",
+  "diagnostic_only": true,
+  "grouped_accessory_phrase_families": {
+    "ART_CASE": {
+      "examples": 15,
+      "cards": 15,
+      "partitions": {
+        "DEVELOPMENT": 6,
+        "VALIDATION": 9
+      },
+      "sellers": 3
+    },
+    "DISPLAY_CASE": {
+      "examples": 2,
+      "cards": 2,
+      "partitions": {
+        "VALIDATION": 2
+      },
+      "sellers": 1
+    },
+    "HOLDER_FRAME": {
+      "examples": 1,
+      "cards": 1,
+      "partitions": {
+        "DEVELOPMENT": 1
+      },
+      "sellers": 1
+    },
+    "STORAGE_DISPLAY": {
+      "examples": 1,
+      "cards": 1,
+      "partitions": {
+        "VALIDATION": 1
+      },
+      "sellers": 1
+    },
+    "NON_CARD_REPLICA": {
+      "examples": 1,
+      "cards": 1,
+      "partitions": {
+        "DEVELOPMENT": 1
+      },
+      "sellers": 1
+    },
+    "NO_CARD": {
+      "examples": 1,
+      "cards": 1,
+      "partitions": {
+        "VALIDATION": 1
+      },
+      "sellers": 1
+    }
+  },
+  "all_19_accessory_negatives_high": 0,
+  "other_error_class_high": {
+    "CONDITION_INELIGIBLE": 0,
+    "GRADED": 0,
+    "LOT_OR_BUNDLE": 0,
+    "OTHER": 0,
+    "RELATED_BUT_WRONG_VARIANT": 0,
+    "SEALED_OR_ACCESSORY": 0,
+    "WRONG_CARD_NUMBER": 0,
+    "WRONG_LANGUAGE": 0,
+    "WRONG_SET": 0
+  },
+  "anti_memorization": "Rules encode product-object phrase families, never item IDs, cards, or sellers.",
+  "benign_case_control_passed": true
+}

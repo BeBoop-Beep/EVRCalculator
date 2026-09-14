@@ -1,0 +1,1802 @@
+{
+  "thresholdMethodVersion": "budget_product_best_open_price_full_market_v1_research",
+  "source": {
+    "snapshotId": "c8853793-a2ac-4a62-a9a4-f5df7f9ed8a1",
+    "marketDate": "2026-09-08",
+    "cohortFingerprint": "5a33b0fa18fba5d30a7caf366af9ff4d32d7797040562d6480760426a5d30b6b",
+    "fullMarketBudget": 1350.0,
+    "rankingMethodVersion": "budget_product_ranking_v1",
+    "overallRipVersion": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+    "chaseAccessibilityVersion": "chase_accessibility_v1_hc_value_squared_modeled_probability",
+    "chaseAccessibilityTransformVersion": "chase_accessibility_overall_score_v1_saturating_k002",
+    "historicalSourceAuthorityFingerprint": "5d12b32481819807989c597c50b0fbf49e2086dde5cf2fe943555d49b6cd3620",
+    "authorityUnchangedAtCompletion": true
+  },
+  "cohort": {
+    "skuCount": 138,
+    "setCount": 22
+  },
+  "parity": {
+    "wholeSnapshot": {
+      "rowsChecked": 1000,
+      "rowsReconstructed": 1000,
+      "mismatchCount": 0,
+      "maximumAbsoluteDelta": "0"
+    },
+    "fullMarket": {
+      "rowsChecked": 138,
+      "rowsReconstructed": 138,
+      "mismatchCount": 0,
+      "maximumAbsoluteDelta": "0"
+    }
+  },
+  "guard": {
+    "maxAdditionalQuantitiesFromCurrent": 1,
+    "meaning": "research only; unresolved is reported, no price floor is inferred"
+  },
+  "timings": {
+    "sourceAndCohortLoadSeconds": 1.8349172,
+    "artifactLoadSeconds": 0.7687499,
+    "totalWallClockSeconds": 69.9535008,
+    "peakTracedMemoryBytes": 90692971
+  },
+  "monotonicity": {
+    "intervalsChecked": 102,
+    "violationCount": 0
+  },
+  "products": [
+    {
+      "sealedProductId": "c29f8489-22db-4ad0-9022-c1a40e503f14",
+      "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "currentRank": 1,
+      "currentMarketPrice": 13.24,
+      "benchmarkSealedProductId": "af5bb150-cfa2-4e41-95b6-15a105bd1311",
+      "status": "research_candidate_found_not_exact",
+      "highestWinningEndpointPrice": 14.84,
+      "lowestQuantityInspected": 1,
+      "highestQuantityInspected": 102,
+      "priceEvaluationCount": 204,
+      "baseDistributionSeconds": 0.0019399999999998307,
+      "quantityDistributionSeconds": 39.41566419999996,
+      "financialV3V4AndV12Seconds": 27.438179699999964,
+      "comparatorSeconds": 0.01063550000002289,
+      "intervals": [
+        {
+          "quantity": 1,
+          "lowPriceCents": 67501,
+          "highPriceCents": 135000,
+          "endpointProbes": [
+            {
+              "priceCents": 67501,
+              "wins": false,
+              "overallRipV12Score": 11.6989
+            },
+            {
+              "priceCents": 135000,
+              "wins": false,
+              "overallRipV12Score": 11.3337
+            }
+          ]
+        },
+        {
+          "quantity": 2,
+          "lowPriceCents": 45001,
+          "highPriceCents": 67500,
+          "endpointProbes": [
+            {
+              "priceCents": 45001,
+              "wins": false,
+              "overallRipV12Score": 12.3362
+            },
+            {
+              "priceCents": 67500,
+              "wins": false,
+              "overallRipV12Score": 11.7936
+            }
+          ]
+        },
+        {
+          "quantity": 3,
+          "lowPriceCents": 33751,
+          "highPriceCents": 45000,
+          "endpointProbes": [
+            {
+              "priceCents": 33751,
+              "wins": false,
+              "overallRipV12Score": 12.5047
+            },
+            {
+              "priceCents": 45000,
+              "wins": false,
+              "overallRipV12Score": 12.1357
+            }
+          ]
+        },
+        {
+          "quantity": 4,
+          "lowPriceCents": 27001,
+          "highPriceCents": 33750,
+          "endpointProbes": [
+            {
+              "priceCents": 27001,
+              "wins": false,
+              "overallRipV12Score": 12.7551
+            },
+            {
+              "priceCents": 33750,
+              "wins": false,
+              "overallRipV12Score": 12.413
+            }
+          ]
+        },
+        {
+          "quantity": 5,
+          "lowPriceCents": 22501,
+          "highPriceCents": 27000,
+          "endpointProbes": [
+            {
+              "priceCents": 22501,
+              "wins": false,
+              "overallRipV12Score": 13.0743
+            },
+            {
+              "priceCents": 27000,
+              "wins": false,
+              "overallRipV12Score": 12.732
+            }
+          ]
+        },
+        {
+          "quantity": 6,
+          "lowPriceCents": 19286,
+          "highPriceCents": 22500,
+          "endpointProbes": [
+            {
+              "priceCents": 19286,
+              "wins": false,
+              "overallRipV12Score": 13.4148
+            },
+            {
+              "priceCents": 22500,
+              "wins": false,
+              "overallRipV12Score": 13.0693
+            }
+          ]
+        },
+        {
+          "quantity": 7,
+          "lowPriceCents": 16876,
+          "highPriceCents": 19285,
+          "endpointProbes": [
+            {
+              "priceCents": 16876,
+              "wins": false,
+              "overallRipV12Score": 13.9001
+            },
+            {
+              "priceCents": 19285,
+              "wins": false,
+              "overallRipV12Score": 13.5335
+            }
+          ]
+        },
+        {
+          "quantity": 8,
+          "lowPriceCents": 15001,
+          "highPriceCents": 16875,
+          "endpointProbes": [
+            {
+              "priceCents": 15001,
+              "wins": false,
+              "overallRipV12Score": 14.2626
+            },
+            {
+              "priceCents": 16875,
+              "wins": false,
+              "overallRipV12Score": 13.8931
+            }
+          ]
+        },
+        {
+          "quantity": 9,
+          "lowPriceCents": 13501,
+          "highPriceCents": 15000,
+          "endpointProbes": [
+            {
+              "priceCents": 13501,
+              "wins": false,
+              "overallRipV12Score": 14.6087
+            },
+            {
+              "priceCents": 15000,
+              "wins": false,
+              "overallRipV12Score": 14.2356
+            }
+          ]
+        },
+        {
+          "quantity": 10,
+          "lowPriceCents": 12273,
+          "highPriceCents": 13500,
+          "endpointProbes": [
+            {
+              "priceCents": 12273,
+              "wins": false,
+              "overallRipV12Score": 15.2108
+            },
+            {
+              "priceCents": 13500,
+              "wins": false,
+              "overallRipV12Score": 14.8112
+            }
+          ]
+        },
+        {
+          "quantity": 11,
+          "lowPriceCents": 11251,
+          "highPriceCents": 12272,
+          "endpointProbes": [
+            {
+              "priceCents": 11251,
+              "wins": false,
+              "overallRipV12Score": 15.639
+            },
+            {
+              "priceCents": 12272,
+              "wins": false,
+              "overallRipV12Score": 15.2325
+            }
+          ]
+        },
+        {
+          "quantity": 12,
+          "lowPriceCents": 10385,
+          "highPriceCents": 11250,
+          "endpointProbes": [
+            {
+              "priceCents": 10385,
+              "wins": false,
+              "overallRipV12Score": 16.0957
+            },
+            {
+              "priceCents": 11250,
+              "wins": false,
+              "overallRipV12Score": 15.6819
+            }
+          ]
+        },
+        {
+          "quantity": 13,
+          "lowPriceCents": 9643,
+          "highPriceCents": 10384,
+          "endpointProbes": [
+            {
+              "priceCents": 9643,
+              "wins": false,
+              "overallRipV12Score": 16.4558
+            },
+            {
+              "priceCents": 10384,
+              "wins": false,
+              "overallRipV12Score": 16.0391
+            }
+          ]
+        },
+        {
+          "quantity": 14,
+          "lowPriceCents": 9001,
+          "highPriceCents": 9642,
+          "endpointProbes": [
+            {
+              "priceCents": 9001,
+              "wins": false,
+              "overallRipV12Score": 16.7756
+            },
+            {
+              "priceCents": 9642,
+              "wins": false,
+              "overallRipV12Score": 16.3649
+            }
+          ]
+        },
+        {
+          "quantity": 15,
+          "lowPriceCents": 8438,
+          "highPriceCents": 9000,
+          "endpointProbes": [
+            {
+              "priceCents": 8438,
+              "wins": false,
+              "overallRipV12Score": 17.1574
+            },
+            {
+              "priceCents": 9000,
+              "wins": false,
+              "overallRipV12Score": 16.7489
+            }
+          ]
+        },
+        {
+          "quantity": 16,
+          "lowPriceCents": 7942,
+          "highPriceCents": 8437,
+          "endpointProbes": [
+            {
+              "priceCents": 7942,
+              "wins": false,
+              "overallRipV12Score": 17.4298
+            },
+            {
+              "priceCents": 8437,
+              "wins": false,
+              "overallRipV12Score": 17.0302
+            }
+          ]
+        },
+        {
+          "quantity": 17,
+          "lowPriceCents": 7501,
+          "highPriceCents": 7941,
+          "endpointProbes": [
+            {
+              "priceCents": 7501,
+              "wins": false,
+              "overallRipV12Score": 17.7075
+            },
+            {
+              "priceCents": 7941,
+              "wins": false,
+              "overallRipV12Score": 17.3174
+            }
+          ]
+        },
+        {
+          "quantity": 18,
+          "lowPriceCents": 7106,
+          "highPriceCents": 7500,
+          "endpointProbes": [
+            {
+              "priceCents": 7106,
+              "wins": false,
+              "overallRipV12Score": 18.0351
+            },
+            {
+              "priceCents": 7500,
+              "wins": false,
+              "overallRipV12Score": 17.6498
+            }
+          ]
+        },
+        {
+          "quantity": 19,
+          "lowPriceCents": 6751,
+          "highPriceCents": 7105,
+          "endpointProbes": [
+            {
+              "priceCents": 6751,
+              "wins": false,
+              "overallRipV12Score": 18.4492
+            },
+            {
+              "priceCents": 7105,
+              "wins": false,
+              "overallRipV12Score": 18.065
+            }
+          ]
+        },
+        {
+          "quantity": 20,
+          "lowPriceCents": 6429,
+          "highPriceCents": 6750,
+          "endpointProbes": [
+            {
+              "priceCents": 6429,
+              "wins": false,
+              "overallRipV12Score": 18.8667
+            },
+            {
+              "priceCents": 6750,
+              "wins": false,
+              "overallRipV12Score": 18.4818
+            }
+          ]
+        },
+        {
+          "quantity": 21,
+          "lowPriceCents": 6137,
+          "highPriceCents": 6428,
+          "endpointProbes": [
+            {
+              "priceCents": 6137,
+              "wins": false,
+              "overallRipV12Score": 19.5373
+            },
+            {
+              "priceCents": 6428,
+              "wins": false,
+              "overallRipV12Score": 19.1402
+            }
+          ]
+        },
+        {
+          "quantity": 22,
+          "lowPriceCents": 5870,
+          "highPriceCents": 6136,
+          "endpointProbes": [
+            {
+              "priceCents": 5870,
+              "wins": false,
+              "overallRipV12Score": 20.317
+            },
+            {
+              "priceCents": 6136,
+              "wins": false,
+              "overallRipV12Score": 19.9016
+            }
+          ]
+        },
+        {
+          "quantity": 23,
+          "lowPriceCents": 5626,
+          "highPriceCents": 5869,
+          "endpointProbes": [
+            {
+              "priceCents": 5626,
+              "wins": false,
+              "overallRipV12Score": 20.6426
+            },
+            {
+              "priceCents": 5869,
+              "wins": false,
+              "overallRipV12Score": 20.2298
+            }
+          ]
+        },
+        {
+          "quantity": 24,
+          "lowPriceCents": 5401,
+          "highPriceCents": 5625,
+          "endpointProbes": [
+            {
+              "priceCents": 5401,
+              "wins": false,
+              "overallRipV12Score": 20.9698
+            },
+            {
+              "priceCents": 5625,
+              "wins": false,
+              "overallRipV12Score": 20.5599
+            }
+          ]
+        },
+        {
+          "quantity": 25,
+          "lowPriceCents": 5193,
+          "highPriceCents": 5400,
+          "endpointProbes": [
+            {
+              "priceCents": 5193,
+              "wins": false,
+              "overallRipV12Score": 21.3699
+            },
+            {
+              "priceCents": 5400,
+              "wins": false,
+              "overallRipV12Score": 20.9343
+            }
+          ]
+        },
+        {
+          "quantity": 26,
+          "lowPriceCents": 5001,
+          "highPriceCents": 5192,
+          "endpointProbes": [
+            {
+              "priceCents": 5001,
+              "wins": false,
+              "overallRipV12Score": 21.8219
+            },
+            {
+              "priceCents": 5192,
+              "wins": false,
+              "overallRipV12Score": 21.3838
+            }
+          ]
+        },
+        {
+          "quantity": 27,
+          "lowPriceCents": 4822,
+          "highPriceCents": 5000,
+          "endpointProbes": [
+            {
+              "priceCents": 4822,
+              "wins": false,
+              "overallRipV12Score": 22.25
+            },
+            {
+              "priceCents": 5000,
+              "wins": false,
+              "overallRipV12Score": 21.8125
+            }
+          ]
+        },
+        {
+          "quantity": 28,
+          "lowPriceCents": 4656,
+          "highPriceCents": 4821,
+          "endpointProbes": [
+            {
+              "priceCents": 4656,
+              "wins": false,
+              "overallRipV12Score": 22.7707
+            },
+            {
+              "priceCents": 4821,
+              "wins": false,
+              "overallRipV12Score": 22.3282
+            }
+          ]
+        },
+        {
+          "quantity": 29,
+          "lowPriceCents": 4501,
+          "highPriceCents": 4655,
+          "endpointProbes": [
+            {
+              "priceCents": 4501,
+              "wins": false,
+              "overallRipV12Score": 23.4102
+            },
+            {
+              "priceCents": 4655,
+              "wins": false,
+              "overallRipV12Score": 22.9571
+            }
+          ]
+        },
+        {
+          "quantity": 30,
+          "lowPriceCents": 4355,
+          "highPriceCents": 4500,
+          "endpointProbes": [
+            {
+              "priceCents": 4355,
+              "wins": false,
+              "overallRipV12Score": 24.3603
+            },
+            {
+              "priceCents": 4500,
+              "wins": false,
+              "overallRipV12Score": 23.8885
+            }
+          ]
+        },
+        {
+          "quantity": 31,
+          "lowPriceCents": 4219,
+          "highPriceCents": 4354,
+          "endpointProbes": [
+            {
+              "priceCents": 4219,
+              "wins": false,
+              "overallRipV12Score": 24.8007
+            },
+            {
+              "priceCents": 4354,
+              "wins": false,
+              "overallRipV12Score": 24.3301
+            }
+          ]
+        },
+        {
+          "quantity": 32,
+          "lowPriceCents": 4091,
+          "highPriceCents": 4218,
+          "endpointProbes": [
+            {
+              "priceCents": 4091,
+              "wins": false,
+              "overallRipV12Score": 25.1336
+            },
+            {
+              "priceCents": 4218,
+              "wins": false,
+              "overallRipV12Score": 24.6678
+            }
+          ]
+        },
+        {
+          "quantity": 33,
+          "lowPriceCents": 3971,
+          "highPriceCents": 4090,
+          "endpointProbes": [
+            {
+              "priceCents": 3971,
+              "wins": false,
+              "overallRipV12Score": 25.469
+            },
+            {
+              "priceCents": 4090,
+              "wins": false,
+              "overallRipV12Score": 25.0066
+            }
+          ]
+        },
+        {
+          "quantity": 34,
+          "lowPriceCents": 3858,
+          "highPriceCents": 3970,
+          "endpointProbes": [
+            {
+              "priceCents": 3858,
+              "wins": false,
+              "overallRipV12Score": 25.7916
+            },
+            {
+              "priceCents": 3970,
+              "wins": false,
+              "overallRipV12Score": 25.3334
+            }
+          ]
+        },
+        {
+          "quantity": 35,
+          "lowPriceCents": 3751,
+          "highPriceCents": 3857,
+          "endpointProbes": [
+            {
+              "priceCents": 3751,
+              "wins": false,
+              "overallRipV12Score": 26.1355
+            },
+            {
+              "priceCents": 3857,
+              "wins": false,
+              "overallRipV12Score": 25.6769
+            }
+          ]
+        },
+        {
+          "quantity": 36,
+          "lowPriceCents": 3649,
+          "highPriceCents": 3750,
+          "endpointProbes": [
+            {
+              "priceCents": 3649,
+              "wins": false,
+              "overallRipV12Score": 26.5016
+            },
+            {
+              "priceCents": 3750,
+              "wins": false,
+              "overallRipV12Score": 26.0363
+            }
+          ]
+        },
+        {
+          "quantity": 37,
+          "lowPriceCents": 3553,
+          "highPriceCents": 3648,
+          "endpointProbes": [
+            {
+              "priceCents": 3553,
+              "wins": false,
+              "overallRipV12Score": 26.8566
+            },
+            {
+              "priceCents": 3648,
+              "wins": false,
+              "overallRipV12Score": 26.3945
+            }
+          ]
+        },
+        {
+          "quantity": 38,
+          "lowPriceCents": 3462,
+          "highPriceCents": 3552,
+          "endpointProbes": [
+            {
+              "priceCents": 3462,
+              "wins": false,
+              "overallRipV12Score": 27.2113
+            },
+            {
+              "priceCents": 3552,
+              "wins": false,
+              "overallRipV12Score": 26.7514
+            }
+          ]
+        },
+        {
+          "quantity": 39,
+          "lowPriceCents": 3376,
+          "highPriceCents": 3461,
+          "endpointProbes": [
+            {
+              "priceCents": 3376,
+              "wins": false,
+              "overallRipV12Score": 27.5471
+            },
+            {
+              "priceCents": 3461,
+              "wins": false,
+              "overallRipV12Score": 27.0913
+            }
+          ]
+        },
+        {
+          "quantity": 40,
+          "lowPriceCents": 3293,
+          "highPriceCents": 3375,
+          "endpointProbes": [
+            {
+              "priceCents": 3293,
+              "wins": false,
+              "overallRipV12Score": 27.8955
+            },
+            {
+              "priceCents": 3375,
+              "wins": false,
+              "overallRipV12Score": 27.4244
+            }
+          ]
+        },
+        {
+          "quantity": 41,
+          "lowPriceCents": 3215,
+          "highPriceCents": 3292,
+          "endpointProbes": [
+            {
+              "priceCents": 3215,
+              "wins": false,
+              "overallRipV12Score": 28.2191
+            },
+            {
+              "priceCents": 3292,
+              "wins": false,
+              "overallRipV12Score": 27.7517
+            }
+          ]
+        },
+        {
+          "quantity": 42,
+          "lowPriceCents": 3140,
+          "highPriceCents": 3214,
+          "endpointProbes": [
+            {
+              "priceCents": 3140,
+              "wins": false,
+              "overallRipV12Score": 28.5644
+            },
+            {
+              "priceCents": 3214,
+              "wins": false,
+              "overallRipV12Score": 28.0877
+            }
+          ]
+        },
+        {
+          "quantity": 43,
+          "lowPriceCents": 3069,
+          "highPriceCents": 3139,
+          "endpointProbes": [
+            {
+              "priceCents": 3069,
+              "wins": false,
+              "overallRipV12Score": 28.9224
+            },
+            {
+              "priceCents": 3139,
+              "wins": false,
+              "overallRipV12Score": 28.4422
+            }
+          ]
+        },
+        {
+          "quantity": 44,
+          "lowPriceCents": 3001,
+          "highPriceCents": 3068,
+          "endpointProbes": [
+            {
+              "priceCents": 3001,
+              "wins": false,
+              "overallRipV12Score": 29.26
+            },
+            {
+              "priceCents": 3068,
+              "wins": false,
+              "overallRipV12Score": 28.7736
+            }
+          ]
+        },
+        {
+          "quantity": 45,
+          "lowPriceCents": 2935,
+          "highPriceCents": 3000,
+          "endpointProbes": [
+            {
+              "priceCents": 2935,
+              "wins": false,
+              "overallRipV12Score": 29.6325
+            },
+            {
+              "priceCents": 3000,
+              "wins": false,
+              "overallRipV12Score": 29.1276
+            }
+          ]
+        },
+        {
+          "quantity": 46,
+          "lowPriceCents": 2873,
+          "highPriceCents": 2934,
+          "endpointProbes": [
+            {
+              "priceCents": 2873,
+              "wins": false,
+              "overallRipV12Score": 30.0113
+            },
+            {
+              "priceCents": 2934,
+              "wins": false,
+              "overallRipV12Score": 29.5034
+            }
+          ]
+        },
+        {
+          "quantity": 47,
+          "lowPriceCents": 2813,
+          "highPriceCents": 2872,
+          "endpointProbes": [
+            {
+              "priceCents": 2813,
+              "wins": false,
+              "overallRipV12Score": 30.3925
+            },
+            {
+              "priceCents": 2872,
+              "wins": false,
+              "overallRipV12Score": 29.8781
+            }
+          ]
+        },
+        {
+          "quantity": 48,
+          "lowPriceCents": 2756,
+          "highPriceCents": 2812,
+          "endpointProbes": [
+            {
+              "priceCents": 2756,
+              "wins": false,
+              "overallRipV12Score": 30.7596
+            },
+            {
+              "priceCents": 2812,
+              "wins": false,
+              "overallRipV12Score": 30.2412
+            }
+          ]
+        },
+        {
+          "quantity": 49,
+          "lowPriceCents": 2701,
+          "highPriceCents": 2755,
+          "endpointProbes": [
+            {
+              "priceCents": 2701,
+              "wins": false,
+              "overallRipV12Score": 31.1624
+            },
+            {
+              "priceCents": 2755,
+              "wins": false,
+              "overallRipV12Score": 30.629
+            }
+          ]
+        },
+        {
+          "quantity": 50,
+          "lowPriceCents": 2648,
+          "highPriceCents": 2700,
+          "endpointProbes": [
+            {
+              "priceCents": 2648,
+              "wins": false,
+              "overallRipV12Score": 31.5601
+            },
+            {
+              "priceCents": 2700,
+              "wins": false,
+              "overallRipV12Score": 31.0139
+            }
+          ]
+        },
+        {
+          "quantity": 51,
+          "lowPriceCents": 2597,
+          "highPriceCents": 2647,
+          "endpointProbes": [
+            {
+              "priceCents": 2597,
+              "wins": false,
+              "overallRipV12Score": 31.9473
+            },
+            {
+              "priceCents": 2647,
+              "wins": false,
+              "overallRipV12Score": 31.3919
+            }
+          ]
+        },
+        {
+          "quantity": 52,
+          "lowPriceCents": 2548,
+          "highPriceCents": 2596,
+          "endpointProbes": [
+            {
+              "priceCents": 2548,
+              "wins": false,
+              "overallRipV12Score": 32.3416
+            },
+            {
+              "priceCents": 2596,
+              "wins": false,
+              "overallRipV12Score": 31.7828
+            }
+          ]
+        },
+        {
+          "quantity": 53,
+          "lowPriceCents": 2501,
+          "highPriceCents": 2547,
+          "endpointProbes": [
+            {
+              "priceCents": 2501,
+              "wins": false,
+              "overallRipV12Score": 32.755
+            },
+            {
+              "priceCents": 2547,
+              "wins": false,
+              "overallRipV12Score": 32.1898
+            }
+          ]
+        },
+        {
+          "quantity": 54,
+          "lowPriceCents": 2455,
+          "highPriceCents": 2500,
+          "endpointProbes": [
+            {
+              "priceCents": 2455,
+              "wins": false,
+              "overallRipV12Score": 33.1797
+            },
+            {
+              "priceCents": 2500,
+              "wins": false,
+              "overallRipV12Score": 32.5929
+            }
+          ]
+        },
+        {
+          "quantity": 55,
+          "lowPriceCents": 2411,
+          "highPriceCents": 2454,
+          "endpointProbes": [
+            {
+              "priceCents": 2411,
+              "wins": false,
+              "overallRipV12Score": 33.6118
+            },
+            {
+              "priceCents": 2454,
+              "wins": false,
+              "overallRipV12Score": 33.0161
+            }
+          ]
+        },
+        {
+          "quantity": 56,
+          "lowPriceCents": 2369,
+          "highPriceCents": 2410,
+          "endpointProbes": [
+            {
+              "priceCents": 2369,
+              "wins": false,
+              "overallRipV12Score": 34.0379
+            },
+            {
+              "priceCents": 2410,
+              "wins": false,
+              "overallRipV12Score": 33.4384
+            }
+          ]
+        },
+        {
+          "quantity": 57,
+          "lowPriceCents": 2328,
+          "highPriceCents": 2368,
+          "endpointProbes": [
+            {
+              "priceCents": 2328,
+              "wins": false,
+              "overallRipV12Score": 34.4856
+            },
+            {
+              "priceCents": 2368,
+              "wins": false,
+              "overallRipV12Score": 33.8794
+            }
+          ]
+        },
+        {
+          "quantity": 58,
+          "lowPriceCents": 2289,
+          "highPriceCents": 2327,
+          "endpointProbes": [
+            {
+              "priceCents": 2289,
+              "wins": false,
+              "overallRipV12Score": 34.9113
+            },
+            {
+              "priceCents": 2327,
+              "wins": false,
+              "overallRipV12Score": 34.2996
+            }
+          ]
+        },
+        {
+          "quantity": 59,
+          "lowPriceCents": 2251,
+          "highPriceCents": 2288,
+          "endpointProbes": [
+            {
+              "priceCents": 2251,
+              "wins": false,
+              "overallRipV12Score": 35.3494
+            },
+            {
+              "priceCents": 2288,
+              "wins": false,
+              "overallRipV12Score": 34.7439
+            }
+          ]
+        },
+        {
+          "quantity": 60,
+          "lowPriceCents": 2214,
+          "highPriceCents": 2250,
+          "endpointProbes": [
+            {
+              "priceCents": 2214,
+              "wins": false,
+              "overallRipV12Score": 35.7931
+            },
+            {
+              "priceCents": 2250,
+              "wins": false,
+              "overallRipV12Score": 35.1809
+            }
+          ]
+        },
+        {
+          "quantity": 61,
+          "lowPriceCents": 2178,
+          "highPriceCents": 2213,
+          "endpointProbes": [
+            {
+              "priceCents": 2178,
+              "wins": false,
+              "overallRipV12Score": 36.253
+            },
+            {
+              "priceCents": 2213,
+              "wins": false,
+              "overallRipV12Score": 35.6293
+            }
+          ]
+        },
+        {
+          "quantity": 62,
+          "lowPriceCents": 2143,
+          "highPriceCents": 2177,
+          "endpointProbes": [
+            {
+              "priceCents": 2143,
+              "wins": false,
+              "overallRipV12Score": 36.7013
+            },
+            {
+              "priceCents": 2177,
+              "wins": false,
+              "overallRipV12Score": 36.064
+            }
+          ]
+        },
+        {
+          "quantity": 63,
+          "lowPriceCents": 2110,
+          "highPriceCents": 2142,
+          "endpointProbes": [
+            {
+              "priceCents": 2110,
+              "wins": false,
+              "overallRipV12Score": 37.1766
+            },
+            {
+              "priceCents": 2142,
+              "wins": false,
+              "overallRipV12Score": 36.5452
+            }
+          ]
+        },
+        {
+          "quantity": 64,
+          "lowPriceCents": 2077,
+          "highPriceCents": 2109,
+          "endpointProbes": [
+            {
+              "priceCents": 2077,
+              "wins": false,
+              "overallRipV12Score": 37.6725
+            },
+            {
+              "priceCents": 2109,
+              "wins": false,
+              "overallRipV12Score": 37.0029
+            }
+          ]
+        },
+        {
+          "quantity": 65,
+          "lowPriceCents": 2046,
+          "highPriceCents": 2076,
+          "endpointProbes": [
+            {
+              "priceCents": 2046,
+              "wins": false,
+              "overallRipV12Score": 38.1604
+            },
+            {
+              "priceCents": 2076,
+              "wins": false,
+              "overallRipV12Score": 37.5013
+            }
+          ]
+        },
+        {
+          "quantity": 66,
+          "lowPriceCents": 2015,
+          "highPriceCents": 2045,
+          "endpointProbes": [
+            {
+              "priceCents": 2015,
+              "wins": false,
+              "overallRipV12Score": 38.6998
+            },
+            {
+              "priceCents": 2045,
+              "wins": false,
+              "overallRipV12Score": 38.0023
+            }
+          ]
+        },
+        {
+          "quantity": 67,
+          "lowPriceCents": 1986,
+          "highPriceCents": 2014,
+          "endpointProbes": [
+            {
+              "priceCents": 1986,
+              "wins": false,
+              "overallRipV12Score": 39.1885
+            },
+            {
+              "priceCents": 2014,
+              "wins": false,
+              "overallRipV12Score": 38.4989
+            }
+          ]
+        },
+        {
+          "quantity": 68,
+          "lowPriceCents": 1957,
+          "highPriceCents": 1985,
+          "endpointProbes": [
+            {
+              "priceCents": 1957,
+              "wins": false,
+              "overallRipV12Score": 39.7333
+            },
+            {
+              "priceCents": 1985,
+              "wins": false,
+              "overallRipV12Score": 39.022
+            }
+          ]
+        },
+        {
+          "quantity": 69,
+          "lowPriceCents": 1929,
+          "highPriceCents": 1956,
+          "endpointProbes": [
+            {
+              "priceCents": 1929,
+              "wins": false,
+              "overallRipV12Score": 40.2594
+            },
+            {
+              "priceCents": 1956,
+              "wins": false,
+              "overallRipV12Score": 39.5398
+            }
+          ]
+        },
+        {
+          "quantity": 70,
+          "lowPriceCents": 1902,
+          "highPriceCents": 1928,
+          "endpointProbes": [
+            {
+              "priceCents": 1902,
+              "wins": false,
+              "overallRipV12Score": 40.7928
+            },
+            {
+              "priceCents": 1928,
+              "wins": false,
+              "overallRipV12Score": 40.0659
+            }
+          ]
+        },
+        {
+          "quantity": 71,
+          "lowPriceCents": 1876,
+          "highPriceCents": 1901,
+          "endpointProbes": [
+            {
+              "priceCents": 1876,
+              "wins": false,
+              "overallRipV12Score": 41.337
+            },
+            {
+              "priceCents": 1901,
+              "wins": false,
+              "overallRipV12Score": 40.6124
+            }
+          ]
+        },
+        {
+          "quantity": 72,
+          "lowPriceCents": 1850,
+          "highPriceCents": 1875,
+          "endpointProbes": [
+            {
+              "priceCents": 1850,
+              "wins": false,
+              "overallRipV12Score": 41.889
+            },
+            {
+              "priceCents": 1875,
+              "wins": false,
+              "overallRipV12Score": 41.1518
+            }
+          ]
+        },
+        {
+          "quantity": 73,
+          "lowPriceCents": 1825,
+          "highPriceCents": 1849,
+          "endpointProbes": [
+            {
+              "priceCents": 1825,
+              "wins": false,
+              "overallRipV12Score": 42.4567
+            },
+            {
+              "priceCents": 1849,
+              "wins": false,
+              "overallRipV12Score": 41.7154
+            }
+          ]
+        },
+        {
+          "quantity": 74,
+          "lowPriceCents": 1801,
+          "highPriceCents": 1824,
+          "endpointProbes": [
+            {
+              "priceCents": 1801,
+              "wins": false,
+              "overallRipV12Score": 42.9693
+            },
+            {
+              "priceCents": 1824,
+              "wins": false,
+              "overallRipV12Score": 42.25
+            }
+          ]
+        },
+        {
+          "quantity": 75,
+          "lowPriceCents": 1777,
+          "highPriceCents": 1800,
+          "endpointProbes": [
+            {
+              "priceCents": 1777,
+              "wins": false,
+              "overallRipV12Score": 43.5429
+            },
+            {
+              "priceCents": 1800,
+              "wins": false,
+              "overallRipV12Score": 42.7962
+            }
+          ]
+        },
+        {
+          "quantity": 76,
+          "lowPriceCents": 1754,
+          "highPriceCents": 1776,
+          "endpointProbes": [
+            {
+              "priceCents": 1754,
+              "wins": false,
+              "overallRipV12Score": 44.0952
+            },
+            {
+              "priceCents": 1776,
+              "wins": false,
+              "overallRipV12Score": 43.3779
+            }
+          ]
+        },
+        {
+          "quantity": 77,
+          "lowPriceCents": 1731,
+          "highPriceCents": 1753,
+          "endpointProbes": [
+            {
+              "priceCents": 1731,
+              "wins": false,
+              "overallRipV12Score": 44.5848
+            },
+            {
+              "priceCents": 1753,
+              "wins": false,
+              "overallRipV12Score": 43.9241
+            }
+          ]
+        },
+        {
+          "quantity": 78,
+          "lowPriceCents": 1709,
+          "highPriceCents": 1730,
+          "endpointProbes": [
+            {
+              "priceCents": 1709,
+              "wins": false,
+              "overallRipV12Score": 45.0163
+            },
+            {
+              "priceCents": 1730,
+              "wins": false,
+              "overallRipV12Score": 44.5143
+            }
+          ]
+        },
+        {
+          "quantity": 79,
+          "lowPriceCents": 1688,
+          "highPriceCents": 1708,
+          "endpointProbes": [
+            {
+              "priceCents": 1688,
+              "wins": false,
+              "overallRipV12Score": 45.4401
+            },
+            {
+              "priceCents": 1708,
+              "wins": false,
+              "overallRipV12Score": 44.9642
+            }
+          ]
+        },
+        {
+          "quantity": 80,
+          "lowPriceCents": 1667,
+          "highPriceCents": 1687,
+          "endpointProbes": [
+            {
+              "priceCents": 1667,
+              "wins": false,
+              "overallRipV12Score": 45.8674
+            },
+            {
+              "priceCents": 1687,
+              "wins": false,
+              "overallRipV12Score": 45.3875
+            }
+          ]
+        },
+        {
+          "quantity": 81,
+          "lowPriceCents": 1647,
+          "highPriceCents": 1666,
+          "endpointProbes": [
+            {
+              "priceCents": 1647,
+              "wins": false,
+              "overallRipV12Score": 46.2975
+            },
+            {
+              "priceCents": 1666,
+              "wins": false,
+              "overallRipV12Score": 45.8264
+            }
+          ]
+        },
+        {
+          "quantity": 82,
+          "lowPriceCents": 1627,
+          "highPriceCents": 1646,
+          "endpointProbes": [
+            {
+              "priceCents": 1627,
+              "wins": false,
+              "overallRipV12Score": 46.7308
+            },
+            {
+              "priceCents": 1646,
+              "wins": false,
+              "overallRipV12Score": 46.2569
+            }
+          ]
+        },
+        {
+          "quantity": 83,
+          "lowPriceCents": 1608,
+          "highPriceCents": 1626,
+          "endpointProbes": [
+            {
+              "priceCents": 1608,
+              "wins": false,
+              "overallRipV12Score": 47.1533
+            },
+            {
+              "priceCents": 1626,
+              "wins": false,
+              "overallRipV12Score": 46.6928
+            }
+          ]
+        },
+        {
+          "quantity": 84,
+          "lowPriceCents": 1589,
+          "highPriceCents": 1607,
+          "endpointProbes": [
+            {
+              "priceCents": 1589,
+              "wins": false,
+              "overallRipV12Score": 47.5804
+            },
+            {
+              "priceCents": 1607,
+              "wins": false,
+              "overallRipV12Score": 47.1177
+            }
+          ]
+        },
+        {
+          "quantity": 85,
+          "lowPriceCents": 1570,
+          "highPriceCents": 1588,
+          "endpointProbes": [
+            {
+              "priceCents": 1570,
+              "wins": false,
+              "overallRipV12Score": 47.9943
+            },
+            {
+              "priceCents": 1588,
+              "wins": false,
+              "overallRipV12Score": 47.5431
+            }
+          ]
+        },
+        {
+          "quantity": 86,
+          "lowPriceCents": 1552,
+          "highPriceCents": 1569,
+          "endpointProbes": [
+            {
+              "priceCents": 1552,
+              "wins": false,
+              "overallRipV12Score": 48.3846
+            },
+            {
+              "priceCents": 1569,
+              "wins": false,
+              "overallRipV12Score": 47.9547
+            }
+          ]
+        },
+        {
+          "quantity": 87,
+          "lowPriceCents": 1535,
+          "highPriceCents": 1551,
+          "endpointProbes": [
+            {
+              "priceCents": 1535,
+              "wins": false,
+              "overallRipV12Score": 48.775
+            },
+            {
+              "priceCents": 1551,
+              "wins": false,
+              "overallRipV12Score": 48.3643
+            }
+          ]
+        },
+        {
+          "quantity": 88,
+          "lowPriceCents": 1517,
+          "highPriceCents": 1534,
+          "endpointProbes": [
+            {
+              "priceCents": 1517,
+              "wins": false,
+              "overallRipV12Score": 49.1875
+            },
+            {
+              "priceCents": 1534,
+              "wins": false,
+              "overallRipV12Score": 48.7427
+            }
+          ]
+        },
+        {
+          "quantity": 89,
+          "lowPriceCents": 1501,
+          "highPriceCents": 1516,
+          "endpointProbes": [
+            {
+              "priceCents": 1501,
+              "wins": false,
+              "overallRipV12Score": 49.5745
+            },
+            {
+              "priceCents": 1516,
+              "wins": false,
+              "overallRipV12Score": 49.1749
+            }
+          ]
+        },
+        {
+          "quantity": 90,
+          "lowPriceCents": 1484,
+          "highPriceCents": 1500,
+          "endpointProbes": [
+            {
+              "priceCents": 1484,
+              "wins": true,
+              "overallRipV12Score": 49.977
+            },
+            {
+              "priceCents": 1500,
+              "wins": false,
+              "overallRipV12Score": 49.5491
+            }
+          ]
+        },
+        {
+          "quantity": 91,
+          "lowPriceCents": 1468,
+          "highPriceCents": 1483,
+          "endpointProbes": [
+            {
+              "priceCents": 1468,
+              "wins": true,
+              "overallRipV12Score": 50.3709
+            },
+            {
+              "priceCents": 1483,
+              "wins": true,
+              "overallRipV12Score": 49.9692
+            }
+          ]
+        },
+        {
+          "quantity": 92,
+          "lowPriceCents": 1452,
+          "highPriceCents": 1467,
+          "endpointProbes": [
+            {
+              "priceCents": 1452,
+              "wins": true,
+              "overallRipV12Score": 50.7763
+            },
+            {
+              "priceCents": 1467,
+              "wins": true,
+              "overallRipV12Score": 50.3683
+            }
+          ]
+        },
+        {
+          "quantity": 93,
+          "lowPriceCents": 1437,
+          "highPriceCents": 1451,
+          "endpointProbes": [
+            {
+              "priceCents": 1437,
+              "wins": true,
+              "overallRipV12Score": 51.171
+            },
+            {
+              "priceCents": 1451,
+              "wins": true,
+              "overallRipV12Score": 50.7856
+            }
+          ]
+        },
+        {
+          "quantity": 94,
+          "lowPriceCents": 1422,
+          "highPriceCents": 1436,
+          "endpointProbes": [
+            {
+              "priceCents": 1422,
+              "wins": true,
+              "overallRipV12Score": 51.568
+            },
+            {
+              "priceCents": 1436,
+              "wins": true,
+              "overallRipV12Score": 51.1796
+            }
+          ]
+        },
+        {
+          "quantity": 95,
+          "lowPriceCents": 1407,
+          "highPriceCents": 1421,
+          "endpointProbes": [
+            {
+              "priceCents": 1407,
+              "wins": true,
+              "overallRipV12Score": 51.9842
+            },
+            {
+              "priceCents": 1421,
+              "wins": true,
+              "overallRipV12Score": 51.5917
+            }
+          ]
+        },
+        {
+          "quantity": 96,
+          "lowPriceCents": 1392,
+          "highPriceCents": 1406,
+          "endpointProbes": [
+            {
+              "priceCents": 1392,
+              "wins": true,
+              "overallRipV12Score": 52.3967
+            },
+            {
+              "priceCents": 1406,
+              "wins": true,
+              "overallRipV12Score": 52.0025
+            }
+          ]
+        },
+        {
+          "quantity": 97,
+          "lowPriceCents": 1378,
+          "highPriceCents": 1391,
+          "endpointProbes": [
+            {
+              "priceCents": 1378,
+              "wins": true,
+              "overallRipV12Score": 52.7859
+            },
+            {
+              "priceCents": 1391,
+              "wins": true,
+              "overallRipV12Score": 52.4169
+            }
+          ]
+        },
+        {
+          "quantity": 98,
+          "lowPriceCents": 1364,
+          "highPriceCents": 1377,
+          "endpointProbes": [
+            {
+              "priceCents": 1364,
+              "wins": true,
+              "overallRipV12Score": 53.2035
+            },
+            {
+              "priceCents": 1377,
+              "wins": true,
+              "overallRipV12Score": 52.8279
+            }
+          ]
+        },
+        {
+          "quantity": 99,
+          "lowPriceCents": 1351,
+          "highPriceCents": 1363,
+          "endpointProbes": [
+            {
+              "priceCents": 1351,
+              "wins": true,
+              "overallRipV12Score": 53.5873
+            },
+            {
+              "priceCents": 1363,
+              "wins": true,
+              "overallRipV12Score": 53.2398
+            }
+          ]
+        },
+        {
+          "quantity": 100,
+          "lowPriceCents": 1337,
+          "highPriceCents": 1350,
+          "endpointProbes": [
+            {
+              "priceCents": 1337,
+              "wins": true,
+              "overallRipV12Score": 54.0187
+            },
+            {
+              "priceCents": 1350,
+              "wins": true,
+              "overallRipV12Score": 53.6343
+            }
+          ]
+        },
+        {
+          "quantity": 101,
+          "lowPriceCents": 1324,
+          "highPriceCents": 1336,
+          "endpointProbes": [
+            {
+              "priceCents": 1324,
+              "wins": true,
+              "overallRipV12Score": 54.425
+            },
+            {
+              "priceCents": 1336,
+              "wins": true,
+              "overallRipV12Score": 54.0646
+            }
+          ]
+        },
+        {
+          "quantity": 102,
+          "lowPriceCents": 1311,
+          "highPriceCents": 1323,
+          "endpointProbes": [
+            {
+              "priceCents": 1311,
+              "wins": true,
+              "overallRipV12Score": 54.8448
+            },
+            {
+              "priceCents": 1323,
+              "wins": true,
+              "overallRipV12Score": 54.4762
+            }
+          ]
+        }
+      ],
+      "monotonicityViolationCount": 0
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "version": "ebay_d3_product_object_rules_v3",
+  "states": [
+    "SINGLE_RAW_CARD",
+    "GRADED_CARD",
+    "MULTI_CARD_OFFER",
+    "SEALED_TCG_PRODUCT",
+    "CARD_ACCESSORY",
+    "UNKNOWN_PRODUCT_OBJECT"
+  ],
+  "high_eligible": [
+    "SINGLE_RAW_CARD"
+  ],
+  "evaluation_order": [
+    "GRADED_CARD",
+    "CARD_ACCESSORY",
+    "SEALED_TCG_PRODUCT",
+    "MULTI_CARD_OFFER",
+    "SINGLE_RAW_CARD"
+  ],
+  "graded_rule_version": "ebay_d3_graded_detection_rules_v3",
+  "multiplicity_rule_version": "ebay_d3_multiplicity_rules_v3",
+  "accessory_rule_version": "ebay_accessory_ontology_v2",
+  "ambiguity_policy": "Unresolved identity, selection, conflict, or product object never reaches HIGH.",
+  "gold_object_matrix": {
+    "AMBIGUOUS|CARD_ACCESSORY": 3,
+    "AMBIGUOUS|GRADED_CARD": 1,
+    "AMBIGUOUS|MULTI_CARD_OFFER": 21,
+    "AMBIGUOUS|SINGLE_RAW_CARD": 4,
+    "EXACT_TARGET_MATCH|CARD_ACCESSORY": 2,
+    "EXACT_TARGET_MATCH|GRADED_CARD": 1,
+    "EXACT_TARGET_MATCH|MULTI_CARD_OFFER": 29,
+    "EXACT_TARGET_MATCH|SEALED_TCG_PRODUCT": 1,
+    "EXACT_TARGET_MATCH|SINGLE_RAW_CARD": 635,
+    "GRADED|CARD_ACCESSORY": 1,
+    "GRADED|GRADED_CARD": 165,
+    "GRADED|SINGLE_RAW_CARD": 1,
+    "LOT_OR_BUNDLE|MULTI_CARD_OFFER": 26,
+    "RELATED_BUT_WRONG_VARIANT|MULTI_CARD_OFFER": 1,
+    "RELATED_BUT_WRONG_VARIANT|SINGLE_RAW_CARD": 38,
+    "SEALED_OR_ACCESSORY|CARD_ACCESSORY": 32,
+    "SEALED_OR_ACCESSORY|MULTI_CARD_OFFER": 1,
+    "WRONG_CARD_NUMBER|CARD_ACCESSORY": 1,
+    "WRONG_CARD_NUMBER|MULTI_CARD_OFFER": 7,
+    "WRONG_CARD_NUMBER|SINGLE_RAW_CARD": 71,
+    "WRONG_LANGUAGE|SINGLE_RAW_CARD": 7,
+    "WRONG_SET|GRADED_CARD": 1,
+    "WRONG_SET|SINGLE_RAW_CARD": 1
+  }
+}

@@ -1,0 +1,1154 @@
+[
+  {
+    "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+    "name": "Ascended Heroes",
+    "distinctPokemonCount": 75,
+    "S": 99.21724067981121,
+    "B": 0.9993554465123448,
+    "D_pokemon": 99.373691637799,
+    "rank": 1
+  },
+  {
+    "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+    "name": "Paldean Fates",
+    "distinctPokemonCount": 138,
+    "S": 99.0701136943803,
+    "B": 0.9996347538413348,
+    "D_pokemon": 99.25602302802402,
+    "rank": 2
+  },
+  {
+    "set_id": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+    "name": "Crown Zenith",
+    "distinctPokemonCount": 30,
+    "S": 98.96857051047131,
+    "B": 0.9711876515904307,
+    "D_pokemon": 99.16891282721461,
+    "rank": 3
+  },
+  {
+    "set_id": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+    "name": "Pok\u00e9mon GO",
+    "distinctPokemonCount": 21,
+    "S": 98.53519235617163,
+    "B": 0.9526699441994865,
+    "D_pokemon": 98.81428799943342,
+    "rank": 4
+  },
+  {
+    "set_id": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+    "name": "Fusion Strike",
+    "distinctPokemonCount": 35,
+    "S": 98.40427794543048,
+    "B": 0.9844219163056936,
+    "D_pokemon": 98.7184506980006,
+    "rank": 5
+  },
+  {
+    "set_id": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+    "name": "Brilliant Stars",
+    "distinctPokemonCount": 31,
+    "S": 98.38541058673012,
+    "B": 0.966647073391656,
+    "D_pokemon": 98.69755821294342,
+    "rank": 6
+  },
+  {
+    "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+    "name": "Prismatic Evolutions",
+    "distinctPokemonCount": 33,
+    "S": 98.3458389728471,
+    "B": 0.982962126246557,
+    "D_pokemon": 98.67103450092799,
+    "rank": 7
+  },
+  {
+    "set_id": "7ceb2e94-7968-4394-95cb-742b01804974",
+    "name": "Expedition Base Set",
+    "distinctPokemonCount": 32,
+    "S": 98.28238108534497,
+    "B": 0.977188438880185,
+    "D_pokemon": 98.61806855450553,
+    "rank": 8
+  },
+  {
+    "set_id": "75cc9ef9-1099-4e47-8d09-17f416606865",
+    "name": "Evolutions",
+    "distinctPokemonCount": 23,
+    "S": 98.13741380669057,
+    "B": 0.9513829257522617,
+    "D_pokemon": 98.49182034710188,
+    "rank": 9
+  },
+  {
+    "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+    "name": "Scarlet and Violet 151",
+    "distinctPokemonCount": 28,
+    "S": 97.90488365071832,
+    "B": 0.9667992537807638,
+    "D_pokemon": 98.3099950353322,
+    "rank": 10
+  },
+  {
+    "set_id": "c56fe006-6d9a-4b26-a4e0-6726138edecb",
+    "name": "Dragon Frontiers",
+    "distinctPokemonCount": 24,
+    "S": 97.83843118493755,
+    "B": 0.9819504431606545,
+    "D_pokemon": 98.26294187611211,
+    "rank": 11
+  },
+  {
+    "set_id": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+    "name": "Team Up",
+    "distinctPokemonCount": 37,
+    "S": 97.81707768424545,
+    "B": 0.9964447477729239,
+    "D_pokemon": 98.25210997951143,
+    "rank": 12
+  },
+  {
+    "set_id": "42a3740d-4778-4857-9c28-e116f34b51f3",
+    "name": "Neo Destiny",
+    "distinctPokemonCount": 22,
+    "S": 97.80132899219203,
+    "B": 0.9750949062168675,
+    "D_pokemon": 98.23011157222408,
+    "rank": 13
+  },
+  {
+    "set_id": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+    "name": "Unbroken Bonds",
+    "distinctPokemonCount": 37,
+    "S": 97.34230732320344,
+    "B": 0.9890956944262499,
+    "D_pokemon": 97.86804979994898,
+    "rank": 14
+  },
+  {
+    "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+    "name": "Skyridge",
+    "distinctPokemonCount": 34,
+    "S": 97.1941206422921,
+    "B": 0.9706109800752108,
+    "D_pokemon": 97.73880410496363,
+    "rank": 15
+  },
+  {
+    "set_id": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+    "name": "Legend Maker",
+    "distinctPokemonCount": 24,
+    "S": 97.0340117557235,
+    "B": 0.8938267331914871,
+    "D_pokemon": 97.5642276723367,
+    "rank": 16
+  },
+  {
+    "set_id": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+    "name": "Legendary Treasures",
+    "distinctPokemonCount": 35,
+    "S": 96.83501785516302,
+    "B": 0.9785901126729082,
+    "D_pokemon": 97.45446190190776,
+    "rank": 17
+  },
+  {
+    "set_id": "50c5370b-a5e7-4fbc-98fe-efc35e05ff80",
+    "name": "FireRed & LeafGreen",
+    "distinctPokemonCount": 29,
+    "S": 96.63292233038533,
+    "B": 0.9449264308056771,
+    "D_pokemon": 97.26925046730422,
+    "rank": 18
+  },
+  {
+    "set_id": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+    "name": "Legendary Collection",
+    "distinctPokemonCount": 19,
+    "S": 96.5381658888924,
+    "B": 0.9578475897983028,
+    "D_pokemon": 97.20134778081359,
+    "rank": 19
+  },
+  {
+    "set_id": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+    "name": "Rising Rivals",
+    "distinctPokemonCount": 19,
+    "S": 96.49226457919991,
+    "B": 0.9442336905843965,
+    "D_pokemon": 97.15468897159505,
+    "rank": 20
+  },
+  {
+    "set_id": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+    "name": "Lost Origin",
+    "distinctPokemonCount": 36,
+    "S": 96.05691032174234,
+    "B": 0.9628912481781173,
+    "D_pokemon": 96.81626363013748,
+    "rank": 21
+  },
+  {
+    "set_id": "4099fc11-a3f6-4034-8208-fbf82bd89de5",
+    "name": "Holon Phantoms",
+    "distinctPokemonCount": 19,
+    "S": 96.06245117242798,
+    "B": 0.9020375200925146,
+    "D_pokemon": 96.77281452836124,
+    "rank": 22
+  },
+  {
+    "set_id": "4c0902e8-fc57-4e07-82e1-e4bdb9fe9990",
+    "name": "Dragon",
+    "distinctPokemonCount": 23,
+    "S": 96.03435843835493,
+    "B": 0.9247692424708015,
+    "D_pokemon": 96.76781910692958,
+    "rank": 23
+  },
+  {
+    "set_id": "93212749-ce0e-498e-975e-7d947a3448ce",
+    "name": "Evolving Skies",
+    "distinctPokemonCount": 45,
+    "S": 95.86136687493006,
+    "B": 0.9957609438224274,
+    "D_pokemon": 96.68558472028094,
+    "rank": 24
+  },
+  {
+    "set_id": "8f78267f-493b-4d60-a19e-587ae1f60f69",
+    "name": "Secret Wonders",
+    "distinctPokemonCount": 20,
+    "S": 95.88556731499558,
+    "B": 0.9314493867390483,
+    "D_pokemon": 96.65204447524087,
+    "rank": 25
+  },
+  {
+    "set_id": "30396643-190c-416d-92a4-e8414c8b4980",
+    "name": "Power Keepers",
+    "distinctPokemonCount": 24,
+    "S": 95.76513849399986,
+    "B": 0.9648942464767619,
+    "D_pokemon": 96.58237719435294,
+    "rank": 26
+  },
+  {
+    "set_id": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+    "name": "Unified Minds",
+    "distinctPokemonCount": 42,
+    "S": 95.34840626768751,
+    "B": 0.997608108328389,
+    "D_pokemon": 96.2764997924884,
+    "rank": 27
+  },
+  {
+    "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+    "name": "Phantasmal Flames",
+    "distinctPokemonCount": 23,
+    "S": 95.37580217696727,
+    "B": 0.9334985476605147,
+    "D_pokemon": 96.23913856734646,
+    "rank": 28
+  },
+  {
+    "set_id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+    "name": "Gym Challenge",
+    "distinctPokemonCount": 15,
+    "S": 95.38865243107762,
+    "B": 0.9201367134572436,
+    "D_pokemon": 96.23726647041308,
+    "rank": 29
+  },
+  {
+    "set_id": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+    "name": "Burning Shadows",
+    "distinctPokemonCount": 25,
+    "S": 95.3554737091781,
+    "B": 0.9447077182776671,
+    "D_pokemon": 96.2330176761147,
+    "rank": 30
+  },
+  {
+    "set_id": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+    "name": "Astral Radiance",
+    "distinctPokemonCount": 34,
+    "S": 95.31857642205242,
+    "B": 0.9736739180463052,
+    "D_pokemon": 96.23021242948734,
+    "rank": 31
+  },
+  {
+    "set_id": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+    "name": "Supreme Victors",
+    "distinctPokemonCount": 18,
+    "S": 95.31615424442525,
+    "B": 0.8886550179794319,
+    "D_pokemon": 96.14861885125188,
+    "rank": 32
+  },
+  {
+    "set_id": "1b3250bb-f123-47d8-b090-499e5879eda7",
+    "name": "Delta Species",
+    "distinctPokemonCount": 21,
+    "S": 95.12530373504774,
+    "B": 0.9761791759780157,
+    "D_pokemon": 96.07701913166058,
+    "rank": 33
+  },
+  {
+    "set_id": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+    "name": "Guardians Rising",
+    "distinctPokemonCount": 29,
+    "S": 95.09269647193142,
+    "B": 0.9674507190108965,
+    "D_pokemon": 96.04221133725835,
+    "rank": 34
+  },
+  {
+    "set_id": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+    "name": "Generations",
+    "distinctPokemonCount": 15,
+    "S": 95.08174552122824,
+    "B": 0.9119524305638591,
+    "D_pokemon": 95.97878834643774,
+    "rank": 35
+  },
+  {
+    "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+    "name": "Mega Evolution",
+    "distinctPokemonCount": 32,
+    "S": 95.0263395031065,
+    "B": 0.9290649773558346,
+    "D_pokemon": 95.9505102584909,
+    "rank": 36
+  },
+  {
+    "set_id": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+    "name": "Cosmic Eclipse",
+    "distinctPokemonCount": 50,
+    "S": 94.91543327290711,
+    "B": 0.9945602620500733,
+    "D_pokemon": 95.92681487620882,
+    "rank": 37
+  },
+  {
+    "set_id": "7c998bc2-6073-4461-8873-64d1b3e78930",
+    "name": "Lost Thunder",
+    "distinctPokemonCount": 36,
+    "S": 94.88586601168866,
+    "B": 0.9828202581759712,
+    "D_pokemon": 95.89112090903639,
+    "rank": 38
+  },
+  {
+    "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+    "name": "Obsidian Flames",
+    "distinctPokemonCount": 33,
+    "S": 94.92710442801197,
+    "B": 0.8972657535002524,
+    "D_pokemon": 95.83745152157756,
+    "rank": 39
+  },
+  {
+    "set_id": "ddbc1691-ea68-4775-8343-7b8fddbf81e6",
+    "name": "Plasma Freeze",
+    "distinctPokemonCount": 23,
+    "S": 94.81243077749367,
+    "B": 0.9436182500955864,
+    "D_pokemon": 95.7914477758919,
+    "rank": 40
+  },
+  {
+    "set_id": "3836457c-77dc-44b0-a72f-779b6dd78884",
+    "name": "Darkness Ablaze",
+    "distinctPokemonCount": 34,
+    "S": 94.67698493976057,
+    "B": 0.9744644307660754,
+    "D_pokemon": 95.71440270788766,
+    "rank": 41
+  },
+  {
+    "set_id": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+    "name": "Hidden Fates",
+    "distinctPokemonCount": 13,
+    "S": 94.75887321684779,
+    "B": 0.798963398941706,
+    "D_pokemon": 95.59636691063812,
+    "rank": 42
+  },
+  {
+    "set_id": "26fedb88-87d7-487a-9f01-528d603c682e",
+    "name": "Vivid Voltage",
+    "distinctPokemonCount": 39,
+    "S": 94.29411748542005,
+    "B": 0.9688677865967854,
+    "D_pokemon": 95.39976663791653,
+    "rank": 43
+  },
+  {
+    "set_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+    "name": "Chilling Reign",
+    "distinctPokemonCount": 40,
+    "S": 94.3111262750955,
+    "B": 0.953782198622315,
+    "D_pokemon": 95.39631557290033,
+    "rank": 44
+  },
+  {
+    "set_id": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+    "name": "Fates Collide",
+    "distinctPokemonCount": 19,
+    "S": 94.16666085145503,
+    "B": 0.8975160195066657,
+    "D_pokemon": 95.21376391806193,
+    "rank": 45
+  },
+  {
+    "set_id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+    "name": "Call of Legends",
+    "distinctPokemonCount": 25,
+    "S": 94.0613470281316,
+    "B": 0.9591631627730504,
+    "D_pokemon": 95.20057446155337,
+    "rank": 46
+  },
+  {
+    "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+    "name": "Stellar Crown",
+    "distinctPokemonCount": 27,
+    "S": 93.96167368054876,
+    "B": 0.9019926897170432,
+    "D_pokemon": 95.05097892020297,
+    "rank": 47
+  },
+  {
+    "set_id": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+    "name": "Fossil",
+    "distinctPokemonCount": 15,
+    "S": 94.05184404592991,
+    "B": 0.838092761130272,
+    "D_pokemon": 95.04886533536593,
+    "rank": 48
+  },
+  {
+    "set_id": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+    "name": "Dragons Exalted",
+    "distinctPokemonCount": 22,
+    "S": 93.87410824310831,
+    "B": 0.9564896351806708,
+    "D_pokemon": 95.04597863744944,
+    "rank": 49
+  },
+  {
+    "set_id": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+    "name": "Next Destinies",
+    "distinctPokemonCount": 19,
+    "S": 93.9124421255922,
+    "B": 0.9308827692391122,
+    "D_pokemon": 95.04580267199862,
+    "rank": 50
+  },
+  {
+    "set_id": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+    "name": "Shining Legends",
+    "distinctPokemonCount": 22,
+    "S": 93.76768790719653,
+    "B": 0.929046582393904,
+    "D_pokemon": 94.92570955724278,
+    "rank": 51
+  },
+  {
+    "set_id": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+    "name": "BREAKthrough",
+    "distinctPokemonCount": 23,
+    "S": 93.6859418494588,
+    "B": 0.939743591159003,
+    "D_pokemon": 94.87266098569407,
+    "rank": 52
+  },
+  {
+    "set_id": "93050f21-b805-41fc-a49d-b5afcb9c41dc",
+    "name": "Crystal Guardians",
+    "distinctPokemonCount": 25,
+    "S": 93.42573779762343,
+    "B": 0.946466038088102,
+    "D_pokemon": 94.67020097763057,
+    "rank": 53
+  },
+  {
+    "set_id": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+    "name": "Boundaries Crossed",
+    "distinctPokemonCount": 27,
+    "S": 93.39222605667914,
+    "B": 0.9391342929718075,
+    "D_pokemon": 94.63334347875477,
+    "rank": 54
+  },
+  {
+    "set_id": "8938c853-2282-46d8-ba44-87584fa2c168",
+    "name": "Sun & Moon",
+    "distinctPokemonCount": 27,
+    "S": 93.36071691452065,
+    "B": 0.9241011433456512,
+    "D_pokemon": 94.58779073257803,
+    "rank": 55
+  },
+  {
+    "set_id": "965b3000-c483-4110-bb21-ff5ffe120564",
+    "name": "HS\u2014Triumphant",
+    "distinctPokemonCount": 23,
+    "S": 93.42738718215466,
+    "B": 0.8749020860346268,
+    "D_pokemon": 94.57746571516083,
+    "rank": 56
+  },
+  {
+    "set_id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+    "name": "Aquapolis",
+    "distinctPokemonCount": 33,
+    "S": 93.04611320289408,
+    "B": 0.9597686910182975,
+    "D_pokemon": 94.38093776864363,
+    "rank": 57
+  },
+  {
+    "set_id": "4de777b3-396e-4f19-9d78-c054b296bedb",
+    "name": "BREAKpoint",
+    "distinctPokemonCount": 21,
+    "S": 92.96486305217805,
+    "B": 0.9117912205335972,
+    "D_pokemon": 94.24777827303316,
+    "rank": 58
+  },
+  {
+    "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+    "name": "Destined Rivals",
+    "distinctPokemonCount": 40,
+    "S": 92.79201087850007,
+    "B": 0.9671317297109391,
+    "D_pokemon": 94.18622587586283,
+    "rank": 59
+  },
+  {
+    "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+    "name": "Surging Sparks",
+    "distinctPokemonCount": 40,
+    "S": 92.7202860110879,
+    "B": 0.9234305525106908,
+    "D_pokemon": 94.06474807326808,
+    "rank": 60
+  },
+  {
+    "set_id": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+    "name": "Team Rocket Returns",
+    "distinctPokemonCount": 29,
+    "S": 92.60721433420368,
+    "B": 0.9499389588484739,
+    "D_pokemon": 94.01175335787497,
+    "rank": 61
+  },
+  {
+    "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+    "name": "Paldea Evolved",
+    "distinctPokemonCount": 55,
+    "S": 92.41843543410215,
+    "B": 0.967668306828016,
+    "D_pokemon": 93.88572338342009,
+    "rank": 62
+  },
+  {
+    "set_id": "2262c6e4-3f9a-4364-b03a-d811cd604739",
+    "name": "Legends Awakened",
+    "distinctPokemonCount": 22,
+    "S": 92.51049876598947,
+    "B": 0.9116835832321601,
+    "D_pokemon": 93.87610983031836,
+    "rank": 63
+  },
+  {
+    "set_id": "6c82fb37-b9b9-4961-a528-12556bd15417",
+    "name": "Base Set 2",
+    "distinctPokemonCount": 20,
+    "S": 92.49237884892905,
+    "B": 0.9043979461730222,
+    "D_pokemon": 93.85035427886379,
+    "rank": 64
+  },
+  {
+    "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+    "name": "Twilight Masquerade",
+    "distinctPokemonCount": 32,
+    "S": 92.5125120036735,
+    "B": 0.8761718134987766,
+    "D_pokemon": 93.82457719093185,
+    "rank": 65
+  },
+  {
+    "set_id": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+    "name": "Base",
+    "distinctPokemonCount": 15,
+    "S": 92.41303335747142,
+    "B": 0.8735214976089847,
+    "D_pokemon": 93.73850905024962,
+    "rank": 66
+  },
+  {
+    "set_id": "ca43d96a-ad90-4717-a4f6-253fb26a6d53",
+    "name": "Mysterious Treasures",
+    "distinctPokemonCount": 20,
+    "S": 92.38141574411863,
+    "B": 0.8764937373686428,
+    "D_pokemon": 93.7169440216977,
+    "rank": 67
+  },
+  {
+    "set_id": "126093d8-50e7-4a7c-891d-8cffd5733eeb",
+    "name": "Unseen Forces",
+    "distinctPokemonCount": 33,
+    "S": 92.18499393585199,
+    "B": 0.9764679096821872,
+    "D_pokemon": 93.71121446297444,
+    "rank": 68
+  },
+  {
+    "set_id": "2d6ec108-70b2-4698-a21a-1af39828004f",
+    "name": "Silver Tempest",
+    "distinctPokemonCount": 30,
+    "S": 92.19428076353512,
+    "B": 0.958409273148225,
+    "D_pokemon": 93.69049550349901,
+    "rank": 69
+  },
+  {
+    "set_id": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+    "name": "Forbidden Light",
+    "distinctPokemonCount": 22,
+    "S": 92.11507829860841,
+    "B": 0.9054414997136319,
+    "D_pokemon": 93.54294536469492,
+    "rank": 70
+  },
+  {
+    "set_id": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+    "name": "Sword & Shield",
+    "distinctPokemonCount": 30,
+    "S": 92.16692186534102,
+    "B": 0.8675223680680355,
+    "D_pokemon": 93.52599596386929,
+    "rank": 71
+  },
+  {
+    "set_id": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+    "name": "Dragon Majesty",
+    "distinctPokemonCount": 15,
+    "S": 92.05239622568294,
+    "B": 0.9005327494570794,
+    "D_pokemon": 93.48381172137918,
+    "rank": 72
+  },
+  {
+    "set_id": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+    "name": "Champion's Path",
+    "distinctPokemonCount": 20,
+    "S": 92.0060319001097,
+    "B": 0.8696458106658282,
+    "D_pokemon": 93.39641607384287,
+    "rank": 73
+  },
+  {
+    "set_id": "65ee8536-af5a-4242-8a1f-9928c81f501b",
+    "name": "Plasma Storm",
+    "distinctPokemonCount": 19,
+    "S": 91.85202707758094,
+    "B": 0.8870135981224857,
+    "D_pokemon": 93.29749963344484,
+    "rank": 74
+  },
+  {
+    "set_id": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+    "name": "Team Rocket",
+    "distinctPokemonCount": 15,
+    "S": 91.674970886795,
+    "B": 0.8155254752810208,
+    "D_pokemon": 93.03282555164996,
+    "rank": 75
+  },
+  {
+    "set_id": "27f3eb48-9964-4a3f-9861-a434ae244697",
+    "name": "Sandstorm",
+    "distinctPokemonCount": 21,
+    "S": 91.44378982327623,
+    "B": 0.8936323360529309,
+    "D_pokemon": 92.97301104087333,
+    "rank": 76
+  },
+  {
+    "set_id": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+    "name": "Roaring Skies",
+    "distinctPokemonCount": 16,
+    "S": 91.33348329963738,
+    "B": 0.9073816777732633,
+    "D_pokemon": 92.90625099244238,
+    "rank": 77
+  },
+  {
+    "set_id": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+    "name": "HS\u2014Undaunted",
+    "distinctPokemonCount": 16,
+    "S": 91.27171103111134,
+    "B": 0.9013180926171223,
+    "D_pokemon": 92.8451039841613,
+    "rank": 78
+  },
+  {
+    "set_id": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+    "name": "Furious Fists",
+    "distinctPokemonCount": 13,
+    "S": 91.22755421591958,
+    "B": 0.7496151381767023,
+    "D_pokemon": 92.5427458476358,
+    "rank": 79
+  },
+  {
+    "set_id": "3f3c7677-b876-4353-821e-6bdd610fd683",
+    "name": "Ancient Origins",
+    "distinctPokemonCount": 19,
+    "S": 90.75075488570566,
+    "B": 0.9514125612735918,
+    "D_pokemon": 92.51072448251327,
+    "rank": 80
+  },
+  {
+    "set_id": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+    "name": "Emerald",
+    "distinctPokemonCount": 21,
+    "S": 90.712032962452,
+    "B": 0.9035195261028804,
+    "D_pokemon": 92.39040487769691,
+    "rank": 81
+  },
+  {
+    "set_id": "bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6",
+    "name": "Arceus",
+    "distinctPokemonCount": 14,
+    "S": 90.85696675456971,
+    "B": 0.7583154586247729,
+    "D_pokemon": 92.24362744431572,
+    "rank": 82
+  },
+  {
+    "set_id": "b0d7bd6a-4e57-4495-b975-e132417cc071",
+    "name": "Ruby & Sapphire",
+    "distinctPokemonCount": 22,
+    "S": 90.20164352873266,
+    "B": 0.8828034031086928,
+    "D_pokemon": 91.93164801627404,
+    "rank": 83
+  },
+  {
+    "set_id": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+    "name": "HeartGold & SoulSilver",
+    "distinctPokemonCount": 21,
+    "S": 90.1054522338863,
+    "B": 0.9194520354458172,
+    "D_pokemon": 91.92496465056011,
+    "rank": 84
+  },
+  {
+    "set_id": "77bde285-03f8-4a48-b6a5-2f548225c3eb",
+    "name": "Stormfront",
+    "distinctPokemonCount": 15,
+    "S": 89.89245836833528,
+    "B": 0.8596217388013956,
+    "D_pokemon": 91.6301908708191,
+    "rank": 85
+  },
+  {
+    "set_id": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+    "name": "XY",
+    "distinctPokemonCount": 21,
+    "S": 89.76885336415663,
+    "B": 0.8949536563954812,
+    "D_pokemon": 91.60013378232989,
+    "rank": 86
+  },
+  {
+    "set_id": "8158d0ae-0255-48f0-b189-d134035b72b0",
+    "name": "Ultra Prism",
+    "distinctPokemonCount": 26,
+    "S": 89.43649623177568,
+    "B": 0.9379539264896701,
+    "D_pokemon": 91.41811219915456,
+    "rank": 87
+  },
+  {
+    "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+    "name": "Journey Together",
+    "distinctPokemonCount": 26,
+    "S": 89.26730085798505,
+    "B": 0.9413667866463566,
+    "D_pokemon": 91.2879821586572,
+    "rank": 88
+  },
+  {
+    "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+    "name": "Temporal Forces",
+    "distinctPokemonCount": 37,
+    "S": 89.26288771741363,
+    "B": 0.8968058691212557,
+    "D_pokemon": 91.1887087799011,
+    "rank": 89
+  },
+  {
+    "set_id": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+    "name": "Primal Clash",
+    "distinctPokemonCount": 26,
+    "S": 88.94607583018487,
+    "B": 0.9309038383536452,
+    "D_pokemon": 91.00410391789508,
+    "rank": 90
+  },
+  {
+    "set_id": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+    "name": "Battle Styles",
+    "distinctPokemonCount": 27,
+    "S": 88.86596838336628,
+    "B": 0.9034606786061394,
+    "D_pokemon": 90.8778003353635,
+    "rank": 91
+  },
+  {
+    "set_id": "a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2",
+    "name": "Neo Discovery",
+    "distinctPokemonCount": 17,
+    "S": 88.96909496456189,
+    "B": 0.8141707112762906,
+    "D_pokemon": 90.76530292430667,
+    "rank": 92
+  },
+  {
+    "set_id": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+    "name": "Celestial Storm",
+    "distinctPokemonCount": 31,
+    "S": 88.57013025195702,
+    "B": 0.9434977947013018,
+    "D_pokemon": 90.72694163215736,
+    "rank": 93
+  },
+  {
+    "set_id": "98301e8a-8aa3-43d8-a85b-908883264721",
+    "name": "Platinum",
+    "distinctPokemonCount": 17,
+    "S": 88.62821296496462,
+    "B": 0.8303097372870072,
+    "D_pokemon": 90.51663406607342,
+    "rank": 94
+  },
+  {
+    "set_id": "bd54a027-2b93-4cfb-b118-687bd0481def",
+    "name": "Majestic Dawn",
+    "distinctPokemonCount": 16,
+    "S": 88.3677952108104,
+    "B": 0.8274929326440801,
+    "D_pokemon": 90.292908661635,
+    "rank": 95
+  },
+  {
+    "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+    "name": "Paradox Rift",
+    "distinctPokemonCount": 53,
+    "S": 87.90313192444616,
+    "B": 0.9494943835325272,
+    "D_pokemon": 90.20031358366062,
+    "rank": 96
+  },
+  {
+    "set_id": "69d6d1be-f610-421b-b29c-c3348fe19518",
+    "name": "Steam Siege",
+    "distinctPokemonCount": 17,
+    "S": 88.17283955112103,
+    "B": 0.8124632565689839,
+    "D_pokemon": 90.09466620997304,
+    "rank": 97
+  },
+  {
+    "set_id": "a69e4091-5b33-499d-85a5-a8f0b7ecaddc",
+    "name": "Team Magma vs Team Aqua",
+    "distinctPokemonCount": 21,
+    "S": 88.0005739944558,
+    "B": 0.8703196790772069,
+    "D_pokemon": 90.08924131250699,
+    "rank": 98
+  },
+  {
+    "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+    "name": "White Flare",
+    "distinctPokemonCount": 75,
+    "S": 87.51392500370551,
+    "B": 0.9733739647403329,
+    "D_pokemon": 89.94464906834317,
+    "rank": 99
+  },
+  {
+    "set_id": "212383a2-ed84-4a5e-af37-50814247a437",
+    "name": "Crimson Invasion",
+    "distinctPokemonCount": 20,
+    "S": 87.7445998682015,
+    "B": 0.8051783455947812,
+    "D_pokemon": 89.71815642874623,
+    "rank": 100
+  },
+  {
+    "set_id": "d38ee646-382d-45c0-9463-e9302aa2471a",
+    "name": "Phantom Forces",
+    "distinctPokemonCount": 18,
+    "S": 87.61524584784095,
+    "B": 0.7934967285616853,
+    "D_pokemon": 89.58069822859675,
+    "rank": 101
+  },
+  {
+    "set_id": "7a1b8de0-331f-4635-8512-b737da431f7d",
+    "name": "Diamond & Pearl",
+    "distinctPokemonCount": 17,
+    "S": 87.07809884729917,
+    "B": 0.8148493323906925,
+    "D_pokemon": 89.18397935279853,
+    "rank": 102
+  },
+  {
+    "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+    "name": "Scarlet and Violet Base Set",
+    "distinctPokemonCount": 36,
+    "S": 87.08485665105002,
+    "B": 0.8027277908557789,
+    "D_pokemon": 89.15832554886768,
+    "rank": 103
+  },
+  {
+    "set_id": "591a2b3e-2dc8-4e80-b42d-aec4f4b786e4",
+    "name": "Black & White",
+    "distinctPokemonCount": 10,
+    "S": 86.68479409103787,
+    "B": 0.779843062384307,
+    "D_pokemon": 88.7615482815024,
+    "rank": 104
+  },
+  {
+    "set_id": "7a87a5b5-17dc-43e6-9eac-3de88beab0e7",
+    "name": "Dark Explorers",
+    "distinctPokemonCount": 17,
+    "S": 86.41495462015399,
+    "B": 0.8632962392134351,
+    "D_pokemon": 88.76053833734697,
+    "rank": 105
+  },
+  {
+    "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+    "name": "Chaos Rising",
+    "distinctPokemonCount": 21,
+    "S": 86.29419889316334,
+    "B": 0.7835990055888873,
+    "D_pokemon": 88.44216931678659,
+    "rank": 106
+  },
+  {
+    "set_id": "03764ded-825a-45c0-8b15-ce100cff9552",
+    "name": "Shining Fates",
+    "distinctPokemonCount": 18,
+    "S": 85.94950923866867,
+    "B": 0.8462705401374195,
+    "D_pokemon": 88.3276125198262,
+    "rank": 107
+  },
+  {
+    "set_id": "759c09f8-8a1b-4212-be89-66088afa6893",
+    "name": "Rebel Clash",
+    "distinctPokemonCount": 33,
+    "S": 85.77277479633335,
+    "B": 0.8946650236681248,
+    "D_pokemon": 88.31849495104738,
+    "rank": 108
+  },
+  {
+    "set_id": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+    "name": "Detective Pikachu",
+    "distinctPokemonCount": 4,
+    "S": 86.45991429940403,
+    "B": 0.6232673567437836,
+    "D_pokemon": 88.14773298434298,
+    "rank": 109
+  },
+  {
+    "set_id": "388dd649-960b-4fd8-a8df-e56b3730972e",
+    "name": "Deoxys",
+    "distinctPokemonCount": 25,
+    "S": 85.38829303296271,
+    "B": 0.910980732064529,
+    "D_pokemon": 88.0504897348715,
+    "rank": 110
+  },
+  {
+    "set_id": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+    "name": "Jungle",
+    "distinctPokemonCount": 16,
+    "S": 84.77841823593434,
+    "B": 0.7315093058760928,
+    "D_pokemon": 87.00536397804791,
+    "rank": 111
+  },
+  {
+    "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+    "name": "Perfect Order",
+    "distinctPokemonCount": 20,
+    "S": 83.3667145879394,
+    "B": 0.8651001473716005,
+    "D_pokemon": 86.2446061201889,
+    "rank": 112
+  },
+  {
+    "set_id": "3562f9c9-f879-4d49-9d69-d0ab511230f9",
+    "name": "Neo Genesis",
+    "distinctPokemonCount": 15,
+    "S": 83.3046334976696,
+    "B": 0.812920105900471,
+    "D_pokemon": 86.01903331869391,
+    "rank": 113
+  },
+  {
+    "set_id": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+    "name": "Dragon Vault",
+    "distinctPokemonCount": 13,
+    "S": 83.26214051683299,
+    "B": 0.7234506114837543,
+    "D_pokemon": 85.68394345243826,
+    "rank": 114
+  },
+  {
+    "set_id": "846787ce-2e12-4dab-b941-886f95cd16f8",
+    "name": "Hidden Legends",
+    "distinctPokemonCount": 23,
+    "S": 82.47464687695343,
+    "B": 0.8683277007289381,
+    "D_pokemon": 85.51819679331298,
+    "rank": 115
+  },
+  {
+    "set_id": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+    "name": "HS\u2014Unleashed",
+    "distinctPokemonCount": 20,
+    "S": 81.81949302615168,
+    "B": 0.8776555233725432,
+    "D_pokemon": 85.01073749881388,
+    "rank": 116
+  },
+  {
+    "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+    "name": "Pitch Black",
+    "distinctPokemonCount": 20,
+    "S": 81.01003502601526,
+    "B": 0.8358780891575692,
+    "D_pokemon": 84.18469415313997,
+    "rank": 117
+  },
+  {
+    "set_id": "15fd93a2-82e3-4a5f-9f11-112cee192c95",
+    "name": "Great Encounters",
+    "distinctPokemonCount": 12,
+    "S": 81.18820435606439,
+    "B": 0.7899407937881485,
+    "D_pokemon": 84.16024531277458,
+    "rank": 118
+  },
+  {
+    "set_id": "89e710d1-c378-4b4e-aaea-5994d8441f45",
+    "name": "Neo Revelation",
+    "distinctPokemonCount": 16,
+    "S": 80.06808663916897,
+    "B": 0.80200474141643,
+    "D_pokemon": 83.26518444334657,
+    "rank": 119
+  },
+  {
+    "set_id": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+    "name": "Flashfire",
+    "distinctPokemonCount": 12,
+    "S": 79.9259600320632,
+    "B": 0.5699709175704106,
+    "D_pokemon": 82.21428382803721,
+    "rank": 120
+  },
+  {
+    "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+    "name": "Black Bolt",
+    "distinctPokemonCount": 74,
+    "S": 77.05021017615117,
+    "B": 0.9364683077150148,
+    "D_pokemon": 81.34856034390216,
+    "rank": 121
+  },
+  {
+    "set_id": "be7c981b-c55e-4f60-a1b8-be922531452d",
+    "name": "Celebrations",
+    "distinctPokemonCount": 6,
+    "S": 79.26014628857314,
+    "B": 0.4505186731579125,
+    "D_pokemon": 81.12888456368539,
+    "rank": 122
+  },
+  {
+    "set_id": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+    "name": "Plasma Blast",
+    "distinctPokemonCount": 19,
+    "S": 76.27799837999214,
+    "B": 0.8351540541020159,
+    "D_pokemon": 80.24030354486497,
+    "rank": 123
+  },
+  {
+    "set_id": "537d3312-9622-4015-9ef2-66e16a27287c",
+    "name": "Gym Heroes",
+    "distinctPokemonCount": 13,
+    "S": 76.89154163850445,
+    "B": 0.523874198465903,
+    "D_pokemon": 79.31272665888669,
+    "rank": 124
+  },
+  {
+    "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+    "name": "Shrouded Fable",
+    "distinctPokemonCount": 18,
+    "S": 74.61775324137486,
+    "B": 0.5945786764107366,
+    "D_pokemon": 77.63610177778966,
+    "rank": 125
+  },
+  {
+    "set_id": "5361a918-eb23-447e-a00e-e21493bc4320",
+    "name": "Noble Victories",
+    "distinctPokemonCount": 13,
+    "S": 68.80423301815745,
+    "B": 0.6454444493594091,
+    "D_pokemon": 72.8312599465454,
+    "rank": 126
+  },
+  {
+    "set_id": "806b7046-4fd5-4259-be17-54b28381f034",
+    "name": "Double Crisis",
+    "distinctPokemonCount": 8,
+    "S": 64.18261539545857,
+    "B": 0.434198627937456,
+    "D_pokemon": 67.29298724577858,
+    "rank": 127
+  },
+  {
+    "set_id": "34a48f79-1bd3-4f1d-9e3c-758955be70ee",
+    "name": "Emerging Powers",
+    "distinctPokemonCount": 10,
+    "S": 49.13091171668898,
+    "B": 0.28753492831959726,
+    "D_pokemon": 52.056239647333996,
+    "rank": 128
+  }
+]

@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS public.pokemon_set_value_daily_history_pre_v2_repair_backup AS
+SELECT * FROM public.pokemon_set_value_daily_history;
+ALTER TABLE public.pokemon_set_value_daily_history_pre_v2_repair_backup ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.pokemon_set_value_daily_history_pre_v2_repair_backup FROM PUBLIC,anon,authenticated;
+GRANT SELECT ON TABLE public.pokemon_set_value_daily_history_pre_v2_repair_backup TO service_role;
+GRANT ALL ON TABLE public.pokemon_set_value_daily_history_pre_v2_repair_backup TO postgres;

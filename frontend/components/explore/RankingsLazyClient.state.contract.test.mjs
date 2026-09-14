@@ -11,13 +11,17 @@ test("Rankings owns one publication and identity scoped session cache", () => {
   assert.match(lazy, /sessionCache\.request\("products:full_market"/);
 });
 
-test("idle warming is sequential, conservative, and entitlement aware", () => {
+test("Overview idle warming is public-only and leaves Products/Cards to intent", () => {
   assert.match(lazy, /requestIdleCallback/);
   assert.match(lazy, /navigator\.connection\?\.saveData/);
-  const order = ["lensModules.eras", "lensModules.eraEconomics", "loadEra()", "loadSets()", "warmProducts()", "warmCards()"];
+  const idleBlock = lazy.slice(lazy.indexOf("(async () => {"), lazy.indexOf("return () => { warmGeneration"));
+  const order = ["lensModules.eras", "lensModules.eraEconomics", "loadEra()", "loadSets()"];
   let cursor = -1;
-  for (const item of order) { cursor = lazy.indexOf(item, cursor + 1); assert.ok(cursor >= 0, item); }
-  assert.match(lazy, /canViewCardChaseEfficiency \? Promise\.all/);
+  for (const item of order) { cursor = idleBlock.indexOf(item, cursor + 1); assert.ok(cursor >= 0, item); }
+  assert.doesNotMatch(idleBlock, /warmProducts|warmCards|lensModules\.cards/);
+  assert.match(lazy, /if \(next === "products"\) warmProducts/);
+  assert.doesNotMatch(lazy, /warmCards|card-chase-efficiency\?/);
+  assert.match(lazy, /cards: \(\) => import\("\.\/CardRankingsHub"\)/);
 });
 
 test("hover, focus, and click intent escalates the selected lens", () => {
@@ -28,5 +32,6 @@ test("Era Rankings is public while paid lenses remain entitlement aware", () => 
   const loader = lazy.slice(lazy.indexOf("const loadEra"), lazy.indexOf("const loadSets"));
   assert.doesNotMatch(loader, /canViewRankingsIntelligence|status: "locked"/);
   assert.match(lazy, /canViewCardChaseEfficiency/);
+  assert.match(lazy, /canViewCardCollectorAppeal/);
   assert.match(lazy, /canViewRankingsIntelligence=\{canViewRankingsIntelligence\}/);
 });

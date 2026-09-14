@@ -1,0 +1,43 @@
+{
+  "asOf": "2026-09-11",
+  "implementationPerformed": false,
+  "existingEntitlementsAudit": {
+    "matchingCredentialVariableNamesFound": [],
+    "ebayServerRouteFound": false,
+    "note": "The UI references /api/ebaySearch, but no repository route or eBay/PSA credential variable name was found. No account entitlement was assumed or tested."
+  },
+  "sources": [
+    {
+      "source": "eBay Browse API",
+      "access": "application token plus Buy API production eligibility",
+      "availableSignals": ["active listings", "listing price", "condition", "buying option", "item search/countable result set"],
+      "missingSignals": ["completed sales", "market-wide sales velocity", "sell-through"],
+      "defaultLimit": "5000 calls/day for Browse methods",
+      "commercialConstraint": "Buy API license and application growth/production review apply",
+      "status": "HIGH VALUE / AVAILABLE AFTER ENTITLEMENT",
+      "officialUrl": "https://developer.ebay.com/api-docs/buy/api-browse.html"
+    },
+    {
+      "source": "eBay Marketplace Insights API",
+      "availableSignals": ["sales history"],
+      "access": "Limited Release; invitation/business review and contracts may be required",
+      "status": "HIGH VALUE / ACCESS BLOCKED",
+      "officialUrl": "https://www.developer.ebay.com/develop/get-started/get-started-on-a-buying-application"
+    },
+    {
+      "source": "PSA Population Report",
+      "availableSignals": ["current total population", "current grade-level population"],
+      "historicalAvailability": "No sanctioned historical series or bulk download identified",
+      "automation": "Public API currently documents single-cert verification only, not Population Report access; do not automate the website without written permission",
+      "status": "HIGH VALUE / ACCESS BLOCKED",
+      "officialUrl": "https://www.psacard.com/publicapi/documentation"
+    },
+    {
+      "source": "TCGplayer current pricing integration",
+      "availableSignals": ["current market price", "low/mid/high price where supplied by endpoint"],
+      "missingSignals": ["seller count", "listing quantity/depth", "sales volume", "recent transaction count", "bid/ask spread"],
+      "status": "MEDIUM VALUE",
+      "officialUrl": "https://docs.tcgplayer.com/reference/pricing_getmarketpricebyproductconditionid-1"
+    }
+  ]
+}

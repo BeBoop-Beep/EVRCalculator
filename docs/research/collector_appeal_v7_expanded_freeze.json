@@ -1,0 +1,150 @@
+{
+  "freezeVersion": "collector_appeal_v7_expanded_candidate_freeze_v1",
+  "frozenAt": "2026-09-11T19:37:25.4850009Z",
+  "status": "VALIDATED_INACTIVE_PRICE_BLIND_CANDIDATE",
+  "control": {
+    "modelVersion": "pokemon_collector_appeal_v6_corrected_complete_trends_v2",
+    "modelRunId": "84833101-e658-49ea-82e2-033f7d4d8e09",
+    "remainsCurrent": true
+  },
+  "candidate": {
+    "modelVersion": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+    "modelRunId": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+    "modelFingerprint": "3b781f4ec01ef8c74c77b34d2b91e9a90231d2feccf2ee41411de64606378c9d",
+    "formulaFingerprint": "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b",
+    "cardFingerprint": "7dbe5e989c6eb7bcb9d4684707f9c239ab1ca701fc429a7a0605657d79f2ab90",
+    "setFingerprint": "744f088e7e1e33e5f8b40aca707b8f7e0d93bf7def8308b860da0277257a4b52",
+    "databaseStatus": "validated",
+    "validationPassed": true,
+    "publishedAt": null,
+    "isCurrent": false
+  },
+  "trainerAudit": {
+    "verdict": "TRAINER_PRODUCTION_COMPLETE_WITH_ACCEPTED_SOURCE_LIMITATIONS",
+    "activeIdentities": 272,
+    "linkedIdentities": 258,
+    "linkedCards": 865,
+    "activeLinks": 895,
+    "authorityVersion": "trainer_appeal_trends_40_60_percentile_v1",
+    "sourceRuns": {
+      "today12m": "b3997343-1363-45aa-b1b0-9a6de1ce3793",
+      "today5y": "648e5375-47cb-4972-b01d-faceb6348d1d"
+    },
+    "weights": {"today12m": 0.4, "today5y": 0.6},
+    "gapAudit": [
+      {"gap": "No explicit recurring multi-horizon freshness planner", "resolution": "Closed by plan_collector_appeal_refresh.py"},
+      {"gap": "Public set contract does not expose raw Trainer source evidence", "resolution": "Intentionally retained as internal lineage; public contract exposes modeled Trainer scope without formula internals"},
+      {"gap": "Generic Trainer roles are not assigned named identities", "resolution": "Accepted conservative identity policy; unavailable is preferred to invented identity"}
+    ]
+  },
+  "artistAuthority": {
+    "identityCount": 394,
+    "catalogLinkedCardCount": 19017,
+    "catalogMissingArtistCardCount": 1634,
+    "exactLinkCount": 19017,
+    "linkMethod": "canonical_card_artist_exact_v1",
+    "sourceRuns": {
+      "today12m": "a696166b-358a-471a-abeb-9ba26bb7301c",
+      "today5y": "77cd6229-5ff9-4d3a-a7d8-0ba13972e359"
+    },
+    "sourceRunQuality": {
+      "today12m": {"retrieved": 394, "measurable": 81, "confirmedZero": 313, "unresolved": 0, "passed": true},
+      "today5y": {"retrieved": 394, "measurable": 239, "confirmedZero": 155, "unresolved": 0, "passed": true}
+    },
+    "scoreVersion": "artist_appeal_trends_40_60_percentile_v1",
+    "query": "{artist} Pokemon cards",
+    "geo": "US",
+    "property": "web_search",
+    "category": 0,
+    "scoredIdentities": 371,
+    "nullIdentities": 23,
+    "ambiguousOrMultiArtistIdentities": 23,
+    "v7CardCounts": {
+      "scored": 11144,
+      "scoredZeroHighConfidence": 5631,
+      "ambiguous": 470,
+      "missing": 1048
+    },
+    "missingnessPolicy": "Known or missing Artist identity with unavailable evidence contributes no lift and no penalty; it is never coerced to zero.",
+    "multiArtistPolicy": "Use the maximum independently scoreable Artist Appeal and never sum. Current unresolved combined credits remain null and contribute no lift.",
+    "automaticAmbiguousMerge": false
+  },
+  "cardArchitecture": {
+    "order": ["domain-local subject authority", "positive-only Playability lift", "secondary Artist lift"],
+    "artistFormula": "after_playability + (100-after_playability)*0.10*(artist_appeal/100)",
+    "artistLambda": 0.1,
+    "playabilityLambda": 0.2,
+    "cardRows": 18293,
+    "negativeArtistLiftRows": 0,
+    "artistLiftOverTenPercentOfHeadroomRows": 0,
+    "missingArtistPenaltyRowsAt1e-6Tolerance": 0,
+    "forbiddenPriceKeyRows": 0,
+    "unchangedVsV6Cards": 7156,
+    "rankSpearmanVsV6": 0.9903574738146925,
+    "largestArtistLiftPoints": 7.31737176507051
+  },
+  "setArchitecture": {
+    "aggregationVerdict": "REUSE_V6_D_SEMANTICS_PASSED",
+    "aggregation": "Frozen Pokemon D; separate Trainer D and lambda=0.15 headroom lift, now consuming bounded Artist-enhanced card scores",
+    "setRows": 128,
+    "supportedSets": 22,
+    "unavailableSets": 106,
+    "setRankSpearmanVsV6": 0.9966120835686053,
+    "meanDDelta": 0.5412730057183467,
+    "maxDDelta": 1.3302724230824907,
+    "desirableCardsEntering": 279,
+    "desirableCardsLeaving": 0,
+    "setsWithChangedF": 14,
+    "fDeltaRange": [0, 0.018686917996650121],
+    "meanFinalCollectorDelta": 0.5658411173192299,
+    "maxFinalCollectorDelta": 1.4036444551843132,
+    "c5Verdict": "C5_FREQUENCY_SEMANTICS_VALID_UNCHANGED",
+    "c5Version": "collector_c5_frozen_signed_frequency_v1"
+  },
+  "missingnessAnalysis": {
+    "formulaicPenalty": false,
+    "eraCoverageRange": [0.656, 1.0],
+    "oldestBaseWotcCoverage": 1.0,
+    "lowestCoverageEra": "Mega Evolution",
+    "lowestCoverageEraMeanDDelta": 0.42999,
+    "conclusion": "Coverage is uneven and is retained for validation stratification, but missing evidence leaves the V6 card score unchanged. Older eras are not systematically penalized: Base/WOTC, Diamond and Pearl, E-Card, and Gym have complete scored coverage."
+  },
+  "robustness": {
+    "artistPlusMinus20": {"minimumCardRankSpearman": 0.9996403489432881, "minimumSetRankSpearman": 0.9998741073063542, "maxCardMovement": 1.463474353014103, "maxSetDMovement": 0.4101966887513484},
+    "trainerPlusMinus20": {"minimumCardRankSpearman": 0.994150446459327, "minimumSetRankSpearman": 0.9992904229994507, "maxSetDMovement": 0.5924708301105639},
+    "playabilityEnvelopePlusMinus20": {"minimumCardRankSpearman": 0.9997817353757372, "minimumSetRankSpearman": 0.9998454953305256, "maxSetDMovement": 0.4675484977090605},
+    "artistRemainsSecondary": true
+  },
+  "diagnostics": {
+    "treatmentVerdict": "TOO_ENTANGLED_AND_INCOMPLETE_FOR_STANDALONE_SCORE; RETAIN_DIAGNOSTIC_ONLY",
+    "treatmentTaxonomyMappedCards": 15788,
+    "treatmentTaxonomyUnmappedCards": 2505,
+    "treatmentEvidenceNote": "The latest backend stress research remains production-paused with sparse exact shared-date ladders and material metadata/history blockers.",
+    "scarcityVerdict": "SCARCITY_DIAGNOSTIC_ONLY",
+    "scarcityDirectScoreContribution": false,
+    "priceUsedForConstructionOrSelection": false
+  },
+  "operations": {
+    "planner": "backend/scripts/plan_collector_appeal_refresh.py",
+    "schedulerPolicy": "Reuse the existing post-publication scheduler; do not create a second scheduler.",
+    "pokemonTrendsCadenceDays": 7,
+    "trainer12mCadenceDays": 7,
+    "trainer5yCadenceDays": 31,
+    "artist12mCadenceDays": 7,
+    "artist5yCadenceDays": 31,
+    "allDynamicSourcesFreshAtFreeze": true,
+    "lastSuccessfulCollectorAppealRefreshAt": "2026-09-08T03:14:35.999258+00:00"
+  },
+  "nonInterference": {
+    "currentCollectorModelRunId": "84833101-e658-49ea-82e2-033f7d4d8e09",
+    "activeSetPageGenerationId": "04e77451-516f-40b8-bea7-64c26c97c3d3",
+    "overallScoreRankFingerprint": "553f394d7772798e5370a561da8d461590cab0e1ed38ddc6f0c4193c44d265e2",
+    "overallChanged": false,
+    "setPageCandidateBuilt": false
+  },
+  "appendOnlyAudit": {
+    "nonPromotableFailedBuildRunId": "42c805b4-6854-4308-89ad-9ffafd0aebb8",
+    "failedBuildReason": "Initial manifest did not satisfy the existing dependency-manifest validator contract; retained as failed history.",
+    "productionCutoverPerformed": false
+  }
+}

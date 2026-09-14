@@ -1,0 +1,5 @@
+create index idx_pokemon_market_explorer_card_name_trgm_v2
+on public.pokemon_market_explorer_card_current_metadata
+using gin (
+  public.normalize_pokemon_market_explorer_search_text_v2(card_name) extensions.gin_trgm_ops
+);

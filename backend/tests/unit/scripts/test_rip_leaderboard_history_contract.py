@@ -463,6 +463,13 @@ def test_production_code_has_no_direct_latest_writer_outside_canonical_rpc():
             # repointed at `{overallRipV12,rank}` and the public_rip_contract_v11
             # identity string. Financial RIP stays V4.
             "078_update_public_rip_rpc_to_v12.sql",
+            # Out-of-band repair of the same function, applied to production
+            # directly (migration 078's own cutover had not reached prod when
+            # the Sept-9 V10-writer rejection incident forced a same-day fix).
+            # Still a forward-only CREATE OR REPLACE of the one authoritative
+            # writer, repointed at the same {overallRipV12,rank} /
+            # public_rip_contract_v11 identity as 078 - not a second writer.
+            "20260909030230_repair_public_rip_publish_rpc_v12.sql",
         }
         if writes and not approved:
             offenders.append(str(path.relative_to(root)))

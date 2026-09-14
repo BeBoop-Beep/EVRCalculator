@@ -1,9 +1,10 @@
 """Market Date Quality - the Market surface's own publication authority.
 
-Deliberately independent of ``public.pokemon_scrape_batches``. The 167-set
-batch gate answers "is the whole scrape cohort complete"; this module answers
-"is the canonical Market cohort trustworthy for this date". A Market date is
-never held hostage by a failure outside the Market cohort.
+Deliberately independent of ``public.pokemon_scrape_batches`` and of RIP /
+opening-simulation eligibility. The batch gate answers "is the whole scrape
+cohort complete"; this module answers "is the canonical Market cohort
+trustworthy for this date". A Market date is never held hostage by a failure
+outside the Market root universe or by whether a set supports simulations.
 """
 
 from __future__ import annotations
@@ -12,18 +13,42 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence
 
-from backend.db.services.market_run_evidence import qualifying_set_ids_for_date
-from backend.db.services.pokemon_market_index_service import (
-    resolve_eligible_sets, resolve_market_entry_dates_for_client,
+from backend.db.services.pokemon_market_rollout_cohort import (
+    MARKET_ROOT_AUTHORITY_CUTOVER_DATE,
+    MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE,
+    resolve_market_root_cohort,
+    resolve_market_root_ids,
 )
-from backend.domain.pokemon.market_index import deterministic_fingerprint
+from backend.domain.pokemon.market_index import (
+    MARKET_INDEX_METHODOLOGY_VERSION,
+    deterministic_fingerprint,
+)
 
 QUALITY_TABLE = "pokemon_market_date_quality"
 SOURCE_TABLE = "pokemon_set_value_daily_history"
+INDEX_TABLE = "pokemon_market_index_daily_history"
 PAGE_SIZE = 1000
 IN_CHUNK_SIZE = 100
 
-MARKET_QUALITY_CONTRACT_VERSION = "pokemon-market-date-quality-v1"
+# v2: 2026-09-10+ cohort membership now resolves from the frozen
+# pokemon_market_root_authority table instead of the certification-sensitive
+# canonical view. The persisted row is upserted on (tcg, market_date,
+# contract_version) -- keeping the same contract_version and re-evaluating a
+# date whose cohort composition changed (e.g. a previously-published 111-set
+# Sep 10 evaluation) would silently overwrite that row's historical meaning
+# with the new 106-set result under the same version key. Bumping the
+# contract version keeps any already-persisted v1 row intact as audit
+# evidence of what was true when it was evaluated, and any Sep 10+
+# evaluation from this point forward persists distinctly under v2.
+MARKET_QUALITY_CONTRACT_VERSION = "pokemon-market-date-quality-v2"
+
+# The contract version this replaced. Rows persisted under this version are
+# NEVER deleted and remain queryable as audit evidence (e.g. Sep 10's stale
+# v1=111 evaluation), but they must never again decide current Sep 10+
+# authority once a v2 evaluation exists for the same date. See
+# `read_market_date_quality_history` / `_select_authoritative_quality_rows`
+# for the exact mixed-version read policy.
+MARKET_QUALITY_CONTRACT_VERSION_LEGACY = "pokemon-market-date-quality-v1"
 
 # Frozen pre-enforcement cutoff. Dates strictly before this may be granted
 # LEGACY_VERIFIED through the explicit allowlist below; dates on or after it
@@ -64,13 +89,19 @@ def classify_market_date(
     has_later_accepted_date: bool,
     legacy_allowlist: Iterable[str],
 ) -> dict[str, Any]:
-    """Classify one market date. Pure - no I/O, fully determined by its inputs."""
+    """Classify one market date. Pure - no I/O, fully determined by inputs.
+
+    ``qualifying_set_ids`` is retained as a compatibility field name in the
+    durable v1 schema, but it now means roots qualified by the canonical Market
+    authority. Production evaluation passes the resolved Market cohort itself;
+    simulation / RIP run evidence is not consulted.
+    """
     day = str(market_date)[:10]
     cohort = {str(value) for value in cohort_set_ids}
     qualifying = {str(value) for value in qualifying_set_ids}
     allowlist = {str(value)[:10] for value in legacy_allowlist}
 
-    missing_runs = sorted(cohort - qualifying)
+    missing_authority = sorted(cohort - qualifying)
     missing_valuation: dict[str, list[str]] = {}
     for scope in REQUIRED_VALUE_SCOPES:
         present = {str(value) for value in (valuation_set_ids.get(scope) or ())}
@@ -79,7 +110,7 @@ def classify_market_date(
             missing_valuation[scope] = absent
 
     market_index_satisfied = bool(cohort) and not missing_valuation
-    cohort_satisfied = market_index_satisfied and not missing_runs
+    cohort_satisfied = market_index_satisfied and not missing_authority
 
     if cohort_satisfied:
         status = STATUS_READY
@@ -98,11 +129,15 @@ def classify_market_date(
         "status": status,
         "contractVersion": MARKET_QUALITY_CONTRACT_VERSION,
         "cohortSetCount": len(cohort),
+        # Column/contract name retained for storage compatibility. This is now
+        # canonical Market-authority qualification, not scrape/simulation runs.
         "qualifyingSetCount": len(cohort & qualifying),
-        "missingSetIds": missing_runs,
+        "missingSetIds": missing_authority,
         "cohortFingerprint": deterministic_fingerprint(sorted(cohort)),
         "evidence": {
-            "missingQualifyingRunSetIds": missing_runs,
+            "qualificationAuthority": "canonical_market_root_authority",
+            "simulationEligibilityRequired": False,
+            "missingMarketAuthoritySetIds": missing_authority,
             "missingValuationSetIds": missing_valuation,
             "marketIndexAccepted": market_index_satisfied,
             "enforcementStart": MARKET_QUALITY_ENFORCEMENT_START,
@@ -125,14 +160,65 @@ def _paged(query_factory) -> list[dict[str, Any]]:
         offset += PAGE_SIZE
 
 
+def _persisted_raw_cohort_for_date(client: Any, market_date: str) -> list[str]:
+    """Exact root cohort that the headline Raw index actually published.
+
+    For pre-cutover history this is stronger than reconstructing membership from
+    release dates or today's eligibility flags: it freezes the authoritative
+    basket that existed on that date. It also makes historical quality fully
+    independent of the old simulation-derived entry-date resolver.
+    """
+    day = str(market_date)[:10]
+    rows = list(
+        client.table(INDEX_TABLE)
+        .select("constituents_json")
+        .eq("tcg", "pokemon")
+        .eq("methodology_version", MARKET_INDEX_METHODOLOGY_VERSION)
+        .eq("index_key", "raw")
+        .eq("market_date", day)
+        .limit(1)
+        .execute().data or []
+    )
+    if not rows:
+        return []
+    return sorted({
+        str(item.get("setId") or item.get("set_id"))
+        for item in (rows[0].get("constituents_json") or [])
+        if item.get("setId") or item.get("set_id")
+    })
+
+
 def cohort_set_ids_for_date(
     client: Any, market_date: str, *, market_entry_dates: Mapping[str, str] | None = None,
 ) -> list[str]:
-    """Canonical Market cohort for a date - the SAME eligibility Market/index uses."""
+    """Canonical Market roots for a date - the SAME authority the index uses.
+
+    ``market_entry_dates`` remains accepted only so older callers do not break;
+    it is intentionally ignored. For pre-cutover history, an existing persisted
+    Raw row is the exact membership authority. If a historical date has no
+    persisted row, the immutable staged resolver is the fallback. Sep 9+ uses
+    canonical Standard + Top-10 authority plus continuity directly.
+    """
+    del market_entry_dates
     day = str(market_date)[:10]
-    entries = (dict(market_entry_dates) if market_entry_dates is not None
-               else resolve_market_entry_dates_for_client(client))
-    return sorted(set_id for set_id, entry_day in entries.items() if entry_day <= day)
+    if day < MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
+        persisted = _persisted_raw_cohort_for_date(client, day)
+        if persisted:
+            return persisted
+    if day < MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE:
+        # 2026-09-08/09 historical behavior is UNCHANGED: same call, same
+        # resolver reference (patchable exactly as before this pass).
+        return sorted(
+            str(row["id"])
+            for row in resolve_market_root_cohort(client, market_date=day)
+            if row.get("id")
+        )
+    # 2026-09-10+: membership-only lookup that reads solely the frozen
+    # pokemon_market_root_authority table (no metadata/certification/era/logo
+    # joins), avoiding the heavyweight resolve_market_root_cohort() query
+    # shape that carries production statement-timeout risk when all quality
+    # evaluation needs is the id list.
+    return resolve_market_root_ids(client, market_date=day)
 
 
 def valuation_set_ids_for_date(
@@ -173,13 +259,13 @@ def evaluate_market_date_quality(
     has_later_accepted_date: bool = False,
     legacy_allowlist: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-    """Evaluate one market date from live evidence. Read-only."""
+    """Evaluate one market date from Market-domain evidence only. Read-only."""
     day = str(market_date)[:10]
     cohort = cohort_set_ids_for_date(client, day)
     return classify_market_date(
         market_date=day,
         cohort_set_ids=cohort,
-        qualifying_set_ids=qualifying_set_ids_for_date(client, day),
+        qualifying_set_ids=cohort,
         valuation_set_ids=valuation_set_ids_for_date(client, day, cohort),
         has_later_accepted_date=has_later_accepted_date,
         legacy_allowlist=resolve_legacy_allowlist(legacy_allowlist),
@@ -209,25 +295,69 @@ def persist_market_date_quality(client: Any, evaluation: Mapping[str, Any]) -> i
     return 1
 
 
-def read_market_date_quality_history(
-    client: Any, *, through_date: str | None = None
+def _select_authoritative_quality_rows(
+    rows: Iterable[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Read persisted quality history with BOUNDED PAGINATION (Blocker 2).
+    """Apply the v1/v2 mixed-history read policy to a raw row set.
+
+    Policy (see project notes: quality contract v2 history compatibility):
+      - date < MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE ("2026-09-10"): any
+        persisted contract version participates unchanged. In production this
+        is always the legacy (v1) contract -- the version bump only ever
+        starts producing rows at the cutover -- so this preserves exactly the
+        pre-existing accepted-date behavior for that history with zero
+        reinterpretation.
+      - date >= cutover: only the current (v2) contract version is
+        authoritative. If both v1 and v2 exist for the same date (e.g. Sep
+        10's stale v1=111-set evaluation alongside a fresh v2=106-set one),
+        v2 wins outright and the v1 row is dropped from this authoritative
+        view -- it remains directly queryable via
+        `read_market_date_quality_history(include_superseded=True)` as audit
+        evidence, but never participates in accepted-date/current-authority
+        decisions. A date >= cutover with NO v2 row yet is simply absent here
+        (fails safe as not-yet-accepted), even if a stale v1 row exists.
+    """
+    by_date: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        day = str(row.get("market_date") or "")[:10]
+        if not day:
+            continue
+        version = str(row.get("contract_version") or "")
+        if day >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE and version != MARKET_QUALITY_CONTRACT_VERSION:
+            continue
+        by_date[day] = dict(row)
+    return [by_date[day] for day in sorted(by_date)]
+
+
+def read_market_date_quality_history(
+    client: Any, *, through_date: str | None = None, include_superseded: bool = False,
+) -> list[dict[str, Any]]:
+    """Read persisted quality history with BOUNDED PAGINATION.
 
     PostgREST caps rows per response. An unpaginated read silently truncates
     older dates, which would let a DEGRADED date reappear as unknown-and-
     therefore-accepted. Every page is requested explicitly via .range().
+
+    By default this returns exactly one authoritative row per market_date,
+    picked by the mixed v1/v2 policy in `_select_authoritative_quality_rows`:
+    legacy (v1) contract rows for dates before the 2026-09-10 authority-table
+    cutover, current (v2) contract rows on/after it. Pass
+    `include_superseded=True` to instead get the raw, unfiltered row set
+    (both versions, if both were persisted for a date) -- e.g. for audit
+    tooling that specifically wants to inspect a superseded v1 evaluation.
     """
     def query():
         built = (client.table(QUALITY_TABLE).select("*")
                  .eq("tcg", "pokemon")
-                 .eq("contract_version", MARKET_QUALITY_CONTRACT_VERSION)
                  .order("market_date", desc=False))
         if through_date:
             built = built.lte("market_date", str(through_date)[:10])
         return built
 
-    return _paged(query)
+    rows = _paged(query)
+    if include_superseded:
+        return rows
+    return _select_authoritative_quality_rows(rows)
 
 
 def accepted_market_dates(

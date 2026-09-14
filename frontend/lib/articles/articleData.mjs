@@ -5,6 +5,7 @@ export const ARTICLE_PATHS = Object.freeze({
   ev: "/Articles/why-expected-value-alone-isnt-enough",
   financial: "/Articles/how-financial-rip-works",
   collector: "/Articles/how-collector-appeal-works",
+  chaseAccessibility: "/Articles/how-chase-accessibility-works",
   evRepresentativeness: "/Articles/how-representative-is-pokemon-pack-expected-value",
   chaseEfficiency: "/Articles/how-chase-efficiency-works",
 });
@@ -14,6 +15,7 @@ const ARTICLE_LAST_UPDATED = "2026-08-28";
 export const ARTICLES = Object.freeze([
   { key: "evRepresentativeness", category: "Research", title: "How Well Does Expected Value Describe a Pokémon Pack Opening?", description: "What 22 million modeled pack outcomes taught us about typical openings, tail concentration, convergence, and the probability of recovering pack cost.", media: { src: "/images/pokemon/booster-packs/prismaticEvolutions.webp", alt: "Prismatic Evolutions booster pack", motif: "research" } },
   { key: "chaseEfficiency", category: "Methodology", title: "How Chase Efficiency Measures the Economics of Chasing a Pokémon Card", description: "How exact card value, modeled pull odds, and verified opening costs combine into one card-level comparison.", media: { src: "/images/pokemon/booster-packs/stellarCrown.webp", alt: "Stellar Crown Pokémon booster pack", motif: "chase" } },
+  { key: "chaseAccessibility", category: "Methodology", title: "How Chase Accessibility Works", description: "How inDex compares a set's modeled access to its most important collectible values without treating the score as pull odds.", media: { src: "/images/pokemon/booster-packs/ascendedHeroes.webp", alt: "Ascended Heroes Pokémon booster pack", motif: "chase" } },
   { key: "rip", category: "Methodology", title: "How the RIP Score Works", description: "Why Expected Value was not enough, and how inDex compares the full opening experience.", media: { src: "/images/pokemon/booster-packs/perfectOrder.webp", alt: "Perfect Order booster pack", motif: "scores" } },
   { key: "simulation", category: "Methodology", title: "How We Simulated One Million Pokémon Pack Openings", description: "How one modeled pack becomes a distribution of normal outcomes, strong pulls, and jackpots.", media: { src: "/images/pokemon/booster-packs/megaEvolution.webp", alt: "Mega Evolution booster pack", motif: "distribution" } },
   { key: "validation", category: "Methodology", title: "How We Validated Our Pokémon Pack Simulation Using Expected Value", description: "The mathematical cross-check that tells me whether the simulator is behaving as intended.", media: { src: "/images/pokemon/booster-packs/whiteFlare.webp", alt: "White Flare booster pack", motif: "ev" } },

@@ -1,0 +1,85 @@
+{
+  "manifestVersion": "pokemon_trends_anchor_ladder_manifest_v1",
+  "pairsWith": "pokemon_google_trends_anchor_ladder_v2",
+  "asOfDate": "2026-09-09",
+  "acceptanceCriteria": {
+    "resolutionFloor": 0.5,
+    "rule": "every adjacent bridge query must return raw values for BOTH anchors strictly above resolutionFloor; a bridge where either side rounds to <=0.5 is rejected and the ladder must add an intermediate rung instead of accepting a low-resolution bridge",
+    "stabilityRule": "identical repeated query (same terms, same timeframe, same geo, short interval) must return identical or near-identical raw values before a bridge is accepted as reliable",
+    "minimumRungCount": "smallest chain such that every adjacent pair clears resolutionFloor; not fixed in advance",
+    "noPriceInput": true,
+    "noCohortDependency": "anchor identities and bridge ratios are fixed constants, never derived from the currently eligible Pokemon population or from Collector Appeal set-ranking outcomes"
+  },
+  "geo": "US",
+  "timeframe": "today 1-m",
+  "queryType": "search_term",
+  "referenceAnchor": "Purugly",
+  "anchorsAscending": [
+    { "name": "Purugly", "rung": 0, "globalScale": 1.0 },
+    { "name": "Stunky", "rung": 1, "globalScale": 2.2236 },
+    { "name": "Torkoal", "rung": 2, "globalScale": 7.8415 },
+    { "name": "Lucario", "rung": 3, "globalScale": 113.8101 },
+    { "name": "Charizard", "rung": 4, "globalScale": 449.0233 },
+    { "name": "Pikachu", "rung": 5, "globalScale": 719.1254 }
+  ],
+  "bridges": [
+    {
+      "lowerAnchor": "Purugly", "higherAnchor": "Stunky",
+      "rawLower": 7.6875, "rawHigher": 17.09375, "ratio": 2.2236,
+      "sourceQuery": "single joint call: [Torkoal, Girafarig, Stunky, Purugly], today 1-m, geo=US",
+      "capturedAt": "2026-09-09", "resolutionCheckPassed": true, "stabilityChecked": false
+    },
+    {
+      "lowerAnchor": "Stunky", "higherAnchor": "Torkoal",
+      "rawLower": 17.09375, "rawHigher": 60.28125, "ratio": 3.5265,
+      "sourceQuery": "single joint call: [Torkoal, Girafarig, Stunky, Purugly], today 1-m, geo=US",
+      "capturedAt": "2026-09-09", "resolutionCheckPassed": true, "stabilityChecked": false
+    },
+    {
+      "lowerAnchor": "Torkoal", "higherAnchor": "Lucario",
+      "rawLower": 4.5, "rawHigher": 65.3125, "ratio": 14.5139,
+      "sourceQuery": "joint call: [Torkoal, Lucario], today 1-m, geo=US",
+      "capturedAt": "2026-09-09", "resolutionCheckPassed": true, "stabilityChecked": true,
+      "stabilityNote": "identical repeat call (9s later) returned identical raw values (4.5, 65.3125)"
+    },
+    {
+      "lowerAnchor": "Lucario", "higherAnchor": "Charizard",
+      "rawLower": 20.59375, "rawHigher": 81.25, "ratio": 3.9454,
+      "sourceQuery": "joint call: [Lucario, Charizard], today 1-m, geo=US",
+      "capturedAt": "2026-09-09", "resolutionCheckPassed": true, "stabilityChecked": false
+    },
+    {
+      "lowerAnchor": "Charizard", "higherAnchor": "Pikachu",
+      "rawLower": 16.3125, "rawHigher": 26.125, "ratio": 1.6015,
+      "sourceQuery": "joint call: [Charizard, Pikachu], today 1-m, geo=US",
+      "capturedAt": "2026-09-09", "resolutionCheckPassed": true, "stabilityChecked": true,
+      "stabilityNote": "identical repeat call (9s later) returned identical raw values (16.3125, 26.125)"
+    }
+  ],
+  "diagnostics": {
+    "chainErrorTest": {
+      "description": "Stunky's global value recovered via its properly-assigned Torkoal-rung bridge vs. via a deliberately mismatched direct Lucario pairing (Stunky+Lucario, a coarser/too-distant rung)",
+      "properChainValue": 2.2236,
+      "mismatchedPairingValue": 2.1782,
+      "absoluteDiscrepancy": 0.0454,
+      "relativeDiscrepancyPct": 2.0,
+      "interpretation": "proper rung assignment matters (raw target value degraded from 17.09 on the correct Torkoal-paired scale to 1.25 when paired with the much larger Lucario), but the calibration math tolerates a moderately mismatched pairing gracefully -- a 2.0% chain-error bound observed on this sample, not a catastrophic failure. This is one data point, not a full error-propagation study across the ladder."
+    },
+    "stratifiedZeroSampleTest": {
+      "description": "Seedot, a previously-untested low-tier Pokemon, queried against its nearest assigned rung (Purugly) rather than the universal Pikachu anchor",
+      "rawSeedot": 31.65625, "rawPurugly": 11.84375,
+      "recoveredGlobalRelative": 2.6728,
+      "interpretation": "resolves clearly (well above the 0.5 floor on both sides) when paired with a magnitude-appropriate anchor -- consistent with the Stunky/Purugly findings from the prior session (both were 0.0/0.03 against Pikachu, both fully resolvable against peers)"
+    },
+    "mismatchedTierDegradationTest": {
+      "description": "Stunky (true local value ~17 on the Torkoal scale) queried directly against Lucario (a too-distant rung)",
+      "rawStunkyVsTorkoal": 17.09375, "rawStunkyVsLucario": 1.25,
+      "interpretation": "confirms degradation is a continuum, not purely binary zero/nonzero: an improperly-tiered pairing does not always collapse fully to 0, but it does materially compress resolution (17.09 -> 1.25, a >13x reduction in representable precision) -- this is why nearest-rung assignment is required, not merely 'avoid the worst offender' (Pikachu)."
+    }
+  },
+  "knownLimitations": {
+    "singleTemporalWindow": "all bridge observations were captured within one short live session (today 1-m timeframe, single calendar day); true multi-week temporal stability (Phase 4's 'repeated-window' requirement in the fullest sense) has NOT been validated -- only same-session repeat-call determinism was tested (2 of 5 bridges repeat-checked, both identical). A production rollout should re-verify these bridge ratios at least once across a separate calendar week before treating them as long-term stable.",
+    "sampleSize": "anchor roster and diagnostics are based on 9 total live queries against a 6-anchor chain plus 2 stratified/diagnostic samples -- sufficient to validate the architecture and reject the prior universal-anchor design, but not a large-N statistical study.",
+    "anchorSelectionMethod": "anchor candidates (Purugly, Stunky, Torkoal, Lucario, Charizard, Pikachu) were chosen using general franchise-recognition tiering as an initial non-price hypothesis, then accepted/rejected purely on measured resolution -- consistent with the requirement that tier hints may only determine batching, never the final score."
+  }
+}

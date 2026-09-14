@@ -679,7 +679,7 @@ test("the public scale is explained in product language, not as a formula", () =
 });
 
 test("the canonical public names are the ones actually rendered", () => {
-  assert.equal(selectRipHeroScoreMode({ canonical: CANONICAL }).label, "Overall RIP");
+  assert.equal(selectRipHeroScoreMode({ canonical: CANONICAL }).label, "RIP Score");
   const drivers = buildRipDrivers({
     financial: readCanonicalBlock(CANONICAL.financialRip),
     collector: readCanonicalBlock(CANONICAL.collectorAppeal),
@@ -688,7 +688,7 @@ test("the canonical public names are the ones actually rendered", () => {
   assert.deepEqual(drivers.drivers.map((d) => d.label).sort(), ["Collector Appeal", "Financial RIP"]);
   // Home's scoreLabel is truthfully "Set RIP" — it is Set RIP V1, not Overall RIP.
   assert.equal(selectLandingHeroEntries([TARGET])[0].scoreLabel, "Set RIP");
-  assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "OVERALL RIP");
+  assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "RIP SCORE");
   assert.equal(EXPLORE_RANKING_MODES.financial.scoreLabel, "FINANCIAL RIP");
 });
 

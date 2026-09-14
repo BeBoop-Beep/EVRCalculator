@@ -39,9 +39,13 @@ def _rankings_fixture():
     return {
         "targets": [{
             "id": "set-1", "name": "Safe Set", "canonical_key": "safe-set",
-            "setRipV1": {"score": 73.1, "rank": 4, "tier": "B", "cohortSize": 22,
+            "setRipV1": {"score": 73.1, "publicScore": 71.4, "modelScore": 68.2,
+                         "rank": 4, "tier": "B", "cohortSize": 22,
                          "rankable": True, "methodologyVersion": "set-rip-v1",
                          "participatingFamilyCount": 1,
+                         "participatingFamilies": ["booster_box"],
+                         "skuEvidenceCount": 2,
+                         "familyScores": {"booster_box": 81},
                          "displayFamilyScores": [{"family": "booster_box", "score": 81,
                                                    "rank": 3, "tier": "A"}],
                          "privateRawInputs": PREMIUM_VALUE},
@@ -89,6 +93,7 @@ def test_product_rankings_http_projection_plus_then_base(monkeypatch):
         "rows": [{
             "sealedProductId": "product-1", "productName": "Safe Product", "unitPrice": 99,
             "overallRipScore": PLUS_VALUE, "expectedValue": PLUS_VALUE,
+            "quantity": 4, "actualCommittedCapital": 396, "unusedCapital": 4,
             "unknownPremiumField": PREMIUM_VALUE,
         }],
     })
@@ -97,6 +102,8 @@ def test_product_rankings_http_projection_plus_then_base(monkeypatch):
     base = client.get("/explore/product-rankings/overall?plan=premium", headers=_headers("base-token"))
 
     assert str(PLUS_VALUE) in plus.text
+    for removed in ("quantity", "actualCommittedCapital", "unusedCapital"):
+        assert removed not in plus.json()["rows"][0]
     assert str(PLUS_VALUE) not in base.text
     assert "unknownPremiumField" not in plus.text
     assert base.json()["rows"] == [{
@@ -137,11 +144,12 @@ def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
 
     assert str(PLUS_VALUE) in plus_products.text and str(PLUS_VALUE) in plus_sets.text
     assert str(PLUS_VALUE) not in base_products.text and str(PLUS_VALUE) not in base_sets.text
-    assert base_sets.json()["targets"][0]["setRipV1"]["score"] == 73.1
+    assert base_sets.json()["targets"][0]["setRipV1"]["publicScore"] == 71.4
     assert base_sets.json()["targets"][0]["setRipV1"]["rank"] == 4
     assert base_sets.json()["targets"][0]["setRipV1"]["tier"] == "B"
-    assert base_sets.json()["targets"][0]["setRipV1"]["participatingFamilyCount"] == 1
-    assert base_sets.json()["targets"][0]["setRipV1"]["displayFamilyScores"][0]["family"] == "booster_box"
+    for paid_field in ("score", "modelScore", "participatingFamilyCount", "participatingFamilies",
+                       "skuEvidenceCount", "familyScores", "displayFamilyScores"):
+        assert paid_field not in base_sets.json()["targets"][0]["setRipV1"]
     assert "privateRawInputs" not in base_sets.text
     assert base_eras.json()["eraSetStrengthV1"]["eras"][0]["rank"] == 1
     assert base_eras.json()["eraSetStrengthV1"]["eras"][0]["score"] == 73.1
@@ -154,6 +162,29 @@ def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
     assert all(response.headers["cache-control"] == "no-store" for response in (
         plus_products, base_products, base_sets, plus_sets, base_eras,
     ))
+
+
+def test_public_set_rip_legacy_score_compatibility_preserves_absent_vs_null(monkeypatch):
+    _install_auth(monkeypatch)
+    rows = [
+        {"id": "explicit", "setRipV1": {"publicScore": 71.4, "score": 99.9, "rank": 1, "tier": "S"}},
+        {"id": "explicit-null", "setRipV1": {"publicScore": None, "score": 88.8, "rank": 2, "tier": "A"}},
+        {"id": "legacy", "setRipV1": {"score": 77.7, "rank": 3, "tier": "B"}},
+    ]
+    monkeypatch.setattr(main, "get_pokemon_explore_rankings_lens_payload", lambda lens, limit=None: {
+        "targets": rows, "meta": {},
+    })
+    client = TestClient(main.app)
+
+    public = client.get("/explore/rankings/lens/sets")
+    plus = client.get("/explore/rankings/lens/sets", headers=_headers("plus-token"))
+
+    projected = public.json()["targets"]
+    assert projected[0]["setRipV1"] == {"publicScore": 71.4, "rank": 1, "tier": "S"}
+    assert projected[1]["setRipV1"] == {"publicScore": None, "rank": 2, "tier": "A"}
+    assert projected[2]["setRipV1"] == {"publicScore": 77.7, "rank": 3, "tier": "B"}
+    assert all("score" not in row["setRipV1"] for row in projected)
+    assert [row["setRipV1"].get("score") for row in plus.json()["targets"]] == [99.9, 88.8, 77.7]
 
 
 def test_rankings_lens_resolves_canonical_profile_once(monkeypatch):
@@ -181,7 +212,11 @@ def test_public_opening_economics_stays_public_but_detailed_pack_values_are_plus
     fixture = {
         "status": "available", "contractVersion": "pokemon-rip-stats-v3",
         "basis": "all_modeled_products_per_pack_equivalent", "methodology": {},
-        "global": {"typicalOpeningPerPack": 3.25, "modeledReturnOnSpend": 0.71},
+        "global": {"typicalOpeningPerPack": 3.25, "modeledReturnOnSpend": 0.71,
+                   "normalizedReturnBuckets": [{"key": "100_plus", "label": "100%+",
+                                                "lowerBound": 1.0, "upperBound": None,
+                                                "probability": 0.12, "rawOutcomes": [123]}],
+                   "rawOutcomes": [987654321]},
         "eras": [{"eraName": "Safe Era", "setCount": 2, "averageCostPerPack": 5,
                   "modeledReturnOnSpend": PLUS_VALUE}],
         "sets": [{"setId": "set-1", "setName": "Safe Set", "averageCostPerPack": 5,
@@ -195,6 +230,9 @@ def test_public_opening_economics_stays_public_but_detailed_pack_values_are_plus
     plus = client.get("/explore/opening-economics", headers=_headers("plus-token"))
 
     assert base.json()["global"]["typicalOpeningPerPack"] == 3.25
+    assert base.json()["global"]["normalizedReturnBuckets"][0]["probability"] == 0.12
+    assert "rawOutcomes" not in base.json()["global"]
+    assert "rawOutcomes" not in base.json()["global"]["normalizedReturnBuckets"][0]
     assert str(PLUS_VALUE) not in base.text
     assert str(PLUS_VALUE) in plus.text
     assert '"secret"' not in plus.text  # unknown nested fields fail closed
@@ -236,6 +274,19 @@ def test_chase_efficiency_is_premium_and_gate_precedes_reader(monkeypatch):
     premium = client.get("/explore/card-chase-efficiency", headers=_headers("premium-token"))
     assert premium.status_code == 200 and PREMIUM_VALUE == premium.json()["value"]
     assert reads == [True]
+
+
+def test_card_collector_appeal_is_plus_and_gate_precedes_reader(monkeypatch):
+    _install_auth(monkeypatch)
+    reads = []
+    monkeypatch.setattr(main, "query_card_collector_appeal", lambda *args, **kwargs: reads.append(True) or {"value": PLUS_VALUE})
+    client = TestClient(main.app)
+    assert client.get("/explore/card-collector-appeal").status_code == 401
+    assert client.get("/explore/card-collector-appeal", headers=_headers("base-token")).status_code == 403
+    assert reads == []
+    assert client.get("/explore/card-collector-appeal", headers=_headers("plus-token")).status_code == 200
+    assert client.get("/explore/card-collector-appeal", headers=_headers("premium-token")).status_code == 200
+    assert reads == [True, True]
 
 
 SENTINEL_PAID_ONLY_VALUE = "SENTINEL_PAID_ONLY_VALUE"
@@ -406,7 +457,7 @@ def test_custom_market_premium_cache_cannot_be_replayed_to_plus(monkeypatch):
                         lambda **kwargs: runs.append(True) or SimpleNamespace(
                             payload={"premiumMetric": PREMIUM_VALUE}))
     monkeypatch.setattr(
-        main, "build_market_explorer_filter_options",
+        main, "read_market_explorer_options_snapshot",
         lambda _client: {"premiumOptions": PREMIUM_VALUE},
     )
     client = TestClient(main.app)

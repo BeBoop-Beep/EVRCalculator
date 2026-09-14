@@ -1,6 +1,13 @@
 "use client";
-import { createContext, useState, useEffect, useContext, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, createElement, useState, useEffect, useContext, useCallback, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  AUTH_RESOLUTION,
+  canonicalUsersEqual,
+  createAuthRequestCoordinator,
+  reconcileAuthResult,
+  resolveCurrentUser,
+} from "@/lib/auth/clientAuthLifecycle.mjs";
 
 const AuthContext = createContext();
 
@@ -9,45 +16,53 @@ export function AuthProvider({ children, initialUser = null }) {
   const [authStatus, setAuthStatus] = useState("resolved");
   const [authRevision, setAuthRevision] = useState(0);
   const router = useRouter();
+  const pathname = usePathname();
+  const userRef = useRef(initialUser);
+  const previousPathnameRef = useRef(null);
+  const requestCoordinatorRef = useRef(null);
+  if (requestCoordinatorRef.current === null) {
+    requestCoordinatorRef.current = createAuthRequestCoordinator();
+  }
 
-  // Re-usable auth fetch: resolves the current session from the httpOnly token cookie.
-  // Called on mount and explicitly after login to hydrate state without a full page reload.
-  const refreshUser = useCallback(async () => {
+  const commitUser = useCallback((nextUser) => {
+    if (canonicalUsersEqual(userRef.current, nextUser)) return false;
+    userRef.current = nextUser;
+    setUser(nextUser);
+    setAuthRevision((value) => value + 1);
+    return true;
+  }, []);
+
+  const runAuthResolution = useCallback(async (mode) => {
+    // An explicit refresh represents a real auth/profile mutation. A background
+    // route sync must never cancel or supersede it.
+    const request = requestCoordinatorRef.current.begin(mode);
+    if (!request) return userRef.current;
     setAuthStatus("resolving");
-    try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        credentials: "include",
-      });
 
-      if (!response.ok) {
-        setUser(null);
-        setAuthRevision((value) => value + 1);
-        router.refresh();
-        return null;
-      }
+    const result = await resolveCurrentUser({ signal: request.controller.signal });
+    if (!requestCoordinatorRef.current.isCurrent(request)) return userRef.current;
 
-      const data = await response.json();
-      const nextUser = data.user || null;
-      setUser(nextUser);
-      setAuthRevision((value) => value + 1);
-      // Rebuild entitlement-aware Server Components from the canonical
-      // httpOnly-cookie session. This preserves the current URL and client
-      // state where Next can reconcile it; it never client-unlocks paid data.
-      router.refresh();
-      return nextUser;
-    } catch (error) {
-      setUser(null);
-      setAuthRevision((value) => value + 1);
-      router.refresh();
-      return null;
-    } finally {
-      setAuthStatus("resolved");
-    }
-  }, [router]);
+    const reconciliation = reconcileAuthResult(userRef.current, result);
+    if (reconciliation.changed) commitUser(reconciliation.user);
+    setAuthStatus(reconciliation.degraded ? "degraded" : "resolved");
+    requestCoordinatorRef.current.finish(request);
+    return result.kind === AUTH_RESOLUTION.AUTHENTICATED ? result.user : reconciliation.user;
+  }, [commitUser]);
+
+  // Routine route/focus reconciliation is deliberately client-only: it keeps
+  // the persistent shell canonical without rebuilding Server Components.
+  const syncUser = useCallback(() => runAuthResolution("soft"), [runAuthResolution]);
+
+  const refreshUser = useCallback(async () => {
+    const nextUser = await runAuthResolution("strong");
+    // Explicit mutation callers need entitlement-aware Server Components to
+    // resolve the same cookie-backed identity. Soft navigation sync never does this.
+    router.refresh();
+    return nextUser;
+  }, [router, runAuthResolution]);
 
   useEffect(() => {
-    setUser(initialUser);
+    commitUser(initialUser);
 
     if (!initialUser) {
       return;
@@ -57,7 +72,24 @@ export function AuthProvider({ children, initialUser = null }) {
       authResolution: "reused_server_state",
       hasInitialUser: Boolean(initialUser?.id),
     });
-  }, [initialUser]);
+  }, [commitUser, initialUser]);
+
+  useEffect(() => {
+    const previousPathname = previousPathnameRef.current;
+    previousPathnameRef.current = pathname;
+
+    // The server seed owns first paint. Only a missing seed needs a mount-time
+    // check (for example, an OAuth/client transition that just set the cookie).
+    if (previousPathname === null) {
+      if (!initialUser) void syncUser();
+      return;
+    }
+    if (previousPathname !== pathname) void syncUser();
+  }, [initialUser, pathname, syncUser]);
+
+  useEffect(() => () => {
+    requestCoordinatorRef.current.cancel();
+  }, []);
 
   const login = async (email, password) => {
     try {
@@ -94,16 +126,13 @@ export function AuthProvider({ children, initialUser = null }) {
       // Even if API logout fails, clear local auth state.
     }
 
-    setUser(null);
-    setAuthRevision((value) => value + 1);
+    requestCoordinatorRef.current.cancel();
+    commitUser(null);
+    setAuthStatus("resolved");
     router.refresh();
   };
 
-  return (
-    <AuthContext.Provider value={{ user, login, logout, refreshUser, authStatus, authRevision }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return createElement(AuthContext.Provider, { value: { user, login, logout, refreshUser, syncUser, authStatus, authRevision } }, children);
 }
 
 export const useAuth = () => useContext(AuthContext);

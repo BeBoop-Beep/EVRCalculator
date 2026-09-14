@@ -27,14 +27,14 @@ export default function OverallRipExplanationHierarchy({ sources = [] }) {
 
   return (
     <div className="overall-rip-explanation-hierarchy" data-overall-rip-version={explanation.version}>
-      <p className="text-sm font-semibold text-[var(--text-primary)]">Overall RIP</p>
+      <p className="text-sm font-semibold text-[var(--text-primary)]">RIP Score</p>
       <p className="mt-1 text-xs text-[var(--text-secondary)]">{explanation.publicQuestion}</p>
 
       {explanation.available ? (
         <p className="mt-2 text-sm text-[var(--text-primary)]">{explanation.headline}</p>
       ) : (
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          {explanation.statusReason || "Overall RIP is not currently available for this target."}
+          {explanation.statusReason || "RIP Score is not currently available for this target."}
         </p>
       )}
 

@@ -59,8 +59,11 @@ from backend.db.services.pokemon_set_cards_market_analytics_service import (
 )
 from backend.domain.pokemon.card_rarity_taxonomy import (
     CARD_RARITY_TAXONOMY_VERSION,
+    CARD_RARITY_FILTER_TAXONOMY_VERSION,
+    FILTER_RARITY_DEFINITIONS,
     RAW_CARD_SEGMENT_DEFINITIONS,
-    segment_key_for_rarity,
+    filter_rarity_metadata,
+    normalize_filter_rarity,
     taxonomy_metadata,
 )
 from backend.domain.pokemon.constituent_movement import (
@@ -263,7 +266,7 @@ def _resolve_rarity_spellings(client: Any, set_ids: Sequence[str]) -> dict[str, 
                          .select("rarity").in_("set_id", batch).order("rarity"))
         for row in rows:
             raw = row.get("rarity")
-            segment = segment_key_for_rarity(raw)
+            segment = normalize_filter_rarity(raw)
             if segment and raw is not None:
                 spellings.setdefault(segment, set()).add(raw)
     _rarity_spellings_cache[key] = (time.monotonic() + _RARITY_SPELLINGS_TTL_SECONDS, spellings)
@@ -280,7 +283,7 @@ def resolve_segment_card_universe(
     not the union of the published segments.
     """
     wanted = {str(value).strip() for value in segment_ids if str(value or "").strip()}
-    known = {str(definition["key"]) for definition in RAW_CARD_SEGMENT_DEFINITIONS}
+    known = {str(definition["key"]) for definition in FILTER_RARITY_DEFINITIONS}
     unknown = wanted - known
     if unknown:
         raise MarketExplorerQueryError(f"unknown card segment(s): {sorted(unknown)}")
@@ -332,7 +335,7 @@ def resolve_segment_card_universe(
             card_id = str(row.get("id") or "").strip()
             if not card_id:
                 continue
-            segment = segment_key_for_rarity(row.get("rarity"))
+            segment = normalize_filter_rarity(row.get("rarity"))
             if wanted and segment not in wanted:
                 continue
             universe[card_id] = {
@@ -431,7 +434,6 @@ COHORT_RPC = "get_pokemon_market_explorer_daily_cohort"
 BATCHED_CONSTITUENT_RPC = "get_pokemon_cards_daily_constituents"
 FILTERED_COHORT_RPC = "get_pokemon_market_explorer_filtered_cohort"
 DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_daily"
-V1_DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_daily_candidate"
 V2_DAILY_PROJECTION_RPC = "get_pokemon_market_explorer_filtered_cohort_v2_shadow"
 V2_INTERVAL_FALLBACK_RPC = "get_pokemon_market_explorer_filtered_cohort_v2_interval_shadow"
 MATERIALIZED_SERIES_RPC = "get_pokemon_market_explorer_filtered_cohort_materialized_series"
@@ -445,54 +447,42 @@ _RPC_MAX_ROWS_PER_RESPONSE = 1000
 #: rather than from the caller's date range.
 COHORT_CHUNK_DAYS = 30
 DAILY_PROJECTION_SET_BATCH_SIZE = 5
-V1_MATERIALIZED_CHUNK_DAYS = 3
 V2_MATERIALIZED_CHUNK_DAYS = 3
 
 
 def resolve_materialized_history_route(
     client: Any, set_ids: Sequence[str], *, start_date: str, end_date: str,
 ) -> tuple[str, str | None]:
-    """Choose V1/V2 materialized history, falling back only on real gaps."""
+    """Choose bounded V2 daily materialization or V2 interval fallback.
+
+    V1 daily-state storage is retired. Every requested set must have V2
+    coverage through ``end_date`` and the requested start must be inside
+    the retained V2 daily window; otherwise the complete range is rebuilt
+    point-in-time from V2 interval authority.
+    """
     wanted = {str(value) for value in set_ids}
     if not wanted:
         return "interval_fallback", None
     try:
-        v1_rows = list((client.table("pokemon_market_explorer_card_daily_coverage")
-                        .select("set_id,computed_through").in_("set_id", sorted(wanted))
-                        .execute()).data or [])
-        v2_rows = list((client.table(V2_COVERAGE_TABLE)
-                        .select("set_id,retained_from,computed_through")
-                        .in_("set_id", sorted(wanted)).execute()).data or [])
-        v1_current = {
-            str(row.get("set_id")) for row in v1_rows
-            if str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
-        } == wanted
-        v2_current = {
-            str(row.get("set_id")) for row in v2_rows
-            if str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
-        } == wanted
-        retained = [str(row.get("retained_from") or "")[:10] for row in v2_rows
-                    if row.get("retained_from")]
-        bridge = None
-        if v2_current and len(retained) == len(wanted):
-            boundary = max(retained)
-            approved = list((client.table("pokemon_market_date_quality")
-                             .select("market_date").eq("tcg", "pokemon")
-                             .in_("status", ["READY", "LEGACY_VERIFIED"])
-                             .gte("market_date", boundary).order("market_date")
-                             .limit(1).execute()).data or [])
-            bridge = str(approved[0].get("market_date") or "")[:10] if approved else None
-        if bridge and str(start_date)[:10] >= bridge:
-            return "v2_daily", bridge
-        if bridge and str(end_date)[:10] <= bridge and v1_current:
-            return "v1_daily", bridge
-        if bridge and v1_current and str(start_date)[:10] < bridge < str(end_date)[:10]:
-            return "materialized_hybrid", bridge
-        if v1_current:
-            return "v1_daily", bridge
+        rows = list((client.table(V2_COVERAGE_TABLE)
+                     .select("set_id,retained_from,computed_through")
+                     .in_("set_id", sorted(wanted)).execute()).data or [])
+        by_id = {str(row.get("set_id")): row for row in rows if row.get("set_id")}
+        if set(by_id) != wanted:
+            return "interval_fallback", None
+        if any(str((by_id[set_id] or {}).get("computed_through") or "")[:10]
+               < str(end_date)[:10] for set_id in wanted):
+            return "interval_fallback", None
+        retained = [str((by_id[set_id] or {}).get("retained_from") or "")[:10]
+                    for set_id in wanted]
+        if any(not value for value in retained):
+            return "interval_fallback", None
+        boundary = max(retained)
+        if str(start_date)[:10] >= boundary:
+            return "v2_daily", boundary
+        return "interval_fallback", boundary
     except Exception:
-        pass
-    return "interval_fallback", None
+        return "interval_fallback", None
 
 
 def load_filtered_daily_cohort_rows(
@@ -542,9 +532,7 @@ def load_filtered_daily_cohort_rows(
     # boundary) automatically gets the conservative chunking; a range that is
     # daily-projection-covered automatically keeps the efficient one. Neither
     # path needs to know where that boundary currently sits.
-    if rpc_name == V1_DAILY_PROJECTION_RPC:
-        chunk_days = min(int(chunk_days), V1_MATERIALIZED_CHUNK_DAYS)
-    elif rpc_name == V2_DAILY_PROJECTION_RPC:
+    if rpc_name == V2_DAILY_PROJECTION_RPC:
         chunk_days = min(int(chunk_days), V2_MATERIALIZED_CHUNK_DAYS)
     elif rpc_name == DAILY_PROJECTION_RPC:
         # Live evidence (this session, recovering the Global All Raw
@@ -560,7 +548,7 @@ def load_filtered_daily_cohort_rows(
         chunk_days = min(int(chunk_days), max(1, 70 // max(1, statement_set_count)))
     else:
         chunk_days = min(int(chunk_days), max(1, 60 // max(1, len(set_ids))))
-    if (rpc_name in (V1_DAILY_PROJECTION_RPC, V2_DAILY_PROJECTION_RPC)
+    if (rpc_name == V2_DAILY_PROJECTION_RPC
             and len(set_ids) > 100
             and (price_segment_ids or release_age_cohort_ids)):
         chunk_days = 1
@@ -597,10 +585,10 @@ def load_filtered_daily_cohort_rows(
         for set_batch in set_batches:
             batch_payload = {**payload, "p_set_ids": [str(value) for value in set_batch]}
             call_rpc = rpc_name
-            if (rpc_name in (V1_DAILY_PROJECTION_RPC, V2_DAILY_PROJECTION_RPC)
+            if (rpc_name == V2_DAILY_PROJECTION_RPC
                     and (chunk_end < last or not include_latest_basket)):
                 call_rpc = MATERIALIZED_SERIES_RPC
-                batch_payload["p_use_v2"] = rpc_name == V2_DAILY_PROJECTION_RPC
+                batch_payload["p_use_v2"] = True
             batch_pages.append(list(getattr(
                 client.rpc(call_rpc, batch_payload).execute(), "data", None,
             ) or []))
@@ -667,26 +655,24 @@ def load_filtered_daily_cohort_rows(
 
 def daily_projection_covers(client: Any, set_ids: Sequence[str], *,
                             start_date: str, end_date: str) -> bool:
-    """Fail closed unless every set has complete projection coverage."""
+    """True only when V2 daily coverage contains the entire requested range."""
     wanted = {str(value) for value in set_ids}
     if not wanted:
         return False
     try:
-        rows = list((client.table("pokemon_market_explorer_card_daily_coverage")
-                     .select("set_id,first_market_date,computed_through")
+        rows = list((client.table(V2_COVERAGE_TABLE)
+                     .select("set_id,retained_from,computed_through")
                      .in_("set_id", sorted(wanted)).execute()).data or [])
     except Exception:
         return False
-    # ``first_market_date`` is the first authoritative state this individual
-    # set can contribute.  A later-starting set must not suppress valid earlier
-    # history from the other requested sets.  Completeness therefore depends
-    # only on every requested set having a coverage row current through the
-    # requested end date.
-    covered = {
-        str(row.get("set_id")) for row in rows
-        if str(row.get("computed_through") or "")[:10] >= str(end_date)[:10]
-    }
-    return covered == wanted
+    by_id = {str(row.get("set_id")): row for row in rows if row.get("set_id")}
+    if set(by_id) != wanted:
+        return False
+    return all(
+        str((by_id[set_id] or {}).get("retained_from") or "")[:10] <= str(start_date)[:10]
+        and str((by_id[set_id] or {}).get("computed_through") or "")[:10] >= str(end_date)[:10]
+        for set_id in wanted
+    )
 
 
 def _is_statement_timeout(exc: Exception) -> bool:
@@ -1230,33 +1216,19 @@ def run_market_explorer_query(
         "price_segment_ids": spec["priceSegmentIds"],
         "release_age_cohort_ids": spec["releaseAgeCohortIds"], "top_n": spec["topN"],
     }
-    if execution_engine == "materialized_hybrid" and bridge_date:
-        v1_rows, _v1_basket = load_filtered_daily_cohort_rows(
-            client, scope_set_ids, start_date=effective_start, end_date=bridge_date,
-            rpc_name=V1_DAILY_PROJECTION_RPC, include_latest_basket=False, **load_kwargs,
-        )
-        v2_rows, basket_rows = load_filtered_daily_cohort_rows(
-            client, scope_set_ids, start_date=bridge_date, end_date=effective_end,
-            rpc_name=V2_DAILY_PROJECTION_RPC, **load_kwargs,
-        )
-        cohort_rows = v1_rows + [
-            row for row in v2_rows if str(row.get("marketDate"))[:10] > bridge_date
-        ]
-    else:
-        rpc_by_engine = {
-            "v1_daily": V1_DAILY_PROJECTION_RPC,
-            "v2_daily": V2_DAILY_PROJECTION_RPC,
-            "interval_fallback": V2_INTERVAL_FALLBACK_RPC,
-        }
-        cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
-            client, scope_set_ids, start_date=effective_start, end_date=effective_end,
-            rpc_name=rpc_by_engine[execution_engine], **load_kwargs,
-        )
+    rpc_by_engine = {
+        "v2_daily": V2_DAILY_PROJECTION_RPC,
+        "interval_fallback": V2_INTERVAL_FALLBACK_RPC,
+    }
+    cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
+        client, scope_set_ids, start_date=effective_start, end_date=effective_end,
+        rpc_name=rpc_by_engine[execution_engine], **load_kwargs,
+    )
     if not cohort_rows:
         raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
     for row in basket_rows:
         row["setName"] = set_names.get(str(row.get("setId") or ""))
-        row["segmentKey"] = segment_key_for_rarity(row.get("rarity"))
+        row["segmentKey"] = normalize_filter_rarity(row.get("rarity"))
     movement_prices: dict[str, dict[str, float]] = {}
     series = build_query_series_from_cohorts(
         cohort_rows, basket_rows, {}, mode=spec["mode"], top_n=spec["topN"],
@@ -1267,6 +1239,7 @@ def run_market_explorer_query(
 
     return {
         "serviceVersion": MARKET_EXPLORER_QUERY_SERVICE_VERSION,
+        "filterTaxonomyVersion": CARD_RARITY_FILTER_TAXONOMY_VERSION,
         "spec": {**spec, "eraIds": list(spec["eraIds"]), "setIds": list(spec["setIds"]),
                  "segmentIds": list(spec["segmentIds"]), "pokemonIds": list(spec["pokemonIds"]),
                  "priceSegmentIds": list(spec["priceSegmentIds"]),
@@ -1354,16 +1327,22 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
 
     # Compact compatibility authority: one set-id list per selectable rarity or
     # Pokemon, never a materialized cross-product of every possible query.
-    card_rows = _page_all(lambda: client.table("pokemon_canonical_cards")
-                          .select("id,set_id,rarity").in_("set_id", list(tracked_set_ids)))
-    card_set_by_id = {str(row.get("id")): str(row.get("set_id")) for row in card_rows}
+    card_rows = _page_all(lambda: client.table("pokemon_market_explorer_card_current_metadata")
+                          .select("canonical_card_id,set_id,rarity")
+                          .in_("set_id", list(tracked_set_ids))
+                          .order("canonical_card_id"))
+    card_set_by_id = {str(row.get("canonical_card_id")): str(row.get("set_id")) for row in card_rows}
     segment_sets: dict[str, set[str]] = {}
+    rarity_card_counts: dict[str, int] = {}
     for row in card_rows:
-        segment_key = segment_key_for_rarity(row.get("rarity"))
+        segment_key = normalize_filter_rarity(row.get("rarity"))
         if segment_key:
             segment_sets.setdefault(segment_key, set()).add(str(row.get("set_id")))
+            rarity_card_counts[segment_key] = rarity_card_counts.get(segment_key, 0) + 1
     subject_links = _page_all(lambda: client.table("pokemon_card_desirability_links")
-                              .select("pokemon_canonical_card_id,pokemon_reference_id"))
+                              .select("pokemon_canonical_card_id,pokemon_reference_id")
+                              .order("pokemon_canonical_card_id")
+                              .order("pokemon_reference_id"))
     pokemon_sets: dict[str, set[str]] = {}
     for link in subject_links:
         set_id = card_set_by_id.get(str(link.get("pokemon_canonical_card_id")))
@@ -1446,6 +1425,10 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
         # breaks; `cardSegments` is the asset-explicit alias.
         "segments": published_segment_options(),
         "cardSegments": published_segment_options(),
+        "cardRarities": filter_rarity_metadata(
+            card_counts=rarity_card_counts,
+            set_counts={key: len(value) for key, value in segment_sets.items()},
+        ),
         "sealedProductFamilies": published_sealed_family_options(),
         "pokemon": [
             {"id": str(row.get("id")), "label": str(row.get("display_name") or ""),
@@ -1472,7 +1455,7 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
             {"id": "legacy", "label": "Legacy", "description": "More than 5 years since set release"},
         ],
         "compatibility": {
-            "cardSegmentSetIds": {key: sorted(value) for key, value in segment_sets.items()},
+            "cardRaritySetIds": {key: sorted(value) for key, value in segment_sets.items()},
             "pokemonSetIds": {key: sorted(value) for key, value in pokemon_sets.items()},
             "sealedFamilySetIds": {key: sorted(value) for key, value in sealed_segment_sets.items()},
         },

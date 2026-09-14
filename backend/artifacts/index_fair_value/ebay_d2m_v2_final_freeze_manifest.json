@@ -1,0 +1,23 @@
+{
+  "version": "ebay_d2m_v2_final_freeze_manifest_v1",
+  "matcher_version": "index_fair_value_ebay_d2m_v2",
+  "matcher_fingerprint": "a2ac052891df2745f2a2dde8b615a5ccbf1ef23a777eb2a0310e35aef94f6d5e",
+  "frozen_commit": "52656c6d1cf6803bbf2ec4f6fc5b14493d68b302",
+  "query_contract_version": "ebay_browse_query_d1_unchanged_v1",
+  "set_alias_registry_version": "ebay_set_alias_registry_v1",
+  "variant_rule_version": "ebay_variant_identity_rules_v1",
+  "product_object_rule_version": "ebay_product_object_rules_v2",
+  "accessory_ontology_version": "ebay_accessory_ontology_v2",
+  "condition_policy_version": "ebay_raw_condition_policy_v1",
+  "confidence_policy_version": "ebay_d2m_v2_confidence_policy_v1",
+  "expanded_development_fingerprint": "99413bfdf3918ec844b49fa383693659fbf96b1ba9acfbd21cad38f46a555d08",
+  "logic_frozen": true,
+  "final_blind_rows_from_original_manifest": 350,
+  "final_blind_labels_accessed": false,
+  "final_gate": {
+    "high_precision_minimum": 0.99,
+    "wilson_95_lower_minimum": 0.98,
+    "card_coverage_minimum": 0.8,
+    "catastrophic_high_false_positives_maximum": 0
+  }
+}

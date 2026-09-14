@@ -75,6 +75,23 @@ const windowButtons = (renderer) => renderer.root.findAll((node) => node.props?.
 const seriesLines = (renderer) => renderer.root.findAll((node) => node.props?.["data-market-performance-series"] !== undefined);
 const tableToggle = (renderer, key) => renderer.root.find((node) => node.props?.["data-market-overview-toggle"] === key);
 const legendToggle = (renderer, key) => renderer.root.find((node) => node.props?.["data-market-performance-toggle"] === key);
+const viewToggle = (renderer, value) => renderer.root.find((node) => node.props?.["data-market-chart-view"] === value && node.type === "button");
+
+test("Performance is the default and the shared accessible toggle changes only chart presentation", () => {
+  const renderer = render();
+  assert.equal(viewToggle(renderer, "performance").props["aria-pressed"], true);
+  assert.equal(viewToggle(renderer, "index").props["aria-pressed"], false);
+  assert.equal(renderer.root.find((node) => node.props?.["data-market-performance-chart"] !== undefined).props["data-market-chart-view"], "performance");
+
+  TestRenderer.act(() => { viewToggle(renderer, "index").props.onClick(); });
+  assert.equal(viewToggle(renderer, "index").props["aria-pressed"], true);
+  assert.equal(renderer.root.find((node) => node.props?.["data-market-performance-chart"] !== undefined).props["data-market-chart-view"], "index");
+  assert.match(textOf(renderer.root.find((node) => node.props?.["data-market-chart-view-note"] !== undefined)), /Canonical Market Index/);
+
+  TestRenderer.act(() => { viewToggle(renderer, "performance").props.onClick(); });
+  assert.equal(viewToggle(renderer, "performance").props["aria-pressed"], true);
+  assert.equal(renderer.root.find((node) => node.props?.["data-market-performance-chart"] !== undefined).props["data-market-chart-view"], "performance");
+});
 
 test("the section carries the locked heading and its accessible sub-label", () => {
   const renderer = render();
@@ -140,8 +157,8 @@ test("hidden series are excluded from geometry, markers, readings and domain", (
   TestRenderer.act(() => { tableToggle(renderer, "raw").props.onClick(); });
   const chart = renderer.root.find((node) => node.props?.["data-market-performance-chart"] !== undefined);
   assert.ok(chart.props["data-market-performance-domain-max"] < fullDomainMax, "hidden Raw values no longer influence the Y domain");
-  assert.ok(chart.props["data-market-performance-domain-max"] >= 100);
-  assert.ok(chart.props["data-market-performance-domain-min"] < 96.5);
+  assert.ok(chart.props["data-market-performance-domain-max"] >= 0);
+  assert.ok(chart.props["data-market-performance-domain-min"] < -3);
   assert.deepEqual(renderer.root.findAll((node) => node.props?.["data-market-performance-area"] !== undefined).map((node) => node.props["data-market-performance-area"]), ["topChase"]);
 
   TestRenderer.act(() => { chart.props.onFocus({ currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 400, height: 200 }) } }); });

@@ -1,0 +1,8 @@
+{
+  "version": "ebay_d3_historical_exclusion_manifest_v1",
+  "historical_listing_id_count": 1050,
+  "historical_seller_title_identity_count": 994,
+  "listing_ids_fingerprint": "63bebaed41efff64a71fa3f0694cfd4697010d23d7229a693729f6e16dcdd32a",
+  "seller_title_fingerprint": "3446ade8cffb4e63a7f558d5e6dbde8efa464e5c50cea36f3cee24d9a7369e57",
+  "historical_exclusion_fingerprint": "ff17fc578c500a642fa29f064c4a0af2531fb8e16881511adf8687c66b9f72fe"
+}

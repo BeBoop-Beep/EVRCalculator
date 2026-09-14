@@ -1,0 +1,726 @@
+{
+  "artifact_version": "pokemon_trends_v2_targeted_retry_v1",
+  "manifest_version": "pokemon_trends_anchor_ladder_manifest_v1",
+  "manifest_fingerprint": "009418a05f6b9631",
+  "capture_code_version": "capture_pokemon_trends_anchor_ladder_v2_r1",
+  "query_settings": {
+    "timeframe": "today 1-m",
+    "geo": "US",
+    "queryType": "search_term"
+  },
+  "created_at": 1789069492.073473,
+  "stats": {
+    "requests": 5,
+    "retries": 0,
+    "scored": 5
+  },
+  "rows": [
+    {
+      "subject_id": 18,
+      "pokedex_number": 18,
+      "pokemon_name": "Pidgeot",
+      "assigned_anchor": "Torkoal",
+      "escalated": false,
+      "raw_target": 59.75,
+      "raw_anchor": 37.28125,
+      "global_relative": 12.5674333612741,
+      "classification": "SCORED",
+      "retry_count": 0,
+      "failure_detail": null,
+      "manifest_version": "pokemon_trends_anchor_ladder_manifest_v1",
+      "code_version": "capture_pokemon_trends_anchor_ladder_v2_r1",
+      "query_settings": {
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "queryType": "search_term"
+      },
+      "timestamp": 1789069457.9882164
+    },
+    {
+      "subject_id": 188,
+      "pokedex_number": 188,
+      "pokemon_name": "Skiploom",
+      "assigned_anchor": "Purugly",
+      "escalated": false,
+      "raw_target": 13.15625,
+      "raw_anchor": 13.15625,
+      "global_relative": 1.0,
+      "classification": "SCORED",
+      "retry_count": 0,
+      "failure_detail": null,
+      "manifest_version": "pokemon_trends_anchor_ladder_manifest_v1",
+      "code_version": "capture_pokemon_trends_anchor_ladder_v2_r1",
+      "query_settings": {
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "queryType": "search_term"
+      },
+      "timestamp": 1789069466.4504204
+    },
+    {
+      "subject_id": 324,
+      "pokedex_number": 324,
+      "pokemon_name": "Torkoal",
+      "assigned_anchor": "Stunky",
+      "escalated": true,
+      "raw_target": 60.375,
+      "raw_anchor": 15.8125,
+      "global_relative": 8.49010909090909,
+      "classification": "SCORED",
+      "retry_count": 1,
+      "failure_detail": null,
+      "manifest_version": "pokemon_trends_anchor_ladder_manifest_v1",
+      "code_version": "capture_pokemon_trends_anchor_ladder_v2_r1",
+      "query_settings": {
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "queryType": "search_term"
+      },
+      "timestamp": 1789069475.0238438
+    },
+    {
+      "subject_id": 380,
+      "pokedex_number": 380,
+      "pokemon_name": "Latias",
+      "assigned_anchor": "Lucario",
+      "escalated": false,
+      "raw_target": 30.625,
+      "raw_anchor": 63.46875,
+      "global_relative": 54.91575480059084,
+      "classification": "SCORED",
+      "retry_count": 0,
+      "failure_detail": null,
+      "manifest_version": "pokemon_trends_anchor_ladder_manifest_v1",
+      "code_version": "capture_pokemon_trends_anchor_ladder_v2_r1",
+      "query_settings": {
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "queryType": "search_term"
+      },
+      "timestamp": 1789069483.6068804
+    },
+    {
+      "subject_id": 434,
+      "pokedex_number": 434,
+      "pokemon_name": "Stunky",
+      "assigned_anchor": "Purugly",
+      "escalated": true,
+      "raw_target": 20.625,
+      "raw_anchor": 10.46875,
+      "global_relative": 1.9701492537313432,
+      "classification": "SCORED",
+      "retry_count": 1,
+      "failure_detail": null,
+      "manifest_version": "pokemon_trends_anchor_ladder_manifest_v1",
+      "code_version": "capture_pokemon_trends_anchor_ladder_v2_r1",
+      "query_settings": {
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "queryType": "search_term"
+      },
+      "timestamp": 1789069492.073473
+    }
+  ],
+  "requests": [
+    {
+      "attempt": 1,
+      "requested_at": 1789069457.3937516,
+      "completed_at": 1789069457.9882164,
+      "request": {
+        "terms": [
+          "Torkoal",
+          "Pidgeot"
+        ],
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "query_type": "search_term"
+      },
+      "response": {
+        "status": "captured",
+        "interest_by_term": {
+          "Torkoal": 37.28125,
+          "Pidgeot": 59.75
+        },
+        "error": null,
+        "error_type": null,
+        "retryable": false,
+        "raw_payload": {
+          "terms": [
+            "Torkoal",
+            "Pidgeot"
+          ],
+          "timeframe": "today 1-m",
+          "geo": "US",
+          "query_type": "search_term",
+          "aggregation": "mean_interest_over_time",
+          "sample_points_tail": [
+            {
+              "date": "2026-08-30T00:00:00",
+              "values": {
+                "Torkoal": 44.0,
+                "Pidgeot": 73.0
+              }
+            },
+            {
+              "date": "2026-08-31T00:00:00",
+              "values": {
+                "Torkoal": 30.0,
+                "Pidgeot": 49.0
+              }
+            },
+            {
+              "date": "2026-09-01T00:00:00",
+              "values": {
+                "Torkoal": 32.0,
+                "Pidgeot": 51.0
+              }
+            },
+            {
+              "date": "2026-09-02T00:00:00",
+              "values": {
+                "Torkoal": 33.0,
+                "Pidgeot": 52.0
+              }
+            },
+            {
+              "date": "2026-09-03T00:00:00",
+              "values": {
+                "Torkoal": 29.0,
+                "Pidgeot": 50.0
+              }
+            },
+            {
+              "date": "2026-09-04T00:00:00",
+              "values": {
+                "Torkoal": 37.0,
+                "Pidgeot": 55.0
+              }
+            },
+            {
+              "date": "2026-09-05T00:00:00",
+              "values": {
+                "Torkoal": 40.0,
+                "Pidgeot": 65.0
+              }
+            },
+            {
+              "date": "2026-09-06T00:00:00",
+              "values": {
+                "Torkoal": 41.0,
+                "Pidgeot": 67.0
+              }
+            },
+            {
+              "date": "2026-09-07T00:00:00",
+              "values": {
+                "Torkoal": 42.0,
+                "Pidgeot": 64.0
+              }
+            },
+            {
+              "date": "2026-09-08T00:00:00",
+              "values": {
+                "Torkoal": 31.0,
+                "Pidgeot": 63.0
+              }
+            },
+            {
+              "date": "2026-09-09T00:00:00",
+              "values": {
+                "Torkoal": 38.0,
+                "Pidgeot": 75.0
+              }
+            },
+            {
+              "date": "2026-09-10T00:00:00",
+              "values": {
+                "Torkoal": 35.0,
+                "Pidgeot": 68.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "attempt": 2,
+      "requested_at": 1789069466.0025403,
+      "completed_at": 1789069466.4504204,
+      "request": {
+        "terms": [
+          "Purugly",
+          "Skiploom"
+        ],
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "query_type": "search_term"
+      },
+      "response": {
+        "status": "captured",
+        "interest_by_term": {
+          "Purugly": 13.15625,
+          "Skiploom": 13.15625
+        },
+        "error": null,
+        "error_type": null,
+        "retryable": false,
+        "raw_payload": {
+          "terms": [
+            "Purugly",
+            "Skiploom"
+          ],
+          "timeframe": "today 1-m",
+          "geo": "US",
+          "query_type": "search_term",
+          "aggregation": "mean_interest_over_time",
+          "sample_points_tail": [
+            {
+              "date": "2026-08-30T00:00:00",
+              "values": {
+                "Purugly": 39.0,
+                "Skiploom": 36.0
+              }
+            },
+            {
+              "date": "2026-08-31T00:00:00",
+              "values": {
+                "Purugly": 24.0,
+                "Skiploom": 22.0
+              }
+            },
+            {
+              "date": "2026-09-01T00:00:00",
+              "values": {
+                "Purugly": 24.0,
+                "Skiploom": 22.0
+              }
+            },
+            {
+              "date": "2026-09-02T00:00:00",
+              "values": {
+                "Purugly": 24.0,
+                "Skiploom": 26.0
+              }
+            },
+            {
+              "date": "2026-09-03T00:00:00",
+              "values": {
+                "Purugly": 24.0,
+                "Skiploom": 21.0
+              }
+            },
+            {
+              "date": "2026-09-04T00:00:00",
+              "values": {
+                "Purugly": 32.0,
+                "Skiploom": 18.0
+              }
+            },
+            {
+              "date": "2026-09-05T00:00:00",
+              "values": {
+                "Purugly": 30.0,
+                "Skiploom": 22.0
+              }
+            },
+            {
+              "date": "2026-09-06T00:00:00",
+              "values": {
+                "Purugly": 36.0,
+                "Skiploom": 22.0
+              }
+            },
+            {
+              "date": "2026-09-07T00:00:00",
+              "values": {
+                "Purugly": 30.0,
+                "Skiploom": 24.0
+              }
+            },
+            {
+              "date": "2026-09-08T00:00:00",
+              "values": {
+                "Purugly": 29.0,
+                "Skiploom": 22.0
+              }
+            },
+            {
+              "date": "2026-09-09T00:00:00",
+              "values": {
+                "Purugly": 28.0,
+                "Skiploom": 18.0
+              }
+            },
+            {
+              "date": "2026-09-10T00:00:00",
+              "values": {
+                "Purugly": 21.0,
+                "Skiploom": 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "attempt": 3,
+      "requested_at": 1789069474.4631252,
+      "completed_at": 1789069475.0238438,
+      "request": {
+        "terms": [
+          "Stunky",
+          "Torkoal"
+        ],
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "query_type": "search_term"
+      },
+      "response": {
+        "status": "captured",
+        "interest_by_term": {
+          "Stunky": 15.8125,
+          "Torkoal": 60.375
+        },
+        "error": null,
+        "error_type": null,
+        "retryable": false,
+        "raw_payload": {
+          "terms": [
+            "Stunky",
+            "Torkoal"
+          ],
+          "timeframe": "today 1-m",
+          "geo": "US",
+          "query_type": "search_term",
+          "aggregation": "mean_interest_over_time",
+          "sample_points_tail": [
+            {
+              "date": "2026-08-30T00:00:00",
+              "values": {
+                "Stunky": 26.0,
+                "Torkoal": 71.0
+              }
+            },
+            {
+              "date": "2026-08-31T00:00:00",
+              "values": {
+                "Stunky": 19.0,
+                "Torkoal": 48.0
+              }
+            },
+            {
+              "date": "2026-09-01T00:00:00",
+              "values": {
+                "Stunky": 22.0,
+                "Torkoal": 51.0
+              }
+            },
+            {
+              "date": "2026-09-02T00:00:00",
+              "values": {
+                "Stunky": 23.0,
+                "Torkoal": 53.0
+              }
+            },
+            {
+              "date": "2026-09-03T00:00:00",
+              "values": {
+                "Stunky": 21.0,
+                "Torkoal": 47.0
+              }
+            },
+            {
+              "date": "2026-09-04T00:00:00",
+              "values": {
+                "Stunky": 24.0,
+                "Torkoal": 59.0
+              }
+            },
+            {
+              "date": "2026-09-05T00:00:00",
+              "values": {
+                "Stunky": 17.0,
+                "Torkoal": 66.0
+              }
+            },
+            {
+              "date": "2026-09-06T00:00:00",
+              "values": {
+                "Stunky": 29.0,
+                "Torkoal": 67.0
+              }
+            },
+            {
+              "date": "2026-09-07T00:00:00",
+              "values": {
+                "Stunky": 30.0,
+                "Torkoal": 67.0
+              }
+            },
+            {
+              "date": "2026-09-08T00:00:00",
+              "values": {
+                "Stunky": 19.0,
+                "Torkoal": 51.0
+              }
+            },
+            {
+              "date": "2026-09-09T00:00:00",
+              "values": {
+                "Stunky": 28.0,
+                "Torkoal": 62.0
+              }
+            },
+            {
+              "date": "2026-09-10T00:00:00",
+              "values": {
+                "Stunky": 29.0,
+                "Torkoal": 57.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "attempt": 4,
+      "requested_at": 1789069483.0263538,
+      "completed_at": 1789069483.6068804,
+      "request": {
+        "terms": [
+          "Lucario",
+          "Latias"
+        ],
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "query_type": "search_term"
+      },
+      "response": {
+        "status": "captured",
+        "interest_by_term": {
+          "Lucario": 63.46875,
+          "Latias": 30.625
+        },
+        "error": null,
+        "error_type": null,
+        "retryable": false,
+        "raw_payload": {
+          "terms": [
+            "Lucario",
+            "Latias"
+          ],
+          "timeframe": "today 1-m",
+          "geo": "US",
+          "query_type": "search_term",
+          "aggregation": "mean_interest_over_time",
+          "sample_points_tail": [
+            {
+              "date": "2026-08-30T00:00:00",
+              "values": {
+                "Lucario": 69.0,
+                "Latias": 39.0
+              }
+            },
+            {
+              "date": "2026-08-31T00:00:00",
+              "values": {
+                "Lucario": 100.0,
+                "Latias": 93.0
+              }
+            },
+            {
+              "date": "2026-09-01T00:00:00",
+              "values": {
+                "Lucario": 63.0,
+                "Latias": 74.0
+              }
+            },
+            {
+              "date": "2026-09-02T00:00:00",
+              "values": {
+                "Lucario": 59.0,
+                "Latias": 60.0
+              }
+            },
+            {
+              "date": "2026-09-03T00:00:00",
+              "values": {
+                "Lucario": 52.0,
+                "Latias": 52.0
+              }
+            },
+            {
+              "date": "2026-09-04T00:00:00",
+              "values": {
+                "Lucario": 56.0,
+                "Latias": 45.0
+              }
+            },
+            {
+              "date": "2026-09-05T00:00:00",
+              "values": {
+                "Lucario": 67.0,
+                "Latias": 36.0
+              }
+            },
+            {
+              "date": "2026-09-06T00:00:00",
+              "values": {
+                "Lucario": 72.0,
+                "Latias": 29.0
+              }
+            },
+            {
+              "date": "2026-09-07T00:00:00",
+              "values": {
+                "Lucario": 67.0,
+                "Latias": 26.0
+              }
+            },
+            {
+              "date": "2026-09-08T00:00:00",
+              "values": {
+                "Lucario": 53.0,
+                "Latias": 21.0
+              }
+            },
+            {
+              "date": "2026-09-09T00:00:00",
+              "values": {
+                "Lucario": 69.0,
+                "Latias": 18.0
+              }
+            },
+            {
+              "date": "2026-09-10T00:00:00",
+              "values": {
+                "Lucario": 62.0,
+                "Latias": 19.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "attempt": 5,
+      "requested_at": 1789069491.6224952,
+      "completed_at": 1789069492.073473,
+      "request": {
+        "terms": [
+          "Purugly",
+          "Stunky"
+        ],
+        "timeframe": "today 1-m",
+        "geo": "US",
+        "query_type": "search_term"
+      },
+      "response": {
+        "status": "captured",
+        "interest_by_term": {
+          "Purugly": 10.46875,
+          "Stunky": 20.625
+        },
+        "error": null,
+        "error_type": null,
+        "retryable": false,
+        "raw_payload": {
+          "terms": [
+            "Purugly",
+            "Stunky"
+          ],
+          "timeframe": "today 1-m",
+          "geo": "US",
+          "query_type": "search_term",
+          "aggregation": "mean_interest_over_time",
+          "sample_points_tail": [
+            {
+              "date": "2026-08-30T00:00:00",
+              "values": {
+                "Purugly": 31.0,
+                "Stunky": 34.0
+              }
+            },
+            {
+              "date": "2026-08-31T00:00:00",
+              "values": {
+                "Purugly": 19.0,
+                "Stunky": 25.0
+              }
+            },
+            {
+              "date": "2026-09-01T00:00:00",
+              "values": {
+                "Purugly": 19.0,
+                "Stunky": 29.0
+              }
+            },
+            {
+              "date": "2026-09-02T00:00:00",
+              "values": {
+                "Purugly": 19.0,
+                "Stunky": 30.0
+              }
+            },
+            {
+              "date": "2026-09-03T00:00:00",
+              "values": {
+                "Purugly": 19.0,
+                "Stunky": 28.0
+              }
+            },
+            {
+              "date": "2026-09-04T00:00:00",
+              "values": {
+                "Purugly": 25.0,
+                "Stunky": 32.0
+              }
+            },
+            {
+              "date": "2026-09-05T00:00:00",
+              "values": {
+                "Purugly": 24.0,
+                "Stunky": 22.0
+              }
+            },
+            {
+              "date": "2026-09-06T00:00:00",
+              "values": {
+                "Purugly": 28.0,
+                "Stunky": 39.0
+              }
+            },
+            {
+              "date": "2026-09-07T00:00:00",
+              "values": {
+                "Purugly": 23.0,
+                "Stunky": 39.0
+              }
+            },
+            {
+              "date": "2026-09-08T00:00:00",
+              "values": {
+                "Purugly": 22.0,
+                "Stunky": 24.0
+              }
+            },
+            {
+              "date": "2026-09-09T00:00:00",
+              "values": {
+                "Purugly": 22.0,
+                "Stunky": 37.0
+              }
+            },
+            {
+              "date": "2026-09-10T00:00:00",
+              "values": {
+                "Purugly": 21.0,
+                "Stunky": 35.0
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

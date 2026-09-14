@@ -26,6 +26,6 @@ export function createRankingsSessionCache(identity) {
   };
 }
 
-export function canonicalCardQueryKey(params) {
-  return `cards:${new URLSearchParams([...params.entries()].sort(([a], [b]) => a.localeCompare(b))).toString()}`;
+export function canonicalCardQueryKey(params, lens = "chase") {
+  return `cards:${lens}:${new URLSearchParams([...params.entries()].sort(([a], [b]) => a.localeCompare(b))).toString()}`;
 }

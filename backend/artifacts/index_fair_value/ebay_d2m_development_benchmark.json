@@ -1,0 +1,51 @@
+{
+  "version": "ebay_d2m_development_benchmark_v1",
+  "matcher_version": "index_fair_value_ebay_d2m_v1",
+  "rule_fingerprint": "d47384a38912b59bb073c0b7a655e3120424154fa1617faaca541c86d53f2e1c",
+  "partition": "DEVELOPMENT",
+  "high": {
+    "accepted_count": 194,
+    "true_positives": 194,
+    "precision": 1.0,
+    "wilson_95": [
+      0.98058315,
+      1.0
+    ],
+    "recall": 0.70036101,
+    "card_coverage_count": 58,
+    "card_coverage": 0.82857143,
+    "non_positive_rows": []
+  },
+  "medium": {
+    "count": 21,
+    "precision": 0.95238095,
+    "gold_breakdown": {
+      "EXACT_TARGET_MATCH": 20,
+      "RELATED_BUT_WRONG_VARIANT": 1
+    }
+  },
+  "ambiguous": {
+    "count": 17,
+    "rate": 0.03777778,
+    "gold_breakdown": {
+      "EXACT_TARGET_MATCH": 16,
+      "AMBIGUOUS": 1
+    }
+  },
+  "reject": {
+    "count": 218,
+    "rate": 0.48444444,
+    "gold_breakdown": {
+      "RELATED_BUT_WRONG_VARIANT": 22,
+      "EXACT_TARGET_MATCH": 47,
+      "GRADED": 77,
+      "WRONG_LANGUAGE": 5,
+      "AMBIGUOUS": 16,
+      "WRONG_CARD_NUMBER": 29,
+      "SEALED_OR_ACCESSORY": 9,
+      "WRONG_SET": 2,
+      "LOT_OR_BUNDLE": 11
+    }
+  },
+  "high_false_positive_breakdown": {}
+}

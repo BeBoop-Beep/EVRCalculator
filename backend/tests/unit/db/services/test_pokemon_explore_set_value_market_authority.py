@@ -38,14 +38,56 @@ def test_certified_market_path_publishes_without_dashboard_snapshot():
     assert result["_diagnostics"]["marketAuthorityMode"] is True
 
 
-def test_uncertified_market_scope_is_not_published():
+def test_uncertified_but_current_market_scope_still_publishes_current():
+    """MEMBERSHIP != CERTIFICATION: an uncertified (market_publication_ready=False)
+    set whose canonical history still reaches today still appears on the Market
+    page, annotated as current -- it is never dropped from the result set."""
     rows = _history()
     target = rows[-1]["snapshot_date"]
     result = build_global_set_value_row(
         [_market_set(ready=False)], [], {"set-1": rows}, target_market_date=target
     )
-    assert result["set_count"] == 0
-    assert result["_diagnostics"]["eligibleSetCount"] == 0
+    assert result["set_count"] == 1
+    published = result["payload_json"]["sets"][0]
+    assert published["currentSetValue"] == rows[-1]["set_value"]
+    assert published["valueStatus"] == "current"
+    assert result["_diagnostics"]["eligibleSetCount"] == 1
+
+
+def test_stale_certification_still_publishes_with_stale_annotation():
+    """A set whose canonical history has not reached the target market date
+    (e.g. Paldean Fates-shaped: complete coverage, but not every component
+    price is dated on/after the canonical market date) still publishes, with
+    its last-known value and an honest stale annotation -- never suppressed."""
+    rows = _history(days=40)
+    target_date = date.fromisoformat(rows[-1]["snapshot_date"]) + timedelta(days=1)
+    target = target_date.isoformat()
+    result = build_global_set_value_row(
+        [_market_set(ready=False)], [], {"set-1": rows}, target_market_date=target
+    )
+    assert result["set_count"] == 1
+    published = result["payload_json"]["sets"][0]
+    assert published["currentSetValue"] == rows[-1]["set_value"]
+    assert published["valueStatus"] == "stale"
+    assert published["lastUpdated"] == rows[-1]["snapshot_date"]
+    assert result["_diagnostics"]["staleSets"] == [
+        {"setId": "set-1", "canonicalDate": rows[-1]["snapshot_date"]}
+    ]
+
+
+def test_no_price_identity_at_all_publishes_as_unavailable_not_dropped():
+    """A set with no canonical Set Value history at all (genuinely insufficient
+    price identity) still appears on the Market page -- explicitly unavailable,
+    never a fabricated value, and never dropped from the result set."""
+    result = build_global_set_value_row(
+        [_market_set(ready=False)], [], {"set-1": []}, target_market_date="2026-09-09"
+    )
+    assert result["set_count"] == 1
+    published = result["payload_json"]["sets"][0]
+    assert published["currentSetValue"] is None
+    assert published["valueStatus"] == "unavailable"
+    assert published["lastUpdated"] is None
+    assert result["_diagnostics"]["missingSets"] == ["set-1"]
 
 
 def test_stale_optional_dashboard_does_not_veto_certified_set_value():

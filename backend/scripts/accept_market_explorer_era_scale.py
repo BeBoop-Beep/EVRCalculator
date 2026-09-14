@@ -15,6 +15,7 @@ from backend.db.clients.supabase_client import create_service_role_client
 INTERVAL_RPC = "get_pokemon_market_explorer_filtered_cohort"
 ORACLE_RPC = "accept_pokemon_market_explorer_filtered_cohort_two_date"
 DAILY_RPC = "get_pokemon_market_explorer_filtered_cohort_daily"
+V2_COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage_v2_shadow"
 
 
 def _paged(query_factory: Any, page_size: int = 1000) -> list[dict[str, Any]]:
@@ -31,7 +32,7 @@ def _paged(query_factory: Any, page_size: int = 1000) -> list[dict[str, Any]]:
 def _set_ids(client: Any, era_ids: list[str]) -> list[str]:
     sets = _paged(lambda: client.table("sets").select("id").in_("era_id", era_ids).order("id"))
     ids = sorted(str(row["id"]) for row in sets)
-    covered = _paged(lambda: client.table("pokemon_market_explorer_card_daily_coverage")
+    covered = _paged(lambda: client.table(V2_COVERAGE_TABLE)
                      .select("set_id").in_("set_id", ids).order("set_id"))
     return sorted(str(row["set_id"]) for row in covered)
 

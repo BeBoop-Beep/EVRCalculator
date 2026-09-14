@@ -201,6 +201,9 @@ function SeriesPicker({ series, activeId, onSelect }) {
 function QueryConstituentSection({ series, movementWindow, onChangeMovementWindow }) {
   const asset = resolveSeriesAsset(series);
   const idField = asset === "sealed" ? "sealedProductId" : "canonicalCardId";
+  // Query rows represent physical instruments. Legitimate card variants may
+  // share one canonicalCardId, so prefer the published instrument identity.
+  const rowKey = (row) => row.instrumentId || row.cardVariantId || row[idField] || row.rank;
   const columns = buildConstituentColumns(asset, movementWindow);
   const primaryColumn = columns.find((column) => column.primary);
   const page = useMarketExplorerConstituentPage(series?.spec || null);
@@ -253,7 +256,7 @@ function QueryConstituentSection({ series, movementWindow, onChangeMovementWindo
           </thead>
           <tbody>
             {page.rows.map((row) => (
-              <tr key={row[idField] || row.rank} data-market-constituent={row[idField] || row.rank} className="border-b border-[var(--border-subtle)] last:border-0">
+              <tr key={rowKey(row)} data-market-constituent={rowKey(row)} className="border-b border-[var(--border-subtle)] last:border-0">
                 {columns.map((column) => (
                   <td
                     key={column.key}
@@ -281,7 +284,7 @@ function QueryConstituentSection({ series, movementWindow, onChangeMovementWindo
       </div>
       <ul data-market-constituents-cards className="space-y-1.5 px-3 pb-2 sm:px-4 desk:hidden">
         {page.rows.map((row) => (
-          <li key={row[idField] || row.rank} data-market-constituent={row[idField] || row.rank} className="flex items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-2.5 py-2">
+          <li key={rowKey(row)} data-market-constituent={rowKey(row)} className="flex items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-2.5 py-2">
             <span className="w-5 flex-none pt-0.5 text-[10px] tabular-nums text-[var(--text-secondary)]">{row.rank}</span>
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center">
@@ -323,6 +326,7 @@ export default function MarketExplorerConstituents({
   selectedSeries = [],
   activeSeriesId = null,
   onSelectSeries,
+  onEditSeries,
 }) {
   // Local, unpersisted: which window you are reading is a posture, not
   // research, and it does not belong in the URL beside the chart's timeframe.
@@ -386,6 +390,9 @@ export default function MarketExplorerConstituents({
           <div className="ml-auto">
             <MovementWindowSelector value={model.movementWindow} onChange={setMovementWindow} />
           </div>
+        ) : null}
+        {active?.instanceId && active?.spec?.membershipMode === "explicit" ? (
+          <button type="button" data-market-constituents-edit-items onClick={() => onEditSeries?.(active)} className="min-h-9 rounded-md border border-[var(--border-subtle)] px-3 text-[11px] font-semibold text-[var(--text-secondary)]">Edit Items</button>
         ) : null}
       </div>
 

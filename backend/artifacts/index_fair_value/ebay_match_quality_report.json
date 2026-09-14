@@ -1,0 +1,13 @@
+{
+  "version": "index_fair_value_ebay_supply_d1_v1",
+  "acceptedRule": "EXACT_MATCH + RAW_ELIGIBLE_CONDITION",
+  "acceptedCount": 3961,
+  "coveragePct": 98.57142857142857,
+  "ambiguityRatePct": 12.402167369054787,
+  "lotBundleRejectionRatePct": 0.1053582179409994,
+  "gradedContaminationPct": 16.164960866947624,
+  "wrongCardContaminationPct": 5.659241420830825,
+  "automatedPrecisionEstimate": null,
+  "manualReviewRequired": true,
+  "reason": "No title-only classifier may self-certify precision; sampled human labels are required."
+}

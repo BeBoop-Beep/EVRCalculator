@@ -1,0 +1,14 @@
+{
+  "status": "available",
+  "contractVersion": "pokemon-rip-stats-v3",
+  "basis": "all_modeled_products_per_pack_equivalent",
+  "marketDate": "2026-09-08",
+  "methodology": { "version": "hierarchical_product_per_pack_empirical_v1", "weightingVersion": "equal-set_equal-family_equal-sku-v1" },
+  "global": { "setCount": 22, "productCount": 100, "medianValue": 7.25, "meanValue": 10.5, "p25Value": 2.1, "p75Value": 13.8 },
+  "eras": [],
+  "sets": [
+    { "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29", "setName": "Ascended Heroes" },
+    { "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6", "setName": "Prismatic Evolutions" }
+  ],
+  "familyBenchmarks": []
+}

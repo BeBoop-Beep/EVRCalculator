@@ -1,0 +1,16 @@
+{
+  "version": "ebay_d3_v3_final_certification_manifest_v1",
+  "matcher_fingerprint": "b5e44641f35c5f846a8d83bc6c777285f6e07707c9c672feef47c55cd67c95ec",
+  "frozen_prediction_fingerprint": "2c4ac28be281a754259631fa530c4d86638f5da26ae03680a22838e59743d3f6",
+  "benchmark_design_fingerprint": "75505bfcbe2e167821a3178b5da192e1240879fe3e4edd75891fa2c55c02d2c6",
+  "precision_cohort_fingerprint": "2292c755f3e3563c0d8eb268219fa5863b5243b61093264eec1da991ff1142c5",
+  "coverage_cohort_fingerprint": "e76e63dbbec489e3f8965dcfcaa9f920d004002632f00095318bc7fbc4c7061a",
+  "review_queue_fingerprint": "897ad0574f70c649311dc440e0af7a2380cd8d9addaf28b55c2cb1313621ccde",
+  "human_gold_fingerprint": "635365a6773910f8acb5c57efecba81163e187c147eb34f844a50a71bdf85a8c",
+  "certification_metrics_fingerprint": "b47a67e53fd49b470da709656c3b0c01e2b243f488da9eadd79b58886786c87f",
+  "final_result": "EBAY_IDENTITY_MATCHER_V3_NOT_VALIDATED",
+  "final_result_fingerprint": "1092804459ff72f72b1f732e2a610e70b47bc9870fd07a32b45f7fdf96ce8d3a",
+  "evaluation_code_commit": "f87d3bcd0565c79a77dc8afa9eae9ad707c65396",
+  "evaluated_at": "2026-09-13T04:22:37.756810+00:00",
+  "manifest_fingerprint": "aefa5aa65c86152c9fbca6dfa2444102bff50890a28e5758525dd12824619fac"
+}

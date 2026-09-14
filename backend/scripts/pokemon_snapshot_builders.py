@@ -60,6 +60,12 @@ from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
 )
+from backend.desirability.chase_accessibility import CHASE_ACCESSIBILITY_VERSION
+from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
+from backend.db.services.public_rip_publication_contract import (
+    canonical_overall_rip_target_key,
+    canonical_publication_identity,
+)
 from backend.desirability.set_validation import (
     build_opening_set_audit,
     is_opening_set_row,
@@ -510,6 +516,11 @@ def _merge_canonical_rip_contract_into_set_payload(
         # remain valid history.
         "overallRipV10",
         "publicRipContractV10",
+        # Current three-pillar authority. These remain additive to V10 history
+        # and are lifted verbatim from the same ranked target.
+        "financialRipV4",
+        "overallRipV12",
+        "publicRipContractV11",
         "setRipV1",
         "openingExperience",
         "publicAnalyticsStatus",
@@ -534,12 +545,24 @@ COLLECTOR_FACTOR_STANDING_FIELDS = ("rank", "tier", "rankedSetCount", "relativeS
 COLLECTOR_FACTOR_NAMES = ("rosterDesirability", "desirableOutcomeFrequency")
 
 
-def _assert_canonical_set_page_contract_complete(payload: Dict[str, Any], *, set_id: str) -> None:
-    """Reject an incomplete canonical contract for a V10-ranked set page.
+def _assert_canonical_v10_historical_contract_complete(
+    payload: Dict[str, Any], *, set_id: str
+) -> None:
+    """Additive/historical V10 completeness check.
 
-    Historical and unsupported sets legitimately have no Overall RIP V10 rank and
-    bypass this invariant. Zero is a valid relative score, so presence is tested
-    with ``is None`` rather than truthiness.
+    This is the ORIGINAL guard: it fires only when a page still carries an
+    Overall RIP V10 rank, and it does not by itself establish canonical
+    completeness (see ``_assert_canonical_set_page_contract_complete``, which
+    now derives canonical completeness from
+    ``canonical_overall_rip_target_key()`` instead of the literal
+    ``"overallRipV10"``). Kept running unconditionally, alongside the
+    canonical V12/V11 gate below, so a V10-carrying page still cannot publish
+    with a broken Collector Appeal factor projection - that invariant predates
+    V12 and nothing here removes it.
+
+    Historical and unsupported sets legitimately have no Overall RIP V10 rank
+    and bypass this invariant. Zero is a valid relative score, so presence is
+    tested with ``is None`` rather than truthiness.
     """
     overall = payload.get("overallRipV10")
     if not isinstance(overall, dict) or overall.get("rank") is None:
@@ -587,6 +610,292 @@ def _assert_canonical_set_page_contract_complete(payload: Dict[str, Any], *, set
             f"Refusing incomplete canonical set-page snapshot set_id={set_id}: missing "
             + ", ".join(problems)
         )
+
+
+def _assert_canonical_set_page_contract_complete(
+    payload: Dict[str, Any],
+    *,
+    set_id: str,
+    matching_rankings_target: Optional[Dict[str, Any]] = None,
+    decision_run_id: Optional[str] = None,
+) -> None:
+    """Reject an incomplete canonical contract for a fresh, canonically-ranked set page.
+
+    Canonical completeness is now driven by ``canonical_overall_rip_target_key()``
+    / ``canonical_publication_identity()`` (``backend.db.services.
+    public_rip_publication_contract``) - the SAME authority the publisher and the
+    leaderboard-staleness gate use - rather than the literal string
+    ``"overallRipV10"``. A future cutover therefore changes what this function
+    enforces by registering a new entry in that one authority, not by editing a
+    literal here.
+
+    V10's own historical completeness check
+    (``_assert_canonical_v10_historical_contract_complete``) still runs,
+    unconditionally, immediately below - it is additive/historical lineage and
+    is deliberately NOT capable of satisfying canonical completeness on its own.
+
+    A page with no rank under the canonical target key (an unsupported/
+    historical/carry-forward row) is not "fresh, canonically ranked" and is
+    exempt from every check below - it is not forced to fabricate V12/V11/
+    Financial V4 fields it never computed. Zero is a valid score/rank, so
+    presence is tested with ``is None`` rather than truthiness throughout.
+
+    ``matching_rankings_target``/``decision_run_id`` are the SAME objects
+    already resolved in ``build_set_page_snapshot_row`` before this call - no
+    independent lookup is performed here. When provided, this also enforces
+    Rankings/Set-page run and rank/score parity (see the ``PART 3`` docstring
+    below).
+    """
+    _assert_canonical_v10_historical_contract_complete(payload, set_id=set_id)
+
+    overall_key = canonical_overall_rip_target_key()
+    overall = payload.get(overall_key)
+
+    # FRESHNESS SIGNAL: a page counts as "fresh, canonically ranked" if it
+    # carries a rank under the canonical `overall_key` OR under the historical
+    # `overallRipV10` key - the same rank-presence signal the pre-existing V10
+    # check above already uses. Using ONLY `overall_key` would let a page that
+    # still carries a V10 rank but genuinely lacks V12/V11 (the PART 4
+    # regression case) slip through as if it were an exempt historical/
+    # carry-forward row, when it is neither: it is a fresh ranked row that is
+    # simply missing its canonical projection. A page with NEITHER rank present
+    # is the genuine historical/carry-forward case and is exempt below.
+    overall_v10_for_freshness = payload.get("overallRipV10")
+    is_fresh_ranked = (overall_key and isinstance(overall, dict) and overall.get("rank") is not None) or (
+        isinstance(overall_v10_for_freshness, dict) and overall_v10_for_freshness.get("rank") is not None
+    )
+    if not is_fresh_ranked:
+        return
+    if not isinstance(overall, dict):
+        overall = {}
+
+    identity = canonical_publication_identity()
+    problems: List[str] = []
+
+    # --- A: direct overall_key object ---------------------------------------
+    if overall.get("score") is None:
+        problems.append(f"{overall_key}.score is missing")
+    if overall.get("rank") is None:
+        problems.append(f"{overall_key}.rank is missing")
+    if overall.get("status") != "ready":
+        problems.append(f"{overall_key}.status is {overall.get('status')!r}, not 'ready'")
+    if overall.get("rankable") is not True:
+        problems.append(f"{overall_key}.rankable is {overall.get('rankable')!r}, not True")
+    if overall.get("version") != identity["overallRipVersion"]:
+        problems.append(
+            f"{overall_key}.version is {overall.get('version')!r}; canonical is "
+            f"{identity['overallRipVersion']!r}"
+        )
+    if problems:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            + "; ".join(problems)
+        )
+
+    # --- B: publicRipContractV11 presence + identity ------------------------
+    contract_v11 = payload.get("publicRipContractV11")
+    if not isinstance(contract_v11, dict) or not contract_v11:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            "publicRipContractV11 is missing"
+        )
+    if contract_v11.get("contractVersion") != identity["publicRipContractVersion"]:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            f"publicRipContractV11.contractVersion is {contract_v11.get('contractVersion')!r}; "
+            f"canonical is {identity['publicRipContractVersion']!r}"
+        )
+    if contract_v11.get("canonicalOverallRipVersion") != identity["overallRipVersion"]:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            "publicRipContractV11.canonicalOverallRipVersion is "
+            f"{contract_v11.get('canonicalOverallRipVersion')!r}; canonical is "
+            f"{identity['overallRipVersion']!r}"
+        )
+
+    # --- C: contract<->direct parity -----------------------------------------
+    # NOTE: "overallRipV12" here is the V11 contract's OWN inner field name -
+    # fixed by the V11 contract itself regardless of what `overall_key`
+    # resolves to. It is not re-derived from `overall_key`.
+    inner_v12 = contract_v11.get("overallRipV12")
+    inner_v12 = inner_v12 if isinstance(inner_v12, dict) else {}
+    if inner_v12.get("version") != identity["overallRipVersion"]:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            f"publicRipContractV11.overallRipV12.version is {inner_v12.get('version')!r}; "
+            f"canonical is {identity['overallRipVersion']!r}"
+        )
+    if inner_v12.get("score") is None or inner_v12.get("score") != overall.get("score"):
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            f"publicRipContractV11.overallRipV12.score ({inner_v12.get('score')!r}) does not "
+            f"match {overall_key}.score ({overall.get('score')!r})"
+        )
+    if inner_v12.get("rank") is None or inner_v12.get("rank") != overall.get("rank"):
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            f"publicRipContractV11.overallRipV12.rank ({inner_v12.get('rank')!r}) does not "
+            f"match {overall_key}.rank ({overall.get('rank')!r})"
+        )
+
+    # --- D: overallRipV12Composition ------------------------------------------
+    composition = contract_v11.get("overallRipV12Composition")
+    composition = composition if isinstance(composition, dict) else {}
+    if composition.get("version") != identity["overallRipVersion"]:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            f"publicRipContractV11.overallRipV12Composition.version is "
+            f"{composition.get('version')!r}; canonical is {identity['overallRipVersion']!r}"
+        )
+    inputs = composition.get("inputs")
+    inputs = inputs if isinstance(inputs, dict) else {}
+    # These three literals are hardcoded, fixed contract-internal strings in
+    # `public_rip_contract_v11.build_public_rip_contract_v11` itself
+    # (`overallRipV12Composition["inputs"]`) - they are validated against those
+    # contract-internal literals, not re-derived from a config lookup.
+    if inputs.get("financialRip") != "financial_rip_v4":
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            "publicRipContractV11.overallRipV12Composition.inputs.financialRip is "
+            f"{inputs.get('financialRip')!r}, not 'financial_rip_v4'"
+        )
+    if inputs.get("chaseAccessibility") != "chase_accessibility_v1":
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            "publicRipContractV11.overallRipV12Composition.inputs.chaseAccessibility is "
+            f"{inputs.get('chaseAccessibility')!r}, not 'chase_accessibility_v1'"
+        )
+    if inputs.get("collectorAppeal") != "collector_appeal_v5":
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            "publicRipContractV11.overallRipV12Composition.inputs.collectorAppeal is "
+            f"{inputs.get('collectorAppeal')!r}, not 'collector_appeal_v5'"
+        )
+
+    # --- E: financialRipV4 top-level authority ---------------------------------
+    financial = payload.get("financialRipV4")
+    if not isinstance(financial, dict) or not financial:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            "financialRipV4 is missing"
+        )
+    financial_problems: List[str] = []
+    if financial.get("score") is None:
+        financial_problems.append("financialRipV4.score is missing")
+    if financial.get("rank") is None:
+        financial_problems.append("financialRipV4.rank is missing")
+    if financial.get("status") != "ready":
+        financial_problems.append(
+            f"financialRipV4.status is {financial.get('status')!r}, not 'ready'"
+        )
+    if financial.get("rankable") is not True:
+        financial_problems.append(
+            f"financialRipV4.rankable is {financial.get('rankable')!r}, not True"
+        )
+    if financial.get("scoreVersion") != identity["financialRipVersion"]:
+        financial_problems.append(
+            f"financialRipV4.scoreVersion is {financial.get('scoreVersion')!r}; canonical is "
+            f"{identity['financialRipVersion']!r}"
+        )
+    if financial_problems:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            + "; ".join(financial_problems)
+        )
+
+    # --- F: Collector pillar authority -----------------------------------------
+    # `compute_overall_rip_v12` (backend/desirability/weighted_rip.py) does NOT
+    # attach a per-pillar version string inside `overallRipV12.components.
+    # collectorAppeal` - only score/weight/contribution. The V11 contract's only
+    # declared Collector pillar identity is the fixed literal
+    # `overallRipV12Composition.inputs.collectorAppeal == "collector_appeal_v5"`,
+    # already asserted in D above. This check confirms that literal actually
+    # names the CURRENT canonical Collector Appeal authority (guards against a
+    # future Collector Appeal cutover that bumps `COLLECTOR_APPEAL_V5_VERSION`'s
+    # meaning without a corresponding V11/V13 contract cutover), rather than
+    # duplicating D meaninglessly. Does NOT require a standalone Collector V6
+    # modelRunId - none is plumbed to this call site and none is invented here.
+    if identity["collectorAppealVersion"] != COLLECTOR_APPEAL_V5_VERSION:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            "canonical Collector Appeal authority is "
+            f"{identity['collectorAppealVersion']!r}, but the V11 contract's "
+            "overallRipV12Composition.inputs.collectorAppeal literal names "
+            "'collector_appeal_v5' - contract is stale relative to the canonical "
+            "Collector Appeal cutover"
+        )
+
+    # --- G: Chase Accessibility authority ---------------------------------------
+    chase = contract_v11.get("chaseAccessibility")
+    chase = chase if isinstance(chase, dict) else {}
+    if chase.get("version") != CHASE_ACCESSIBILITY_VERSION:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            f"publicRipContractV11.chaseAccessibility.version is {chase.get('version')!r}; "
+            f"canonical Chase Accessibility authority is {CHASE_ACCESSIBILITY_VERSION!r}"
+        )
+    # publicRipContractV11.chaseAccessibility.calculationRunId is projected in
+    # public_rip_contract_v11.py from the Chase Accessibility row's own
+    # calculation_run_id (see chase_accessibility_service.py's
+    # "chaseAccessibilityCalculationRunId" field). The frozen Rankings target
+    # for this fresh row already establishes decision_run_id as the expected
+    # run (see PART 3 below), so Chase Accessibility's run must match it
+    # exactly - no independent lookup is required.
+    observed_chase_run_id = chase.get("calculationRunId")
+    if observed_chase_run_id is None:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            "publicRipContractV11.chaseAccessibility.calculationRunId is missing"
+        )
+    if decision_run_id is not None and str(observed_chase_run_id) != str(decision_run_id):
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            f"publicRipContractV11.chaseAccessibility.calculationRunId "
+            f"({observed_chase_run_id!r}) != expected frozen decision_run_id "
+            f"({decision_run_id!r})"
+        )
+
+    # --- PART 3: Rankings/Set-page parity, using already-resolved context ------
+    if matching_rankings_target is not None:
+        target_run_id = matching_rankings_target.get("calculation_run_id")
+        if decision_run_id is not None and target_run_id != decision_run_id:
+            raise RuntimeError(
+                f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+                f"matching_rankings_target.calculation_run_id ({target_run_id!r}) != "
+                f"decision_run_id ({decision_run_id!r})"
+            )
+        target_overall = matching_rankings_target.get(overall_key)
+        target_overall = target_overall if isinstance(target_overall, dict) else {}
+        if target_overall.get("rank") != overall.get("rank"):
+            raise RuntimeError(
+                f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+                f"set-page {overall_key}.rank ({overall.get('rank')!r}) != Rankings target "
+                f"{overall_key}.rank ({target_overall.get('rank')!r})"
+            )
+        if target_overall.get("score") != overall.get("score"):
+            raise RuntimeError(
+                f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+                f"set-page {overall_key}.score ({overall.get('score')!r}) != Rankings target "
+                f"{overall_key}.score ({target_overall.get('score')!r})"
+            )
+        target_contract_v11 = matching_rankings_target.get("publicRipContractV11")
+        target_contract_v11 = target_contract_v11 if isinstance(target_contract_v11, dict) else {}
+        target_inner_v12 = target_contract_v11.get("overallRipV12")
+        target_inner_v12 = target_inner_v12 if isinstance(target_inner_v12, dict) else {}
+        if target_inner_v12.get("rank") != inner_v12.get("rank"):
+            raise RuntimeError(
+                f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+                "set-page publicRipContractV11.overallRipV12.rank "
+                f"({inner_v12.get('rank')!r}) != Rankings target's "
+                f"({target_inner_v12.get('rank')!r})"
+            )
+        if target_inner_v12.get("score") != inner_v12.get("score"):
+            raise RuntimeError(
+                f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+                "set-page publicRipContractV11.overallRipV12.score "
+                f"({inner_v12.get('score')!r}) != Rankings target's "
+                f"({target_inner_v12.get('score')!r})"
+            )
 
 
 def _merge_rip_desirability_comparison_into_set_payload(
@@ -1333,25 +1642,49 @@ def _load_snapshot_completeness_diagnostics(
     payload: Dict[str, Any],
     built_at: str,
 ) -> Dict[str, Any]:
-    explore_row = _first_row(
-        client,
-        "explore_rip_statistics_latest",
+    def timed(source: str, operation):
+        started = time.perf_counter()
+        logger.info("snapshot completeness query start source=%s set_id=%s", source, set_id)
+        try:
+            value = operation()
+        except Exception:
+            logger.exception(
+                "snapshot completeness query failed source=%s set_id=%s elapsed_ms=%.2f",
+                source, set_id, (time.perf_counter() - started) * 1000.0,
+            )
+            raise
+        row_count = 0 if value is None else (value if isinstance(value, int) else 1)
+        logger.info(
+            "snapshot completeness query complete source=%s set_id=%s elapsed_ms=%.2f rows=%s",
+            source, set_id, (time.perf_counter() - started) * 1000.0, row_count,
+        )
+        return value
+
+    explore_row = timed("explore_rip_statistics_latest", lambda: _first_row(
+        client, "explore_rip_statistics_latest",
         lambda query: query.select("set_id,calculation_run_id,run_at").eq("set_id", set_id),
-    )
-    latest_row = _first_row(
-        client,
-        "simulation_latest_by_target",
+    ))
+    latest_row = timed("simulation_latest_by_target", lambda: _first_row(
+        client, "simulation_latest_by_target",
         lambda query: query.select("target_type,target_id,calculation_run_id,run_at").eq("target_type", "set").eq("target_id", set_id),
-    )
+    ))
     run_id = (
         _snapshot_payload_run_id(payload)
         or first_non_empty((explore_row or {}).get("calculation_run_id"))
         or first_non_empty((latest_row or {}).get("calculation_run_id"))
     )
-    rankings_updated_at = _load_rankings_snapshot_updated_at(client)
-    input_count = _count_rows(client, "simulation_input_cards", field="calculation_run_id", value=run_id) if run_id else None
+    rankings_updated_at = timed(
+        "pokemon_explore_rankings_snapshot_latest", lambda: _load_rankings_snapshot_updated_at(client)
+    )
+    input_count = timed(
+        "simulation_input_cards.exact_count",
+        lambda: _count_rows(client, "simulation_input_cards", field="calculation_run_id", value=run_id),
+    ) if run_id else None
     near_mint_count = (
-        _count_rows(client, "simulation_input_cards_with_near_mint_price", field="calculation_run_id", value=run_id)
+        timed(
+            "simulation_input_cards_with_near_mint_price.exact_count",
+            lambda: _count_rows(client, "simulation_input_cards_with_near_mint_price", field="calculation_run_id", value=run_id),
+        )
         if run_id
         else None
     )
@@ -1760,7 +2093,10 @@ def build_set_rip_read_models(payload: Dict[str, Any], *, set_id: str, built_at:
     return {"bootstrap": bootstrap, "simulation": simulation, "advanced": advanced}
 
 
-def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any] = None) -> Dict[str, Any]:
+def build_set_page_snapshot_row(
+    set_row: Dict[str, Any], *, client: Optional[Any] = None,
+    rankings_payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
     simulation_available = True
@@ -1815,7 +2151,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
             # market prices, set value, market dashboard, card appeal) are merged
             # outside this block and still publish normally.
             raise _SkipSimulationDerivedEnrichment()
-        rankings_payload = get_rip_statistics_targets_payload(
+        rankings_payload = rankings_payload or get_rip_statistics_targets_payload(
             limit=DEFAULT_RANKINGS_LIMIT, include_rankings_top_chase=False
         )
         target_rows = attach_public_v1_to_targets(client or get_client(), rankings_payload.get("targets") or [])
@@ -1904,7 +2240,12 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     # Identity is guaranteed on BOTH paths, before contract verification and
     # persistence, so strict mode never sees a page without one.
     payload = _ensure_set_page_target_identity(payload, set_row=set_row, set_id=set_id)
-    _assert_canonical_set_page_contract_complete(payload, set_id=set_id)
+    _assert_canonical_set_page_contract_complete(
+        payload,
+        set_id=set_id,
+        matching_rankings_target=matching_rankings_target,
+        decision_run_id=decision_run_id,
+    )
     _assert_current_run_rip_decision(
         payload, set_id=set_id, expected_run_id=decision_run_id,
         required=decision_required,
@@ -4206,10 +4547,15 @@ def attach_daily_rip_rank_movements(
 
 
 def build_explore_rankings_snapshot_row(
-    *, limit: int = DEFAULT_RANKINGS_LIMIT, previous_payload: Optional[Dict[str, Any]] = None
+    *, limit: int = DEFAULT_RANKINGS_LIMIT, previous_payload: Optional[Dict[str, Any]] = None,
+    rankings_top_chase_snapshot_rows: Optional[List[Dict[str, Any]]] = None,
+    source_rankings_payload: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     built_at = utc_now_iso()
-    payload = get_rip_statistics_targets_payload(limit=limit)
+    target_kwargs = {"limit": limit}
+    if rankings_top_chase_snapshot_rows is not None:
+        target_kwargs["rankings_top_chase_snapshot_rows"] = rankings_top_chase_snapshot_rows
+    payload = source_rankings_payload or get_rip_statistics_targets_payload(**target_kwargs)
     targets = list(payload.get("targets") or [])
     opening_targets = [target for target in targets if is_opening_set_row(target)]
     service_client = get_client()

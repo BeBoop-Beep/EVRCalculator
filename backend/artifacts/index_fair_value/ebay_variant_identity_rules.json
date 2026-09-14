@@ -1,0 +1,47 @@
+{
+  "version": "ebay_variant_identity_rules_v1",
+  "treatment_terms": {
+    "special_illustration_rare": [
+      "special illustration rare",
+      "special illus rare",
+      "sir",
+      "sar"
+    ],
+    "illustration_rare": [
+      "illustration rare",
+      "illus rare",
+      "ir"
+    ],
+    "mega_hyper_rare": [
+      "mega hyper rare",
+      "mhr"
+    ],
+    "ultra_rare": [
+      "ultra rare",
+      "full art"
+    ],
+    "shiny_rare": [
+      "shiny rare",
+      "baby shiny",
+      "shiny"
+    ],
+    "ace_spec": [
+      "ace spec"
+    ],
+    "hyper_rare_gold": [
+      "hyper rare",
+      "gold"
+    ]
+  },
+  "parallel_conflicts": [
+    "reverse holo",
+    "reverse foil",
+    "pokeball",
+    "poke ball",
+    "master ball",
+    "masterball",
+    "stamped",
+    "pokemon center"
+  ],
+  "base_treatment_policy": "Base rarity needs explicit parallel resolution for HIGH."
+}

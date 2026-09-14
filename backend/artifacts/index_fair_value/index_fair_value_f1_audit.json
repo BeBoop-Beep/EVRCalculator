@@ -1,0 +1,171 @@
+{
+  "auditVersion": "index_fair_value_f1_dataset_contract_v1",
+  "generatedAt": "2026-09-12T00:30:20.403787+00:00",
+  "asOfDate": "2026-09-11",
+  "researchOnly": true,
+  "databaseWrites": 0,
+  "authorityBindings": {
+    "collectorModelVersion": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+    "collectorModelRunId": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+    "treatmentTaxonomyVersion": "pokemon_card_treatment_taxonomy_v3",
+    "treatmentTaxonomyFingerprint": "85fdb2344d9ae7842a91bf0b3b0a434e02e99298be4cb025c8b3826066f67ddc"
+  },
+  "liveCounts": {
+    "canonicalCards": 20651,
+    "sets": 210,
+    "eras": 17,
+    "canonicalCurrentPrices": 19856,
+    "collectorScores": 18293,
+    "acceptedScarcityRuns": 34,
+    "acceptedScarcityRows": 7624,
+    "strictEligibleRows": 4349,
+    "strictEligibleSets": 22,
+    "strictEligibleRootSets": 22,
+    "strictEligibleEras": 2
+  },
+  "exclusionCountsOverCanonicalUniverse": {
+    "collector_appeal_unavailable": 2358,
+    "exact_pull_scarcity_unavailable": 16246,
+    "inadequate_or_ambiguous_identity": 678,
+    "no_trustworthy_canonical_price": 795,
+    "treatment_unresolved": 1922
+  },
+  "priceAuthority": {
+    "table": "pokemon_canonical_card_market_prices_latest",
+    "condition": "Near Mint",
+    "currency": "USD",
+    "nature": "TCGPlayer market price; listing-derived, not completed sales",
+    "currentRows": 19856,
+    "oldestSelectedDate": "2026-04-11",
+    "newestSelectedDate": "2026-09-11",
+    "sourceCounts": {
+      "TCGPlayer": 19856
+    },
+    "selectionReasonCounts": {
+      "latest_nm_common_uncommon_non_holo_base_print": 10091,
+      "latest_nm_rare_or_hit_holo_base_print": 7297,
+      "latest_nm_rare_or_hit_non_holo_fallback": 2296,
+      "latest_nm_rare_or_hit_regular_reverse_fallback": 51,
+      "latest_nm_special_or_other_fallback": 61,
+      "latest_nm_common_uncommon_regular_reverse_fallback": 11,
+      "latest_nm_common_uncommon_holo_fallback": 49
+    },
+    "historyTable": "card_variant_price_observations",
+    "historyRows": null
+  },
+  "schemaProbes": {
+    "card_variant_price_observations": {
+      "available": true,
+      "columns": [
+        "captured_at",
+        "captured_date",
+        "card_variant_id",
+        "condition_id",
+        "created_at",
+        "currency",
+        "high_price",
+        "id",
+        "low_price",
+        "market_price",
+        "source"
+      ]
+    },
+    "pokemon_canonical_card_market_prices_latest": {
+      "available": true,
+      "columns": [
+        "canonical_card_id",
+        "captured_at",
+        "card_variant_id",
+        "condition_id",
+        "legacy_card_id",
+        "market_price",
+        "pokemon_tcg_api_card_id",
+        "price_selection_reason",
+        "printing_type",
+        "refreshed_at",
+        "set_id",
+        "source"
+      ]
+    },
+    "pokemon_card_collector_appeal_scores": {
+      "available": true,
+      "columns": [
+        "artist_lift",
+        "artist_recognition_score",
+        "collector_card_appeal_score",
+        "combined_lift",
+        "component_inputs_json",
+        "confidence",
+        "created_at",
+        "hit_eligibility_independent",
+        "lineage_json",
+        "model_run_id",
+        "playability_lift",
+        "playability_score",
+        "pokemon_canonical_card_id",
+        "price_input_excluded",
+        "score_status",
+        "set_id",
+        "subject_baseline_score",
+        "subject_policy",
+        "treatment_input_excluded"
+      ]
+    },
+    "simulation_card_variant_pull_rates": {
+      "available": true,
+      "columns": [
+        "calculation_run_id",
+        "card_id",
+        "card_variant_id",
+        "condition_id",
+        "created_at",
+        "effective_pull_rate",
+        "id",
+        "model_source",
+        "model_version",
+        "modeled_probability",
+        "pack_presence_count",
+        "price_captured_at",
+        "price_source",
+        "price_used",
+        "printing_type",
+        "pull_count",
+        "set_id",
+        "simulation_count",
+        "special_type",
+        "status",
+        "updated_at"
+      ]
+    },
+    "psa_population": {
+      "available": false,
+      "error": "APIError"
+    },
+    "grading_population": {
+      "available": false,
+      "error": "APIError"
+    },
+    "completed_sales": {
+      "available": false,
+      "error": "APIError"
+    },
+    "card_listings": {
+      "available": false,
+      "error": "APIError"
+    }
+  },
+  "datasetFingerprint": "0e7b04f1119ce525fbe387b50b523ac580aa7a14c758e5d16487a334969825d9",
+  "eligibilityPolicy": "English canonical cards; raw preferred physical variant; Near Mint USD; exact identity, frozen Collector V7, accepted exact pull scarcity, Treatment V3, and release date required.",
+  "unsupportedCardPolicy": "Exclude from strict V1; retain explicit reason for later low-confidence cohorts.",
+  "scopeDecision": "MODERN_V1_ONLY_VINTAGE_DEFERRED",
+  "gradedCardDecision": "EXCLUDED_DISTINCT_PRODUCT_WITHOUT_AUTHORITY",
+  "peerMarketDecision": "RETAIN_AS_SEPARATE_MODEL_D_RESEARCH_CANDIDATE_ONLY",
+  "primaryValidation": "LEAVE_CANONICAL_ROOT_SET_OUT_NESTED_GROUPED",
+  "f2Blockers": [
+    "Vintage lacks compatible exact scarcity and surviving-NM supply authority",
+    "Graded and non-NM targets lack a canonical cross-grade/condition authority",
+    "Supply, liquidity, completed-sales, and grading features are unavailable and cannot support claims"
+  ],
+  "f2Readiness": "READY_FOR_STRICT_MODERN_MODEL_FITTING",
+  "finalStatus": "INDEX_FAIR_VALUE_F1_READY"
+}

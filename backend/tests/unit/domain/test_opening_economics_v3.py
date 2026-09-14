@@ -124,6 +124,29 @@ def test_weighted_exact_counts_match_independent_ecdf(tmp_path):
         mixture.cleanup()
 
 
+def test_recovery_buckets_are_exact_exhaustive_half_open_and_order_invariant(tmp_path):
+    values = np.array([0.0, .10, .25, .50, .75, 1.0, 2.0])
+    expected = [1 / 7, 1 / 7, 1 / 7, 1 / 7, 1 / 7, 2 / 7]
+
+    def calculate(directory, vector):
+        mixture = WeightedEmpiricalMixture(directory)
+        mixture.add(vector, weight=1, pack_count=1, product_cost=1)
+        try:
+            return mixture.recovery_buckets(), mixture.recovery_probability()
+        finally:
+            mixture.cleanup()
+
+    forward, recovery = calculate(tmp_path / "forward", values)
+    reversed_rows, _ = calculate(tmp_path / "reversed", values[::-1])
+    assert [row["key"] for row in forward] == [
+        "0_10", "10_25", "25_50", "50_75", "75_100", "100_plus"
+    ]
+    assert [row["probability"] for row in forward] == pytest.approx(expected, abs=1e-15)
+    assert sum(row["probability"] for row in forward) == pytest.approx(1, abs=1e-15)
+    assert forward[-1]["probability"] == pytest.approx(recovery, abs=1e-15)
+    assert forward == reversed_rows
+
+
 def test_physical_vector_and_value_quantiles_are_price_independent(tmp_path):
     vector = np.array([11., 22., 33., 44.])
     owner = WeightedEmpiricalMixture(tmp_path)

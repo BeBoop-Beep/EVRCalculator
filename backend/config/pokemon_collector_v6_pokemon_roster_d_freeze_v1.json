@@ -1,0 +1,585 @@
+{
+  "artifactVersion": "pokemon_collector_v6_pokemon_roster_d_freeze_v1",
+  "status": "FROZEN",
+  "createdFor": "POKEMON_COLLECTOR_D_FORMULA_ARTIFACT_MISSING remediation (narrow construct-calibration task)",
+  "formula": {
+    "formulaName": "pokemon_roster_d_headline_strength_bounded_breadth_v1",
+    "architecture": "D_pokemon = S + (100 - S) * lambda_breadth * B",
+    "strength": {
+      "description": "Fixed geometric-decay weighted contribution from the N strongest qualifying (appeal>50) distinct Pokemon subjects, weights summing to exactly 1, applied to a monotonic ceiling-stretch transform of each subject's raw desirability_score. The stretch (exponent k>1 on the appeal fraction above the qualifying floor) magnifies differences among near-ceiling subjects (90-99 range, which is where most sets' headline Pokemon cluster because iconic species recur across the catalog) without altering ranking order, which is what resolves the near-ceiling compression a plain weighted average produces.",
+      "qualifyingFilter": "appeal > 50 (strictly); appeal<=50 subjects never enter the top-N ranking and contribute exactly 0",
+      "N_headline_subjects": 8,
+      "decayRatio_r": 0.6,
+      "stretchExponent_k": 4,
+      "weightFormula": "w_i = r^(i-1)*(1-r) / (1-r^N) for i=1..N, sum(w_i)=1 exactly",
+      "weights_position1_to_N": [
+        0.4068332361273121,
+        0.24409994167638727,
+        0.14645996500583236,
+        0.0878759790034994,
+        0.05272558740209965,
+        0.031635352441259784,
+        0.01898121146475587,
+        0.011388726878853521
+      ],
+      "stretchFormula": "stretch(appeal) = 50 + 50 * (clamp((appeal-50)/50, 0, 1))^k -- identity at appeal=50 (maps to 50) and appeal=100 (maps to 100); strictly increasing for all k>0 so it can never reverse a ranking",
+      "paddingRule": "if fewer than N qualifying subjects exist, missing positions contribute 0 (never fabricated, never renormalized to inflate the remaining weights)",
+      "equation": "S = sum_{i=1..N} w_i * stretch(appeal_(i)) where appeal_(1) >= appeal_(2) >= ... are the sorted qualifying distinct-subject raw desirability_score values (missing positions beyond roster depth = 0)"
+    },
+    "breadth": {
+      "description": "Bounded, saturating count of subjects with meaningful appeal above a fixed semantic anchor on the raw 0-100 composite scale.",
+      "threshold_T": 60.0,
+      "contributionPerSubject": "b_i = clamp((appeal_i - T) / (100 - T), 0, 1)",
+      "aggregation": "B = 1 - exp(-sum(b_i) / K)",
+      "saturationConstant_K": 4.0,
+      "range": "[0, 1)"
+    },
+    "lambda_breadth": 0.2,
+    "fewerThanNSubjectsHandling": "There is no fixed N; Strength sums over however many qualifying (appeal>50) distinct subjects actually exist. A roster with few qualifying subjects simply has fewer nonzero terms and a lower weight-mass total -- this correctly penalizes small/shallow rosters instead of inflating their per-subject weights via renormalization.",
+    "neutralSubjectHandling": "Subjects with appeal<=50 are excluded entirely from the Strength ranking/weighting pool (they can never occupy a headline slot, contribute exactly 0) and contribute 0 to Breadth (clamped at threshold T=60 > 50). This guarantees appeal=50 additions are always exact no-ops for D_pokemon.",
+    "duplicatePolicy": "One entry per distinct Pokemon species per set; multiple printings of the same species are deduplicated to a single representative appeal value upstream, at Phase 1 group construction (see sourceBaseline). D_pokemon never receives duplicate raw entries.",
+    "missingSubjectPolicy": "Pokemon with no fan-popularity/Trends evidence are excluded from the distinct-subject list entirely (not imputed as 0 or 50); this matches the upstream Trends V2 capture's SCORED/scored_zero_high_confidence/failed classification -- only SCORED and scored_zero_high_confidence subjects carry a desirability_score into this formula.",
+    "sourceBaselineIdentity": "backend/artifacts/collector_v6_redesign_research/pokemon_D_corrected_128set.json (pokeAppeals field per set) -- rebuilt from the raw locked composite desirability_score = 0.75*fan_popularity_score + 0.25*current_trend_score (corrected Trends V2), NO percentile transform.",
+    "trendsV2Dependency": {
+      "manifest": "pokemon_trends_anchor_ladder_manifest_v1",
+      "codeVersion": "capture_pokemon_trends_anchor_ladder_v2_r1",
+      "checkpoint": "backend/artifacts/collector_v6_redesign_research/trends_v2_capture/checkpoint_rows.jsonl",
+      "coverage": "1025/1025 canonical subjects; SCORED=993, scored_zero_high_confidence=27, failed=5"
+    },
+    "rawCompositeNoPercentileRule": "desirability_score consumed RAW (0-100 composite scale); no percentile/z-score/rank transform applied anywhere in S, B, or D_pokemon.",
+    "priceUsageDisclosure": "No market/price/value data was used in candidate selection, threshold selection, lambda selection, or formula freeze at any point.",
+    "rejectedPriorFormula": "D = 100*(1-exp(-sum(sqrt(max((appeal-50)/50,0)))/6)) [old C4 roster-mass] -- explicitly rejected, not reused, not a special case of this formula."
+  },
+  "formulaFingerprint": "3bb56da6353fe55e787a893a1250ed1a54d7670cef85d024323fea42612067a6",
+  "candidateFamilyTested": {
+    "S_N5_r050_k1__lambda0.1": {
+      "s_key": "S_N5_r050_k1",
+      "lambda": 0.1,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 70.78160389608402,
+      "median": 98.73634816961746,
+      "max": 99.90859986920503,
+      "sd": 3.06537628170642,
+      "p90": 99.67797850092244,
+      "unique_at_1dp": 47,
+      "sets_ge90": 126,
+      "sets_ge95": 119,
+      "sets_ge975": 100,
+      "sets_ge99": 47,
+      "median_adjacent_gap": 0.0220588676480844,
+      "p10_gap": 0.0023559848119987237,
+      "p90_gap": 0.17681487050518285,
+      "rho_vs_groupcount": 0.43115100256363303
+    },
+    "S_N5_r050_k1__lambda0.15": {
+      "s_key": "S_N5_r050_k1",
+      "lambda": 0.15,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 71.21410529337861,
+      "median": 98.79610368636952,
+      "max": 99.91367401794956,
+      "sd": 3.00434039236666,
+      "p90": 99.69478049725305,
+      "unique_at_1dp": 45,
+      "sets_ge90": 126,
+      "sets_ge95": 119,
+      "sets_ge975": 102,
+      "sets_ge99": 50,
+      "median_adjacent_gap": 0.021590213758486243,
+      "p10_gap": 0.0021715503301038552,
+      "p90_gap": 0.1630180267223693,
+      "rho_vs_groupcount": 0.43453579930415676
+    },
+    "S_N5_r050_k1__lambda0.2": {
+      "s_key": "S_N5_r050_k1",
+      "lambda": 0.2,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 71.64660669067318,
+      "median": 98.85585920312161,
+      "max": 99.91874816669407,
+      "sd": 2.9437657690204104,
+      "p90": 99.71158249358366,
+      "unique_at_1dp": 43,
+      "sets_ge90": 126,
+      "sets_ge95": 119,
+      "sets_ge975": 105,
+      "sets_ge99": 54,
+      "median_adjacent_gap": 0.021163229920958315,
+      "p10_gap": 0.0018659404316423434,
+      "p90_gap": 0.15412613325050017,
+      "rho_vs_groupcount": 0.4369449276689251
+    },
+    "S_N5_r050_k1__lambda0.25": {
+      "s_key": "S_N5_r050_k1",
+      "lambda": 0.25,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 72.07910808796775,
+      "median": 98.91561471987369,
+      "max": 99.9238223154386,
+      "sd": 2.8836814798794386,
+      "p90": 99.72838448991428,
+      "unique_at_1dp": 41,
+      "sets_ge90": 126,
+      "sets_ge95": 120,
+      "sets_ge975": 106,
+      "sets_ge99": 57,
+      "median_adjacent_gap": 0.02105852878175085,
+      "p10_gap": 0.0021419204024937244,
+      "p90_gap": 0.14199906336014578,
+      "rho_vs_groupcount": 0.44104502380516386
+    },
+    "S_N5_r050_k3__lambda0.1": {
+      "s_key": "S_N5_r050_k3",
+      "lambda": 0.1,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 62.97055090669132,
+      "median": 96.52450818426652,
+      "max": 99.72771573305305,
+      "sd": 5.126445231079934,
+      "p90": 99.05922063772377,
+      "unique_at_1dp": 71,
+      "sets_ge90": 113,
+      "sets_ge95": 80,
+      "sets_ge975": 42,
+      "sets_ge99": 15,
+      "median_adjacent_gap": 0.04258234457492449,
+      "p10_gap": 0.004224614364702006,
+      "p90_gap": 0.4802519130651035,
+      "rho_vs_groupcount": 0.408358702618568
+    },
+    "S_N5_r050_k3__lambda0.15": {
+      "s_key": "S_N5_r050_k3",
+      "lambda": 0.15,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 63.51867437031149,
+      "median": 96.69700135835947,
+      "max": 99.7428318041053,
+      "sd": 4.98769833573651,
+      "p90": 99.10830733360638,
+      "unique_at_1dp": 72,
+      "sets_ge90": 114,
+      "sets_ge95": 82,
+      "sets_ge975": 43,
+      "sets_ge99": 15,
+      "median_adjacent_gap": 0.04623556934791395,
+      "p10_gap": 0.00668627249758913,
+      "p90_gap": 0.3751266566119824,
+      "rho_vs_groupcount": 0.4111998718183483
+    },
+    "S_N5_r050_k3__lambda0.2": {
+      "s_key": "S_N5_r050_k3",
+      "lambda": 0.2,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 64.06679783393166,
+      "median": 96.86949453245239,
+      "max": 99.75794787515754,
+      "sd": 4.8503279741355065,
+      "p90": 99.15739402948897,
+      "unique_at_1dp": 71,
+      "sets_ge90": 114,
+      "sets_ge95": 87,
+      "sets_ge975": 45,
+      "sets_ge99": 15,
+      "median_adjacent_gap": 0.05397755373428481,
+      "p10_gap": 0.007519113578865699,
+      "p90_gap": 0.3139353987075708,
+      "rho_vs_groupcount": 0.41408395898187145
+    },
+    "S_N5_r050_k3__lambda0.25": {
+      "s_key": "S_N5_r050_k3",
+      "lambda": 0.25,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 64.61492129755182,
+      "median": 97.04198770654534,
+      "max": 99.77306394620977,
+      "sd": 4.714454476647361,
+      "p90": 99.20648072537158,
+      "unique_at_1dp": 69,
+      "sets_ge90": 116,
+      "sets_ge95": 89,
+      "sets_ge975": 48,
+      "sets_ge99": 16,
+      "median_adjacent_gap": 0.05347874979487699,
+      "p10_gap": 0.007224632403222131,
+      "p90_gap": 0.3259066922428673,
+      "rho_vs_groupcount": 0.41634144387474825
+    },
+    "S_N8_r060_k4__lambda0.1": {
+      "s_key": "S_N8_r060_k4",
+      "lambda": 0.1,
+      "T": 60.0,
+      "all_falsification_passed": false,
+      "min": 50.59357568201149,
+      "median": 93.16031200303189,
+      "max": 99.29546615880511,
+      "sd": 6.817043805125837,
+      "p90": 97.60517856157621,
+      "unique_at_1dp": 91,
+      "sets_ge90": 89,
+      "sets_ge95": 42,
+      "sets_ge975": 14,
+      "sets_ge99": 3,
+      "median_adjacent_gap": 0.09660133500347001,
+      "p10_gap": 0.010358319059207588,
+      "p90_gap": 0.5813065726504334,
+      "rho_vs_groupcount": 0.48146802325581395
+    },
+    "S_N8_r060_k4__lambda0.15": {
+      "s_key": "S_N8_r060_k4",
+      "lambda": 0.15,
+      "T": 60.0,
+      "all_falsification_passed": false,
+      "min": 51.32490766467274,
+      "median": 93.50371065774868,
+      "max": 99.33457889830206,
+      "sd": 6.63739985380156,
+      "p90": 97.73661418076259,
+      "unique_at_1dp": 89,
+      "sets_ge90": 94,
+      "sets_ge95": 44,
+      "sets_ge975": 15,
+      "sets_ge99": 3,
+      "median_adjacent_gap": 0.10141241703784942,
+      "p10_gap": 0.013462297623533459,
+      "p90_gap": 0.5422968498556457,
+      "rho_vs_groupcount": 0.48381706647134226
+    },
+    "S_N8_r060_k4__lambda0.2": {
+      "s_key": "S_N8_r060_k4",
+      "lambda": 0.2,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 52.056239647333996,
+      "median": 93.83746573489782,
+      "max": 99.373691637799,
+      "sd": 6.459704524834545,
+      "p90": 97.86804979994898,
+      "unique_at_1dp": 87,
+      "sets_ge90": 98,
+      "sets_ge95": 50,
+      "sets_ge975": 16,
+      "sets_ge99": 3,
+      "median_adjacent_gap": 0.09724324947147522,
+      "p10_gap": 0.009117568778819418,
+      "p90_gap": 0.5074592944990997,
+      "rho_vs_groupcount": 0.48641503387657936
+    },
+    "S_N8_r060_k4__lambda0.25": {
+      "s_key": "S_N8_r060_k4",
+      "lambda": 0.25,
+      "T": 60.0,
+      "all_falsification_passed": true,
+      "min": 52.787571629995256,
+      "median": 94.17122081204695,
+      "max": 99.41280437729596,
+      "sd": 6.2841231232188095,
+      "p90": 97.99948541913535,
+      "unique_at_1dp": 85,
+      "sets_ge90": 101,
+      "sets_ge95": 52,
+      "sets_ge975": 17,
+      "sets_ge99": 3,
+      "median_adjacent_gap": 0.08290568797058029,
+      "p10_gap": 0.009841635195172671,
+      "p90_gap": 0.4082390876104398,
+      "rho_vs_groupcount": 0.4912905145577733
+    }
+  },
+  "breadthThresholdSelection": {
+    "50.0": {
+      "meanB": 0.9106991588208366,
+      "sdD": 4.947026040706069,
+      "maxD": 99.74285205542763
+    },
+    "60.0": {
+      "meanB": 0.8837529202981005,
+      "sdD": 4.98769833573651,
+      "maxD": 99.7428318041053
+    },
+    "70.0": {
+      "meanB": 0.839995153038082,
+      "sdD": 5.04776378317882,
+      "maxD": 99.74273929397374
+    }
+  },
+  "falsificationResults": {
+    "S_N8_r060_k4__lambda0.2": {
+      "1_monotonic_increase": true,
+      "2_neutral_50_no_increase": true,
+      "3_duplicate_never_decreases_and_is_excluded_upstream": true,
+      "4_meaningful_add_never_lowers": true,
+      "5_broad_weak_lt_elite_narrow": true,
+      "6_mediocre20_lt_elite5x95": true,
+      "7_narrow_elite_gt_broad_weak_by_margin": true,
+      "8_breadth_marginal_diminishes": true,
+      "9_strength_dominant": true,
+      "10_not_count_driven_spearman_lt_0.9": true,
+      "10_spearman_value": 0.48641503387657936,
+      "11_cohort_independent_by_construction": true,
+      "12_no_market_data": true,
+      "archetype_scores": {
+        "3x98": 76.40987762847378,
+        "5x95": 80.64064256914187,
+        "10x80": 62.6902622481289,
+        "20x70": 58.2322972593943,
+        "60x55": 50.005,
+        "5x95+20x55": 83.32881469939377,
+        "5x95+20x70": 84.31267806258269,
+        "1x100": 43.307484086265355,
+        "1x100+4x52": 68.69069770242014
+      },
+      "bug_check_1x100_vs_1x100+4x52": true
+    }
+  },
+  "differentiationStatistics": {
+    "s_key": "S_N8_r060_k4",
+    "lambda": 0.2,
+    "T": 60.0,
+    "all_falsification_passed": true,
+    "min": 52.056239647333996,
+    "median": 93.83746573489782,
+    "max": 99.373691637799,
+    "sd": 6.459704524834545,
+    "p90": 97.86804979994898,
+    "unique_at_1dp": 87,
+    "sets_ge90": 98,
+    "sets_ge95": 50,
+    "sets_ge975": 16,
+    "sets_ge99": 3,
+    "median_adjacent_gap": 0.09724324947147522,
+    "p10_gap": 0.009117568778819418,
+    "p90_gap": 0.5074592944990997,
+    "rho_vs_groupcount": 0.48641503387657936
+  },
+  "matchedCountBuckets": {
+    "15": {
+      "n_sets": 30,
+      "D_min": 77.63610177778966,
+      "D_max": 97.20134778081359,
+      "D_spread": 19.56524600302393
+    },
+    "30": {
+      "n_sets": 16,
+      "D_min": 88.31849495104738,
+      "D_max": 99.16891282721461,
+      "D_spread": 10.850417876167228
+    },
+    "10": {
+      "n_sets": 10,
+      "D_min": 52.056239647333996,
+      "D_max": 95.59636691063812,
+      "D_spread": 43.54012726330413
+    },
+    "20": {
+      "n_sets": 33,
+      "D_min": 84.18469415313997,
+      "D_max": 98.81428799943342,
+      "D_spread": 14.629593846293446
+    },
+    "25": {
+      "n_sets": 15,
+      "D_min": 88.0504897348715,
+      "D_max": 98.3099950353322,
+      "D_spread": 10.259505300460688
+    },
+    "40": {
+      "n_sets": 4,
+      "D_min": 94.06474807326808,
+      "D_max": 96.2764997924884,
+      "D_spread": 2.2117517192203167
+    },
+    "35": {
+      "n_sets": 9,
+      "D_min": 89.15832554886768,
+      "D_max": 98.7184506980006,
+      "D_spread": 9.560125149132915
+    }
+  },
+  "robustnessStatistics": {
+    "pct5": {
+      "spearman_rank_stability": 0.8846765702252335,
+      "max_rank_churn": 57.0,
+      "mean_score_movement": 1.9735477824727534,
+      "fragile_sets_top5": [
+        "Sandstorm",
+        "Unseen Forces",
+        "Next Destinies",
+        "Brilliant Stars",
+        "Astral Radiance"
+      ]
+    },
+    "pct10": {
+      "spearman_rank_stability": 0.8059764695110786,
+      "max_rank_churn": 70.0,
+      "mean_score_movement": 3.0064899471225783,
+      "fragile_sets_top5": [
+        "Astral Radiance",
+        "Next Destinies",
+        "Ancient Origins",
+        "Unseen Forces",
+        "Sandstorm"
+      ]
+    },
+    "pct20": {
+      "spearman_rank_stability": 0.6897860968687053,
+      "max_rank_churn": 79.0,
+      "mean_score_movement": 4.17956159182979,
+      "fragile_sets_top5": [
+        "Astral Radiance",
+        "Evolutions",
+        "Plasma Blast",
+        "Deoxys",
+        "Ancient Origins"
+      ]
+    }
+  },
+  "realSetReview": {
+    "Ascended Heroes": {
+      "distinctPokemonCount": 75,
+      "S": 99.21724067981121,
+      "B": 0.9993554465123448,
+      "breadthPoints": 0.15645095798779313,
+      "D_pokemon": 99.373691637799,
+      "rank": 1
+    },
+    "Celebrations": {
+      "distinctPokemonCount": 6,
+      "S": 79.26014628857314,
+      "B": 0.4505186731579125,
+      "breadthPoints": 1.8687382751122474,
+      "D_pokemon": 81.12888456368539,
+      "rank": 122
+    },
+    "Evolving Skies": {
+      "distinctPokemonCount": 45,
+      "S": 95.86136687493006,
+      "B": 0.9957609438224274,
+      "breadthPoints": 0.824217845350882,
+      "D_pokemon": 96.68558472028094,
+      "rank": 24
+    },
+    "Generations": {
+      "distinctPokemonCount": 15,
+      "S": 95.08174552122824,
+      "B": 0.9119524305638591,
+      "breadthPoints": 0.8970428252094981,
+      "D_pokemon": 95.97878834643774,
+      "rank": 35
+    },
+    "Rising Rivals": {
+      "distinctPokemonCount": 19,
+      "S": 96.49226457919991,
+      "B": 0.9442336905843965,
+      "breadthPoints": 0.6624243923951358,
+      "D_pokemon": 97.15468897159505,
+      "rank": 20
+    },
+    "Prismatic Evolutions": {
+      "distinctPokemonCount": 33,
+      "S": 98.3458389728471,
+      "B": 0.982962126246557,
+      "breadthPoints": 0.32519552808087976,
+      "D_pokemon": 98.67103450092799,
+      "rank": 7
+    },
+    "Twilight Masquerade": {
+      "distinctPokemonCount": 32,
+      "S": 92.5125120036735,
+      "B": 0.8761718134987766,
+      "breadthPoints": 1.312065187258341,
+      "D_pokemon": 93.82457719093185,
+      "rank": 65
+    },
+    "Cosmic Eclipse": {
+      "distinctPokemonCount": 50,
+      "S": 94.91543327290711,
+      "B": 0.9945602620500733,
+      "breadthPoints": 1.011381603301718,
+      "D_pokemon": 95.92681487620882,
+      "rank": 37
+    },
+    "Team Up": {
+      "distinctPokemonCount": 37,
+      "S": 97.81707768424545,
+      "B": 0.9964447477729239,
+      "breadthPoints": 0.4350322952659865,
+      "D_pokemon": 98.25210997951143,
+      "rank": 12
+    },
+    "Crown Zenith": {
+      "distinctPokemonCount": 30,
+      "S": 98.96857051047131,
+      "B": 0.9711876515904307,
+      "breadthPoints": 0.2003423167432972,
+      "D_pokemon": 99.16891282721461,
+      "rank": 3
+    },
+    "Paldean Fates": {
+      "distinctPokemonCount": 138,
+      "S": 99.0701136943803,
+      "B": 0.9996347538413348,
+      "breadthPoints": 0.18590933364371615,
+      "D_pokemon": 99.25602302802402,
+      "rank": 2
+    },
+    "Surging Sparks": {
+      "distinctPokemonCount": 40,
+      "S": 92.7202860110879,
+      "B": 0.9234305525106908,
+      "breadthPoints": 1.3444620621801826,
+      "D_pokemon": 94.06474807326808,
+      "rank": 60
+    },
+    "Shrouded Fable": {
+      "distinctPokemonCount": 18,
+      "S": 74.61775324137486,
+      "B": 0.5945786764107366,
+      "breadthPoints": 3.0183485364148095,
+      "D_pokemon": 77.63610177778966,
+      "rank": 125
+    },
+    "Stellar Crown": {
+      "distinctPokemonCount": 27,
+      "S": 93.96167368054876,
+      "B": 0.9019926897170432,
+      "breadthPoints": 1.0893052396542082,
+      "D_pokemon": 95.05097892020297,
+      "rank": 47
+    },
+    "Black Bolt": {
+      "distinctPokemonCount": 74,
+      "S": 77.05021017615117,
+      "B": 0.9364683077150148,
+      "breadthPoints": 4.298350167750996,
+      "D_pokemon": 81.34856034390216,
+      "rank": 121
+    },
+    "White Flare": {
+      "distinctPokemonCount": 75,
+      "S": 87.51392500370551,
+      "B": 0.9733739647403329,
+      "breadthPoints": 2.430724064637661,
+      "D_pokemon": 89.94464906834317,
+      "rank": 99
+    }
+  },
+  "trainerLiftShadowVerification": {
+    "lambdaTrainer_locked": 0.15,
+    "maxLiftPoints": 1.1920114289839745,
+    "meanLiftPoints": 0.1883264937756055,
+    "eliteThresholdD_pokemon_p90": 98.23231141295282,
+    "overpowerViolations_countOfSetsWhereWeakPokemonPlusTrainerBeatsEliteThreshold": 0,
+    "note": "Shadow-only; not persisted to DB/production; no pooling of Pokemon and Trainer subject-level values; Functional remains diagnostic-only and untouched."
+  },
+  "128SetOutputFingerprint": "7e1c3fdc060ed5830592f51a4a470a1e38a8f14f2f179c21e54def8746c2bc19",
+  "128SetOutputArtifactPath": "backend/artifacts/collector_v6_redesign_research/pokemon_roster_d_final_128set.json",
+  "productionWritesPerformed": "NONE"
+}

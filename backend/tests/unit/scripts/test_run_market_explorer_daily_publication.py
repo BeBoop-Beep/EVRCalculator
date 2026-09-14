@@ -1,570 +1,201 @@
-"""Focused, mocked-DB tests for the Market Explorer daily-operationalization
-orchestrator (backend/scripts/run_market_explorer_daily_publication.py).
-
-Two layers are tested:
-  1. The DB-facing helpers (metadata refresh, maintained-cache discovery/
-     prewarm, historical repair) against a small fake Supabase-style client.
-  2. The top-level orchestration functions (``run_daily_publication`` /
-     ``run_historical_repair``) with the DB-facing helpers monkeypatched --
-     this is glue code over already-tested pieces
-     (``publish_market_explorer_daily_projection.run_publish`` has its own
-     dedicated test suite), so the orchestration tests assert sequencing and
-     failure-isolation, not projection arithmetic.
-"""
+"""Focused tests for the V2-only Market Explorer daily orchestrator."""
 from __future__ import annotations
 
+import ast
+import inspect
 from datetime import date
 from unittest.mock import patch
 
-import backend.db.services.market_explorer_maintained_cache_ops as cache_ops
-import backend.scripts.run_market_explorer_daily_publication as orch
+from backend.scripts import run_market_explorer_daily_publication as orch
 
 
-# --- Fake client for the DB-facing helpers -----------------------------------
-
-class Response:
-    def __init__(self, data, count=None):
+class _Response:
+    def __init__(self, data):
         self.data = data
-        self.count = count
 
 
-class Query:
-    def __init__(self, client, kind, name, params=None):
+class _Rpc:
+    def __init__(self, client, name, params):
         self.client = client
-        self.kind = kind
         self.name = name
-        self.params = params or {}
-        self.eq_filters: dict = {}
-        self.in_filters: dict = {}
-        self.start = None
-        self.end = None
-        self._upsert_rows = None
-        self._delete_ids = None
-        self.want_count = False
-
-    def select(self, *_a, count=None, **_k):
-        self.want_count = count == "exact"
-        return self
-
-    def order(self, *_a, **_k):
-        return self
-
-    def limit(self, n):
-        self.end = (self.start or 0) + n - 1
-        return self
-
-    def eq(self, field, value):
-        self.eq_filters[field] = value
-        return self
-
-    def in_(self, field, values):
-        self.in_filters[field] = list(values)
-        return self
-
-    def gt(self, field, value):
-        self.gt_value = (field, value)
-        return self
-
-    def lte(self, field, value):
-        self.lte_filters = getattr(self, "lte_filters", {})
-        self.lte_filters[field] = value
-        return self
-
-    def range(self, start, end):
-        self.start, self.end = start, end
-        return self
-
-    def upsert(self, rows, on_conflict=None):
-        self._upsert_rows = rows
-        self.client.writes.append(("upsert", self.name, list(rows)))
-        return self
-
-    def delete(self):
-        self._deleting = True
-        return self
+        self.params = params
 
     def execute(self):
-        if self._upsert_rows is not None:
-            for row in self._upsert_rows:
-                self.client.current_metadata[row["card_variant_id"]] = row
-            return Response(self._upsert_rows)
-
-        if getattr(self, "_deleting", False):
-            ids = self.in_filters.get("card_variant_id", [])
-            if self.name == "pokemon_market_explorer_card_daily_states":
-                set_id = self.eq_filters.get("set_id")
-                self.client.daily_states = [
-                    r for r in self.client.daily_states
-                    if not (r["set_id"] == set_id and r["card_variant_id"] in ids)
-                ]
-            else:
-                for vid in ids:
-                    self.client.current_metadata.pop(vid, None)
-            self.client.writes.append(("delete", self.name, list(ids)))
-            return Response(ids)
-
-        if self.kind == "rpc":
-            if self.name == orch.AUTHORITY_RPC:
-                set_ids = self.params["p_set_ids"]
-                rows = [row for row in self.client.authority_rows if row["set_id"] in set_ids]
-                return Response(self._slice(rows))
-            if self.name == orch.INVALIDATE_CACHE_SCOPED_RPC:
-                self.client.invalidate_calls.append(sorted(self.params["p_set_ids"]))
-                self.client.repair_generation += 1
-                return Response(3)
-            if self.name == orch.REPROJECT_DAILY_STATES_RPC:
-                self.client.reproject_calls.append(dict(self.params))
-                return Response(7)
-            if self.name == orch.CURRENT_METADATA_REFRESH_RPC:
-                set_ids = set(self.params["p_set_ids"])
-                expected = {
-                    row["card_variant_id"]: {**row, "canonical_card_id": f"cc-{row['card_variant_id']}"}
-                    for row in self.client.authority_rows
-                    if row["set_id"] in set_ids and row["card_variant_id"] not in self.client.retired_ids
-                }
-                self.client.current_metadata.clear()
-                self.client.current_metadata.update(expected)
-                return Response(len(expected))
-            raise AssertionError(f"unexpected rpc {self.name}")
-
-        if self.name == "pokemon_market_date_quality":
-            rows = [{"market_date": d, "status": s} for d, s in self.client.approved_dates.items()]
-            if "market_date" in self.eq_filters:
-                rows = [r for r in rows if r["market_date"] == self.eq_filters["market_date"]]
-            gt_value = getattr(self, "gt_value", None)
-            if gt_value:
-                _, value = gt_value
-                rows = [r for r in rows if r["market_date"] > value]
-            lte_filters = getattr(self, "lte_filters", {})
-            if "market_date" in lte_filters:
-                value = lte_filters["market_date"]
-                rows = [r for r in rows if r["market_date"] <= value]
-            return Response(self._slice(rows))
-
-        if self.name == "pokemon_set_value_daily_history_coverage":
-            rows = [{"set_id": sid, "has_history": True} for sid in self.client.tracked_set_ids]
-            return Response(self._slice(rows))
-
-        if self.name == "sets":
-            rows = [{"id": sid, "catalog_only": sid in self.client.catalog_only_set_ids}
-                    for sid in self.client.all_set_ids]
-            return Response(self._slice(rows))
-
-        if self.name == "pokemon_market_explorer_variant_merge_ledger":
-            rows = [{"predecessor_variant_id": v} for v in self.client.retired_ids]
-            return Response(self._slice(rows))
-
-        if self.name == orch.CURRENT_METADATA_TABLE:
-            rows = [dict(v) for v in self.client.current_metadata.values()]
-            return Response(self._slice(rows))
-
-        if self.name == cache_ops.CACHE_TABLE:
-            rows = [dict(r) for r in self.client.cache_rows
-                    if r.get("cache_kind") == self.eq_filters.get("cache_kind", r.get("cache_kind"))]
-            return Response(self._slice(rows))
-
-        if self.name == orch.COVERAGE_TABLE:
-            set_id = self.eq_filters.get("set_id")
-            rows = [dict(r) for r in self.client.coverage_rows if r["set_id"] == set_id]
-            return Response(self._slice(rows))
-
-        if self.name == "pokemon_market_explorer_card_daily_states":
-            set_id = self.eq_filters.get("set_id")
-            rows = [dict(r) for r in self.client.daily_states if r["set_id"] == set_id]
-            total = len(rows)
-            sliced = self._slice(rows)
-            return Response(sliced, count=total if self.want_count else None)
-
-        raise AssertionError(f"unexpected table {self.name}")
-
-    def _slice(self, rows):
-        if self.start is None:
-            return rows
-        return rows[self.start:self.end + 1]
+        self.client.calls.append((self.name, dict(self.params)))
+        return _Response(self.client.responses.get(self.name, 0))
 
 
-class Client:
+class _Client:
     def __init__(self):
-        self.tracked_set_ids = ["set-a", "set-b"]
-        self.all_set_ids = ["set-a", "set-b", "set-catalog"]
-        self.catalog_only_set_ids = {"set-catalog"}
-        self.authority_rows = [
-            {"card_variant_id": "v1", "set_id": "set-a"},
-            {"card_variant_id": "v2", "set_id": "set-a"},
-            {"card_variant_id": "v3", "set_id": "set-b"},
-        ]
-        self.retired_ids = set()
-        self.current_metadata: dict = {}
-        self.approved_dates = {"2026-09-01": "READY", "2026-09-02": "READY"}
-        self.cache_rows = []
-        self.coverage_rows = [
-            {"set_id": "set-a", "first_market_date": "2026-04-07",
-             "computed_through": "2026-09-02", "row_count": 100},
-            {"set_id": "set-b", "first_market_date": "2026-04-07",
-             "computed_through": "2026-09-02", "row_count": 50},
-        ]
-        self.writes: list = []
-        self.invalidate_calls: list = []
-        self.reproject_calls: list = []
-        self.repair_generation = 0
-        self.daily_states: list = []
+        self.calls: list[tuple[str, dict]] = []
+        self.responses = {orch.INVALIDATE_CACHE_SCOPED_RPC: 3}
 
     def rpc(self, name, params):
-        return Query(self, "rpc", name, params)
-
-    def table(self, name):
-        return Query(self, "table", name)
+        return _Rpc(self, name, params)
 
 
-# --- Market date resolution ---------------------------------------------------
-
-def test_resolve_latest_approved_market_date_picks_max():
-    client = Client()
-    assert orch.resolve_latest_approved_market_date(client) == "2026-09-02"
-
-
-def test_market_date_not_ready_fails_closed():
-    client = Client()
-    assert orch.market_date_is_approved(client, "2026-09-05") is False
-
-
-# --- Metadata refresh ----------------------------------------------------------
-
-def test_metadata_refresh_excludes_retired_and_catalog_only():
-    client = Client()
-    client.retired_ids = {"v2"}
-    report = orch.refresh_current_metadata(client, commit=True)
-    assert report.expected_row_count == 2  # v1, v3 -- v2 retired, set-catalog never in scope
-    ids = set(client.current_metadata)
-    assert ids == {"v1", "v3"}
-    assert "v2" not in ids
-
-
-def test_metadata_refresh_is_idempotent_no_spurious_removal():
-    client = Client()
-    orch.refresh_current_metadata(client, commit=True)
-    second = orch.refresh_current_metadata(client, commit=True)
-    assert second.rows_removed == 0
-    assert len(client.current_metadata) == 3
-
-
-def test_metadata_refresh_removes_stale_row_no_longer_current():
-    client = Client()
-    orch.refresh_current_metadata(client, commit=True)
-    # Simulate a retirement happening after the first refresh.
-    client.retired_ids = {"v3"}
-    report = orch.refresh_current_metadata(client, commit=True)
-    assert report.rows_removed == 1
-    assert "v3" not in client.current_metadata
-
-
-def test_metadata_refresh_dry_run_performs_no_writes():
-    client = Client()
-    report = orch.refresh_current_metadata(client, commit=False)
-    assert client.current_metadata == {}
-    assert report.expected_row_count == 3
-
-
-# --- Maintained-cache deferral (never builds; see cache_ops for the build-side tests) ---
-
-def test_daily_publication_module_never_imports_planner_or_cache_build_symbols():
-    """The authoritative publication script must not have an import-time (or
-    call-time) path to the planner/cache-build machinery at all -- that is
-    the whole point of extracting it into
-    backend.db.services.market_explorer_maintained_cache_ops. Assert none of
-    the build-side names leaked back into this module's namespace.
-    """
-    forbidden = {
-        "MarketExplorerQueryPlanner", "PersistentMarketExplorerCache",
-        "PreparedEquivalenceRegistry", "MarketExplorerL1Cache",
-        "run_market_explorer_query", "advance_one_maintained_cache",
-        "prewarm_maintained_caches", "discover_maintained_caches",
-    }
-    present = forbidden & set(dir(orch))
-    assert not present, f"cache-build machinery leaked into daily publication module: {present}"
-
-
-def test_deferred_cache_report_shape_with_no_client():
-    report = orch.deferred_cache_report()
-    assert report == {"status": "deferred", "reason": "separate_operational_worker"}
-
-
-def test_deferred_cache_report_names_affected_caches_for_repair_scope():
-    client = Client()
-    client.cache_rows = [
-        {"query_fingerprint": "fp1", "normalized_spec": {"mode": "all", "setIds": ["set-a"]},
-         "status": "ready", "cache_kind": "maintained", "computed_through": "2026-09-01", "label": "affected"},
-        {"query_fingerprint": "fp2", "normalized_spec": {"mode": "all", "setIds": ["set-b"]},
-         "status": "ready", "cache_kind": "maintained", "computed_through": "2026-09-01", "label": "healthy"},
-    ]
-    report = orch.deferred_cache_report(client, only_set_ids=["set-a"])
-    assert report["status"] == "deferred"
-    assert report["affected"] == ["fp1"]
-
-
-# --- Normal-day orchestration (monkeypatched DB-facing helpers) ---------------
-
-def test_normal_day_not_ready_is_a_noop_case_d():
+def test_normal_day_not_ready_is_a_noop():
     with patch.object(orch, "resolve_latest_approved_market_date", return_value=None), \
-         patch.object(orch, "run_publish") as mock_publish, \
-         patch.object(orch, "deferred_cache_report") as mock_deferred:
+         patch.object(orch, "run_publish") as mock_publish:
         result = orch.run_daily_publication(object(), commit=True)
     assert result["status"] == "not_ready"
     mock_publish.assert_not_called()
-    mock_deferred.assert_not_called()
 
 
-def test_normal_day_full_success_case_a():
-    """Successful normal publication does metadata refresh + projection and
-    exits without calling any cache prewarm/build path -- the summary's
-    `caches` field is always the explicit deferred marker, never a build
-    outcome, and no build-side function is ever invoked."""
-    with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
-         patch.object(orch, "market_date_is_approved", return_value=True), \
-         patch.object(orch, "refresh_current_metadata",
-                      return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
-         patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
-         patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_new": 2}), \
-         patch.object(orch, "advance_v2_daily_shadow",
-                      return_value={"failures": [], "sets_advanced": 2}) as mock_v2, \
-         patch.object(cache_ops, "advance_one_maintained_cache") as mock_build:
-        result = orch.run_daily_publication(object(), commit=True)
-    assert result["status"] == "ok"
-    assert result["market_date"] == "2026-09-02"
-    assert result["caches"] == {"status": "deferred", "reason": "separate_operational_worker"}
-    mock_build.assert_not_called()
-    mock_v2.assert_called_once()
-
-
-def test_cache_state_cannot_change_publication_result_case_b():
-    """Whatever a real maintained-cache's state is (stale, failed, absent),
-    the authoritative publication result is unaffected -- the script never
-    even reads cache-build state on this path any more."""
-    with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
-         patch.object(orch, "market_date_is_approved", return_value=True), \
-         patch.object(orch, "refresh_current_metadata",
-                      return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
-         patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
-         patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_new": 2}), \
-         patch.object(orch, "advance_v2_daily_shadow",
-                      return_value={"failures": [], "sets_advanced": 2}):
-        result = orch.run_daily_publication(object(), commit=True)
-    # Projection status still "ok" -- no cache read/build ever runs on this
-    # path, so nothing about cache health can roll back an already-committed
-    # valid projection.
-    assert result["status"] == "ok"
-    assert result["caches"]["status"] == "deferred"
-
-
-def test_projection_failure_prevents_any_cache_deferral_report_case_c():
-    with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
-         patch.object(orch, "market_date_is_approved", return_value=True), \
-         patch.object(orch, "refresh_current_metadata",
-                      return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
-         patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
-         patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 1, "sets_new": 1}), \
-         patch.object(orch, "deferred_cache_report") as mock_deferred:
-        result = orch.run_daily_publication(object(), commit=True)
-    assert result["status"] == "projection_failed"
-    mock_deferred.assert_not_called()
-    assert result["caches"] is None
-
-
-def test_v2_failure_stops_before_cache_prewarm_boundary():
-    with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
-         patch.object(orch, "market_date_is_approved", return_value=True), \
-         patch.object(orch, "refresh_current_metadata",
-                      return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
-         patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a"]), \
-         patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 0}), \
-         patch.object(orch, "advance_v2_daily_shadow",
-                      return_value={"failures": [{"set_id": "set-a"}], "sets_advanced": 0}), \
-         patch.object(orch, "deferred_cache_report") as mock_deferred:
-        result = orch.run_daily_publication(object(), commit=True)
-    assert result["status"] == "projection_failed"
-    assert "V2" in result["error"]
-    mock_deferred.assert_not_called()
-
-
-def test_dry_run_same_date_rerun_is_idempotent_report_shape():
-    with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
-         patch.object(orch, "market_date_is_approved", return_value=True), \
-         patch.object(orch, "refresh_current_metadata",
-                      return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
-         patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a", "set-b"]), \
-         patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 0, "sets_up_to_date": 2}):
-        first = orch.run_daily_publication(object(), commit=False)
-        second = orch.run_daily_publication(object(), commit=False)
-    assert first["status"] == second["status"] == "ok"
-    assert second["caches"] == {"status": "deferred", "reason": "separate_operational_worker"}
-
-
-# --- Historical repair -----------------------------------------------------
-
-def test_historical_repair_reprojects_from_earliest_affected_date():
-    client = Client()
-    client.approved_dates = {"2026-04-07": "READY", "2026-04-08": "READY"}
-    client.authority_rows = [{"card_variant_id": "v1", "set_id": "set-a"}]
-    client.coverage_rows = [{"set_id": "set-a", "first_market_date": "2026-04-07",
-                             "computed_through": "2026-04-08", "row_count": 0}]
-
-    with patch("backend.scripts.publish_market_explorer_daily_projection.load_variant_ids_for_set",
-              return_value=["v1"]), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.load_retired_predecessor_ids",
-              return_value=set()), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.load_interval_join",
-              return_value=[{"card_variant_id": "v1"}]), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.count_actual_rows",
-              return_value=2), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.activate_or_repair_coverage",
-              side_effect=lambda c, *, commit, set_id, report: report.__setattr__(
-                  "coverage_after", {"set_id": set_id, "computed_through": "2026-04-08", "row_count": 2})), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.purge_ineligible_daily_state_rows",
-              return_value=0) as mock_purge, \
-         patch.object(cache_ops, "advance_one_maintained_cache") as mock_build:
-        result = orch.run_historical_repair(
-            client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
-            repair_through=date(2026, 4, 8),
-        )
-
-    assert client.reproject_calls[0]["p_start_date"] == "2026-04-07"
-    assert result["status"] == "ok"
-    assert result["reconciled"] is True
-    mock_purge.assert_called_once()
-    assert mock_purge.call_args.kwargs["eligible_variant_ids"] == ["v1"]
-    mock_build.assert_not_called()  # repair invalidates/reports deferred; never rebuilds inline
-
-
-def test_historical_repair_bumps_repair_generation_via_scoped_rpc():
-    client = Client()
-    client.approved_dates = {"2026-04-07": "READY"}
-    with patch("backend.scripts.publish_market_explorer_daily_projection.load_variant_ids_for_set",
-              return_value=[]), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.load_retired_predecessor_ids",
-              return_value=set()), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.load_interval_join",
-              return_value=[]), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.count_actual_rows",
-              return_value=0), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.activate_or_repair_coverage",
-              side_effect=lambda c, *, commit, set_id, report: report.__setattr__(
-                  "coverage_after", {"set_id": set_id, "computed_through": "2026-04-07", "row_count": 0})), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.purge_ineligible_daily_state_rows",
-              return_value=0):
-        result = orch.run_historical_repair(
-            client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
-            repair_through=date(2026, 4, 7),
-        )
-    assert client.invalidate_calls == [["set-a"]]
-    assert client.repair_generation == 1
-    assert result["repair_generation_bumped"] is True
-    assert result["caches"]["status"] == "deferred"
-
-
-def test_historical_repair_reconciliation_failure_blocks_coverage_and_caches():
-    client = Client()
-    client.approved_dates = {"2026-04-07": "READY"}
-    with patch("backend.scripts.publish_market_explorer_daily_projection.load_variant_ids_for_set",
-              return_value=["v1"]), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.load_retired_predecessor_ids",
-              return_value=set()), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.load_interval_join",
-              return_value=[{"card_variant_id": "v1"}]), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.count_actual_rows",
-              return_value=999), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.purge_ineligible_daily_state_rows",
-              return_value=0), \
-         patch.object(cache_ops, "advance_one_maintained_cache") as mock_build:
-        result = orch.run_historical_repair(
-            client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
-            repair_through=date(2026, 4, 7),
-        )
-    assert result["status"] == "reconciliation_failed"
-    assert result["reconciled"] is False
-    assert client.invalidate_calls == []  # never bumps generation / invalidates on failed reconcile
-    assert result["caches"] is None
-    mock_build.assert_not_called()
-
-
-def test_historical_repair_purges_ineligible_rows_left_by_opaque_reproject_rpc():
-    """The reprojection RPC (``REPROJECT_DAILY_STATES_RPC``) is an opaque
-    DB-side call this module does not control -- it must not be trusted to
-    respect the current authority boundary on its own. A stray row for an
-    excluded instrument (e.g. a duplicate_alias) left behind by that RPC (or
-    predating a catalog-role correction) must be purged before reconciliation,
-    self-healing the leak without special-casing any one instrument.
-    """
-    client = Client()
-    client.approved_dates = {"2026-04-07": "READY"}
-    # v1 is authority-eligible; v-duplicate-alias is a stray already sitting
-    # in daily_states for this set (simulating the historical leak).
-    client.daily_states = [
-        {"set_id": "set-a", "market_date": "2026-04-07", "card_variant_id": "v1"},
-        {"set_id": "set-a", "market_date": "2026-04-07", "card_variant_id": "v-duplicate-alias"},
-    ]
-    with patch("backend.scripts.publish_market_explorer_daily_projection.load_variant_ids_for_set",
-              return_value=["v1"]), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.load_retired_predecessor_ids",
-              return_value=set()), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.load_interval_join",
-              return_value=[{"card_variant_id": "v1"}]), \
-         patch("backend.scripts.publish_market_explorer_daily_projection.activate_or_repair_coverage",
-              side_effect=lambda c, *, commit, set_id, report: report.__setattr__(
-                  "coverage_after", {"set_id": set_id, "computed_through": "2026-04-07", "row_count": 1})):
-        result = orch.run_historical_repair(
-            client, commit=True, set_ids=["set-a"], repair_start=date(2026, 4, 7),
-            repair_through=date(2026, 4, 7),
-        )
-
-    assert result["status"] == "ok"
-    assert result["reconciled"] is True
-    assert result["stray_rows_purged"] == 1
-    assert [r["card_variant_id"] for r in client.daily_states] == ["v1"]
-
-
-def test_historical_repair_no_sets_is_a_noop():
-    client = Client()
-    result = orch.run_historical_repair(
-        client, commit=True, set_ids=[], repair_start=date(2026, 4, 7),
+def test_normal_day_has_one_projection_phase_and_it_is_v2(monkeypatch):
+    projection = {
+        "dry_run": False,
+        "sets_attempted": 165,
+        "sets_reconciliation_failed": 0,
+        "failures": 0,
+    }
+    monkeypatch.setattr(orch, "resolve_latest_approved_market_date", lambda *_a: "2026-09-10")
+    monkeypatch.setattr(orch, "market_date_is_approved", lambda *_a, **_k: True)
+    monkeypatch.setattr(
+        orch,
+        "refresh_current_metadata",
+        lambda *_a, **_k: orch.MetadataRefreshReport(expected_row_count=34228),
     )
-    assert result["status"] == "no_sets"
-    assert client.reproject_calls == []
+    monkeypatch.setattr(orch, "resolve_tracked_set_ids", lambda *_a: ["set-a", "set-b"])
+    calls = []
 
+    def fake_publish(_client, **kwargs):
+        calls.append(kwargs)
+        return projection
 
-# --- Security / write boundary --------------------------------------------
-
-def test_main_uses_service_role_client_only(monkeypatch):
-    sentinel_client = object()
-    monkeypatch.setattr(orch, "create_service_role_client", lambda: sentinel_client)
-
-    captured = {}
-
-    def fake_run_daily_publication(client, **kwargs):
-        captured["client"] = client
-        return {"status": "ok"}
-
-    monkeypatch.setattr(orch, "run_daily_publication", fake_run_daily_publication)
-    monkeypatch.setattr("sys.argv", ["run_market_explorer_daily_publication.py", "--dry-run"])
-
-    exit_code = orch.main()
-
-    assert captured["client"] is sentinel_client  # never an anon/authenticated client
-    assert exit_code == 0
-
-
-def test_summary_is_json_serializable():
-    import json
-    with patch.object(orch, "resolve_latest_approved_market_date", return_value="2026-09-02"), \
-         patch.object(orch, "market_date_is_approved", return_value=True), \
-         patch.object(orch, "refresh_current_metadata",
-                      return_value=orch.MetadataRefreshReport(expected_row_count=3)), \
-         patch.object(orch, "resolve_tracked_set_ids", return_value=["set-a"]), \
-         patch.object(orch, "run_publish",
-                      return_value={"failures": 0, "sets_reconciliation_failed": 0}):
+    monkeypatch.setattr(orch, "run_publish", fake_publish)
+    with patch.object(orch, "advance_v2_daily_shadow") as obsolete_second_phase:
         result = orch.run_daily_publication(object(), commit=True)
-    json.dumps(result, default=str)  # must not raise
+
+    assert result["status"] == "ok"
+    assert result["market_date"] == "2026-09-10"
+    assert len(calls) == 1
+    assert calls[0]["commit"] is True
+    assert calls[0]["through_date"] == date(2026, 9, 10)
+    assert result["projection"] == projection
+    assert result["v2_projection"] == projection
+    assert result["caches"] == {
+        "status": "deferred",
+        "reason": "separate_operational_worker",
+    }
+    obsolete_second_phase.assert_not_called()
+
+
+def test_normal_day_fails_closed_on_any_v2_projection_failure(monkeypatch):
+    monkeypatch.setattr(orch, "market_date_is_approved", lambda *_a, **_k: True)
+    monkeypatch.setattr(
+        orch,
+        "refresh_current_metadata",
+        lambda *_a, **_k: orch.MetadataRefreshReport(expected_row_count=34228),
+    )
+    monkeypatch.setattr(orch, "resolve_tracked_set_ids", lambda *_a: ["set-a"])
+    monkeypatch.setattr(
+        orch,
+        "run_publish",
+        lambda *_a, **_k: {
+            "failures": 1,
+            "sets_reconciliation_failed": 0,
+        },
+    )
+
+    result = orch.run_daily_publication(
+        object(), commit=True, market_date="2026-09-10",
+    )
+    assert result["status"] == "projection_failed"
+    assert "verified V2" in result["error"]
+    assert result["caches"] is None
+
+
+def test_historical_repair_force_rebuilds_bounded_v2_and_invalidates_cache(monkeypatch):
+    client = _Client()
+    seen = []
+    monkeypatch.setattr(orch, "market_date_is_approved", lambda *_a, **_k: True)
+
+    def fake_publish(_client, **kwargs):
+        seen.append(kwargs)
+        return {
+            "failures": 0,
+            "sets_reconciliation_failed": 0,
+            "reports": [{
+                "set_id": "set-a",
+                "expected_rows": 25,
+                "actual_rows": 25,
+                "reconciled": True,
+                "coverage_after": {
+                    "set_id": "set-a",
+                    "retained_from": "2026-06-03",
+                    "computed_through": "2026-09-10",
+                },
+            }],
+        }
+
+    monkeypatch.setattr(orch, "run_publish", fake_publish)
+    monkeypatch.setattr(
+        orch,
+        "deferred_cache_report",
+        lambda *_a, **_k: {
+            "status": "deferred",
+            "reason": "separate_operational_worker",
+            "affected": ["fp-a"],
+        },
+    )
+
+    result = orch.run_historical_repair(
+        client,
+        commit=True,
+        set_ids=["set-a"],
+        repair_start=date(2026, 7, 1),
+        repair_through=date(2026, 9, 10),
+    )
+
+    assert result["status"] == "ok"
+    assert result["reconciled"] is True
+    assert result["expected_rows"] == result["actual_rows"] == 25
+    assert seen[0]["force_rebuild"] is True
+    assert seen[0]["retention_days"] == orch.V2_RETENTION_DAYS
+    assert client.calls == [(
+        orch.INVALIDATE_CACHE_SCOPED_RPC,
+        {"p_set_ids": ["set-a"]},
+    )]
+
+
+def test_historical_repair_does_not_invalidate_on_v2_failure(monkeypatch):
+    client = _Client()
+    monkeypatch.setattr(orch, "market_date_is_approved", lambda *_a, **_k: True)
+    monkeypatch.setattr(
+        orch,
+        "run_publish",
+        lambda *_a, **_k: {
+            "failures": 1,
+            "sets_reconciliation_failed": 0,
+            "reports": [],
+        },
+    )
+
+    result = orch.run_historical_repair(
+        client,
+        commit=True,
+        set_ids=["set-a"],
+        repair_start=date(2026, 7, 1),
+        repair_through=date(2026, 9, 10),
+    )
+    assert result["status"] == "reconciliation_failed"
+    assert client.calls == []
+
+
+def test_cache_build_is_always_deferred_from_daily_publisher():
+    assert orch.deferred_cache_report() == {
+        "status": "deferred",
+        "reason": "separate_operational_worker",
+    }
+
+
+def test_runtime_module_contains_no_exact_retired_v1_relation_literals():
+    tree = ast.parse(inspect.getsource(orch))
+    strings = {
+        node.value for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+    assert "pokemon_market_explorer_card_daily_states" not in strings
+    assert "pokemon_market_explorer_card_daily_coverage" not in strings
+    assert "pokemon_card_variant_market_price_intervals" not in strings

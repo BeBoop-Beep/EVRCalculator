@@ -1,0 +1,80 @@
+{
+  "researchVersion": "collector_v6_cross_bucket_redesign_research_v1",
+  "status": "research_only_not_implemented",
+  "frozenControlPreserved": {
+    "modelVersion": "pokemon_collector_appeal_v6_generalized_roster_frequency",
+    "modelRunId": "0efa3c8f-918d-49d7-ad5e-3ae37278058f"
+  },
+  "domains": {
+    "pokemon": {
+      "role": "CORE",
+      "computation": "roster_score(pokemon_group_representative_appeals, k=6.0)",
+      "unchangedFrom": "current C4 pokemon-group subset"
+    },
+    "trainer": {
+      "role": "BOUNDED_LIFT_CANDIDATE",
+      "computation": "roster_score(trainer_group_representative_appeals, k=6.0)",
+      "note": "computed within its own domain only; never pooled with pokemon subject-level values"
+    },
+    "functional": {
+      "role": "DIAGNOSTIC_ONLY",
+      "computation": "roster_score(functional_group_representative_appeals, k=6.0)",
+      "note": "no independent collector-demand evidence exists; excluded from all Collector Roster Appeal candidates; retained as a Playability/Utility diagnostic only"
+    }
+  },
+  "candidates": {
+    "A_pokemon_only_control": {
+      "formula": "D = D_pokemon",
+      "params": {}
+    },
+    "B1_bounded_trainer_headroom_lift": {
+      "formula": "D = D_pokemon + (100 - D_pokemon) * BETA * (D_trainer / 100)",
+      "params": {"BETA": 0.15},
+      "note": "structurally identical in form to the existing card-level bounded_score() Playability lift (B+(100-B)*lambda*(P/100)), applied one level up at the roster/bucket level; BETA chosen by architectural analogy to existing lambda=0.20, made more conservative, NOT tuned against price"
+    },
+    "B2_presence_aware_bounded_lift": {
+      "formula": "D = D_pokemon + (100 - D_pokemon) * BETA * (D_trainer / 100) * min(1, trainerGroupShare / 0.15)",
+      "params": {"BETA": 0.15, "presenceThreshold": 0.15},
+      "note": "trainerGroupShare = trainerGroupCount / (trainerGroupCount + pokemonGroupCount); full lift credit only once trainer groups reach 15% of named-subject groups in the set"
+    },
+    "C_domain_normalized_pooled": {
+      "status": "rejected_not_carried_forward",
+      "reason": "percentile/z-score of a roster score changes score semantics per-set and reintroduces an unverified comparability assumption one level up instead of resolving it"
+    },
+    "D_separate_axes_only": {
+      "status": "operationally_equivalent_to_A",
+      "note": "product/contract framing distinction only: Trainer Appeal and Functional Utility surfaced as permanent separate axes rather than pending-calibration inputs"
+    }
+  },
+  "empiricalResults128Sets": {
+    "maxAbsRankDeltaVsPokemonOnly": {
+      "current_flawed_model": 41,
+      "candidate_A": 0,
+      "candidate_B1": 7,
+      "candidate_B2": 7
+    },
+    "meanAbsRankDeltaVsPokemonOnly": {
+      "current_flawed_model": 6.56,
+      "candidate_A": 0.00,
+      "candidate_B1": 0.84,
+      "candidate_B2": 0.73
+    },
+    "setsWithRankDeltaOver10": {
+      "current_flawed_model": 24,
+      "candidate_A": 0,
+      "candidate_B1": 0,
+      "candidate_B2": 0
+    }
+  },
+  "sensitivity": {
+    "corrDPokemonDTrainerSpearman": 0.989,
+    "corrCandidateVsPokemonOnlySpearman": {"A": 1.0, "B1": 1.0, "B2": 1.0},
+    "confoundNote": "D_pokemon correlates 0.995-0.999 with pokemonGroupCount, trainerGroupCount, functionalGroups, and totalCards alike -- roster mass is fundamentally a set-size statistic, so the high D_pokemon/D_trainer correlation reflects shared set-size confounding, not domain-semantic equivalence",
+    "trainerNoiseRobustness": {
+      "pct5": {"maxRankShift": 2, "meanRankShift": 0.030},
+      "pct10": {"maxRankShift": 2, "meanRankShift": 0.062},
+      "pct20": {"maxRankShift": 2, "meanRankShift": 0.108}
+    }
+  },
+  "priceUsageDisclosure": "no candidate weight, normalization, or selection decision used market price data at any point in this research"
+}

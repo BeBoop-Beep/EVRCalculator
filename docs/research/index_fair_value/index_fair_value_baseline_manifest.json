@@ -1,0 +1,14 @@
+{
+  "version":"index_fair_value_baselines_f1_v1",
+  "foldRule":"Fit every baseline on training groups only; unknown categories use preregistered backoff.",
+  "baselines":[
+    {"id":"B0","definition":"training-fold global median log price"},
+    {"id":"B1","definition":"era median with global backoff"},
+    {"id":"B2","definition":"root/set comparable median excluding the held-out root; same-era nearest structural peer backoff"},
+    {"id":"B3","definition":"era-local rarity/treatment median with era then global backoff"},
+    {"id":"B4","definition":"regularized scarcity-only model using preregistered -log10(p)"},
+    {"id":"B5","definition":"regularized frozen-Collector-Appeal-only model"},
+    {"id":"B6","definition":"age + era + rarity/Treatment structural baseline"},
+    {"id":"B7","definition":"reproduction of 2026-07 card_fair_value B7 on its frozen 1322-card cohort; mandatory negative control"}
+  ]
+}

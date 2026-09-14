@@ -23,8 +23,7 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
     "OpeningEconomicsOverall",
     "OpeningEconomicsEras",
     "EraRankings",
-    "SetPackMetrics",
-    "ExploreTableClient",
+    "SetRankingsHub",
     "CardChaseEfficiencyRankings",
     "RankingsProductLensClient",
   ]) {
@@ -33,15 +32,20 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
   assert.ok(source.includes('/api/explore/rankings/lens?lens=sets'));
   assert.ok(source.includes('/api/explore/rankings/lens?lens=eras'));
   assert.ok(source.includes('const [lens, setActiveLens]'));
-  assert.ok(source.includes('const [setAnalysisLens, setSetAnalysisLens]'));
-  assert.ok(!source.includes('const [setLens, setSetLens]'));
+  assert.ok(!source.includes('setAnalysisLens'), "Set sub-navigation belongs to the lazy Set hub");
+  const hub = read("components/explore/SetRankingsHub.jsx");
+  for (const moduleName of ["SetRipScoreLeaderboard", "SetPackMetrics", "ExploreTableClient"]) assert.ok(hub.includes(`import("./${moduleName}")`));
+  assert.ok(!hub.includes("fetch("), "Set tabs must reuse the cohort supplied by RankingsLazyClient");
 });
 
 test("canonical Set rankings cohort is isolated behind the Sets lens endpoint", () => {
   const source = read("app/api/explore/rankings/lens/route.js");
+  const projection = read("lib/explore/setRankingsLensProjection.mjs");
 
   assert.ok(source.includes('if (lens === "sets")'));
-  assert.ok(source.includes("projectRankingsClientPublicSetLeaderboard"));
+  assert.ok(source.includes('preparedLensPayloadForRequest("sets", request)'));
+  assert.ok(source.includes("projectSetRankingsLensTargets"));
+  assert.ok(projection.includes("projectRankingsClientPublicSetLeaderboard"));
   assert.ok(source.includes("isPublicAnalyticsEligiblePokemonSet"));
 
   assert.ok(
@@ -52,17 +56,21 @@ test("canonical Set rankings cohort is isolated behind the Sets lens endpoint", 
 
 test("set canonical route uses the slim route directory on every tab", () => {
   const source = read("app/TCGs/Pokemon/Sets/[setSlug]/page.js");
-  assert.ok(source.includes("getPokemonSetRouteDirectory({ limit: 150 })"));
+  assert.ok(source.includes("getPokemonSetRouteDirectory({ limit: 200 })"));
   assert.ok(!source.includes("getRipStatisticsTargets"), "set URL resolution must never build the canonical rankings cohort");
   assert.ok(!source.includes("useSlimSetDirectory"), "tab-specific routing must not regress to heavyweight discovery");
 });
 
 test("set analytics runtime is split out of the initial route chunk", () => {
-  const source = read("components/pokemon/set-page/PokemonSetPageClient.jsx");
-  assert.ok(source.includes("dynamic("));
-  assert.ok(source.includes('import("@/components/explore/RipStatisticsPageClient")'));
-  assert.ok(source.includes("ssr: false"));
-  assert.ok(!/^import RipStatisticsPageClient/m.test(source));
+  const entrypoint = read("components/pokemon/set-page/PokemonSetPageClient.jsx");
+  const runtime = read("components/pokemon/set-page/runtime/PokemonSetRuntimeShell.jsx");
+  assert.ok(entrypoint.includes("dynamic("));
+  assert.ok(entrypoint.includes('import("@/components/pokemon/set-page/PokemonSetRichPageClient")'));
+  assert.ok(entrypoint.includes("ssr: false"));
+  assert.ok(runtime.includes('dynamic(() => import("@/components/explore/RipStatisticsPageClient")'));
+  assert.ok(runtime.includes("ssr: false"));
+  assert.ok(!/^import RipStatisticsPageClient/m.test(entrypoint));
+  assert.ok(!/^import RipStatisticsPageClient/m.test(runtime));
 });
 
 test("Recharts named imports stay optimized across analytical routes", () => {

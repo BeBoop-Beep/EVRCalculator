@@ -47,6 +47,7 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -60,6 +61,16 @@ from backend.db.services.opening_simulation_gate import (  # noqa: E402
     sets_needing_simulation,
 )
 from backend.db.services.publication_gate import GATE_DEFERRED_EXIT_CODE  # noqa: E402
+from backend.db.services.rankings_publication_lifecycle import (  # noqa: E402
+    CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+    CLASSIFICATION_EXPLICIT_OPERATOR_SKIP,
+    CLASSIFICATION_FAILED_WITH_ATTEMPT,
+    CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+    CLASSIFICATION_PUBLISHED,
+    CLASSIFICATION_UNCHANGED_NOT_REQUIRED,
+    RankingsPublicationOutcome,
+    rankings_publication_legacy_status,
+)
 
 logger = logging.getLogger("run_daily_opening_publication")
 
@@ -90,6 +101,7 @@ class PublicationSummary:
     skipped: List[Dict[str, str]] = field(default_factory=list)
     latest_simulation_date_by_set: Dict[str, Optional[str]] = field(default_factory=dict)
     snapshot_publication_status: str = "not_attempted"
+    chase_accessibility_publication_status: str = "not_attempted"
     chase_snapshot_publication_status: str = "not_attempted"
     chase_efficiency_publication_status: str = "not_attempted"
     chase_audit_status: str = "not_attempted"
@@ -107,6 +119,16 @@ class PublicationSummary:
     sealed_product_finalization_report: Optional[Dict[str, Any]] = None
     rankings_publication_status: str = "not_attempted"
     rankings_readiness_reason_code: Optional[str] = None
+    # THE canonical, end-to-end Rankings result: the same
+    # `RankingsPublicationOutcome` object threaded up from
+    # `refresh_stale_public_snapshots.py`'s `RefreshSummary` where the
+    # publisher was actually invoked in that subprocess, or constructed
+    # directly here for the states this orchestrator resolves before ever
+    # reaching that subprocess (deferred-with-attempt, explicit skip,
+    # pipeline-failed-before-decision). `rankings_publication_status` is kept
+    # only as the legacy projection of THIS field's classification (see
+    # `_set_rankings_outcome` below) - never set independently.
+    rankings_publication_outcome: Optional[Dict[str, Any]] = None
     rip_stats_publication_status: str = "not_attempted"
     ev_representativeness_status: str = "not_attempted"
     rip_stats_audit_status: str = "not_attempted"
@@ -116,6 +138,7 @@ class PublicationSummary:
     rip_stats_set_count: int = 0
     rip_stats_source_run_fingerprint: Optional[str] = None
     rip_stats_failures: List[str] = field(default_factory=list)
+    historical_rip_status: str = "not_attempted"
     exit_code: int = EXIT_CANNOT_START
     error: Optional[str] = None
 
@@ -138,6 +161,14 @@ class PublicationSummary:
         )
         out.append(f"{TAG} rankings_publication_status={self.rankings_publication_status}")
         out.append(f"{TAG} rankings_readiness_reason_code={self.rankings_readiness_reason_code}")
+        rankings_outcome = self.rankings_publication_outcome or {}
+        out.append(
+            f"{TAG} Rankings: {rankings_outcome.get('classification', 'UNKNOWN')} "
+            f"reason={rankings_outcome.get('reason_code')} "
+            f"attempt={rankings_outcome.get('attempt_id')} "
+            f"publication={rankings_outcome.get('publication_id')} "
+            f"mode={rankings_outcome.get('publication_mode')}"
+        )
         if self.sealed_product_finalization_report:
             report = self.sealed_product_finalization_report
             out.append(
@@ -152,6 +183,9 @@ class PublicationSummary:
                 f"total_ms={report.get('elapsedMs')}"
             )
         out.append(f"{TAG} snapshot_publication_status={self.snapshot_publication_status}")
+        out.append(
+            f"{TAG} chase_accessibility_publication_status={self.chase_accessibility_publication_status}"
+        )
         out.append(f"{TAG} chase_snapshot_publication_status={self.chase_snapshot_publication_status}")
         out.append(f"{TAG} chase_efficiency_publication_status={self.chase_efficiency_publication_status}")
         out.append(f"{TAG} chase_audit_status={self.chase_audit_status}")
@@ -165,6 +199,7 @@ class PublicationSummary:
         out.append(f"{TAG} simulation_execution_date={self.simulation_execution_date}")
         out.append(f"{TAG} rip_stats_set_count={self.rip_stats_set_count}")
         out.append(f"{TAG} rip_stats_source_run_fingerprint={self.rip_stats_source_run_fingerprint}")
+        out.append(f"{TAG} historical_rip_status={self.historical_rip_status}")
         for failure in self.rip_stats_failures:
             out.append(f"{TAG}   rip_stats_failure={failure}")
         out.append(f"{TAG} verification_passed={self.verification_passed}")
@@ -270,6 +305,28 @@ def refresh_public_snapshots(
     return _run_command(command, dry_run=dry_run)
 
 
+def refresh_chase_accessibility_snapshots(
+    *, python_executable: Optional[str] = None, market_date: str, dry_run: bool = False,
+) -> int:
+    """Rebuild Chase Accessibility V1 from the CURRENT simulation cohort's exact run ids.
+
+    Must run AFTER the current-day simulation cohort is verified and BEFORE
+    sealed-product finalization / public snapshot refresh, because V12 refuses
+    an Accessibility row whose ``calculation_run_id`` does not match the
+    product cohort's own current run. This is intentionally NOT
+    ``refresh_chase_economics_snapshots`` (a different, legacy system keyed on
+    the PUBLISHED Set-page run identity) - see
+    ``rebuild_chase_accessibility_snapshots.py`` for the authority contract.
+    """
+    command = [
+        python_executable or sys.executable,
+        str(REPO_ROOT / "backend" / "scripts" / "rebuild_chase_accessibility_snapshots.py"),
+        "--market-date",
+        market_date,
+    ]
+    return _run_command(command, dry_run=dry_run)
+
+
 def refresh_chase_economics_snapshots(
     *, python_executable: Optional[str] = None, dry_run: bool = False,
     market_date: Optional[str] = None,
@@ -360,11 +417,17 @@ def _skipped_entries(report: OpeningSimulationFreshnessReport) -> List[Dict[str,
     return entries
 
 
-def _persist_rankings_deferral(client: Any, report: Any) -> None:
-    """Persist a no-publish Rankings decision before independent surfaces continue."""
+def _persist_rankings_deferral(client: Any, report: Any) -> Optional[str]:
+    """Persist a no-publish Rankings decision before independent surfaces continue.
+
+    Returns the persisted attempt id (or None when persistence is skipped for
+    a strict pre-audit unit fake that has not declared the attempts table) so
+    the caller can build a `RankingsPublicationOutcome` carrying the ACTUAL
+    attempt id rather than omitting it.
+    """
     fake_tables = getattr(client, "_tables", None)
     if isinstance(fake_tables, dict) and "pokemon_rankings_publication_attempts" not in fake_tables:
-        return
+        return None
     from backend.db.services.rankings_publication_lifecycle import (
         finish_rankings_publication_attempt,
         read_active_publication,
@@ -376,6 +439,165 @@ def _persist_rankings_deferral(client: Any, report: Any) -> None:
         client, attempt_id, status="deferred", reason_code=report.reason_code,
         detail=report.detail,
     )
+    return attempt_id
+
+
+def _load_post_refresh_rankings_outcome(
+    client: Any, *, market_date: str, rankings_branch_ready: bool,
+) -> RankingsPublicationOutcome:
+    """The canonical Rankings outcome AFTER `refresh_public_snapshots` ran as a subprocess.
+
+    `refresh_stale_public_snapshots.py` runs out-of-process (a `subprocess.run`
+    call in `refresh_public_snapshots`), so its `RefreshSummary` object -
+    including `RefreshSummary.rankings_publication_outcome` - never crosses
+    back into this process directly. The publication attempts table is the
+    one thing both processes agree on, so this reads the newest attempt
+    persisted for `market_date` (written by `start_rankings_publication_attempt`/
+    `finish_rankings_publication_attempt` inside the publisher the subprocess
+    invoked) and reconstructs the same classification from it, rather than
+    inferring anything from the subprocess exit code alone.
+
+    No attempt row for this date, with the branch marked ready, means the
+    refresh subprocess evaluated Rankings and found the active publication
+    already current (CLASSIFICATION_UNCHANGED_NOT_REQUIRED) - the publisher is
+    never invoked, and therefore never starts an attempt, on that path.
+    """
+    if not rankings_branch_ready:
+        return RankingsPublicationOutcome(
+            classification=CLASSIFICATION_EXPLICIT_OPERATOR_SKIP,
+            reason_code="RANKINGS_BRANCH_NOT_READY",
+            reason_detail=(
+                "Rankings branch was not ready before the coordinated refresh ran; "
+                "--skip-explore-rankings was passed to refresh_stale_public_snapshots.py"
+            ),
+            publication_required=False, publication_attempted=False,
+        )
+    try:
+        rows = list(
+            client.table("pokemon_rankings_publication_attempts")
+            .select(
+                "id,status,reason_code,reason_detail,resulting_publication_id,diagnostics,"
+                "attempted_market_date,completed_at"
+            )
+            .eq("attempted_market_date", market_date)
+            .order("completed_at", desc=True)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+    except Exception as exc:  # fail closed to a reportable, never a silent "published"
+        return RankingsPublicationOutcome(
+            classification=CLASSIFICATION_FAILED_WITH_ATTEMPT,
+            reason_code="RANKINGS_ATTEMPT_LOOKUP_FAILED", reason_detail=str(exc),
+            publication_required=True, publication_attempted=True,
+        )
+    if not rows:
+        return RankingsPublicationOutcome(
+            classification=CLASSIFICATION_UNCHANGED_NOT_REQUIRED,
+            reason_code="CANONICAL_RANKINGS_CURRENT",
+            reason_detail=(
+                f"no Rankings publication attempt was persisted for {market_date}; the active "
+                "canonical publication was already current"
+            ),
+            publication_required=False, publication_attempted=False,
+        )
+    row = rows[0]
+    status = str(row.get("status") or "")
+    diagnostics = row.get("diagnostics") if isinstance(row.get("diagnostics"), dict) else {}
+    publication_mode = diagnostics.get("publicationMode")
+    attempt_id = str(row.get("id")) if row.get("id") else None
+    publication_id = str(row.get("resulting_publication_id")) if row.get("resulting_publication_id") else None
+    reason_code = str(row.get("reason_code") or "")
+    reason_detail = str(row.get("reason_detail") or "")
+    if status == "published":
+        return RankingsPublicationOutcome(
+            classification=CLASSIFICATION_PUBLISHED, reason_code=reason_code or "READY",
+            reason_detail=reason_detail, attempt_id=attempt_id, publication_id=publication_id,
+            publication_mode=publication_mode, publication_required=True, publication_attempted=True,
+        )
+    if status == "deferred":
+        return RankingsPublicationOutcome(
+            classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT, reason_code=reason_code,
+            reason_detail=reason_detail, attempt_id=attempt_id, publication_mode=publication_mode,
+            publication_required=True, publication_attempted=False,
+        )
+    # "failed" and any other terminal status the attempts table's
+    # externally-owned status vocabulary may carry.
+    return RankingsPublicationOutcome(
+        classification=CLASSIFICATION_FAILED_WITH_ATTEMPT, reason_code=reason_code or status,
+        reason_detail=reason_detail, attempt_id=attempt_id, publication_mode=publication_mode,
+        publication_required=True, publication_attempted=True,
+    )
+
+
+def _resolve_upstream_refresh_failure_outcome(
+    client: Any, *, market_date: str, reason_code: str,
+) -> RankingsPublicationOutcome:
+    """Classify Rankings after `refresh_public_snapshots` itself failed/deferred.
+
+    Fixes the Sept-9 hole where a `refresh_stale_public_snapshots.py` failure
+    left `rankings_publication_status=not_attempted` / `Rankings: UNKNOWN` even
+    though the pipeline had already failed. Two cases:
+
+    Case A - refresh failed and there is NO same-date Rankings attempt: the
+    failure happened before any Rankings decision was made. Classify as
+    ``CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION`` with
+    ``publication_attempted=False`` and no attempt id.
+
+    Case B - refresh failed but the subprocess DID persist a same-date
+    Rankings attempt before it died (e.g. the publisher ran and reached a
+    terminal state, then a later step in that subprocess failed): read back
+    the real lifecycle result and preserve it verbatim - never overwrite real
+    lifecycle history with the generic upstream-failure classification.
+    """
+    try:
+        rows = list(
+            client.table("pokemon_rankings_publication_attempts")
+            .select(
+                "id,status,reason_code,reason_detail,resulting_publication_id,diagnostics,"
+                "attempted_market_date,completed_at"
+            )
+            .eq("attempted_market_date", market_date)
+            .order("completed_at", desc=True)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+    except Exception as exc:  # fail closed - never silently "published"
+        return RankingsPublicationOutcome(
+            classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+            reason_code=reason_code,
+            reason_detail=f"upstream refresh failed and the attempt lookup itself raised: {exc}",
+            publication_required=True, publication_attempted=False,
+        )
+    if not rows:
+        # Case A: no real Rankings attempt exists for this date - the failure
+        # happened before any Rankings decision was made.
+        return RankingsPublicationOutcome(
+            classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+            reason_code=reason_code,
+            reason_detail=(
+                f"public snapshot refresh failed for {market_date} before any Rankings "
+                "publication attempt was persisted"
+            ),
+            publication_required=True, publication_attempted=False,
+        )
+    # Case B: a same-date attempt DOES exist - preserve its real terminal state.
+    return _load_post_refresh_rankings_outcome(
+        client, market_date=market_date, rankings_branch_ready=True,
+    )
+
+
+def _set_rankings_outcome(summary: "PublicationSummary", outcome: RankingsPublicationOutcome) -> None:
+    """The ONE place `rankings_publication_status` is derived, from the outcome.
+
+    Never hand-write `summary.rankings_publication_status = "..."` at a call
+    site - always go through this so the legacy string can never drift from
+    the canonical classification.
+    """
+    summary.rankings_publication_outcome = outcome.to_dict()
+    summary.rankings_publication_status = rankings_publication_legacy_status(outcome.classification)
+    summary.rankings_readiness_reason_code = outcome.reason_code
 
 
 def orchestrate(
@@ -399,6 +621,10 @@ def orchestrate(
     if date_error or not resolved_market_date:
         summary.error = date_error or "no promoted market date could be resolved"
         summary.exit_code = EXIT_CANNOT_START
+        _set_rankings_outcome(summary, RankingsPublicationOutcome(
+            classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+            reason_code="NO_PROMOTED_MARKET_DATE", reason_detail=summary.error,
+        ))
         return summary
     summary.market_date = resolved_market_date
 
@@ -427,6 +653,10 @@ def orchestrate(
             f"(reason_code={authority.reason_code})"
         )
         summary.exit_code = GATE_DEFERRED_EXIT_CODE
+        _set_rankings_outcome(summary, RankingsPublicationOutcome(
+            classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+            reason_code=authority.reason_code, reason_detail=summary.error,
+        ))
         return summary
 
     # ---- Step 2: what still needs a simulation for that date ---------------
@@ -436,6 +666,10 @@ def orchestrate(
     if before.error:
         summary.error = before.error
         summary.exit_code = EXIT_CANNOT_START
+        _set_rankings_outcome(summary, RankingsPublicationOutcome(
+            classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+            reason_code="SIMULATION_FRESHNESS_UNREADABLE", reason_detail=summary.error,
+        ))
         return summary
 
     summary.eligible_set_count = before.eligible_count
@@ -460,13 +694,15 @@ def orchestrate(
             current_count=sum(1 for item in before.statuses if item.status == "current"),
             pending_keys=pending,
         )
-        summary.rankings_publication_status = "deferred"
-        summary.rankings_readiness_reason_code = report.reason_code
         summary.latest_simulation_date_by_set = _latest_dates(before)
         summary.error = report.detail
         summary.exit_code = GATE_DEFERRED_EXIT_CODE
-        if not dry_run:
-            _persist_rankings_deferral(client, report)
+        attempt_id = _persist_rankings_deferral(client, report) if not dry_run else None
+        _set_rankings_outcome(summary, RankingsPublicationOutcome(
+            classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+            reason_code=report.reason_code, reason_detail=report.detail,
+            attempt_id=attempt_id, publication_required=True, publication_attempted=False,
+        ))
         return summary
 
     outcomes = run_simulations_for_sets(
@@ -490,13 +726,56 @@ def orchestrate(
     for line in after.report_lines(entry_point="daily opening publication"):
         print(line)
 
+    # ---- Step 3a2: rebuild Chase Accessibility V1 from the CURRENT run ids ----
+    # Must happen AFTER the current-day simulation cohort is verified (so the
+    # exact calculation_run_id per set is known) and BEFORE sealed-product
+    # finalization / public snapshot refresh, because V12 refuses an
+    # Accessibility row whose calculation_run_id does not match the product
+    # cohort's own current run. This is NOT the legacy Chase Economics system
+    # (see refresh_chase_economics_snapshots, which stays keyed on the
+    # PUBLISHED Set-page run identity and stays where it already was).
+    if after.ok and not summary.simulation_failed:
+        if dry_run:
+            refresh_chase_accessibility_snapshots(
+                python_executable=python_executable,
+                market_date=resolved_market_date,
+                dry_run=True,
+            )
+            summary.chase_accessibility_publication_status = "validated_dry_run"
+        else:
+            accessibility_code = refresh_chase_accessibility_snapshots(
+                python_executable=python_executable,
+                market_date=resolved_market_date,
+                dry_run=False,
+            )
+            if accessibility_code == 0:
+                summary.chase_accessibility_publication_status = "published"
+            else:
+                summary.chase_accessibility_publication_status = f"failed_exit_{accessibility_code}"
+                summary.exit_code = EXIT_FAILED
+                summary.error = (
+                    "Chase Accessibility V1 rebuild failed for the current simulation "
+                    f"cohort at {resolved_market_date}; refusing sealed-product finalization "
+                    "and public snapshot refresh so previous Sept-8-style public state is retained"
+                )
+                _set_rankings_outcome(summary, RankingsPublicationOutcome(
+                    classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+                    reason_code="CHASE_ACCESSIBILITY_REFRESH_FAILED",
+                    reason_detail=summary.error,
+                ))
+                return summary
+    else:
+        summary.chase_accessibility_publication_status = "skipped_cohort_not_verified"
+
     # ---- Step 3b: finalize sealed-product Collector Appeal / Overall RIP ----
     # Placed at the narrowest correct point: AFTER every required simulation has
-    # completed and freshness has been verified (so the cohort is whole), and
-    # BEFORE snapshot publication (so nothing downstream can publish a product
-    # row whose Overall RIP is still pending). It runs in ONE process, which is
-    # the entire reason it exists - the per-set subprocesses no longer build the
-    # Collector Appeal bundle at all, so this is the only build in the day.
+    # completed and freshness has been verified (so the cohort is whole), AFTER
+    # Chase Accessibility V1 has been rebuilt from that exact cohort's run ids
+    # (so V12 authority is current, not stale), and BEFORE snapshot publication
+    # (so nothing downstream can publish a product row whose Overall RIP is
+    # still pending). It runs in ONE process, which is the entire reason it
+    # exists - the per-set subprocesses no longer build the Collector Appeal
+    # bundle at all, so this is the only build in the day.
     summary.sealed_product_finalization_status = _finalize_sealed_products(
         client,
         summary,
@@ -519,10 +798,12 @@ def orchestrate(
             verified_count=sum(1 for item in after.statuses if item.status == "current"),
             failures=[f"{item.canonical_key}:{item.status}" for item in after.failures],
         )
-        summary.rankings_publication_status = "deferred"
-        summary.rankings_readiness_reason_code = report.reason_code
-        if not dry_run:
-            _persist_rankings_deferral(client, report)
+        attempt_id = _persist_rankings_deferral(client, report) if not dry_run else None
+        _set_rankings_outcome(summary, RankingsPublicationOutcome(
+            classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+            reason_code=report.reason_code, reason_detail=report.detail,
+            attempt_id=attempt_id, publication_required=True, publication_attempted=False,
+        ))
     elif summary.sealed_product_finalization_status not in {"ok", "skipped_dry_run"}:
         from backend.db.services.rankings_publication_lifecycle import (
             DEFERRED_SEALED_PRODUCT_FINALIZATION_INCOMPLETE,
@@ -538,10 +819,12 @@ def orchestrate(
             sealed_product_finalized_set_count=int((summary.sealed_product_finalization_report or {}).get("setCount") or 0),
             sealed_product_finalized_product_row_count=int((summary.sealed_product_finalization_report or {}).get("rowsFinalized") or 0),
         )
-        summary.rankings_publication_status = "deferred"
-        summary.rankings_readiness_reason_code = report.reason_code
-        if not dry_run:
-            _persist_rankings_deferral(client, report)
+        attempt_id = _persist_rankings_deferral(client, report) if not dry_run else None
+        _set_rankings_outcome(summary, RankingsPublicationOutcome(
+            classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+            reason_code=report.reason_code, reason_detail=report.detail,
+            attempt_id=attempt_id, publication_required=True, publication_attempted=False,
+        ))
 
     # ---- Step 3c: optional exact-artifact research -------------------------
     # Current run ids are authoritative now, and every downstream public
@@ -589,20 +872,55 @@ def orchestrate(
         )
         if refresh_code == 0:
             summary.snapshot_publication_status = "published"
-            if rankings_branch_ready:
-                summary.rankings_publication_status = "published"
+            # A DEFERRED_WITH_ATTEMPT outcome may already have been set above
+            # (rollover / cohort-incomplete / sealed-product-finalization
+            # branches, none of which `return` early) - that is the accurate,
+            # already-persisted-attempt classification for why rankings_branch_ready
+            # is False, and must never be overwritten by the weaker "operator
+            # skip" inference below just because this orchestrator was the one
+            # that passed --skip-explore-rankings downstream.
+            if summary.rankings_publication_outcome is None:
+                if not dry_run:
+                    _set_rankings_outcome(summary, _load_post_refresh_rankings_outcome(
+                        client, market_date=resolved_market_date,
+                        rankings_branch_ready=rankings_branch_ready,
+                    ))
+                elif not rankings_branch_ready:
+                    _set_rankings_outcome(summary, RankingsPublicationOutcome(
+                        classification=CLASSIFICATION_EXPLICIT_OPERATOR_SKIP,
+                        reason_code="RANKINGS_BRANCH_NOT_READY",
+                        reason_detail="Rankings branch was not ready before the coordinated refresh dry-run",
+                        publication_required=False, publication_attempted=False,
+                    ))
         elif refresh_code == GATE_DEFERRED_EXIT_CODE:
             summary.snapshot_publication_status = "deferred_cohort_not_ready"
             summary.exit_code = GATE_DEFERRED_EXIT_CODE
+            if summary.rankings_publication_outcome is None and not dry_run:
+                _set_rankings_outcome(summary, _resolve_upstream_refresh_failure_outcome(
+                    client, market_date=resolved_market_date,
+                    reason_code="SNAPSHOT_REFRESH_DEFERRED_COHORT_NOT_READY",
+                ))
             return summary
         else:
             summary.snapshot_publication_status = f"failed_exit_{refresh_code}"
             summary.exit_code = EXIT_FAILED
+            if summary.rankings_publication_outcome is None and not dry_run:
+                _set_rankings_outcome(summary, _resolve_upstream_refresh_failure_outcome(
+                    client, market_date=resolved_market_date,
+                    reason_code=f"SNAPSHOT_REFRESH_FAILED_EXIT_{refresh_code}",
+                ))
             return summary
 
-        # The set-page rebuild above establishes the authoritative run identity.
-        # Sealed-product finalization already completed in step 3b. This is the
-        # narrow point where all four Chase inputs are authoritative together.
+        # The set-page rebuild above establishes the PUBLISHED Set-page run
+        # identity that this legacy Chase Economics system reads
+        # (`_current_run_id()` in build_pokemon_set_chase_economics_snapshots.py
+        # resolves pokemon_set_page_snapshot_latest.payload_json.ripDecision.
+        # sourceCalculationRunId), which only exists once Set-page publication
+        # has happened above. It is deliberately NOT moved earlier: Chase
+        # Accessibility V1 (the system V12 depends on) already rebuilt from the
+        # current SIMULATION run ids in step 3a2, before sealed-product
+        # finalization - this step is the separate, legacy Chase system and
+        # stays keyed on the published Set-page authority instead.
         chase_code = refresh_chase_economics_snapshots(
             python_executable=python_executable, dry_run=dry_run,
             market_date=resolved_market_date,
@@ -748,6 +1066,25 @@ def orchestrate(
         )
         return summary
 
+    # Final step of the existing scheduler-owned chain: append/confirm today's
+    # exact Collector observation.  This planner makes zero provider calls and
+    # fails closed when source refresh is due.
+    declared_tables = getattr(client, "_tables", None)
+    if isinstance(declared_tables, dict) and "pokemon_rip_temporal_history" not in declared_tables:
+        summary.historical_rip_status = "skipped_legacy_test_client"
+    else:
+        from backend.scripts.operationalize_historical_rip import execute as append_historical_rip
+        history = append_historical_rip(
+            client,
+            as_of=date.fromisoformat(resolved_market_date),
+            now=datetime.now(timezone.utc),
+            commit=not dry_run,
+        )
+        summary.historical_rip_status = str(history["status"])
+        if summary.historical_rip_status == "COLLECTOR_SOURCE_REFRESH_BLOCKED":
+            summary.exit_code = EXIT_FAILED
+            summary.error = "Collector source refresh is due before historical append"
+            return summary
     summary.exit_code = EXIT_OK
     return summary
 

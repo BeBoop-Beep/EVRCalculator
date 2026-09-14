@@ -1,0 +1,21 @@
+{
+  "first_version": "20260905235956",
+  "last_version": "20260906233651",
+  "migration_records_in_window": 89,
+  "statement_bytes": 409228,
+  "manifest_md5": "d988d2e6e877d3373f613d2351e86339",
+  "manifest_rule": "MD5 of newline-joined version:MD5(newline-joined-statements), ordered by version",
+  "source_export_supplied_by_owner": true,
+  "uploaded_export_sha256": "26f40b379488f6ae927bf0287bae9b94a78b79c3526ed7aa46c94991422c532c",
+  "all_original_statements_imported_to_repository": true,
+  "frozen_window_reconciled_records": 89,
+  "frozen_window_missing_originals": 0,
+  "frozen_window_source_conflicts": 0,
+  "source_import_commit": "6ef09bcba773c5fa4319ce9ab00c08c031d2d399",
+  "source_import_workflow_run": 34155095653,
+  "placeholder_migrations_allowed": false,
+  "production_apply_authorized": false,
+  "post_window_history_verified": false,
+  "current_live_database_rechecked": false,
+  "note": "Source restoration only. All89 original SQL sequences in the frozen window are mirrored in both migration directories and archive. Do not reapply already-executed SQL. Real prerequisite restoration, post-window review and production pipeline acceptance remain separate gates."
+}

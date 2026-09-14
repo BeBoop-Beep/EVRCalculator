@@ -1,0 +1,16 @@
+{
+  "version": "ebay_choose_your_card_policy_v2",
+  "finding": "Frozen Browse rows lack selected variation identity; human labels are inconsistent.",
+  "policy": "MULTI_CARD_OFFER; never HIGH_CONFIDENCE",
+  "expanded_examples": 55,
+  "gold_breakdown": {
+    "EXACT_TARGET_MATCH": 20,
+    "AMBIGUOUS": 11,
+    "RELATED_BUT_WRONG_VARIANT": 1,
+    "LOT_OR_BUNDLE": 19,
+    "WRONG_CARD_NUMBER": 2,
+    "SEALED_OR_ACCESSORY": 1,
+    "WRONG_LANGUAGE": 1
+  },
+  "api_calls": 0
+}

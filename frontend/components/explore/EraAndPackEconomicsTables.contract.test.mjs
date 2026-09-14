@@ -59,6 +59,14 @@ test("Set Pack Economics expansion is a sibling full-width table row", () => {
   assert.ok(!setPack.includes("<th className=\"min-w-64 text-left\"><Identity"));
 });
 
+test("Set Pack Economics has an explicit fixed-layout width contract", () => {
+  assert.ok(setPack.includes("<colgroup>"));
+  assert.ok(setPack.includes("styles.colSetPackIdentity"));
+  assert.ok(setPack.includes("styles.colSetPackMetric"));
+  assert.match(css, /\.colSetPackIdentity\s*\{\s*width:\s*19rem/);
+  assert.ok(!setPack.includes('className="min-w-52"'));
+});
+
 test("Pitch Black's six represented families are ordered and never truncated", () => {
   const families = ["booster_box", "booster_bundle", "elite_trainer_box", "loose_booster_pack", "pokemon_center_elite_trainer_box", "sleeved_booster_pack"];
   const fixture = families.map((family) => ({ family, productSkuCount: 1 }));

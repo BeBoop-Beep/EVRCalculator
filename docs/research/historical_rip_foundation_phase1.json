@@ -1,0 +1,79 @@
+{
+  "auditVersion": "historical_rip_foundation_phase1_v1",
+  "asOf": "2026-09-11",
+  "decision": "HISTORICAL_RIP_FOUNDATION_BLOCKED",
+  "blocker": "Only one exact frozen V7 observation date exists; no longitudinal V7 window can yet be analyzed without substituting future dynamic evidence.",
+  "currentAuthority": {
+    "collectorVersion": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+    "modelRunId": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+    "activeSetPageGenerationId": "6bd24a8e-e0e1-4b33-86a1-a16d483f1b24"
+  },
+  "inputInventory": [
+    {"input":"card/set/subject/artist identity and release metadata","temporalType":"STATIC","earliestTrustworthyDate":"set release, with mapping-version provenance","reconstructable":true},
+    {"input":"treatment taxonomy and canonical mappings","temporalType":"VERSIONED_STATIC","earliestTrustworthyDate":"underlying card release","reconstructable":true,"condition":"preserve taxonomy/mapping version"},
+    {"input":"Pokemon fan preference","temporalType":"STATIC_SOURCE_OBSERVATION","earliestTrustworthyDate":"source-specific poll date","latestDate":"2020-11-17","reconstructable":true,"limitation":"not a time series"},
+    {"input":"Pokemon Google Trends V2","temporalType":"TIME_VARYING_WITH_LIMITED_HISTORY","earliestTrustworthyDate":"2026-09-11","latestDate":"2026-09-11","successfulCaptures":1,"reconstructableBeforeEarliest":false},
+    {"input":"Trainer Trends 12m","temporalType":"TIME_VARYING_WITH_LIMITED_HISTORY","earliestTrustworthyDate":"2026-09-07","latestDate":"2026-09-08","successfulCaptures":4,"reconstructableBeforeEarliest":false},
+    {"input":"Trainer Trends 5y","temporalType":"TIME_VARYING_WITH_LIMITED_HISTORY","earliestTrustworthyDate":"2026-09-08","latestDate":"2026-09-08","successfulCaptures":1,"reconstructableBeforeEarliest":false},
+    {"input":"Artist Trends 12m","temporalType":"TIME_VARYING_WITH_LIMITED_HISTORY","earliestTrustworthyDate":"2026-09-07","latestDate":"2026-09-11","successfulCaptures":3,"reconstructableBeforeEarliest":false},
+    {"input":"Artist Trends 5y","temporalType":"TIME_VARYING_WITH_LIMITED_HISTORY","earliestTrustworthyDate":"2026-09-07","latestDate":"2026-09-11","successfulCaptures":2,"reconstructableBeforeEarliest":false},
+    {"input":"Playability","temporalType":"MARKET_DERIVED_PRICE_INDEPENDENT","earliestEventDate":"2026-08-08","latestEventDate":"2026-08-24","eventCount":5923,"distinctEventDates":8,"reconstructable":true,"limitation":"only within observed tournament window"},
+    {"input":"Pull/F authority","temporalType":"VERSIONED_STATIC","reconstructable":true,"condition":"bind exact calculation/model authority; do not infer revisions"},
+    {"input":"current values applied retrospectively","temporalType":"TIME_VARYING_WITHOUT_HISTORICAL_OBSERVATIONS","reconstructable":false}
+  ],
+  "trendsBackfillability": {
+    "smallSampleConclusion":"BLOCKED_FOR_ACCEPTED_RETROSPECTIVE_V7",
+    "websiteData":"Historical custom windows are queryable, but results are sampled and normalized to each query's time/location; repeated retrieval can vary and must be independently captured/versioned.",
+    "officialApi":"Alpha API advertises consistently scaled rolling five-year data and regular intervals, but this project has no approved API authority or stored historical captures.",
+    "anchorArchitecture":"Potentially usable only after repeated-query stability and cross-window anchor calibration are validated.",
+    "futureLeakageRule":"A later retrieval is not accepted as an observed-at-date V7 source merely because its requested window is historical.",
+    "fullCrawlPerformed":false
+  },
+  "earliestDateFullV7CanBeReconstructed": "2026-09-11",
+  "historicalBoundaries": [
+    {"version":"pokemon_collector_appeal_v6_generalized_roster_frequency","date":"2026-09-08","days":1,"rows":128},
+    {"version":"pokemon_collector_appeal_v6_corrected_complete_trends_v2","date":"2026-09-11","days":1,"rows":128},
+    {"version":"pokemon_collector_appeal_v7_expanded_price_blind_v1","date":"2026-09-11","days":1,"rows":128}
+  ],
+  "exactHistoricalV7Coverage": {"firstDate":"2026-09-11","lastDate":"2026-09-11","days":1,"sets":128,"scoredSets":22,"unavailableSets":106,"rows":128},
+  "otherRipHistory": {
+    "financialV4":{"version":"financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5","earliest":"2026-08-17","latest":"2026-09-10","days":14,"rows":2178,"sets":22},
+    "overallV12":{"version":"overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5","earliest":"2026-09-01","latest":"2026-09-10","days":5,"rows":828,"sets":22},
+    "calculationHistory":{"earliest":"2026-04-26","latest":"2026-09-11","days":102,"rows":2032},
+    "setValueHistory":{"earliest":"2026-04-07","latest":"2026-09-11","days":158,"rows":70173},
+    "topChaseCardHistory":{"earliest":"2025-05-27","latest":"2026-09-10","days":472,"rows":351647},
+    "chaseSameVersionConclusion":"Requires version-aware reconstruction audit; card-price history exists, but historical probability/desirability authority must be bound per date."
+  },
+  "temporalSchema": {
+    "grain":["set_id","as_of_date","collector_model_version"],
+    "identityConstraint":"unique(set_id, as_of_date, collector_model_version)",
+    "fields":["collector_model_run_id","collector_score","collector_rank","collector_tier","collector_available","financial_version","financial_score","financial_rank","chase_version","chase_score","chase_rank","overall_version","overall_score","overall_rank","cohort_count","cohort_fingerprint","eligible_set_ids","source_lineage_json","source_observation_dates_json","effective_from","effective_until","is_reconstructed","reconstruction_method","data_quality_status","unavailable_reason","card_market_date","product_price_date","days_since_release"],
+    "persistence":"append-only",
+    "currentPointerImplicitlyRead":false
+  },
+  "qualityStates": {
+    "READY":"Originally observed, complete, exact version/source lineage.",
+    "PARTIAL":"Some inputs present but exact frozen formula cannot be computed; excluded by default.",
+    "UNAVAILABLE":"No valid historical calculation is possible.",
+    "RECONSTRUCTED_VALIDATED":"Exact same-version result reconstructed exclusively from date-valid evidence and validated.",
+    "BLOCKED_SOURCE_GAP":"Required contemporaneous source evidence is absent."
+  },
+  "cohortRankContract":{"absoluteScoreHistory":true,"contemporaryRankHistory":true,"required":["eligible set IDs","cohort count","deterministic cohort fingerprint"],"warning":"Rank movement is not score movement."},
+  "pilot": {
+    "dates":[
+      {"date":"2026-09-07","status":"BLOCKED_SOURCE_GAP","reason":"Pokemon V2 and Trainer 5y authority unavailable"},
+      {"date":"2026-09-08","status":"BLOCKED_SOURCE_GAP","reason":"Pokemon V2 authority unavailable"},
+      {"date":"2026-09-10","status":"BLOCKED_SOURCE_GAP","reason":"Pokemon V2 authority unavailable"},
+      {"date":"2026-09-11","status":"READY","rows":128,"scored":22,"unavailable":106,"sourceLineageValidated":true}
+    ],
+    "representativeSets":"Current 22 supported sets include modern high/lower Appeal, Trainer/Artist-heavy and coverage extremes; no earlier pilot score was fabricated.",
+    "passed":true
+  },
+  "fullBackfill":{"performed":false,"reason":"Only one valid V7 date exists; the existing 128-row 2026-09-11 history is already complete."},
+  "operations":{"freshnessPlanner":"implemented","automaticCollectorRefreshWiring":"not wired","appendHistoryWiring":"existing publication history append exists; future refresh-chain integration remains required","secondSchedulerCreated":false},
+  "historicalQualityFeatures":{"windows":["30D","60D","90D","180D","1Y when supported"],"strength":["current","mean","median","own-history percentile"],"stability":["standard deviation","MAD","IQR","rank volatility"],"durability":["time above threshold","top-quartile share","S/A share","strong streak"],"drawdown":["peak-to-current","maximum drawdown","recovery duration"],"momentum":["7D slope","30D slope","90D slope","acceleration"],"persistence":["Top-N persistence","rank autocorrelation","score autocorrelation"],"formulaSelected":false},
+  "predictiveProtocol":{"question":"Do historical features predict future opening quality beyond the current score?","targets":["Financial RIP +7D","+14D","+30D","same-version future Collector/Overall when available"],"split":"rolling forward-time only","base":"current score","candidate":"current plus median, volatility, drawdown, momentum, persistence","randomSplitProhibited":true,"featureDates":"<= D","targetDates":"> D"},
+  "futureHandoffs":{"marketDelay":["card-market date","RIP date","sealed-product price date","set/product identity"],"eraLifecycle":"retain days_since_release for 30/90/180/365/730-day alignment"},
+  "productionMutations":"NONE"
+}
+

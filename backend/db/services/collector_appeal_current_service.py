@@ -3,11 +3,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional
 
+from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
+
 from backend.db.clients.supabase_client import service_read_client
 
 PUBLIC_CONTRACT_KEY = "publicCollectorAppealContractV1"
 PUBLIC_CONTRACT_VERSION = "public_collector_appeal_contract_v1"
 UNAVAILABLE_REASON = "collector_appeal_unavailable_no_generalized_frequency"
+COLLECTOR_APPEAL_V7_PREFIX = "pokemon_collector_appeal_v7_"
 
 
 def _one_in(value: Any) -> Optional[float]:
@@ -26,7 +29,109 @@ def load_current_set_collector_appeal(set_ids: Optional[Iterable[str]] = None, *
         # Deployment-order compatibility: before the authority migration/view
         # exists, the standalone contract is absent rather than synthesized.
         return {}
-    return {str(row["set_id"]): row for row in rows}
+    result = {str(row["set_id"]): row for row in rows}
+    # One cohort read, never one request per Rankings row. Deployment-order
+    # compatibility keeps the headline available until the prepared migration
+    # exists; diagnostics are optional presentation support, not score inputs.
+    try:
+        driver_query = resolved.table("pokemon_set_collector_component_rankings_current_v").select(
+            "model_run_id,set_id,drivers_json,methodology_version"
+        )
+        if ids: driver_query = driver_query.in_("set_id", ids)
+        for driver in list(driver_query.execute().data or []):
+            set_id = str(driver["set_id"])
+            if set_id in result and str(result[set_id].get("model_run_id")) == str(driver.get("model_run_id")):
+                result[set_id]["component_drivers_json"] = driver.get("drivers_json") or {}
+    except Exception:
+        pass
+    return result
+
+
+def load_set_collector_appeal_for_model(
+    model_run_id: str,
+    set_ids: Optional[Iterable[str]] = None,
+    *,
+    client=None,
+) -> Dict[str, Dict[str, Any]]:
+    """Load one explicit validated Collector run for an inactive candidate build.
+
+    This deliberately bypasses only the *current pointer*, not model validation:
+    the requested run must already be validation-passed. It may be staged
+    (``validated``) or published; public
+    runtime readers continue to use ``load_current_set_collector_appeal``.
+    """
+    resolved = client or service_read_client
+    headers = list(
+        resolved.table("pokemon_collector_appeal_model_runs")
+        .select("id,model_version,as_of_date,status,validation_passed,published_at,input_fingerprint")
+        .eq("id", str(model_run_id)).limit(1).execute().data or []
+    )
+    if not headers:
+        raise RuntimeError(f"Collector model run {model_run_id} does not exist")
+    header = headers[0]
+    if (header.get("status") not in {"validated", "published"}
+            or header.get("validation_passed") is not True
+            or (header.get("status") == "published" and not header.get("published_at"))):
+        raise RuntimeError(f"Collector model run {model_run_id} is not validated")
+
+    ids = [str(value) for value in (set_ids or [])]
+    desirability = resolved.table("pokemon_set_collector_desirability_scores").select("*").eq(
+        "model_run_id", str(model_run_id)
+    )
+    appeal = resolved.table("pokemon_set_collector_appeal_scores").select("*").eq(
+        "model_run_id", str(model_run_id)
+    )
+    if ids:
+        desirability = desirability.in_("set_id", ids)
+        appeal = appeal.in_("set_id", ids)
+    d_by_set = {str(row["set_id"]): row for row in (desirability.execute().data or [])}
+    a_by_set = {str(row["set_id"]): row for row in (appeal.execute().data or [])}
+    rows: Dict[str, Dict[str, Any]] = {}
+    for set_id in sorted(set(d_by_set) & set(a_by_set)):
+        d_row, a_row = d_by_set[set_id], a_by_set[set_id]
+        rows[set_id] = {
+            **a_row,
+            "model_version": header.get("model_version"),
+            "as_of_date": header.get("as_of_date"),
+            "collector_roster_desirability_score": d_row.get("collector_desirability_score"),
+            "collector_roster_desirability_rank": d_row.get("collector_desirability_rank"),
+            "eligible_card_count": d_row.get("eligible_card_count"),
+            "scored_card_count": d_row.get("scored_card_count"),
+            "neutral_card_count": d_row.get("neutral_card_count"),
+            "unsupported_card_count": d_row.get("unsupported_card_count"),
+            "score_coverage_ratio": d_row.get("score_coverage_ratio"),
+            "subject_rollups_json": d_row.get("subject_rollups_json"),
+            "roster_diagnostics_json": d_row.get("diagnostics_json"),
+        }
+    return rows
+
+
+def load_canonical_v5_collector_appeal(set_ids: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+    """Load canonical V5 without inventing an append-only model-run UUID."""
+    from backend.db.services.collector_appeal_service import get_collector_appeal_bundle
+    bundle = get_collector_appeal_bundle()
+    identity = dict(bundle.get("identity") or {})
+    if identity.get("collectorAppealVersion") != COLLECTOR_APPEAL_V5_VERSION:
+        raise RuntimeError("canonical Collector bundle is not Collector Appeal V5")
+    wanted = {str(value) for value in (set_ids or [])}
+    payloads = {str(k): v for k, v in (bundle.get("payloads") or {}).items() if not wanted or str(k) in wanted}
+    return {"payloads": payloads, "identity": identity}
+
+
+def build_public_collector_appeal_contract_from_v5(payload: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Adapt the existing canonical V5 bundle to the standalone contract."""
+    if not payload: return None
+    appeal = dict(payload.get("collectorAppeal") or {})
+    if appeal.get("version") != COLLECTOR_APPEAL_V5_VERSION:
+        raise RuntimeError("refusing non-V5 payload in canonical V5 adapter")
+    score = appeal.get("score")
+    return {
+        "contractVersion": PUBLIC_CONTRACT_VERSION,
+        "collectorAppeal": {"score": score, "absoluteScore": score, "rank": appeal.get("rank"), "rankedSetCount": 22, "tier": None, "status": payload.get("status"), "statusReason": payload.get("statusReason"), "version": appeal.get("version"), "modelVersion": appeal.get("version"), "modelRunId": None, "asOfDate": payload.get("asOf")},
+        "components": {"rosterDesirability": dict(payload.get("rosterDesirability") or {}), "desirableOutcomeFrequency": dict(payload.get("desirableOutcomeFrequency") or {})},
+        "definition": "Collector Appeal measures how compelling a set's collectible roster is and how often a modeled pack can deliver a desirable card.",
+        "financialDistinction": "A desirable outcome can still be worth less than the pack price.",
+    }
 
 
 def load_current_card_collector_appeal(card_ids: Iterable[str], *, client=None) -> Dict[str, Dict[str, Any]]:
@@ -37,16 +142,94 @@ def load_current_card_collector_appeal(card_ids: Iterable[str], *, client=None) 
     return {str(row["pokemon_canonical_card_id"]): row for row in rows}
 
 
+def build_public_card_collector_appeal(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not row:
+        return None
+    components = row.get("component_inputs_json") or {}
+    model_version = str(row.get("model_version") or "")
+    is_v7 = model_version.startswith(COLLECTOR_APPEAL_V7_PREFIX)
+    playability_status = components.get("playabilityStatus")
+    if is_v7 and not playability_status:
+        playability_status = "scored" if row.get("playability_score") is not None else "unavailable"
+    playability_score = row.get("playability_score")
+    if playability_status in ("unknown", "insufficient", "unavailable"):
+        playability_score = None
+    contract = {
+        "score": row.get("collector_card_appeal_score"),
+        "status": row.get("score_status"),
+        "subject": {
+            "policy": row.get("subject_policy"),
+            "type": components.get("subjectType"),
+            "identity": components.get("subjectIdentity") or components.get("functionalName"),
+            "baselineScore": row.get("subject_baseline_score"),
+            "neutralBaseline": components.get("neutralBaseline") is True,
+        },
+        "playability": {
+            "score": playability_score,
+            "status": playability_status,
+            "confidence": row.get("confidence"),
+            "positiveLift": row.get("playability_lift"),
+        },
+        "artistModeled": is_v7,
+        "treatmentExcluded": bool(row.get("treatment_input_excluded")) or is_v7,
+        "hitEligibilityIndependent": bool(row.get("hit_eligibility_independent")),
+        "modelRunId": row.get("model_run_id"),
+        "modelVersion": row.get("model_version"),
+        "explanation": "A high Card Collector Appeal does not by itself mean the card counts as a pack hit.",
+    }
+    if is_v7:
+        artist_status = components.get("artistEvidenceStatus")
+        artist_score = row.get("artist_recognition_score")
+        if artist_status not in ("SCORED", "scored"):
+            artist_score = None
+        contract["artist"] = {
+            "modeled": True,
+            "names": list(components.get("artistNames") or []),
+            "recognitionScore": artist_score,
+            "status": artist_status,
+            "positiveLift": row.get("artist_lift"),
+        }
+        treatment = components.get("treatmentDiagnostic") or {}
+        contract["treatmentDiagnostic"] = {
+            "category": treatment.get("treatmentKey"),
+            "status": treatment.get("status"),
+        }
+    return contract
+
+
 def build_public_collector_appeal_contract(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not row: return None
     scored = row.get("score_status") == "scored"
     f = row.get("generalized_desirable_outcome_frequency")
     roster_diag = row.get("roster_diagnostics_json") or {}
     groups = row.get("subject_rollups_json") or []
-    return {
+    model_version = str(row.get("model_version") or "")
+    corrected_v6 = model_version.startswith("pokemon_collector_appeal_v6_corrected_")
+    if model_version.startswith(COLLECTOR_APPEAL_V7_PREFIX):
+        subject_scope = {
+            "modeled": ["Pokémon", "Trainers", "Playability", "Artist"],
+            "diagnosticOnly": ["Treatment", "Pull Scarcity"],
+            "excluded": ["Energy", "market value", "price"],
+            "note": "Pokémon, Trainers, Playability, and Artist evidence are modeled. Treatment and Pull Scarcity remain diagnostic-only; market value is excluded.",
+        }
+    elif corrected_v6:
+        subject_scope = {
+            "modeled": ["Pokémon", "Trainers"],
+            "diagnosticOnly": ["eligible neutral functional cards", "Treatment", "Scarcity"],
+            "notYetModeled": ["Artist"],
+            "excluded": ["Energy", "market value"],
+            "note": "Pokémon and Trainers contribute under separate locked contracts. Functional, Treatment, and Scarcity are diagnostic-only; Artist is not yet modeled.",
+        }
+    else:
+        subject_scope = {
+            "modeled": ["Pokémon", "Trainers", "eligible neutral functional cards"],
+            "notYetModeled": ["Artist", "Treatment", "Energy"],
+            "note": "Pokémon, Trainers, and eligible functional cards are modeled. Artist is not modeled; Treatment and Energy are excluded.",
+        }
+    contract = {
         "contractVersion": PUBLIC_CONTRACT_VERSION,
-        "collectorAppeal": {"score": row.get("collector_appeal_score") if scored else None,"absoluteScore":row.get("collector_appeal_score") if scored else None,"rank":row.get("collector_appeal_rank") if scored else None,"rankedSetCount":22,"tier":None,"status":row.get("score_status"),"statusReason":row.get("score_status_reason"),"version":"collector_appeal","modelVersion":row.get("model_version"),"modelRunId":row.get("model_run_id"),"asOfDate":str(row.get("as_of_date")) if row.get("as_of_date") else None,
-            "subjectScope":{"modeled":["Pokémon","Trainers","eligible neutral functional cards"],"notYetModeled":["Artist","Treatment","Energy"],"note":"Pokémon, Trainers, and eligible functional cards are modeled. Artist is not modeled; Treatment and Energy are excluded."}},
+        "collectorAppeal": {"score": row.get("collector_appeal_score") if scored else None,"absoluteScore":row.get("collector_appeal_score") if scored else None,"relativeScore":row.get("collector_appeal_score") if scored else None,"rank":row.get("collector_appeal_rank") if scored else None,"rankedSetCount":22,"tier":None,"status":row.get("score_status"),"statusReason":row.get("score_status_reason"),"version":"collector_appeal","modelVersion":row.get("model_version"),"modelRunId":row.get("model_run_id"),"asOfDate":str(row.get("as_of_date")) if row.get("as_of_date") else None,
+            "subjectScope":subject_scope},
         "components": {
             "rosterDesirability":{"score":row.get("collector_roster_desirability_score"),"rank":row.get("collector_roster_desirability_rank"),"rankedSetCount":128,"tier":None,"version":"collector_roster_desirability_v1","groupCount":roster_diag.get("distinctGroupCount"),"pokemonGroupCount":roster_diag.get("pokemonGroupCount"),"trainerGroupCount":roster_diag.get("trainerGroupCount"),"neutralFunctionalGroupCount":roster_diag.get("neutralFunctionalGroupCount"),"topCollectorGroups":[{"name":g.get("identity"),"type":g.get("type"),"score":g.get("appeal"),"cardCount":g.get("cardCount")} for g in groups[:10]]},
             "desirableOutcomeFrequency":{"rawValue":f,"displayPercent":round(float(f)*100,2) if f is not None else None,"impliedOddsOneInN":_one_in(f),"status":row.get("generalized_frequency_status"),"statusReason":row.get("generalized_frequency_status_reason"),"version":"generalized_desirable_outcome_frequency_v1","eligibleCardCount":row.get("eligible_card_count"),"modeledCardCount":row.get("scored_card_count"),"coverageRatio":row.get("score_coverage_ratio"),"isFinancialMetric":False},
@@ -54,6 +237,14 @@ def build_public_collector_appeal_contract(row: Optional[Dict[str, Any]]) -> Opt
         "definition":"Collector Appeal measures how compelling a set's collectible roster is and how often a modeled pack can deliver a desirable card.",
         "financialDistinction":"A desirable outcome can still be worth less than the pack price.",
     }
+    drivers = row.get("component_drivers_json")
+    if isinstance(drivers, dict):
+        contract["drivers"] = drivers
+        contract["driversExplanation"] = (
+            "These diagnostics explain different sources of collectible strength; "
+            "they are not four equal weights summed to Collector Appeal."
+        )
+    return contract
 
 
 def attach_public_collector_appeal_contracts(targets, *, client=None):

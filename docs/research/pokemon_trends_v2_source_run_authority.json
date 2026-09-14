@@ -1,0 +1,52 @@
+{
+  "authority_status": "persisted_and_validated",
+  "source_run_id": "2b46970a-ca14-4c4f-9b9d-ab3e49911613",
+  "source_name": "google_trends_pokemon_v2",
+  "source_kind": "search_interest",
+  "source_version": "capture_pokemon_trends_anchor_ladder_v2_r1",
+  "capture_hash": "1beb2e02dcc636062309ccea6148674de788bcabd5d42068b5722cc4e5948c35",
+  "anchor_manifest_version": "pokemon_trends_anchor_ladder_manifest_v1",
+  "anchor_manifest_fingerprint": "009418a05f6b9631",
+  "capture_code_version": "capture_pokemon_trends_anchor_ladder_v2_r1",
+  "ingest_code_version": "ingest_pokemon_trends_v2_source_run_r1",
+  "calibration_version": "pokemon_trends_anchor_ladder_v2_manifest_v1",
+  "migration": {
+    "repository_identity": "20260910190000_persist_pokemon_trends_v2_source_run.sql",
+    "production_ledger_version": "20260910185957",
+    "production_ledger_name": "persist_pokemon_trends_v2_source_run"
+  },
+  "production": {
+    "started_at": "2026-09-10T19:00:22.882157Z",
+    "completed_at": "2026-09-10T19:00:20.997621Z",
+    "captured_at": "2026-09-10T19:00:20.997621Z",
+    "terminal_status": "partial_failure",
+    "expected_rows": 1025,
+    "actual_rows": 1025,
+    "unique_pokemon": 1025,
+    "classifications": {
+      "SCORED": 993,
+      "scored_zero_high_confidence": 27,
+      "failed": 5,
+      "missing_evidence": 0,
+      "insufficient_calibration": 0
+    },
+    "failed_subjects": [
+      {"subject_id": 18, "name": "Pidgeot"},
+      {"subject_id": 188, "name": "Skiploom"},
+      {"subject_id": 324, "name": "Torkoal"},
+      {"subject_id": 380, "name": "Latias"},
+      {"subject_id": 434, "name": "Stunky"}
+    ]
+  },
+  "null_semantics": "failed, missing_evidence, and insufficient_calibration have null numeric Trends values; numeric zero is valid only for scored_zero_high_confidence",
+  "exact_run_reader": "backend.db.services.pokemon_trends_v2_source_service.load_pokemon_trends_v2_run requires source_run_id and has no latest fallback",
+  "idempotency_proof": "second guarded ingestion resolved source_run_id 2b46970a-ca14-4c4f-9b9d-ab3e49911613 with zero mutations; production has one matching run and 1025 observations",
+  "immutability_proof": "transactional negative updates to terminal metadata and a child observation were rejected by existing lifecycle triggers; fingerprint and row count remained unchanged",
+  "health_proof": "source-run totals changed 12 to 13 and observation totals 1275 to 2300 exactly; health/current views remained readable and the Collector current pointer remained unchanged",
+  "tests": [
+    "focused persistence, RPC, classification, exact-run reader, and freshness-compatible suites",
+    "python module compilation",
+    "git diff --check"
+  ],
+  "future_binding_rule": "Corrected Collector V6 must bind to this exact source_run_id; never resolve by latest Trends V2."
+}

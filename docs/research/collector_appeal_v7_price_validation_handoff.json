@@ -1,0 +1,36 @@
+{
+  "handoffVersion": "collector_appeal_v7_price_validation_handoff_v1",
+  "frozenPredictorAuthority": {
+    "modelRunId": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+    "modelVersion": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+    "modelFingerprint": "3b781f4ec01ef8c74c77b34d2b91e9a90231d2feccf2ee41411de64606378c9d",
+    "cardFingerprint": "7dbe5e989c6eb7bcb9d4684707f9c239ab1ca701fc429a7a0605657d79f2ab90",
+    "setFingerprint": "744f088e7e1e33e5f8b40aca707b8f7e0d93bf7def8308b860da0277257a4b52",
+    "frozenBeforePriceJoin": true
+  },
+  "predictors": [
+    "Pokemon Subject Appeal",
+    "Trainer Subject Appeal",
+    "Artist Appeal on its explicit availability cohort",
+    "positive-only Playability lift",
+    "final Card Collector Appeal V7",
+    "set D",
+    "generalized F",
+    "final Set Collector Appeal V7"
+  ],
+  "primaryAnalysis": "within-set Appeal to price",
+  "secondaryAnalysis": "within-era Appeal to price",
+  "exploratoryAnalysis": "cross-era with explicit vintage and surviving-supply limitations",
+  "controls": ["exact Pull Scarcity", "Treatment nested in era", "set", "release age", "variant/promo structure", "era"],
+  "interactions": ["Appeal x Pull Scarcity", "Appeal x Treatment"],
+  "validationRules": [
+    "Never alter the frozen V7 predictor formulas, constants, cohorts, or fingerprints after joining price.",
+    "Use grouped validation by set; never random-split cards.",
+    "Report Artist-available and Artist-unavailable cohorts separately.",
+    "Treat missing Artist Appeal as unavailable, never numeric zero.",
+    "Cross-era evidence cannot invalidate Appeal solely because vintage surviving-supply effects are unobserved.",
+    "Treatment and Pull Scarcity remain controls; a positive interaction does not automatically promote either into Appeal."
+  ],
+  "recommendedMetrics": ["within-set Spearman", "within-era Spearman", "incremental grouped OOS R2", "MAE", "RMSE", "set-clustered intervals", "sign consistency by set and era"],
+  "priceDataJoinedDuringV7Construction": false
+}

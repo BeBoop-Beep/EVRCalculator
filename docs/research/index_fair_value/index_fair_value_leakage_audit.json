@@ -1,0 +1,8 @@
+{
+  "version":"index_fair_value_leakage_audit_f1_v1",
+  "safe":["frozen Collector Appeal V7 score","preregistered Collector component candidates","accepted exact pull probability and fixed transforms","Treatment V3 structural category/attributes","release age computed at target date","era","card type","promo/variant/rarity/printing/special type/edition/mechanic","root-set grouping key"],
+  "contextualButPriceLinked":["peer-card price medians computed inside each training fold with target and all held-out groups removed","grading population or grading intensity if later date-bound; behavior responds to price","listing counts/velocity and liquidity if later date-bound"],
+  "targetLeakage":["target card current price as a feature","set value including target","Top-10 value including target","price-ranked chase membership","price-derived treatment prestige","market cap","demand pressure or absorption calculated with target price","residual/gap from any model fit on held-out outcome"],
+  "exclude":["current chase rank based on price","unversioned rarity inferred from price","future observations","current full-data peer medians","completed-sales claims unsupported by source","any Collector refit or feature selection using Fair Value outcomes"],
+  "rule":"Performance never overrides leakage classification. Peer context is isolated to Model D and recomputed within training folds."
+}

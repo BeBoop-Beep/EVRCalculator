@@ -1,0 +1,12 @@
+{
+  "asOf": "2026-09-11",
+  "rankingCriteria": ["within-band repair potential", "card coverage", "quality", "point-in-time safety", "cost", "legal reliability", "complexity"],
+  "priorities": [
+    {"rank": 1, "signal": "completed-sale prices plus transaction counts", "classification": "HIGH VALUE / ACCESS BLOCKED", "why": "Directly measures cleared price, velocity, dispersion, and supports point-in-time backtests; eBay Marketplace Insights is Limited Release."},
+    {"rank": 2, "signal": "active listing count, price distribution, condition, and listing depth", "classification": "HIGH VALUE / AVAILABLE", "why": "eBay Browse is documented and can measure target-blind supply/ask context after entitlement and identity matching."},
+    {"rank": 3, "signal": "PSA grade-level population snapshots and gem rate", "classification": "HIGH VALUE / ACCESS BLOCKED", "why": "Likely useful for scarce/high-price cards, but the sanctioned public API does not expose Population Report bulk data."},
+    {"rank": 4, "signal": "TCGplayer seller count and quantity depth", "classification": "MEDIUM VALUE", "why": "Strong fit with existing identities, but the audited pricing surface does not expose these fields."},
+    {"rank": 5, "signal": "reprint-status authority", "classification": "MEDIUM VALUE", "why": "Potential supply shock feature, but requires a reliable time-versioned source."}
+  ],
+  "recommendedNextStep": "Seek eBay Browse production entitlement and design a point-in-time active-listing snapshot pilot; in parallel request legitimate completed-sale access. Do not implement paid acquisition yet."
+}

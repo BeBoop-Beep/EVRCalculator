@@ -1,0 +1,11 @@
+{
+  "study":"treatment_preference_t2_price_independent_evidence",
+  "rule":"No cross-era ranking and no market evidence in construction.",
+  "eras":[
+    {"era":"Scarlet & Violet","comparisons":["special_illustration_rare vs illustration_rare","illustration_led vs standard_full_art","gold","shiny"],"directUsableSources":0,"indirectSourceIds":["pokemon_forum_charizard_ir_poll","reddit_illustration_rares_hill","reddit_ir_art_hardest"],"structuralIdentification":"AVAILABLE_FOR_SELECTED_PAIRS_BUT_NO_OUTCOME","verdict":"INSUFFICIENT_EVIDENCE","confidence":"INSUFFICIENT","crossEraInferenceAllowed":false},
+    {"era":"Sword & Shield","comparisons":["alternate_art","gallery_style","rainbow vs gold","radiant"],"directUsableSources":0,"indirectSourceIds":["reddit_rainbow_vs_gold"],"structuralIdentification":"AVAILABLE_FOR_SELECTED_PAIRS_BUT_NO_OUTCOME","verdict":"INSUFFICIENT_EVIDENCE","confidence":"INSUFFICIENT","crossEraInferenceAllowed":false},
+    {"era":"Sun & Moon","comparisons":["rainbow","gold","alternate_artwork","full_art"],"directUsableSources":0,"indirectSourceIds":[],"structuralIdentification":"AVAILABLE_FOR_SELECTED_PAIRS_BUT_NO_OUTCOME","verdict":"INSUFFICIENT_EVIDENCE","confidence":"INSUFFICIENT","crossEraInferenceAllowed":false},
+    {"era":"XY","comparisons":["full_art","secret_rare","special_foil"],"directUsableSources":0,"indirectSourceIds":[],"structuralIdentification":"SPARSE_AND_NO_OUTCOME","verdict":"INSUFFICIENT_EVIDENCE","confidence":"INSUFFICIENT","crossEraInferenceAllowed":false},
+    {"era":"Vintage","comparisons":["holo vs non_holo","first_edition presentation","vintage_specialty"],"directUsableSources":0,"indirectSourceIds":["pokebeach_favorite_card_art"],"structuralIdentification":"AVAILABLE_FOR_SELECTED_PAIRS_BUT_NO_OUTCOME","verdict":"INSUFFICIENT_EVIDENCE","confidence":"INSUFFICIENT","crossEraInferenceAllowed":false}
+  ]
+}

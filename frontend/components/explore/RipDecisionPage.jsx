@@ -183,11 +183,11 @@ function ScoreSurface({
 }
 
 /**
- * Chase Accessibility summary card for the Opening Snapshot's Market-Based
- * group. Shows ONLY the primary raw metric plus short interpretive copy —
+ * Chase Accessibility summary card for the Opening Snapshot. Shows the
+ * public score plus short interpretive copy —
  * no rank/tier (never fabricated, see chaseAccessibilityPresentationSelector.mjs)
  * and no Chase Depth / Mapped HC Mass diagnostics (those belong in the
- * deeper Market-Based breakdown, not the snapshot).
+ * deeper Chase Accessibility breakdown, not the snapshot).
  */
 function ChaseAccessibilitySnapshotCard({ chase, onActivate }) {
   return (
@@ -1003,14 +1003,14 @@ export default function RipDecisionPage({
   const metrics = {
     overall: {
       key: "overall",
-      label: "Overall RIP",
+      label: "RIP Score",
       role: "overall",
       icon: "gauge",
       score: model.overall.publicScore,
       rank: model.overall.rank,
       cohortSize: model.overall.cohortSize,
       tier: model.overall.tier,
-      cta: overallOpen ? "Hide explanation" : "How Overall RIP works",
+      cta: overallOpen ? "Hide explanation" : "How RIP Score works",
       help: "The current canonical overall score for opening this set relative to ranked sets.",
     },
     financial: {
@@ -1105,7 +1105,7 @@ export default function RipDecisionPage({
             id="overall-rip-explanation"
             className={styles.overallDisclosure}
           >
-            Overall RIP considers financial outcomes, chase accessibility, and collector appeal.
+            RIP Score considers financial outcomes, chase accessibility, and collector appeal.
           </div>
         ) : null}
         <div className={styles.pillarCardRow} data-three-pillar-summary>
@@ -1346,7 +1346,7 @@ export default function RipDecisionPage({
                   </th>
                   <th scope="col">Product</th>
                   <th scope="col">
-                    <RankedProductHeader text="How close this product's Overall RIP performance is to the strongest eligible product of the same type.">
+                    <RankedProductHeader text="How close this product's RIP Score performance is to the strongest eligible product of the same type.">
                       RIP Score
                     </RankedProductHeader>
                   </th>
@@ -1627,6 +1627,7 @@ export default function RipDecisionPage({
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">{model.chaseAccessibility.publicQuestion}</p>
                 {model.chaseAccessibility.displayAccessibility !== null ? <p className="mt-3 text-sm"><strong>Raw Accessibility:</strong> {model.chaseAccessibility.displayAccessibility.toFixed(2)}%</p> : null}
                 {(model.chaseAccessibility.chaseDepthAvailable || model.chaseAccessibility.mappedHcMassAvailable) ? <details className="mt-3 rounded-xl border border-[var(--border-subtle)] p-3"><summary className="cursor-pointer font-semibold">Diagnostic context</summary>{model.chaseAccessibility.chaseDepthAvailable ? <p className="mt-2 text-sm">Chase Depth: {model.chaseAccessibility.chaseDepth.toFixed(2)}</p> : null}{model.chaseAccessibility.mappedHcMassAvailable ? <p className="mt-1 text-sm">Mapped coverage: {(model.chaseAccessibility.mappedHcMass * 100).toFixed(1)}%</p> : null}</details> : null}
+                <Link href="/Articles/how-chase-accessibility-works" className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--accent)]">Read the Chase Accessibility methodology →</Link>
               </DeepDiveRow>
             </div>
 

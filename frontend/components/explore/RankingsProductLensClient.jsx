@@ -34,7 +34,7 @@ const FAMILY_ORDER = [
   "enhanced_booster_box",
 ];
 const SORTS = [
-  { value: "overallRipLeaderScore", label: "Overall RIP" },
+  { value: "overallRipLeaderScore", label: "RIP Score" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
   { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
@@ -71,17 +71,6 @@ function recovery(value) {
   return `${(probability * 100).toFixed(1)}%`;
 }
 
-function Strategy({ row }) {
-  const quantity = numeric(row?.quantity);
-  const committed = numeric(row?.actualCommittedCapital);
-  if (quantity === null || committed === null) return null;
-  return (
-    <span className="mt-1 block text-[10.5px] text-[var(--text-secondary)]">
-      {quantity} {quantity === 1 ? "unit" : "units"} · {money.format(committed)} committed
-    </span>
-  );
-}
-
 function FormatStrength({ row }) {
   const rank = numeric(row?.familyRank);
   const size = numeric(row?.familySize);
@@ -97,11 +86,11 @@ function FormatStrength({ row }) {
           : "Ranks within format";
   const tone = tier ? getTierTone(tier) : null;
   return (
-    <div className="flex min-w-[10rem] items-start gap-2.5">
+    <div className="flex w-full items-start gap-2.5">
       <span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border" style={{ borderColor: tone?.accentColor || "var(--accent)" }} />
-      <span>
+      <span className="min-w-0">
         <strong className="block text-xs text-[var(--text-primary)]">{heading}</strong>
-        <span className="mt-1 block text-[10.5px] text-[var(--text-secondary)]">
+        <span className="mt-1 block whitespace-normal break-words text-[10.5px] text-[var(--text-secondary)]">
           {rank && size ? `#${rank} of ${size} ${familyLabel(row?.productFamilyLabel || "product")}` : "Format rank unavailable"}
         </span>
       </span>
@@ -116,10 +105,23 @@ function ProductRows({ rows, overall, entitled }) {
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className={styles.table}>
+        <table className={`${styles.table} ${styles.productsTable}`}>
+          <colgroup>
+            <col className={styles.colRank} />
+            <col className={styles.colProduct} />
+            <col className={styles.colOverall} />
+            <col className={styles.colTier} />
+            <col className={styles.colFinancial} />
+            <col className={styles.colChase} />
+            <col className={styles.colCollector} />
+            <col className={styles.colPrice} />
+            <col className={styles.colEv} />
+            <col className={styles.colRecover} />
+            <col className={styles.colFormat} />
+          </colgroup>
           <thead className={styles.head}>
             <tr>
-              <th scope="col">Rank</th><th scope="col">Product / Set</th><th scope="col">Overall RIP</th><th scope="col">Tier</th>
+              <th scope="col">Rank</th><th scope="col">Product / Set</th><th scope="col">RIP Score</th><th scope="col">Tier</th>
               {/*
                 Market-Based Opening Quality is an explanatory GROUPING
                 header only — it carries no score/rank/tier/sort of its own.
@@ -140,15 +142,12 @@ function ProductRows({ rows, overall, entitled }) {
               const rank = overall ? row?.budgetRank : row?.familyRank;
               const price = overall ? row?.unitPrice : row?.marketPrice;
               const href = buildSealedProductHref(row) || "#";
-              const chase = chaseAccessibilityDisplay(row?.chaseAccessibility);
               return (
                 <tr key={row?.sealedProductId} className={styles.row}>
                   <td className={styles.numeric}>{entitled ? `#${rank ?? "—"}` : <PremiumMetricLock />}</td>
                   <td>
                     <Link href={href} className={styles.rowLink}>
-                      <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`}>
-                        {overall && entitled ? <Strategy row={row} /> : null}
-                      </RankedProductIdentity>
+                      <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`} />
                     </Link>
                   </td>
                   <td className={styles.numeric}>{entitled ? <RipScoreBadge score={row?.overallRipLeaderScore} tier={row?.publicTier} /> : <PremiumMetricLock />}</td>
@@ -183,12 +182,10 @@ function ProductRows({ rows, overall, entitled }) {
             <Link key={row?.sealedProductId} href={href} className={`${styles.mobileRow} grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2.5`}>
               <b className="text-right text-xs">{entitled ? `#${rank ?? "—"}` : "🔒"}</b>
               <div className="min-w-0">
-                <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`}>
-                  {overall && entitled ? <Strategy row={row} /> : null}
-                </RankedProductIdentity>
+                <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`} />
                 <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
                 {/*
-                  Peer supporting scores beneath Overall RIP.
+                  Peer supporting scores beneath RIP Score.
                 */}
                 {entitled ? (
                   <span className="mt-1 block text-[10px] text-[var(--text-secondary)]">

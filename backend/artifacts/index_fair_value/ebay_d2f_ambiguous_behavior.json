@@ -1,0 +1,11 @@
+{
+  "matcher_version": "index_fair_value_ebay_d2m_v2",
+  "matcher_fingerprint": "a2ac052891df2745f2a2dde8b615a5ccbf1ef23a777eb2a0310e35aef94f6d5e",
+  "gold_fingerprint": "40da9c4ccbe030124d608c59673902f662e14835cc0d8c4b4fffb89231b97a7a",
+  "code_commit": "ece085640a013d2803b0364ddf358ef6b1390854",
+  "evaluation_timestamp": "2026-09-12T23:20:59.787335+00:00",
+  "human_ambiguous_count": 11,
+  "matcher_behavior": {
+    "REJECTED": 11
+  }
+}

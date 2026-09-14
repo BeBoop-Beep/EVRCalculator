@@ -1,0 +1,12 @@
+{
+  "version": "ebay_d3_new_certification_power_analysis_v1",
+  "confidence_level": 0.95,
+  "precision_gate": 0.99,
+  "wilson_lower_gate": 0.98,
+  "minimum_high_n_with_zero_false_positives": 189,
+  "minimum_high_n_with_one_false_positive": 280,
+  "planned_precision_cohort_n": 300,
+  "wilson_lower_at_300_of_300": 0.98735703,
+  "wilson_lower_at_299_of_300": 0.98136331,
+  "justification": "A 300-HIGH cohort allows one false positive while retaining a Wilson lower bound above 98%; the catastrophic gate independently still requires zero."
+}

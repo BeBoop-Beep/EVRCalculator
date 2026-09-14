@@ -38,7 +38,7 @@ export default function TermsPage() {
       <section>
         <h2>3. Informational service; no financial advice</h2>
         <p className="mt-3">
-          Market prices, expected values, pull-rate models, simulations, rankings, probability estimates, Collector Appeal, Financial RIP, Overall RIP, Chase Efficiency, and other inDex outputs are estimates and analytical tools—not guarantees of future results, card values, opening outcomes, liquidity, or resale proceeds.
+          Market prices, expected values, pull-rate models, simulations, rankings, probability estimates, Collector Appeal, Financial RIP, RIP Score, Chase Efficiency, and other inDex outputs are estimates and analytical tools—not guarantees of future results, card values, opening outcomes, liquidity, or resale proceeds.
         </p>
         <p className="mt-3">
           Nothing on inDex is investment, financial, tax, legal, gambling, or professional advice. Collectibles are volatile and may lose value. You are responsible for your own purchase, sale, opening, collecting, and financial decisions.

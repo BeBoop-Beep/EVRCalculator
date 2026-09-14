@@ -1,0 +1,145 @@
+{
+  "authenticated": false,
+  "reason": "No approved QA token was present in the local process environment.",
+  "captures": [
+    {
+      "name": "01-explorer-default-1440",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "pathname": "/Market/Explorer",
+      "status": 200,
+      "interactiveMs": 14669,
+      "scrollWidth": 1440,
+      "clientWidth": 1440
+    },
+    {
+      "name": "03-explorer-wide-1728",
+      "viewport": {
+        "width": 1728,
+        "height": 1050
+      },
+      "pathname": "/Market/Explorer",
+      "status": 200,
+      "interactiveMs": 1711,
+      "scrollWidth": 1728,
+      "clientWidth": 1728
+    },
+    {
+      "name": "11-explorer-tablet-768",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "pathname": "/Market/Explorer",
+      "status": 200,
+      "interactiveMs": 1121,
+      "scrollWidth": 768,
+      "clientWidth": 768
+    },
+    {
+      "name": "12-explorer-mobile-390",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "pathname": "/Market/Explorer",
+      "status": 200,
+      "interactiveMs": 1125,
+      "scrollWidth": 390,
+      "clientWidth": 390
+    },
+    {
+      "name": "02-explorer-interaction-base-1440",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "pathname": "/Market/Explorer",
+      "status": 200,
+      "interactiveMs": 1202,
+      "scrollWidth": 1440,
+      "clientWidth": 1440
+    },
+    {
+      "name": "market-7d-base",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "pathname": "/Market",
+      "status": 200,
+      "interactiveMs": 5209,
+      "scrollWidth": 1440,
+      "clientWidth": 1440
+    },
+    {
+      "name": "market-30d-base",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "pathname": "/Market",
+      "status": 200,
+      "interactiveMs": 1367,
+      "scrollWidth": 1440,
+      "clientWidth": 1440
+    }
+  ],
+  "consoleErrors": [
+    {
+      "name": "01-explorer-default-1440",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "name": "03-explorer-wide-1728",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "name": "11-explorer-tablet-768",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "name": "12-explorer-mobile-390",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "name": "02-explorer-interaction-base-1440",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    }
+  ],
+  "pageErrors": [],
+  "requests": [
+    {
+      "name": "01-explorer-default-1440",
+      "method": "GET",
+      "path": "/api/market/explorer/query"
+    },
+    {
+      "name": "01-explorer-default-1440",
+      "method": "GET",
+      "path": "/_next/static/webpack/1b96d063a7ae6689.webpack.hot-update.json"
+    },
+    {
+      "name": "03-explorer-wide-1728",
+      "method": "GET",
+      "path": "/api/market/explorer/query"
+    },
+    {
+      "name": "11-explorer-tablet-768",
+      "method": "GET",
+      "path": "/api/market/explorer/query"
+    },
+    {
+      "name": "12-explorer-mobile-390",
+      "method": "GET",
+      "path": "/api/market/explorer/query"
+    },
+    {
+      "name": "02-explorer-interaction-base-1440",
+      "method": "GET",
+      "path": "/api/market/explorer/query"
+    }
+  ]
+}

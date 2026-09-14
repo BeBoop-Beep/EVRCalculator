@@ -1,0 +1,80 @@
+{
+  "version": "index_fair_value_ebay_d2_gold_queue_v1",
+  "captured_at": "2026-09-12T02:44:56.428756+00:00",
+  "frozen_before_matcher_revision": true,
+  "blinded_to_d1_prediction": true,
+  "cards_attempted": 70,
+  "cards_captured": 70,
+  "listings_observed": 6644,
+  "review_queue_rows": 1050,
+  "completed_gold_labels": 0,
+  "allowed_labels": [
+    "EXACT_TARGET_MATCH",
+    "RELATED_BUT_WRONG_VARIANT",
+    "WRONG_SET",
+    "WRONG_CARD_NUMBER",
+    "WRONG_LANGUAGE",
+    "GRADED",
+    "LOT_OR_BUNDLE",
+    "SEALED_OR_ACCESSORY",
+    "CONDITION_INELIGIBLE",
+    "AMBIGUOUS",
+    "OTHER"
+  ],
+  "errors": [],
+  "field_population": {
+    "title": {
+      "count": 6644,
+      "rate": 1.0
+    },
+    "itemId": {
+      "count": 6644,
+      "rate": 1.0
+    },
+    "categoryId": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "condition": {
+      "count": 6644,
+      "rate": 1.0
+    },
+    "conditionId": {
+      "count": 6642,
+      "rate": 0.9996989765201686
+    },
+    "localizedAspects": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "brand": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "buyingOptions": {
+      "count": 6644,
+      "rate": 1.0
+    },
+    "seller": {
+      "count": 6644,
+      "rate": 1.0
+    },
+    "image": {
+      "count": 6644,
+      "rate": 1.0
+    },
+    "itemWebUrl": {
+      "count": 6644,
+      "rate": 1.0
+    },
+    "price": {
+      "count": 6361,
+      "rate": 0.9574051776038531
+    },
+    "shippingOptions": {
+      "count": 6425,
+      "rate": 0.9670379289584587
+    }
+  },
+  "gate": "BLOCKED_PENDING_INDEPENDENT_HUMAN_REVIEW"
+}

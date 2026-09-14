@@ -2,9 +2,9 @@ import { money, ratioAsPercent } from "./openingEconomicsSelector.mjs";
 
 const finite = value => value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(value) : null;
 export const SET_PACK_COLUMNS = [
-  ["productFamilies", "Product Families"], ["products", "Products"], ["packPrice", "Avg Cost / Pack"], ["modelBreakEven", "Break-Even / Pack"], ["typicalOpening", "Typical Opening / Pack"],
-  ["modeledReturn", "Modeled Return"], ["entertainmentCost", "Entertainment Cost"], ["typicalRetention", "Typical Retention"],
-  ["chanceToRecoverCost", "Chance to Recover Cost"]
+  ["productFamilies", "Product Families"], ["products", "Products"], ["packPrice", "Avg Cost / Pack"], ["modelBreakEven", "Expected Value / Pack"],
+  ["modeledReturn", "Modeled Return"], ["typicalOpening", "Typical Opening / Pack"], ["typicalRetention", "Typical Retention"],
+  ["chanceToRecoverCost", "Chance to Recover Cost"], ["entertainmentCost", "Entertainment Cost / Pack"]
 ];
 export function projectSetPackMetric(target) {
   return { raw: { set_id: target?.setId, canonical_key: target?.setCanonicalKey, name: target?.setName }, setId: target?.setId, setName: target?.setName, canonicalKey: target?.setCanonicalKey,

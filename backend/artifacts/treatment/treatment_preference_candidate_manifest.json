@@ -1,0 +1,27 @@
+{
+  "study":"treatment_preference_t2_price_independent_evidence",
+  "taxonomy":"pokemon_card_treatment_taxonomy_v3",
+  "taxonomyFingerprint":"85fdb2344d9ae7842a91bf0b3b0a434e02e99298be4cb025c8b3826066f67ddc",
+  "collectorAuthority":"pokemon_collector_appeal_v7_expanded_price_blind_v1",
+  "authorityType":"D_NO_SCORE",
+  "candidateFrozen":false,
+  "directPreferenceEdges":0,
+  "treatmentsRepresentedByDirectEvidence":0,
+  "erasRepresentedByDirectEvidence":0,
+  "cardsCoveredByDirectEvidence":0,
+  "confidence":"INSUFFICIENT",
+  "confidenceRule":"Depends on direct sample size, independent sources, matched structural support, era consistency, and ambiguity; never on price agreement.",
+  "cohortControls":{
+    "best_same_card":{"count":2,"fingerprint":"ec964944c28f6abe0361eb3807e13e30b66adcf7a34e3c7c64b9ac009f19dfff"},
+    "best_same_subject":{"count":6251,"fingerprint":"87c4e955c6783b90d2535b32c49f6faa538a12bc604ad894ec7765841fe042af"},
+    "best_scarcity_matched":{"count":87,"fingerprint":"d9f40b5d4d20781ea057972054c3a5999fc6a5a733cf7239ef21b2e02b367adb"},
+    "era_local":{"count":6253,"fingerprint":"d09d2ae899b3b3c2298c383572f6d93100c4ec84c032c71b6fd5bfb5c9848677"}
+  },
+  "cohortUse":"identification controls only; never preference outcomes",
+  "unsupportedRegions":"All treatment and semantic-attribute regions lack an accepted direct outcome.",
+  "marketValidation":{"eligible":false,"status":"NOT_RUN_INELIGIBLE","reason":"No price-independent candidate was supported or frozen."},
+  "interactionTest":{"eligible":false,"status":"NOT_RUN_INELIGIBLE","reason":"Treatment Preference does not yet exist as an authority."},
+  "verdict":"TREATMENT_PREFERENCE_INSUFFICIENT_EVIDENCE",
+  "collectorImpact":"TREATMENT_SHOULD_REMAIN_DIAGNOSTIC",
+  "productionMutations":0
+}

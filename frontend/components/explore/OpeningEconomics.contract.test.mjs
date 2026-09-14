@@ -25,6 +25,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8").repl
 const client = read("./ProductFamilyRankingsClient.jsx");
 const overall = read("./OpeningEconomicsOverall.jsx");
 const distribution = read("./OpeningEconomicsDistribution.jsx");
+const landscape = read("./setRipLandscapeSelector.mjs");
 const chartFrame = read("./ChartFrame.jsx");
 const chartTooltipShell = read("./ChartTooltipShell.jsx");
 const chartVisualSystem = read("./chartVisualSystem.mjs");
@@ -163,14 +164,13 @@ test("the distribution is not presented as a smooth or normal curve", () => {
   assert.ok(!/gaussian|normal curve|bell/i.test(overall));
 });
 
-test("V3 basis and all P01-P99 values drive distribution geometry", () => {
+test("Overview uses the cached public Set RIP landscape instead of recovery distribution geometry", () => {
   assert.equal(PUBLISHED.basis, "all_modeled_products_per_pack_equivalent");
-  assert.ok(distribution.includes("Array.from({ length: 99 }"));
-  assert.ok(distribution.includes('data-percentile-points="99"'));
-  assert.ok(distribution.includes("scope.normalizedReturnPercentiles"));
-  assert.ok(distribution.includes("scope.valuePerPackPercentiles"));
-  assert.ok(!/18\s*\+\s*index\s*\*\s*10/.test(distribution));
-  assert.ok(!distribution.includes("resolveLooseBoosterPackArtwork"));
+  assert.ok(landscape.includes("readPublicSetRip"));
+  assert.ok(distribution.includes("<ScatterChart"));
+  assert.ok(distribution.includes("isAnimationActive={false}"));
+  assert.ok(!distribution.includes("normalizedReturnBuckets"));
+  assert.ok(!distribution.includes("normalizedReturnPercentiles"));
 });
 
 test("the active distribution preserves all four global headline metrics", () => {
@@ -187,32 +187,25 @@ test("the active distribution preserves all four global headline metrics", () =>
 
 test("Overall adds the three-value snapshot and one active distribution", () => {
   assert.equal((overall.match(/OpeningEconomicsDistribution scope=/g) || []).length, 1);
-  for (const label of ["Average Cost / Pack", "Average Model Break-Even / Pack", "Typical Opening / Pack"]) assert.ok(distribution.includes(label));
+  for (const label of ["Average Cost / Pack", "Expected Value / Pack", "Typical Opening / Pack"]) assert.ok(distribution.includes(label));
   for (const field of ["averageCostPerPack", "averageModelBreakEvenPerPack", "typicalOpeningPerPack"]) assert.ok(distribution.includes(`scope.${field}`));
 });
 
-test("Overall reuses the inDex frame, shared visual system, area, glow, and tooltip shell", () => {
+test("Overall reuses the inDex frame, shared visual system, points, and tooltip shell", () => {
   assert.ok(distribution.includes("<ChartFrame"));
   assert.ok(chartFrame.includes("ResizeObserver"));
   assert.ok(distribution.includes("chartVisualSystem.mjs"));
   assert.ok(chartVisualSystem.includes("POSITIVE_VALUE_COLOR"));
-  assert.ok(distribution.includes("<Area"));
-  assert.ok(distribution.includes("linearGradient"));
-  assert.ok(distribution.includes("feGaussianBlur"));
-  assert.ok(distribution.includes("<PercentileTooltip"));
+  assert.ok(distribution.includes("<ScatterChart"));
+  assert.ok(distribution.includes("<LandscapeTooltip"));
   assert.ok(distribution.includes("<ChartTooltipShell"));
   assert.ok(chartTooltipShell.includes("shadow-[0_14px_32px_rgba(0,0,0,0.38)]"));
   assert.ok(!distribution.includes("contentStyle="));
 });
 
-test("tooltip explains percentile shares and all published landmarks remain direct", () => {
-  assert.ok(distribution.includes("100 - point.percentile"));
-  assert.ok(distribution.includes("% of modeled product-opening outcomes"));
-  assert.ok(distribution.includes("% finish above"));
-  assert.ok(distribution.includes("<ReferenceLine y={1}"));
-  for (const field of ["typicalRetention", "meanOutcomeRetention", "typicalOpeningPerPack", "averageModelBreakEvenPerPack"]) assert.ok(distribution.includes(`scope.${field}`));
-  assert.ok(distribution.includes('lens === "value" && evAboveP75'));
-  assert.ok(distribution.includes("scope.valuePerPackPercentiles?.p75"));
+test("landscape tooltip exposes only canonical public Set RIP context", () => {
+  for (const value of ["point.name", "point.rank", "point.score", "point.tier"]) assert.ok(distribution.includes(value));
+  assert.ok(landscape.includes("left.rank - right.rank"));
 });
 
 test("Overall removes era preview and every dead legacy presentation", () => {
@@ -404,9 +397,9 @@ test("percentiles are named as positions, never as probabilities", () => {
   }
 });
 
-test("the range is labeled with its scale and carries a text equivalent", () => {
-  assert.ok(distribution.includes("logarithmic value axis"));
-  assert.ok(distribution.includes("The logarithmic value axis"));
+test("the primary chart asks the plain-language Set RIP ranking question", () => {
+  assert.ok(distribution.includes("How Sets Rank to Open"));
+  assert.ok(distribution.includes("Every modeled set, ordered by Set RIP rank."));
 });
 
 test("Modeled Return and Typical Retention are never presented as the same thing", () => {

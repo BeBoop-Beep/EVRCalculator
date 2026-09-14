@@ -11,36 +11,40 @@
 // current RIP model for this target", so a caller cannot quietly pick a
 // different one.
 //
-// THE FILENAME IS HISTORICAL; THE MODEL IS V8
-// -------------------------------------------
+// THE FILENAME IS HISTORICAL; THE MODEL IS V12/V11
+// -------------------------------------------------
 // This module is still called `canonicalRipV7` and still exports
-// `resolveCanonicalRipV7`, but it now serves Overall RIP **V8** (90% Financial
-// RIP V3 + 10% Collector Appeal V4). The names are an internal import surface
-// shared by 27 modules; renaming them is a mechanical follow-up with no
-// behavioural content, and doing it in the same change as the model cutover
-// would make the diff unreadable. What must NOT be stale is the identity the
-// module REPORTS: `sourceKey` names the contract actually read, and it says
-// `publicRipContractV8`.
+// `resolveCanonicalRipV7`, but it now serves Overall RIP **V12** (90%
+// Financial RIP V4 + 10% Collector Appeal V5), packaged as
+// `publicRipContractV11`. The names are an internal import surface shared by
+// many modules; renaming them is a mechanical follow-up with no behavioural
+// content, and doing it in the same change as a model cutover would make the
+// diff unreadable. What must NOT be stale is the identity the module REPORTS:
+// `shape` names the contract actually read, and current data reports
+// `publicRipContractV11` (or `topLevelV12` when served without a contract
+// block).
 //
-// SOURCE PRECEDENCE — ONE MODEL, TWO SHAPES
-// -----------------------------------------
-//   1. `publicRipContractV8`  — preferred. It packages the canonical Overall
-//      RIP, Financial RIP and Collector Appeal blocks together, so a consumer
-//      that takes all three cannot mix a score from one bundle with a rank from
-//      another.
-//   2. `overallRipV8` / `financialRipV3` — the SAME models at top level, on the
-//      target rows that carry them without the packaged contract. This is a
-//      SHAPE fallback within one model, never a model fallback.
+// SOURCE PRECEDENCE — ONE MODEL, TWO SHAPES, THEN HISTORICAL FALLBACKS
+// ----------------------------------------------------------------------
+//   1. `publicRipContractV11` — preferred. It packages the canonical Overall
+//      RIP V12, Financial RIP V4 and Collector Appeal V5 blocks together, so a
+//      consumer that takes all three cannot mix a score from one bundle with a
+//      rank from another.
+//   2. `overallRipV12` / `financialRipV4` — the SAME model at top level, on
+//      target rows served without the packaged contract. This is a SHAPE
+//      fallback within one model, never a model fallback.
+//   3. Only after both V11/V12 shapes are absent does this module fall back to
+//      `publicRipContractV10`/V9/V8 and the matching top-level objects, so
+//      older snapshots that never got a V11/V12 rebuild remain renderable
+//      instead of going blank.
 //
-// There is deliberately no third step. `rip`, `ripCore`, `overallRipV7`,
-// `overallRipV6`, `overallRipV5`, Financial RIP V2, Collector Appeal V3,
-// Collector Appeal V2, legacy CA7 and Universal/Roster Desirability are all
-// DIFFERENT MODELS — `overallRipV7` included, because it blends the same 90/10
-// split over a DIFFERENT appeal construct — and serving one of
+// `rip`, `ripCore`, `overallRipV7`, `overallRipV6`, `overallRipV5`, Financial
+// RIP V2, Collector Appeal V3, Collector Appeal V2, legacy CA7 and
+// Universal/Roster Desirability are all DIFFERENT MODELS, and serving one of
 // them under a canonical label is the exact defect this module removes. When
-// neither canonical shape is present the result is `available: false` and the
-// surface renders unavailable — a stale snapshot must show as a stale snapshot,
-// not as an old score wearing the current name.
+// no canonical or historical shape is present the result is `available: false`
+// and the surface renders unavailable — a stale snapshot must show as a stale
+// snapshot, not as an old score wearing the current name.
 //
 // Collector Appeal V4 is available ONLY from the packaged contract. The backend
 // publishes no equivalent top-level V4 block: `openingExperience.collectorAppeal`
@@ -73,8 +77,15 @@ export function isCanonicalRipBundle(value) {
   return Boolean(value && typeof value === "object" && value[CANONICAL_BUNDLE] === true);
 }
 
+const LEADER_SHAPES = new Set([
+  "publicRipContractV11",
+  "publicRipContractV10",
+  "topLevelV12",
+  "topLevelV10",
+]);
+
 function bundle(shape, overall, financialRip, collectorAppeal) {
-  const leaderShape = shape === "publicRipContractV10" || shape === "topLevelV10";
+  const leaderShape = LEADER_SHAPES.has(shape);
   const mark = (value, useLeader) => {
     const result = { ...toObject(value) };
     Object.defineProperty(result, LEADER_PUBLIC_SCORE, { value: useLeader, enumerable: false });
@@ -134,6 +145,24 @@ export function resolveCanonicalRipV7(...sources) {
     standaloneAppeal.components = toObject(standaloneContract.components);
   }
 
+  // publicRipContractV11 is the CURRENT canonical contract (Overall RIP V12 =
+  // 90% Financial RIP V4 + 10% Collector Appeal V5, forwarded into the stable
+  // `overallRip`/`financialRip`/`collectorAppeal` slots the same way V9/V10
+  // did). It is tried first, ahead of V10, so a target carrying both contracts
+  // never renders the older one.
+  for (const source of sources) {
+    const safeSource = toObject(source);
+    const contract = toObject(safeSource.publicRipContractV11);
+    if (hasContent(contract)) {
+      return bundle(
+        "publicRipContractV11",
+        toObject(contract.overallRip),
+        { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
+        hasContent(standaloneAppeal) ? standaloneAppeal : toObject(contract.collectorAppeal)
+      );
+    }
+  }
+
   // Version parsing support ONLY. Reading a newer contract is not a promotion:
   // the backend decides which contract it serves, and this reader must be able
   // to render whichever one arrives rather than blanking on an unknown key.
@@ -176,6 +205,20 @@ export function resolveCanonicalRipV7(...sources) {
         { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
         hasContent(standaloneAppeal) ? standaloneAppeal : toObject(contract.collectorAppeal)
       );
+    }
+  }
+
+  // Top-level Overall RIP V12 + Financial RIP V4, for a target served without
+  // a `publicRipContractV11` block. Tried before top-level V10 for the same
+  // reason the V11 contract is tried before the V10 contract above.
+  for (const source of sources) {
+    const safeSource = toObject(source);
+    const overall = toObject(safeSource.overallRipV12);
+    const financial = hasContent(safeSource.financialRipV4)
+      ? toObject(safeSource.financialRipV4)
+      : toObject(safeSource.financialRipV3);
+    if (hasContent(overall)) {
+      return bundle("topLevelV12", overall, financial, standaloneAppeal);
     }
   }
 

@@ -1,0 +1,40 @@
+name: Price Storage V2 serving deployment
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/price-storage-v2-serving-deploy.yml'
+      - 'backend/db/proposals/price_storage_v2_serving_cutover.sql'
+      - 'backend/db/migrations/20260908211701_price_storage_v2_serving_cutover.sql'
+      - 'supabase/migrations/20260908211701_price_storage_v2_serving_cutover.sql'
+      - 'backend/scripts/run_price_storage_v2_serving_cutover.py'
+      - 'backend/scripts/rebuild_snapshots_after_scrape.sh'
+      - 'backend/tests/test_price_storage_v2_serving_cutover_contract.py'
+  push:
+    branches: ['fix/price-storage-v2-serving-deploy-20260908']
+    paths:
+      - '.github/workflows/price-storage-v2-serving-deploy.yml'
+      - 'backend/db/proposals/price_storage_v2_serving_cutover.sql'
+      - 'backend/db/migrations/20260908211701_price_storage_v2_serving_cutover.sql'
+      - 'supabase/migrations/20260908211701_price_storage_v2_serving_cutover.sql'
+      - 'backend/scripts/run_price_storage_v2_serving_cutover.py'
+      - 'backend/scripts/rebuild_snapshots_after_scrape.sh'
+      - 'backend/tests/test_price_storage_v2_serving_cutover_contract.py'
+
+permissions:
+  contents: read
+
+jobs:
+  serving-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Validate serving contracts
+        run: |
+          python3 -m unittest backend.tests.test_price_storage_v2_serving_cutover_contract -v
+          python3 -m py_compile backend/scripts/run_price_storage_v2_serving_cutover.py
+          bash -n backend/scripts/rebuild_snapshots_after_scrape.sh

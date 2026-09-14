@@ -1,0 +1,1489 @@
+[
+  {
+    "era": "Base/WOTC",
+    "total": 422,
+    "mapped": 422,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 130,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 83,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 82,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 1,
+        "treatmentKeys": [
+          "base_wotc__secret_rare"
+        ],
+        "semanticAttributes": [
+          "subset_specialty",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 126,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Black and White",
+    "total": 1295,
+    "mapped": 1292,
+    "unmapped": 3,
+    "labels": [
+      {
+        "label": "<NULL>",
+        "count": 3,
+        "treatmentKeys": [],
+        "semanticAttributes": [],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Common",
+        "count": 378,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 218,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare ACE",
+        "count": 13,
+        "treatmentKeys": [
+          "ace_spec"
+        ],
+        "semanticAttributes": [
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 170,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo EX",
+        "count": 56,
+        "treatmentKeys": [
+          "rare_holo_ex"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 32,
+        "treatmentKeys": [
+          "black_and_white__secret_rare"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "shiny",
+          "subset_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Ultra",
+        "count": 55,
+        "treatmentKeys": [
+          "rare_ultra"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 370,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Diamond and Pearl",
+    "total": 824,
+    "mapped": 824,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 275,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 163,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 108,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo LV.X",
+        "count": 28,
+        "treatmentKeys": [
+          "rare_holo_lv_x"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 4,
+        "treatmentKeys": [
+          "diamond_and_pearl__secret_rare"
+        ],
+        "semanticAttributes": [
+          "subset_specialty",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 246,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "E-Card",
+    "total": 508,
+    "mapped": 508,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 170,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 118,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 96,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 9,
+        "treatmentKeys": [
+          "e_card__secret_rare"
+        ],
+        "semanticAttributes": [
+          "subset_specialty",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 115,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "EX",
+    "total": 1719,
+    "mapped": 1682,
+    "unmapped": 37,
+    "labels": [
+      {
+        "label": "<NULL>",
+        "count": 37,
+        "treatmentKeys": [],
+        "semanticAttributes": [],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Common",
+        "count": 539,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 234,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 230,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo EX",
+        "count": 133,
+        "treatmentKeys": [
+          "rare_holo_ex"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo Star",
+        "count": 25,
+        "treatmentKeys": [
+          "gold_star"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "shiny",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 19,
+        "treatmentKeys": [
+          "ex__secret_rare"
+        ],
+        "semanticAttributes": [
+          "subset_specialty",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 502,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Gym",
+    "total": 252,
+    "mapped": 252,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 85,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 44,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 39,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 84,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "HeartGold and SoulSilver",
+    "total": 497,
+    "mapped": 497,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 142,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "LEGEND",
+        "count": 18,
+        "treatmentKeys": [
+          "legend"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 88,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 80,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Prime",
+        "count": 26,
+        "treatmentKeys": [
+          "prime"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 4,
+        "treatmentKeys": [
+          "heartgold_and_soulsilver__secret_rare"
+        ],
+        "semanticAttributes": [
+          "subset_specialty",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 139,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Mega Evolution",
+    "total": 968,
+    "mapped": 968,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 313,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Double Rare",
+        "count": 88,
+        "treatmentKeys": [
+          "double_rare"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Illustration Rare",
+        "count": 101,
+        "treatmentKeys": [
+          "illustration_rare"
+        ],
+        "semanticAttributes": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "illustration_led"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "MEGA_ATTACK_RARE",
+        "count": 7,
+        "treatmentKeys": [
+          "mega_attack_rare"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "illustration_led",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Mega Hyper Rare",
+        "count": 8,
+        "treatmentKeys": [
+          "mega_hyper_rare"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "gold_or_gilded",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 73,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Special Illustration Rare",
+        "count": 55,
+        "treatmentKeys": [
+          "special_illustration_rare"
+        ],
+        "semanticAttributes": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "illustration_led",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Ultra Rare",
+        "count": 106,
+        "treatmentKeys": [
+          "ultra_rare"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 217,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Neo",
+    "total": 355,
+    "mapped": 355,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 108,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 65,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 64,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Shining",
+        "count": 10,
+        "treatmentKeys": [
+          "shining"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "shiny",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 108,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Other",
+    "total": 283,
+    "mapped": 109,
+    "unmapped": 174,
+    "labels": [
+      {
+        "label": "<NULL>",
+        "count": 174,
+        "treatmentKeys": [],
+        "semanticAttributes": [],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Common",
+        "count": 37,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 19,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 19,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 34,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "POP",
+    "total": 148,
+    "mapped": 148,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 53,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 52,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 43,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Platinum",
+    "total": 512,
+    "mapped": 512,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 150,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 125,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 56,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo LV.X",
+        "count": 28,
+        "treatmentKeys": [
+          "rare_holo_lv_x"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 9,
+        "treatmentKeys": [
+          "platinum__secret_rare"
+        ],
+        "semanticAttributes": [
+          "subset_specialty",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 144,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Scarlet and Violet",
+    "total": 3387,
+    "mapped": 3387,
+    "labels": [
+      {
+        "label": "ACE SPEC Rare",
+        "count": 30,
+        "treatmentKeys": [
+          "ace_spec"
+        ],
+        "semanticAttributes": [
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Black White Rare",
+        "count": 2,
+        "treatmentKeys": [
+          "black_white_rare"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "illustration_led",
+          "premium_frame",
+          "subset_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Common",
+        "count": 1091,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Double Rare",
+        "count": 229,
+        "treatmentKeys": [
+          "double_rare"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Hyper Rare",
+        "count": 62,
+        "treatmentKeys": [
+          "hyper_rare_gold"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "gold_or_gilded",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Illustration Rare",
+        "count": 391,
+        "treatmentKeys": [
+          "illustration_rare"
+        ],
+        "semanticAttributes": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "illustration_led"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 269,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Shiny Rare",
+        "count": 120,
+        "treatmentKeys": [
+          "shiny_rare"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "shiny",
+          "subset_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Shiny Ultra Rare",
+        "count": 12,
+        "treatmentKeys": [
+          "shiny_ultra_rare"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "holo",
+          "premium_frame",
+          "shiny",
+          "subset_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Special Illustration Rare",
+        "count": 167,
+        "treatmentKeys": [
+          "special_illustration_rare"
+        ],
+        "semanticAttributes": [
+          "alternate_artwork",
+          "character_scene",
+          "full_art",
+          "illustration_led",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Ultra Rare",
+        "count": 249,
+        "treatmentKeys": [
+          "ultra_rare"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 765,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Sun and Moon",
+    "total": 2529,
+    "mapped": 2529,
+    "labels": [
+      {
+        "label": "Common",
+        "count": 642,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 357,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 231,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo GX",
+        "count": 159,
+        "treatmentKeys": [
+          "rare_holo_gx"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Prism Star",
+        "count": 25,
+        "treatmentKeys": [
+          "prism_star"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Rainbow",
+        "count": 144,
+        "treatmentKeys": [
+          "rainbow_rare"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "premium_frame",
+          "rainbow",
+          "textured"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 84,
+        "treatmentKeys": [
+          "sun_and_moon__secret_rare"
+        ],
+        "semanticAttributes": [
+          "gold_or_gilded",
+          "premium_frame",
+          "subset_specialty",
+          "textured"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Shining",
+        "count": 6,
+        "treatmentKeys": [
+          "shining"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "shiny",
+          "vintage_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Ultra",
+        "count": 238,
+        "treatmentKeys": [
+          "rare_ultra"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 643,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "Sword and Shield",
+    "total": 2981,
+    "mapped": 2981,
+    "labels": [
+      {
+        "label": "Amazing Rare",
+        "count": 9,
+        "treatmentKeys": [
+          "amazing_rare"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Common",
+        "count": 708,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Radiant Rare",
+        "count": 15,
+        "treatmentKeys": [
+          "radiant_rare"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "shiny",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 363,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 270,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo V",
+        "count": 234,
+        "treatmentKeys": [
+          "rare_holo_v"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo VMAX",
+        "count": 85,
+        "treatmentKeys": [
+          "rare_holo_vmax"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "textured",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo VSTAR",
+        "count": 33,
+        "treatmentKeys": [
+          "rare_holo_vstar"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Rainbow",
+        "count": 180,
+        "treatmentKeys": [
+          "rainbow_rare"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "premium_frame",
+          "rainbow",
+          "textured"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 77,
+        "treatmentKeys": [
+          "sword_and_shield__secret_rare"
+        ],
+        "semanticAttributes": [
+          "gold_or_gilded",
+          "premium_frame",
+          "subset_specialty",
+          "textured"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Ultra",
+        "count": 316,
+        "treatmentKeys": [
+          "rare_ultra"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 691,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  },
+  {
+    "era": "XY",
+    "total": 1613,
+    "mapped": 1574,
+    "unmapped": 39,
+    "labels": [
+      {
+        "label": "<NULL>",
+        "count": 39,
+        "treatmentKeys": [],
+        "semanticAttributes": [],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Common",
+        "count": 421,
+        "treatmentKeys": [
+          "common"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare",
+        "count": 241,
+        "treatmentKeys": [
+          "rare"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare BREAK",
+        "count": 27,
+        "treatmentKeys": [
+          "break"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo",
+        "count": 145,
+        "treatmentKeys": [
+          "rare_holo"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Holo EX",
+        "count": 127,
+        "treatmentKeys": [
+          "rare_holo_ex"
+        ],
+        "semanticAttributes": [
+          "holo",
+          "premium_frame",
+          "unique_mechanic_treatment"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Secret",
+        "count": 30,
+        "treatmentKeys": [
+          "xy__secret_rare"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "gold_or_gilded",
+          "premium_frame",
+          "subset_specialty"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Rare Ultra",
+        "count": 113,
+        "treatmentKeys": [
+          "rare_ultra"
+        ],
+        "semanticAttributes": [
+          "full_art",
+          "premium_frame"
+        ],
+        "exactPullScarcity": "partial"
+      },
+      {
+        "label": "Uncommon",
+        "count": 470,
+        "treatmentKeys": [
+          "uncommon"
+        ],
+        "semanticAttributes": [
+          "standard_frame"
+        ],
+        "exactPullScarcity": "partial"
+      }
+    ]
+  }
+]

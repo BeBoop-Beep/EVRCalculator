@@ -1,0 +1,53 @@
+{
+  "version": "ebay_d2v_error_analysis_v1",
+  "high_false_positives": [
+    {
+      "benchmark_row_id": "D2-0726",
+      "canonical_card_id": "97165c7e-1d85-4962-807e-5661c2115d7d",
+      "target_card_name": "Furret",
+      "target_set_name": "Journey Together",
+      "target_card_number": "168",
+      "target_treatment": "illustration_rare",
+      "listing_title": "Pokemon Furret 168/159 Journey Together Extended Art Custom Case",
+      "human_gold_label": "SEALED_OR_ACCESSORY",
+      "matcher_state": "HIGH_CONFIDENCE",
+      "condition_state": "RAW_CONDITION_UNGRADED_UNSPECIFIED",
+      "matcher_reason": "THREE_FACTOR_IDENTITY",
+      "identity_evidence": "{\"language\": \"COMPATIBLE\", \"name\": \"MATCH\", \"number\": {\"observed\": [\"168\"], \"state\": \"MATCH\", \"target\": \"168\"}, \"raw\": \"COMPATIBLE\", \"set\": {\"conflicts\": [], \"matched\": [\"journey together\"], \"state\": \"EXACT\"}, \"variant\": {\"conflicting_treatments\": [], \"matched\": [], \"parallel_terms\": [], \"state\": \"ABSENT\"}}",
+      "disagreement_type": "HIGH_FALSE_POSITIVE"
+    },
+    {
+      "benchmark_row_id": "D2-0897",
+      "canonical_card_id": "c7e36a14-236f-4b93-a4a8-a4be2ddc7193",
+      "target_card_name": "Mega Lucario ex",
+      "target_set_name": "Mega Evolution",
+      "target_card_number": "179",
+      "target_treatment": "special_illustration_rare",
+      "listing_title": "Pokemon Mega Lucario ex 179 /132 Mega Evolution Extended Art Custom Case",
+      "human_gold_label": "SEALED_OR_ACCESSORY",
+      "matcher_state": "HIGH_CONFIDENCE",
+      "condition_state": "RAW_CONDITION_UNGRADED_UNSPECIFIED",
+      "matcher_reason": "THREE_FACTOR_IDENTITY",
+      "identity_evidence": "{\"language\": \"COMPATIBLE\", \"name\": \"MATCH\", \"number\": {\"observed\": [\"179\"], \"state\": \"MATCH\", \"target\": \"179\"}, \"raw\": \"COMPATIBLE\", \"set\": {\"conflicts\": [], \"matched\": [\"mega evolution\"], \"state\": \"EXACT\"}, \"variant\": {\"conflicting_treatments\": [], \"matched\": [], \"parallel_terms\": [], \"state\": \"ABSENT\"}}",
+      "disagreement_type": "HIGH_FALSE_POSITIVE"
+    }
+  ],
+  "high_false_positive_breakdown": {
+    "SEALED_OR_ACCESSORY": 2
+  },
+  "human_ambiguous_count": 1,
+  "matcher_ambiguous_count": 22,
+  "matcher_ambiguity_rate": 0.088,
+  "rejected_exact_count": 33,
+  "rejection_reason_distribution": {
+    "WRONG_CARD_NUMBER": 19,
+    "LOT_OR_BUNDLE": 22,
+    "GRADED": 32,
+    "NAME_CONFLICT": 10,
+    "SEALED_OR_ACCESSORY": 8,
+    "WRONG_VARIANT": 15,
+    "WRONG_LANGUAGE": 4
+  },
+  "structural_defect": "Extended Art Custom Case is not covered by the frozen accessory rejection pattern.",
+  "rule_change_in_this_task": false
+}

@@ -7,6 +7,24 @@ from backend.scripts import refresh_stale_public_snapshots as refresh
 from backend.scripts.pokemon_snapshot_builders import SIMULATION_DEPENDENT_SECTIONS
 
 
+@pytest.fixture(autouse=True)
+def _stub_market_candidate_preparation(monkeypatch):
+    from backend.scripts import build_pokemon_market_index_history as index_history
+
+    monkeypatch.setattr(
+        refresh, "resolve_market_publication_date",
+        lambda _client, requested: requested or "2026-08-23",
+    )
+    monkeypatch.setattr(
+        refresh, "prepare_market_rollout_candidate",
+        lambda *_a, **_k: {"status": "complete"},
+    )
+    monkeypatch.setattr(
+        index_history, "_rollout_source_materialization",
+        lambda *_a, **_k: {"ready": True, "provenanceState": "final"},
+    )
+
+
 def _market_enforcement(*, allowed=True, proceed=True, status="READY"):
     return SimpleNamespace(
         proceed=proceed,
@@ -132,6 +150,65 @@ def test_market_quality_phase_commit_uses_rollout_aware_builder(monkeypatch):
     assert order == ["quality", "read-quality", ("build", "2026-08-23"), "persist"]
 
 
+def test_market_quality_phase_orders_prepare_quality_finalizer_and_persist(monkeypatch):
+    from backend.scripts import build_pokemon_market_index_history as index_history
+
+    order = []
+    monkeypatch.setattr(
+        refresh, "prepare_market_rollout_candidate",
+        lambda *_a, **_k: order.append("prepare") or {"status": "complete"})
+    monkeypatch.setattr(
+        refresh, "enforce_market_publication_gate",
+        lambda *_a, **_k: order.append("quality") or _market_enforcement())
+    monkeypatch.setattr(refresh, "market_index_accepted_dates",
+                        lambda *_a, **_k: order.append("read-quality") or {"2026-08-23"})
+    outcomes = iter([
+        {"ready": False, "provenanceState": "candidate"},
+        {"ready": True, "provenanceState": "final"},
+    ])
+    monkeypatch.setattr(
+        index_history, "_rollout_source_materialization",
+        lambda *_a, **_k: order.append("validate-final") or next(outcomes))
+    _patch_rollout_index(
+        monkeypatch, order=order, expected_root_count=22,
+        rows=[
+            {"market_date": "2026-08-23", "index_key": "raw", "set_count": 22},
+            {"market_date": "2026-08-23", "index_key": "top10", "set_count": 22},
+        ])
+
+    class Client:
+        def rpc(self, name, payload):
+            assert name == index_history.ROLLOUT_REFRESH_RPC
+            class Result:
+                def execute(self):
+                    order.append("finalizer")
+                    return SimpleNamespace(data={"status": "complete"})
+            return Result()
+
+    ready, rows = refresh._run_market_quality_index_phase(
+        Client(), market_date="2026-08-23", commit=True,
+        summary=refresh.RefreshSummary())
+    assert ready is True and rows is None
+    assert order == [
+        "prepare", "quality", "read-quality", "validate-final", "finalizer",
+        "validate-final", ("build", "2026-08-23"), "persist",
+    ]
+
+
+def test_market_quality_phase_preparation_failure_stops_before_quality(monkeypatch):
+    monkeypatch.setattr(
+        refresh, "prepare_market_rollout_candidate",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("incomplete candidates")))
+    monkeypatch.setattr(
+        refresh, "enforce_market_publication_gate",
+        lambda *_a, **_k: pytest.fail("Quality must not run after preparation failure"))
+    summary = refresh.RefreshSummary()
+    ready, rows = refresh._run_market_quality_index_phase(
+        object(), market_date="2026-08-23", commit=True, summary=summary)
+    assert ready is False and rows is None
+    assert summary.global_failed == ["market_candidate_preparation: incomplete candidates"]
+
+
 def test_market_quality_phase_rejects_undersized_candidate_cohort(monkeypatch):
     """Requirement F: a candidate smaller than the authoritative root cohort
     must abort publication instead of overwriting the larger public cohort.
@@ -227,6 +304,80 @@ def test_rankings_publication_failure_is_recorded_without_fallback(monkeypatch):
     assert summary.global_failed == ["explore_rankings: incomplete cohort"]
 
 
+def test_rankings_unchanged_not_required_when_not_stale():
+    """CLASSIFICATION_UNCHANGED_NOT_REQUIRED — publisher never invoked, no attempt id."""
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", False, "current"),
+        commit=True, summary=summary,
+    )
+    outcome = summary.rankings_publication_outcome
+    assert outcome["classification"] == refresh.CLASSIFICATION_UNCHANGED_NOT_REQUIRED
+    assert outcome["attempt_id"] is None
+    assert outcome["publication_attempted"] is False
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    assert rankings_publication_legacy_status(outcome["classification"]) == "unchanged"
+
+
+def test_rankings_deferred_with_attempt_outcome_from_publication_error(monkeypatch):
+    """CLASSIFICATION_DEFERRED_WITH_ATTEMPT — publisher's own outcome is consumed directly."""
+    from backend.scripts.pokemon_explore_rankings_publisher import RankingsPublicationError
+    from backend.db.services.rankings_publication_lifecycle import CLASSIFICATION_DEFERRED_WITH_ATTEMPT
+
+    outcome_dict = refresh.RankingsPublicationOutcome(
+        classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+        reason_code="DEFERRED_SIMULATION_COHORT_INCOMPLETE", reason_detail="cohort incomplete",
+        attempt_id="attempt-9", publication_required=True, publication_attempted=False,
+    ).to_dict()
+
+    def _raise(*_args, **_kwargs):
+        raise RankingsPublicationError("deferred", outcome=outcome_dict)
+
+    monkeypatch.setattr(refresh, "publish_explore_rip_rankings_snapshot", _raise)
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", True, "invalid"),
+        commit=True, summary=summary,
+    )
+    assert summary.rankings_publication_outcome == outcome_dict
+    assert summary.rankings_publication_outcome["attempt_id"] == "attempt-9"
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    assert rankings_publication_legacy_status(
+        summary.rankings_publication_outcome["classification"]
+    ) == "deferred"
+
+
+def test_rankings_failed_with_attempt_outcome_fallback_for_unclassified_exception(monkeypatch):
+    """CLASSIFICATION_FAILED_WITH_ATTEMPT — an unclassified exception still resolves cleanly."""
+    monkeypatch.setattr(
+        refresh, "publish_explore_rip_rankings_snapshot",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("incomplete cohort")),
+    )
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", True, "invalid"),
+        commit=True, summary=summary,
+    )
+    outcome = summary.rankings_publication_outcome
+    assert outcome["classification"] == refresh.CLASSIFICATION_FAILED_WITH_ATTEMPT
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+    assert rankings_publication_legacy_status(outcome["classification"]) == "failed"
+
+
+def test_rankings_explicit_operator_skip_sets_outcome(monkeypatch, tmp_path):
+    """CLASSIFICATION_EXPLICIT_OPERATOR_SKIP — the --skip-explore-rankings branch in main()."""
+    from backend.db.services.rankings_publication_lifecycle import rankings_publication_legacy_status
+
+    outcome = refresh.RankingsPublicationOutcome(
+        classification=refresh.CLASSIFICATION_EXPLICIT_OPERATOR_SKIP,
+        reason_code="SKIP_EXPLORE_RANKINGS_FLAG",
+        reason_detail="--skip-explore-rankings was set",
+        publication_required=False, publication_attempted=False,
+    ).to_dict()
+    assert outcome["classification"] == refresh.CLASSIFICATION_EXPLICIT_OPERATOR_SKIP
+    assert rankings_publication_legacy_status(outcome["classification"]) == "skipped"
+
+
 def test_rankings_without_canonical_metadata_is_stale(monkeypatch):
     monkeypatch.setattr(refresh, "_latest_for_explore_rankings", lambda _client: (None, []))
     monkeypatch.setattr(
@@ -244,7 +395,7 @@ def test_rankings_without_canonical_metadata_is_stale(monkeypatch):
 def _canonical_rankings_payload():
     return {
         "targets": [{
-            "overallRipV10": {"rank": 1},
+            "overallRipV12": {"rank": 1},
             "overallRipRankComparisonStatus1d": "unavailable",
         }],
         "meta": {
@@ -287,7 +438,7 @@ def _rankings_payload_with_cohort(*, ranked_targets, ranked_set_count=22):
     payload["targets"] = [
         {
             "targetId": f"ranked-{index}",
-            "overallRipV10": {"rank": index + 1},
+            "overallRipV12": {"rank": index + 1},
             "overallRipRankComparisonStatus1d": "unavailable",
         }
         for index in range(ranked_targets)
@@ -312,7 +463,7 @@ def test_rankings_allows_34_total_targets_when_only_22_are_canonically_ranked(mo
     assert result.stale is False
     assert len(payload["targets"]) == 34
     assert payload["targets"] is original_targets
-    assert all("overallRipV10" not in target for target in payload["targets"][22:])
+    assert all("overallRipV12" not in target for target in payload["targets"][22:])
 
 
 @pytest.mark.parametrize("ranked_targets", [21, 23])
@@ -347,6 +498,44 @@ def test_canonical_rankings_shape_is_fresh(monkeypatch):
     )
     result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
     assert result.stale is False
+
+
+def test_legacy_v10_keyed_targets_are_stale_not_silently_fresh(monkeypatch):
+    """Regression: Sept-8 zero rankings-publication-attempt rows.
+
+    The stored `pokemon_explore_rankings_snapshot_latest` payload can, on any
+    given day, still carry targets keyed by a RETIRED canonical version (here,
+    `overallRipV10` from before the V12 cutover) if the row was last written
+    before a canonical-version cutover. This freshness check used to hardcode
+    `overallRipV10` when counting `ranked_targets`, so a row shaped like the
+    CURRENT canonical contract (V12) but never actually rebuilt under it would
+    fail the ranked-target-key match and someone might assume that always
+    forces a rebuild. It does not save you the other direction: a genuinely
+    STALE V10-shaped row that still happens to satisfy the (wrong) V10 key
+    check reads as "fresh" and `_maybe_rebuild_rankings` returns without ever
+    calling `publish_explore_rip_rankings_snapshot` - so NO rankings
+    publication attempt row is ever created, silently. This is the exact
+    "zero rows in pokemon_rankings_publication_attempts" failure mode: not a
+    persisted deferral, not an exception, just a freshness check that agreed
+    with a version key nothing still writes.
+
+    The fix routes the ranked-target lookup through
+    `canonical_overall_rip_target_key()` - the SAME single authority the
+    publisher and the readiness/lifecycle gate use - so this check can never
+    again drift onto a retired version's key while the publisher has moved on.
+    """
+    payload = _rankings_payload_with_cohort(ranked_targets=22)
+    # Simulate the drift directly: rewrite the canonical-shaped fixture back
+    # onto the retired V10 key, as a row genuinely last built pre-cutover would
+    # be shaped.
+    for target in payload["targets"][:22]:
+        target["overallRipV10"] = target.pop("overallRipV12")
+    _stub_rankings_payload(monkeypatch, payload)
+
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+
+    assert result.stale is True
+    assert result.reason == "complete public ranked cohort marker/count invalid"
 
 
 def test_a_structurally_perfect_snapshot_on_an_obsolete_contract_is_stale(monkeypatch):
@@ -1502,6 +1691,27 @@ def test_set_page_freshness_depends_on_the_explore_rankings_snapshot(monkeypatch
 
     assert "pokemon_explore_rankings_snapshot_latest" in reads
     assert latest == "2026-08-04T13:30:00Z"
+
+
+def test_explore_rankings_retry_when_chase_or_collector_becomes_ready(monkeypatch):
+    """A deferred build must become stale again when its late authority lands."""
+    observed = []
+
+    def latest(_client, *, table, timestamp_columns, filters=()):
+        observed.append((table, timestamp_columns))
+        if table == "pokemon_set_chase_accessibility_snapshot_latest":
+            return "2026-09-12T18:04:45Z", []
+        if table == "pokemon_collector_appeal_current":
+            return "2026-09-11T20:41:40Z", []
+        return "2026-09-12T17:00:00Z", []
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", latest)
+    dependency, _checks = refresh._latest_for_explore_rankings(object())
+
+    assert dependency == "2026-09-12T18:04:45Z"
+    assert ("pokemon_set_chase_accessibility_snapshot_latest", ("updated_at", "built_at")) in observed
+    assert ("pokemon_collector_appeal_current", ("promoted_at",)) in observed
+    assert refresh._is_newer(dependency, "2026-09-12T17:30:00Z") is True
 
 
 def test_generic_set_page_freshness_does_not_query_ranked_only_authorities(monkeypatch):

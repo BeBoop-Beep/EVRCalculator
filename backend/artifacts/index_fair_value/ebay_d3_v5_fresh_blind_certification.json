@@ -1,0 +1,178 @@
+{
+  "version": "ebay_d3_v5_fresh_blind_certification_v1",
+  "precondition_report": {
+    "overall_pass": true,
+    "blocking_reason": null,
+    "checks": {
+      "cohort_row_count": 417,
+      "cohort_row_count_matches_expected": true,
+      "cohort_fingerprint_recorded": "3e19667cba3d0e579378b7a8b802aba2c40f4668cf7699f63cb989792a329cdf",
+      "cohort_fingerprint_recomputed": "3e19667cba3d0e579378b7a8b802aba2c40f4668cf7699f63cb989792a329cdf",
+      "cohort_fingerprint_matches": true,
+      "forbidden_matcher_columns_present": [],
+      "labeled_row_count": 417,
+      "total_row_count": 417,
+      "labels_complete": true,
+      "blind_manifest_labels_exist_flag": true,
+      "finally_frozen": null,
+      "final_human_freeze_present": true,
+      "frozen_matcher_fingerprint": "93301e5da1cf8129896993f12cfec2b66c5c887d679cb6f0755785c884581c69",
+      "current_matcher_fingerprint": "93301e5da1cf8129896993f12cfec2b66c5c887d679cb6f0755785c884581c69",
+      "matcher_fingerprint_matches": true,
+      "reviewer_protocol": "SINGLE_REVIEWER_BLIND",
+      "reviewer_b_exists": false,
+      "reviewer_protocol_declared": true,
+      "initial_human_freeze_review_session_id": "v5_session_2",
+      "final_human_freeze_review_session_id": null,
+      "review_sessions": {
+        "v5_session_1": {
+          "status": "INVALIDATED_UI_NAVIGATION_RENDERING_DEFECT",
+          "history_path": "ebay_d3_v5_fresh_blind_review_history.jsonl",
+          "row_action_count": 15523,
+          "history_fingerprint": "ae3653e005205633c0889264a2d88f906761786b9579f1290f02bb91ec3b4d94",
+          "invalidated_at": "2026-09-14T02:33:46.587186+00:00",
+          "reason": "UI navigation/rendering defect: clicking Previous/Undo changed the reviewed counters without reliably updating the rendered listing image, so the reviewer could not guarantee the saved label corresponded to the displayed listing. Reviewer withdrew confidence in the session.",
+          "reviewer": "Donny",
+          "matcher_predictions_consulted": false,
+          "labels_eligible_for_certification": false
+        },
+        "v5_session_2": {
+          "status": "ACTIVE",
+          "history_path": "ebay_d3_v5_fresh_blind_review_history_v5_session_2.jsonl",
+          "created_at": "2026-09-14T02:33:46.587186+00:00",
+          "created_by": "Donny",
+          "predecessor_session_id": "v5_session_1",
+          "matcher_predictions_consulted": false
+        }
+      },
+      "provenance_source": "RECONCILIATION_ATTESTATION",
+      "reconciliation_attestation": {
+        "reconciliation_version": "ebay_d3_v5_final_freeze_reconciliation_v1",
+        "reconciliation_timestamp": "2026-09-14T04:26:42.214802+00:00",
+        "historical_manifest_fingerprint": "f50404328d3e1d66e49b538a5b6411d30c4fcf9b60a421e8ff486c5fe77e0e5f",
+        "queue_fingerprint": "a611340a7b900f2a556bfded24b60df9fba09c082900ea3cd2703c3159e9ac02",
+        "cohort_fingerprint": "3e19667cba3d0e579378b7a8b802aba2c40f4668cf7699f63cb989792a329cdf",
+        "final_label_fingerprint": "c0b2f18a025d81bacbb7c136a912e167e72105d362adfb8cabfe73dc6189591f",
+        "valid_review_session_id": "v5_session_2",
+        "invalidated_predecessor_session_id": "v5_session_1",
+        "reviewer_id": "Donny",
+        "reviewer_protocol": "SINGLE_REVIEWER_BLIND",
+        "labels_complete": true,
+        "matcher_predictions_consulted": false,
+        "matcher_fingerprint": "93301e5da1cf8129896993f12cfec2b66c5c887d679cb6f0755785c884581c69",
+        "reconciliation_reason": "final freeze predated review_session_id/finally_frozen provenance fields",
+        "historical_manual_backfill_detected": true,
+        "historical_manual_backfill_acknowledged": true,
+        "no_label_cohort_or_matcher_mutation_performed": true,
+        "row_count": 417,
+        "attestation_fingerprint": "4ed1869652381b3fe8ff7f37aeef522e648e096d2cfc2186b097567ff35d2cbd"
+      },
+      "reconciliation_attestation_fingerprint_matches": true,
+      "reconciliation_cohort_fingerprint_matches": true,
+      "reconciliation_label_fingerprint_matches": true,
+      "reconciliation_valid_review_session_id": "v5_session_2",
+      "reconciliation_predecessor_invalidated": true,
+      "review_session_declared": true,
+      "mixed_session_provenance": false,
+      "final_review_session_status": "ACTIVE",
+      "final_review_session_invalidated": false,
+      "final_review_session_labels_eligible_for_certification": true,
+      "final_review_session_matcher_predictions_consulted": false,
+      "finally_frozen_effective": true,
+      "label_fingerprint_recomputed": "c0b2f18a025d81bacbb7c136a912e167e72105d362adfb8cabfe73dc6189591f",
+      "label_fingerprint_recorded": "c0b2f18a025d81bacbb7c136a912e167e72105d362adfb8cabfe73dc6189591f",
+      "legacy_label_fingerprint_recorded": "27ff7b9e8033bc3993b6e995c38b3a8beb5200896f8dd0ab004360fa82a2dfba",
+      "label_fingerprint_matches": true
+    }
+  },
+  "label_contract": {
+    "incomplete_rows": [],
+    "incomplete_count": 0,
+    "definitive_count": 416,
+    "uncertain_count": 1,
+    "uncertain_policy": "excluded from precision/recall denominators; reported separately; never coerced to yes/no"
+  },
+  "v5_metrics": {
+    "total_scored_rows": 417,
+    "human_uncertain_rows": 1,
+    "definitive_rows": 416,
+    "matcher_state_breakdown": {
+      "AMBIGUOUS": 5,
+      "HIGH_CONFIDENCE": 224,
+      "MEDIUM_CONFIDENCE": 13,
+      "REJECTED": 174
+    },
+    "accepted_count": 224,
+    "true_accepts": 221,
+    "false_accepts": 3,
+    "accepted_precision": 0.98660714,
+    "accepted_precision_wilson_95": [
+      0.96137072,
+      0.99543495
+    ],
+    "accepted_recall": 0.87698413,
+    "acceptance_rate": 0.53846154,
+    "rejection_rate": 0.41826923,
+    "ambiguity_rate": 0.04326923,
+    "cards_with_true_accept": 58,
+    "cards_total": 70,
+    "card_coverage": 0.82857143,
+    "cards_with_false_only_accept": [],
+    "catastrophic_false_accepts": {
+      "WRONG_SET": 3
+    },
+    "catastrophic_false_accept_total": 3,
+    "catastrophic_false_accept_rate_among_accepted": 0.01339286,
+    "catastrophic_high_confidence_count": 3,
+    "error_rows": [
+      {
+        "benchmark_row_id": "D5-0054",
+        "human_error_class": "WRONG_SET",
+        "matcher_state": "HIGH_CONFIDENCE",
+        "listing_title": "Kyurem ex 165/086 NM Black Bolt Special Illustration Rare Pokemon"
+      },
+      {
+        "benchmark_row_id": "D5-0224",
+        "human_error_class": "WRONG_SET",
+        "matcher_state": "HIGH_CONFIDENCE",
+        "listing_title": "Team Rocket's Mewtwo ex 231/182 Sv10: Destined Rivals Holo"
+      },
+      {
+        "benchmark_row_id": "D5-0378",
+        "human_error_class": "WRONG_SET",
+        "matcher_state": "HIGH_CONFIDENCE",
+        "listing_title": "The Pokémon Company Grafaiai 223/193 Paldea Evolved English Holo IR HP 90"
+      }
+    ]
+  },
+  "gate_result": {
+    "gates": {
+      "accepted_precision": {
+        "status": "FAIL",
+        "threshold": 0.99,
+        "observed": 0.98660714,
+        "sample_size": 224
+      },
+      "wilson_lower": {
+        "status": "FAIL",
+        "threshold": 0.98,
+        "observed": 0.96137072,
+        "sample_size": 224
+      },
+      "coverage": {
+        "status": "PASS",
+        "threshold": 0.8,
+        "observed": 0.82857143,
+        "sample_size": 224
+      },
+      "catastrophic": {
+        "status": "FAIL",
+        "threshold": 0,
+        "observed": 3,
+        "sample_size": 224
+      }
+    },
+    "overall_result": "FAIL"
+  },
+  "final_result": "EBAY_D3_V5_NOT_CERTIFIED"
+}

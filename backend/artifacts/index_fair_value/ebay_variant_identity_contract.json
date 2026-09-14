@@ -1,0 +1,15 @@
+{
+  "version": "ebay_variant_identity_contract_v1",
+  "canonicalCardIdentity": ["card name", "set identity", "collector number", "language"],
+  "marketVariantIdentity": ["raw versus graded", "edition", "holo/reverse holo", "stamped/promotional mark", "parallel finish", "special printing"],
+  "initialAuthorityGrain": "canonical_card_id plus card_variant_id only when title/source evidence resolves every material variant dimension",
+  "failClosedRules": [
+    "same name and number without compatible set evidence is not high confidence",
+    "promo and set release never merge",
+    "first edition and unlimited never merge",
+    "standard, reverse, stamped, Pokemon Center, and other parallels never merge without explicit evidence",
+    "English and non-English never merge",
+    "raw and graded never merge"
+  ],
+  "priceAsIdentityEvidence": false
+}
