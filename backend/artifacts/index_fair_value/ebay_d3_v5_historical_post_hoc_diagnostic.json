@@ -1,0 +1,106 @@
+{
+  "version": "ebay_d3_v5_historical_post_hoc_diagnostic_v1",
+  "status": "HISTORICAL_POST_HOC_DIAGNOSTIC",
+  "certifying": false,
+  "note": "This cohort is CONSUMED and permanently ineligible to certify any matcher. This run exists only to report whether the two known catastrophic errors persist under v5; it does not pass/fail v5 and must not trigger further tuning.",
+  "v4_recomputed_on_consumed_cohort": {
+    "accepted_precision": 0.99082569,
+    "catastrophic_false_accept_total": 2,
+    "error_rows": [
+      {
+        "benchmark_row_id": "D4-0375",
+        "human_error_class": "WRONG_CARD_NUMBER",
+        "matcher_state": "HIGH_CONFIDENCE",
+        "listing_title": "Roaring Moon ex - 162/131 - Pokemon Prismatic Evolutions Special Illustration NM"
+      },
+      {
+        "benchmark_row_id": "D4-0415",
+        "human_error_class": "OTHER_MISMATCH",
+        "matcher_state": "HIGH_CONFIDENCE",
+        "listing_title": "Team Rocket's Nidoking ex 233/182 Sv10 Destined Rivals SIR Holo Full Art Auto"
+      }
+    ],
+    "gates": {
+      "accepted_precision": {
+        "status": "PASS",
+        "threshold": 0.99,
+        "observed": 0.99082569,
+        "sample_size": 218
+      },
+      "wilson_lower": {
+        "status": "FAIL",
+        "threshold": 0.98,
+        "observed": 0.96717241,
+        "sample_size": 218
+      },
+      "coverage": {
+        "status": "PASS",
+        "threshold": 0.8,
+        "observed": 0.81428571,
+        "sample_size": 218
+      },
+      "catastrophic": {
+        "status": "FAIL",
+        "threshold": 0,
+        "observed": 2,
+        "sample_size": 218
+      }
+    },
+    "overall_result": "FAIL"
+  },
+  "v5_on_consumed_cohort": {
+    "accepted_precision": 0.99539171,
+    "accepted_precision_wilson_95": [
+      0.97436303,
+      0.99918606
+    ],
+    "accepted_recall": 0.87096774,
+    "acceptance_rate": 0.51666667,
+    "card_coverage": 0.81428571,
+    "catastrophic_false_accept_total": 1,
+    "error_rows": [
+      {
+        "benchmark_row_id": "D4-0375",
+        "human_error_class": "WRONG_CARD_NUMBER",
+        "matcher_state": "HIGH_CONFIDENCE",
+        "listing_title": "Roaring Moon ex - 162/131 - Pokemon Prismatic Evolutions Special Illustration NM"
+      }
+    ],
+    "gates": {
+      "accepted_precision": {
+        "status": "PASS",
+        "threshold": 0.99,
+        "observed": 0.99539171,
+        "sample_size": 217
+      },
+      "wilson_lower": {
+        "status": "FAIL",
+        "threshold": 0.98,
+        "observed": 0.97436303,
+        "sample_size": 217
+      },
+      "coverage": {
+        "status": "PASS",
+        "threshold": 0.8,
+        "observed": 0.81428571,
+        "sample_size": 217
+      },
+      "catastrophic": {
+        "status": "FAIL",
+        "threshold": 0,
+        "observed": 1,
+        "sample_size": 217
+      }
+    },
+    "overall_result": "FAIL"
+  },
+  "d4_0375_still_a_false_accept_under_v5": true,
+  "d4_0415_still_a_false_accept_under_v5": false,
+  "errors_resolved_by_v5": [
+    "D4-0415"
+  ],
+  "errors_persisting_under_v5": [
+    "D4-0375"
+  ],
+  "new_errors_introduced_by_v5": []
+}

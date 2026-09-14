@@ -199,8 +199,8 @@ def test_stratified_sample_does_not_reference_matcher_status():
 
 # 20. no fake Reviewer-B/adjudication population
 def test_fresh_blind_manifest_declares_single_reviewer_honestly():
+    import csv as _csv
     import json as _json
-    from pathlib import Path
 
     from backend.scripts.ebay_gold_access import OUT
 
@@ -208,9 +208,17 @@ def test_fresh_blind_manifest_declares_single_reviewer_honestly():
     if not manifest_path.exists():
         pytest.skip("fresh blind capture not run in this environment")
     manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
+    # These structural honesty properties must hold regardless of how far
+    # real human labeling has progressed since this manifest was captured
+    # (labels_exist legitimately flips to True once a real reviewer freezes
+    # the first pass -- that is not a fabrication, it's the point).
     assert manifest["reviewer_b_exists"] is False
     assert manifest["protocol"] == "SINGLE_REVIEWER_BLIND"
-    assert manifest["labels_exist"] is False
+    queue_path = OUT / "ebay_d3_v4_fresh_blind_queue.csv"
+    if manifest.get("labels_exist") and queue_path.exists():
+        with queue_path.open(encoding="utf-8", newline="") as handle:
+            rows = list(_csv.DictReader(handle))
+        assert all((row.get("adjudicated_result") or "") == "" for row in rows)
 
 
 # 21. certification refuses unfrozen labels

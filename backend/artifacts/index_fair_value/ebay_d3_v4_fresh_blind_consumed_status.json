@@ -1,0 +1,14 @@
+{
+  "version": "ebay_d3_v4_fresh_blind_consumed_status_v1",
+  "status": "CONSUMED_HISTORICAL_DIAGNOSTIC_ONLY",
+  "reason": "EBAY_D3_V4_NOT_CERTIFIED",
+  "certification_result_fingerprint_sha256": "07a965fd6d7987c3cec56eede3e87c91efc3224574a0c94fc30e7952847d0ec3",
+  "certification_artifact_path": "backend/artifacts/index_fair_value/ebay_d3_v4_fresh_blind_certification.json",
+  "cohort_fingerprint": "31e97a7429a24afa4595a16902a15f1d52e0b18eddb44be780e6c0cf80e5d19b",
+  "final_label_fingerprint": "2153104730b3c7b96c6ea19aef3e7cc2a6a850dfe9ab0e31286f1a2a9f7ea346",
+  "matcher_fingerprint_evaluated": "14336982da2cbd420f686c350cc47f5c2843dd94afb7b711175a7f7dbe14b523",
+  "eligible_for_future_certification_of_any_matcher": false,
+  "eligible_for_historical_post_hoc_diagnostic_only": true,
+  "policy": "This 420-row cohort and its frozen human labels are permanently retired as certification evidence. They may only ever be used to compute a HISTORICAL_POST_HOC_DIAGNOSTIC on a matcher that is already independently frozen -- never to select, tune, or certify a matcher version.",
+  "marked_at": "2026-09-14T00:00:00+00:00"
+}

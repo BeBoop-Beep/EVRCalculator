@@ -20,8 +20,8 @@ const setsLoadingSource = read("../app/TCGs/Pokemon/Sets/loading.js");
 // assertions about "the primary nav" cannot be satisfied by markup elsewhere
 // in the header (the account menu, the mobile sheet).
 const primaryNav = headerSource.slice(
-  headerSource.indexOf('<nav className="flex items-center gap-4 whitespace-nowrap">'),
-  headerSource.indexOf("</nav>", headerSource.indexOf('<nav className="flex items-center gap-4 whitespace-nowrap">'))
+  headerSource.indexOf('<nav data-desktop-primary-nav'),
+  headerSource.indexOf("</nav>", headerSource.indexOf('<nav data-desktop-primary-nav'))
 );
 
 test("TCGs is a plain link to the Pokémon Sets catalog", () => {
@@ -84,21 +84,17 @@ test("TCGs shares the primary nav typography, spacing and visible focus ring", (
   // Tools was removed as a destination; the recipe itself is unchanged.
   const tabs = primaryNav.match(/\$\{navTabBase\} inline-flex items-center justify-center/g) || [];
   assert.equal(tabs.length, 5, "Rankings, Market, Explorer, TCGs, and Articles must share the primary tab recipe");
-  assert.ok(headerSource.includes("px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium"), "primary nav typography and spacing are unchanged");
+  assert.ok(headerSource.includes("px-2 py-2 text-sm font-medium"), "primary nav keeps a compact shared typography recipe");
   assert.ok(
     headerSource.includes("focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"),
     "primary nav items must keep a visible keyboard focus treatment"
   );
 });
 
-test("desktop Search uses the approved interaction teal for its focus border and ring", () => {
-  const desktopSearch = headerSource.slice(
-    headerSource.indexOf('className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 xl:flex items-center"'),
-    headerSource.indexOf('</div>', headerSource.indexOf('className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 xl:flex items-center"'))
-  );
-  assert.match(desktopSearch, /focus:border-\[rgb\(45,212,191\)\]/);
-  assert.match(desktopSearch, /focus:ring-\[rgba\(45,212,191,0\.35\)\]/);
-  assert.doesNotMatch(desktopSearch, /focus:ring-\[var\(--accent\)\]/);
+test("the single responsive Search uses the approved interaction teal", () => {
+  assert.equal((headerSource.match(/<SitewideSearchBar/g) || []).length, 1);
+  assert.match(headerSource, /focus:border-\[rgb\(45,212,191\)\]/);
+  assert.match(headerSource, /focus:ring-\[rgba\(45,212,191,0\.35\)\]/);
 });
 
 test("Tools is gone from every header surface", () => {

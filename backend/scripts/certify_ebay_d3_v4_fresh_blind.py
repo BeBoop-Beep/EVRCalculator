@@ -57,11 +57,27 @@ def _cohort_fingerprint(rows: list[dict[str, Any]]) -> str:
     ).hexdigest()
 
 
-def _label_fingerprint(rows: list[dict[str, Any]]) -> str:
+LABEL_FINGERPRINT_FIELDS = REQUIRED_LABEL_FIELDS
+
+
+def compute_label_fingerprint(rows: list[dict[str, Any]]) -> str:
+    """THE single canonical human-label fingerprint. Every tool that freezes
+    or verifies labels (the review server's freeze() and this certifier's
+    check_preconditions()) must call this exact function -- there must never
+    be a second, subtly different definition.
+
+    Each (row, field) pair is serialized as "row_id:field:value" (the field
+    name is included deliberately, so two different fields that happen to
+    share a value can never collide into the same line).
+    """
     material = "\n".join(
-        sorted(f"{r['benchmark_row_id']}:{r.get(f, '')}" for r in rows for f in REQUIRED_LABEL_FIELDS)
+        sorted(f"{r['benchmark_row_id']}:{f}:{r.get(f, '')}" for r in rows for f in LABEL_FINGERPRINT_FIELDS)
     )
     return hashlib.sha256(material.encode()).hexdigest()
+
+
+# Backwards-compatible alias -- do not add a second implementation here.
+_label_fingerprint = compute_label_fingerprint
 
 
 def load_queue_rows() -> list[dict[str, Any]]:
@@ -125,7 +141,25 @@ def check_preconditions() -> dict[str, Any]:
         blocking_reason = "EBAY_D3_V4_CERTIFICATION_BLOCKED_REVIEWER_PROTOCOL_UNDECLARED"
 
     if labels_complete:
-        checks["label_fingerprint"] = _label_fingerprint(rows)
+        recomputed_label_fingerprint = compute_label_fingerprint(rows)
+        checks["label_fingerprint_recomputed"] = recomputed_label_fingerprint
+        # Canonical manifest key going forward. Fall back to the legacy
+        # "label_fingerprint" key only for a manifest frozen before this
+        # fingerprint-integrity fix existed -- but that legacy value was
+        # produced by a DIFFERENT (buggy) formula, so it is reported, never
+        # trusted for a pass/fail decision.
+        recorded_label_fingerprint = blind_manifest.get("final_label_fingerprint")
+        checks["label_fingerprint_recorded"] = recorded_label_fingerprint
+        checks["legacy_label_fingerprint_recorded"] = blind_manifest.get("label_fingerprint")
+        if recorded_label_fingerprint is None:
+            checks["label_fingerprint_matches"] = False
+            if blocking_reason is None:
+                blocking_reason = "EBAY_D3_V4_CERTIFICATION_BLOCKED_LABELS_NOT_FROZEN"
+        else:
+            fingerprint_ok = recorded_label_fingerprint == recomputed_label_fingerprint
+            checks["label_fingerprint_matches"] = fingerprint_ok
+            if not fingerprint_ok and blocking_reason is None:
+                blocking_reason = "EBAY_D3_V4_CERTIFICATION_BLOCKED_LABEL_FINGERPRINT_MISMATCH"
 
     return {"overall_pass": blocking_reason is None, "blocking_reason": blocking_reason, "checks": checks}
 
@@ -174,23 +208,38 @@ CATASTROPHIC_CLASSES = ("GRADED", "LOT_OR_BUNDLE", "SEALED_OR_ACCESSORY", "WRONG
                          "RELATED_BUT_WRONG_VARIANT", "WRONG_SET", "WRONG_LANGUAGE")
 
 
+GRADED_VALUES = {"graded"}
+LOT_VALUES = {"lot", "lot_or_bundle"}
+SEALED_VALUES = {"sealed", "accessory", "non-card", "noncard", "sealed_or_non_card"}
+CONFLICT_VALUES = {"conflict", "inconsistent"}
+NOT_APPLICABLE_VALUES = {"", "not_visible", "uncertain"}
+ENGLISH_VALUES = {"english", "en"}
+
+
 def _human_error_class(row: dict[str, Any]) -> str | None:
     """Maps the label schema's descriptive fields to the repository's
     existing catastrophic taxonomy, for a definitive (non-uncertain) negative row.
+
+    Accepts both the original lowercase single-word values and the review
+    UI's exact enum strings (ebay_d3_v4_blind_review_server.py), e.g.
+    "LOT_OR_BUNDLE" / "SEALED_OR_NON_CARD" / "INCONSISTENT" / "NOT_VISIBLE".
+    NOT_VISIBLE/UNCERTAIN are never treated as an affirmative conflict --
+    the reviewer's inability to see a field is not evidence of a mismatch.
     """
-    if str(row.get("raw_or_graded", "")).strip().lower() == "graded":
+    if str(row.get("raw_or_graded", "")).strip().lower() in GRADED_VALUES:
         return "GRADED"
-    if str(row.get("single_card_or_lot", "")).strip().lower() == "lot":
+    if str(row.get("single_card_or_lot", "")).strip().lower() in LOT_VALUES:
         return "LOT_OR_BUNDLE"
-    if str(row.get("card_or_sealed_nonshcard", "")).strip().lower() in {"sealed", "accessory", "non-card", "noncard"}:
+    if str(row.get("card_or_sealed_nonshcard", "")).strip().lower() in SEALED_VALUES:
         return "SEALED_OR_ACCESSORY"
-    if str(row.get("collector_number_consistency", "")).strip().lower() == "conflict":
+    if str(row.get("collector_number_consistency", "")).strip().lower() in CONFLICT_VALUES:
         return "WRONG_CARD_NUMBER"
-    if str(row.get("set_consistency", "")).strip().lower() == "conflict":
+    if str(row.get("set_consistency", "")).strip().lower() in CONFLICT_VALUES:
         return "WRONG_SET"
-    if str(row.get("language", "")).strip().lower() not in ("", "english", "en"):
+    language = str(row.get("language", "")).strip().lower()
+    if language not in NOT_APPLICABLE_VALUES and language not in ENGLISH_VALUES:
         return "WRONG_LANGUAGE"
-    if str(row.get("variant_treatment", "")).strip().lower() == "conflict":
+    if str(row.get("variant_treatment", "")).strip().lower() in CONFLICT_VALUES:
         return "RELATED_BUT_WRONG_VARIANT"
     return "OTHER_MISMATCH"
 

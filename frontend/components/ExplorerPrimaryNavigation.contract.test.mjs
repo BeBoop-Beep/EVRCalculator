@@ -8,7 +8,8 @@ import { MARKET_EXPLORER_NAV_HREF, isExplorerNavRouteActive, isMarketNavRouteAct
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const header = fs.readFileSync(path.resolve(here, "Header.js"), "utf8").replace(/\r\n/g, "\n");
-const primary = header.slice(header.indexOf('<nav className="flex items-center gap-4 whitespace-nowrap">'), header.indexOf("</nav>", header.indexOf('<nav className="flex items-center gap-4 whitespace-nowrap">')));
+const primaryStart = header.indexOf('<nav data-desktop-primary-nav');
+const primary = header.slice(primaryStart, header.indexOf("</nav>", primaryStart));
 
 test("desktop primary navigation promotes Explorer in the accepted order", () => {
   const labels = [...primary.matchAll(/^\s{16}(Rankings|Market|Explorer|TCGs|Articles)$/gm)].map((match) => match[1]);

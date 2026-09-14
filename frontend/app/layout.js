@@ -96,7 +96,7 @@ export default async function RootLayout({ children }) {
             <Suspense fallback={null}>
               <RouteTransitionFeedback />
             </Suspense>
-            <main className="app-canvas flex-1 w-full pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
+            <main className="app-canvas flex-1 w-full pb-[calc(5.25rem+env(safe-area-inset-bottom))] xl:pb-0">{children}</main>
             <GlobalMobileBottomNav />
           </AuthProvider>
       </body>

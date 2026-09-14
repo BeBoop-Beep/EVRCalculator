@@ -1,0 +1,113 @@
+{
+  "version": "ebay_d3_v4_fresh_blind_certification_v1",
+  "precondition_report": {
+    "overall_pass": true,
+    "blocking_reason": null,
+    "checks": {
+      "cohort_row_count": 420,
+      "cohort_fingerprint_recorded": "31e97a7429a24afa4595a16902a15f1d52e0b18eddb44be780e6c0cf80e5d19b",
+      "cohort_fingerprint_recomputed": "31e97a7429a24afa4595a16902a15f1d52e0b18eddb44be780e6c0cf80e5d19b",
+      "cohort_fingerprint_matches": true,
+      "forbidden_matcher_columns_present": [],
+      "labeled_row_count": 420,
+      "total_row_count": 420,
+      "labels_complete": true,
+      "blind_manifest_labels_exist_flag": true,
+      "frozen_matcher_fingerprint": "14336982da2cbd420f686c350cc47f5c2843dd94afb7b711175a7f7dbe14b523",
+      "current_matcher_fingerprint": "14336982da2cbd420f686c350cc47f5c2843dd94afb7b711175a7f7dbe14b523",
+      "matcher_fingerprint_matches": true,
+      "reviewer_protocol": "SINGLE_REVIEWER_BLIND",
+      "reviewer_b_exists": false,
+      "reviewer_protocol_declared": true,
+      "label_fingerprint_recomputed": "2153104730b3c7b96c6ea19aef3e7cc2a6a850dfe9ab0e31286f1a2a9f7ea346",
+      "label_fingerprint_recorded": "2153104730b3c7b96c6ea19aef3e7cc2a6a850dfe9ab0e31286f1a2a9f7ea346",
+      "legacy_label_fingerprint_recorded": "5c5a017e8ccc5c69a5e1fd343a93c5e86988396b89de863820a9f36a5cdc97d8",
+      "label_fingerprint_matches": true
+    }
+  },
+  "label_contract": {
+    "incomplete_rows": [],
+    "incomplete_count": 0,
+    "definitive_count": 420,
+    "uncertain_count": 0,
+    "uncertain_policy": "excluded from precision/recall denominators; reported separately; never coerced to yes/no"
+  },
+  "v4_metrics": {
+    "total_scored_rows": 420,
+    "human_uncertain_rows": 0,
+    "definitive_rows": 420,
+    "matcher_state_breakdown": {
+      "AMBIGUOUS": 3,
+      "HIGH_CONFIDENCE": 218,
+      "MEDIUM_CONFIDENCE": 15,
+      "REJECTED": 184
+    },
+    "accepted_count": 218,
+    "true_accepts": 216,
+    "false_accepts": 2,
+    "accepted_precision": 0.99082569,
+    "accepted_precision_wilson_95": [
+      0.96717241,
+      0.99748046
+    ],
+    "accepted_recall": 0.87096774,
+    "acceptance_rate": 0.51904762,
+    "rejection_rate": 0.43809524,
+    "ambiguity_rate": 0.04285714,
+    "cards_with_true_accept": 57,
+    "cards_total": 70,
+    "card_coverage": 0.81428571,
+    "cards_with_false_only_accept": [],
+    "catastrophic_false_accepts": {
+      "OTHER_MISMATCH": 1,
+      "WRONG_CARD_NUMBER": 1
+    },
+    "catastrophic_false_accept_total": 2,
+    "catastrophic_false_accept_rate_among_accepted": 0.00917431,
+    "catastrophic_high_confidence_count": 2,
+    "error_rows": [
+      {
+        "benchmark_row_id": "D4-0375",
+        "human_error_class": "WRONG_CARD_NUMBER",
+        "matcher_state": "HIGH_CONFIDENCE",
+        "listing_title": "Roaring Moon ex - 162/131 - Pokemon Prismatic Evolutions Special Illustration NM"
+      },
+      {
+        "benchmark_row_id": "D4-0415",
+        "human_error_class": "OTHER_MISMATCH",
+        "matcher_state": "HIGH_CONFIDENCE",
+        "listing_title": "Team Rocket's Nidoking ex 233/182 Sv10 Destined Rivals SIR Holo Full Art Auto"
+      }
+    ]
+  },
+  "gate_result": {
+    "gates": {
+      "accepted_precision": {
+        "status": "PASS",
+        "threshold": 0.99,
+        "observed": 0.99082569,
+        "sample_size": 218
+      },
+      "wilson_lower": {
+        "status": "FAIL",
+        "threshold": 0.98,
+        "observed": 0.96717241,
+        "sample_size": 218
+      },
+      "coverage": {
+        "status": "PASS",
+        "threshold": 0.8,
+        "observed": 0.81428571,
+        "sample_size": 218
+      },
+      "catastrophic": {
+        "status": "FAIL",
+        "threshold": 0,
+        "observed": 2,
+        "sample_size": 218
+      }
+    },
+    "overall_result": "FAIL"
+  },
+  "final_result": "EBAY_D3_V4_NOT_CERTIFIED"
+}

@@ -1,0 +1,106 @@
+{
+  "version": "ebay_d3_v5_development_study_v1",
+  "development_corpus_fingerprint": "30420853d50f1e1c70655b5607cad91d680385f24ab18e558d999fe4454a9ccf",
+  "v4_metrics": {
+    "matcher_version": "index_fair_value_ebay_d3_v4",
+    "accepted": 194,
+    "tp": 194,
+    "fp": 0,
+    "tn": 156,
+    "fn": 83,
+    "precision": 1.0,
+    "recall": 0.70036101,
+    "card_coverage_count": 58,
+    "card_coverage": 0.82857143,
+    "matcher_state_breakdown": {
+      "AMBIGUOUS": 16,
+      "HIGH_CONFIDENCE": 194,
+      "MEDIUM_CONFIDENCE": 21,
+      "REJECTED": 219
+    },
+    "ambiguous_rate": 0.03555556,
+    "rejection_rate": 0.48666667,
+    "catastrophic_high_counts": {},
+    "catastrophic_high_total": 0,
+    "high_error_rows": []
+  },
+  "v5_metrics": {
+    "matcher_version": "index_fair_value_ebay_d3_v5",
+    "accepted": 194,
+    "tp": 194,
+    "fp": 0,
+    "tn": 156,
+    "fn": 83,
+    "precision": 1.0,
+    "recall": 0.70036101,
+    "card_coverage_count": 58,
+    "card_coverage": 0.82857143,
+    "matcher_state_breakdown": {
+      "AMBIGUOUS": 16,
+      "HIGH_CONFIDENCE": 194,
+      "MEDIUM_CONFIDENCE": 21,
+      "REJECTED": 219
+    },
+    "ambiguous_rate": 0.03555556,
+    "rejection_rate": 0.48666667,
+    "catastrophic_high_counts": {},
+    "catastrophic_high_total": 0,
+    "high_error_rows": []
+  },
+  "delta_v5_minus_v4": {
+    "precision_delta": 0.0,
+    "recall_delta": 0.0,
+    "coverage_delta": 0.0,
+    "ambiguous_rate_delta": 0.0,
+    "rejection_rate_delta": 0.0,
+    "catastrophic_high_total_delta": 0
+  },
+  "newly_rejected_legitimate_listings": [],
+  "newly_rejected_legitimate_count": 0,
+  "autograph_terminology_audit": {
+    "development_row_count_matching_autograph_terms": 0,
+    "examples": []
+  },
+  "roaring_moon_number_consistency_audit": {
+    "target_canonical_card_id": "d09b2fb5-41b6-4d1e-88cf-629402434501",
+    "development_rows_for_target": 6,
+    "rows_showing_162_131_or_162_numbering": 6,
+    "gold_labels_for_162_131_numbering": [
+      "EXACT_TARGET_MATCH",
+      "GRADED"
+    ],
+    "conclusion": "162/131 is confirmed, via independent development listings for this exact target, to be the normal/correct numbering (two of these rows are gold EXACT_TARGET_MATCH) -- the D4-0375 false accept is not a text-pattern defect; no rule is derived from it.",
+    "examples": [
+      {
+        "benchmark_row_id": "D2-0931",
+        "listing_title": "Roaring Moon ex 162/131 Sv: Prismatic Evolutions Holo",
+        "gold": "GRADED"
+      },
+      {
+        "benchmark_row_id": "D2-0933",
+        "listing_title": "Roaring Moon ex 162/131 Prismatic Evolutions Pokemon Holo NM",
+        "gold": "EXACT_TARGET_MATCH"
+      },
+      {
+        "benchmark_row_id": "D2-0934",
+        "listing_title": "2025 POKEMON PRE EN-PRISMATIC EV 162 ROARING MOON EX SPECIAL ILLUSTRATION RARE ",
+        "gold": "GRADED"
+      },
+      {
+        "benchmark_row_id": "D2-0939",
+        "listing_title": "NM Roaring Moon (162/131) Prismatic Evolutions Special Illustration Pokemon Card",
+        "gold": "EXACT_TARGET_MATCH"
+      },
+      {
+        "benchmark_row_id": "D2-0940",
+        "listing_title": "2025 POKEMON PRE EN-PRISMATIC EVOLUTIONS #162 ROARING MOON EX PSA 8.5",
+        "gold": "GRADED"
+      },
+      {
+        "benchmark_row_id": "D2-0943",
+        "listing_title": "2025 POKEMON PRE EN-PRISMATIC EVOLUTIONS #162 ROARING MOON EX PSA 9",
+        "gold": "GRADED"
+      }
+    ]
+  }
+}

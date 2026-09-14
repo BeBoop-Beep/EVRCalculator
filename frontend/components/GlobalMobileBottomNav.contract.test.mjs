@@ -72,9 +72,9 @@ test("Tools is gone from the bottom navigation", () => {
 test("the bottom navigation preserves its chrome while fitting five destinations", () => {
   assert.ok(
     source.includes(
-      'className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur lg:hidden"'
+      'className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur xl:hidden"'
     ),
-    "the nav shell classes are unchanged"
+    "the nav shell keeps its chrome and uses the shared navigation breakpoint"
   );
   assert.ok(
     source.includes('style={{ paddingBottom: "max(0.6rem, env(safe-area-inset-bottom))" }}'),

@@ -84,7 +84,36 @@
   "matcher_outputs_included": false,
   "sampling_method": "deterministic per-card SHA-256 ordering, independent of any matcher status",
   "relist_dedup_method": "sha256(normalized_title|seller|canonical_card_id|price_bucket_of_5); heuristic only -- a genuinely new listing with a coincidentally identical title/seller/price bucket for the same card would be (incorrectly) excluded; this trades a small amount of eligible-pool recall for lower false-inclusion risk.",
-  "labels_exist": false,
+  "labels_exist": true,
   "reviewer_b_exists": false,
-  "protocol": "SINGLE_REVIEWER_BLIND"
+  "protocol": "SINGLE_REVIEWER_BLIND",
+  "labels_frozen": true,
+  "reviewer_protocol": "SINGLE_REVIEWER_BLIND",
+  "reviewer_id": "Donny",
+  "freeze_timestamp": "2026-09-13T23:04:41.719439+00:00",
+  "label_fingerprint": "5c5a017e8ccc5c69a5e1fd343a93c5e86988396b89de863820a9f36a5cdc97d8",
+  "initial_human_freeze": {
+    "label_fingerprint": "5c5a017e8ccc5c69a5e1fd343a93c5e86988396b89de863820a9f36a5cdc97d8",
+    "freeze_timestamp": "2026-09-13T23:04:41.719439+00:00",
+    "reviewer_id": "Donny"
+  },
+  "correction_audit": {
+    "performed": true,
+    "corrected_row_count": 420,
+    "yes_row_count": 252,
+    "correction_order_seed": 1337,
+    "correction_history_fingerprint": "923b675a4395439158d8ba83c6112bd24c419336de8b0b0df10bc4ce4c5fb9f0",
+    "decision_counts": {
+      "KEEP_CURRENT": 419,
+      "CHANGE_TO_YES": 1
+    }
+  },
+  "final_human_freeze": {
+    "label_fingerprint": "2153104730b3c7b96c6ea19aef3e7cc2a6a850dfe9ab0e31286f1a2a9f7ea346",
+    "freeze_timestamp": "2026-09-14T00:25:23.475084+00:00",
+    "reviewer_id": "Donny"
+  },
+  "final_label_fingerprint": "2153104730b3c7b96c6ea19aef3e7cc2a6a850dfe9ab0e31286f1a2a9f7ea346",
+  "matcher_predictions_consulted": false,
+  "certification_not_yet_run": true
 }
