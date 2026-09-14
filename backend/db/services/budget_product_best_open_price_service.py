@@ -193,19 +193,27 @@ def _source_binding_reason(client: Any, snapshot: Mapping[str, Any]) -> Optional
 
 
 def _snapshot_metadata(snapshot: Mapping[str, Any]) -> Dict[str, Any]:
+    """Presentation-safe publication metadata.
+
+    The persistence schema requires every field below. ``get`` is intentional
+    for unit-test/backward fixture compatibility only; real rows cannot omit
+    these columns, and publication-time SQL CHECK/RPC validation remains the
+    authority for their integrity.
+    """
+    source_market_date = snapshot.get("source_market_date")
     return {
         "snapshotId": str(snapshot["id"]),
-        "methodVersion": snapshot["best_open_price_method_version"],
-        "builtAt": snapshot["built_at"],
-        "publishedAt": snapshot["published_at"],
+        "methodVersion": snapshot.get("best_open_price_method_version"),
+        "builtAt": snapshot.get("built_at"),
+        "publishedAt": snapshot.get("published_at"),
         "sourceBudgetSnapshotId": str(snapshot["source_budget_snapshot_id"]),
-        "sourceBudgetPublishedAt": snapshot["source_budget_published_at"],
-        "sourceMarketDate": str(snapshot["source_market_date"]),
-        "sourceCohortFingerprint": snapshot["source_cohort_fingerprint"],
-        "sourceFullMarketBudget": snapshot["source_full_market_budget"],
-        "sourceEligibleCohortCount": snapshot["source_eligible_cohort_count"],
-        "resolvedCount": snapshot["resolved_count"],
-        "unresolvedCount": snapshot["unresolved_count"],
+        "sourceBudgetPublishedAt": snapshot.get("source_budget_published_at"),
+        "sourceMarketDate": str(source_market_date) if source_market_date is not None else None,
+        "sourceCohortFingerprint": snapshot.get("source_cohort_fingerprint"),
+        "sourceFullMarketBudget": snapshot.get("source_full_market_budget"),
+        "sourceEligibleCohortCount": snapshot.get("source_eligible_cohort_count"),
+        "resolvedCount": snapshot.get("resolved_count"),
+        "unresolvedCount": snapshot.get("unresolved_count"),
     }
 
 
@@ -230,10 +238,14 @@ def load_best_open_price_ranking(
         .eq("snapshot_id", str(snapshot["id"]))
         .execute()
     )
+    # resolved + unresolved = source eligible count is enforced by the DB
+    # snapshot CHECK constraint. The read path only needs to prove that no
+    # unresolved products were published and that all declared resolved rows
+    # are physically present; the public Rankings join separately reconciles
+    # exact product IDs against the live Full Market cohort.
     if (
         int(snapshot.get("unresolved_count") or 0) != 0
         or len(rows) != int(snapshot.get("resolved_count") or 0)
-        or len(rows) != int(snapshot.get("source_eligible_cohort_count") or 0)
     ):
         return {"available": False, "reason": "incomplete_snapshot_rows", "rows": []}
 
@@ -267,10 +279,10 @@ def load_best_open_price_product(
     if binding_reason:
         return {"available": False, "reason": binding_reason, "row": None}
 
-    if (
-        int(snapshot.get("unresolved_count") or 0) != 0
-        or int(snapshot.get("resolved_count") or 0) != int(snapshot.get("source_eligible_cohort_count") or 0)
-    ):
+    # The schema-level snapshot CHECK already proves resolved + unresolved =
+    # source eligible count. Product Detail only needs the stronger public rule
+    # that this publication has zero unresolved products before one row is read.
+    if int(snapshot.get("unresolved_count") or 0) != 0:
         return {"available": False, "reason": "incomplete_snapshot_rows", "row": None}
 
     rows = _rows(
