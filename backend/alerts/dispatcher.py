@@ -90,10 +90,17 @@ def _get_batch_size() -> int:
 def _parse_timestamp(value: Any) -> Optional[datetime]:
     if not value:
         return None
+    text = str(value).strip().replace("Z", "+00:00")
     try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(text)
     except (TypeError, ValueError):
-        return None
+        # Python 3.10's fromisoformat only accepts selected fractional-second
+        # widths, while Postgres/PostgREST can emit any 1-6 digit precision.
+        # strptime(%f) accepts the full 1-6 digit PostgreSQL range.
+        try:
+            parsed = datetime.strptime(text, "%Y-%m-%dT%H:%M:%S.%f%z")
+        except (TypeError, ValueError):
+            return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
@@ -152,6 +159,7 @@ def format_slack_message(alert_row: Dict[str, Any]) -> Dict[str, Any]:
     title = alert_row.get("title", "(no title)")
     message = alert_row.get("message", "(no message)")
     created_at = alert_row.get("created_at", "")
+    created_dt = _parse_timestamp(created_at)
     payload = alert_row.get("payload") or {}
 
     color_map = {
@@ -204,9 +212,7 @@ def format_slack_message(alert_row: Dict[str, Any]) -> Dict[str, Any]:
                 "fields": fields,
                 "footer": alert_type,
                 "footer_icon": "https://a.slack-edge.com/80588/img/default_application_icon.png",
-                "ts": int(datetime.fromisoformat(created_at.replace("Z", "+00:00")).timestamp())
-                if created_at
-                else int(datetime.now(timezone.utc).timestamp()),
+                "ts": int((created_dt or datetime.now(timezone.utc)).timestamp()),
             }
         ],
     }
