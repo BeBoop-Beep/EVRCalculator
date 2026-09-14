@@ -37,6 +37,10 @@ temp/
 /private_artifacts/
 /docs/research/collector_appeal_v2_validation/generated/
 
+# eBay image-identity/retrieval runtime caches (regenerable, hash-named)
+/backend/artifacts/index_fair_value/ebay_image_identity_cache/
+/backend/artifacts/index_fair_value/ebay_image_retrieval_embedding_cache/
+
 
 # Supabase CLI local state
 supabase/.temp/
