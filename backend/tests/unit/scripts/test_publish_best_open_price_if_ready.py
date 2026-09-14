@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 from backend.scripts import publish_best_open_price_if_ready as publisher
+from backend.db.services.best_open_price_authority import SOURCE_VERSIONS
 
 
 SOURCE = {
@@ -23,6 +24,9 @@ SOURCE = {
     "chase_accessibility_transform_version": "chase-transform-v1",
     "ranked_under_v12_authority": True,
 }
+SOURCE.update(SOURCE_VERSIONS)
+SOURCE['pinned_price_as_of'] = SOURCE['market_date']
+
 
 
 def engine_row(pid="p1", rank=1, status="current_number_one_with_headroom"):
@@ -34,7 +38,7 @@ def engine_row(pid="p1", rank=1, status="current_number_one_with_headroom"):
         "currentMarketPrice": 100.0,
         "currentQuantity": 13,
         "currentBudgetRank": rank,
-        "currentOverallRipV12Score": 90.0,
+        "currentOverallRipV12Score": 90.0 if rank == 1 else 85.0,
         "currentFinancialRipV4Score": 80.0,
         "currentCollectorAppealScore": 70.0,
         "currentChaseAccessibilityRaw": 0.02,
@@ -46,9 +50,9 @@ def engine_row(pid="p1", rank=1, status="current_number_one_with_headroom"):
         "priceGapDollars": -10.0 if rank == 1 else 10.0,
         "priceGapPercent": -0.1 if rank == 1 else 0.1,
         "benchmarkSealedProductId": "p2" if pid == "p1" else "p1",
-        "benchmarkOverallRipV12Score": 85.0,
-        "benchmarkFinancialRipV4Score": 75.0,
-        "benchmarkChanceToRecoverCapital": 0.2,
+        "benchmarkOverallRipV12Score": 85.0 if rank == 1 else 90.0,
+        "benchmarkFinancialRipV4Score": 80.0,
+        "benchmarkChanceToRecoverCapital": 0.25,
         "benchmarkActualCommittedCapital": 1300.0,
         "candidatePriceEvaluations": 10,
         "bracketExpansions": 2,
@@ -66,9 +70,14 @@ def engine_row(pid="p1", rank=1, status="current_number_one_with_headroom"):
 
 def engine_result():
     rows = [engine_row("p1", 1), engine_row("p2", 2, "resolved_below_market")]
+    for row in rows:
+        row["bestOpenPriceCents"] = round(row["bestOpenPrice"] * 100)
+        row["exactness"]["nextPriceCents"] = row["bestOpenPriceCents"] + 1
     return {
-        "status": "complete",
-        "source": {"snapshotId": SOURCE["id"], "cohortFingerprint": SOURCE["cohort_fingerprint"]},
+        "status": "complete", "methodVersion": publisher.BEST_OPEN_PRICE_METHOD_VERSION,
+        "source": {"snapshotId": SOURCE["id"], "cohortFingerprint": SOURCE["cohort_fingerprint"],
+                   "publishedAt": SOURCE["published_at"], "fullMarketBudget": SOURCE["full_market_budget"], "sourceContentFingerprint": publisher.source_content_fingerprint(SOURCE, source_rows()),
+                   "authorityUnchangedAtCompletion": True},
         "products": rows,
         "cohortAnalysis": {
             "attempted": 2,
@@ -82,6 +91,18 @@ def engine_result():
         "constructionMode": "independent_single_q_flat_stream_batch_v1",
         "quantityBatchSize": 24,
     }
+
+
+def source_rows():
+    return [{
+        'sealed_product_id': row['sealedProductId'], 'set_id': row['setId'],
+        'product_family': row['productFamily'], 'source_calculation_run_id': row['sourceCalculationRunId'],
+        'product_market_price': row['currentMarketPrice'], 'quantity': row['currentQuantity'],
+        'budget_rank_v12': row['currentBudgetRank'], 'overall_rip_v12_score': row['currentOverallRipV12Score'],
+        'financial_rip_v4_score': row['currentFinancialRipV4Score'], 'collector_appeal_score': row['currentCollectorAppealScore'],
+        'chase_accessibility_raw': row['currentChaseAccessibilityRaw'], 'chance_to_recover_capital': row['currentChanceToRecoverCapital'],
+        'actual_committed_capital': row['currentActualCommittedCapital'],
+    } for row in [engine_row('p1', 1), engine_row('p2', 2, 'resolved_below_market')]]
 
 
 class Lock:
@@ -107,7 +128,7 @@ def install_source(monkeypatch, *, already_current=False, historical_exists=Fals
     monkeypatch.setattr(
         publisher,
         "_load_source",
-        lambda *_a, **_k: (dict(SOURCE), [{"sealed_product_id": "p1"}, {"sealed_product_id": "p2"}], []),
+        lambda *_a, **_k: (dict(SOURCE), source_rows(), []),
     )
     monkeypatch.setattr(
         publisher,
@@ -172,7 +193,7 @@ def test_recurring_run_pins_current_source_uses_exact_batch24_and_skips_replay(m
     monkeypatch.setattr(
         publisher,
         "build_payload_from_engine_result",
-        lambda _source, rows, **_k: {"snapshot": {"source_budget_snapshot_id": SOURCE["id"]}, "rows": rows, "contentFingerprint": "content-fp"},
+        lambda _source, rows, **_k: {"snapshot": {"source_budget_snapshot_id": SOURCE["id"]}, "rows": [dict(row, sealed_product_id=row["sealedProductId"]) for row in rows], "contentFingerprint": "content-fp"},
     )
 
     code, report = publisher.run(
@@ -234,7 +255,7 @@ def test_happy_commit_publishes_atomically_then_reads_back_same_authority(monkey
     monkeypatch.setattr(
         publisher,
         "build_payload_from_engine_result",
-        lambda _source, rows, **_k: {"snapshot": {"source_budget_snapshot_id": SOURCE["id"]}, "rows": rows, "contentFingerprint": "content-fp"},
+        lambda _source, rows, **_k: {"snapshot": {"source_budget_snapshot_id": SOURCE["id"]}, "rows": [dict(row, sealed_product_id=row["sealedProductId"]) for row in rows], "contentFingerprint": "content-fp"},
     )
     published = []
 
@@ -250,6 +271,9 @@ def test_happy_commit_publishes_atomically_then_reads_back_same_authority(monkey
             "available": True,
             "snapshotId": "bop-new",
             "sourceBudgetSnapshotId": SOURCE["id"],
+            "sourceBudgetPublishedAt": SOURCE["published_at"],
+            "sourceCohortFingerprint": SOURCE["cohort_fingerprint"],
+            "rows": published[0][1],
             "resolvedCount": 2,
             "unresolvedCount": 0,
         },

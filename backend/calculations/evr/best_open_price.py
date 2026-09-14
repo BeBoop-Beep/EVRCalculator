@@ -92,7 +92,9 @@ class ExactBestOpenPriceSearch:
     quantity_batch_size: int = 8
     _quantities: Dict[int, PreparedCanonicalCandidate] = field(default_factory=OrderedDict, init=False)
     _constructed_quantities: set[int] = field(default_factory=set, init=False)
-    _evaluations: Dict[tuple[int, int], Dict[str, Any]] = field(default_factory=dict, init=False)
+    _evaluations: Dict[tuple[int, int], Dict[str, Any]] = field(default_factory=OrderedDict, init=False)
+    evaluation_count: int = field(default=0, init=False)
+    lowest_evaluated_price: Optional[int] = field(default=None, init=False)
     cache_hits: int = field(default=0, init=False)
     cache_misses: int = field(default=0, init=False)
     cache_evictions: int = field(default=0, init=False)
@@ -175,8 +177,11 @@ class ExactBestOpenPriceSearch:
                 if solved is not None:
                     return solved
             return None
-        for block_start in range(start, stop + 1, self.quantity_batch_size):
-            quantities = list(range(block_start, min(stop + 1, block_start + self.quantity_batch_size)))
+        # High quantities can have no positive-cent price at all. Do not
+        # construct an outcome vector for an unreachable allocation.
+        reachable = [q for q in range(start, stop + 1) if self._bounds(q) is not None]
+        for block_start in range(0, len(reachable), self.quantity_batch_size):
+            quantities = reachable[block_start:block_start + self.quantity_batch_size]
             pending = self._prepare_batch(quantities)
             self.max_pending_batch_candidates = max(
                 self.max_pending_batch_candidates, len(pending)
@@ -203,7 +208,13 @@ class ExactBestOpenPriceSearch:
             evaluated = self._candidate(quantity).evaluate(price_cents, self.benchmark)
             self.scoring_seconds += float(evaluated.get("scoringSeconds") or 0.0)
             self.comparator_seconds += float(evaluated.get("comparatorSeconds") or 0.0)
+            self.evaluation_count += 1
+            self.lowest_evaluated_price = min(self.lowest_evaluated_price or price_cents, price_cents)
             self._evaluations[key] = evaluated
+            # Exact cent verification is cheap but its diagnostic cache must
+            # not grow with the entire price domain.
+            while len(self._evaluations) > 2048:
+                self._evaluations.popitem(last=False)
         return self._evaluations[key]
 
     def _bounds(self, quantity: int) -> Optional[tuple[int, int]]:
@@ -215,47 +226,24 @@ class ExactBestOpenPriceSearch:
         return (low, high) if low <= high else None
 
     def _solve_interval(self, quantity: int) -> Optional[Dict[str, Any]]:
+        """Highest winning cent in one fixed physical quantity interval.
+
+        Financial/V12 monotonicity does not prove comparator monotonicity:
+        rounded-score ties can be decided by committed capital in the opposite
+        direction. Five sentinels cannot exclude a narrow winning island.
+        Prepared scoring made this inexpensive, so inspect cents high-to-low
+        and stop at the first actual canonical win. No outcome reconstruction
+        or sort occurs per price. The evaluation cache remains bounded.
+        """
         bounds = self._bounds(quantity)
         if bounds is None:
             return None
         low, high = bounds
-        sentinels = sorted({low, low + (high - low) // 4, (low + high) // 2,
-                            low + (3 * (high - low)) // 4, high})
-        sentinel_results = [self.evaluate_price(price) for price in sentinels]
-        seen_loss = False
-        inversion = False
-        for probed in sentinel_results:
-            if not probed["wins"]:
-                seen_loss = True
-            elif seen_loss:
-                inversion = True
-        if inversion:
-            self.fallback_count += 1
-            winners = [self.evaluate_price(c) for c in range(low, high + 1)
-                       if self.evaluate_price(c)["wins"]]
-            return max(winners, key=lambda row: row["priceCents"]) if winners else None
-        low_result = sentinel_results[0]
-        if not low_result["wins"]:
-            return None
-        high_result = sentinel_results[-1]
-        if high_result["wins"]:
-            return high_result
-        left, right = low, high
-        while left < right:
-            middle = (left + right + 1) // 2
-            if self.evaluate_price(middle)["wins"]:
-                left = middle
-            else:
-                right = middle - 1
-        result = self.evaluate_price(left)
-        next_result = self.evaluate_price(left + 1) if left < high else None
-        if not result["wins"] or (next_result and next_result["wins"]):
-            # Correctness-preserving fallback: enumerate this finite cent interval.
-            self.fallback_count += 1
-            winners = [self.evaluate_price(c) for c in range(low, high + 1)
-                       if self.evaluate_price(c)["wins"]]
-            return max(winners, key=lambda row: row["priceCents"]) if winners else None
-        return result
+        for price in range(high, low - 1, -1):
+            result = self.evaluate_price(price)
+            if result["wins"]:
+                return result
+        return None
 
     def search(self) -> Dict[str, Any]:
         started = time.perf_counter()
@@ -290,70 +278,38 @@ class ExactBestOpenPriceSearch:
         return payload
 
     def _search_non_leader(self) -> Optional[Dict[str, Any]]:
-        # This is a compute guard, not a price floor: crossing it returns an
-        # explicit unresolved result and never fabricates a threshold.
+        # Ascending q means descending, disjoint price intervals. The first
+        # winning interval therefore contains the GLOBAL highest allowed cent.
+        # Bracketing is only an upper-bound optimization, never a proof that
+        # unsampled intervals do not contain a winner.
         max_q = min(self.budget_cents, self.max_quantity_to_construct)
         q0 = self.budget_cents // self.current_price_cents
-        tested = {q0}
+        if q0 > max_q:
+            return None
+        current_interval = self._solve_interval(q0)
+        if current_interval is not None:
+            return current_interval
         step = 1
-        winning_q: Optional[int] = None
+        stop = max_q
         while q0 + step <= max_q:
             self.bracket_expansions += 1
-            q = q0 + step
-            tested.add(q)
-            bounds = self._bounds(q)
+            quantity = q0 + step
+            bounds = self._bounds(quantity)
             if bounds and self.evaluate_price(bounds[0])["wins"]:
-                winning_q = q
+                stop = quantity
                 break
             step *= 2
-        if winning_q is None and q0 + step > max_q:
-            self.bracket_expansions += 1
-            q = max_q
-            tested.add(q)
-            bounds = self._bounds(q)
-            if bounds and self.evaluate_price(bounds[0])["wins"]:
-                winning_q = q
-        if winning_q is None:
-            return None
-        # Exact bracket refinement: locate the first winning quantity interval.
-        return self._scan_quantity_range(q0, winning_q)
+        return self._scan_quantity_range(q0 + 1, stop)
 
     def _search_leader(self) -> Optional[Dict[str, Any]]:
-        current = self.evaluate_price(self.current_price_cents)
-        if not current["wins"]:
+        q0 = self.budget_cents // self.current_price_cents
+        if q0 > self.max_quantity_to_construct:
+            return None
+        if not self.evaluate_price(self.current_price_cents)["wins"]:
             raise BestOpenPriceSearchError("published current leader does not reconstruct as #1")
-        last_winning_price = self.current_price_cents
-        step = 1
-        first_losing_price: Optional[int] = None
-        while self.current_price_cents + step <= self.budget_cents:
-            self.bracket_expansions += 1
-            price = self.current_price_cents + step
-            probed = self.evaluate_price(price)
-            if not probed["wins"]:
-                first_losing_price = price
-                break
-            last_winning_price = price
-            current = probed
-            step *= 2
-        if first_losing_price is None:
-            at_budget = self.evaluate_price(self.budget_cents)
-            if at_budget["wins"]:
-                return at_budget
-            first_losing_price = self.budget_cents
-        left, right = last_winning_price, first_losing_price - 1
-        while left < right:
-            self.bracket_refinements += 1
-            middle = (left + right + 1) // 2
-            if self.evaluate_price(middle)["wins"]:
-                left = middle
-            else:
-                right = middle - 1
-        result = self.evaluate_price(left)
-        if left < self.budget_cents and self.evaluate_price(left + 1)["wins"]:
-            winners = [self.evaluate_price(c) for c in range(last_winning_price, first_losing_price + 1)
-                       if self.evaluate_price(c)["wins"]]
-            return max(winners, key=lambda row: row["priceCents"])
-        return result
+        # A first loss is only a local boundary. A different quantity can win
+        # again at a higher price; inspect all higher-price intervals first.
+        return self._scan_quantity_range(1, q0)
 
     def _payload(self, status: str, result: Optional[Mapping[str, Any]], started: float) -> Dict[str, Any]:
         return {"methodVersion": BEST_OPEN_PRICE_METHOD_VERSION, "status": status,
@@ -362,7 +318,7 @@ class ExactBestOpenPriceSearch:
                 "threshold": dict(result) if result else None,
                 "benchmarkProductId": self.benchmark.get("sealedProductId"),
                 "benchmarkOverallRipV12Score": self.benchmark.get("overallRipV12Score"),
-                "evaluationCount": len(self._evaluations),
+                "evaluationCount": self.evaluation_count,
                 "physicalQuantitiesConstructed": sorted(self._constructed_quantities),
                 "quantityCacheHits": self.cache_hits, "quantityCacheMisses": self.cache_misses,
                 "quantityCacheEvictions": self.cache_evictions,
@@ -372,7 +328,7 @@ class ExactBestOpenPriceSearch:
                 "monotonicityFallbackCount": self.fallback_count,
                 "minimumQuantityInspected": min(self._constructed_quantities) if self._constructed_quantities else None,
                 "maximumQuantityInspected": max(self._constructed_quantities) if self._constructed_quantities else None,
-                "lowestCandidatePriceCents": min((key[1] for key in self._evaluations), default=None),
+                "lowestCandidatePriceCents": self.lowest_evaluated_price,
                 "candidateScoringSeconds": self.scoring_seconds,
                 "comparatorSeconds": self.comparator_seconds,
                 "exactnessVerificationSeconds": self.exactness_verification_seconds,

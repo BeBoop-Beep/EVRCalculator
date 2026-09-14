@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthContext";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { optimizedImageUrl, SET_LOGO_WIDTH } from "@/lib/images/remoteImageDelivery.mjs";
-import { hasIndexPlusAccess, hasIndexPremiumAccess } from "@/lib/access/indexPlanAccess.mjs";
+import { hasIndexPlusAccess, hasIndexPremiumAccess, hasIndexFeatureAccess, FEATURE_BEST_OPEN_PRICE } from "@/lib/access/indexPlanAccess.mjs";
 import SealedProductMarketPanel from "./SealedProductMarketPanel";
 import BestOpenPriceCard from "./BestOpenPriceCard";
 import ProductComparisonSection from "./ProductComparisonSection";
@@ -32,6 +32,7 @@ export default function SealedProductDetailClient({ initialDetail }) {
   const detail = initialDetail;
   const { user } = useAuth();
   const entitled = hasIndexPlusAccess(user?.index_plan);
+  const bestOpenEntitled = hasIndexFeatureAccess(user?.index_plan, FEATURE_BEST_OPEN_PRICE);
   const premiumEntitled = hasIndexPremiumAccess(user?.index_plan);
   const setHref = buildProductParentSetHref(detail.set);
   const atmosphere = optimizedImageUrl(detail.set.heroImageUrl || detail.set.logoImageUrl || detail.set.symbolImageUrl, SET_LOGO_WIDTH);
@@ -49,7 +50,7 @@ export default function SealedProductDetailClient({ initialDetail }) {
           </div></div>
           <div className="order-2 min-w-0 md:h-full"><SealedProductMarketPanel market={detail.market} productName={detail.product.name} /></div>
         </section>
-        {entitled && detail.rip?.bestOpenPrice ? <BestOpenPriceCard bestOpen={detail.rip.bestOpenPrice} market={detail.market} /> : null}
+        {bestOpenEntitled && detail.rip?.bestOpenPrice ? <BestOpenPriceCard bestOpen={detail.rip.bestOpenPrice} market={detail.market} /> : null}
         <EvRealizationCard horizon={setEvRealization} entitled={entitled} context="product" />
         {detail.rip?.available ? entitled ? <><ProductRipSection detail={detail} /><ProductOpeningProfile rip={detail.rip} currentPrice={detail.market.currentPrice} /></> : <ProductRipLock /> : detail.rip && entitled ? <ProductRipSection detail={detail} /> : <ProductRipLock />}
         {premiumEntitled ? (

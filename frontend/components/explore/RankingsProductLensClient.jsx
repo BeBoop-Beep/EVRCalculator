@@ -21,6 +21,7 @@ import {
   defaultProductSortDirection,
   normalizeOverallProductResult,
   sortProductRankingRows,
+  resolveProductSort,
 } from "./rankingsProductLensModel.mjs";
 import {
   chaseAccessibilityDisplay,
@@ -49,7 +50,7 @@ const SORTS = [
   { value: "chanceToRecoverCost", label: "Chance to Recover Cost" },
   { value: "alphabetical", label: "Alphabetical A–Z" },
 ];
-const BEST_OPEN_HELP = "Best-Open Price is the highest price at which this product would rank #1 against the current published Full Market cohort. Other products remain at their published prices.";
+const BEST_OPEN_HELP = "Best-Open Price is the highest price at which this product would rank #1 against the current published Full Market cohort. Whole units are compared within the fixed Full Market budget; this is not a single-unit ranking. Other products remain at their published prices.";
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -94,7 +95,7 @@ function bestOpenPresentation(row) {
   if (row?.bestOpenPriceStatus === "current_number_one_with_headroom") {
     return {
       threshold: `Best-Open ${money.format(threshold)}`,
-      context: gap === null ? "Stays #1 up to this price" : `Stays #1 · +${(Math.abs(gap) * 100).toFixed(1)}% headroom`,
+      context: gap === null ? "Ranks #1 at this price" : `#1 at threshold · +${(Math.abs(gap) * 100).toFixed(1)}% headroom`,
     };
   }
   if (row?.bestOpenPriceStatus === "resolved_at_market") {
@@ -284,7 +285,7 @@ export default function RankingsProductLensClient({ sessionCache }) {
 
   useEffect(() => {
     if (authStatus !== "resolved") return undefined;
-    const cached = sessionCache?.peek("products:full_market");
+    const cached = retryNonce === 0 && sessionCache?.peek("products:full_market");
     if (cached) {
       setState(cached.state);
       setOverallResult(cached.overallResult);
@@ -350,7 +351,7 @@ export default function RankingsProductLensClient({ sessionCache }) {
     setSortDirection(entitled ? "desc" : "asc");
   };
 
-  const selectBudget = (next) => {
+  const selectBudget = (next, { force = false } = {}) => {
     budgetRequest.current?.abort();
     if (next !== "full_market" && sortKey === "bestOpenPriceGapPercent") {
       setSortKey(entitled ? "overallRipLeaderScore" : "alphabetical");
@@ -360,16 +361,21 @@ export default function RankingsProductLensClient({ sessionCache }) {
     setOverallResult((current) => ({ ...(current || {}), status: "loading" }));
     const controller = new AbortController();
     budgetRequest.current = controller;
-    const identityAtRequest = requestKey;
-    const load = () => fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", signal: controller.signal })
-      .then((response) => response.json())
-      .then((payload) => normalizeOverallProductResult(payload));
-    (sessionCache ? sessionCache.request(`products:budget:${next}`, load) : load())
+    // The cache may share an in-flight request with the next selection.
+    // Do not cancel that shared fetch when abandoning only this subscriber.
+    const isCurrentRequest = () => budgetRequest.current === controller && !controller.signal.aborted;
+    const load = () => fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", ...(sessionCache ? {} : { signal: controller.signal }) })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.message || "Unable to load this opening budget");
+        return normalizeOverallProductResult(payload);
+      });
+    (sessionCache ? sessionCache.request(`products:budget:${next}`, load, { force }) : load())
       .then((nextResult) => {
-        if (!controller.signal.aborted && identityAtRequest === requestKey) setOverallResult(nextResult);
+        if (isCurrentRequest()) setOverallResult(nextResult);
       })
       .catch((error) => {
-        if (error.name !== "AbortError" && identityAtRequest === requestKey) setOverallResult(normalizeOverallProductResult(null));
+        if (error.name !== "AbortError" && isCurrentRequest()) setOverallResult(normalizeOverallProductResult(null));
       });
   };
 
@@ -385,10 +391,12 @@ export default function RankingsProductLensClient({ sessionCache }) {
     && budgetKey === "full_market"
     && entitled
     && canViewBestOpenPrice
+    && overallResult?.status !== "loading"
     && overallResult?.bestOpenPrice?.available === true
   );
   const sourceRows = overall ? (overallResult?.rows || []) : (selectedFamily?.products || []);
-  const rows = sortProductRankingRows(sourceRows, query, sortKey, sortDirection, overall);
+  const effectiveSort = resolveProductSort(sortKey, sortDirection, bestOpenAvailable, entitled);
+  const rows = sortProductRankingRows(sourceRows, query, effectiveSort.key, effectiveSort.direction, overall);
   const budgetOptions = (overallResult?.availableBudgets || []).map((entry) => ({
     value: entry?.type === "full_market" ? "full_market" : String(entry?.value),
     label: entry?.label,
@@ -417,15 +425,18 @@ export default function RankingsProductLensClient({ sessionCache }) {
           <div>
             <h2 className="font-semibold text-[var(--text-primary)]">{overall ? "Best Products to Rip" : familyLabel(selectedFamily?.label)}</h2>
             <p className="text-xs text-[var(--text-secondary)]">{overall ? `${overallResult?.cohortSize || rows.length} products ranked` : `${selectedFamily?.count || rows.length} products in this format`}</p>
+            {overall && budgetKey === "full_market" && canViewBestOpenPrice && !bestOpenAvailable && overallResult?.status !== "loading" ? <button type="button" onClick={() => selectBudget("full_market", { force: true })} className="mt-1 text-xs text-[var(--accent)] underline">Refresh Best-Open availability</button> : null}
             {bestOpenSourceDate ? <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Best-Open uses published Full Market prices as of {bestOpenSourceDate}.</p> : null}
           </div>
           <TableSearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products or sets..." ariaLabel="Search products or sets" containerClassName="md:justify-self-center" />
           <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row md:justify-self-end">
             {overall && budgetOptions.length ? <DarkSelect ariaLabel="Opening Budget" value={budgetKey} onChange={selectBudget} options={budgetOptions} className="w-full md:min-w-[15rem]" triggerVariant="budget" eyebrow="Opening Budget" /> : null}
-            <SortMenuButton ariaLabel="Sort products" value={sortKey} onChange={(next) => {
+            <SortMenuButton ariaLabel="Sort products" value={effectiveSort.key} onChange={(next) => {
               if (!entitled && next !== "alphabetical") return;
-              if (next === sortKey) setSortDirection((current) => current === "desc" ? "asc" : "desc");
-              else { setSortKey(next); setSortDirection(defaultProductSortDirection(next)); }
+              setSortKey(next);
+              setSortDirection(next === effectiveSort.key
+                ? (effectiveSort.direction === "desc" ? "asc" : "desc")
+                : defaultProductSortDirection(next));
             }} options={sortOptions} />
           </div>
         </div>

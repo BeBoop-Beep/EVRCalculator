@@ -28,6 +28,7 @@ import subprocess
 import tempfile
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence
 
@@ -37,6 +38,10 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
     BUDGET_NORMALIZED_RANKING_METHOD_VERSION,
 )
 from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.best_open_price_authority import (
+    EXECUTION_CONTRACT_VERSION, cents, finite_decimal, source_identity,
+    source_content_fingerprint, validate_source, timestamp,
+)
 from backend.db.services.budget_product_best_open_price_service import (
     load_best_open_price_ranking,
     publish_snapshot,
@@ -51,7 +56,7 @@ from backend.scripts.research_best_open_price_bucket0 import (
     _historical_authority,
     _load_source,
 )
-from backend.scripts.research_best_open_price_bucket2 import run as run_exact_engine
+from backend.scripts.research_best_open_price_bucket2 import run as run_exact_engine, _write_checkpoint
 
 logger = logging.getLogger("best-open-price-publication")
 
@@ -199,57 +204,113 @@ def _checkpoint_path(checkpoint_dir: Path, source: Mapping[str, Any]) -> Path:
     """
     snapshot_id = str(source.get("id") or "")
     safe = "".join(ch for ch in snapshot_id if ch.isalnum() or ch in "-_") or "unknown"
-    identity = "|".join((
-        snapshot_id,
-        str(source.get("published_at") or ""),
-        str(source.get("market_date") or ""),
-        str(source.get("cohort_fingerprint") or ""),
-    ))
-    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+    identity = json.dumps({"source": source_identity(source),
+                           "execution": EXECUTION_CONTRACT_VERSION,
+                           "content": source.get("_source_content_fingerprint")},
+                          sort_keys=True, default=str)
+    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
     return checkpoint_dir / f"best_open_price_{safe}_{digest}.json"
 
 
-def validate_engine_result(engine: Mapping[str, Any], source: Mapping[str, Any]) -> list[str]:
-    """Fail-closed publication gates over the completed exact-engine artifact."""
+def validate_engine_result(engine: Mapping[str, Any], source: Mapping[str, Any],
+                           source_rows: Optional[Sequence[Mapping[str, Any]]] = None) -> list[str]:
+    """Validate arithmetic and evidence, not just self-reported success flags."""
     errors: list[str] = []
-    expected = int(source.get("eligible_cohort_count") or 0)
-    rows = [row for row in (engine.get("products") or []) if isinstance(row, Mapping)]
-    analysis = engine.get("cohortAnalysis") or {}
-
-    if engine.get("status") != "complete":
-        errors.append("engine artifact is not complete")
-    if str((engine.get("source") or {}).get("snapshotId")) != str(source.get("id")):
-        errors.append("engine source snapshot does not match captured Budget Ranking authority")
-    if str((engine.get("source") or {}).get("cohortFingerprint")) != str(source.get("cohort_fingerprint")):
-        errors.append("engine cohort fingerprint does not match captured Budget Ranking authority")
-    if expected < 1 or len(rows) != expected:
-        errors.append(f"engine resolved row population {len(rows)} does not equal eligible cohort {expected}")
-    if int(analysis.get("attempted") or 0) != expected:
-        errors.append("engine attempted count does not equal eligible cohort")
-    if int(analysis.get("resolved") or 0) != expected or int(analysis.get("unresolved") or 0) != 0:
-        errors.append("engine did not resolve the complete eligible cohort")
-
-    identities = [str(row.get("sealedProductId") or "") for row in rows]
-    if not all(identities) or len(identities) != len(set(identities)):
-        errors.append("engine rows contain missing or duplicate product identities")
-
-    for row in rows:
-        pid = str(row.get("sealedProductId") or "<missing>")
-        if row.get("status") not in _SUPPORTED_RESOLVED_STATUSES:
-            errors.append(f"{pid}: unsupported or unresolved status {row.get('status')!r}")
-        if row.get("bestOpenPrice") is None or row.get("thresholdQuantity") is None:
-            errors.append(f"{pid}: missing exact threshold price/quantity")
-        exactness = row.get("exactness") or {}
-        if exactness.get("thresholdWins") is not True:
-            errors.append(f"{pid}: P* does not canonically win")
-        if exactness.get("oneCentMaximal") is not True or exactness.get("nextPriceWins") is True:
-            errors.append(f"{pid}: P*+1 cent maximality failed")
-        for field in _REQUIRED_EVIDENCE_FIELDS:
-            if row.get(field) is None:
-                errors.append(f"{pid}: missing persisted source evidence {field}")
-        if row.get("sourceCalculationRunId") in (None, ""):
-            errors.append(f"{pid}: missing source calculation run")
-
+    try:
+        expected = int(source["eligible_cohort_count"])
+        budget_cents = cents(source["full_market_budget"])
+        rows = engine.get("products") or []
+        if not isinstance(rows, list) or any(not isinstance(row, Mapping) for row in rows):
+            return ["engine products must be a list of complete row objects"]
+        analysis = engine.get("cohortAnalysis") or {}
+        identity = engine.get("source") or {}
+        if engine.get("status") != "complete":
+            errors.append("engine artifact is not complete")
+        if engine.get("methodVersion") != BEST_OPEN_PRICE_METHOD_VERSION:
+            errors.append("engine method version mismatch")
+        if str(identity.get("snapshotId")) != str(source["id"]) or str(identity.get("cohortFingerprint")) != str(source["cohort_fingerprint"]):
+            errors.append("engine source authority mismatch")
+        if timestamp(identity.get("publishedAt")) != timestamp(source["published_at"]):
+            errors.append("engine source publication timestamp mismatch")
+        if source.get("_source_content_fingerprint") and identity.get("sourceContentFingerprint") != source["_source_content_fingerprint"]:
+            errors.append("engine source content fingerprint mismatch")
+        if identity.get("authorityUnchangedAtCompletion") is not True:
+            errors.append("engine source drift verification is missing")
+        if cents(identity.get("fullMarketBudget")) != budget_cents:
+            errors.append("engine Full Market budget mismatch")
+        if expected < 2 or len(rows) != expected or any(int(analysis.get(k) or 0) != expected for k in ("attempted", "resolved")) or int(analysis.get("unresolved") or 0) != 0:
+            errors.append("engine did not resolve the complete eligible cohort")
+        ids = [str(row.get("sealedProductId") or "") for row in rows]
+        if not all(ids) or len(ids) != len(set(ids)):
+            errors.append("engine rows contain missing or duplicate product identities")
+        by_source = {str(row["sealed_product_id"]): row for row in (source_rows or [])}
+        if source_rows is not None and set(ids) != set(by_source):
+            errors.append("engine product identities do not match the Full Market source")
+        ranks = {str(row["sealed_product_id"]): int(row["budget_rank_v12"]) for row in (source_rows or [])}
+        for row in rows:
+            pid = str(row.get("sealedProductId") or "<missing>")
+            try:
+                price, current = cents(row.get("bestOpenPrice")), cents(row.get("currentMarketPrice"))
+                quantity = finite_decimal(row.get("thresholdQuantity"))
+                current_q = finite_decimal(row.get("currentQuantity"))
+                rank = int(row["currentBudgetRank"])
+                if min(price, current) < 1 or max(price, current) > budget_cents:
+                    raise ValueError("price outside the positive-cent budget domain")
+                if quantity != budget_cents // price or current_q != budget_cents // current:
+                    raise ValueError("quantity does not match exact whole-unit allocation")
+                if row.get("bestOpenPriceCents") != price:
+                    raise ValueError("threshold cents disagree with price")
+                status = row.get("status")
+                expected_status = ("current_number_one_with_headroom" if rank == 1 and price > current else
+                                   "resolved_at_market" if price == current else "resolved_below_market")
+                if status not in _SUPPORTED_RESOLVED_STATUSES or status != expected_status or (rank == 1 and price < current) or (rank != 1 and price > current):
+                    raise ValueError("invalid threshold status/direction")
+                if cents(row.get("priceGapDollars")) != current - price:
+                    raise ValueError("price gap does not reconcile")
+                if abs(finite_decimal(row.get("priceGapPercent")) - Decimal(current - price) / Decimal(current)) > Decimal("1e-12"):
+                    raise ValueError("price gap percent does not reconcile")
+                if finite_decimal(row.get("currentActualCommittedCapital")) != current_q * Decimal(current) / 100:
+                    raise ValueError("current committed capital does not reconcile")
+                exactness = row.get("exactness") or {}
+                if exactness.get("thresholdWins") is not True:
+                    raise ValueError("P* does not canonically win")
+                next_cent = price + 1 if price < budget_cents else None
+                inside = next_cent is not None and (rank == 1 or next_cent <= current)
+                if (exactness.get("oneCentMaximal") is not True or exactness.get("nextPriceCents") != next_cent
+                    or (inside and exactness.get("nextPriceWins") is not False)
+                    or (not inside and exactness.get("nextPriceWins") is not None)):
+                    raise ValueError("P*+1 cent maximality failed or was not verified")
+                for field in _REQUIRED_EVIDENCE_FIELDS:
+                    finite_decimal(row.get(field))
+                for field in ("sourceCalculationRunId", "setId", "productFamily", "benchmarkSealedProductId"):
+                    if not row.get(field):
+                        raise ValueError(f"missing source evidence {field}")
+                if row["benchmarkSealedProductId"] == pid:
+                    raise ValueError("candidate cannot benchmark against itself")
+                if source_rows is not None:
+                    actual = by_source[pid]
+                    mapping = {"currentMarketPrice": "product_market_price", "currentQuantity": "quantity",
+                               "currentBudgetRank": "budget_rank_v12", "currentOverallRipV12Score": "overall_rip_v12_score",
+                               "currentFinancialRipV4Score": "financial_rip_v4_score", "currentCollectorAppealScore": "collector_appeal_score",
+                               "currentChaseAccessibilityRaw": "chase_accessibility_raw", "currentChanceToRecoverCapital": "chance_to_recover_capital",
+                               "currentActualCommittedCapital": "actual_committed_capital"}
+                    for output, key in mapping.items():
+                        if finite_decimal(row.get(output)) != finite_decimal(actual.get(key)):
+                            raise ValueError(f"current source value mismatch: {output}")
+                    if str(row["sourceCalculationRunId"]) != str(actual["source_calculation_run_id"]) or str(row["setId"]) != str(actual["set_id"]) or row["productFamily"] != actual["product_family"]:
+                        raise ValueError("source product/run identity mismatch")
+                    benchmark_id = str(row["benchmarkSealedProductId"])
+                    if ranks.get(benchmark_id) != (2 if ranks[pid] == 1 else 1):
+                        raise ValueError("wrong canonical benchmark")
+                    benchmark = by_source[benchmark_id]
+                    for output, key in (("benchmarkOverallRipV12Score", "overall_rip_v12_score"), ("benchmarkFinancialRipV4Score", "financial_rip_v4_score"),
+                                        ("benchmarkChanceToRecoverCapital", "chance_to_recover_capital"), ("benchmarkActualCommittedCapital", "actual_committed_capital")):
+                        if finite_decimal(row.get(output)) != finite_decimal(benchmark.get(key)):
+                            raise ValueError(f"benchmark source value mismatch: {output}")
+            except (ValueError, TypeError, KeyError, ArithmeticError) as exc:
+                errors.append(f"{pid}: {exc}")
+    except (ValueError, TypeError, KeyError, ArithmeticError) as exc:
+        errors.append(f"invalid engine publication payload: {exc}")
     return errors
 
 
@@ -258,6 +319,7 @@ def _compact_diagnostics(engine: Mapping[str, Any]) -> Dict[str, Any]:
     lru = engine.get("lru") or {}
     analysis = engine.get("cohortAnalysis") or {}
     return {
+        "executionContractVersion": EXECUTION_CONTRACT_VERSION,
         "constructionMode": engine.get("constructionMode"),
         "quantityBatchSize": engine.get("quantityBatchSize"),
         "statusCounts": analysis.get("statusCounts") or {},
@@ -277,7 +339,7 @@ def _already_current(client: Any, source: Mapping[str, Any]) -> bool:
     return bool(
         prepared.get("available")
         and str(prepared.get("sourceBudgetSnapshotId")) == str(source.get("id"))
-        and str(prepared.get("sourceBudgetPublishedAt")) == str(source.get("published_at"))
+        and timestamp(prepared.get("sourceBudgetPublishedAt")) == timestamp(source.get("published_at"))
         and str(prepared.get("sourceCohortFingerprint")) == str(source.get("cohort_fingerprint"))
         and int(prepared.get("unresolvedCount") or 0) == 0
         and int(prepared.get("resolvedCount") or 0) == int(source.get("eligible_cohort_count") or 0)
@@ -299,8 +361,11 @@ def run(
         return _finish(report, "SOURCE_FAILED", reason="quantity batch size must be positive")
 
     lock = lock or PublicationFileLock(DEFAULT_LOCK_PATH)
-    if not lock.acquire():
-        return _finish(report, "ALREADY_RUNNING")
+    try:
+        if not lock.acquire():
+            return _finish(report, "ALREADY_RUNNING")
+    except OSError as exc:
+        return _finish(report, "SOURCE_FAILED", reason=f"publication lock unavailable: {exc}")
 
     try:
         client = client or create_service_role_client()
@@ -317,8 +382,7 @@ def run(
                 "sourceCohortFingerprint": str(source["cohort_fingerprint"]),
                 "eligibleCohortCount": int(source["eligible_cohort_count"]),
             })
-            if not source.get("ranked_under_v12_authority"):
-                return _finish(report, "SOURCE_FAILED", reason="current Budget Ranking is not V12-authoritative")
+            validate_source(source)
 
             if _already_current(client, source):
                 return _finish(report, "ALREADY_CURRENT")
@@ -334,12 +398,13 @@ def run(
 
             source_snapshot, source_rows, _ = _load_source(client, str(source["id"]))
             if (
-                str(source_snapshot.get("published_at")) != str(source.get("published_at"))
-                or str(source_snapshot.get("cohort_fingerprint")) != str(source.get("cohort_fingerprint"))
+                source_identity(source_snapshot) != source_identity(source)
             ):
                 return _finish(report, "SOURCE_FAILED", reason="captured source identity changed before engine start")
             source_authority = _historical_authority(source_snapshot, source_rows)
             report["sourceAuthorityFingerprint"] = source_authority["fingerprint"]
+            source = dict(source)
+            source["_source_content_fingerprint"] = source_content_fingerprint(source_snapshot, source_rows)
         except Exception as exc:
             return _finish(report, "SOURCE_FAILED", reason=str(exc))
 
@@ -352,6 +417,9 @@ def run(
                 run_determinism=False,
                 source_snapshot_id=str(source["id"]),
                 expected_source_authority_fingerprint=source_authority["fingerprint"],
+                expected_source_content_fingerprint=source["_source_content_fingerprint"],
+                client=client,
+                reuse_complete=True,
             )
         except Exception as exc:
             return _finish(report, "BUILD_FAILED", reason=str(exc))
@@ -362,7 +430,7 @@ def run(
         report["unresolvedCount"] = analysis.get("unresolved")
         report["diagnostics"] = _compact_diagnostics(engine)
 
-        validation_errors = validate_engine_result(engine, source)
+        validation_errors = validate_engine_result(engine, source, source_rows)
         if validation_errors:
             report["diagnostics"]["validationErrors"] = validation_errors[:25]
             return _finish(report, "VALIDATION_FAILED", reason="; ".join(validation_errors[:5]))
@@ -373,16 +441,22 @@ def run(
                 ranking_method_version=BUDGET_NORMALIZED_RANKING_METHOD_VERSION,
                 allocation_method_version=ALLOCATION_METHOD_VERSION,
             )
+            end_snapshot, end_rows, _ = _load_source(client, str(source["id"]))
+            if source_content_fingerprint(end_snapshot, end_rows) != source["_source_content_fingerprint"]:
+                raise RuntimeError("Full Market source values changed during computation")
         except Exception as exc:
             return _finish(report, "SOURCE_DRIFT", reason=str(exc))
 
-        payload = build_payload_from_engine_result(
-            dict(source),
-            list(engine.get("products") or []),
-            unresolved_count=0,
-            runtime_seconds=float(report["engineRuntimeSeconds"] or (time.perf_counter() - started)),
-            diagnostics_json=report["diagnostics"],
-        )
+        try:
+            payload = build_payload_from_engine_result(
+                dict(source),
+                list(engine.get("products") or []),
+                unresolved_count=0,
+                runtime_seconds=float(report["engineRuntimeSeconds"] or (time.perf_counter() - started)),
+                diagnostics_json=report["diagnostics"],
+            )
+        except Exception as exc:
+            return _finish(report, "VALIDATION_FAILED", reason=f"publication payload construction failed: {exc}")
 
         if not commit:
             report["diagnostics"]["contentFingerprint"] = payload["contentFingerprint"]
@@ -404,14 +478,32 @@ def run(
                 verified.get("available")
                 and str(verified.get("snapshotId")) == str(snapshot_id)
                 and str(verified.get("sourceBudgetSnapshotId")) == str(source["id"])
+                and timestamp(verified.get("sourceBudgetPublishedAt")) == timestamp(source["published_at"])
+                and str(verified.get("sourceCohortFingerprint")) == str(source["cohort_fingerprint"])
                 and int(verified.get("resolvedCount") or 0) == int(source["eligible_cohort_count"])
                 and int(verified.get("unresolvedCount") or 0) == 0
             ):
                 raise RuntimeError(f"published Best-Open authority failed read-back verification: {verified.get('reason')}")
+            persisted = {str(row.get("sealed_product_id")): row for row in verified.get("rows", [])}
+            if set(persisted) != {str(row["sealed_product_id"]) for row in payload["rows"]}:
+                raise RuntimeError("published product identity set differs from submitted rows")
+            for row in payload["rows"]:
+                actual = persisted[str(row["sealed_product_id"])]
+                for key, expected in row.items():
+                    value = actual.get(key)
+                    if isinstance(expected, (int, float, Decimal)) and not isinstance(expected, bool):
+                        equal = finite_decimal(value) == finite_decimal(expected)
+                    else:
+                        equal = value == expected
+                    if not equal:
+                        raise RuntimeError(f"published row field mismatch: {row['sealed_product_id']} {key}")
         except Exception as exc:
             return _finish(report, "POST_PUBLISH_VERIFICATION_FAILED", reason=str(exc))
 
         return _finish(report, "PUBLISHED")
+    except Exception as exc:
+        logger.exception("unhandled Best-Open publication failure")
+        return _finish(report, "BUILD_FAILED", reason=str(exc))
     finally:
         lock.release()
 
@@ -437,8 +529,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         quantity_batch_size=args.quantity_batch_size,
         checkpoint_dir=args.checkpoint_dir,
     )
-    args.json_report.parent.mkdir(parents=True, exist_ok=True)
-    args.json_report.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
+    _write_checkpoint(args.json_report, report)
     print("[best-open-price] " + json.dumps({
         key: report.get(key) for key in (
             "status", "sourceMarketDate", "sourceBudgetSnapshotId", "bestOpenSnapshotId",

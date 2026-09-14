@@ -41,6 +41,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from backend.calculations.evr.best_open_price import BEST_OPEN_PRICE_METHOD_VERSION
+from backend.db.services.best_open_price_authority import source_identity
 from backend.db.services.budget_product_best_open_price_service import (
     build_row_payload,
     build_snapshot_payload,
@@ -85,11 +86,7 @@ def verify_no_drift(client: Any, source: Dict[str, Any], *, ranking_method_versi
     fresh = resolve_source_identity(
         client, ranking_method_version=ranking_method_version, allocation_method_version=allocation_method_version,
     )
-    if (
-        str(fresh["id"]) != str(source["id"])
-        or str(fresh["published_at"]) != str(source["published_at"])
-        or str(fresh["cohort_fingerprint"]) != str(source["cohort_fingerprint"])
-    ):
+    if source_identity(fresh) != source_identity(source):
         raise RuntimeError(
             "source budget ranking authority drifted during computation "
             f"(was snapshot={source['id']} published_at={source['published_at']}, "
@@ -199,20 +196,15 @@ def run(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--commit", action="store_true", help="Actually publish (default: dry-run report only)")
-    parser.add_argument("--ranking-method-version", default="budget_constrained_whole_unit_cross_format_v1")
-    parser.add_argument("--allocation-method-version", default="floor_to_budget_v1")
-    parser.parse_args(argv)
+    """Backward-compatible entrypoint delegates to the actual current-source job.
 
-    print(
-        "This entrypoint requires the validated ~65-minute cohort engine run "
-        "(backend/scripts/research_best_open_price_bucket2.py) to be wired in as "
-        "`engine_rows` -- invoke `run()` programmatically from a driver that has "
-        "already produced that validated result. Refusing to run a placeholder "
-        "computation against production.", file=sys.stderr,
-    )
-    return 2
+    No placeholder exit and no second computation path. Default remains dry-run.
+    """
+    from backend.scripts.publish_best_open_price_if_ready import main as publish_main
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if "--commit" not in arguments and "--dry-run" not in arguments:
+        arguments.insert(0, "--dry-run")
+    return publish_main(arguments)
 
 
 if __name__ == "__main__":

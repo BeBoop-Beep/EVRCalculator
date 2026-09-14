@@ -60,3 +60,11 @@ export function sortProductRankingRows(rows, query, sortKey, direction, overall)
       return factor * (a - b);
     });
 }
+
+// The optional sort cannot remain active after its data disappears.
+export function resolveProductSort(sortKey, direction, bestOpenAvailable, entitled) {
+  if (sortKey === "bestOpenPriceGapPercent" && !bestOpenAvailable) {
+    return { key: entitled ? "overallRipLeaderScore" : "alphabetical", direction: entitled ? "desc" : "asc" };
+  }
+  return { key: sortKey, direction };
+}

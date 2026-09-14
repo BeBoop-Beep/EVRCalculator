@@ -18,6 +18,7 @@ import json
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from backend.calculations.evr.best_open_price import BEST_OPEN_PRICE_METHOD_VERSION
+from backend.db.services.best_open_price_authority import source_binding_matches
 
 RPC_NAME = "publish_budget_product_best_open_price_snapshot"
 
@@ -182,12 +183,7 @@ def _source_binding_reason(client: Any, snapshot: Mapping[str, Any]) -> Optional
     )
     if live_source is None:
         return "no_live_budget_ranking_source"
-    if (
-        str(live_source["id"]) != str(snapshot["source_budget_snapshot_id"])
-        or str(live_source["published_at"]) != str(snapshot["source_budget_published_at"])
-        or str(live_source["market_date"]) != str(snapshot["source_market_date"])
-        or str(live_source["cohort_fingerprint"]) != str(snapshot["source_cohort_fingerprint"])
-    ):
+    if not source_binding_matches(live_source, snapshot):
         return "stale_source_publication"
     return None
 
@@ -195,10 +191,7 @@ def _source_binding_reason(client: Any, snapshot: Mapping[str, Any]) -> Optional
 def _snapshot_metadata(snapshot: Mapping[str, Any]) -> Dict[str, Any]:
     """Presentation-safe publication metadata.
 
-    The persistence schema requires every field below. ``get`` is intentional
-    for unit-test/backward fixture compatibility only; real rows cannot omit
-    these columns, and publication-time SQL CHECK/RPC validation remains the
-    authority for their integrity.
+    The source binding is validated before these fields are exposed.
     """
     source_market_date = snapshot.get("source_market_date")
     return {
@@ -246,6 +239,8 @@ def load_best_open_price_ranking(
     if (
         int(snapshot.get("unresolved_count") or 0) != 0
         or len(rows) != int(snapshot.get("resolved_count") or 0)
+        or len(rows) != int(snapshot.get("source_eligible_cohort_count") or 0)
+        or len({str(row.get("sealed_product_id")) for row in rows}) != len(rows)
     ):
         return {"available": False, "reason": "incomplete_snapshot_rows", "rows": []}
 
@@ -282,7 +277,8 @@ def load_best_open_price_product(
     # The schema-level snapshot CHECK already proves resolved + unresolved =
     # source eligible count. Product Detail only needs the stronger public rule
     # that this publication has zero unresolved products before one row is read.
-    if int(snapshot.get("unresolved_count") or 0) != 0:
+    if (int(snapshot.get("unresolved_count") or 0) != 0
+        or int(snapshot.get("resolved_count") or 0) != int(snapshot.get("source_eligible_cohort_count") or 0)):
         return {"available": False, "reason": "incomplete_snapshot_rows", "row": None}
 
     rows = _rows(

@@ -31,7 +31,7 @@ test("desktop and mobile show semantic threshold copy for leader and challenger"
   assert.match(products, /data-best-open-price/);
   assert.match(products, /data-best-open-price-mobile/);
   assert.match(products, /current_number_one_with_headroom/);
-  assert.match(products, /Stays #1/);
+  assert.match(products, /#1 at threshold/);
   assert.match(products, /to #1/);
   assert.match(products, /Best-Open \$\{money\.format\(threshold\)\}/);
 });
