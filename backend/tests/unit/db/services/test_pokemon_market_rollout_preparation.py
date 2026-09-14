@@ -47,8 +47,8 @@ class Client:
     any ``.select(...)`` call against it raises via ``Query``'s poison guard.
     """
 
-    def __init__(self, *, response=None, materialized=False, incomplete_after_rpc=False,
-                 era_rows=None, set_rows=None):
+    def __init__(self, *, response=None, authority_response=None, materialized=False,
+                 incomplete_after_rpc=False, era_rows=None, set_rows=None):
         self.roots = [{"set_id": "root", "release_date": "2020-01-01",
                        "activated_market_date": "2026-09-10"}]
         self.era_rows = era_rows if era_rows is not None else [
@@ -64,9 +64,15 @@ class Client:
             "status": "complete", "marketDate": DAY, "candidateDate": DAY,
             "rolloutRootCount": 1, "standardRowsUpserted": 1, "top10RowsUpserted": 1,
         }
+        self.authority_response = authority_response or {
+            "status": "complete", "marketDate": DAY, "rowsActivated": 0,
+            "structuralRootCount": 155, "activeAuthorityRootCount": 155,
+            "missingStructuralRootCount": 0, "structuralFingerprint": "fp",
+        }
         self.rpc_calls = []
         self.incomplete_after_rpc = incomplete_after_rpc
-        if materialized: self._materialize()
+        if materialized:
+            self._materialize()
 
     def _materialize(self):
         self.history = [
@@ -88,19 +94,27 @@ class Client:
     def rpc(self, name, payload):
         self.rpc_calls.append((name, payload))
         client = self
+
         class RPC:
             def execute(self):
+                if name == prep.AUTHORITY_SYNC_RPC:
+                    return SimpleNamespace(data=client.authority_response)
                 client._materialize()
                 if client.incomplete_after_rpc:
                     client.history.pop()
                 return SimpleNamespace(data=client.response)
+
         return RPC()
 
 
-def test_commit_prepares_and_validates_complete_candidate_pairs():
+def test_commit_syncs_authority_then_prepares_and_validates_complete_candidate_pairs():
     client = Client()
     result = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
-    assert client.rpc_calls == [(prep.CANDIDATE_PREPARATION_RPC, {"p_market_date": DAY})]
+    assert client.rpc_calls == [
+        (prep.AUTHORITY_SYNC_RPC, {"p_market_date": DAY}),
+        (prep.CANDIDATE_PREPARATION_RPC, {"p_market_date": DAY}),
+    ]
+    assert result["authoritySync"]["structuralRootCount"] == 155
     assert result["materialization"]["ready"] is True
     assert result["materialization"]["provenanceState"] == "candidate"
 
@@ -114,6 +128,22 @@ def test_dry_run_is_read_only_and_reports_preparation_required():
 
 
 @pytest.mark.parametrize("change,match", [
+    ({"status": "blocked"}, "did not complete"),
+    ({"marketDate": "2026-09-12"}, "wrong marketDate"),
+    ({"structuralRootCount": 0}, "empty structural cohort"),
+    ({"missingStructuralRootCount": 1}, "left structural roots missing"),
+    ({"activeAuthorityRootCount": 154}, "active count is below structural count"),
+])
+def test_bad_authority_sync_response_fails_closed(change, match):
+    response = dict(Client().authority_response)
+    response.update(change)
+    with pytest.raises(RuntimeError, match=match):
+        prep.prepare_market_rollout_candidate(
+            Client(authority_response=response), DAY, commit=True,
+        )
+
+
+@pytest.mark.parametrize("change,match", [
     ({"marketDate": "2026-09-12"}, "wrong marketDate"),
     ({"candidateDate": "2026-09-12"}, "wrong candidateDate"),
     ({"rolloutRootCount": 2}, "root count mismatch"),
@@ -121,16 +151,17 @@ def test_dry_run_is_read_only_and_reports_preparation_required():
     ({"top10RowsUpserted": 0}, "Top10 row count mismatch"),
 ])
 def test_bad_candidate_response_fails_closed(change, match):
-    response = dict(Client().response); response.update(change)
+    response = dict(Client().response)
+    response.update(change)
     with pytest.raises(RuntimeError, match=match):
         prep.prepare_market_rollout_candidate(Client(response=response), DAY, commit=True)
 
 
-def test_unprepared_historical_date_is_rejected_by_rpc_response():
-    response = dict(Client().response, marketDate=DAY, candidateDate=DAY)
+def test_unprepared_historical_date_is_rejected_by_authority_sync_response():
+    authority = dict(Client().authority_response, marketDate=DAY)
     with pytest.raises(RuntimeError, match="wrong marketDate"):
         prep.prepare_market_rollout_candidate(
-            Client(response=response), "2026-09-12", commit=True,
+            Client(authority_response=authority), "2026-09-12", commit=True,
         )
 
 
@@ -148,7 +179,7 @@ def test_candidate_preparation_retry_is_idempotent():
     assert first["materialization"]["ready"] is True
     assert second["materialization"]["ready"] is True
     assert len(client.history) == 2
-    assert len(client.rpc_calls) == 2
+    assert len(client.rpc_calls) == 4
 
 
 # --- structural membership -------------------------------------------------

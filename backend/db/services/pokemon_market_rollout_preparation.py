@@ -6,6 +6,7 @@ from typing import Any
 
 from backend.db.services.price_storage_v2_integration import public_root_materialization
 
+AUTHORITY_SYNC_RPC = "sync_pokemon_market_root_authority_v1"
 CANDIDATE_PREPARATION_RPC = "prepare_pokemon_market_candidate_rollout_set_values_v1"
 # Deliberately NOT queried on the current-day candidate/materialization path:
 # this valuation-backed view scans get_pokemon_market_root_set_card_prices_latest_v1(NULL)
@@ -23,6 +24,30 @@ HISTORY_TABLE = "pokemon_set_value_daily_history"
 
 def _rows(result: Any) -> list[dict[str, Any]]:
     return [dict(row) for row in ((getattr(result, "data", None) if result else None) or [])]
+
+
+def sync_market_root_authority(client: Any, market_date: str) -> dict[str, Any]:
+    """Insert any newly trackable root sets into current Market authority.
+
+    The RPC is deliberately insert-only: once a root joins Market authority it
+    never disappears merely because certification/freshness later regresses.
+    """
+    day = str(market_date or "")[:10]
+    response = client.rpc(AUTHORITY_SYNC_RPC, {"p_market_date": day}).execute()
+    payload = getattr(response, "data", None)
+    if not isinstance(payload, dict):
+        raise RuntimeError("Market root authority sync returned a non-object response")
+    if payload.get("status") != "complete":
+        raise RuntimeError("Market root authority sync did not complete")
+    if str(payload.get("marketDate") or "")[:10] != day:
+        raise RuntimeError("Market root authority sync returned wrong marketDate")
+    if int(payload.get("structuralRootCount") or 0) < 1:
+        raise RuntimeError("Market root authority sync returned an empty structural cohort")
+    if int(payload.get("missingStructuralRootCount") or -1) != 0:
+        raise RuntimeError("Market root authority sync left structural roots missing")
+    if int(payload.get("activeAuthorityRootCount") or 0) < int(payload.get("structuralRootCount") or 0):
+        raise RuntimeError("Market root authority sync active count is below structural count")
+    return payload
 
 
 def staged_rollout_root_ids(client: Any, market_date: str) -> list[str]:
@@ -100,6 +125,14 @@ def prepare_market_rollout_candidate(
     day = str(market_date or "")[:10]
     if len(day) != 10:
         raise ValueError("an explicit candidate market date is required")
+
+    authority_sync = None
+    if commit:
+        # Authority growth must happen BEFORE Quality resolves its cohort. The
+        # sync is structural and insert-only, so certification can never make a
+        # trackable set disappear from Market or Explorer.
+        authority_sync = sync_market_root_authority(client, day)
+
     root_ids = staged_rollout_root_ids(client, day)
     if not commit:
         materialization = rollout_candidate_materialization(client, day, root_ids=root_ids)
@@ -141,4 +174,9 @@ def prepare_market_rollout_candidate(
         raise RuntimeError(
             "candidate preparation did not leave candidate provenance"
         )
-    return {**payload, "rpcInvoked": True, "materialization": materialization}
+    return {
+        **payload,
+        "rpcInvoked": True,
+        "authoritySync": authority_sync,
+        "materialization": materialization,
+    }
