@@ -84,7 +84,12 @@ def write_env(tmp_path, monkeypatch, rows, manifest=None, matcher_fingerprint=No
     monkeypatch.setattr(module, "BLIND_MANIFEST_PATH", manifest_path)
     monkeypatch.setattr(module, "FREEZE_MANIFEST_PATH", freeze_path)
     monkeypatch.setattr(module, "EXPECTED_ROW_COUNT", expected_row_count if expected_row_count is not None else len(rows))
-    return {"queue": queue, "manifest": manifest_path, "freeze": freeze_path}
+    # CRITICAL: main() writes CERTIFICATION_OUTPUT_PATH unconditionally on a
+    # successful run. Never leave this pointed at the real repo path in a
+    # test -- it must always be redirected into tmp_path.
+    cert_output = tmp_path / "certification.json"
+    monkeypatch.setattr(module, "CERTIFICATION_OUTPUT_PATH", cert_output)
+    return {"queue": queue, "manifest": manifest_path, "freeze": freeze_path, "cert_output": cert_output}
 
 
 # --------------------------------------------------------------------------
@@ -372,13 +377,33 @@ def test_main_produces_not_certified_when_a_gate_fails(tmp_path, monkeypatch):
         make_row("D5-0000", "c1", exact="yes"),
         make_row("D5-0001", "c1", exact="yes", title="totally different unrelated listing text zzz"),
     ]
-    write_env(tmp_path, monkeypatch, rows)
+    env = write_env(tmp_path, monkeypatch, rows)
     monkeypatch.setattr(module, "DESIGN_PATH", tmp_path / "design.json")
     (tmp_path / "design.json").write_text(json.dumps(DESIGN), encoding="utf-8")
+    real_cert_output = module.OUT / "ebay_d3_v5_fresh_blind_certification.json"
+    real_cert_output_before = real_cert_output.read_bytes() if real_cert_output.exists() else None
+
     result = main()
+
     assert result["final_result"] in ("EBAY_D3_V5_NOT_CERTIFIED", "EBAY_D3_V5_SINGLE_REVIEWER_BLIND_CERTIFIED_E3_READY")
     assert "v5_metrics" in result
     assert "precondition_report" in result
+    # main() must have written to the tmp-redirected path, never the real one.
+    assert env["cert_output"].exists()
+    real_cert_output_after = real_cert_output.read_bytes() if real_cert_output.exists() else None
+    assert real_cert_output_after == real_cert_output_before
+
+
+def test_main_never_writes_certification_output_to_real_repo_path(tmp_path, monkeypatch):
+    """Regression guard for the exact defect found in E2.4A: a test that
+    forgets to redirect CERTIFICATION_OUTPUT_PATH silently overwrites the
+    real repo's certification artifact with fixture data. Every test in this
+    module must monkeypatch it via write_env(); this test independently
+    confirms the module-level default still points at the real OUT
+    directory (so a future write_env() regression would be caught by CI
+    diffing the real file, not silently swallowed).
+    """
+    assert module.CERTIFICATION_OUTPUT_PATH == module.OUT / "ebay_d3_v5_fresh_blind_certification.json"
 
 
 def test_certification_never_touches_production_pricing_or_snapshots(tmp_path, monkeypatch):
@@ -408,3 +433,154 @@ def test_real_417_row_cohort_not_touched_by_this_test_module():
     """
     real_cohort = module.OUT / "ebay_d3_v5_fresh_blind_queue.csv"
     assert module.QUEUE_PATH != real_cohort or True  # module-level default is fine; tests always monkeypatch it
+
+
+# --------------------------------------------------------------------------
+# E2.4A -- reconciliation-attestation provenance path (path B)
+# --------------------------------------------------------------------------
+
+
+def write_valid_reconciliation(path, rows, matcher_fingerprint, session_id="v5_session_2",
+                                predecessor_id="v5_session_1"):
+    attestation = {
+        "reconciliation_version": "ebay_d3_v5_final_freeze_reconciliation_v1",
+        "reconciliation_timestamp": "2026-09-14T04:00:00+00:00",
+        "historical_manifest_fingerprint": "irrelevant-for-certifier-verification",
+        "queue_fingerprint": "irrelevant-for-certifier-verification",
+        "cohort_fingerprint": module._cohort_fingerprint(rows),
+        "final_label_fingerprint": module.compute_label_fingerprint(rows),
+        "valid_review_session_id": session_id,
+        "invalidated_predecessor_session_id": predecessor_id,
+        "reviewer_id": "Donny",
+        "reviewer_protocol": "SINGLE_REVIEWER_BLIND",
+        "labels_complete": True,
+        "matcher_predictions_consulted": False,
+        "matcher_fingerprint": matcher_fingerprint,
+        "reconciliation_reason": "final freeze predated review_session_id/finally_frozen provenance fields",
+        "historical_manual_backfill_detected": True,
+        "historical_manual_backfill_acknowledged": True,
+        "no_label_cohort_or_matcher_mutation_performed": True,
+        "row_count": len(rows),
+    }
+    material = json.dumps(attestation, sort_keys=True, separators=(",", ":")).encode()
+    import hashlib
+
+    attestation["attestation_fingerprint"] = hashlib.sha256(material).hexdigest()
+    path.write_text(json.dumps(attestation), encoding="utf-8")
+    return attestation
+
+
+def _manifest_without_final_session_id(rows, session_id="v5_session_2"):
+    manifest = base_manifest(rows, session_id=session_id)
+    manifest["final_human_freeze"] = {"reviewer_id": "Donny"}  # no review_session_id -- the real E2.4A gap
+    return manifest
+
+
+# 10. hand-backfilled manifest alone is insufficient without reconciliation
+def test_manifest_without_session_id_and_without_reconciliation_blocks(tmp_path, monkeypatch):
+    rows = [make_row("D5-0000", "c1")]
+    manifest = _manifest_without_final_session_id(rows)
+    write_env(tmp_path, monkeypatch, rows, manifest=manifest)
+    monkeypatch.setattr(module, "RECONCILIATION_PATH", tmp_path / "nonexistent_reconciliation.json")
+    report = check_preconditions()
+    assert report["overall_pass"] is False
+    assert report["blocking_reason"] == "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+
+# 11. valid reconciliation satisfies the provenance precondition
+def test_valid_reconciliation_satisfies_provenance_precondition(tmp_path, monkeypatch):
+    rows = [make_row("D5-0000", "c1")]
+    manifest = _manifest_without_final_session_id(rows)
+    write_env(tmp_path, monkeypatch, rows, manifest=manifest)
+    reconciliation_path = tmp_path / "reconciliation.json"
+    write_valid_reconciliation(reconciliation_path, rows, v5.rule_fingerprint())
+    monkeypatch.setattr(module, "RECONCILIATION_PATH", reconciliation_path)
+    report = check_preconditions()
+    assert report["overall_pass"] is True
+    assert report["checks"]["provenance_source"] == "RECONCILIATION_ATTESTATION"
+
+
+def test_reconciliation_with_tampered_self_fingerprint_blocks(tmp_path, monkeypatch):
+    rows = [make_row("D5-0000", "c1")]
+    manifest = _manifest_without_final_session_id(rows)
+    write_env(tmp_path, monkeypatch, rows, manifest=manifest)
+    reconciliation_path = tmp_path / "reconciliation.json"
+    attestation = write_valid_reconciliation(reconciliation_path, rows, v5.rule_fingerprint())
+    attestation["reviewer_id"] = "SomeoneElse"  # tamper after the fingerprint was computed
+    reconciliation_path.write_text(json.dumps(attestation), encoding="utf-8")
+    monkeypatch.setattr(module, "RECONCILIATION_PATH", reconciliation_path)
+    report = check_preconditions()
+    assert report["overall_pass"] is False
+    assert report["blocking_reason"] == "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+
+def test_reconciliation_disagreeing_with_manifest_fingerprints_blocks(tmp_path, monkeypatch):
+    rows = [make_row("D5-0000", "c1")]
+    manifest = _manifest_without_final_session_id(rows)
+    write_env(tmp_path, monkeypatch, rows, manifest=manifest)
+    reconciliation_path = tmp_path / "reconciliation.json"
+    write_valid_reconciliation(reconciliation_path, [make_row("D5-9999", "c9")], v5.rule_fingerprint())
+    monkeypatch.setattr(module, "RECONCILIATION_PATH", reconciliation_path)
+    report = check_preconditions()
+    assert report["overall_pass"] is False
+    assert report["blocking_reason"] == "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+
+def test_reconciliation_pointing_at_invalidated_session_blocks(tmp_path, monkeypatch):
+    rows = [make_row("D5-0000", "c1")]
+    manifest = _manifest_without_final_session_id(rows, session_id="v5_session_1")
+    manifest["initial_human_freeze"]["review_session_id"] = "v5_session_1"
+    write_env(tmp_path, monkeypatch, rows, manifest=manifest)
+    reconciliation_path = tmp_path / "reconciliation.json"
+    write_valid_reconciliation(reconciliation_path, rows, v5.rule_fingerprint(), session_id="v5_session_1",
+                                predecessor_id=None)
+    monkeypatch.setattr(module, "RECONCILIATION_PATH", reconciliation_path)
+    report = check_preconditions()
+    assert report["overall_pass"] is False
+    assert report["blocking_reason"] == module.CERTIFICATION_BLOCKED_INVALID_SESSION
+
+
+def test_reconciliation_matcher_fingerprint_mismatch_blocks(tmp_path, monkeypatch):
+    rows = [make_row("D5-0000", "c1")]
+    manifest = _manifest_without_final_session_id(rows)
+    write_env(tmp_path, monkeypatch, rows, manifest=manifest)
+    reconciliation_path = tmp_path / "reconciliation.json"
+    write_valid_reconciliation(reconciliation_path, rows, "not-the-real-matcher-fingerprint")
+    monkeypatch.setattr(module, "RECONCILIATION_PATH", reconciliation_path)
+    report = check_preconditions()
+    assert report["overall_pass"] is False
+    assert report["blocking_reason"] == "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+
+# 15. certifier gates unchanged by the E2.4A reconciliation path
+def test_certifier_gates_unchanged_by_reconciliation_path():
+    metrics = {
+        "accepted_count": 100, "accepted_precision": 1.0, "accepted_precision_wilson_95": [0.99, 1.0],
+        "card_coverage": 0.9, "catastrophic_false_accept_total": 0,
+    }
+    result = apply_gates(metrics, DESIGN)
+    assert result["gates"]["accepted_precision"]["threshold"] == 0.99
+    assert result["gates"]["wilson_lower"]["threshold"] == 0.98
+    assert result["gates"]["coverage"]["threshold"] == 0.80
+    assert result["gates"]["catastrophic"]["threshold"] == 0
+
+
+# 16. real matcher never executed by any reconciliation-path precondition check
+def test_reconciliation_path_precondition_check_never_invokes_matcher(tmp_path, monkeypatch):
+    rows = [make_row("D5-0000", "c1")]
+    manifest = _manifest_without_final_session_id(rows)
+    write_env(tmp_path, monkeypatch, rows, manifest=manifest)
+    reconciliation_path = tmp_path / "reconciliation.json"
+    write_valid_reconciliation(reconciliation_path, rows, v5.rule_fingerprint())
+    monkeypatch.setattr(module, "RECONCILIATION_PATH", reconciliation_path)
+
+    calls = {"n": 0}
+    real_classify = v5.classify_listing
+
+    def spy(*args, **kwargs):
+        calls["n"] += 1
+        return real_classify(*args, **kwargs)
+
+    monkeypatch.setattr(module.v5, "classify_listing", spy)
+    check_preconditions()
+    assert calls["n"] == 0

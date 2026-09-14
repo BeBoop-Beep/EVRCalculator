@@ -114,13 +114,23 @@ def build_payload_from_engine_result(
     diagnostics_json: Dict[str, Any],
 ) -> Dict[str, Any]:
     rows = [build_row_payload(row) for row in engine_rows]
+    # The row-level fingerprint must be sensitive to every raw source +
+    # benchmark evidence field newly persisted on each row (financial RIP
+    # V4, collector appeal, chase accessibility raw, chance-to-recover, and
+    # committed-capital, current AND benchmark) -- NOT the source snapshot's
+    # cohort fingerprint, which is identity/version-only and would not
+    # detect a row-level raw-value drift. `content_fingerprint` already
+    # hashes the full row payload deterministically (sorted by
+    # sealed_product_id, sort_keys=True), so it picks up these new fields
+    # automatically.
+    row_fingerprint = content_fingerprint(rows)
     snapshot = build_snapshot_payload(
         built_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         source_budget_snapshot_id=str(source["id"]),
         source_budget_published_at=str(source["published_at"]),
         source_market_date=str(source["market_date"]),
         source_cohort_fingerprint=str(source["cohort_fingerprint"]),
-        source_full_market_row_fingerprint=str(source.get("cohort_fingerprint")),
+        source_full_market_row_fingerprint=row_fingerprint,
         source_full_market_budget=float(source["full_market_budget"]),
         source_eligible_cohort_count=int(source["eligible_cohort_count"]),
         ranking_method_version=str(source["ranking_method_version"]),
@@ -136,7 +146,7 @@ def build_payload_from_engine_result(
         runtime_seconds=runtime_seconds,
         diagnostics_json=diagnostics_json,
     )
-    return {"snapshot": snapshot, "rows": rows, "contentFingerprint": content_fingerprint(rows)}
+    return {"snapshot": snapshot, "rows": rows, "contentFingerprint": row_fingerprint}
 
 
 def run(

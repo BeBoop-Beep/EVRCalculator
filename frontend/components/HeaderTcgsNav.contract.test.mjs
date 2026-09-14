@@ -84,7 +84,7 @@ test("TCGs shares the primary nav typography, spacing and visible focus ring", (
   // Tools was removed as a destination; the recipe itself is unchanged.
   const tabs = primaryNav.match(/\$\{navTabBase\} inline-flex items-center justify-center/g) || [];
   assert.equal(tabs.length, 5, "Rankings, Market, Explorer, TCGs, and Articles must share the primary tab recipe");
-  assert.ok(headerSource.includes("px-2 py-2 text-sm font-medium"), "primary nav keeps a compact shared typography recipe");
+  assert.ok(headerSource.includes("px-3 hdr:px-4 py-2 text-sm hdr:text-[15px] font-medium"), "primary nav keeps the restored main typography recipe");
   assert.ok(
     headerSource.includes("focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"),
     "primary nav items must keep a visible keyboard focus treatment"

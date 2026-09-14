@@ -103,6 +103,14 @@ def build_row_payload(engine_row: Mapping[str, Any]) -> Dict[str, Any]:
         "current_quantity": engine_row["currentQuantity"],
         "current_budget_rank": engine_row["currentBudgetRank"],
         "current_overall_rip_v12_score": engine_row.get("currentOverallRipV12Score"),
+        # Raw source + benchmark evidence (see migration
+        # 20260913220000): enough to reproduce the canonical comparison
+        # even if budget_product_ranking_rows is later replaced/mutated.
+        "current_financial_rip_v4_score": engine_row.get("currentFinancialRipV4Score"),
+        "current_collector_appeal_score": engine_row.get("currentCollectorAppealScore"),
+        "current_chase_accessibility_raw": engine_row.get("currentChaseAccessibilityRaw"),
+        "current_chance_to_recover_capital": engine_row.get("currentChanceToRecoverCapital"),
+        "current_actual_committed_capital": engine_row["currentActualCommittedCapital"],
         "status": engine_row["status"],
         "best_open_price": engine_row["bestOpenPrice"],
         "threshold_quantity": engine_row["thresholdQuantity"],
@@ -110,6 +118,9 @@ def build_row_payload(engine_row: Mapping[str, Any]) -> Dict[str, Any]:
         "price_gap_percent": engine_row.get("priceGapPercent"),
         "benchmark_sealed_product_id": engine_row["benchmarkSealedProductId"],
         "benchmark_overall_rip_v12_score": engine_row["benchmarkOverallRipV12Score"],
+        "benchmark_financial_rip_v4_score": engine_row["benchmarkFinancialRipV4Score"],
+        "benchmark_chance_to_recover_capital": engine_row.get("benchmarkChanceToRecoverCapital"),
+        "benchmark_actual_committed_capital": engine_row["benchmarkActualCommittedCapital"],
         "candidate_price_evaluations": engine_row.get("candidatePriceEvaluations", 0),
         "bracket_expansions": engine_row.get("bracketExpansions", 0),
         "bracket_refinements": engine_row.get("bracketRefinements", 0),

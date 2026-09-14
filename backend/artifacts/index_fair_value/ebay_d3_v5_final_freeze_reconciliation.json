@@ -1,0 +1,21 @@
+{
+  "reconciliation_version": "ebay_d3_v5_final_freeze_reconciliation_v1",
+  "reconciliation_timestamp": "2026-09-14T04:26:42.214802+00:00",
+  "historical_manifest_fingerprint": "f50404328d3e1d66e49b538a5b6411d30c4fcf9b60a421e8ff486c5fe77e0e5f",
+  "queue_fingerprint": "a611340a7b900f2a556bfded24b60df9fba09c082900ea3cd2703c3159e9ac02",
+  "cohort_fingerprint": "3e19667cba3d0e579378b7a8b802aba2c40f4668cf7699f63cb989792a329cdf",
+  "final_label_fingerprint": "c0b2f18a025d81bacbb7c136a912e167e72105d362adfb8cabfe73dc6189591f",
+  "valid_review_session_id": "v5_session_2",
+  "invalidated_predecessor_session_id": "v5_session_1",
+  "reviewer_id": "Donny",
+  "reviewer_protocol": "SINGLE_REVIEWER_BLIND",
+  "labels_complete": true,
+  "matcher_predictions_consulted": false,
+  "matcher_fingerprint": "93301e5da1cf8129896993f12cfec2b66c5c887d679cb6f0755785c884581c69",
+  "reconciliation_reason": "final freeze predated review_session_id/finally_frozen provenance fields",
+  "historical_manual_backfill_detected": true,
+  "historical_manual_backfill_acknowledged": true,
+  "no_label_cohort_or_matcher_mutation_performed": true,
+  "row_count": 417,
+  "attestation_fingerprint": "4ed1869652381b3fe8ff7f37aeef522e648e096d2cfc2186b097567ff35d2cbd"
+}

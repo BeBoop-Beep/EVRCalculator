@@ -74,8 +74,13 @@ def test_build_row_payload_projects_engine_row_fields():
         "sealedProductId": "p1", "setId": "s1", "productFamily": "booster_box",
         "sourceCalculationRunId": "run1", "currentMarketPrice": 100.0, "currentQuantity": 14,
         "currentBudgetRank": 1, "currentOverallRipV12Score": 0.9, "status": "current_number_one_with_headroom",
+        "currentFinancialRipV4Score": 0.75, "currentCollectorAppealScore": 0.6,
+        "currentChaseAccessibilityRaw": 0.4, "currentChanceToRecoverCapital": 0.85,
+        "currentActualCommittedCapital": 1386.0,
         "bestOpenPrice": 110.0, "thresholdQuantity": 12, "priceGapDollars": -10.0, "priceGapPercent": -0.1,
         "benchmarkSealedProductId": "p2", "benchmarkOverallRipV12Score": 0.8,
+        "benchmarkFinancialRipV4Score": 0.7, "benchmarkChanceToRecoverCapital": 0.8,
+        "benchmarkActualCommittedCapital": 1390.0,
         "candidatePriceEvaluations": 5, "bracketExpansions": 2, "bracketRefinements": 3,
         "fallbackCount": 0, "searchWallSeconds": 1.2,
     }
@@ -84,6 +89,14 @@ def test_build_row_payload_projects_engine_row_fields():
     assert payload["best_open_price"] == 110.0
     assert payload["status"] == "current_number_one_with_headroom"
     assert payload["monotonicity_fallback_count"] == 0
+    assert payload["current_financial_rip_v4_score"] == 0.75
+    assert payload["current_collector_appeal_score"] == 0.6
+    assert payload["current_chase_accessibility_raw"] == 0.4
+    assert payload["current_chance_to_recover_capital"] == 0.85
+    assert payload["current_actual_committed_capital"] == 1386.0
+    assert payload["benchmark_financial_rip_v4_score"] == 0.7
+    assert payload["benchmark_chance_to_recover_capital"] == 0.8
+    assert payload["benchmark_actual_committed_capital"] == 1390.0
 
 
 def test_content_fingerprint_is_order_independent_but_content_sensitive():

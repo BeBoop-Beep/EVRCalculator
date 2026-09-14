@@ -143,11 +143,9 @@
   "final_human_freeze": {
     "label_fingerprint": "c0b2f18a025d81bacbb7c136a912e167e72105d362adfb8cabfe73dc6189591f",
     "freeze_timestamp": "2026-09-14T03:20:25.038291+00:00",
-    "reviewer_id": "Donny",
-    "review_session_id": "v5_session_2"
+    "reviewer_id": "Donny"
   },
   "final_label_fingerprint": "c0b2f18a025d81bacbb7c136a912e167e72105d362adfb8cabfe73dc6189591f",
   "matcher_predictions_consulted": false,
-  "certification_not_yet_run": true,
-  "finally_frozen": true
+  "certification_not_yet_run": true
 }

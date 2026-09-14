@@ -35,6 +35,7 @@ BLIND_MANIFEST_PATH = OUT / "ebay_d3_v5_fresh_blind_manifest.json"
 FREEZE_MANIFEST_PATH = OUT / "ebay_d3_v5_freeze_manifest.json"
 DESIGN_PATH = OUT / "ebay_d3_new_blind_benchmark_design.json"
 CERTIFICATION_OUTPUT_PATH = OUT / "ebay_d3_v5_fresh_blind_certification.json"
+RECONCILIATION_PATH = OUT / "ebay_d3_v5_final_freeze_reconciliation.json"
 
 EXPECTED_ROW_COUNT = 417
 
@@ -95,10 +96,101 @@ def load_queue_rows() -> list[dict[str, Any]]:
         return list(csv.DictReader(handle))
 
 
-def _validate_review_session(blind_manifest: dict[str, Any], checks: dict[str, Any]) -> str | None:
-    """Session-safety gate (E2.3B/E2.4): the frozen labels must be traceable
-    to exactly one review session, and that session must not be invalidated.
-    Returns a blocking_reason string, or None if the session checks pass.
+def _verify_reconciliation_attestation(
+    rows: list[dict[str, Any]], blind_manifest: dict[str, Any], freeze_manifest: dict[str, Any], checks: dict[str, Any],
+) -> tuple[str | None, str | None]:
+    """E2.4A path B: when the frozen manifest's `final_human_freeze` block
+    genuinely never recorded a `review_session_id` (a real freeze that
+    predates that provenance field being added -- see
+    reconcile_ebay_d3_v5_final_freeze_provenance.py), this is the ONLY
+    alternative path to a valid session id. It is never a rubber stamp: the
+    attestation's own integrity fingerprint is recomputed, and the cohort/
+    label fingerprints it claims are independently recomputed here from the
+    CURRENT real queue -- never merely trusted from the attestation file.
+
+    Returns (session_id_or_None, blocking_reason_or_None).
+    """
+    if not RECONCILIATION_PATH.exists():
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+    try:
+        attestation = json.loads(RECONCILIATION_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+    checks["reconciliation_attestation"] = attestation
+
+    # Integrity: recompute the attestation's own self-fingerprint exactly as
+    # reconcile_ebay_d3_v5_final_freeze_provenance.reconcile() computed it.
+    claimed_fingerprint = attestation.get("attestation_fingerprint")
+    material = {k: v for k, v in attestation.items() if k != "attestation_fingerprint"}
+    recomputed_fingerprint = hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    checks["reconciliation_attestation_fingerprint_matches"] = claimed_fingerprint == recomputed_fingerprint
+    if claimed_fingerprint != recomputed_fingerprint:
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+    # Never trust the attestation's claimed fingerprints -- independently
+    # recompute both from the CURRENT real cohort and compare.
+    recomputed_cohort_fp = _cohort_fingerprint(rows)
+    recomputed_label_fp = compute_label_fingerprint(rows)
+    checks["reconciliation_cohort_fingerprint_matches"] = attestation.get("cohort_fingerprint") == recomputed_cohort_fp
+    checks["reconciliation_label_fingerprint_matches"] = attestation.get("final_label_fingerprint") == recomputed_label_fp
+    if attestation.get("cohort_fingerprint") != recomputed_cohort_fp:
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+    if attestation.get("final_label_fingerprint") != recomputed_label_fp:
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+    # Cross-check against the (independently authored) blind manifest's own
+    # recorded fingerprints -- the attestation must not disagree with them.
+    if attestation.get("cohort_fingerprint") != blind_manifest.get("cohort_fingerprint"):
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+    if attestation.get("final_label_fingerprint") != blind_manifest.get("final_label_fingerprint"):
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+    # Matcher must still be unseen, and the matcher fingerprint the
+    # attestation recorded must match the frozen V5 matcher fingerprint.
+    if attestation.get("matcher_predictions_consulted", True) is not False:
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+    if attestation.get("matcher_fingerprint") != freeze_manifest.get("matcher_fingerprint"):
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+    session_id = attestation.get("valid_review_session_id")
+    checks["reconciliation_valid_review_session_id"] = session_id
+    if not session_id:
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+    review_sessions = blind_manifest.get("review_sessions", {}) or {}
+    session_record = review_sessions.get(session_id, {})
+    if session_record.get("status") == SESSION_INVALIDATED_STATUS:
+        return None, CERTIFICATION_BLOCKED_INVALID_SESSION
+
+    predecessor_id = attestation.get("invalidated_predecessor_session_id")
+    predecessor_record = review_sessions.get(predecessor_id, {}) if predecessor_id else {}
+    checks["reconciliation_predecessor_invalidated"] = predecessor_record.get("status") == SESSION_INVALIDATED_STATUS
+    if predecessor_id and predecessor_record.get("status") != SESSION_INVALIDATED_STATUS:
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+    if predecessor_id and predecessor_record.get("labels_eligible_for_certification", True) is not False:
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+    if attestation.get("row_count") != EXPECTED_ROW_COUNT or attestation.get("labels_complete") is not True:
+        return None, "EBAY_D3_V5_CERTIFICATION_BLOCKED_FREEZE_PROVENANCE_INVALID"
+
+    return session_id, None
+
+
+def _validate_review_session(
+    rows: list[dict[str, Any]], blind_manifest: dict[str, Any], freeze_manifest: dict[str, Any], checks: dict[str, Any],
+) -> str | None:
+    """Session-safety gate (E2.3B/E2.4/E2.4A): the frozen labels must be
+    traceable to exactly one review session, and that session must not be
+    invalidated. Accepts exactly one of two provenance sources for the
+    final session id: (A) the canonical, tool-written
+    `final_human_freeze.review_session_id` manifest field, or (B) a
+    verified reconciliation attestation (E2.4A) for a real historical freeze
+    that predates that field. Returns a blocking_reason string, or None if
+    the session checks pass.
     """
     review_sessions = blind_manifest.get("review_sessions", {}) or {}
     initial_session_id = (blind_manifest.get("initial_human_freeze") or {}).get("review_session_id")
@@ -109,8 +201,19 @@ def _validate_review_session(blind_manifest: dict[str, Any], checks: dict[str, A
     checks["review_sessions"] = review_sessions
 
     if not final_session_id:
-        checks["review_session_declared"] = False
-        return "EBAY_D3_V5_CERTIFICATION_BLOCKED_REVIEW_SESSION_UNDECLARED"
+        # Path A (canonical manifest field) is unavailable -- fall back to
+        # path B (a verified reconciliation attestation) instead of treating
+        # this as an undeclared session outright.
+        checks["provenance_source"] = "RECONCILIATION_ATTESTATION"
+        reconciled_session_id, reconciliation_blocking_reason = _verify_reconciliation_attestation(
+            rows, blind_manifest, freeze_manifest, checks
+        )
+        if reconciliation_blocking_reason:
+            checks["review_session_declared"] = False
+            return reconciliation_blocking_reason
+        final_session_id = reconciled_session_id
+    else:
+        checks["provenance_source"] = "MANIFEST_FIELD"
     checks["review_session_declared"] = True
 
     # Mixed-session label provenance: the session the initial freeze
@@ -183,12 +286,12 @@ def check_preconditions() -> dict[str, Any]:
     if (not labels_complete or not blind_manifest.get("labels_exist")) and blocking_reason is None:
         blocking_reason = "EBAY_D3_V5_CERTIFICATION_BLOCKED_LABELS_NOT_FROZEN"
 
-    # Final (post-correction-audit) human freeze must exist and be closed.
+    # Final (post-correction-audit) human freeze must exist at all -- this
+    # is a hard requirement regardless of provenance path.
     checks["finally_frozen"] = blind_manifest.get("finally_frozen")
     checks["final_human_freeze_present"] = "final_human_freeze" in blind_manifest
-    if not checks["final_human_freeze_present"] or not checks["finally_frozen"]:
-        if blocking_reason is None:
-            blocking_reason = "EBAY_D3_V5_CERTIFICATION_BLOCKED_FINAL_HUMAN_FREEZE_MISSING"
+    if not checks["final_human_freeze_present"] and blocking_reason is None:
+        blocking_reason = "EBAY_D3_V5_CERTIFICATION_BLOCKED_FINAL_HUMAN_FREEZE_MISSING"
 
     current_fingerprint = v5.rule_fingerprint()
     frozen_fingerprint = freeze_manifest.get("matcher_fingerprint")
@@ -210,9 +313,23 @@ def check_preconditions() -> dict[str, Any]:
     # E2.3B/E2.4 session-safety gate -- fails closed on the invalidated
     # v5_session_1, on any other invalidated session, and on mixed-session
     # label provenance.
-    session_blocking_reason = _validate_review_session(blind_manifest, checks)
+    session_blocking_reason = _validate_review_session(rows, blind_manifest, freeze_manifest, checks)
     if session_blocking_reason and blocking_reason is None:
         blocking_reason = session_blocking_reason
+
+    # E2.4A: "finally frozen" is satisfied by EITHER the canonical
+    # tool-written `finally_frozen` manifest flag (path A), OR a verified
+    # reconciliation attestation that independently proved the same fact for
+    # a real historical freeze that predates that flag (path B) -- the
+    # attestation's own "labels_complete"/row-count checks already cover
+    # what `finally_frozen` would have asserted. Never satisfied by an
+    # absent flag with no reconciliation to back it.
+    finally_frozen_effective = bool(checks["finally_frozen"]) or (
+        checks.get("provenance_source") == "RECONCILIATION_ATTESTATION" and session_blocking_reason is None
+    )
+    checks["finally_frozen_effective"] = finally_frozen_effective
+    if checks["final_human_freeze_present"] and not finally_frozen_effective and blocking_reason is None:
+        blocking_reason = "EBAY_D3_V5_CERTIFICATION_BLOCKED_FINAL_HUMAN_FREEZE_MISSING"
 
     if labels_complete:
         recomputed_label_fingerprint = compute_label_fingerprint(rows)

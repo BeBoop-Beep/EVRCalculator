@@ -92,6 +92,36 @@ def test_status_invariants_enforced_by_check_constraint():
     assert "best_open_price = current_market_price and price_gap_dollars = 0" in SQL
 
 
+def test_row_current_raw_source_evidence_fields_present():
+    assert "current_financial_rip_v4_score numeric" in SQL
+    assert "current_collector_appeal_score numeric" in SQL
+    assert "current_chase_accessibility_raw numeric" in SQL
+    assert "current_chance_to_recover_capital numeric" in SQL
+    assert "current_actual_committed_capital numeric not null check (current_actual_committed_capital > 0)" in SQL
+
+
+def test_row_benchmark_raw_evidence_fields_present():
+    assert "benchmark_financial_rip_v4_score numeric not null" in SQL
+    assert "benchmark_chance_to_recover_capital numeric" in SQL
+    assert "benchmark_actual_committed_capital numeric not null check (benchmark_actual_committed_capital > 0)" in SQL
+
+
+def test_rpc_cross_checks_current_raw_evidence_against_live_ranking_rows():
+    assert "live.financial_rip_v4_score is distinct from (row->>'current_financial_rip_v4_score')::numeric" in SQL
+    assert "live.collector_appeal_score is distinct from (row->>'current_collector_appeal_score')::numeric" in SQL
+    assert "live.chase_accessibility_raw is distinct from (row->>'current_chase_accessibility_raw')::numeric" in SQL
+    assert "live.chance_to_recover_capital is distinct from (row->>'current_chance_to_recover_capital')::numeric" in SQL
+    assert "live.actual_committed_capital is distinct from (row->>'current_actual_committed_capital')::numeric" in SQL
+
+
+def test_rpc_cross_checks_benchmark_raw_evidence_against_live_ranking_rows():
+    assert "bench.overall_rip_v12_score is distinct from (row->>'benchmark_overall_rip_v12_score')::numeric" in SQL
+    assert "bench.financial_rip_v4_score is distinct from (row->>'benchmark_financial_rip_v4_score')::numeric" in SQL
+    assert "bench.chance_to_recover_capital is distinct from (row->>'benchmark_chance_to_recover_capital')::numeric" in SQL
+    assert "bench.actual_committed_capital is distinct from (row->>'benchmark_actual_committed_capital')::numeric" in SQL
+    assert "do not reconcile against the live benchmark ranking row" in SQL
+
+
 def test_row_unique_identity_and_light_diagnostics_only():
     assert "unique (snapshot_id, sealed_product_id)" in SQL
     # Light search diagnostics, not full candidate-probe dumps.

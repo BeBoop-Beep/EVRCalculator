@@ -66,6 +66,23 @@ CREATE TABLE public.budget_product_best_open_price_rows (
     current_quantity INTEGER NOT NULL CHECK (current_quantity > 0),
     current_budget_rank INTEGER NOT NULL CHECK (current_budget_rank >= 1),
     current_overall_rip_v12_score NUMERIC,
+    -- Raw source + benchmark evidence: enough to reproduce the canonical
+    -- comparison even if budget_product_ranking_rows is later replaced or
+    -- mutated. Version-string-only cross-checks are NOT equivalent to
+    -- raw-value cross-checks -- these are the raw component inputs to the
+    -- Overall RIP V12 comparator (see
+    -- backend/calculations/evr/budget_normalized_product_ranking.py
+    -- ``_tier_sort_key_v12``: Overall RIP V12 -> Financial RIP V4 ->
+    -- chance-to-recover-capital -> committed-capital-closeness-to-target).
+    current_financial_rip_v4_score NUMERIC,
+    current_collector_appeal_score NUMERIC,
+    current_chase_accessibility_raw NUMERIC,
+    current_chance_to_recover_capital NUMERIC CHECK (current_chance_to_recover_capital IS NULL
+        OR (current_chance_to_recover_capital >= 0 AND current_chance_to_recover_capital <= 1)),
+    -- Committed-capital tie-break evidence, named to match the source
+    -- column (budget_product_ranking_rows.actual_committed_capital) that
+    -- the canonical comparator's utilisation tie-break actually reads.
+    current_actual_committed_capital NUMERIC NOT NULL CHECK (current_actual_committed_capital > 0),
 
     -- Status taxonomy locked to engine-supported values only.
     status TEXT NOT NULL CHECK (status IN (
@@ -84,6 +101,13 @@ CREATE TABLE public.budget_product_best_open_price_rows (
     -- Benchmark fields.
     benchmark_sealed_product_id UUID NOT NULL,
     benchmark_overall_rip_v12_score NUMERIC NOT NULL,
+    -- Same raw-evidence discipline as the current_* fields above, but for
+    -- the pinned benchmark row the engine compared against, so a historical
+    -- publication carries the full comparator input on BOTH sides.
+    benchmark_financial_rip_v4_score NUMERIC NOT NULL,
+    benchmark_chance_to_recover_capital NUMERIC CHECK (benchmark_chance_to_recover_capital IS NULL
+        OR (benchmark_chance_to_recover_capital >= 0 AND benchmark_chance_to_recover_capital <= 1)),
+    benchmark_actual_committed_capital NUMERIC NOT NULL CHECK (benchmark_actual_committed_capital > 0),
 
     -- Light search diagnostics only -- no per-candidate probe dump.
     candidate_price_evaluations INTEGER NOT NULL CHECK (candidate_price_evaluations >= 0),
@@ -222,8 +246,33 @@ BEGIN
            OR live.overall_rip_v12_score IS DISTINCT FROM (row->>'current_overall_rip_v12_score')::NUMERIC
            OR live.set_id IS DISTINCT FROM (row->>'set_id')::UUID
            OR live.source_calculation_run_id IS DISTINCT FROM NULLIF(row->>'source_calculation_run_id', '')::UUID
+           OR live.financial_rip_v4_score IS DISTINCT FROM (row->>'current_financial_rip_v4_score')::NUMERIC
+           OR live.collector_appeal_score IS DISTINCT FROM (row->>'current_collector_appeal_score')::NUMERIC
+           OR live.chase_accessibility_raw IS DISTINCT FROM (row->>'current_chase_accessibility_raw')::NUMERIC
+           OR live.chance_to_recover_capital IS DISTINCT FROM (row->>'current_chance_to_recover_capital')::NUMERIC
+           OR live.actual_committed_capital IS DISTINCT FROM (row->>'current_actual_committed_capital')::NUMERIC
     ) THEN
         RAISE EXCEPTION 'one or more best-open-price rows do not reconcile against the live Full Market ranking rows';
+    END IF;
+
+    -- 3b. Cross-check each incoming row's BENCHMARK evidence directly
+    -- against the live budget_product_ranking_rows for the pinned benchmark
+    -- product -- the same raw-value discipline as 3 above, applied to the
+    -- comparator's other side.
+    IF EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(p_rows) AS row
+        LEFT JOIN public.budget_product_ranking_rows bench
+          ON bench.snapshot_id = v_live_snapshot.id
+         AND bench.sealed_product_id = (row->>'benchmark_sealed_product_id')::UUID
+         AND bench.budget_type = 'full_market'
+        WHERE bench.sealed_product_id IS NULL
+           OR bench.overall_rip_v12_score IS DISTINCT FROM (row->>'benchmark_overall_rip_v12_score')::NUMERIC
+           OR bench.financial_rip_v4_score IS DISTINCT FROM (row->>'benchmark_financial_rip_v4_score')::NUMERIC
+           OR bench.chance_to_recover_capital IS DISTINCT FROM (row->>'benchmark_chance_to_recover_capital')::NUMERIC
+           OR bench.actual_committed_capital IS DISTINCT FROM (row->>'benchmark_actual_committed_capital')::NUMERIC
+    ) THEN
+        RAISE EXCEPTION 'one or more best-open-price rows do not reconcile against the live benchmark ranking row';
     END IF;
 
     -- 4. Cohort membership must equal the full live Full Market cohort size
@@ -295,8 +344,11 @@ BEGIN
     INSERT INTO public.budget_product_best_open_price_rows (
         snapshot_id, sealed_product_id, set_id, product_family, source_calculation_run_id,
         current_market_price, current_quantity, current_budget_rank, current_overall_rip_v12_score,
+        current_financial_rip_v4_score, current_collector_appeal_score, current_chase_accessibility_raw,
+        current_chance_to_recover_capital, current_actual_committed_capital,
         status, best_open_price, threshold_quantity, price_gap_dollars, price_gap_percent,
         benchmark_sealed_product_id, benchmark_overall_rip_v12_score,
+        benchmark_financial_rip_v4_score, benchmark_chance_to_recover_capital, benchmark_actual_committed_capital,
         candidate_price_evaluations, bracket_expansions, bracket_refinements,
         monotonicity_fallback_count, search_wall_seconds
     )
@@ -305,9 +357,14 @@ BEGIN
         NULLIF(x->>'source_calculation_run_id', '')::UUID,
         (x->>'current_market_price')::NUMERIC, (x->>'current_quantity')::INTEGER,
         (x->>'current_budget_rank')::INTEGER, (x->>'current_overall_rip_v12_score')::NUMERIC,
+        (x->>'current_financial_rip_v4_score')::NUMERIC, (x->>'current_collector_appeal_score')::NUMERIC,
+        (x->>'current_chase_accessibility_raw')::NUMERIC,
+        (x->>'current_chance_to_recover_capital')::NUMERIC, (x->>'current_actual_committed_capital')::NUMERIC,
         x->>'status', (x->>'best_open_price')::NUMERIC, (x->>'threshold_quantity')::INTEGER,
         (x->>'price_gap_dollars')::NUMERIC, NULLIF(x->>'price_gap_percent', '')::NUMERIC,
         (x->>'benchmark_sealed_product_id')::UUID, (x->>'benchmark_overall_rip_v12_score')::NUMERIC,
+        (x->>'benchmark_financial_rip_v4_score')::NUMERIC, (x->>'benchmark_chance_to_recover_capital')::NUMERIC,
+        (x->>'benchmark_actual_committed_capital')::NUMERIC,
         (x->>'candidate_price_evaluations')::INTEGER, (x->>'bracket_expansions')::INTEGER,
         (x->>'bracket_refinements')::INTEGER, (x->>'monotonicity_fallback_count')::INTEGER,
         (x->>'search_wall_seconds')::NUMERIC
