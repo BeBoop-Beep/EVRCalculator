@@ -3,7 +3,7 @@ from backend.db.services import public_overall_product_rankings_service as servi
 
 def test_overall_projection_preserves_loose_pack_artwork_identity(monkeypatch):
     monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: {"full_market_budget": 150.0})
-    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client: {
+    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client, **_kwargs: {
         "rows": [{
             "sealed_product_id": "pack-1", "set_id": "set-1", "product_family": "loose_booster_pack",
             "budget_rank": 1, "budget_cohort_size": 1, "quantity": 1,
@@ -40,7 +40,7 @@ def test_overall_projection_preserves_loose_pack_artwork_identity(monkeypatch):
 # this function already builds from `product_family_rankings` — no new query.
 def test_overall_projection_carries_chase_accessibility_authority_block(monkeypatch):
     monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: {"full_market_budget": 150.0})
-    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client: {
+    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client, **_kwargs: {
         "rows": [{
             "sealed_product_id": "pack-1", "set_id": "set-1", "product_family": "loose_booster_pack",
             "budget_rank": 1, "budget_cohort_size": 1, "quantity": 1,
@@ -86,7 +86,7 @@ def _authority_case(monkeypatch, *, v12_authority, v12_score, v12_rank, v12_size
         "expected_value": 8, "chance_to_recover_capital": .25,
     }
     monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: snapshot)
-    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client: {
+    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client, **_kwargs: {
         "rows": [row], "authority": {"rankedUnderV12Authority": v12_authority},
     })
     return service.read_public_overall_product_rankings(

@@ -84,7 +84,7 @@ def read_public_overall_product_rankings(
     if snapshot is None:
         return {"available": False, "reason": "no_published_authority", "rows": []}
     if budget == "full_market":
-        result = load_full_market_ranking(client)
+        result = load_full_market_ranking(client, source_snapshot=snapshot)
     else:
         try:
             value = float(budget)
@@ -92,7 +92,10 @@ def read_public_overall_product_rankings(
             return {"available": False, "reason": "invalid_budget", "rows": []}
         if value not in CANONICAL_BUDGET_BANDS:
             return {"available": False, "reason": "invalid_budget", "rows": []}
-        result = load_budget_ranking(client, value)
+        result = load_budget_ranking(client, value, source_snapshot=snapshot)
+
+    if result.get("available") is False:
+        return {"available": False, "reason": result.get("reason") or "no_rows_for_budget", "rows": []}
 
     identities = _identity_index(product_family_rankings)
     raw_rows = result.get("rows") or []

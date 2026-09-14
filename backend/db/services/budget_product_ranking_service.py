@@ -148,13 +148,14 @@ def load_budget_ranking(
     limit: Optional[int] = None,
     ranking_method_version: str = BUDGET_NORMALIZED_RANKING_METHOD_VERSION,
     allocation_method_version: str = ALLOCATION_METHOD_VERSION,
+    source_snapshot: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """One budget cohort, ordered by `budget_rank`.
 
     Returns the snapshot's authority alongside the rows so a caller can never
     render a rank without knowing which market state and budget produced it.
     """
-    snapshot = load_latest_snapshot(
+    snapshot = source_snapshot if source_snapshot is not None else load_latest_snapshot(
         client,
         ranking_method_version=ranking_method_version,
         allocation_method_version=allocation_method_version,
@@ -172,6 +173,13 @@ def load_budget_ranking(
     if limit is not None:
         query = query.limit(limit)
     rows = _rows(query.execute())
+    # A same-ID republish may replace rows between HTTP reads. Recheck the
+    # captured header, but never resolve a different "latest" to label these
+    # rows. This works for both V10 diagnostic and V12 publications.
+    headers = _rows(client.table("budget_product_ranking_snapshots").select("*")
+                    .eq("id", str(snapshot["id"])).limit(1).execute())
+    if not headers or headers[0] != snapshot:
+        return {"available": False, "reason": "source_publication_changed", "rows": []}
 
     return {
         "available": bool(rows),
@@ -184,20 +192,26 @@ def load_budget_ranking(
     }
 
 
-def load_full_market_ranking(client: Any, **kwargs: Any) -> Dict[str, Any]:
+def load_full_market_ranking(
+    client: Any, *, source_snapshot: Optional[Dict[str, Any]] = None, **kwargs: Any,
+) -> Dict[str, Any]:
     """The complete-cohort reference ranking.
 
     The Full Market anchor is DYNAMIC (next $50 above the max eligible SKU
     price), so its dollar value is read from the snapshot rather than assumed
     — never hard-code $1,350.
     """
-    snapshot = load_latest_snapshot(client, **kwargs)
+    snapshot = source_snapshot if source_snapshot is not None else load_latest_snapshot(
+        client, **{key: value for key, value in kwargs.items()
+                   if key in ("ranking_method_version", "allocation_method_version")},
+    )
     if snapshot is None:
         return {"available": False, "reason": "no_published_snapshot", "rows": []}
     return load_budget_ranking(
         client,
         float(snapshot["full_market_budget"]),
         budget_type=BUDGET_TYPE_FULL_MARKET,
+        source_snapshot=snapshot,
         **kwargs,
     )
 

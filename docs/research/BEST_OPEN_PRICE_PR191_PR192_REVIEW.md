@@ -99,6 +99,16 @@ Product Detail now checks FEATURE_BEST_OPEN_PRICE independently rather than
 implicitly coupling it to Product RIP. Basic was already stripped server-side;
 this closes the separate-capability contract and avoids future packaging drift.
 
+### Medium: public ranking reads could combine different publications
+
+The public reader captured one snapshot, but its nested Full Market loader
+resolved latest again (and again inside the budget loader). A concurrent
+publication could attach newer rows to the earlier display/source metadata.
+The reader now passes one captured snapshot through every layer and rechecks
+that exact header after reading rows. A changed same-ID publication is refused;
+it is never silently substituted by a new latest snapshot. Four behavioral
+regressions cover capture reuse and mid-read replacement.
+
 ## Validation at the local review checkpoint
 
 - Original focused baseline: 72 passed.
@@ -107,8 +117,11 @@ this closes the separate-capability contract and avoids future packaging drift.
 - Frontend model/cache/access/presentation tests: 73 passed.
 - Global synthetic exact-search oracle: 1,000 non-monotone cases passed.
 - Native process lock kill/recovery: passed on Linux; Windows CI is a separate gate.
-- Real PostgreSQL 17 integration/concurrency suite: separate CI gate, not replaced
-  by SQL text inspection or mocked clients.
+- Real PostgreSQL 17 integration/concurrency suite: 50 passed against a fresh
+  isolated PostgreSQL 17.11 service, including genuine two-connection races,
+  value rejection, rollback, idempotency and SET ROLE permission checks.
+- Initial CI replay: 508 Python tests passed, 5 conditional skips; 73 frontend
+  tests passed. Final PR checks and native Windows are reported separately.
 
 The corrective migration is separate from the already-applied original migration;
 the original mirrored SQL has not been edited. CI uses an isolated loopback-only

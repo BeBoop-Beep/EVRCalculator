@@ -68,7 +68,7 @@ PREPARED = {
 
 def _install_common(monkeypatch):
     monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: dict(SNAPSHOT))
-    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client: {
+    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client, **_kwargs: {
         "rows": [dict(RAW_ROW)], "authority": {},
     })
     monkeypatch.setattr(service, "public_budget_cohort_presentation", lambda _rows, _snapshot: dict(PRESENTATION))
@@ -144,7 +144,7 @@ def test_best_open_read_error_fails_soft(monkeypatch):
 
 def test_standard_budget_never_reads_best_open(monkeypatch):
     monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: dict(SNAPSHOT))
-    monkeypatch.setattr(service, "load_budget_ranking", lambda _client, _value: {
+    monkeypatch.setattr(service, "load_budget_ranking", lambda _client, _value, **_kwargs: {
         "rows": [dict(RAW_ROW)], "authority": {},
     })
     monkeypatch.setattr(service, "public_budget_cohort_presentation", lambda _rows, _snapshot: dict(PRESENTATION))
@@ -160,3 +160,14 @@ def test_standard_budget_never_reads_best_open(monkeypatch):
     assert result["available"] is True
     assert result["bestOpenPrice"] == {"available": False, "reason": "full_market_only"}
     assert "bestOpenPrice" not in result["rows"][0]
+
+
+def test_public_read_passes_captured_snapshot_and_preserves_drift_failure(monkeypatch):
+    captured = {"id": "captured"}
+    monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: captured)
+    def reader(_client, *, source_snapshot):
+        assert source_snapshot is captured
+        return {"available": False, "reason": "source_publication_changed", "rows": []}
+    monkeypatch.setattr(service, "load_full_market_ranking", reader)
+    result = service.read_public_overall_product_rankings(client=object(), product_family_rankings={})
+    assert result == {"available": False, "reason": "source_publication_changed", "rows": []}
