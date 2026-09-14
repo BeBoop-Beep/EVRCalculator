@@ -1,0 +1,109 @@
+name: Best-Open Price Guardrails
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'backend/calculations/evr/best_open_price.py'
+      - 'backend/db/services/budget_product_best_open_price_service.py'
+      - 'backend/db/services/pokemon_sealed_product_detail_service.py'
+      - 'backend/scripts/build_budget_product_best_open_price_snapshot.py'
+      - 'backend/scripts/publish_best_open_price_if_ready.py'
+      - 'backend/scripts/research_best_open_price_bucket2.py'
+      - 'backend/tests/unit/db/services/test_budget_product_best_open_price_service.py'
+      - 'backend/tests/unit/db/services/test_budget_product_best_open_price_product_reader.py'
+      - 'backend/tests/unit/db/services/test_best_open_price_product_detail.py'
+      - 'backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py'
+      - 'backend/tests/unit/scripts/test_build_budget_product_best_open_price_snapshot.py'
+      - 'backend/tests/unit/scripts/test_best_open_price_current_source_engine_contract.py'
+      - 'backend/tests/unit/scripts/test_best_open_price_scheduled_publication_contract.py'
+      - 'backend/tests/unit/scripts/test_publish_best_open_price_if_ready.py'
+      - 'frontend/components/pokemon/sealed-product-detail/BestOpenPriceCard.jsx'
+      - 'frontend/components/pokemon/sealed-product-detail/BestOpenPriceCard.contract.test.mjs'
+      - 'frontend/components/pokemon/sealed-product-detail/SealedProductDetailClient.jsx'
+      - 'frontend/components/pokemon/sealed-product-detail/SealedProductDetail.contract.test.mjs'
+      - 'infra/local/run_best_open_price.sh'
+      - 'infra/local/run_simulations_task.bat'
+      - '.github/workflows/best-open-price-guardrails.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'backend/calculations/evr/best_open_price.py'
+      - 'backend/db/services/budget_product_best_open_price_service.py'
+      - 'backend/db/services/pokemon_sealed_product_detail_service.py'
+      - 'backend/scripts/build_budget_product_best_open_price_snapshot.py'
+      - 'backend/scripts/publish_best_open_price_if_ready.py'
+      - 'backend/scripts/research_best_open_price_bucket2.py'
+      - 'backend/tests/unit/db/services/test_budget_product_best_open_price_service.py'
+      - 'backend/tests/unit/db/services/test_budget_product_best_open_price_product_reader.py'
+      - 'backend/tests/unit/db/services/test_best_open_price_product_detail.py'
+      - 'backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py'
+      - 'backend/tests/unit/scripts/test_build_budget_product_best_open_price_snapshot.py'
+      - 'backend/tests/unit/scripts/test_best_open_price_current_source_engine_contract.py'
+      - 'backend/tests/unit/scripts/test_best_open_price_scheduled_publication_contract.py'
+      - 'backend/tests/unit/scripts/test_publish_best_open_price_if_ready.py'
+      - 'frontend/components/pokemon/sealed-product-detail/BestOpenPriceCard.jsx'
+      - 'frontend/components/pokemon/sealed-product-detail/BestOpenPriceCard.contract.test.mjs'
+      - 'frontend/components/pokemon/sealed-product-detail/SealedProductDetailClient.jsx'
+      - 'frontend/components/pokemon/sealed-product-detail/SealedProductDetail.contract.test.mjs'
+      - 'infra/local/run_best_open_price.sh'
+      - 'infra/local/run_simulations_task.bat'
+      - '.github/workflows/best-open-price-guardrails.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  focused-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -q \
+            pytest numpy pandas==2.2.3 psutil supabase==2.28.3 python-dotenv==1.2.2
+
+      - name: Compile Best-Open runtime
+        run: |
+          python -m py_compile \
+            backend/db/services/budget_product_best_open_price_service.py \
+            backend/db/services/pokemon_sealed_product_detail_service.py \
+            backend/scripts/publish_best_open_price_if_ready.py \
+            backend/scripts/research_best_open_price_bucket2.py
+          bash -n infra/local/run_best_open_price.sh
+
+      - name: Run focused backend contracts
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/db/services/test_budget_product_best_open_price_service.py \
+            backend/tests/unit/db/services/test_budget_product_best_open_price_product_reader.py \
+            backend/tests/unit/db/services/test_best_open_price_product_detail.py \
+            backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py \
+            backend/tests/unit/scripts/test_build_budget_product_best_open_price_snapshot.py \
+            backend/tests/unit/scripts/test_best_open_price_current_source_engine_contract.py \
+            backend/tests/unit/scripts/test_best_open_price_scheduled_publication_contract.py \
+            backend/tests/unit/scripts/test_publish_best_open_price_if_ready.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run Product Detail presentation contracts
+        working-directory: frontend
+        run: |
+          node --test \
+            components/pokemon/sealed-product-detail/BestOpenPriceCard.contract.test.mjs \
+            components/pokemon/sealed-product-detail/SealedProductDetail.contract.test.mjs

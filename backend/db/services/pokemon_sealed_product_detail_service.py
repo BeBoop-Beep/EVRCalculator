@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 from urllib.parse import quote
 
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.budget_product_best_open_price_service import load_best_open_price_product
 from backend.db.services.pokemon_public_snapshot_service import (
     DEFAULT_RANKINGS_SCOPE,
     _rankings_publication_identity_mismatches,
@@ -151,6 +152,41 @@ def _prepared_markets(snapshot: Optional[Mapping[str, Any]]) -> Dict[str, Dict[s
             if product_id:
                 indexed[product_id] = _prepared_market_contract(product)
     return indexed
+
+
+def _best_open_price_contract(client: Any, sealed_product_id: str) -> Dict[str, Any]:
+    """Presentation-safe Best-Open contract for one Product Detail page.
+
+    The persisted threshold is deliberately kept separate from the page's
+    potentially newer live market price. ``sourceUnitPrice`` and
+    ``sourceMarketDate`` describe the exact Full Market publication used by
+    the threshold engine; the frontend may show the current tracked market
+    price beside them but must not silently re-score the threshold against a
+    newer cohort.
+    """
+    try:
+        prepared = load_best_open_price_product(client, sealed_product_id)
+    except Exception:
+        return {"available": False, "reason": "prepared_read_failed"}
+    if not prepared.get("available"):
+        return {"available": False, "reason": prepared.get("reason") or "prepared_unavailable"}
+    row = prepared.get("row") or {}
+    return {
+        "available": True,
+        "reason": None,
+        "bestOpenPrice": row.get("best_open_price"),
+        "status": row.get("status"),
+        "priceGapDollars": row.get("price_gap_dollars"),
+        "priceGapPercent": row.get("price_gap_percent"),
+        "thresholdQuantity": row.get("threshold_quantity"),
+        "sourceUnitPrice": row.get("current_market_price"),
+        "sourceBudgetRank": row.get("current_budget_rank"),
+        "sourceMarketDate": prepared.get("sourceMarketDate"),
+        "sourceFullMarketBudget": prepared.get("sourceFullMarketBudget"),
+        "sourceCohortSize": prepared.get("sourceEligibleCohortCount"),
+        "sourceBudgetSnapshotId": prepared.get("sourceBudgetSnapshotId"),
+        "methodVersion": prepared.get("methodVersion"),
+    }
 
 
 def _chase_accessibility_contract(
@@ -501,6 +537,11 @@ def get_pokemon_sealed_product_detail_payload(product_id: str, client: Any = Non
         )
         detail = details[0] if details else None
     rip = _rip_contract(ranking, detail, family, set_id=set_id, client=active)
+    # Best-Open is cross-format Full Market intelligence, not the within-format
+    # Product RIP rank. It rides inside the already Plus-gated RIP envelope so
+    # Basic responses cannot receive it, while the frontend renders it as its
+    # own separate card rather than pretending it is a same-format metric.
+    rip["bestOpenPrice"] = _best_open_price_contract(active, canonical_product_id)
     if not publication["current"] and family in COMPARABLE_FAMILIES:
         rip["reason"] = "current_rankings_publication_unavailable"
 
