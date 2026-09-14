@@ -22,6 +22,9 @@ alter table public.pokemon_cards_daily_constituent_variant_exceptions_v1 enable 
 revoke all on public.pokemon_cards_daily_constituent_variant_exceptions_v1 from public, anon, authenticated;
 grant select on public.pokemon_cards_daily_constituent_variant_exceptions_v1 to service_role;
 
+-- Seed by durable business identity, never by generated UUID literal. These three
+-- Pokémon GO Peelable Ditto canonical cards are distinct collectible identities whose
+-- reviewed canonical market variant is reverse-holo only.
 insert into public.pokemon_cards_daily_constituent_variant_exceptions_v1 (
     canonical_card_id, set_id, card_variant_id, reason, enabled
 )
@@ -50,6 +53,8 @@ set set_id = excluded.set_id,
     reason = excluded.reason,
     enabled = true;
 
+-- Fail closed if the reviewed identity query ever stops resolving exactly the three
+-- intended cards.
 do $$
 declare
     v_count integer;
@@ -214,5 +219,6 @@ where not exists (
 order by market_date, canonical_card_id;
 $function$;
 
+-- Preserve the existing least-privilege RPC surface.
 revoke all on function public.get_pokemon_cards_daily_constituents(uuid[],date,date,uuid[]) from public, anon, authenticated;
 grant execute on function public.get_pokemon_cards_daily_constituents(uuid[],date,date,uuid[]) to service_role;
