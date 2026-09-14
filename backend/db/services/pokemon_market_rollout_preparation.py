@@ -43,7 +43,8 @@ def sync_market_root_authority(client: Any, market_date: str) -> dict[str, Any]:
         raise RuntimeError("Market root authority sync returned wrong marketDate")
     if int(payload.get("structuralRootCount") or 0) < 1:
         raise RuntimeError("Market root authority sync returned an empty structural cohort")
-    if int(payload.get("missingStructuralRootCount") or -1) != 0:
+    missing_structural_count = payload.get("missingStructuralRootCount")
+    if missing_structural_count is None or int(missing_structural_count) != 0:
         raise RuntimeError("Market root authority sync left structural roots missing")
     if int(payload.get("activeAuthorityRootCount") or 0) < int(payload.get("structuralRootCount") or 0):
         raise RuntimeError("Market root authority sync active count is below structural count")
