@@ -80,15 +80,15 @@ test("chart layering is never fixed by restyling the global navigation", () => {
 });
 
 test("page content clears the fixed bottom navigation", () => {
-  // The bottom nav is `lg:hidden` (>=1024px) and the root layout pads the page
-  // by its height below `lg`, so no chart or tooltip can sit underneath it.
+  // The bottom nav is `xl:hidden` (>=1280px) and the root layout pads the page
+  // by its height below `xl`, so no chart or tooltip can sit underneath it.
   const layout = read("../../app/layout.js");
   assert.ok(
-    layout.includes('pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-0'),
+    layout.includes('pb-[calc(5.25rem+env(safe-area-inset-bottom))] xl:pb-0'),
     "the page reserves the bottom nav's height exactly where the nav is visible"
   );
   assert.ok(
-    read("../GlobalMobileBottomNav.js").includes("lg:hidden"),
+    read("../GlobalMobileBottomNav.js").includes("xl:hidden"),
     "the nav hides at exactly the width the padding is removed"
   );
 });

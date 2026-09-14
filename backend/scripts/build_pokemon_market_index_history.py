@@ -14,6 +14,11 @@ from backend.db.services.market_publication_gate import (
     MarketForcePublishRejected,
     add_market_gate_args,
     enforce_market_publication_gate,
+    resolve_market_publication_date,
+)
+from backend.db.services.pokemon_market_rollout_preparation import (
+    prepare_market_rollout_candidate,
+    staged_rollout_root_ids,
 )
 from backend.db.services.pokemon_market_index_service import (
     build_market_index_history,
@@ -66,19 +71,15 @@ def _rollout_source_materialization(client, market_date: str, *, allow_candidate
     see ``public_root_materialization`` for the FINAL-vs-candidate provenance
     contract. A --commit publish must always call this with
     ``allow_candidate=False`` (the default).
+
+    Root membership is resolved via the same structural rollout-root resolver
+    used by candidate preparation (``staged_rollout_root_ids``), never via the
+    valuation-backed ``pokemon_market_public_rollout_root_sets_v1`` view --
+    reading that view here priced the global root universe on every
+    final-provenance check and left no request budget for anything else.
     """
     day = str(market_date)[:10]
-    roots = list(
-        client.table("pokemon_market_public_rollout_root_sets_v1")
-        .select("set_id,release_date,activated_market_date")
-        .lte("activated_market_date", day)
-        .execute().data or []
-    )
-    root_ids = sorted({
-        str(row["set_id"]) for row in roots
-        if row.get("set_id")
-        and (not row.get("release_date") or str(row["release_date"])[:10] <= day)
-    })
+    root_ids = staged_rollout_root_ids(client, day)
     source_rows = []
     for offset in range(0, len(root_ids), 100):
         source_rows.extend(
@@ -183,11 +184,27 @@ def build(client, *, market_date=None, backfill=False, from_date=None, commit=Fa
 def main():
     args = parser().parse_args()
     client = get_client()
+    if args.force_publish:
+        exc = MarketForcePublishRejected()
+        print(json.dumps({"errors": [str(exc)]}, sort_keys=True))
+        raise SystemExit(2) from exc
+    if args.backfill:
+        candidate_date = args.market_date
+        preparation = {"status": "not_applicable", "reason": "historical_backfill"}
+    else:
+        try:
+            candidate_date = resolve_market_publication_date(client, args.market_date)
+            preparation = prepare_market_rollout_candidate(
+                client, candidate_date, commit=bool(args.commit),
+            )
+        except Exception as exc:
+            print(json.dumps({"errors": [f"Market rollout candidate preparation failed ({exc})"]}, sort_keys=True))
+            raise SystemExit(3) from exc
     try:
         gate = enforce_market_publication_gate(
             client,
             commit=bool(args.commit),
-            market_date=args.market_date,
+            market_date=candidate_date,
             force_publish=bool(args.force_publish),
             entry_point="Pokemon Market index history",
         )
@@ -198,7 +215,7 @@ def main():
         raise SystemExit(gate.exit_code)
 
     try:
-        accepted = market_index_accepted_dates(client, through_date=args.market_date)
+        accepted = market_index_accepted_dates(client, through_date=candidate_date)
     except Exception as exc:
         print(json.dumps({"errors": [
             f"Market Date Quality history unavailable ({exc}); refusing to run "
@@ -207,7 +224,7 @@ def main():
         raise SystemExit(3) from exc
     if gate.decision.market_date:
         accepted.add(str(gate.decision.market_date)[:10])
-    market_date = args.market_date or gate.decision.market_date
+    market_date = candidate_date or gate.decision.market_date
     try:
         summary = build(
             client, market_date=market_date, backfill=args.backfill,
@@ -217,6 +234,7 @@ def main():
         print(json.dumps({"errors": [str(exc)]}, sort_keys=True))
         raise SystemExit(1) from exc
     summary["marketQualityStatus"] = gate.decision.status
+    summary["candidatePreparation"] = preparation
     print(json.dumps(summary, indent=2, sort_keys=True))
 
 

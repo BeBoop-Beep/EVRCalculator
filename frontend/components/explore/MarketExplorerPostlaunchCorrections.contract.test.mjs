@@ -6,10 +6,11 @@ const read = (name) => fs.readFileSync(new URL(name, import.meta.url), "utf8").r
 
 test("exact items use a dedicated accessible responsive workspace", () => {
   const picker = read("./MarketExplorerExactItemPicker.jsx");
+  const client = read("./MarketExplorerClient.jsx");
   const builder = read("./MarketExplorerQueryBuilder.jsx");
-  for (const contract of ['role="dialog"', 'aria-modal="true"', "data-market-explorer-exact-workspace", "desk:max-w-5xl", "Selected basket", "onSaveAsNew", "Clear narrowing filters"]) assert.ok(picker.includes(contract), contract);
-  assert.ok(builder.includes("data-market-exact-open"));
-  assert.ok(!builder.includes("<ExplorerDisclosure id={`${asset}ExactItems`"));
+  for (const contract of ['role="dialog"', 'aria-modal="true"', "data-market-explorer-builder-overlay"]) assert.ok(client.includes(contract), contract);
+  for (const contract of ["data-market-explorer-exact-workspace", "Your Market", "onSaveAsNew"]) assert.ok(picker.includes(contract), contract);
+  assert.ok(!builder.includes("data-market-exact-open"));
 });
 
 test("Screens are immediate prepared discovery and presets are a separate draft action", () => {
@@ -25,7 +26,7 @@ test("Explorer reads live auth and leaves one options owner", () => {
   const builder = read("./MarketExplorerQueryBuilder.jsx");
   const hook = read("../../hooks/explore/useMarketExplorerFilterOptions.js");
   assert.ok(client.includes("const auth = useAuth()"));
-  assert.ok(client.includes("const liveUser = auth ? auth.user : user"));
+  assert.ok(client.includes("const liveUser = auth?.user || (!auth || auth.authRevision === 0 ? user : null)"));
   assert.ok(client.includes("resolveMarketExplorerPlanAccess(liveUser)"));
   assert.ok(client.includes("authRevision: auth?.authRevision || 0"));
   assert.ok(client.includes("optionsProvided"));
@@ -52,11 +53,12 @@ test("shared relative chart preserves raw values, labels performance, and powers
 
 test("build failures remain beside both CTAs with structured accessible state", () => {
   const picker = read("./MarketExplorerExactItemPicker.jsx");
+  const exact = read("./MarketExplorerExactBasket.jsx");
   const builder = read("./MarketExplorerQueryBuilder.jsx");
   for (const state of ["idle", "building", "success", "error", "locked"]) assert.ok(builder.includes(`\"${state}\"`), state);
   assert.ok(builder.includes('role={buildStatus === "error" ? "alert" : "status"}'));
   assert.ok(picker.includes('role={buildStatus === "error" ? "alert" : "status"}'));
-  assert.ok(builder.includes("error?.message ||"), "useful backend messages must survive");
+  assert.ok(exact.includes("error?.message ||"), "useful backend messages must survive");
 });
 
 test("accepted chart-first hierarchy remains intact", () => {

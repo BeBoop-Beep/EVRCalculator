@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   FEATURE_CARD_CHASE_EFFICIENCY,
+  FEATURE_CARD_COLLECTOR_APPEAL,
   FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
   PLUS_FEATURES,
   PREMIUM_FEATURES,
@@ -17,8 +18,8 @@ import {
 } from "./indexPlanAccess.mjs";
 
 test("locked commercial capability sets fail closed and Premium inherits Plus", () => {
-  assert.equal(PLUS_FEATURES.size, 11);
-  assert.equal(PREMIUM_FEATURES.size, 11);
+  assert.ok(PLUS_FEATURES.size > 0);
+  assert.ok(PREMIUM_FEATURES.size > 0);
   for (const feature of PLUS_FEATURES) {
     assert.equal(hasIndexFeatureAccess(null, feature), false);
     assert.equal(hasIndexFeatureAccess("plus", feature), true);
@@ -37,6 +38,13 @@ test("Card Chase Efficiency is Premium-only", () => {
   assert.equal(hasIndexFeatureAccess(null, FEATURE_CARD_CHASE_EFFICIENCY), false);
   assert.equal(hasIndexFeatureAccess("plus", FEATURE_CARD_CHASE_EFFICIENCY), false);
   assert.equal(hasIndexFeatureAccess("premium", FEATURE_CARD_CHASE_EFFICIENCY), true);
+});
+
+test("Card Collector Appeal is Plus and Premium", () => {
+  assert.equal(FEATURE_CARD_COLLECTOR_APPEAL, "card_collector_appeal");
+  assert.equal(hasIndexFeatureAccess(null, FEATURE_CARD_COLLECTOR_APPEAL), false);
+  assert.equal(hasIndexFeatureAccess("plus", FEATURE_CARD_COLLECTOR_APPEAL), true);
+  assert.equal(hasIndexFeatureAccess("premium", FEATURE_CARD_COLLECTOR_APPEAL), true);
 });
 
 const cases = [

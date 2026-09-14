@@ -1,0 +1,33 @@
+{
+  "run_id": "ce3dabf359bf4ef89e99f486bce494d8",
+  "cohort_fingerprint": "6dca72ab7e1ff0a12115c782b7616dbbfe5601981551d69d3c4092d4e07022e3",
+  "matcher_version": "index_fair_value_ebay_d3_v3",
+  "query_strategy_version": "ebay_evidence_query_strategy_v1",
+  "started_at": "2026-09-13T17:43:59.400950+00:00",
+  "config": {
+    "max_requests_per_day": 1000,
+    "max_requests_per_run": 10,
+    "max_pages_per_search": 2,
+    "max_listings_per_target": 200,
+    "retry_budget": 5,
+    "backoff_base_seconds": 1.0,
+    "backoff_max_seconds": 30.0,
+    "run_matcher": true
+  },
+  "targets": {
+    "018c983e-b1d0-41df-880e-ebf3f2e2fb12": {
+      "status": "completed",
+      "listings_captured": 200
+    },
+    "0331d96e-d8af-44d3-9552-85f784d9b4ca": {
+      "status": "completed",
+      "listings_captured": 198
+    }
+  },
+  "requests_attempted": 5,
+  "requests_successful": 5,
+  "requests_failed": 0,
+  "retries": 0,
+  "last_completed_target": "0331d96e-d8af-44d3-9552-85f784d9b4ca",
+  "completed": true
+}

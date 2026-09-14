@@ -138,7 +138,7 @@ export default function GlobalMobileBottomNav() {
   return (
     <nav
       aria-label="Global navigation"
-      className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur hdr:hidden"
       style={{ paddingBottom: "max(0.6rem, env(safe-area-inset-bottom))" }}
     >
       <div className="mx-auto grid max-w-xl grid-cols-5 gap-0.5 px-1.5 pt-2">

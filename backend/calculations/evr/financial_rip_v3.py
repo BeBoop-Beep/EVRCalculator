@@ -206,6 +206,164 @@ class TailBuckets:
         }
 
 
+@dataclass(frozen=True)
+class PreparedFinancialRipDistribution:
+    """Price-independent canonical statistics for one physical distribution.
+
+    ``sorted_base_values`` is retained because exact binary-search loss/win
+    boundaries require it. A uniform guaranteed-value shift is represented by
+    ``value_offset`` and never materialized into another million-value array.
+    All score construction still flows through :func:`build_financial_rip`'s
+    canonical component/normalization assembly below.
+    """
+
+    sorted_base_values: np.ndarray
+    prefix_base_sums: np.ndarray
+    value_offset: float
+    n: int
+    minimum_base: float
+    maximum_base: float
+    mean_base: float
+    median_base: float
+    p05_base: float
+    p95_base: float
+    p99_base: float
+    distinct_outcome_count: int
+    top_1_count: int
+    top_5_count: int
+    jackpot_mean_base: float
+    realistic_mean_base: float
+    excluding_jackpot_mean_base: float
+    total_base_value: float
+    jackpot_base_value: float
+    invalid_reason: Optional[str] = None
+    invalid_detail: Optional[str] = None
+    non_finite_count: int = 0
+
+    @classmethod
+    def prepare(cls, values: Sequence[float], *, value_offset: Any = 0.0) -> "PreparedFinancialRipDistribution":
+        offset = _f(value_offset)
+        if offset is None:
+            return cls._invalid(REASON_NON_FINITE_OUTCOMES, "The uniform value offset is non-finite.")
+        array = np.asarray(values, dtype=np.float64).ravel()
+        if array.size == 0:
+            return cls._invalid(REASON_EMPTY_OUTCOMES, "No simulated pack outcomes were supplied.", offset=offset)
+        non_finite = int(np.count_nonzero(~np.isfinite(array)))
+        if non_finite:
+            return cls._invalid(REASON_NON_FINITE_OUTCOMES,
+                                "The simulated outcome vector contains non-finite values.",
+                                offset=offset, n=int(array.size), non_finite=non_finite)
+        sorted_values = np.sort(array, kind="stable")
+        n = int(sorted_values.size)
+        top_1_count = max(1, math.ceil(n * JACKPOT_TAIL_SHARE))
+        top_5_count = max(top_1_count + 1, math.ceil(n * REALISTIC_TAIL_SHARE))
+        jackpot = sorted_values[n - top_1_count:]
+        realistic = sorted_values[n - top_5_count:n - top_1_count]
+        excluding = sorted_values[:n - top_1_count]
+        prefix = np.empty(n + 1, dtype=np.float64)
+        prefix[0] = 0.0
+        np.cumsum(sorted_values, dtype=np.float64, out=prefix[1:])
+        return cls(
+            sorted_base_values=sorted_values, prefix_base_sums=prefix, value_offset=offset, n=n,
+            minimum_base=float(sorted_values[0]), maximum_base=float(sorted_values[-1]),
+            mean_base=float(array.mean()), median_base=float(np.median(array)),
+            p05_base=float(np.percentile(array, 5)), p95_base=float(np.percentile(array, 95)),
+            p99_base=float(np.percentile(array, 99)),
+            distinct_outcome_count=cls._shifted_distinct_count(sorted_values, offset),
+            top_1_count=top_1_count, top_5_count=top_5_count,
+            # Preserve exact NumPy materialized-shift reduction semantics for
+            # the small rank tails (1% and 4%) without copying the full vector.
+            jackpot_mean_base=(float((jackpot + offset).mean()) - offset) if jackpot.size else 0.0,
+            realistic_mean_base=(float((realistic + offset).mean()) - offset) if realistic.size else 0.0,
+            excluding_jackpot_mean_base=float(excluding.mean()) if excluding.size else 0.0,
+            total_base_value=float(array.sum()),
+            jackpot_base_value=float(jackpot.sum()) if jackpot.size else 0.0,
+        )
+
+    @classmethod
+    def _invalid(cls, reason: str, detail: str, *, offset: float = 0.0,
+                 n: int = 0, non_finite: int = 0) -> "PreparedFinancialRipDistribution":
+        empty = np.empty(0, dtype=np.float64)
+        return cls(empty, np.zeros(1, dtype=np.float64), offset, n, 0.0, 0.0, 0.0, 0.0,
+                   0.0, 0.0, 0.0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                   reason, detail, non_finite)
+
+    @property
+    def sufficient(self) -> bool:
+        return self.n > self.top_5_count and self.top_5_count > self.top_1_count
+
+    def shifted(self, additional_offset: Any) -> "PreparedFinancialRipDistribution":
+        parsed = _f(additional_offset)
+        if parsed is None:
+            return self._invalid(REASON_NON_FINITE_OUTCOMES, "The uniform value offset is non-finite.")
+        from dataclasses import replace
+        offset = self.value_offset + parsed
+        return replace(self, value_offset=offset,
+                       distinct_outcome_count=self._shifted_distinct_count(self.sorted_base_values, offset))
+
+    @staticmethod
+    def _shifted_distinct_count(sorted_values: np.ndarray, offset: float) -> int:
+        """Match ``np.unique(values + offset)`` with bounded temporary memory."""
+        if sorted_values.size == 0:
+            return 0
+        distinct = 1
+        previous = float(sorted_values[0] + offset)
+        chunk_size = 65_536
+        for start in range(1, int(sorted_values.size), chunk_size):
+            shifted = sorted_values[start:start + chunk_size] + offset
+            distinct += int(np.count_nonzero(shifted[1:] != shifted[:-1]))
+            if float(shifted[0]) != previous:
+                distinct += 1
+            previous = float(shifted[-1])
+        return distinct
+
+    def _value(self, base: float) -> float:
+        return base + self.value_offset
+
+    def _count_below(self, threshold: float) -> int:
+        index = int(np.searchsorted(
+            self.sorted_base_values, threshold - self.value_offset, side="left"
+        ))
+        # IEEE-754 addition/subtraction are not exact inverses at a boundary.
+        # Correct the normally tiny neighborhood using the exact materialized
+        # comparison semantics without scanning or allocating the vector.
+        while index > 0 and float(self.sorted_base_values[index - 1] + self.value_offset) >= threshold:
+            index -= 1
+        while index < self.n and float(self.sorted_base_values[index] + self.value_offset) < threshold:
+            index += 1
+        return index
+
+    def _sum_first(self, count: int) -> float:
+        return float(self.prefix_base_sums[count]) + self.value_offset * count
+
+    def tail_payload(self, cost: float, spec: "FinancialRipModelSpec") -> Dict[str, Any]:
+        jackpot_entry = self._value(float(self.sorted_base_values[self.n - self.top_1_count]))
+        realistic_entry = self._value(float(self.sorted_base_values[self.n - self.top_5_count]))
+        return {
+            "method": spec.tail_contract_version, "totalObservations": self.n,
+            "requestedShares": {"jackpot": JACKPOT_TAIL_SHARE, "realistic": REALISTIC_TAIL_SHARE},
+            "selectedCounts": {"jackpot": self.top_1_count,
+                               "realistic": self.top_5_count - self.top_1_count,
+                               "combinedTail": self.top_5_count,
+                               "excludingJackpot": self.n - self.top_1_count},
+            "selectedShares": {"jackpot": _round(_ratio(self.top_1_count, self.n), 8),
+                               "realistic": _round(_ratio(self.top_5_count - self.top_1_count, self.n), 8),
+                               "combinedTail": _round(_ratio(self.top_5_count, self.n), 8)},
+            "rankBoundaryValues": {"jackpotEntry": _round(jackpot_entry, 6),
+                                   "realisticEntry": _round(realistic_entry, 6)},
+            "rankBoundaryRatios": {"jackpotEntry": _round(_ratio(jackpot_entry, cost), 6),
+                                   "realisticEntry": _round(_ratio(realistic_entry, cost), 6)},
+        }
+
+    def score(self, pack_cost: Any, *, spec: "FinancialRipModelSpec" = None,
+              chase_metrics: Optional[Mapping[str, Any]] = None,
+              session_data: Optional[Mapping[str, Any]] = None,
+              min_simulation_count: int = FINANCIAL_RIP_V3_MIN_SIMULATION_COUNT) -> Dict[str, Any]:
+        return build_financial_rip(self, pack_cost, spec=spec or FINANCIAL_RIP_V3_SPEC,
+                                   chase_metrics=chase_metrics, session_data=session_data,
+                                   min_simulation_count=min_simulation_count)
+
+
 # ---------------------------------------------------------------------------
 # Raw V3 metrics
 # ---------------------------------------------------------------------------
@@ -649,6 +807,92 @@ def _unavailable(
     }
 
 
+def _prepared_raw_blocks(
+    prepared: PreparedFinancialRipDistribution, cost: float
+) -> Dict[str, Dict[str, Any]]:
+    """Canonical six raw blocks from cached exact distribution statistics."""
+    n = prepared.n
+    losing_count = prepared._count_below(cost)
+    hard_count = prepared._count_below(SOFT_LOSS_RATIO_THRESHOLD * cost)
+    soft_count = losing_count - hard_count
+    winning = n - losing_count
+    typical = prepared._value(prepared.median_base)
+    p95 = prepared._value(prepared.p95_base)
+    p99 = prepared._value(prepared.p99_base)
+    realistic_mean = prepared._value(prepared.realistic_mean_base)
+    jackpot_mean = prepared._value(prepared.jackpot_mean_base)
+    excluding_mean = prepared._value(prepared.excluding_jackpot_mean_base)
+    total_value = prepared.total_base_value + prepared.value_offset * n
+    jackpot_value = prepared.jackpot_base_value + prepared.value_offset * prepared.top_1_count
+    jackpot_share = _ratio(jackpot_value, total_value) if total_value > 0.0 else None
+    if losing_count:
+        losing_sum = prepared._sum_first(losing_count)
+        loss_payload = {
+            "losingRunCount": losing_count, "totalRunCount": n,
+            "averageLosingReturnValue": _round(_ratio(losing_sum, losing_count), 6),
+            "averageRetentionGivenLoss": _round(_ratio(losing_sum, losing_count * cost), 8),
+            "softLossCount": soft_count,
+            "softLossShareGivenLoss": _round(_ratio(soft_count, losing_count), 8),
+            "hardLossCount": hard_count,
+            "hardLossProbability": _round(_ratio(hard_count, n), 8),
+            "softLossRatioThreshold": SOFT_LOSS_RATIO_THRESHOLD,
+            "noLosingRuns": False, "packCost": _round(cost, 4),
+        }
+    else:
+        loss_payload = {
+            "losingRunCount": 0, "totalRunCount": n,
+            "averageLosingReturnValue": None, "averageRetentionGivenLoss": 1.0,
+            "softLossCount": 0, "softLossShareGivenLoss": 1.0,
+            "hardLossCount": 0, "hardLossProbability": 0.0,
+            "softLossRatioThreshold": SOFT_LOSS_RATIO_THRESHOLD, "noLosingRuns": True,
+            "noLosingRunsReason": ("Every simulated pack recovered its cost, so there is no losing "
+                                    "distribution to describe. Loss Resilience is perfect by "
+                                    "construction rather than by division."),
+            "packCost": _round(cost, 4),
+        }
+    return {
+        "true_win_frequency": {
+            "winningRunCount": winning, "totalRunCount": n,
+            "trueWinProbability": _round(_ratio(winning, n), 8),
+            "impliedOddsOneInN": _round(_ratio(n, winning), 3) if winning else None,
+            "packCost": _round(cost, 4),
+        },
+        "typical_retention": {
+            "typicalPackValue": _round(typical, 6),
+            "typicalRetentionRatio": _round(_ratio(typical, cost), 6),
+            "label": "median", "packCost": _round(cost, 4),
+        },
+        "loss_resilience": loss_payload,
+        "realistic_upside": {
+            "p95ThresholdValue": _round(p95, 6), "p95ThresholdRatio": _round(_ratio(p95, cost), 6),
+            "realisticTailMeanValue": _round(realistic_mean, 6),
+            "realisticTailMeanRatio": _round(_ratio(realistic_mean, cost), 6),
+            "realisticTailObservationCount": prepared.top_5_count - prepared.top_1_count,
+            "excludesTopPercent": JACKPOT_TAIL_SHARE,
+            "thresholdLabel": "top_5_percent_entry_threshold",
+            "meanLabel": "mean_of_95th_to_99th_percentile_band", "packCost": _round(cost, 4),
+        },
+        "jackpot_upside": {
+            "p99ThresholdValue": _round(p99, 6), "p99ThresholdRatio": _round(_ratio(p99, cost), 6),
+            "jackpotTailMeanValue": _round(jackpot_mean, 6),
+            "jackpotTailMeanRatio": _round(_ratio(jackpot_mean, cost), 6),
+            "jackpotTailObservationCount": prepared.top_1_count,
+            "thresholdLabel": "top_1_percent_entry_threshold", "meanLabel": "mean_of_top_1_percent",
+            "maximumContributionPoints": _round(100.0 * FINANCIAL_RIP_V3_WEIGHTS["jackpot_upside"], 4),
+            "packCost": _round(cost, 4),
+        },
+        "base_economic_efficiency": {
+            "totalRtpRatio": _round(_ratio(total_value / n, cost), 6),
+            "baseRtpExcludingTop1Pct": _round(_ratio(excluding_mean, cost), 6),
+            "baseMeanExcludingTop1PctValue": _round(excluding_mean, 6),
+            "jackpotValueShare": _round(jackpot_share, 8),
+            "nonJackpotValueShare": _round(1.0 - jackpot_share, 8) if jackpot_share is not None else None,
+            "scoredInput": "base_rtp_excluding_top_1pct",
+            "disclosureOnly": ["totalRtpRatio", "jackpotValueShare"], "packCost": _round(cost, 4),
+        },
+    }
+
+
 # ---------------------------------------------------------------------------
 # The authoritative builder
 # ---------------------------------------------------------------------------
@@ -702,8 +946,8 @@ def build_financial_rip(
             spec=spec,
         )
 
-    array = np.asarray(values, dtype=np.float64).ravel()
-    if array.size == 0:
+    prepared = values if isinstance(values, PreparedFinancialRipDistribution) else PreparedFinancialRipDistribution.prepare(values)
+    if prepared.invalid_reason == REASON_EMPTY_OUTCOMES:
         return _unavailable(
             REASON_EMPTY_OUTCOMES,
             "No simulated pack outcomes were supplied.",
@@ -711,17 +955,17 @@ def build_financial_rip(
             simulationCount=0,
             spec=spec,
         )
-    if not np.all(np.isfinite(array)):
+    if prepared.invalid_reason is not None:
         return _unavailable(
-            REASON_NON_FINITE_OUTCOMES,
-            "The simulated outcome vector contains non-finite values.",
+            prepared.invalid_reason,
+            prepared.invalid_detail or "The prepared outcome distribution is invalid.",
             packCost=_round(cost, 4),
-            simulationCount=int(array.size),
-            nonFiniteCount=int(np.count_nonzero(~np.isfinite(array))),
+            simulationCount=prepared.n,
+            nonFiniteCount=prepared.non_finite_count,
             spec=spec,
         )
 
-    n = int(array.size)
+    n = prepared.n
     minimum = int(min_simulation_count)
     if n < minimum:
         return _unavailable(
@@ -735,10 +979,7 @@ def build_financial_rip(
             spec=spec,
         )
 
-    # One deterministic ascending sort backs every rank-based selection below.
-    sorted_values = np.sort(array, kind="stable")
-    buckets = TailBuckets(sorted_values)
-    if not buckets.sufficient:
+    if not prepared.sufficient:
         return _unavailable(
             REASON_INSUFFICIENT_RUNS,
             "The outcome vector is too short to separate a top-1% bucket from a "
@@ -748,14 +989,7 @@ def build_financial_rip(
             spec=spec,
         )
 
-    raw_blocks: Dict[str, Dict[str, Any]] = {
-        "true_win_frequency": compute_true_win_frequency_raw(array, cost),
-        "typical_retention": compute_typical_retention_raw(array, cost),
-        "loss_resilience": compute_loss_resilience_raw(array, cost),
-        "realistic_upside": compute_realistic_upside_raw(array, cost, buckets),
-        "jackpot_upside": compute_jackpot_upside_raw(array, cost, buckets),
-        "base_economic_efficiency": compute_base_economic_efficiency_raw(array, cost, buckets),
-    }
+    raw_blocks = _prepared_raw_blocks(prepared, cost)
 
     components: Dict[str, Any] = {}
     normalized_audit: Dict[str, Any] = {}
@@ -837,28 +1071,28 @@ def build_financial_rip(
         ),
         "distributionDisclosures": {
             "simulationCount": n,
-            "minValue": _round(_f(sorted_values[0]), 6),
-            "maxValue": _round(_f(sorted_values[-1]), 6),
-            "meanValue": _round(_f(array.mean()), 6),
-            "medianValue": _round(_f(np.median(array)), 6),
+            "minValue": _round(prepared._value(prepared.minimum_base), 6),
+            "maxValue": _round(prepared._value(prepared.maximum_base), 6),
+            "meanValue": _round(prepared._value(prepared.mean_base), 6),
+            "medianValue": _round(prepared._value(prepared.median_base), 6),
             "totalRtpRatio": raw_blocks["base_economic_efficiency"]["totalRtpRatio"],
             "baseRtpExcludingTop1Pct": raw_blocks["base_economic_efficiency"]["baseRtpExcludingTop1Pct"],
             "jackpotValueShare": jackpot_value_share,
             "hardLossProbability": raw_blocks["loss_resilience"]["hardLossProbability"],
-            "tailSelection": buckets.payload(cost),
+            "tailSelection": prepared.tail_payload(cost, spec),
             # P05 is disclosed for continuity with the V2 distribution surfaces.
             # It is a DISCLOSURE ONLY and carries zero V3 weight - no component
             # above reads it, and the contract tests prove that.
-            "p05Value": _round(_f(np.percentile(array, 5)), 6),
+            "p05Value": _round(prepared._value(prepared.p05_base), 6),
             "p05IsScoredByV3": False,
         },
         "estimationDiagnostics": {
             "simulationCount": n,
             "requiredSimulationCount": minimum,
             "meetsMinimumRunCount": True,
-            "jackpotObservationCount": int(buckets.jackpot.size),
-            "realisticTailObservationCount": int(buckets.realistic.size),
-            "distinctOutcomeCount": int(np.unique(sorted_values).size),
+            "jackpotObservationCount": prepared.top_1_count,
+            "realisticTailObservationCount": prepared.top_5_count - prepared.top_1_count,
+            "distinctOutcomeCount": prepared.distinct_outcome_count,
             "clippedInputs": sorted(
                 metric for metric, record in normalized_audit.items() if record.get("clipped")
             ),

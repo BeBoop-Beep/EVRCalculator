@@ -34,6 +34,11 @@ def _generic_row(scope):
     return {"set_id": ROOT, "value_scope": scope, "snapshot_date": DAY, "source": "member_price_storage_v2_generic"}
 
 
+def _historical_row(scope, root=ROOT):
+    source = "canonical_root_standard_backfill_v1" if scope == "standard" else "canonical_root_top10_backfill_v1"
+    return {"set_id": root, "value_scope": scope, "snapshot_date": DAY, "source": source}
+
+
 # ---- Unit-level: public_root_materialization contract ----
 
 def test_dry_run_candidate_provenance_accepted():
@@ -68,6 +73,17 @@ def test_commit_mode_accepts_final_provenance():
     result = public_root_materialization([ROOT], rows, DAY, allow_candidate=False)
     assert result["ready"] is True
     assert result["provenanceState"] == "final"
+
+
+def test_commit_mode_accepts_historical_backfill_as_distinct_final_provenance():
+    result = public_root_materialization([ROOT], [_historical_row("standard"), _historical_row("top10")], DAY)
+    assert result["ready"] is True and result["provenanceState"] == "final"
+
+
+def test_historical_backfill_pairs_fail_on_missing_or_duplicate_scope():
+    assert public_root_materialization([ROOT], [_historical_row("standard")], DAY)["ready"] is False
+    rows = [_historical_row("standard"), _historical_row("top10"), _historical_row("top10")]
+    assert public_root_materialization([ROOT], rows, DAY)["ready"] is False
 
 
 # ---- Orchestration-level: build()'s finalizer invocation contract ----
@@ -138,6 +154,14 @@ def test_commit_already_final_no_redundant_finalizer_call(monkeypatch):
     calls = _scripted_materialization(monkeypatch, [_ready("final")])
     client = _FakeClient([])
     index_history.build(client, market_date=DAY, commit=True)
+    assert calls == [False]
+    assert client.rpc_calls == []
+
+
+def test_historical_final_commit_never_invokes_current_finalizer(monkeypatch):
+    calls = _scripted_materialization(monkeypatch, [_ready("final")])
+    client = _FakeClient([])
+    index_history.build(client, market_date="2026-09-11", commit=True)
     assert calls == [False]
     assert client.rpc_calls == []
 

@@ -1,0 +1,61 @@
+{
+  "version": "ebay_d3_new_blind_benchmark_design_v1",
+  "development_item_id_exclusion_count": 1050,
+  "precision_cohort": {
+    "target_rows": 300,
+    "population": "fresh frozen-v3 HIGH predictions",
+    "selection": "deterministic SHA-256 ordering with preregistered strata across cards, sets, treatments, sellers, and title patterns; no human labels exist at selection",
+    "reviewer_blinding": [
+      "matcher state",
+      "confidence tier",
+      "price",
+      "Fair Value",
+      "TCGplayer"
+    ]
+  },
+  "coverage_cohort": {
+    "target_rows": 420,
+    "target_per_card": 6,
+    "cards": 70,
+    "selection": "independent per-card SHA-256 ordering across all fresh results before human labels"
+  },
+  "overlap": "Allowed only when independently selected by both deterministic rules; row is reviewed once.",
+  "expected_unique_human_reviews": 600,
+  "hard_maximum_unique_human_reviews": 720,
+  "api_plan": {
+    "exact_maximum_browse_calls": 140,
+    "cards_queried": 70,
+    "pages_per_card": 2,
+    "page_size": 100,
+    "maximum_returned_listings": 14000,
+    "returned_listings": "RECORDED_AFTER_CAPTURE",
+    "deduplicated_fresh_listings": "RECORDED_AFTER_CAPTURE",
+    "high_candidates": "RECORDED_AFTER_FROZEN_V3_PREDICTION",
+    "daily_default_limit": 5000
+  },
+  "freshness": {
+    "new_capture_required": true,
+    "observed_at_required": true,
+    "exclude_all_1050_prior_listing_item_ids": true,
+    "secondary_dedupe": "normalized seller_id + normalized title",
+    "prior_rows_are_never_certification_evidence": true
+  },
+  "preregistered_gate": {
+    "high_precision_minimum": 0.99,
+    "wilson_95_lower_minimum": 0.98,
+    "card_coverage_minimum": 0.8,
+    "catastrophic_high_false_positives_maximum": 0,
+    "catastrophic_classes": [
+      "GRADED",
+      "LOT_OR_BUNDLE",
+      "WRONG_CARD_NUMBER",
+      "RELATED_BUT_WRONG_VARIANT",
+      "WRONG_SET",
+      "WRONG_LANGUAGE",
+      "SEALED_OR_ACCESSORY",
+      "AMBIGUOUS"
+    ]
+  },
+  "medium_authority": "DIAGNOSTIC_ONLY",
+  "benchmark_design_fingerprint": "75505bfcbe2e167821a3178b5da192e1240879fe3e4edd75891fa2c55c02d2c6"
+}

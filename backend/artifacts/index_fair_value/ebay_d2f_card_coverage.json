@@ -1,0 +1,107 @@
+{
+  "matcher_version": "index_fair_value_ebay_d2m_v2",
+  "matcher_fingerprint": "a2ac052891df2745f2a2dde8b615a5ccbf1ef23a777eb2a0310e35aef94f6d5e",
+  "gold_fingerprint": "40da9c4ccbe030124d608c59673902f662e14835cc0d8c4b4fffb89231b97a7a",
+  "code_commit": "ece085640a013d2803b0364ddf358ef6b1390854",
+  "evaluation_timestamp": "2026-09-12T23:20:59.787335+00:00",
+  "benchmark_cards": 70,
+  "covered_card_count": 59,
+  "observed_benchmark_coverage": 0.84285714,
+  "conditional_coverage_among_cards_with_exact": 0.89393939,
+  "cards_with_zero_high_exact": [
+    {
+      "canonical_card_id": "24f40ecd-605f-4d62-b748-afed33706583",
+      "card_name": "Emboar"
+    },
+    {
+      "canonical_card_id": "2a67a99c-dbba-4c41-846c-39ed4659c916",
+      "card_name": "Grubbin"
+    },
+    {
+      "canonical_card_id": "2bf67447-75e1-4e97-ac08-c7f3e7f2c88c",
+      "card_name": "Dhelmise"
+    },
+    {
+      "canonical_card_id": "3c75f577-62ee-4bdf-865c-ab2384f4379b",
+      "card_name": "Mega Charizard Y ex"
+    },
+    {
+      "canonical_card_id": "50f67b41-059d-4c14-842f-8b48fba46bc2",
+      "card_name": "Lt. Surge's Bargain"
+    },
+    {
+      "canonical_card_id": "55096ab6-1773-47c4-bbff-20c1db011223",
+      "card_name": "Victini"
+    },
+    {
+      "canonical_card_id": "740ad74c-8c0c-411f-9ec7-2c734210b8f1",
+      "card_name": "Arbok"
+    },
+    {
+      "canonical_card_id": "8a2827bc-48b7-4dfd-b240-501fe24100b9",
+      "card_name": "Bronzor"
+    },
+    {
+      "canonical_card_id": "cdfc0223-40ef-4e4b-a9f2-3a809ae1c3df",
+      "card_name": "Flareon"
+    },
+    {
+      "canonical_card_id": "ec8fec81-b57d-442a-baf0-91882c40de6e",
+      "card_name": "Team Rocket's Giovanni"
+    },
+    {
+      "canonical_card_id": "ecfe51fb-3435-4e1c-8542-8809cd6f95ff",
+      "card_name": "Coalossal"
+    }
+  ],
+  "cards_with_only_medium_exact": [
+    {
+      "canonical_card_id": "55096ab6-1773-47c4-bbff-20c1db011223",
+      "card_name": "Victini"
+    },
+    {
+      "canonical_card_id": "8a2827bc-48b7-4dfd-b240-501fe24100b9",
+      "card_name": "Bronzor"
+    },
+    {
+      "canonical_card_id": "ec8fec81-b57d-442a-baf0-91882c40de6e",
+      "card_name": "Team Rocket's Giovanni"
+    },
+    {
+      "canonical_card_id": "ecfe51fb-3435-4e1c-8542-8809cd6f95ff",
+      "card_name": "Coalossal"
+    }
+  ],
+  "cards_with_exact_all_rejected_or_ambiguous": [
+    {
+      "canonical_card_id": "2bf67447-75e1-4e97-ac08-c7f3e7f2c88c",
+      "card_name": "Dhelmise"
+    },
+    {
+      "canonical_card_id": "3c75f577-62ee-4bdf-865c-ab2384f4379b",
+      "card_name": "Mega Charizard Y ex"
+    },
+    {
+      "canonical_card_id": "cdfc0223-40ef-4e4b-a9f2-3a809ae1c3df",
+      "card_name": "Flareon"
+    }
+  ],
+  "cards_with_no_human_exact": [
+    {
+      "canonical_card_id": "24f40ecd-605f-4d62-b748-afed33706583",
+      "card_name": "Emboar"
+    },
+    {
+      "canonical_card_id": "2a67a99c-dbba-4c41-846c-39ed4659c916",
+      "card_name": "Grubbin"
+    },
+    {
+      "canonical_card_id": "50f67b41-059d-4c14-842f-8b48fba46bc2",
+      "card_name": "Lt. Surge's Bargain"
+    },
+    {
+      "canonical_card_id": "740ad74c-8c0c-411f-9ec7-2c734210b8f1",
+      "card_name": "Arbok"
+    }
+  ]
+}

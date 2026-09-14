@@ -1,0 +1,245 @@
+{
+  "version": "ebay_d3_v3_final_certification_metrics_v1",
+  "matcher_version": "index_fair_value_ebay_d3_v3",
+  "matcher_fingerprint": "b5e44641f35c5f846a8d83bc6c777285f6e07707c9c672feef47c55cd67c95ec",
+  "prediction_fingerprint": "2c4ac28be281a754259631fa530c4d86638f5da26ae03680a22838e59743d3f6",
+  "benchmark_design_fingerprint": "75505bfcbe2e167821a3178b5da192e1240879fe3e4edd75891fa2c55c02d2c6",
+  "human_gold_fingerprint": "635365a6773910f8acb5c57efecba81163e187c147eb34f844a50a71bdf85a8c",
+  "evaluation_code_commit": "f87d3bcd0565c79a77dc8afa9eae9ad707c65396",
+  "evaluated_at": "2026-09-13T04:22:37.756810+00:00",
+  "precision_cohort": {
+    "logical_rows": 300,
+    "evaluable_rows": 300,
+    "human_ambiguous_rows": 0,
+    "true_positives": 297,
+    "false_positives": 3,
+    "precision": 0.99,
+    "wilson_95": [
+      0.97101651,
+      0.99659338
+    ],
+    "exact_match_count": 297,
+    "non_exact_count": 3,
+    "false_positives_by_human_label": {
+      "LOT_OR_BUNDLE": 1,
+      "SEALED_OR_ACCESSORY": 1,
+      "WRONG_CARD_NUMBER": 1
+    },
+    "sufficient_effective_power": true
+  },
+  "coverage_cohort": {
+    "logical_rows": 420,
+    "cards_represented": 70,
+    "rows_per_card": {
+      "018c983e-b1d0-41df-880e-ebf3f2e2fb12": 6,
+      "0331d96e-d8af-44d3-9552-85f784d9b4ca": 6,
+      "0b81872e-b089-49e9-aec3-16a535b12efb": 6,
+      "0dde3317-5162-49d1-b5c9-6b206a086d2c": 6,
+      "10a47631-ea19-4b62-8a93-4b1b3e6b3013": 6,
+      "147a436d-4ccc-43d1-b19a-20b74d2ff723": 6,
+      "152906c9-3b9f-4f16-bb22-cb4241c7386b": 6,
+      "15faf94c-4a3b-4f09-a867-f2ded1174419": 6,
+      "209f02db-d953-4dde-bbd6-0822671fe1d1": 6,
+      "21e9ddc5-2751-4886-9e08-a1c6e2cc14e4": 6,
+      "23d6bd35-bbf0-49b2-911e-4949e66ff8bb": 6,
+      "24f40ecd-605f-4d62-b748-afed33706583": 6,
+      "25638dbd-2434-4a4f-ba0d-dcf3e3e114ca": 6,
+      "2a67a99c-dbba-4c41-846c-39ed4659c916": 6,
+      "2bf67447-75e1-4e97-ac08-c7f3e7f2c88c": 6,
+      "2c445258-b198-43de-b710-0921ebe3f0ab": 6,
+      "2cef0dfb-a5fd-4aed-b8ae-34a82f414587": 6,
+      "2e5780f8-1769-4d26-9e3e-87e4a27d4dfe": 6,
+      "301185dd-2bde-4699-80bd-8b2a3cfd8f7f": 6,
+      "31566cbb-0eeb-499e-aa6d-b9b0bd85fc8b": 6,
+      "33dca102-b449-4da6-bfa6-7b72de711596": 6,
+      "3755e7ef-e482-4186-8377-e717f80b3759": 6,
+      "3b5294d0-4738-4296-952e-f32b2788e3c4": 6,
+      "3baf2f12-759f-427a-b8d0-2511e639310f": 6,
+      "3c75f577-62ee-4bdf-865c-ab2384f4379b": 6,
+      "4206e794-1ec6-4d55-94d4-63267ac9a183": 6,
+      "4299cd6b-98e3-4e65-865f-26a39b19fe5b": 6,
+      "50f67b41-059d-4c14-842f-8b48fba46bc2": 6,
+      "53466d2d-94fd-4230-9505-694297a9030d": 6,
+      "55096ab6-1773-47c4-bbff-20c1db011223": 6,
+      "5576e4b9-4873-40fa-84c4-da9f28cec096": 6,
+      "605a2c1a-6a14-463e-b1e2-b55cd9c16244": 6,
+      "640cd931-d97f-4173-ad9d-3ab86f91d92c": 6,
+      "64c0404b-826f-493d-9c10-738b2b56eca4": 6,
+      "67611b34-a7e9-497f-9708-651cc015ca6c": 6,
+      "6a1e2c02-b24d-4001-96f1-8bc2a24d8ccd": 6,
+      "6a2b87e5-f90b-48f4-be30-a77258bee660": 6,
+      "6a980108-6683-4461-ac9a-c81a27326dee": 6,
+      "740ad74c-8c0c-411f-9ec7-2c734210b8f1": 6,
+      "75720435-3807-46b6-b3da-5e1c53b77822": 6,
+      "77b44a76-26f7-4fa0-a548-c29870a7bb68": 6,
+      "7b00ea04-5c2a-4172-8025-afba48ddacb3": 6,
+      "7f065a2b-5cab-45c8-8fd8-96d4c07c4ee8": 6,
+      "828c0d0d-2ede-4bab-bed4-407cd3cf8662": 6,
+      "829b12ba-c7f5-4796-9a57-a2a2463c8461": 6,
+      "8a2827bc-48b7-4dfd-b240-501fe24100b9": 6,
+      "8a2cce32-ad4f-4468-8a28-8a9ea9653365": 6,
+      "966bcb61-bf43-4cd7-8287-42f4bb9fa76d": 6,
+      "97165c7e-1d85-4962-807e-5661c2115d7d": 6,
+      "9f323989-e972-4a9e-9e7b-3166e85d0690": 6,
+      "a3d56338-1f3f-4b99-8920-5d71b8b85737": 6,
+      "a6969678-b361-4b27-bee3-e3cdc127a5e4": 6,
+      "a922341e-4646-470b-95cf-2a59055b18ce": 6,
+      "ae4a6acb-3a88-4547-a165-7a617bfb2ce8": 6,
+      "b3020b76-9ff0-449a-85b8-924878fa0e8b": 6,
+      "b547c5c3-7082-4a7f-9290-3d569b91b462": 6,
+      "b620ec1c-c0ac-4e7e-919d-a7df98bcb84b": 6,
+      "b801a524-e703-4f4c-ad99-1ec742cf30ec": 6,
+      "bf928dd7-24bc-4e16-bb5e-afb8122c3241": 6,
+      "c7e36a14-236f-4b93-a4a8-a4be2ddc7193": 6,
+      "cc59d868-d0e5-4557-9423-3f9b7c9d2591": 6,
+      "cdfc0223-40ef-4e4b-a9f2-3a809ae1c3df": 6,
+      "d09b2fb5-41b6-4d1e-88cf-629402434501": 6,
+      "d12a209b-06a3-4b46-82d3-a374e6bbe7b4": 6,
+      "d4ff3ebb-7e40-4a36-88e6-f07af2977641": 6,
+      "e26de7b7-434e-4bec-8fc2-fb15b971b1a7": 6,
+      "ec8fec81-b57d-442a-baf0-91882c40de6e": 6,
+      "ecfe51fb-3435-4e1c-8542-8809cd6f95ff": 6,
+      "f01e01fe-17e4-48b7-8ba3-9a88f876acd4": 6,
+      "fd225f1d-3765-4209-a5ec-42caf35933b0": 6
+    },
+    "all_cards_have_six": true,
+    "high_count": 207,
+    "medium_count": 15,
+    "rejected_or_unaccepted_count": 198,
+    "high_true_positives": 205,
+    "high_false_positives": 2,
+    "false_negatives": 42,
+    "recall": 0.82995951,
+    "specificity": 0.98765432,
+    "f1": 0.9030837,
+    "matcher_ambiguity_rate": 0.02142857,
+    "matcher_rejection_rate": 0.45,
+    "covered_cards": 55,
+    "card_coverage": 0.78571429,
+    "cards_with_zero_valid_high_exact": [
+      {
+        "canonical_card_id": "152906c9-3b9f-4f16-bb22-cb4241c7386b",
+        "card_name": "Giovanni's Charisma"
+      },
+      {
+        "canonical_card_id": "21e9ddc5-2751-4886-9e08-a1c6e2cc14e4",
+        "card_name": "Kyurem ex"
+      },
+      {
+        "canonical_card_id": "24f40ecd-605f-4d62-b748-afed33706583",
+        "card_name": "Emboar"
+      },
+      {
+        "canonical_card_id": "2a67a99c-dbba-4c41-846c-39ed4659c916",
+        "card_name": "Grubbin"
+      },
+      {
+        "canonical_card_id": "2bf67447-75e1-4e97-ac08-c7f3e7f2c88c",
+        "card_name": "Dhelmise"
+      },
+      {
+        "canonical_card_id": "3c75f577-62ee-4bdf-865c-ab2384f4379b",
+        "card_name": "Mega Charizard Y ex"
+      },
+      {
+        "canonical_card_id": "50f67b41-059d-4c14-842f-8b48fba46bc2",
+        "card_name": "Lt. Surge's Bargain"
+      },
+      {
+        "canonical_card_id": "55096ab6-1773-47c4-bbff-20c1db011223",
+        "card_name": "Victini"
+      },
+      {
+        "canonical_card_id": "740ad74c-8c0c-411f-9ec7-2c734210b8f1",
+        "card_name": "Arbok"
+      },
+      {
+        "canonical_card_id": "8a2827bc-48b7-4dfd-b240-501fe24100b9",
+        "card_name": "Bronzor"
+      },
+      {
+        "canonical_card_id": "8a2cce32-ad4f-4468-8a28-8a9ea9653365",
+        "card_name": "Leavanny"
+      },
+      {
+        "canonical_card_id": "cdfc0223-40ef-4e4b-a9f2-3a809ae1c3df",
+        "card_name": "Flareon"
+      },
+      {
+        "canonical_card_id": "d09b2fb5-41b6-4d1e-88cf-629402434501",
+        "card_name": "Roaring Moon ex"
+      },
+      {
+        "canonical_card_id": "ec8fec81-b57d-442a-baf0-91882c40de6e",
+        "card_name": "Team Rocket's Giovanni"
+      },
+      {
+        "canonical_card_id": "ecfe51fb-3435-4e1c-8542-8809cd6f95ff",
+        "card_name": "Coalossal"
+      }
+    ]
+  },
+  "catastrophic_high_errors": {
+    "GRADED": 0,
+    "LOT_OR_BUNDLE": 2,
+    "SEALED_OR_ACCESSORY": 1,
+    "WRONG_CARD_NUMBER": 2,
+    "RELATED_BUT_WRONG_VARIANT": 0,
+    "WRONG_SET": 0,
+    "WRONG_LANGUAGE": 0,
+    "AMBIGUOUS": 0
+  },
+  "medium_diagnostics": {
+    "unique_row_count": 15,
+    "exact_matches": 12,
+    "false_positives": 3,
+    "precision": 0.8,
+    "incremental_coverage_cards": 5,
+    "authority": "DIAGNOSTIC_ONLY"
+  },
+  "stability": {
+    "development": {
+      "precision": 0.99777778,
+      "recall": 0.67215569,
+      "coverage": 0.87142857,
+      "ambiguity_rate": 0.05904762,
+      "rejection_rate": 0.47047619,
+      "catastrophic": {
+        "AMBIGUOUS": 0,
+        "CONDITION_INELIGIBLE": 0,
+        "GRADED": 1,
+        "LOT_OR_BUNDLE": 0,
+        "OTHER": 0,
+        "RELATED_BUT_WRONG_VARIANT": 0,
+        "SEALED_OR_ACCESSORY": 0,
+        "WRONG_CARD_NUMBER": 0,
+        "WRONG_LANGUAGE": 0,
+        "WRONG_SET": 0
+      }
+    },
+    "fresh": {
+      "precision": 0.99,
+      "recall": 0.82995951,
+      "coverage": 0.78571429,
+      "ambiguity_rate": 0.02142857,
+      "rejection_rate": 0.45,
+      "catastrophic": {
+        "GRADED": 0,
+        "LOT_OR_BUNDLE": 2,
+        "SEALED_OR_ACCESSORY": 1,
+        "WRONG_CARD_NUMBER": 2,
+        "RELATED_BUT_WRONG_VARIANT": 0,
+        "WRONG_SET": 0,
+        "WRONG_LANGUAGE": 0,
+        "AMBIGUOUS": 0
+      }
+    }
+  },
+  "gates": {
+    "precision": true,
+    "wilson_lower": false,
+    "coverage": false,
+    "catastrophic": false
+  },
+  "overall_result": "FAIL"
+}

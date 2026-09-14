@@ -1,0 +1,17 @@
+{
+  "version": "ebay_d3_fresh_capture_manifest_v1",
+  "capture_run_id": "ffbd48d6-532b-4891-aa1d-63a845a41d92",
+  "capture_timestamp": "2026-09-12T23:42:48.395762+00:00",
+  "api_calls": 125,
+  "cards_queried": 70,
+  "raw_returned_listings": 11168,
+  "historical_item_exclusions": 1010,
+  "historical_seller_title_exclusions": 38,
+  "within_capture_item_duplicates": 84,
+  "within_capture_seller_title_duplicates": 445,
+  "fresh_unique_listings": 9591,
+  "eligible_high_candidates": 4994,
+  "errors": [],
+  "cohort_status": "READY",
+  "capture_manifest_fingerprint": "371d83f92501856358f7edf46ae90eb190c9e27eb465064481891ac6a66efbc7"
+}

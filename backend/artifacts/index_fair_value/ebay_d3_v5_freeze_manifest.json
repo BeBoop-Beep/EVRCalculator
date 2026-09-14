@@ -1,0 +1,26 @@
+{
+  "version": "ebay_d3_v5_freeze_manifest_v1",
+  "matcher_version": "index_fair_value_ebay_d3_v5",
+  "matcher_fingerprint": "93301e5da1cf8129896993f12cfec2b66c5c887d679cb6f0755785c884581c69",
+  "matcher_source_sha256": "90618933c6767ec318ae039e4684f0f2050ed0105335ef00c05b39ea3e89f90a",
+  "query_strategy_version": "ebay_browse_query_d1_unchanged_v1",
+  "altered_autograph_guard_version": "ebay_d3_v5_altered_autograph_guard_v1",
+  "evidence_quality_version": "ebay_evidence_quality_contract_v1",
+  "certification_script_version": "certify_ebay_d3_v3_v1",
+  "development_corpus_fingerprint": "30420853d50f1e1c70655b5607cad91d680385f24ab18e558d999fe4454a9ccf",
+  "development_study_result": {
+    "v4_precision": 1.0,
+    "v5_precision": 1.0,
+    "v4_recall": 0.70036101,
+    "v5_recall": 0.70036101,
+    "newly_rejected_legitimate_count": 0
+  },
+  "validation_pass_result": "NOT_ELIGIBLE_ALREADY_CONSUMED_BY_V4",
+  "v4_blind_cohort_status": "CONSUMED_HISTORICAL_DIAGNOSTIC_ONLY",
+  "frozen_at": "2026-09-14T00:35:24.776243+00:00",
+  "logic_frozen": true,
+  "production_authority": false,
+  "certified_against_new_blind": false,
+  "historical_blind_used_for_tuning": false,
+  "manifest_fingerprint": "89202db3d075931262f267cdc70e51ecb50cb28293060fcade17da65a2b72f08"
+}

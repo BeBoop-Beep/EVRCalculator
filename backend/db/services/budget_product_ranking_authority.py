@@ -118,6 +118,8 @@ def _fetch_all_ready_rows(client: Any) -> List[Dict[str, Any]]:
             .select(columns)
             .eq("financial_rip_v4_status", "ready")
             .order("sealed_product_id")
+            .order("calculation_run_id")
+            .order("price_as_of")
             .range(offset, offset + _PAGE_SIZE - 1)
         )
         page = _rows(query.execute())

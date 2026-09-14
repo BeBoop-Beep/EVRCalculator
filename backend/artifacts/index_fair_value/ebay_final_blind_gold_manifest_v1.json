@@ -1,0 +1,21 @@
+{
+  "version": "ebay_final_blind_gold_manifest_v1",
+  "effective_row_count": 350,
+  "label_counts": {
+    "AMBIGUOUS": 11,
+    "EXACT_TARGET_MATCH": 221,
+    "GRADED": 58,
+    "LOT_OR_BUNDLE": 6,
+    "RELATED_BUT_WRONG_VARIANT": 9,
+    "SEALED_OR_ACCESSORY": 14,
+    "WRONG_CARD_NUMBER": 30,
+    "WRONG_LANGUAGE": 1
+  },
+  "ambiguous_count": 11,
+  "partition_fingerprint": "3e74f23095b042cb077f4640a99d94a50b5567431bcc1351eb84b8a560ac757e",
+  "review_history_fingerprint": "3818435ebddfd52e828f574672efc13135ddebf0de48d9c7645b124941c5688c",
+  "audit_history_fingerprint": "0541327177d04603eb50028868faaccf05dad1c25a5d27910a036623fa9d021c",
+  "effective_gold_fingerprint": "40da9c4ccbe030124d608c59673902f662e14835cc0d8c4b4fffb89231b97a7a",
+  "reviewer_id": "Donny",
+  "taxonomy_version": "ebay_final_blind_gold_taxonomy_v1"
+}

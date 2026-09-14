@@ -1,0 +1,326 @@
+{
+  "version": "ebay_d3_v4_development_study_v1",
+  "development_corpus_fingerprint": "30420853d50f1e1c70655b5607cad91d680385f24ab18e558d999fe4454a9ccf",
+  "v3_metrics": {
+    "matcher_version": "index_fair_value_ebay_d3_v3",
+    "accepted": 194,
+    "tp": 194,
+    "fp": 0,
+    "tn": 156,
+    "fn": 83,
+    "precision": 1.0,
+    "recall": 0.70036101,
+    "card_coverage_count": 58,
+    "card_coverage": 0.82857143,
+    "matcher_state_breakdown": {
+      "AMBIGUOUS": 17,
+      "HIGH_CONFIDENCE": 194,
+      "MEDIUM_CONFIDENCE": 21,
+      "REJECTED": 218
+    },
+    "ambiguous_rate": 0.03777778,
+    "rejection_rate": 0.48444444,
+    "catastrophic_high_counts": {},
+    "catastrophic_high_total": 0,
+    "high_error_rows": []
+  },
+  "v4_metrics": {
+    "matcher_version": "index_fair_value_ebay_d3_v4",
+    "accepted": 194,
+    "tp": 194,
+    "fp": 0,
+    "tn": 156,
+    "fn": 83,
+    "precision": 1.0,
+    "recall": 0.70036101,
+    "card_coverage_count": 58,
+    "card_coverage": 0.82857143,
+    "matcher_state_breakdown": {
+      "AMBIGUOUS": 16,
+      "HIGH_CONFIDENCE": 194,
+      "MEDIUM_CONFIDENCE": 21,
+      "REJECTED": 219
+    },
+    "ambiguous_rate": 0.03555556,
+    "rejection_rate": 0.48666667,
+    "catastrophic_high_counts": {},
+    "catastrophic_high_total": 0,
+    "high_error_rows": []
+  },
+  "delta_v4_minus_v3": {
+    "precision_delta": 0.0,
+    "recall_delta": 0.0,
+    "coverage_delta": 0.0,
+    "ambiguous_rate_delta": -0.00222222,
+    "rejection_rate_delta": 0.00222223,
+    "catastrophic_high_total_delta": 0
+  },
+  "newly_rejected_legitimate_listings": [],
+  "newly_rejected_legitimate_count": 0,
+  "failure_class_research": {
+    "WRONG_CARD_NUMBER": {
+      "gold_label": "WRONG_CARD_NUMBER",
+      "development_row_count": 29,
+      "v3_incorrectly_accepted_high": 0,
+      "v4_incorrectly_accepted_high": 0,
+      "examples": [
+        {
+          "benchmark_row_id": "D2-0218",
+          "listing_title": "Mega Evolution Pokémon Cards! Holo/Reverse Holo EX SIR Illustration Rare Card!",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0440",
+          "listing_title": "Pokemon Victini (12/324) Black Bolt LP HOLO",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0443",
+          "listing_title": "Black Bolt Pokemon Cards! Holo/Reverse Holo Rare Illustration Full Art SIR Card!",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0449",
+          "listing_title": "Pokemon TCG Victini Card 12/86 Black Bolt Holo Rare Near Mint",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0484",
+          "listing_title": "Pecharunt EX 39/64 Pokemon Shrouded Fable Holo Double Rare. Pk001401",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0485",
+          "listing_title": "Pokemon Pecharunt EX 85/64 Full Art Shrouded Fable",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0487",
+          "listing_title": "Pokemon SV6.5 Shrouded Fable NM YouPICK! 1-99 Reverse Holo RH ex IR FA SIR HR",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0493",
+          "listing_title": "Pokemon Pecharunt ex 39/64 Shrouded Fable Double Rare Normal NM TCG Darkness",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0494",
+          "listing_title": "Pokémon TCG Pecharunt EX Ultra Rare Shrouded Fable Card 085/064",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0495",
+          "listing_title": "Pokémon TCG Pecharunt ex 39/64 Shrouded Fable Double Rare NM Holo 2024",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0616",
+          "listing_title": "Cresselia 021/064 Reverse Holo Shrouded Fable Pokemon Card - NM Near Mint",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0626",
+          "listing_title": "Cresselia 021/064 Rare Shrouded Fable Pokemon Holo Near Mint",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0629",
+          "listing_title": "SV: Shrouded Fable 021/064 Cresselia Holo NM",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0630",
+          "listing_title": "SV: Shrouded Fable 021/064 Cresselia Holo NM",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0694",
+          "listing_title": "Leavanny 003/086 Uncommon White Flare Pokemon Reverse Holo Near Mint",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0699",
+          "listing_title": "Leavanny 003/086 Uncommon White Flare Pokemon Reverse Holo Lightly Played",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0701",
+          "listing_title": "Leavanny 003/086 Uncommon White Flare Pokemon Reverse Holo Near Mint",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0703",
+          "listing_title": "Leavanny 003/086 Uncommon White Flare Pokemon Reverse Holo Near Mint",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0704",
+          "listing_title": "Leavanny 003/086 Uncommon White Flare Pokemon Reverse Holo Near Mint",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0705",
+          "listing_title": "Leavanny 003/086 Uncommon White Flare Pokemon Reverse Holo Near Mint",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        }
+      ]
+    },
+    "LOT_OR_BUNDLE": {
+      "gold_label": "LOT_OR_BUNDLE",
+      "development_row_count": 11,
+      "v3_incorrectly_accepted_high": 0,
+      "v4_incorrectly_accepted_high": 0,
+      "examples": [
+        {
+          "benchmark_row_id": "D2-0426",
+          "listing_title": "Pokemon TCG - Twilight Masquerade: Choose Your Card! - All Holos/Reverse Holos!",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0585",
+          "listing_title": "Temporal Forces POKEMON CHOOSE YOUR CARD REVERSE HOLO",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0605",
+          "listing_title": "Pokemon Trading Card Scarlet & Violet/Mega Illustration Rare: Choose Your Card",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0665",
+          "listing_title": "Pokemon TCG - Obsidian Flames: Choose Your Card! - All Holos/Reverse Holo Cards!",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0686",
+          "listing_title": "Temporal Forces - Pick Your Card - Pokemon TCG",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0880",
+          "listing_title": "Pokemon Scarlet & Violet Base Set | Choose Your Card! | Reverse Holo/Holo",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0921",
+          "listing_title": "Pokemon Scarlet & Violet 151 Reverse Holos and Holos: Choose Your Card",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0923",
+          "listing_title": "Flareon Holo 36/165 Rare Scarlet and Violet 151 LP Playset (4x) Pokemon",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0925",
+          "listing_title": "151 Scarlet & Violet Singles/ Reverse Holo/ Holo YOU CHOOSE",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0994",
+          "listing_title": "Pokemon TCG Ascended Heroes Choose A Card",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0995",
+          "listing_title": "Pokemon Ascended Heroes - Pick Your Card - Holo, Reverse Energy/Ball 103-217",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        }
+      ]
+    },
+    "SEALED_OR_ACCESSORY": {
+      "gold_label": "SEALED_OR_ACCESSORY",
+      "development_row_count": 9,
+      "v3_incorrectly_accepted_high": 0,
+      "v4_incorrectly_accepted_high": 0,
+      "examples": [
+        {
+          "benchmark_row_id": "D2-0267",
+          "listing_title": "Dachsbun EX SIR Stellar Crown 169/142  Pokemon Extended Artwork Case",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0304",
+          "listing_title": "Pokemon Tcg Card Charizard EX 234/091 Sir Paldean BLANKET 50x 60 Inch",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0387",
+          "listing_title": "Pokemon Mega Dragonite EX 290/217 SIR Ascended Heroes Extended Artwork Case",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0402",
+          "listing_title": "Pokemon Durant EX 236 SIR Surging Sparks Extended Artwork Case",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0433",
+          "listing_title": "Perrin 220/167 TCG Sv06 Twilight Masquerade Magnetic 🧲 Extended Art Case",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0564",
+          "listing_title": "Pokemon Team Rocket's Mewtwo ex SIR 231/182 Destined Rival Extended Art Case",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0584",
+          "listing_title": "Pokemon Temporal Forces Reverse Holo Pick Your Card SV05 TCG",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0598",
+          "listing_title": "Pokemon Mega Darkrai EX 116/084 Pitch Black Extended Artwork Case",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        },
+        {
+          "benchmark_row_id": "D2-0649",
+          "listing_title": "Pokemon Ascended Mega Gengar EX  284 240 RAW Extended Artwork Framed Display",
+          "v3_state": "REJECTED",
+          "v4_state": "REJECTED"
+        }
+      ]
+    }
+  }
+}

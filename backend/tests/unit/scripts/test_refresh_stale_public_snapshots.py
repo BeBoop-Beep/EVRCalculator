@@ -7,6 +7,24 @@ from backend.scripts import refresh_stale_public_snapshots as refresh
 from backend.scripts.pokemon_snapshot_builders import SIMULATION_DEPENDENT_SECTIONS
 
 
+@pytest.fixture(autouse=True)
+def _stub_market_candidate_preparation(monkeypatch):
+    from backend.scripts import build_pokemon_market_index_history as index_history
+
+    monkeypatch.setattr(
+        refresh, "resolve_market_publication_date",
+        lambda _client, requested: requested or "2026-08-23",
+    )
+    monkeypatch.setattr(
+        refresh, "prepare_market_rollout_candidate",
+        lambda *_a, **_k: {"status": "complete"},
+    )
+    monkeypatch.setattr(
+        index_history, "_rollout_source_materialization",
+        lambda *_a, **_k: {"ready": True, "provenanceState": "final"},
+    )
+
+
 def _market_enforcement(*, allowed=True, proceed=True, status="READY"):
     return SimpleNamespace(
         proceed=proceed,
@@ -130,6 +148,65 @@ def test_market_quality_phase_commit_uses_rollout_aware_builder(monkeypatch):
 
     assert ready is True and rows is None
     assert order == ["quality", "read-quality", ("build", "2026-08-23"), "persist"]
+
+
+def test_market_quality_phase_orders_prepare_quality_finalizer_and_persist(monkeypatch):
+    from backend.scripts import build_pokemon_market_index_history as index_history
+
+    order = []
+    monkeypatch.setattr(
+        refresh, "prepare_market_rollout_candidate",
+        lambda *_a, **_k: order.append("prepare") or {"status": "complete"})
+    monkeypatch.setattr(
+        refresh, "enforce_market_publication_gate",
+        lambda *_a, **_k: order.append("quality") or _market_enforcement())
+    monkeypatch.setattr(refresh, "market_index_accepted_dates",
+                        lambda *_a, **_k: order.append("read-quality") or {"2026-08-23"})
+    outcomes = iter([
+        {"ready": False, "provenanceState": "candidate"},
+        {"ready": True, "provenanceState": "final"},
+    ])
+    monkeypatch.setattr(
+        index_history, "_rollout_source_materialization",
+        lambda *_a, **_k: order.append("validate-final") or next(outcomes))
+    _patch_rollout_index(
+        monkeypatch, order=order, expected_root_count=22,
+        rows=[
+            {"market_date": "2026-08-23", "index_key": "raw", "set_count": 22},
+            {"market_date": "2026-08-23", "index_key": "top10", "set_count": 22},
+        ])
+
+    class Client:
+        def rpc(self, name, payload):
+            assert name == index_history.ROLLOUT_REFRESH_RPC
+            class Result:
+                def execute(self):
+                    order.append("finalizer")
+                    return SimpleNamespace(data={"status": "complete"})
+            return Result()
+
+    ready, rows = refresh._run_market_quality_index_phase(
+        Client(), market_date="2026-08-23", commit=True,
+        summary=refresh.RefreshSummary())
+    assert ready is True and rows is None
+    assert order == [
+        "prepare", "quality", "read-quality", "validate-final", "finalizer",
+        "validate-final", ("build", "2026-08-23"), "persist",
+    ]
+
+
+def test_market_quality_phase_preparation_failure_stops_before_quality(monkeypatch):
+    monkeypatch.setattr(
+        refresh, "prepare_market_rollout_candidate",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("incomplete candidates")))
+    monkeypatch.setattr(
+        refresh, "enforce_market_publication_gate",
+        lambda *_a, **_k: pytest.fail("Quality must not run after preparation failure"))
+    summary = refresh.RefreshSummary()
+    ready, rows = refresh._run_market_quality_index_phase(
+        object(), market_date="2026-08-23", commit=True, summary=summary)
+    assert ready is False and rows is None
+    assert summary.global_failed == ["market_candidate_preparation: incomplete candidates"]
 
 
 def test_market_quality_phase_rejects_undersized_candidate_cohort(monkeypatch):

@@ -1,0 +1,23 @@
+{
+  "version": "ebay_d3_fresh_human_gold_manifest_v1",
+  "effective_row_count": 704,
+  "label_breakdown": {
+    "AMBIGUOUS": 11,
+    "EXACT_TARGET_MATCH": 528,
+    "GRADED": 87,
+    "LOT_OR_BUNDLE": 4,
+    "RELATED_BUT_WRONG_VARIANT": 18,
+    "SEALED_OR_ACCESSORY": 7,
+    "WRONG_CARD_NUMBER": 47,
+    "WRONG_LANGUAGE": 2
+  },
+  "original_review_queue_fingerprint": "897ad0574f70c649311dc440e0af7a2380cd8d9addaf28b55c2cb1313621ccde",
+  "review_history_fingerprint": "d500344d551398e80e52850ec0488e56f40e2fdfa8d1b0b9f0c9dc724105045a",
+  "audit_history_fingerprint": "b444597e8f03ad028b4eb9c2511b1676d03de7a090108f7d589fb96928d904ab",
+  "effective_human_gold_fingerprint": "635365a6773910f8acb5c57efecba81163e187c147eb34f844a50a71bdf85a8c",
+  "reviewer_id": "Donny",
+  "taxonomy_version": "ebay_d3_fresh_human_gold_taxonomy_v1",
+  "audit_cohort_size": 43,
+  "image_only_graded_candidate_count": 0,
+  "matcher_predictions_consulted": false
+}

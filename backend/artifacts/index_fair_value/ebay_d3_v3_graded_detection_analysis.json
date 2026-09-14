@@ -1,0 +1,3974 @@
+{
+  "version": "ebay_d3_v3_graded_detection_analysis_v1",
+  "human_graded_rows": 167,
+  "affirmative_graded_evidence_rows": 165,
+  "no_affirmative_graded_evidence_rows": 2,
+  "image_only_graded_risk_rows": [
+    "D2-0639",
+    "D2-0310"
+  ],
+  "residual_high_image_only_risk_rows": [
+    "D2-0310"
+  ],
+  "residual_high_risk_rate_among_human_graded": 0.00598802,
+  "d2_0310_finding": "Condition=Ungraded, conditionId=4000, empty category/aspects, no subtitle or captured grade metadata; only human image inspection revealed the slab.",
+  "policy": "Any affirmative title, condition, conditionId, category, or grading-aspect evidence is GRADED_CARD. Image-only risk is documented, not fabricated.",
+  "available_browse_fields": [
+    "title",
+    "condition",
+    "conditionId",
+    "category",
+    "item aspects",
+    "buying options",
+    "seller fields",
+    "image URL"
+  ],
+  "unavailable_or_empty_in_capture": [
+    "subtitle",
+    "variation/selection indicators",
+    "image-derived metadata"
+  ],
+  "examples": [
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0026",
+      "listing_title": "PSA 10 GEM MINT - Trubbish #140 Scarlet Violet White Flare Illustration Rare",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0033",
+      "listing_title": "Haxorus 147/086 Sv: Black Bolt Holo Tag 9 Mint Pokémon Card IR",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0039",
+      "listing_title": "2025 POKEMON BLK EN-BLACK BOLT ILLUSTRATION RARE #147 HAXORUS PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0045",
+      "listing_title": "Haxorus (147/086) Sv: Black Bolt - 2025 - Grade: 8.5 - Full Art - Pokemon TCG",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0048",
+      "listing_title": "Tinkatuff 166/091 SV: Paldean Fates Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0085",
+      "listing_title": "CGC 10 PSA Carmine 217/167 SIR Twilight Masquerade TWM Pokemon Card",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0087",
+      "listing_title": "Carmine 217/167 Sv06: Twilight Masquerade Holo PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0100",
+      "listing_title": "Giovanni's Charisma Special Illustration Rare-Scarlet and Violet: 151-204-PSA 8",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0110",
+      "listing_title": "CGC Gem Mint 10 Veluza 292/182 Pokémon Paradox Rift PAR EN",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0113",
+      "listing_title": "Pokemon TCG Veluza 192/182 SV04 Paradox Rift Holo PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0144",
+      "listing_title": "2025 POKEMON BLK EN-BLACK BOLT SPECIAL ILLUSTRATION RARE #165 KYUREM EX PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0146",
+      "listing_title": "The Pokémon Company 2025 Kyurem ex 165/086 Sv: Black Bolt SIR Holo PSA 10 EN",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0173",
+      "listing_title": "Pokemon Emboar White Flare Illustration Rare 98/86 PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0230",
+      "listing_title": "2026 Mega Evolution Ascended Hereos Pikachu EX SIR #277",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "AUCTION"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0231",
+      "listing_title": "2026 POKEMON ASC EN-ASCENDED HEROES SPECIAL ILLUSTRATION RARE PIKACHU EX TAG 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0236",
+      "listing_title": "2026 POKEMON ASCENDED HEROES PIKACHU EX SIR #277/217 HOLO CGC 10 GM",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0254",
+      "listing_title": "Pokémon Reshiram ex 166/086 Sv: White Flare Special Illustration Rare EX PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0266",
+      "listing_title": "2024 Pokemon Scr En-Stellar Crown Dachsbun Ex #169 PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0272",
+      "listing_title": "Pokemon TCG Pikachu ex 276/217 Ascended Heroes SIR TAG 10 [974] English",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0278",
+      "listing_title": "Pokemon Ascended Heroes Pikachu SIR 276/216 TAG Gem Mint 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0293",
+      "listing_title": "Pokemon Mega Greninja Ex Hyper Rare #122 Chaos Rising ACE 9 Mint",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0306",
+      "listing_title": "Pokemon Charizard EX Paldean Fates 234/091 Special Illustration Rare PSA 9 Mint",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0308",
+      "listing_title": "2024 POKEMON PALDEAN FATES 234 CHARIZARD EX SIR PSA POOR 1",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0311",
+      "listing_title": "Pokémon TCG Charizard EX SIR 234/91 Paldean Fates - PSA 8",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0338",
+      "listing_title": "Sunflora 169/167 Illustration Rare Twm En-Twilight Masquerade Pokemon PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0359",
+      "listing_title": "2025 Pokemon Mega Evolution Gardevoir ex Mega Hyper Rare CGC 10 Gem Mint #187",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0365",
+      "listing_title": "Pokemon Mega Charizard Y Ex 294/217 ASC Ascended Heros Mega Hyper Rare Gold Card",
+      "condition": "Bewertet",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0382",
+      "listing_title": "2026 Pokemon Ascended Heroes Mega Dragonite Ex SIR",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0385",
+      "listing_title": "Mega Dragonite ex 290/217 SIR - PSA 10 - Ascended Heroes - Pokemon TCG",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "AUCTION",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0404",
+      "listing_title": "2024 POKEMON SSP SURGING SPARKS #236 DURANT EX SPECIAL ILLUSTRATION RARE PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0427",
+      "listing_title": "2024 POKEMON TWM EN-TWILIGHT MASQUERADE SPECIAL ILLUSTRATION RARE PERRIN PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0430",
+      "listing_title": "POKEMON TWM EN-TWILIGHT MASQUERADE 220 PERRIN SPECIAL ILLUSTRATION RARE PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0435",
+      "listing_title": "Pokémon Perrin 220/167 Twilight Masquerade Special Illustration Rare Holo PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0446",
+      "listing_title": "2025 Pokémon Black Bolt Victini #171 Black White Rare PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0456",
+      "listing_title": "2024 Gulpin #154 PSA 8 Near Mint Illustration Rare Pokemon Stellar Crown SCR",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0500",
+      "listing_title": "2026 Pokemon Ascended Heroes #253 Mega Audino EX Ultra Rare PSA 10 Card GEM MINT",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0520",
+      "listing_title": "2025 Pokemon Mega Evolution Lillie's Determination SIR #184 CGC 10 PRISTINE",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0523",
+      "listing_title": "Pokemon Lillie's Determination Mega Evolution Special Illus. Rare #184 PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0534",
+      "listing_title": "2024 POKEMON TEF EN-SPECIAL ILLUSTRATION RARE #204 GOUGING FIRE EX PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0550",
+      "listing_title": "Pokemon 2023 Marill 204/193 Illustration Rare Paldea Evolved GEM MINT PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0553",
+      "listing_title": "Pokemon 2023 Paldea Evolved Marill 204/193 Illustration Rare Holo PSA 9 EN",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0597",
+      "listing_title": "Mega Darkrai ex 116/084 Me05: Pitch Black Special Illustration Rare Holo PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "AUCTION"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0602",
+      "listing_title": "CGC Gem Mint 10 Crustle 183/182 Pokémon Paradox Rift PAR EN",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0607",
+      "listing_title": "Crustle 183/182 Illustration Rare Par En-Paradox Rift Pokemon PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0613",
+      "listing_title": "Crustle Illustration Rare #183 CGC GEM MINT 10 2023 Paradox Rift Pokemon 183/182",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0639",
+      "listing_title": "Pokemon TCG Extended Art Case Canari SIR 291/217 ME Ascended Heroes ASC",
+      "condition": "Ungraded",
+      "condition_id": "4000",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": false,
+        "reasons": [],
+        "aspect_hits": []
+      },
+      "v3_product_object": "CARD_ACCESSORY",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0654",
+      "listing_title": "2026 Pokemon ASC EN Special Illustration Rare #284 Mega Gengar ex PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0657",
+      "listing_title": "2026 Pokemon ME Ascended Heroes 284/217 Mega Gengar EX SIR TAG 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0660",
+      "listing_title": "Pokémon TCG Mega Gengar ex 284/217 ASC EN ASCENDED HEROES TAG 9 ",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0667",
+      "listing_title": "Houndour 204/197 PSA 9 Mint Obsidian Flames Illustration Rare Pokemon Card 🔥🔥",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0712",
+      "listing_title": "Pokemon - Leafeon ex 144/131 Prismatic Evolutions SIR PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0714",
+      "listing_title": "Leafeon ex 144/131 Sv: Prismatic Evolutions Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "AUCTION",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0716",
+      "listing_title": "PSA10 💎🔥Leafeon Prismatic Evolutions Sir 144/131",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0717",
+      "listing_title": "PSA 9 MINT Leafeon ex 144/131 Sv: Prismatic Evolutions Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0746",
+      "listing_title": "2026 Pokemon Ascended Mega Feraligatr Ex SIR PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0765",
+      "listing_title": "Pikachu ex 247/191 Sv08: Surging Sparks Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0773",
+      "listing_title": "2025 Pokémon Pre En-Prismatic Evolutions SIR Dragapult Ex #165 PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0809",
+      "listing_title": "2025 Prismatic Evolutions Special Illustration Rare 153/131 Jolteon ex CGC 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0820",
+      "listing_title": "Archeops IR 132/086 White Flare 2025 Pokemon TCG - ACE 9 Mint Graded ",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0832",
+      "listing_title": "ACE 10 Team Rocket's Giovanni 225/182 Destined Rivals Gem Mint 10 Pokemon",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0856",
+      "listing_title": "Bianca's Devotion 209/162 Sv05: Temporal Forces Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0869",
+      "listing_title": "POP 1 BGS 10 Pristine Bianca’s Devotion SIR 209/162 Temporal Forces",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0887",
+      "listing_title": "Mega Lucario ex 179/132 Me01: Mega Evolution Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0890",
+      "listing_title": "The Pokémon Company Mega Lucario ex 179/132 ME01 SAR Holo Eng 340HP",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0891",
+      "listing_title": "Pokémon TCG BGS Pristine 10 Mega Lucario ex SIR Mega Evolutions #179/132",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0898",
+      "listing_title": "2025 POKEMON MEGA LUCARIO ex SPEC ILLUS RARE MEGA EVOLUTION #179 PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0900",
+      "listing_title": "PSA 10 Mega Lucario ex 179/132 SIR Mega Evolution Pokemon English",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0931",
+      "listing_title": "Roaring Moon ex 162/131 Sv: Prismatic Evolutions Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0934",
+      "listing_title": "2025 POKEMON PRE EN-PRISMATIC EV 162 ROARING MOON EX SPECIAL ILLUSTRATION RARE ",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0940",
+      "listing_title": "2025 POKEMON PRE EN-PRISMATIC EVOLUTIONS #162 ROARING MOON EX PSA 8.5",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0943",
+      "listing_title": "2025 POKEMON PRE EN-PRISMATIC EVOLUTIONS #162 ROARING MOON EX PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0954",
+      "listing_title": "2023 POKEMON PAL EN-PALDEA EVOLVED ILLUSTRATION RARE #223 GRAFAIAI PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0959",
+      "listing_title": "Grafaiai Paldea Evolved #223/193 Parallel / Insert Variant 2023 Pokemon DCM 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0967",
+      "listing_title": "Pokémon TCG Zekrom EX Black Bolt Special Illustration Card #166/086 PSA 9 Mint",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0970",
+      "listing_title": "2025 Pokemon BLK EN #166 Zekrom ex Special Illustration Rare PSA 10 GEM MINT",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0971",
+      "listing_title": "2025 POKEMON BLK EN-BLACK BOLT SPECIAL ILLUSTRATION RARE #166 ZEKROM EX PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "DEVELOPMENT",
+      "benchmark_row_id": "D2-0974",
+      "listing_title": "2025 Pokemon Zekrom ex 166/086 Black Bolt SIR Blk-Eng BGS 9.5 (STRONG QUADS)",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0036",
+      "listing_title": "2025 POKEMON BLK EN-BLACK BOLT ILLUSTRATION RARE #147 HAXORUS PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0054",
+      "listing_title": "Tinkatuff 166/091 - Paldean Fates - Graded Pokemon Card - BGS 9.5 (PSA 10)",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0068",
+      "listing_title": "Pokemon Mega Evolution Lt. Surge's Bargain #185 SIR CGC 10 PRISTINE",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0086",
+      "listing_title": "2024 Pokémon Carmine 217/167 SIR PSA 9 MINT Twilight Masquerade Full Art Trainer",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0127",
+      "listing_title": "2025 Pokemon WHT EN-White Flare Oshawott PSA 9 #105",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0145",
+      "listing_title": "Kyurem ex 165/086 Sv: Black Bolt Holo PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0239",
+      "listing_title": "2026 POKEMON ASC EN-ASCENDED HEROES SPECIAL ILLUSTRATION RARE PIKACHU EX PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0271",
+      "listing_title": "2026 Mega Evolution Ascended Heroes #276 Pikachu Ex SIR BGS pristine 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0292",
+      "listing_title": "2026 Pokemon Chaos Rising PSA 9 MEGA GRENINJA EX Hyper Rare #122 *NICE*",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0358",
+      "listing_title": "2025 POKEMON MEG EN-MEGA EVOLUTION MEGA HYPER RARE #187 MEGA GARDEVOIR EX PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0370",
+      "listing_title": "2026 Pokemon Ascended Heroes Mega Charizard Y ex Hyper Rare #294/217 BGS 9 Mint",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0401",
+      "listing_title": "Durant EX 236/191 Sir Surging Sparks Holo Special Illustration Rare Card PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0477",
+      "listing_title": "2025 Pokemon #137/086 Krookodile Illustration Rare - Holo CGC 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0538",
+      "listing_title": "Pokemon Gouging Fire Ex 204/162 SIR Temporal Forces PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0707",
+      "listing_title": "2025 Pokemon SV Prismatic Evolutions 144/131 Leafeon EX SIR TAG 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0738",
+      "listing_title": "2026 Pokemon ME Ascended Heroes 274/217 Mega Feraligatr EX SIR TAG 10 (966)",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0762",
+      "listing_title": "PSA 10 Pokemon Pikachu ex Surging Sparks 247/191 Gold Hyper Rare Full Art SSP",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0770",
+      "listing_title": "Dragapult EX 165/131 Special Illustration Rare Pokemon Tag 10 Gem Mint",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0800",
+      "listing_title": "Jolteon EX #153 Prismatic Pokemon Special Illustration Rare 🔥 TAG 9 MINT",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0837",
+      "listing_title": "Pokemon Team Rockets Giovanni Full Art Holo Card Destined Rivals 225/182 PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0849",
+      "listing_title": "2025 Pokemon Zweilous Illustration Rare White Flare 147/086 PSA 9 MINT",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0865",
+      "listing_title": "2024 POKEMON TEF EN-TEMPORAL FORCES #209 BIANCA'S DEVOTION PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0896",
+      "listing_title": "2025 Pokémon Mega Evolution Special Illustration Rare Mega Lucario EX 179 PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0908",
+      "listing_title": "2025 POKEMON DRI EN-DESTINED RIVALS #238 TEAM ROCKET'S GIOVANNI PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0915",
+      "listing_title": "Team Rocket's Giovanni 238/182 Sv10: Destined Rivals Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0944",
+      "listing_title": "Roaring Moon ex 162: Prismatic Evolutions Holo PSA9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0945",
+      "listing_title": "Roaring Moon ex 162/131 Sv: Prismatic Evolutions Holo MINT PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-0969",
+      "listing_title": "Pokémon Black Bolt Zekrom EX TCG Special Illustration Rare Card 166/086 PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-1021",
+      "listing_title": "Phantasmal Flames Meowth #106 Degree Gem Mint 10 Pokémon Holo Rare POP!",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-1024",
+      "listing_title": "Meowth 106/094 Illustration Rare -Phantasmal Flames Pokemon PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-1030",
+      "listing_title": "168696135 Meowth 2025 Pokemon Phantasmal Flames #106/094 Illustration Rare PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "AUCTION"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "VALIDATION",
+      "benchmark_row_id": "D2-1047",
+      "listing_title": "Pokemon 2025 Team Rocket's Nidoking ex 233/182 Alt Art SIR Destined Rivals PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0038",
+      "listing_title": "2025 POKEMON BLK EN-BLACK BOLT ILLUSTRATION RARE #147 HAXORUS PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0040",
+      "listing_title": "2025 POKEMON BLK EN-BLACK BOLT ILLUSTRATION RARE #147 HAXORUS PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0070",
+      "listing_title": "2025 Pokemon Mega Evolution #185 Lt. Surge's Bargain Special Illstrn Rare PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0073",
+      "listing_title": "The Pokémon Company Lt. Surge's Bargain 185/132 Mega Evolution SIR Holo PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0083",
+      "listing_title": "Carmine 217/167 Pokemon SV06: Twilight Masquerade Special Illustration Rare PSA9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0088",
+      "listing_title": "CGC 10 Carmine 217/167 SIR Twilight Masquerade TWM Pokemon Card",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0115",
+      "listing_title": "2023 Paradox Rift #192/182 Veluza CGC 9.5",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0142",
+      "listing_title": "2025 POKEMON BLK EN-BLACK BOLT SPECIAL ILLUSTRATION RARE #165 KYUREM EX PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0149",
+      "listing_title": "2025 Pokémon BLK EN Kyurem Ex Special Illustration Rare PSA 10 Gem",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0189",
+      "listing_title": "Pokemon TCG SV08 Surging Sparks Clemont's Quick Wit 243/191 SIR Holo PSA 9 EN",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0233",
+      "listing_title": "2026 Pokemon 277/217 Pikachu ex Special Illustration Rare Ascended Heroes PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0250",
+      "listing_title": "2025 Pokemon 166/086 Reshiram ex Special Illustration Rare White Flare PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0255",
+      "listing_title": "PSA 9  Reshiram ex White Flare 166/086 Special Illustration Rare - Pokemon Card",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0258",
+      "listing_title": "Dachsbun ex 169/142 Sv07: Stellar Crown Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0268",
+      "listing_title": "Dachsbun ex 169/142 Sv07: Stellar Crown Holo CGC 9.5",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0270",
+      "listing_title": "Dachsbun ex 169/142 Sv07: Stellar Crown Holo",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0279",
+      "listing_title": "2026 POKEMON ASCENDED HEROES #276/217 PIKACHU EX SIR CGC 9.5",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0298",
+      "listing_title": "2026 Pokemon Mega Greninja ex #122/086 Chaos Rising Mega Hyper Rare PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "AUCTION"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0307",
+      "listing_title": "Pokemon Charizard ex Paldean Fates 234 Special Ill Rare SIR PSA 10 with Case",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0310",
+      "listing_title": "Charizard EX #234/091 NM Paldean Fates Pokemon Card",
+      "condition": "Ungraded",
+      "condition_id": "4000",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": false,
+        "reasons": [],
+        "aspect_hits": []
+      },
+      "v3_product_object": "SINGLE_RAW_CARD",
+      "v3_identity_state": "HIGH_CONFIDENCE"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0314",
+      "listing_title": "2024 Pokemon Paldean Fates 234 Charizard ex PSA 10 125420170",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0315",
+      "listing_title": "Charizard ex 234/091 SV Paldean Fates SIR Holo 2024 English TAG Graded",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0355",
+      "listing_title": "2025 POKEMON MEG EN-MEGA EVOLUTION MEGA HYPER RARE #187 MEGA GARDEVOIR EX PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0360",
+      "listing_title": "2025 Pokémon Mega Gardevoir ex #187 Mega Hyper Rare – PSA 10 Gem Mint (English)",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0375",
+      "listing_title": "2026 POKEMON EN-ASCENDED HEROES 294 MEGA CHARIZARD Y EX MEGA HYPER RARE - PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0445",
+      "listing_title": "WHT Victini 172/086 BGS Beckett Gem Mint 9.5",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0452",
+      "listing_title": "CGC Gem Mint 10 Gulpin 154/142 Pokémon Stellar Crown SCR EN",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0470",
+      "listing_title": "Krookodile 137/086 Sv: Black Bolt Holo PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0486",
+      "listing_title": "CGC Gem Mint 10 Pecharunt ex 093/064 Pokémon Shrouded Fable SFA EN",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0513",
+      "listing_title": "LILLIE’S DETERMINATION TAG 10 GEM MINT 184/132 MEGA EVOLUTION ENGLISH POKEMON",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0537",
+      "listing_title": "Gouging Fire ex 204/162 SV CGC 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0540",
+      "listing_title": "🚀 CGC 10 ENGLISH Gouging Fire ex 204/162 Sv05 SIR Temporal Forces Holo Pokemon",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0554",
+      "listing_title": "Pokemon TCG Marill 204/193 SV02 Paldea Evolved Illustration Rare Holo PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0563",
+      "listing_title": "Team Rocket's Mewtwo ex 231/182 Destined Rivals Holo BGS 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0570",
+      "listing_title": "Pokemon 2025 Team Rocket's Mewtwo ex 231/182 SIR Destined Rivals GEM MINT PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0638",
+      "listing_title": "2026 POKEMON ASC EN-ASCENDED HEROES SPECIAL ILLUSTRATION RARE #291 CANARI PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0648",
+      "listing_title": "Pokemon Ascended Heroes MEGA GENGAR EX 284/217 SIR Tag 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0659",
+      "listing_title": "MEGA GENGAR EX POKEMON ASCENDED HEROES 284 SPECIAL ILLUSTRATION RARE PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0698",
+      "listing_title": "Leavanny 089/086 Illustration Rare IR Holo Pokemon White Flare CGC 10 GEM MINT",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0719",
+      "listing_title": "Pokemon Prismatic Evolutions Leafeon ex SIR Holo 144/131 PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "AUCTION"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0725",
+      "listing_title": "2025 Pokémon JTG EN Journey Together Furret #168 Illustration Rare PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0757",
+      "listing_title": "PSA 9 Pikachu ex 247/191 Surging Sparks Full Art Holo Rare Pokemon 2024",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0760",
+      "listing_title": "2024 POKEMON SSP EN-SURGING SPARKS HYPER RARE #247 PIKACHU EX PSA 9",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0763",
+      "listing_title": "2024 Pokemon TCG Pikachu EX Surging Sparks #247 AGS GEM-MT 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0778",
+      "listing_title": "CGC Gem Mint 10 Dragapult ex 165/131 Pokémon Prismatic Evolutions PRE EN",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0805",
+      "listing_title": "Pokemon - Jolteon ex 153/131 Prismatic Evolutions SIR PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0839",
+      "listing_title": "2025 POKEMON DRI EN-DESTINED RIVALS ULTRA RARE #225 TEAM ROCKET'S GIOVANNI PSA 8",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0864",
+      "listing_title": "Bianca’s Devotion ",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0868",
+      "listing_title": "CGC Mint 9 Bianca's Devotion 209/162 Pokémon Scarlet & Violet Temporal Forces",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0899",
+      "listing_title": "2025 POKEMON MEGA EVOLUTION SPECIAL ILLUSTRATION RARE MEGA LUCARIO EX PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0922",
+      "listing_title": "POKEMON 151 #136 FLAREON - PSA 9 -2023 MEW EN SCARLET VIOLET ENGLISH CARD",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0935",
+      "listing_title": "2025 PSA MINT 9 Pokemon Prismatic 162/131 Ancient Roaring Moon ex Card #62853B",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0942",
+      "listing_title": "2025 POKEMON PRE EN ROARING MOON EX SIR #162 PSA 9 MINT",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0965",
+      "listing_title": "Pokemon Zekrom EX 166 TAG10 #962",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-0972",
+      "listing_title": "Pokemon TCG 2025 SV Black Bolt Zekrom ex 166/086 SIR Holo PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-1029",
+      "listing_title": "Pokemon- PSA 10 - Meowth #106/094 Phantasmal Flames  **FREE GUARD**",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-1049",
+      "listing_title": "Pokemon Destined Rivals #233 Rocket'S Nidoking Ex Special Illustration PSA 10",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    },
+    {
+      "partition": "FINAL_BLIND_TEST",
+      "benchmark_row_id": "D2-1050",
+      "listing_title": "2025 Pokemon Destined Rivals Team Rocket's Nidoking ex 233/182 PSA 9 SIR",
+      "condition": "Graded",
+      "condition_id": "2750",
+      "category_id": "",
+      "item_aspects": [],
+      "buying_options": [
+        "FIXED_PRICE",
+        "BEST_OFFER"
+      ],
+      "subtitle_available": false,
+      "affirmative_graded_evidence": {
+        "affirmative": true,
+        "reasons": [
+          "TITLE_OR_CONDITION_TEXT",
+          "STRUCTURED_GRADED_CONDITION"
+        ],
+        "aspect_hits": []
+      },
+      "v3_product_object": "GRADED_CARD",
+      "v3_identity_state": "REJECTED"
+    }
+  ]
+}

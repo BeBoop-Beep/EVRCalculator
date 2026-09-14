@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv, json
 from pathlib import Path
 OUT=Path(__file__).resolve().parents[1]/'artifacts/index_fair_value'
-FILES={'DEVELOPMENT':'ebay_gold_development.csv','VALIDATION':'ebay_gold_validation.csv','FINAL_BLIND_TEST':'ebay_gold_final_blind.csv'}
+FILES={'DEVELOPMENT':'ebay_gold_development.csv','VALIDATION':'ebay_gold_validation.csv','FINAL_BLIND_TEST':'ebay_gold_final_blind.csv','PRECISION_BLIND':'ebay_d3_precision_blind.csv','COVERAGE_BLIND':'ebay_d3_coverage_blind.csv','D3_BLIND_REVIEW':'ebay_d3_blind_review_queue.csv'}
 def load_partition(partition, purpose='matcher_development', freeze_manifest=None):
     partition=partition.upper()
     if partition not in FILES: raise ValueError('unknown partition')
@@ -14,4 +14,6 @@ def load_partition(partition, purpose='matcher_development', freeze_manifest=Non
             proof=json.loads(Path(freeze_manifest).read_text(encoding='utf-8'))
             if not all(proof.get(k) for k in ('matcher_version','matcher_fingerprint','frozen_commit')): raise PermissionError('incomplete matcher freeze proof')
         else: raise PermissionError('final blind labels are sealed')
+    if partition in {'PRECISION_BLIND','COVERAGE_BLIND','D3_BLIND_REVIEW'} and purpose!='human_review':
+        raise PermissionError('D3 blind labels are sealed from matcher access')
     with (OUT/FILES[partition]).open(encoding='utf-8',newline='') as f:return list(csv.DictReader(f))

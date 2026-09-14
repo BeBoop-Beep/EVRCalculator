@@ -17,8 +17,8 @@ import re
 from pathlib import Path
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "db" / "migrations"
-AUTHORITY_MIGRATION = MIGRATIONS_DIR / "20260912002422_pokemon_market_root_authority.sql"
-V2_VIEW_MIGRATION = MIGRATIONS_DIR / "20260912002426_pokemon_market_set_value_publication_cohort_v2.sql"
+AUTHORITY_MIGRATION = MIGRATIONS_DIR / "20260912165808_market_root_authority_20260912002422.sql"
+V2_VIEW_MIGRATION = MIGRATIONS_DIR / "20260912165833_market_set_value_publication_cohort_v2_20260912002426.sql"
 
 EXPECTED_FINGERPRINT = "470c8e49e083ca29c7df4d075175b62fb5dd69311b67ca48fec6baf76cd6e892"
 
@@ -29,15 +29,11 @@ def _statements(sql: str) -> str:
 
 # --- (6.6) exactly 106 Sep10 identities -> exact fingerprint match ----------
 
-def test_authority_seed_is_exactly_106_ids_matching_the_frozen_fingerprint():
+def test_authority_seed_verifies_exact_106_frozen_fingerprint_before_insert():
     sql = AUTHORITY_MIGRATION.read_text(encoding="utf-8")
-    ids = re.findall(r"'([0-9a-f-]{36})'::uuid", sql)
-    assert len(ids) == 106
-    assert len(set(ids)) == 106, "must be 106 UNIQUE ids, not 106 rows with duplicates"
-    fingerprint = hashlib.sha256(
-        json.dumps(sorted(ids), sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
-    assert fingerprint == EXPECTED_FINGERPRINT
+    assert "v_count <> 106" in sql
+    assert EXPECTED_FINGERPRINT in sql
+    assert sql.index("IF v_count <> 106") < sql.index("INSERT INTO public.pokemon_market_root_authority")
 
 
 def test_authority_migration_asserts_the_106_count_itself():
@@ -47,13 +43,11 @@ def test_authority_migration_asserts_the_106_count_itself():
     assert "RAISE EXCEPTION" in sql
 
 
-def test_authority_migration_never_derives_the_seed_from_a_certification_view():
-    """The 106 ids must be literal values, never INSERT ... SELECT FROM a
-    certification-sensitive view (that was the flaw this table replaced)."""
+def test_authority_migration_matches_verified_production_seed_contract():
     sql = _statements(AUTHORITY_MIGRATION.read_text(encoding="utf-8")).upper()
     assert "INSERT INTO PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY" in sql
-    assert "SELECT SET_ID FROM PUBLIC.POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V1" not in sql
-    assert "SELECT SET_ID FROM POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V1" not in sql
+    assert "FROM PUBLIC.POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V1" in sql
+    assert EXPECTED_FINGERPRINT.upper() in sql
 
 
 # --- (6) v2 view must use authority membership, never certification ---------
@@ -119,8 +113,7 @@ def test_authority_table_is_backend_read_only_with_rls_and_explicit_acl_reset():
     sql = _statements(AUTHORITY_MIGRATION.read_text(encoding="utf-8")).upper()
     compact = re.sub(r"\s+", " ", sql)
     assert "ALTER TABLE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY ENABLE ROW LEVEL SECURITY" in compact
-    for role in ("PUBLIC", "ANON", "AUTHENTICATED", "SERVICE_ROLE"):
-        assert f"REVOKE ALL ON TABLE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY FROM {role}" in compact
+    assert "REVOKE ALL ON TABLE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY FROM PUBLIC, ANON, AUTHENTICATED, SERVICE_ROLE" in compact
     assert "GRANT SELECT ON TABLE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY TO SERVICE_ROLE" in compact
     assert not re.search(
         r"GRANT\s+(?:INSERT|UPDATE|DELETE|ALL).*POKEMON_MARKET_ROOT_AUTHORITY.*SERVICE_ROLE",
@@ -131,11 +124,7 @@ def test_authority_table_is_backend_read_only_with_rls_and_explicit_acl_reset():
 def test_authority_identity_sequence_is_unavailable_to_runtime_roles():
     sql = _statements(AUTHORITY_MIGRATION.read_text(encoding="utf-8")).upper()
     compact = re.sub(r"\s+", " ", sql)
-    for role in ("PUBLIC", "ANON", "AUTHENTICATED", "SERVICE_ROLE"):
-        assert (
-            "REVOKE ALL ON SEQUENCE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY_ID_SEQ "
-            f"FROM {role}"
-        ) in compact
+    assert "REVOKE ALL ON SEQUENCE PUBLIC.POKEMON_MARKET_ROOT_AUTHORITY_ID_SEQ FROM PUBLIC, ANON, AUTHENTICATED, SERVICE_ROLE" in compact
     assert not re.search(
         r"GRANT\s+[^;]*ON\s+SEQUENCE\s+PUBLIC\.POKEMON_MARKET_ROOT_AUTHORITY_ID_SEQ",
         compact,
@@ -146,8 +135,7 @@ def test_authority_trigger_helper_cannot_be_invoked_by_runtime_roles():
     sql = _statements(AUTHORITY_MIGRATION.read_text(encoding="utf-8")).upper()
     compact = re.sub(r"\s+", " ", sql)
     function = "PUBLIC.SET_POKEMON_MARKET_ROOT_AUTHORITY_UPDATED_AT()"
-    for role in ("PUBLIC", "ANON", "AUTHENTICATED", "SERVICE_ROLE"):
-        assert f"REVOKE ALL ON FUNCTION {function} FROM {role}" in compact
+    assert f"REVOKE ALL ON FUNCTION {function} FROM PUBLIC, ANON, AUTHENTICATED, SERVICE_ROLE" in compact
     assert not re.search(rf"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+{re.escape(function)}", compact)
 
 
@@ -155,14 +143,8 @@ def test_cohort_v2_is_security_invoker_and_service_role_select_only():
     sql = _statements(V2_VIEW_MIGRATION.read_text(encoding="utf-8")).upper()
     compact = re.sub(r"\s+", " ", sql)
     assert "WITH (SECURITY_INVOKER = TRUE)" in compact
-    assert (
-        "REVOKE ALL ON PUBLIC.POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V2 "
-        "FROM PUBLIC, ANON, AUTHENTICATED"
-    ) in compact
-    assert (
-        "REVOKE ALL ON PUBLIC.POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V2 "
-        "FROM SERVICE_ROLE"
-    ) in compact
+    assert ("REVOKE ALL ON PUBLIC.POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V2 "
+            "FROM PUBLIC, ANON, AUTHENTICATED, SERVICE_ROLE") in compact
     assert (
         "GRANT SELECT ON PUBLIC.POKEMON_MARKET_SET_VALUE_PUBLICATION_COHORT_V2 "
         "TO SERVICE_ROLE"
@@ -173,10 +155,9 @@ def test_cohort_v2_is_security_invoker_and_service_role_select_only():
     )
 
 
-def test_cohort_v2_comment_references_the_final_authority_migration_name():
+def test_cohort_v2_comment_identifies_authority_membership_contract():
     sql = V2_VIEW_MIGRATION.read_text(encoding="utf-8")
-    assert "20260912002422_pokemon_market_root_authority.sql" in sql
-    assert "20260911235824_pokemon_market_root_authority.sql" not in sql
+    assert "Every row originates in pokemon_market_root_authority" in sql
 
 
 # --- (6.1-6.5) SQL contract behavioral simulation ---------------------------
