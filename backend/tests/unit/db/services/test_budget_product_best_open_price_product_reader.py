@@ -105,8 +105,12 @@ def test_product_reader_refuses_source_replacement_under_same_method():
     assert result == {"available": False, "reason": "stale_source_publication", "row": None}
 
 
-def test_product_reader_refuses_incomplete_publication_before_row_read():
+def test_product_reader_refuses_unresolved_publication_before_row_read():
     data = tables()
+    # The real schema CHECK also requires resolved + unresolved = source
+    # eligible count. Unit tests are exercising the read rule here, not
+    # reimplementing the database constraint.
+    data["budget_product_best_open_price_snapshots"][0]["unresolved_count"] = 1
     data["budget_product_best_open_price_snapshots"][0]["resolved_count"] = 137
     client = Client(data)
     result = service.load_best_open_price_product(client, "p1")
