@@ -164,3 +164,36 @@ def test_reader_only_enters_public_delivery_through_snapshot_projection():
         if "budget_product_ranking_service" in source:
             offenders.append(path.name)
     assert offenders == ["public_overall_product_rankings_service.py"]
+
+
+def test_full_market_resolves_latest_only_once(monkeypatch):
+    from backend.db.services import budget_product_ranking_service as service
+    client = _client([_row('a', 1350.0, 1, 'full_market')])
+    calls = []
+    def latest(*_args, **_kwargs):
+        calls.append(True)
+        return dict(SNAPSHOT) if len(calls) == 1 else dict(SNAPSHOT, id='other', full_market_budget=1500)
+    monkeypatch.setattr(service, 'load_latest_snapshot', latest)
+    result = service.load_full_market_ranking(client)
+    assert result['available'] is True
+    assert result['authority']['snapshotId'] == 'snap-1'
+    assert len(calls) == 1
+
+
+def test_same_id_republication_during_row_read_refuses_mixed_authority():
+    class Republisher(_FakeClient):
+        def execute(self):
+            response = super().execute()
+            if self._name == 'budget_product_ranking_rows':
+                self.tables['budget_product_ranking_snapshots'] = [dict(SNAPSHOT, published_at='changed')]
+            return response
+    client = Republisher(_client([_row('a', 1350.0, 1, 'full_market')]).tables)
+    result = load_full_market_ranking(client)
+    assert result == {'available': False, 'reason': 'source_publication_changed', 'rows': []}
+
+
+def test_captured_full_market_snapshot_never_reresolves_latest(monkeypatch):
+    from backend.db.services import budget_product_ranking_service as service
+    monkeypatch.setattr(service, 'load_latest_snapshot', lambda *_a, **_k: (_ for _ in ()).throw(AssertionError('unexpected latest read')))
+    result = service.load_full_market_ranking(_client([_row('a', 1350.0, 1, 'full_market')]), source_snapshot=dict(SNAPSHOT))
+    assert result['available'] is True

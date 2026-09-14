@@ -108,3 +108,9 @@ test("an invalid successful-looking wrapper cannot become an empty ready table",
     available: false, reason: "publication_unavailable", rows: [], availableBudgets: [],
   });
 });
+
+test("unavailable Best-Open sorting falls back to ordinary ranking without hiding rows", async () => {
+  const {resolveProductSort}=await import("./rankingsProductLensModel.mjs");
+  assert.deepEqual(resolveProductSort("bestOpenPriceGapPercent","asc",false,true),{key:"overallRipLeaderScore",direction:"desc"});
+  assert.deepEqual(resolveProductSort("bestOpenPriceGapPercent","asc",true,true),{key:"bestOpenPriceGapPercent",direction:"asc"});
+});

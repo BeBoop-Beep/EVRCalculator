@@ -67,7 +67,9 @@ print(json.dumps({"text": sys.argv[1]}))
 PY
 }
 
-REPORT="logs/best_open_price_publication.json"
+REPORT=$(mktemp logs/best_open_price_invocation.XXXXXX.json)
+trap 'rm -f "$REPORT"' EXIT
+LATEST_REPORT="logs/best_open_price_publication.json"
 LOG="logs/best_open_price_publication.log"
 STARTED=$(date '+%Y-%m-%d %H:%M:%S')
 HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || true)
@@ -113,6 +115,21 @@ PY
 )
 
 echo "[best-open] $DETAIL" | tee -a "$LOG"
+
+# A previous report can never provide this invocation's verdict. Also require
+# agreement between the process exit and the structured status before green.
+if [ "$RUN_EXIT" -eq 0 ]; then
+  case "$STATUS" in
+    PUBLISHED|ALREADY_CURRENT) ;;
+    *) RUN_EXIT=1 ;;
+  esac
+fi
+if [ "$RUN_EXIT" -ne 0 ] && { [ "$STATUS" = "PUBLISHED" ] || [ "$STATUS" = "ALREADY_CURRENT" ]; }; then
+  STATUS="PROCESS_FAILED_AFTER_REPORT"
+fi
+if [ -s "$REPORT" ]; then
+  cp "$REPORT" "$LATEST_REPORT"
+fi
 
 case "$STATUS" in
   PUBLISHED)

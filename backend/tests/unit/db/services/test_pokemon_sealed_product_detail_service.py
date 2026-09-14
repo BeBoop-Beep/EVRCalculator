@@ -100,6 +100,9 @@ def prepared_product(product_id, name, price, family, history=None):
 
 @pytest.fixture(autouse=True)
 def current_publication(monkeypatch):
+    monkeypatch.setattr(service, "load_best_open_price_product", lambda *_a, **_k: {
+        "available": False, "reason": "no_published_snapshot", "row": None,
+    })
     monkeypatch.setattr(service, "_rankings_publication_identity_mismatches", lambda _payload: [])
 
 

@@ -1,6 +1,7 @@
 "use client";
 
 import InfoPopover from "@/components/ui/InfoPopover";
+import { bestOpenThresholdCopy, bestOpenStrategyCopy, bestOpenUnavailableCopy } from "./bestOpenPriceDetailModel.mjs";
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -26,22 +27,7 @@ function dateLabel(value) {
   }).format(parsed);
 }
 
-function unavailableCopy(reason) {
-  if ([
-    "stale_source_publication",
-    "no_published_snapshot",
-    "no_live_budget_ranking_source",
-    "incomplete_snapshot_rows",
-  ].includes(reason)) {
-    return "Best-Open Price is refreshing for the latest Full Market ranking.";
-  }
-  if (reason === "product_not_in_current_full_market") {
-    return "This product is not part of the current Full Market Best-Open cohort.";
-  }
-  return "Best-Open Price is temporarily unavailable for this product.";
-}
-
-const HELP = "Best-Open Price is the highest acquisition price at which this product would rank #1 against the published Full Market cohort. The threshold holds every other product at that publication's price; a newer live product price is shown separately and never silently rescored against an older cohort.";
+const HELP = "Best-Open Price is the highest acquisition price at which this product would rank #1 against the published Full Market cohort, using whole units within its fixed comparison budget. Non-leaders search at or below their published price; the leader searches upward. The threshold holds every other product at that publication's price; a newer live product price is shown separately and never silently rescored against an older cohort.";
 
 export default function BestOpenPriceCard({ bestOpen, market }) {
   if (!bestOpen) return null;
@@ -56,7 +42,7 @@ export default function BestOpenPriceCard({ bestOpen, market }) {
           Best-Open Price · Full Market
         </p>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          {unavailableCopy(bestOpen.reason)}
+          {bestOpenUnavailableCopy(bestOpen.reason)}
         </p>
       </section>
     );
@@ -67,13 +53,11 @@ export default function BestOpenPriceCard({ bestOpen, market }) {
   const sourcePrice = numeric(bestOpen.sourceUnitPrice);
   const livePrice = numeric(market?.currentPrice);
   const liveDelta = livePrice === null ? null : livePrice - threshold;
-  const leader = bestOpen.status === "current_number_one_with_headroom";
   const sourceRank = numeric(bestOpen.sourceBudgetRank);
   const cohortSize = numeric(bestOpen.sourceCohortSize);
 
-  const thresholdContext = leader
-    ? `This product remained #1 up to ${money.format(threshold)} in the published Full Market cohort.`
-    : `At ${money.format(threshold)} or lower, this product would reach #1 in the published Full Market cohort.`;
+  const thresholdContext = bestOpenThresholdCopy(bestOpen);
+  const strategyContext = bestOpenStrategyCopy(bestOpen);
 
   const liveComparison = liveDelta === null
     ? null
@@ -100,6 +84,7 @@ export default function BestOpenPriceCard({ bestOpen, market }) {
           <p className="mt-2 max-w-3xl text-sm text-[var(--text-secondary)]">
             {thresholdContext}
           </p>
+          {strategyContext ? <p data-best-open-strategy className="mt-1 text-xs text-[var(--text-secondary)]">{strategyContext}</p> : null}
         </div>
         <span className="rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">
           Prices as of {dateLabel(bestOpen.sourceMarketDate)}

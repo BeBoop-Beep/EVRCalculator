@@ -14,11 +14,9 @@ REM Git values are diagnostics only; they are not reasons to refuse a scheduled
 REM run. Real startup failures (missing repo/venv) and simulation/publication
 REM failures still propagate a non-zero exit code.
 REM
-REM Best-Open Price is NOT a second scheduled task. Once the normal daily
-REM publication (including Budget Ranking) exits successfully, this same Task
-REM Scheduler invocation runs the bounded Best-Open prepared-data wrapper. A
-REM failure there keeps the task non-successful instead of silently serving a
-REM stale Full Market threshold indefinitely.
+REM Best-Open runs inside run_simulations.sh after that invocation's Budget
+REM Ranking verdict. This entrypoint stays thin so manual and scheduled runs
+REM use the same lifecycle and unrelated audit failures cannot skip thresholds.
 REM ============================================================================
 
 setlocal
@@ -51,18 +49,6 @@ REM ERRORLEVEL to 0, so reading it after the log lines below would report a
 REM successful task for every possible failure of the job it just ran.
 set "RUN_EXIT=%ERRORLEVEL%"
 
-REM Only a fully successful base publication is allowed to launch the expensive
-REM (~hour at the validated 138-SKU scale) Best-Open preparation. The Budget
-REM Ranking publisher is already inside run_simulations.sh, so this guarantees
-REM the threshold engine sees the day's final published Full Market authority.
-if not "%RUN_EXIT%"=="0" goto finalize
-
-echo Best-Open publication started at %date% %time% >> logs\task_scheduler_debug.log
-"C:\Program Files\Git\usr\bin\bash.exe" -lc "cd %EVR_PRODUCTION_REPO_DIR% && bash ./infra/local/run_best_open_price.sh" >> logs\task_scheduler_debug.log 2>&1
-set "BEST_OPEN_EXIT=%ERRORLEVEL%"
-if not "%BEST_OPEN_EXIT%"=="0" set "RUN_EXIT=%BEST_OPEN_EXIT%"
-
-:finalize
 echo Task finished at %date% %time% with exit code %RUN_EXIT% >> logs\task_scheduler_debug.log
 echo ================================ >> logs\task_scheduler_debug.log
 

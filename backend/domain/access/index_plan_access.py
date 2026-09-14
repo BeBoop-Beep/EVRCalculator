@@ -632,6 +632,10 @@ def project_sealed_product_detail_response(payload: Mapping[str, Any], plan: Any
     result = _pick(payload, frozenset({"set", "product", "market", "meta"}))
     if has_index_feature_access(plan, FEATURE_PRODUCT_RIP):
         result.update(_pick(payload, frozenset({"rip", "comparisons"})))
+        if isinstance(result.get("rip"), Mapping):
+            result["rip"] = dict(result["rip"])
+            if not has_index_feature_access(plan, FEATURE_BEST_OPEN_PRICE):
+                result["rip"].pop("bestOpenPrice", None)
     return result
 
 

@@ -1,4 +1,5 @@
 from backend.db.services import budget_product_best_open_price_service as service
+from backend.db.services.best_open_price_authority import SOURCE_VERSIONS
 
 
 class Result:
@@ -42,13 +43,16 @@ def tables():
         "market_date": "2026-09-14",
         "cohort_fingerprint": "cohort-fp",
     }
+    source.update(SOURCE_VERSIONS)
+    source.update(pinned_price_as_of=source['market_date'], ranked_under_v12_authority=True,
+                  full_market_budget=1350, eligible_cohort_count=138)
     snapshot = {
         "id": "bop-1",
         "built_at": "2026-09-14T13:00:00+00:00",
         "published_at": "2026-09-14T13:01:00+00:00",
         "best_open_price_method_version": service.BEST_OPEN_PRICE_METHOD_VERSION,
-        "ranking_method_version": "rank-v1",
-        "allocation_method_version": "alloc-v1",
+        "ranking_method_version": SOURCE_VERSIONS["ranking_method_version"],
+        "allocation_method_version": SOURCE_VERSIONS["allocation_method_version"],
         "source_budget_snapshot_id": "budget-1",
         "source_budget_published_at": source["published_at"],
         "source_market_date": source["market_date"],
@@ -58,6 +62,7 @@ def tables():
         "resolved_count": 138,
         "unresolved_count": 0,
     }
+    snapshot.update({key: value for key, value in SOURCE_VERSIONS.items() if key != 'overall_rip_version'})
     return {
         "budget_product_best_open_price_latest": [{
             "best_open_price_method_version": service.BEST_OPEN_PRICE_METHOD_VERSION,
@@ -65,8 +70,8 @@ def tables():
         }],
         "budget_product_best_open_price_snapshots": [snapshot],
         "budget_product_ranking_latest": [{
-            "ranking_method_version": "rank-v1",
-            "allocation_method_version": "alloc-v1",
+            "ranking_method_version": SOURCE_VERSIONS["ranking_method_version"],
+            "allocation_method_version": SOURCE_VERSIONS["allocation_method_version"],
             "snapshot_id": "budget-1",
         }],
         "budget_product_ranking_snapshots": [source],

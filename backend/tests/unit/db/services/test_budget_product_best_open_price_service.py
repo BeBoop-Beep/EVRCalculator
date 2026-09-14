@@ -12,6 +12,7 @@ from typing import Any, Dict, List
 import pytest
 
 from backend.db.services import budget_product_best_open_price_service as svc
+from backend.db.services.best_open_price_authority import SOURCE_VERSIONS
 
 
 class _Resp:
@@ -66,6 +67,12 @@ SNAPSHOT_ROW = {
     "resolved_count": 1, "unresolved_count": 0, "built_at": "t", "published_at": "t",
 }
 
+SOURCE.update(SOURCE_VERSIONS)
+SOURCE.update(pinned_price_as_of=SOURCE['market_date'], ranked_under_v12_authority=True, eligible_cohort_count=2)
+SNAPSHOT_ROW.update({key: value for key, value in SOURCE_VERSIONS.items() if key != 'overall_rip_version'})
+SNAPSHOT_ROW.update(source_full_market_budget=1400, source_eligible_cohort_count=2, resolved_count=2,
+                    best_open_price_method_version=svc.BEST_OPEN_PRICE_METHOD_VERSION)
+
 LATEST_ROW = {"best_open_price_method_version": svc.BEST_OPEN_PRICE_METHOD_VERSION, "snapshot_id": "snap-1"}
 
 
@@ -117,9 +124,9 @@ def test_load_best_open_price_ranking_available_on_exact_match():
     client = FakeClient({
         "budget_product_best_open_price_latest": [LATEST_ROW],
         "budget_product_best_open_price_snapshots": [SNAPSHOT_ROW],
-        "budget_product_ranking_latest": [{"ranking_method_version": "rmv1", "allocation_method_version": "amv1", "snapshot_id": "src-1"}],
+        "budget_product_ranking_latest": [{"ranking_method_version": SOURCE["ranking_method_version"], "allocation_method_version": SOURCE["allocation_method_version"], "snapshot_id": "src-1"}],
         "budget_product_ranking_snapshots": [SOURCE],
-        "budget_product_best_open_price_rows": [{"sealed_product_id": "p1", "snapshot_id": "snap-1"}],
+        "budget_product_best_open_price_rows": [{"sealed_product_id": pid, "snapshot_id": "snap-1"} for pid in ("p1", "p2")],
     })
     result = svc.load_best_open_price_ranking(client)
     assert result["available"] is True
@@ -138,9 +145,9 @@ def test_load_best_open_price_ranking_stale_on_any_source_drift(drift_field, dri
     client = FakeClient({
         "budget_product_best_open_price_latest": [LATEST_ROW],
         "budget_product_best_open_price_snapshots": [SNAPSHOT_ROW],
-        "budget_product_ranking_latest": [{"ranking_method_version": "rmv1", "allocation_method_version": "amv1", "snapshot_id": "src-1"}],
+        "budget_product_ranking_latest": [{"ranking_method_version": SOURCE["ranking_method_version"], "allocation_method_version": SOURCE["allocation_method_version"], "snapshot_id": "src-1"}],
         "budget_product_ranking_snapshots": [drifted_source],
-        "budget_product_best_open_price_rows": [{"sealed_product_id": "p1", "snapshot_id": "snap-1"}],
+        "budget_product_best_open_price_rows": [{"sealed_product_id": pid, "snapshot_id": "snap-1"} for pid in ("p1", "p2")],
     })
     result = svc.load_best_open_price_ranking(client)
     assert result == {"available": False, "reason": "stale_source_publication", "rows": []}
@@ -151,9 +158,9 @@ def test_load_best_open_price_ranking_stale_when_live_snapshot_id_differs():
     client = FakeClient({
         "budget_product_best_open_price_latest": [LATEST_ROW],
         "budget_product_best_open_price_snapshots": [SNAPSHOT_ROW],
-        "budget_product_ranking_latest": [{"ranking_method_version": "rmv1", "allocation_method_version": "amv1", "snapshot_id": "src-OTHER"}],
+        "budget_product_ranking_latest": [{"ranking_method_version": SOURCE["ranking_method_version"], "allocation_method_version": SOURCE["allocation_method_version"], "snapshot_id": "src-OTHER"}],
         "budget_product_ranking_snapshots": [other_source],
-        "budget_product_best_open_price_rows": [{"sealed_product_id": "p1", "snapshot_id": "snap-1"}],
+        "budget_product_best_open_price_rows": [{"sealed_product_id": pid, "snapshot_id": "snap-1"} for pid in ("p1", "p2")],
     })
     result = svc.load_best_open_price_ranking(client)
     assert result == {"available": False, "reason": "stale_source_publication", "rows": []}
@@ -173,7 +180,7 @@ def test_load_best_open_price_ranking_unavailable_when_rows_incomplete():
     client = FakeClient({
         "budget_product_best_open_price_latest": [LATEST_ROW],
         "budget_product_best_open_price_snapshots": [SNAPSHOT_ROW],
-        "budget_product_ranking_latest": [{"ranking_method_version": "rmv1", "allocation_method_version": "amv1", "snapshot_id": "src-1"}],
+        "budget_product_ranking_latest": [{"ranking_method_version": SOURCE["ranking_method_version"], "allocation_method_version": SOURCE["allocation_method_version"], "snapshot_id": "src-1"}],
         "budget_product_ranking_snapshots": [SOURCE],
         "budget_product_best_open_price_rows": [],  # resolved_count says 1, actual 0
     })
