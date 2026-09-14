@@ -150,7 +150,7 @@ def test_paid_product_detail_receives_existing_snapshot_contract(plan):
 
 
 def test_locked_commercial_capability_sets_fail_closed_and_inherit():
-    assert len(_PLUS_FEATURES) == 14  # includes server response-boundary aliases
+    assert len(_PLUS_FEATURES) == 15  # includes server response-boundary aliases and Best-Open Price
     assert len(_PREMIUM_FEATURES) == 11
     for feature in _PLUS_FEATURES:
         assert not has_index_feature_access(None, feature)
