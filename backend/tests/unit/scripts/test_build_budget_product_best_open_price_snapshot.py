@@ -76,9 +76,13 @@ LATEST_POINTER = [{"ranking_method_version": "rmv1", "allocation_method_version"
 ENGINE_ROW = {
     "sealedProductId": "p1", "setId": "s1", "productFamily": "booster_box", "sourceCalculationRunId": "run1",
     "currentMarketPrice": 100.0, "currentQuantity": 14, "currentBudgetRank": 1, "currentOverallRipV12Score": 0.9,
+    "currentFinancialRipV4Score": 0.75, "currentCollectorAppealScore": 0.6, "currentChaseAccessibilityRaw": 0.5,
+    "currentChanceToRecoverCapital": 0.7, "currentActualCommittedCapital": 1400.0,
     "status": "current_number_one_with_headroom", "bestOpenPrice": 110.0, "thresholdQuantity": 12,
     "priceGapDollars": -10.0, "priceGapPercent": -0.1, "benchmarkSealedProductId": "p2",
-    "benchmarkOverallRipV12Score": 0.8, "candidatePriceEvaluations": 5, "bracketExpansions": 2,
+    "benchmarkOverallRipV12Score": 0.8, "benchmarkFinancialRipV4Score": 0.65,
+    "benchmarkChanceToRecoverCapital": 0.6, "benchmarkActualCommittedCapital": 1600.0,
+    "candidatePriceEvaluations": 5, "bracketExpansions": 2,
     "bracketRefinements": 3, "fallbackCount": 0, "searchWallSeconds": 1.2,
 }
 
