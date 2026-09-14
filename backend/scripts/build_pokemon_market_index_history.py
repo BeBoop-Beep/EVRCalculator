@@ -18,6 +18,7 @@ from backend.db.services.market_publication_gate import (
 )
 from backend.db.services.pokemon_market_rollout_preparation import (
     prepare_market_rollout_candidate,
+    staged_rollout_root_ids,
 )
 from backend.db.services.pokemon_market_index_service import (
     build_market_index_history,
@@ -70,19 +71,15 @@ def _rollout_source_materialization(client, market_date: str, *, allow_candidate
     see ``public_root_materialization`` for the FINAL-vs-candidate provenance
     contract. A --commit publish must always call this with
     ``allow_candidate=False`` (the default).
+
+    Root membership is resolved via the same structural rollout-root resolver
+    used by candidate preparation (``staged_rollout_root_ids``), never via the
+    valuation-backed ``pokemon_market_public_rollout_root_sets_v1`` view --
+    reading that view here priced the global root universe on every
+    final-provenance check and left no request budget for anything else.
     """
     day = str(market_date)[:10]
-    roots = list(
-        client.table("pokemon_market_public_rollout_root_sets_v1")
-        .select("set_id,release_date,activated_market_date")
-        .lte("activated_market_date", day)
-        .execute().data or []
-    )
-    root_ids = sorted({
-        str(row["set_id"]) for row in roots
-        if row.get("set_id")
-        and (not row.get("release_date") or str(row["release_date"])[:10] <= day)
-    })
+    root_ids = staged_rollout_root_ids(client, day)
     source_rows = []
     for offset in range(0, len(root_ids), 100):
         source_rows.extend(
