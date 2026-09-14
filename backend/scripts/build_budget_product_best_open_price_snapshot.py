@@ -4,7 +4,8 @@ Dry-run by default; ``--commit`` is required to actually publish. This
 script does NOT hold a database transaction open for the ~65-minute
 computation -- the singleton lock below only prevents a second concurrent
 invocation (reporting ``already_running``), and the final atomic publish
-(the RPC in migration 20260913220000) is a separate, short concern.
+(the RPC in the Best-Open Price persistence migration) is a separate, short
+concern.
 
 Flow:
   1. Resolve the latest V12 Full Market ranking source -> capture source
@@ -30,7 +31,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -45,20 +45,12 @@ from backend.db.services.budget_product_best_open_price_service import (
     build_row_payload,
     build_snapshot_payload,
     content_fingerprint,
-    load_best_open_price_ranking,
     publish_snapshot,
 )
 from backend.scripts.run_market_explorer_maintained_cache_prewarm import FileLock
 
 DEFAULT_LOCK_PATH = "/tmp/budget_product_best_open_price_builder.lock"
 DEFAULT_REPORT_PATH = REPO_ROOT / "docs" / "research" / "best_open_price_bucket3a_dry_run_report.json"
-
-# Chase-accessibility / transform version identifiers are pinned here rather
-# than imported, matching the pattern of BEST_OPEN_PRICE_METHOD_VERSION --
-# see backend/desirability/weighted_rip.py::compute_overall_rip_v12 for the
-# live authority these must track if it is ever versioned independently.
-CHASE_ACCESSIBILITY_VERSION = "chase_accessibility_v1"
-CHASE_ACCESSIBILITY_TRANSFORM_VERSION = "chase_accessibility_transform_v1"
 
 
 def resolve_source_identity(client: Any, *, ranking_method_version: str, allocation_method_version: str) -> Dict[str, Any]:
@@ -139,8 +131,11 @@ def build_payload_from_engine_result(
         financial_rip_version=str(source["financial_rip_version"]),
         overall_rip_v12_version=str(source["overall_rip_version"]),
         collector_appeal_version=str(source["collector_appeal_version"]),
-        chase_accessibility_version=CHASE_ACCESSIBILITY_VERSION,
-        chase_accessibility_transform_version=CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
+        # These are source-publication authority fields. Never pin generic
+        # aliases here: the live budget ranking snapshot carries the exact
+        # Chase methodology/transform strings the publication RPC validates.
+        chase_accessibility_version=str(source["chase_accessibility_version"]),
+        chase_accessibility_transform_version=str(source["chase_accessibility_transform_version"]),
         resolved_count=len(rows),
         unresolved_count=unresolved_count,
         runtime_seconds=runtime_seconds,
@@ -208,7 +203,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--commit", action="store_true", help="Actually publish (default: dry-run report only)")
     parser.add_argument("--ranking-method-version", default="budget_constrained_whole_unit_cross_format_v1")
     parser.add_argument("--allocation-method-version", default="floor_to_budget_v1")
-    args = parser.parse_args(argv)
+    parser.parse_args(argv)
 
     print(
         "This entrypoint requires the validated ~65-minute cohort engine run "

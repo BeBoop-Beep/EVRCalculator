@@ -69,6 +69,8 @@ SOURCE = {
     "ranking_method_version": "rmv1", "allocation_method_version": "amv1",
     "comparison_scope_version": "csv1", "financial_rip_version": "frv4", "overall_rip_version": "orv12",
     "collector_appeal_version": "cav1",
+    "chase_accessibility_version": "chase-exact-v1",
+    "chase_accessibility_transform_version": "chase-transform-exact-v1",
 }
 
 LATEST_POINTER = [{"ranking_method_version": "rmv1", "allocation_method_version": "amv1", "snapshot_id": "src-1"}]
@@ -140,6 +142,8 @@ def test_dry_run_writes_local_report_and_does_not_call_rpc(tmp_path):
     assert result["status"] == "dry_run"
     assert report_path.exists()
     assert client.published == []
+    assert result["snapshot"]["chase_accessibility_version"] == "chase-exact-v1"
+    assert result["snapshot"]["chase_accessibility_transform_version"] == "chase-transform-exact-v1"
 
 
 def test_commit_calls_the_publication_rpc(tmp_path):

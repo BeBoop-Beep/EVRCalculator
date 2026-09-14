@@ -1,12 +1,13 @@
 """Narrow public projection for one budget cohort; raw stores stay private."""
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Mapping, Tuple
 
 from backend.calculations.evr.budget_normalized_product_ranking import (
     BUDGET_TYPE_FULL_MARKET, CANONICAL_BUDGET_BANDS,
 )
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.budget_product_best_open_price_service import load_best_open_price_ranking
 from backend.db.services.budget_product_ranking_service import (
     load_budget_ranking, load_full_market_ranking, load_latest_snapshot,
     public_budget_cohort_presentation,
@@ -19,6 +20,60 @@ def _identity_index(product_family_rankings: Mapping[str, Any]) -> Dict[str, Dic
         for family in (product_family_rankings.get("families") or {}).values()
         for product in (family.get("products") or [])
     }
+
+
+def _best_open_price_projection(
+    client: Any, snapshot: Mapping[str, Any], raw_rows: list[Mapping[str, Any]], budget: str,
+) -> Tuple[Dict[str, Any], Dict[str, Mapping[str, Any]]]:
+    """Load the prepared Best-Open layer without making Product Rankings depend on it.
+
+    Best-Open Price is defined only for the published Full Market cohort. Any
+    missing/stale/incomplete/mismatched prepared authority therefore hides only
+    this optional layer; the underlying Product Rankings response remains live.
+    """
+    if budget != "full_market":
+        return {"available": False, "reason": "full_market_only"}, {}
+
+    try:
+        prepared = load_best_open_price_ranking(client)
+    except Exception:
+        return {"available": False, "reason": "prepared_read_failed"}, {}
+    if not prepared.get("available"):
+        return {"available": False, "reason": prepared.get("reason") or "prepared_unavailable"}, {}
+
+    expected_identity = (
+        str(snapshot.get("id")),
+        str(snapshot.get("published_at")),
+        str(snapshot.get("market_date")),
+        str(snapshot.get("cohort_fingerprint")),
+    )
+    prepared_identity = (
+        str(prepared.get("sourceBudgetSnapshotId")),
+        str(prepared.get("sourceBudgetPublishedAt")),
+        str(prepared.get("sourceMarketDate")),
+        str(prepared.get("sourceCohortFingerprint")),
+    )
+    if any(value in {"None", ""} for value in expected_identity) or prepared_identity != expected_identity:
+        return {"available": False, "reason": "source_mismatch"}, {}
+
+    prepared_rows = [row for row in (prepared.get("rows") or []) if isinstance(row, Mapping)]
+    expected_ids = {str(row.get("sealed_product_id")) for row in raw_rows if row.get("sealed_product_id")}
+    prepared_ids = {str(row.get("sealed_product_id")) for row in prepared_rows if row.get("sealed_product_id")}
+    if (
+        int(prepared.get("unresolvedCount") or 0) != 0
+        or int(prepared.get("resolvedCount") or 0) != len(raw_rows)
+        or prepared_ids != expected_ids
+    ):
+        return {"available": False, "reason": "incomplete_snapshot_rows"}, {}
+
+    return {
+        "available": True,
+        "reason": None,
+        "snapshotId": prepared.get("snapshotId"),
+        "methodVersion": prepared.get("methodVersion"),
+        "sourceMarketDate": prepared.get("sourceMarketDate"),
+        "sourceBudgetSnapshotId": prepared.get("sourceBudgetSnapshotId"),
+    }, {str(row.get("sealed_product_id")): row for row in prepared_rows}
 
 
 def read_public_overall_product_rankings(
@@ -42,12 +97,14 @@ def read_public_overall_product_rankings(
     identities = _identity_index(product_family_rankings)
     raw_rows = result.get("rows") or []
     presentation = public_budget_cohort_presentation(raw_rows, snapshot)
+    best_open_price, best_open_by_id = _best_open_price_projection(client, snapshot, raw_rows, budget)
     rows = []
     for raw in raw_rows:
         identity = identities.get(str(raw.get("sealed_product_id")), {})
         product_id = str(raw.get("sealed_product_id"))
         public = presentation.get(product_id, {})
-        rows.append({
+        best_open = best_open_by_id.get(product_id) if best_open_price.get("available") else None
+        projected = {
             "sealedProductId": raw.get("sealed_product_id"), "setId": raw.get("set_id"),
             "productName": identity.get("productName"), "setName": identity.get("setName"),
             "productFamily": raw.get("product_family"), "productFamilyLabel": identity.get("productFamilyLabel"),
@@ -72,7 +129,15 @@ def read_public_overall_product_rankings(
             # builds — no extra query. See
             # backend/db/services/chase_accessibility_set_ranking.py.
             "chaseAccessibility": identity.get("chaseAccessibility"),
-        })
+        }
+        if best_open is not None:
+            projected.update({
+                "bestOpenPrice": best_open.get("best_open_price"),
+                "bestOpenPriceStatus": best_open.get("status"),
+                "bestOpenPriceGapDollars": best_open.get("price_gap_dollars"),
+                "bestOpenPriceGapPercent": best_open.get("price_gap_percent"),
+            })
+        rows.append(projected)
     required_generic_fields = ("overallRipScore", "budgetRank", "budgetCohortSize")
     if rows and any(
         row.get("expectedValue") is None
@@ -93,6 +158,17 @@ def read_public_overall_product_rankings(
         "snapshotId", "marketDate", "fullMarketBudget", "rankingMethodVersion", "allocationMethodVersion",
         "comparisonScopeVersion", "financialRipVersion", "overallRipVersion", "collectorAppealVersion",
     )}
-    return {"available": bool(rows), "reason": None if rows else "no_rows_for_budget", "authority": authority,
-            "selectedBudget": {"value": target, "type": budget_type, "label": available[-1]["label"] if budget_type == BUDGET_TYPE_FULL_MARKET else f"${target:g}"},
-            "availableBudgets": available, "cohortSize": len(rows), "rows": rows}
+    return {
+        "available": bool(rows),
+        "reason": None if rows else "no_rows_for_budget",
+        "authority": authority,
+        "bestOpenPrice": best_open_price,
+        "selectedBudget": {
+            "value": target,
+            "type": budget_type,
+            "label": available[-1]["label"] if budget_type == BUDGET_TYPE_FULL_MARKET else f"${target:g}",
+        },
+        "availableBudgets": available,
+        "cohortSize": len(rows),
+        "rows": rows,
+    }

@@ -11,15 +11,27 @@ function numeric(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+export function defaultProductSortDirection(key) {
+  return key === "alphabetical" || key === "bestOpenPriceGapPercent" ? "asc" : "desc";
+}
+
 /**
  * `chaseAccessibilityValue` reads the nested SET-level authority block
  * (`row.chaseAccessibility.value`) rather than a flat field — mirrors
  * `ProductFamilyRankingsClient.jsx`'s `sortFieldValue` for the same reason:
  * every product sharing a set_id carries the byte-identical backend block
  * (backend/db/services/chase_accessibility_set_ranking.py).
+ *
+ * Best-Open's "Closest to #1" sort treats the current leader as distance
+ * negative-infinity so it stays first in the natural ascending view, then
+ * orders challengers by the percentage discount required to become #1.
  */
 function readSortField(row, key) {
   if (key === "chaseAccessibilityValue") return numeric(row?.chaseAccessibility?.value);
+  if (key === "bestOpenPriceGapPercent") {
+    if (row?.bestOpenPriceStatus === "current_number_one_with_headroom") return Number.NEGATIVE_INFINITY;
+    return numeric(row?.bestOpenPriceGapPercent);
+  }
   return numeric(row?.[key]);
 }
 

@@ -1,12 +1,14 @@
 """Service-role PRIVATE persistence/read service for Best-Open Price results.
 
-SERVICE-ROLE ONLY. No public projection exists in this module by design --
-Bucket 3A is persistence + atomic publication only, with no frontend/API
-exposure. Scoring logic lives exclusively in
-``backend.calculations.evr.best_open_price``; this module never computes a
-threshold, it only builds a deterministic publish payload from already-
-validated engine results, calls the publication RPC, and reads back the
-latest snapshot with the stale-read rule enforced.
+SERVICE-ROLE ONLY. The raw persistence objects remain private. Public/UI
+presentation, when needed, is assembled by the narrow Product Rankings read
+service from this already-prepared authority; this module never computes a
+threshold and never exposes the private store directly.
+
+Scoring logic lives exclusively in ``backend.calculations.evr.best_open_price``;
+this module only builds deterministic publish payloads from already-validated
+engine results, calls the atomic publication RPC, and reads back the latest
+snapshot with the stale-source rule enforced.
 """
 
 from __future__ import annotations
@@ -103,9 +105,9 @@ def build_row_payload(engine_row: Mapping[str, Any]) -> Dict[str, Any]:
         "current_quantity": engine_row["currentQuantity"],
         "current_budget_rank": engine_row["currentBudgetRank"],
         "current_overall_rip_v12_score": engine_row.get("currentOverallRipV12Score"),
-        # Raw source + benchmark evidence (see migration
-        # 20260913220000): enough to reproduce the canonical comparison
-        # even if budget_product_ranking_rows is later replaced/mutated.
+        # Raw source + benchmark evidence (see the Best-Open persistence
+        # migration): enough to reproduce the canonical comparison even if
+        # budget_product_ranking_rows is later replaced/mutated.
         "current_financial_rip_v4_score": engine_row.get("currentFinancialRipV4Score"),
         "current_collector_appeal_score": engine_row.get("currentCollectorAppealScore"),
         "current_chase_accessibility_raw": engine_row.get("currentChaseAccessibilityRaw"),
@@ -208,9 +210,15 @@ def load_best_open_price_ranking(
         "available": True,
         "reason": None,
         "snapshotId": str(snapshot["id"]),
+        "methodVersion": snapshot["best_open_price_method_version"],
         "builtAt": snapshot["built_at"],
         "publishedAt": snapshot["published_at"],
         "sourceBudgetSnapshotId": str(snapshot["source_budget_snapshot_id"]),
+        "sourceBudgetPublishedAt": snapshot["source_budget_published_at"],
+        "sourceMarketDate": str(snapshot["source_market_date"]),
+        "sourceCohortFingerprint": snapshot["source_cohort_fingerprint"],
+        "sourceFullMarketBudget": snapshot["source_full_market_budget"],
+        "sourceEligibleCohortCount": snapshot["source_eligible_cohort_count"],
         "resolvedCount": snapshot["resolved_count"],
         "unresolvedCount": snapshot["unresolved_count"],
         "rows": rows,
