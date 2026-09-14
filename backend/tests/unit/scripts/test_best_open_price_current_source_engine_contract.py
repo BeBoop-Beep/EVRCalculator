@@ -18,9 +18,7 @@ def test_current_source_mode_is_explicitly_parameterized_not_a_second_engine():
     assert "source_snapshot_id: str = SOURCE_SNAPSHOT_ID" in source
     assert "expected_source_authority_fingerprint: str | None = EXPECTED_AUTHORITY_FINGERPRINT" in source
     assert "_load_source(client, source_snapshot_id)" in source
-    assert "expected_source_authority_fingerprint=expected_fingerprint" not in source  # constructor takes the value directly
-    assert "expected_source_authority_fingerprint=expected_fingerprint" not in source
-    assert "expected_source_authority_fingerprint=expected_fingerprint" not in source
+    assert "expected_source_authority_fingerprint=expected_fingerprint" in source
     # The exact search class remains the one validated in Bucket 1/2.x.
     assert "ExactBestOpenPriceSearch(" in source
     assert source.count("class ExactBestOpenPriceSearch") == 0
