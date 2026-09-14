@@ -1,0 +1,56 @@
+name: Best-Open isolated review workspace
+on:
+  push:
+    branches: [fix/best-open-review]
+    paths: ['.github/workflows/best-open-review-workspace.yml']
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Package tracked source and fixtures only
+        run: |
+          mkdir -p review-workspace
+          python - <<'PY'
+          import hashlib, json, pathlib, subprocess, zipfile
+          paths = subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')
+          roots = {'backend', 'frontend', 'infra', '.github', 'supabase'}
+          suffixes = {'.py', '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.json', '.sql', '.txt', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.sh', '.bat', '.css'}
+          manifest = {}
+          with zipfile.ZipFile('review-workspace/source.zip', 'w', zipfile.ZIP_DEFLATED) as z:
+              for name in paths:
+                  p = pathlib.Path(name)
+                  if not name or not p.is_file() or p.is_symlink():
+                      continue
+                  if '.env' in p.name or any(part in {'logs', 'artifacts', 'node_modules', '.venv', '__pycache__'} for part in p.parts):
+                      continue
+                  if p.suffix not in suffixes and p.name not in {'AGENTS.md', '.gitignore'}:
+                      continue
+                  if len(p.parts) > 1 and p.parts[0] not in roots:
+                      continue
+                  data = p.read_bytes()
+                  if len(data) > 8_000_000:
+                      continue
+                  z.writestr(name, data)
+                  manifest[name] = {'sha256': hashlib.sha256(data).hexdigest(), 'gitBlob': hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()}
+          pathlib.Path('review-workspace/manifest.json').write_text(json.dumps({'head': subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(), 'files': manifest}, indent=2))
+          print('Packaged', len(manifest), 'tracked code/config/fixture files; no environment files or runtime artifacts.')
+          PY
+      - name: Download test dependencies for offline Linux review
+        run: |
+          python -m pip download --only-binary=:all: --dest review-workspace/wheels \
+            pytest numpy==2.4.3 pandas==2.2.3 psutil supabase==2.28.3 python-dotenv==1.2.2 fastapi==0.135.3 PyJWT==2.12.1 requests==2.32.5 stripe==15.4.0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: best-open-review-workspace
+          path: review-workspace/
+          retention-days: 1
+          compression-level: 0
