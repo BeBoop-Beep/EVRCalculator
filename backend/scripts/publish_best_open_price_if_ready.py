@@ -19,10 +19,13 @@ Safety contract:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
+import os
 import platform
 import subprocess
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,14 +52,13 @@ from backend.scripts.research_best_open_price_bucket0 import (
     _load_source,
 )
 from backend.scripts.research_best_open_price_bucket2 import run as run_exact_engine
-from backend.scripts.run_market_explorer_maintained_cache_prewarm import FileLock
 
 logger = logging.getLogger("best-open-price-publication")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REPORT_PATH = REPO_ROOT / "logs" / "best_open_price_publication.json"
 DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "logs" / "best_open_price_checkpoints"
-DEFAULT_LOCK_PATH = "/tmp/budget_product_best_open_price_daily.lock"
+DEFAULT_LOCK_PATH = Path(tempfile.gettempdir()) / "budget_product_best_open_price_daily.lock"
 DEFAULT_QUANTITY_BATCH_SIZE = 24
 
 STATUS_EXIT_CODES = {
@@ -88,6 +90,63 @@ _REQUIRED_EVIDENCE_FIELDS = (
     "benchmarkChanceToRecoverCapital",
     "benchmarkActualCommittedCapital",
 )
+
+
+class PublicationFileLock:
+    """Process-scoped nonblocking singleton lock for the long daily build.
+
+    The production scheduler runs on Windows, so a lock-file-exists fallback is
+    not sufficient: an interrupted process can leave that file behind forever.
+    This class uses an OS byte lock (``msvcrt.locking`` on Windows,
+    ``fcntl.flock`` on POSIX). The file itself may remain in the temp directory,
+    but the lock is released automatically by the OS when the process exits or
+    crashes.
+    """
+
+    def __init__(self, path: Path | str = DEFAULT_LOCK_PATH):
+        self.path = Path(path)
+        self._fh = None
+
+    def acquire(self) -> bool:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fh = open(self.path, "a+b")
+        try:
+            fh.seek(0, os.SEEK_END)
+            if fh.tell() < 1:
+                fh.write(b"\0")
+                fh.flush()
+            fh.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl  # type: ignore
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            fh.close()
+            return False
+        self._fh = fh
+        return True
+
+    def release(self) -> None:
+        fh = self._fh
+        if fh is None:
+            return
+        try:
+            fh.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl  # type: ignore
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        except Exception:
+            logger.exception("best-open publication lock release failed path=%s", self.path)
+        finally:
+            try:
+                fh.close()
+            finally:
+                self._fh = None
 
 
 def _utcnow() -> str:
@@ -130,9 +189,24 @@ def _finish(report: Dict[str, Any], status: str, *, reason: Optional[str] = None
     return STATUS_EXIT_CODES[status], report
 
 
-def _checkpoint_path(checkpoint_dir: Path, snapshot_id: str) -> Path:
-    safe = "".join(ch for ch in str(snapshot_id) if ch.isalnum() or ch in "-_")
-    return checkpoint_dir / f"best_open_price_{safe}.json"
+def _checkpoint_path(checkpoint_dir: Path, source: Mapping[str, Any]) -> Path:
+    """Checkpoint namespace bound to the full publication identity, not ID alone.
+
+    Budget Ranking can legally replace rows under the same snapshot ID while
+    advancing ``published_at``. Including published_at/market-date/cohort in a
+    short digest prevents a partially-computed T1 checkpoint from being resumed
+    under T2 even when the snapshot UUID is reused.
+    """
+    snapshot_id = str(source.get("id") or "")
+    safe = "".join(ch for ch in snapshot_id if ch.isalnum() or ch in "-_") or "unknown"
+    identity = "|".join((
+        snapshot_id,
+        str(source.get("published_at") or ""),
+        str(source.get("market_date") or ""),
+        str(source.get("cohort_fingerprint") or ""),
+    ))
+    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+    return checkpoint_dir / f"best_open_price_{safe}_{digest}.json"
 
 
 def validate_engine_result(engine: Mapping[str, Any], source: Mapping[str, Any]) -> list[str]:
@@ -224,7 +298,7 @@ def run(
     if quantity_batch_size < 1:
         return _finish(report, "SOURCE_FAILED", reason="quantity batch size must be positive")
 
-    lock = lock or FileLock(DEFAULT_LOCK_PATH)
+    lock = lock or PublicationFileLock(DEFAULT_LOCK_PATH)
     if not lock.acquire():
         return _finish(report, "ALREADY_RUNNING")
 
@@ -269,7 +343,7 @@ def run(
         except Exception as exc:
             return _finish(report, "SOURCE_FAILED", reason=str(exc))
 
-        checkpoint = _checkpoint_path(checkpoint_dir, str(source["id"]))
+        checkpoint = _checkpoint_path(checkpoint_dir, source)
         report["checkpointPath"] = str(checkpoint)
         try:
             engine = engine_runner(

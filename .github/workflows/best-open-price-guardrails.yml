@@ -21,6 +21,7 @@ on:
       - 'frontend/components/pokemon/sealed-product-detail/BestOpenPriceCard.jsx'
       - 'frontend/components/pokemon/sealed-product-detail/BestOpenPriceCard.contract.test.mjs'
       - 'frontend/components/pokemon/sealed-product-detail/SealedProductDetailClient.jsx'
+      - 'frontend/components/pokemon/sealed-product-detail/SealedProductDetail.contract.test.mjs'
       - 'infra/local/run_best_open_price.sh'
       - 'infra/local/run_simulations_task.bat'
       - '.github/workflows/best-open-price-guardrails.yml'
@@ -44,6 +45,7 @@ on:
       - 'frontend/components/pokemon/sealed-product-detail/BestOpenPriceCard.jsx'
       - 'frontend/components/pokemon/sealed-product-detail/BestOpenPriceCard.contract.test.mjs'
       - 'frontend/components/pokemon/sealed-product-detail/SealedProductDetailClient.jsx'
+      - 'frontend/components/pokemon/sealed-product-detail/SealedProductDetail.contract.test.mjs'
       - 'infra/local/run_best_open_price.sh'
       - 'infra/local/run_simulations_task.bat'
       - '.github/workflows/best-open-price-guardrails.yml'
@@ -99,6 +101,9 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run Product Detail presentation contract
+      - name: Run Product Detail presentation contracts
         working-directory: frontend
-        run: node --test components/pokemon/sealed-product-detail/BestOpenPriceCard.contract.test.mjs
+        run: |
+          node --test \
+            components/pokemon/sealed-product-detail/BestOpenPriceCard.contract.test.mjs \
+            components/pokemon/sealed-product-detail/SealedProductDetail.contract.test.mjs

@@ -14,7 +14,11 @@ import pytest
 @pytest.fixture(autouse=True)
 def isolate_best_open_from_legacy_product_detail_suite(monkeypatch, request):
     path = getattr(request.node, "path", None)
-    if path is None or path.name != "test_pokemon_sealed_product_detail_service.py":
+    name = getattr(path, "name", None)
+    if name is None:
+        fspath = getattr(request.node, "fspath", None)
+        name = getattr(fspath, "basename", None)
+    if name != "test_pokemon_sealed_product_detail_service.py":
         return
 
     from backend.db.services import pokemon_sealed_product_detail_service as service

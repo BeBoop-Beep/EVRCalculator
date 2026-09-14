@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 
 from backend.scripts import publish_best_open_price_if_ready as publisher
@@ -113,6 +114,33 @@ def install_source(monkeypatch, *, already_current=False, historical_exists=Fals
         "_historical_authority",
         lambda *_a, **_k: {"fingerprint": "authority-fp", "rawBySet": {}},
     )
+
+
+def test_default_lock_path_uses_os_temp_directory():
+    assert publisher.DEFAULT_LOCK_PATH.parent == Path(tempfile.gettempdir())
+    assert publisher.DEFAULT_LOCK_PATH.name == "budget_product_best_open_price_daily.lock"
+
+
+def test_publication_lock_is_nonblocking_and_reusable(tmp_path):
+    path = tmp_path / "best-open.lock"
+    first = publisher.PublicationFileLock(path)
+    second = publisher.PublicationFileLock(path)
+    assert first.acquire() is True
+    try:
+        assert second.acquire() is False
+    finally:
+        first.release()
+    assert second.acquire() is True
+    second.release()
+
+
+def test_checkpoint_namespace_changes_when_same_snapshot_id_is_republished():
+    t1 = publisher._checkpoint_path(Path("checkpoints"), SOURCE)
+    t2_source = dict(SOURCE, published_at="2026-09-14T13:00:00+00:00")
+    t2 = publisher._checkpoint_path(Path("checkpoints"), t2_source)
+    assert t1 != t2
+    assert SOURCE["id"] in t1.name
+    assert SOURCE["id"] in t2.name
 
 
 def test_already_current_is_fast_noop_before_engine(monkeypatch, tmp_path):

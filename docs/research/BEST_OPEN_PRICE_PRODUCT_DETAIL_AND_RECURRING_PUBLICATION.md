@@ -89,10 +89,12 @@ After commit, the wrapper reads the prepared authority back and requires the ret
 
 ## Runtime / operations
 
-- source-specific checkpoints live under `logs/best_open_price_checkpoints/` and can resume an interrupted build only for the same source fingerprint;
+- source-specific checkpoints live under `logs/best_open_price_checkpoints/`;
+- each checkpoint filename includes a short digest of `snapshot_id + published_at + market_date + cohort_fingerprint`, so a legal same-ID source replacement can never resume an older publication's partial work;
 - report: `logs/best_open_price_publication.json`;
 - log: `logs/best_open_price_publication.log`;
-- long-run lock: `/tmp/budget_product_best_open_price_daily.lock`;
+- the long-run singleton lock is an OS byte lock stored at `tempfile.gettempdir()/budget_product_best_open_price_daily.lock`;
+- Windows uses `msvcrt.locking`; POSIX uses `fcntl.flock`; process death releases the lock automatically even if the lock file itself remains;
 - `ALREADY_CURRENT` is a successful quiet no-op;
 - failures send their own Slack alert and propagate a nonzero task exit;
 - Slack delivery failure never changes DB publication success/failure.
