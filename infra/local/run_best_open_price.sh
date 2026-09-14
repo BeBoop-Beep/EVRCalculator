@@ -57,7 +57,10 @@ notify_slack() {
     return 0
   fi
   local message="$1"
-  python - "$message" <<'PY' | curl -sS -X POST -H 'Content-type: application/json' --data @- "$SLACK_WEBHOOK_URL" >/dev/null
+  # Alert transport is observability, not publication authority. A Slack
+  # outage must never turn a successful/accurately-reported DB publication
+  # into a failed scheduler result.
+  python - "$message" <<'PY' | curl -sS -X POST -H 'Content-type: application/json' --data @- "$SLACK_WEBHOOK_URL" >/dev/null || true
 import json
 import sys
 print(json.dumps({"text": sys.argv[1]}))
@@ -69,6 +72,10 @@ LOG="logs/best_open_price_publication.log"
 STARTED=$(date '+%Y-%m-%d %H:%M:%S')
 HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || true)
 BRANCH=$(git symbolic-ref --short -q HEAD || true)
+
+# Never let an import/startup failure accidentally inherit yesterday's green
+# JSON report and send a false success notification.
+rm -f "$REPORT"
 
 # Exact recurring preparation can take roughly an hour on the validated 138-SKU
 # cohort. The Python wrapper owns the single-run lock, exact source binding,
