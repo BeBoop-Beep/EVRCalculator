@@ -280,3 +280,93 @@ def test_the_payload_extension_is_additive_and_keeps_contract_v1():
     assert overview["methodology"]["indexDefinition"] == "chain-linked return over consecutive common set cohorts"
     assert "cohort additions/removals" in overview["methodology"]["basketChangeDefinition"]
     assert "neutralized" in overview["methodology"]["pricePerformanceDefinition"]
+
+
+# ---------------------------------------------------------------------------
+# Constituent-level basket validation (replaces the fixed set_count*10 rule).
+#
+# The complete structural Market authority includes canonical sets with fewer
+# than 10 priced cards (e.g. a 7-card root), so a per-set floor of
+# `top10Count == min(rawCount, 10)` replaces the old constant. These tests
+# pin both the happy paths (10-card roots, small roots) and every fail-closed
+# rejection path.
+# ---------------------------------------------------------------------------
+
+FP = "cohort"
+
+
+def _row(index_key, *, constituents, card_count=None, set_count=None):
+    total = card_count if card_count is not None else sum(int(item["includedCardCount"]) for item in constituents)
+    return {
+        "index_key": index_key, "market_date": "2026-01-01",
+        "normalized_index_value": 100.0, "basket_value": 100.0,
+        "set_count": set_count if set_count is not None else len(constituents),
+        "card_count": total, "cohort_fingerprint": FP,
+        "source_generation_fingerprint": index_key,
+        "constituents_json": constituents,
+    }
+
+
+def _history(raw_constituents, chase_constituents, *, raw_overrides=None, chase_overrides=None):
+    raw_overrides, chase_overrides = raw_overrides or {}, chase_overrides or {}
+    raw = _row("raw", constituents=raw_constituents, **raw_overrides)
+    chase = _row("top10", constituents=chase_constituents, **chase_overrides)
+    return [raw, chase]
+
+
+def test_normal_ten_card_roots_pass():
+    raw_c = [{"setId": "a", "includedCardCount": 20}, {"setId": "b", "includedCardCount": 15}]
+    chase_c = [{"setId": "a", "includedCardCount": 10}, {"setId": "b", "includedCardCount": 10}]
+    overview = build_market_overview(_history(raw_c, chase_c), market_date="2026-01-01")
+    assert overview["coverage"]["rawCardCount"] == 35
+    assert overview["coverage"]["chaseCardCount"] == 20
+
+
+def test_a_valid_seven_card_root_passes():
+    raw_c = [{"setId": "a", "includedCardCount": 20}, {"setId": "mcd", "includedCardCount": 7}]
+    chase_c = [{"setId": "a", "includedCardCount": 10}, {"setId": "mcd", "includedCardCount": 7}]
+    overview = build_market_overview(_history(raw_c, chase_c), market_date="2026-01-01")
+    assert overview["coverage"]["chaseCardCount"] == 17
+
+
+def test_top10_below_min_raw_ten_fails_for_small_root():
+    raw_c = [{"setId": "mcd", "includedCardCount": 7}]
+    chase_c = [{"setId": "mcd", "includedCardCount": 6}]
+    with pytest.raises(Exception):
+        build_market_overview(_history(raw_c, chase_c), market_date="2026-01-01")
+
+
+def test_top10_below_ten_when_raw_is_large_fails():
+    raw_c = [{"setId": "a", "includedCardCount": 20}]
+    chase_c = [{"setId": "a", "includedCardCount": 9}]
+    with pytest.raises(Exception):
+        build_market_overview(_history(raw_c, chase_c), market_date="2026-01-01")
+
+
+def test_duplicate_constituent_set_ids_fail():
+    raw_c = [{"setId": "a", "includedCardCount": 10}, {"setId": "a", "includedCardCount": 10}]
+    chase_c = [{"setId": "a", "includedCardCount": 10}]
+    with pytest.raises(Exception):
+        build_market_overview(_history(raw_c, chase_c, raw_overrides={"card_count": 20}), market_date="2026-01-01")
+
+
+def test_missing_constituent_set_id_fails():
+    raw_c = [{"setId": "", "includedCardCount": 10}]
+    chase_c = [{"setId": "", "includedCardCount": 10}]
+    with pytest.raises(Exception):
+        build_market_overview(_history(raw_c, chase_c), market_date="2026-01-01")
+
+
+def test_persisted_aggregate_card_count_inconsistent_with_constituent_sum_fails():
+    raw_c = [{"setId": "a", "includedCardCount": 20}]
+    chase_c = [{"setId": "a", "includedCardCount": 10}]
+    with pytest.raises(Exception):
+        build_market_overview(
+            _history(raw_c, chase_c, raw_overrides={"card_count": 999}), market_date="2026-01-01")
+
+
+def test_mismatched_raw_and_top10_root_membership_fails():
+    raw_c = [{"setId": "a", "includedCardCount": 20}, {"setId": "b", "includedCardCount": 20}]
+    chase_c = [{"setId": "a", "includedCardCount": 10}, {"setId": "c", "includedCardCount": 10}]
+    with pytest.raises(Exception):
+        build_market_overview(_history(raw_c, chase_c), market_date="2026-01-01")

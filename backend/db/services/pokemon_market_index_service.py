@@ -246,6 +246,53 @@ def read_index_history(
     return [row for row in rows if str(row.get("market_date"))[:10] in accepted]
 
 
+def _validate_constituents(raw: Mapping[str, Any], chase: Mapping[str, Any]) -> None:
+    """Fail-closed constituent-level check, replacing the fixed set_count*10 basket rule.
+
+    The complete structural Market authority now includes canonical sets that
+    are only partially priced (e.g. a set with 7 priced cards total), so
+    Top10's basket is legitimately smaller than 10 * eligibleSetCount. What
+    must still hold, per set, is `top10Count == min(rawCount, 10)` - never a
+    fixed constant. Every check here is fail-closed: any missing/duplicate/
+    inconsistent constituent raises rather than silently averaging out.
+    """
+    error = "current raw/top10 cohort or chase count disagrees"
+    raw_constituents = raw.get("constituents_json") or []
+    chase_constituents = chase.get("constituents_json") or []
+    if not raw_constituents or not chase_constituents:
+        raise PokemonMarketIndexUnavailable(error)
+
+    def _by_set_id(constituents: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for item in constituents:
+            set_id = item.get("setId")
+            if not set_id:
+                raise PokemonMarketIndexUnavailable(error)
+            set_id = str(set_id)
+            if set_id in counts:
+                raise PokemonMarketIndexUnavailable(error)
+            try:
+                count = int(item["includedCardCount"])
+            except (KeyError, TypeError, ValueError):
+                raise PokemonMarketIndexUnavailable(error)
+            if count <= 0:
+                raise PokemonMarketIndexUnavailable(error)
+            counts[set_id] = count
+        return counts
+
+    raw_counts = _by_set_id(raw_constituents)
+    chase_counts = _by_set_id(chase_constituents)
+    if set(raw_counts) != set(chase_counts):
+        raise PokemonMarketIndexUnavailable(error)
+    if sum(raw_counts.values()) != int(raw["card_count"]):
+        raise PokemonMarketIndexUnavailable(error)
+    if sum(chase_counts.values()) != int(chase["card_count"]):
+        raise PokemonMarketIndexUnavailable(error)
+    for set_id, raw_count in raw_counts.items():
+        if chase_counts[set_id] != min(raw_count, 10):
+            raise PokemonMarketIndexUnavailable(error)
+
+
 def build_market_overview(
     history: Sequence[Mapping[str, Any]], *, market_date: str,
     sealed_market: Mapping[str, Any] | None = None,
@@ -279,8 +326,9 @@ def build_market_overview(
     if any(not rows or str(rows[-1]["market_date"])[:10] != market_date for rows in by_key.values()):
         raise PokemonMarketIndexUnavailable("both index families must reach the promoted market date")
     raw, chase = by_key[RAW_INDEX_KEY][-1], by_key[CHASE_INDEX_KEY][-1]
-    if raw["cohort_fingerprint"] != chase["cohort_fingerprint"] or int(chase["card_count"]) != int(chase["set_count"]) * 10:
+    if raw["cohort_fingerprint"] != chase["cohort_fingerprint"]:
         raise PokemonMarketIndexUnavailable("current raw/top10 cohort or chase count disagrees")
+    _validate_constituents(raw, chase)
     if float(chase["basket_value"]) > float(raw["basket_value"]):
         raise PokemonMarketIndexUnavailable("top10 basket exceeds raw basket")
     def family(rows):
