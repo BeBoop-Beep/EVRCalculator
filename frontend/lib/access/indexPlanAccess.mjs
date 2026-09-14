@@ -55,6 +55,7 @@ export const FEATURE_MARKET_EXPLORER_ADVANCED_RANKING = "market_explorer_advance
 export const FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency";
 export const FEATURE_CARD_COLLECTOR_APPEAL = "card_collector_appeal";
 export const FEATURE_PRODUCT_RIP = "product_rip";
+export const FEATURE_BEST_OPEN_PRICE = "best_open_price";
 export const FEATURE_DETAILED_OPENING_ECONOMICS = "detailed_opening_economics";
 export const FEATURE_SET_PACK_ECONOMICS = "set_pack_economics";
 export const FEATURE_ERA_PACK_ECONOMICS = "era_pack_economics";
@@ -73,7 +74,7 @@ export const FEATURE_PRODUCT_CHASE_INTELLIGENCE = "product_chase_intelligence";
 
 export const PLUS_FEATURES = Object.freeze(new Set([
   FEATURE_CARD_COLLECTOR_APPEAL,
-  FEATURE_PRODUCT_RIP, FEATURE_DETAILED_OPENING_ECONOMICS,
+  FEATURE_PRODUCT_RIP, FEATURE_BEST_OPEN_PRICE, FEATURE_DETAILED_OPENING_ECONOMICS,
   FEATURE_SET_PACK_ECONOMICS, FEATURE_ERA_PACK_ECONOMICS,
   FEATURE_MARKET_BREADTH, FEATURE_CARD_PULL_ODDS,
   FEATURE_ACQUISITION_MILESTONES, FEATURE_PREPARED_MARKET_INTELLIGENCE,
@@ -175,6 +176,7 @@ export function resolveRankingsPlanAccess(user) {
   const indexPlan = normalizeIndexPlan(user?.index_plan);
   return {
     canViewRankingsIntelligence: hasIndexPlusAccess(indexPlan),
+    canViewBestOpenPrice: hasIndexFeatureAccess(indexPlan, FEATURE_BEST_OPEN_PRICE),
     canViewCardChaseEfficiency: hasIndexFeatureAccess(indexPlan, FEATURE_CARD_CHASE_EFFICIENCY),
     canViewCardCollectorAppeal: hasIndexFeatureAccess(indexPlan, FEATURE_CARD_COLLECTOR_APPEAL),
     accessMode: indexPlan || "basic",
