@@ -1,9 +1,9 @@
 """Service-role PRIVATE persistence/read service for Best-Open Price results.
 
 SERVICE-ROLE ONLY. The raw persistence objects remain private. Public/UI
-presentation, when needed, is assembled by the narrow Product Rankings read
-service from this already-prepared authority; this module never computes a
-threshold and never exposes the private store directly.
+presentation, when needed, is assembled by narrow paid read models from this
+already-prepared authority; this module never computes a threshold and never
+exposes the private store directly.
 
 Scoring logic lives exclusively in ``backend.calculations.evr.best_open_price``;
 this module only builds deterministic publish payloads from already-validated
@@ -172,43 +172,28 @@ def _live_budget_source_identity(client: Any, ranking_method_version: str, alloc
     return snapshots[0] if snapshots else None
 
 
-def load_best_open_price_ranking(
-    client: Any, *, best_open_price_method_version: str = BEST_OPEN_PRICE_METHOD_VERSION,
-) -> Dict[str, Any]:
-    """Load the latest published Best-Open Price snapshot+rows, enforcing
-    the stale-read rule: whenever the CURRENT live budget-ranking source no
-    longer exactly matches the persisted snapshot's source binding, this
-    returns ``available=false, reason="stale_source_publication"`` rather
-    than silently serving a stale/previous snapshot."""
-    snapshot = load_latest_snapshot(client, best_open_price_method_version=best_open_price_method_version)
-    if snapshot is None:
-        return {"available": False, "reason": "no_published_snapshot", "rows": []}
-
+def _source_binding_reason(client: Any, snapshot: Mapping[str, Any]) -> Optional[str]:
+    """Return an unavailable reason when the prepared threshold source is no
+    longer the exact live Budget Ranking authority. This intentionally checks
+    the same immutable publication identity for cohort and single-product
+    readers so detail pages can never outlive the Rankings authority."""
     live_source = _live_budget_source_identity(
         client, snapshot["ranking_method_version"], snapshot["allocation_method_version"],
     )
     if live_source is None:
-        return {"available": False, "reason": "no_live_budget_ranking_source", "rows": []}
-
+        return "no_live_budget_ranking_source"
     if (
         str(live_source["id"]) != str(snapshot["source_budget_snapshot_id"])
         or str(live_source["published_at"]) != str(snapshot["source_budget_published_at"])
         or str(live_source["market_date"]) != str(snapshot["source_market_date"])
         or str(live_source["cohort_fingerprint"]) != str(snapshot["source_cohort_fingerprint"])
     ):
-        return {"available": False, "reason": "stale_source_publication", "rows": []}
+        return "stale_source_publication"
+    return None
 
-    rows = _rows(
-        client.table("budget_product_best_open_price_rows").select("*")
-        .eq("snapshot_id", str(snapshot["id"]))
-        .execute()
-    )
-    if len(rows) != snapshot["resolved_count"]:
-        return {"available": False, "reason": "incomplete_snapshot_rows", "rows": []}
 
+def _snapshot_metadata(snapshot: Mapping[str, Any]) -> Dict[str, Any]:
     return {
-        "available": True,
-        "reason": None,
         "snapshotId": str(snapshot["id"]),
         "methodVersion": snapshot["best_open_price_method_version"],
         "builtAt": snapshot["built_at"],
@@ -221,5 +206,89 @@ def load_best_open_price_ranking(
         "sourceEligibleCohortCount": snapshot["source_eligible_cohort_count"],
         "resolvedCount": snapshot["resolved_count"],
         "unresolvedCount": snapshot["unresolved_count"],
+    }
+
+
+def load_best_open_price_ranking(
+    client: Any, *, best_open_price_method_version: str = BEST_OPEN_PRICE_METHOD_VERSION,
+) -> Dict[str, Any]:
+    """Load the latest published Best-Open Price snapshot+rows, enforcing
+    the stale-read rule: whenever the CURRENT live budget-ranking source no
+    longer exactly matches the persisted snapshot's source binding, this
+    returns ``available=false, reason="stale_source_publication"`` rather
+    than silently serving a stale/previous snapshot."""
+    snapshot = load_latest_snapshot(client, best_open_price_method_version=best_open_price_method_version)
+    if snapshot is None:
+        return {"available": False, "reason": "no_published_snapshot", "rows": []}
+
+    binding_reason = _source_binding_reason(client, snapshot)
+    if binding_reason:
+        return {"available": False, "reason": binding_reason, "rows": []}
+
+    rows = _rows(
+        client.table("budget_product_best_open_price_rows").select("*")
+        .eq("snapshot_id", str(snapshot["id"]))
+        .execute()
+    )
+    if (
+        int(snapshot.get("unresolved_count") or 0) != 0
+        or len(rows) != int(snapshot.get("resolved_count") or 0)
+        or len(rows) != int(snapshot.get("source_eligible_cohort_count") or 0)
+    ):
+        return {"available": False, "reason": "incomplete_snapshot_rows", "rows": []}
+
+    return {
+        "available": True,
+        "reason": None,
+        **_snapshot_metadata(snapshot),
         "rows": rows,
+    }
+
+
+def load_best_open_price_product(
+    client: Any,
+    sealed_product_id: str,
+    *,
+    best_open_price_method_version: str = BEST_OPEN_PRICE_METHOD_VERSION,
+) -> Dict[str, Any]:
+    """Bounded single-product reader for Product Detail.
+
+    The threshold remains tied to the exact Full Market publication that built
+    it; the caller may separately display a newer live market price, but this
+    reader never silently reinterprets the historical threshold against a newer
+    cohort. Only one prepared row is transferred after the two small authority
+    pointer reads.
+    """
+    snapshot = load_latest_snapshot(client, best_open_price_method_version=best_open_price_method_version)
+    if snapshot is None:
+        return {"available": False, "reason": "no_published_snapshot", "row": None}
+
+    binding_reason = _source_binding_reason(client, snapshot)
+    if binding_reason:
+        return {"available": False, "reason": binding_reason, "row": None}
+
+    if (
+        int(snapshot.get("unresolved_count") or 0) != 0
+        or int(snapshot.get("resolved_count") or 0) != int(snapshot.get("source_eligible_cohort_count") or 0)
+    ):
+        return {"available": False, "reason": "incomplete_snapshot_rows", "row": None}
+
+    rows = _rows(
+        client.table("budget_product_best_open_price_rows")
+        .select(
+            "sealed_product_id,current_market_price,current_budget_rank,status,best_open_price,"
+            "threshold_quantity,price_gap_dollars,price_gap_percent"
+        )
+        .eq("snapshot_id", str(snapshot["id"]))
+        .eq("sealed_product_id", str(sealed_product_id))
+        .limit(1).execute()
+    )
+    if not rows:
+        return {"available": False, "reason": "product_not_in_current_full_market", "row": None}
+
+    return {
+        "available": True,
+        "reason": None,
+        **_snapshot_metadata(snapshot),
+        "row": rows[0],
     }
