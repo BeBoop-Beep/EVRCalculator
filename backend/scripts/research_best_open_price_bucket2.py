@@ -32,7 +32,10 @@ from backend.calculations.evr.sealed_product_distribution import (
     single_q_parity_batch_width,
 )
 from backend.db.services.pack_outcome_artifact_service import load_pack_outcome_artifact
-from backend.scripts.build_budget_normalized_product_rankings import build_stage1_distributions_cached
+from backend.scripts.build_budget_normalized_product_rankings import (
+    build_stage1_distributions_cached,
+    cohort_fingerprint,
+)
 from backend.scripts.pokemon_snapshot_builders import get_client
 from backend.scripts.research_best_open_price_bucket0 import (
     _comparator_row,
@@ -123,23 +126,43 @@ def _write_checkpoint(path: Path, payload: Mapping[str, Any]) -> float:
     return time.perf_counter() - started
 
 
-def run(output: Path, *, quantity_batch_size: int = 0,
-        reference_path: Path | None = None,
-        product_ids: Sequence[str] | None = None,
-        run_determinism: bool = True) -> dict[str, Any]:
+def run(
+    output: Path,
+    *,
+    quantity_batch_size: int = 0,
+    reference_path: Path | None = None,
+    product_ids: Sequence[str] | None = None,
+    run_determinism: bool = True,
+    source_snapshot_id: str = SOURCE_SNAPSHOT_ID,
+    expected_source_authority_fingerprint: str | None = EXPECTED_AUTHORITY_FINGERPRINT,
+) -> dict[str, Any]:
+    """Execute the validated exact engine against one explicit V12 Full Market source.
+
+    Research defaults remain pinned to the original Bucket-2 authority. The
+    production prepared-data wrapper supplies the CURRENT published snapshot ID
+    and its freshly reconstructed source-authority fingerprint, which reuses
+    the identical search/scoring implementation without carrying the historical
+    Sep-8 identity into future daily publications.
+    """
     total_started = time.perf_counter()
     timings = Counter()
     client = get_client()
     t = time.perf_counter()
-    snapshot, source_rows, _ = _load_source(client, SOURCE_SNAPSHOT_ID)
+    snapshot, source_rows, _ = _load_source(client, source_snapshot_id)
     authority = _historical_authority(snapshot, source_rows)
-    if authority["fingerprint"] != EXPECTED_AUTHORITY_FINGERPRINT:
+    expected_fingerprint = expected_source_authority_fingerprint or authority["fingerprint"]
+    if authority["fingerprint"] != expected_fingerprint:
         raise RuntimeError("Bucket 2 source-authority fingerprint mismatch")
     products = _load_exact_source_products(client, source_rows, str(snapshot["pinned_price_as_of"]))
+    reconstructed_cohort_fingerprint = cohort_fingerprint(products, str(snapshot["pinned_price_as_of"]))
+    if reconstructed_cohort_fingerprint != str(snapshot.get("cohort_fingerprint") or ""):
+        raise RuntimeError("pinned cohort fingerprint does not match the published source snapshot")
     timings["sourceAuthorityLoadingSeconds"] += time.perf_counter() - t
     baseline_memory = _memory()
     source_by_id = {str(row["sealed_product_id"]): row for row in source_rows}
     product_by_id = {str(row["sealed_product_id"]): row for row in products}
+    if set(source_by_id) != set(product_by_id):
+        raise RuntimeError("pinned cohort SKU identities do not exactly match Full Market rows")
     ordered = sorted(products, key=lambda row: int(source_by_id[str(row["sealed_product_id"])]["budget_rank_v12"]))
     if product_ids:
         selected = set(product_ids)
@@ -277,7 +300,7 @@ def run(output: Path, *, quantity_batch_size: int = 0,
             current_quantity=int(source["quantity"]), current_rank=int(source["budget_rank_v12"]),
             benchmark=benchmark, prepare_quantity=factory,
             source_authority_fingerprint=authority["fingerprint"],
-            expected_source_authority_fingerprint=EXPECTED_AUTHORITY_FINGERPRINT,
+            expected_source_authority_fingerprint=expected_fingerprint,
             prepare_quantities=batch_factory if optimized else None,
             quantity_batch_size=effective_batch_size,
         )
@@ -292,9 +315,10 @@ def run(output: Path, *, quantity_batch_size: int = 0,
         peak = _memory()
         threshold = searched.get("threshold")
         current_cents = engine.current_price_cents
+        current_rank = engine.current_rank
         if threshold:
             threshold_cents = int(threshold["priceCents"])
-            status = _status(engine.current_rank, current_cents, threshold_cents)
+            status = _status(current_rank, current_cents, threshold_cents)
             gap_dollars = (current_cents - threshold_cents) / 100.0
             gap_percent = (current_cents - threshold_cents) / current_cents
             threshold_quantity = int(threshold["quantity"])
@@ -304,7 +328,7 @@ def run(output: Path, *, quantity_batch_size: int = 0,
             gap_dollars = gap_percent = threshold_quantity = None
         if threshold and budget_cents // threshold_cents != threshold_quantity:
             raise RuntimeError(f"threshold quantity mismatch for {pid}")
-        if engine.current_rank != 1 and threshold_cents is not None and threshold_cents > current_cents:
+        if current_rank != 1 and threshold_cents is not None and threshold_cents > current_cents:
             raise RuntimeError(f"non-leader threshold above market for {pid}")
         cleanup_started = time.perf_counter()
         engine.clear()
@@ -326,8 +350,13 @@ def run(output: Path, *, quantity_batch_size: int = 0,
             "setId": str(product["set_id"]), "productFamily": product.get("product_family"),
             "sourceCalculationRunId": run_id,
             "currentMarketPrice": current_cents / 100.0,
-            "currentBudgetRank": engine.current_rank if 'engine' in locals() else int(source["budget_rank_v12"]),
+            "currentBudgetRank": current_rank,
             "currentOverallRipV12Score": float(source["overall_rip_v12_score"]),
+            "currentFinancialRipV4Score": source.get("financial_rip_v4_score"),
+            "currentCollectorAppealScore": source.get("collector_appeal_score"),
+            "currentChaseAccessibilityRaw": source.get("chase_accessibility_raw"),
+            "currentChanceToRecoverCapital": source.get("chance_to_recover_capital"),
+            "currentActualCommittedCapital": source.get("actual_committed_capital"),
             "bestOpenPrice": threshold_cents / 100.0 if threshold_cents is not None else None,
             "bestOpenPriceCents": threshold_cents, "status": status,
             "priceGapDollars": gap_dollars, "priceGapPercent": gap_percent,
@@ -341,6 +370,9 @@ def run(output: Path, *, quantity_batch_size: int = 0,
             "benchmarkSealedProductId": str(competitor["sealed_product_id"]),
             "benchmarkProductName": product_by_id[str(competitor["sealed_product_id"])].get("product_name"),
             "benchmarkOverallRipV12Score": float(competitor["overall_rip_v12_score"]),
+            "benchmarkFinancialRipV4Score": competitor.get("financial_rip_v4_score"),
+            "benchmarkChanceToRecoverCapital": competitor.get("chance_to_recover_capital"),
+            "benchmarkActualCommittedCapital": competitor.get("actual_committed_capital"),
             "quantitiesConstructed": searched.get("physicalQuantitiesConstructed", []),
             "candidatePriceEvaluations": searched.get("evaluationCount", 0),
             "bracketExpansions": searched.get("bracketExpansions", 0),
@@ -435,14 +467,13 @@ def run(output: Path, *, quantity_batch_size: int = 0,
                               "originalSeconds": original["searchWallSeconds"],
                               "replaySeconds": replay["searchWallSeconds"]})
 
-    end_snapshot, end_rows, _ = _load_source(client, SOURCE_SNAPSHOT_ID)
+    end_snapshot, end_rows, _ = _load_source(client, source_snapshot_id)
     end_authority = _historical_authority(end_snapshot, end_rows)
     if end_authority["fingerprint"] != authority["fingerprint"]:
         raise RuntimeError("Bucket 2 source authority changed during execution")
     analysis = _cohort_analysis(results)
     final_memory = _memory()
     total_seconds = time.perf_counter() - total_started
-    measured_phase_total = sum(timings.values())
     timing_payload = dict(timings)
     timing_payload["totalWallSeconds"] = total_seconds
     timing_payload["phasePercentOfWall"] = {
@@ -461,7 +492,7 @@ def run(output: Path, *, quantity_batch_size: int = 0,
         "status": "complete", "methodVersion": BEST_OPEN_PRICE_METHOD_VERSION,
         "constructionMode": ("independent_single_q_flat_stream_batch_v1" if optimized else "legacy_single_q"),
         "quantityBatchSize": quantity_batch_size,
-        "source": {"snapshotId": SOURCE_SNAPSHOT_ID, "cohortFingerprint": snapshot["cohort_fingerprint"],
+        "source": {"snapshotId": source_snapshot_id, "cohortFingerprint": snapshot["cohort_fingerprint"],
                    "historicalSourceAuthorityFingerprint": authority["fingerprint"],
                    "authorityUnchangedAtCompletion": True, "fullMarketBudget": budget},
         "products": results, "cohortAnalysis": analysis, "timings": timing_payload,
@@ -490,10 +521,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--reference", type=Path)
     parser.add_argument("--only-product-id", action="append")
     parser.add_argument("--skip-determinism", action="store_true")
+    parser.add_argument("--source-snapshot-id", default=SOURCE_SNAPSHOT_ID)
+    parser.add_argument("--expected-source-authority-fingerprint")
     args = parser.parse_args(argv)
-    result = run(args.output, quantity_batch_size=args.quantity_batch_size,
-                 reference_path=args.reference, product_ids=args.only_product_id,
-                 run_determinism=not args.skip_determinism)
+    expected = args.expected_source_authority_fingerprint
+    if args.source_snapshot_id == SOURCE_SNAPSHOT_ID and expected is None:
+        expected = EXPECTED_AUTHORITY_FINGERPRINT
+    result = run(
+        args.output,
+        quantity_batch_size=args.quantity_batch_size,
+        reference_path=args.reference,
+        product_ids=args.only_product_id,
+        run_determinism=not args.skip_determinism,
+        source_snapshot_id=args.source_snapshot_id,
+        expected_source_authority_fingerprint=expected,
+    )
     print(json.dumps({"output": str(args.output), "analysis": result["cohortAnalysis"],
                       "timings": result["timings"], "lru": result["lru"]}, indent=2))
     return 0
