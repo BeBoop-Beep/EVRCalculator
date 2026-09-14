@@ -11,7 +11,7 @@ test("global navigation has one atomic mode and non-overlapping flow layout", as
     await page.setViewportSize({ width, height: 900 });
     const sample = await page.evaluate((viewportWidth) => {
       const logo = document.querySelector("[data-header-logo]");
-      const nav = document.querySelector("[data-desktop-primary-nav]");
+      const navItems = [...document.querySelectorAll("[data-primary-nav-item]")];
       const search = document.querySelector("[data-header-search]");
       const account = document.querySelector("[data-header-account] > div");
       // The authenticated plan + long account control is the widest supported
@@ -20,14 +20,17 @@ test("global navigation has one atomic mode and non-overlapping flow layout", as
       const hamburger = document.querySelector('button[aria-label="Toggle menu"]');
       const bottom = document.querySelector('nav[aria-label="Global navigation"]');
       const isVisible = (element) => element && getComputedStyle(element).display !== "none" && element.getBoundingClientRect().width > 0;
+      const visibleNavItems = navItems.filter(isVisible);
+      const navRect = visibleNavItems.length ? { left: visibleNavItems[0].getBoundingClientRect().left, right: visibleNavItems.at(-1).getBoundingClientRect().right, width: visibleNavItems.at(-1).getBoundingClientRect().right - visibleNavItems[0].getBoundingClientRect().left } : null;
       const rect = (element) => isVisible(element) ? Object.fromEntries(["left", "right", "width"].map((key) => [key, Math.round(element.getBoundingClientRect()[key] * 10) / 10])) : null;
       return {
         width: viewportWidth,
-        desktop: isVisible(nav), hamburger: isVisible(hamburger), bottom: isVisible(bottom),
-        logo: rect(logo), nav: rect(nav), search: rect(search), account: rect(account),
+        desktop: visibleNavItems.length > 0, hamburger: isVisible(hamburger), bottom: isVisible(bottom),
+        logo: rect(logo), nav: navRect ? Object.fromEntries(["left", "right", "width"].map((key) => [key, Math.round(navRect[key] * 10) / 10])) : null, search: rect(search), account: rect(account),
         scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth,
         centerError: isVisible(search) ? Math.round(Math.abs((search.getBoundingClientRect().left + search.getBoundingClientRect().right) / 2 - window.innerWidth / 2) * 10) / 10 : null,
-        navSearchGap: isVisible(nav) ? Math.round((search.getBoundingClientRect().left - nav.getBoundingClientRect().right) * 10) / 10 : null,
+        navSearchGap: visibleNavItems.length ? Math.round((search.getBoundingClientRect().left - visibleNavItems.at(-1).getBoundingClientRect().right) * 10) / 10 : null,
+        leftRailGaps: visibleNavItems.length ? [logo, ...visibleNavItems].map((element, index, sequence) => index < sequence.length - 1 ? Math.round((sequence[index + 1].getBoundingClientRect().left - element.getBoundingClientRect().right) * 10) / 10 : null).filter((value) => value !== null).concat(Math.round((search.getBoundingClientRect().left - visibleNavItems.at(-1).getBoundingClientRect().right) * 10) / 10) : null,
         accountRightGap: isVisible(account) ? Math.round((window.innerWidth - account.getBoundingClientRect().right) * 10) / 10 : null,
         overflowers: [...document.querySelectorAll("body *")].filter((element) => element.getBoundingClientRect().right > window.innerWidth + 0.5).slice(0, 8).map((element) => `${element.tagName}.${element.className}`),
       };
@@ -48,6 +51,8 @@ test("global navigation has one atomic mode and non-overlapping flow layout", as
       expect(sample.navSearchGap).toBeLessThanOrEqual(12);
       expect(sample.accountRightGap).toBeGreaterThanOrEqual(23);
       expect(sample.accountRightGap).toBeLessThanOrEqual(25);
+      expect(Math.min(...sample.leftRailGaps)).toBeGreaterThanOrEqual(0);
+      expect(Math.max(...sample.leftRailGaps.slice(0, 5)) - Math.min(...sample.leftRailGaps.slice(0, 5))).toBeLessThanOrEqual(1);
     }
     sweep.push(sample);
   }
@@ -62,7 +67,7 @@ test("the global shell remains correct on every required route", async ({ page }
     await expect(page.locator('nav[aria-label="Global navigation"]')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.setViewportSize({ width: 1440, height: 900 });
-    await expect(page.locator("[data-desktop-primary-nav]")).toBeVisible();
+    await expect(page.locator("[data-primary-nav-item]").first()).toBeVisible();
     await expect(page.locator('nav[aria-label="Global navigation"]')).toBeHidden();
   }
 });

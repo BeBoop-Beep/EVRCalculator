@@ -57,13 +57,20 @@ def test_v5_real_queue_contains_no_matcher_fields():
 
 
 def test_v5_real_manifest_declares_single_reviewer_honestly():
+    """Reviewer-honesty invariants that must hold at every point in the V5
+    blind-review lifecycle, before OR after the human review is complete.
+    Before the review starts (or while it is in progress), labels_exist is
+    False; once a legitimate --freeze has run (E2.3B/E2.4), labels_exist
+    flips to True and must be internally consistent with labels_frozen --
+    this test never assumes one specific point in that lifecycle.
+    """
     path = OUT / "ebay_d3_v5_fresh_blind_manifest.json"
     if not path.exists():
         return
     manifest = json.loads(path.read_text(encoding="utf-8"))
     assert manifest["reviewer_b_exists"] is False
     assert manifest["protocol"] == "SINGLE_REVIEWER_BLIND"
-    assert manifest["labels_exist"] is False
+    assert manifest["labels_exist"] == manifest.get("labels_frozen", False)
 
 
 def test_v5_real_manifest_all_70_cards_represented():

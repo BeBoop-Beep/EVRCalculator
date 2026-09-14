@@ -17,7 +17,10 @@ test("wide header uses three normal-flow grid regions with equal side tracks", (
   assert.match(header, /xl:grid-cols-\[minmax\(0,1fr\)_clamp\(280px,calc\(100vw-1000px\),420px\)_minmax\(0,1fr\)\]/);
   assert.match(header, /data-header-left-wing[^>]+xl:justify-between xl:pr-2/);
   assert.match(header, /data-header-logo[\s\S]+data-desktop-primary-nav[\s\S]+data-header-search[\s\S]+data-header-account/);
-  assert.match(header, /hidden xl:flex shrink-0 items-center xl:ml-auto/);
+  assert.match(header, /className="hidden xl:contents"/);
+  assert.match(header, /data-desktop-primary-nav className="contents whitespace-nowrap"/);
+  assert.equal((header.match(/data-primary-nav-item/g) || []).length, 5);
+  assert.doesNotMatch(header, /xl:ml-auto/);
   assert.match(header, /data-header-account[^>]+xl:justify-end/);
 });
 

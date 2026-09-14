@@ -158,10 +158,11 @@ export default function Header() {
             </Link>
 
             </div>
-            <div className="hidden xl:flex shrink-0 items-center xl:ml-auto">
-              <nav data-desktop-primary-nav className="flex items-center gap-1 whitespace-nowrap">
+            <div className="hidden xl:contents">
+              <nav data-desktop-primary-nav className="contents whitespace-nowrap">
               <Link
                 href="/Rankings"
+                data-primary-nav-item
                 className={`${navTabBase} inline-flex items-center justify-center ${
                   isTopNavActive('/Rankings') || isTopNavActive('/Explore') ? navTabActive : navTabInactive
                 }`}
@@ -170,6 +171,7 @@ export default function Header() {
               </Link>
               <Link
                 href="/Market"
+                data-primary-nav-item
                 className={`${navTabBase} inline-flex items-center justify-center ${
                   isMarketRouteActive ? navTabActive : navTabInactive
                 }`}
@@ -179,6 +181,7 @@ export default function Header() {
               </Link>
               <Link
                 href={MARKET_EXPLORER_NAV_HREF}
+                data-primary-nav-item
                 aria-current={isExplorerRouteActive ? "page" : undefined}
                 className={`${navTabBase} inline-flex items-center justify-center ${
                   isExplorerRouteActive ? navTabActive : navTabInactive
@@ -191,6 +194,7 @@ export default function Header() {
                   every /TCGs route. */}
               <Link
                 href={TCGS_NAV_HREF}
+                data-primary-nav-item
                 aria-current={isTcgsRouteActive ? "page" : undefined}
                 className={`${navTabBase} inline-flex items-center justify-center ${
                   isTcgsRouteActive ? navTabActive : navTabInactive
@@ -200,6 +204,7 @@ export default function Header() {
               </Link>
               <Link
                 href="/Articles"
+                data-primary-nav-item
                 className={`${navTabBase} inline-flex items-center justify-center ${
                   isTopNavActive('/Articles') ? navTabActive : navTabInactive
                 }`}

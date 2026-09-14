@@ -142,7 +142,7 @@ REVOKE ALL ON public.budget_product_best_open_price_latest FROM PUBLIC, anon, au
 CREATE OR REPLACE FUNCTION public.publish_budget_product_best_open_price_snapshot(
     p_snapshot JSONB, p_rows JSONB
 ) RETURNS UUID
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $$
 DECLARE
     v_id UUID;
@@ -176,9 +176,10 @@ BEGIN
     -- 2. Re-verify current LIVE source identity/versions/fingerprints
     -- exactly match the payload. Never trust the payload's self-reported
     -- source binding without cross-checking the live authority.
-    SELECT id, published_at, market_date, cohort_fingerprint, eligible_cohort_count, full_market_budget,
-           ranking_method_version, allocation_method_version, comparison_scope_version,
-           financial_rip_version, overall_rip_version, collector_appeal_version
+    SELECT s.id, s.published_at, s.market_date, s.cohort_fingerprint, s.eligible_cohort_count, s.full_market_budget,
+           s.ranking_method_version, s.allocation_method_version, s.comparison_scope_version,
+           s.financial_rip_version, s.overall_rip_version, s.collector_appeal_version,
+           s.chase_accessibility_version, s.chase_accessibility_transform_version
     INTO v_live_snapshot
     FROM public.budget_product_ranking_latest lp
     JOIN public.budget_product_ranking_snapshots s ON s.id = lp.snapshot_id
@@ -198,6 +199,8 @@ BEGIN
        OR v_live_snapshot.comparison_scope_version IS DISTINCT FROM (p_snapshot->>'comparison_scope_version')
        OR v_live_snapshot.financial_rip_version IS DISTINCT FROM (p_snapshot->>'financial_rip_version')
        OR v_live_snapshot.collector_appeal_version IS DISTINCT FROM (p_snapshot->>'collector_appeal_version')
+       OR v_live_snapshot.chase_accessibility_version IS DISTINCT FROM (p_snapshot->>'chase_accessibility_version')
+       OR v_live_snapshot.chase_accessibility_transform_version IS DISTINCT FROM (p_snapshot->>'chase_accessibility_transform_version')
     THEN
         RAISE EXCEPTION 'best-open-price payload source binding no longer matches the live budget ranking authority (stale or non-deterministic input)';
     END IF;
@@ -218,6 +221,7 @@ BEGIN
            OR live.budget_rank_v12 IS DISTINCT FROM (row->>'current_budget_rank')::INTEGER
            OR live.overall_rip_v12_score IS DISTINCT FROM (row->>'current_overall_rip_v12_score')::NUMERIC
            OR live.set_id IS DISTINCT FROM (row->>'set_id')::UUID
+           OR live.source_calculation_run_id IS DISTINCT FROM NULLIF(row->>'source_calculation_run_id', '')::UUID
     ) THEN
         RAISE EXCEPTION 'one or more best-open-price rows do not reconcile against the live Full Market ranking rows';
     END IF;
