@@ -43,6 +43,13 @@ test("methodology disclosure names the actual Full Market counterfactual", () =>
   assert.match(products, /published Full Market prices as of/);
 });
 
+test("budget responses use a distinct cache namespace from the warmed Full Market lens wrapper", () => {
+  assert.match(products, /peek\("products:full_market"\)/);
+  assert.match(products, /request\("products:full_market", load/);
+  assert.match(products, /sessionCache\.request\(`products:budget:\$\{next\}`/);
+  assert.doesNotMatch(products, /sessionCache\.request\(`products:\$\{next\}`/);
+});
+
 test("first release remains Rankings-only and does not inject Best-Open into Product RIP detail", () => {
   assert.doesNotMatch(productRip, /Best-Open|bestOpenPrice/);
 });
