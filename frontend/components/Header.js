@@ -129,8 +129,9 @@ export default function Header() {
   return (
     <header className="relative z-[1000]">
       <div className="relative text-[var(--text-primary)] py-1">
-        <div className="w-full min-w-0 max-w-full flex items-center gap-2 px-2 sm:px-4 lg:px-6 xl:px-6">
-          <div data-header-logo className="flex shrink-0 items-center xl:mr-2">
+        <div data-header-layout className="w-full min-w-0 max-w-full flex items-center gap-2 px-2 sm:px-4 lg:px-6 xl:grid xl:grid-cols-[minmax(0,1fr)_clamp(280px,calc(100vw-1000px),420px)_minmax(0,1fr)] xl:gap-0 xl:px-6">
+          <div data-header-left-wing className="flex shrink-0 items-center xl:min-w-0 xl:justify-between xl:pr-2">
+            <div data-header-logo className="flex shrink-0 items-center">
             <Link
               href="/"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -156,9 +157,9 @@ export default function Header() {
               </span>
             </Link>
 
-          </div>
-          <div className="hidden xl:flex shrink-0 items-center">
-            <nav data-desktop-primary-nav className="flex items-center gap-1 whitespace-nowrap">
+            </div>
+            <div className="hidden xl:flex shrink-0 items-center xl:ml-auto">
+              <nav data-desktop-primary-nav className="flex items-center gap-1 whitespace-nowrap">
               <Link
                 href="/Rankings"
                 className={`${navTabBase} inline-flex items-center justify-center ${
@@ -205,12 +206,13 @@ export default function Header() {
               >
                 Articles
               </Link>
-            </nav>
+              </nav>
+            </div>
           </div>
 
           <div
             data-header-search
-            className="flex flex-1 min-w-0 xl:min-w-[240px] xl:max-w-[420px] items-center"
+            className="flex flex-1 min-w-0 items-center xl:w-full"
             onClickCapture={() => setIsMobileMenuOpen(false)}
             onFocusCapture={() => setIsMobileMenuOpen(false)}
           >
@@ -223,7 +225,7 @@ export default function Header() {
             />
           </div>
 
-          <div data-header-account className="flex shrink-0 items-center text-sm whitespace-nowrap gap-2 sm:gap-3 lg:gap-4 xl:gap-5">
+          <div data-header-account className="flex shrink-0 items-center text-sm whitespace-nowrap gap-2 sm:gap-3 lg:gap-4 xl:min-w-0 xl:justify-end xl:gap-5">
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}

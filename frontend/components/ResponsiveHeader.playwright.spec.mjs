@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-const widths = [320, 390, 430, 600, 768, 900, 1024, 1100, 1199, 1200, 1279, 1280, 1366, 1440, 1536, 1920];
-const routes = ["/Market", "/Market/Explorer", "/Rankings", "/TCGs/Pokemon/Sets", "/Articles"];
+const widths = [320, 390, 430, 600, 768, 900, 1024, 1100, 1199, 1200, 1279, 1280, 1366, 1440, 1536, 1600, 1920];
+const routes = ["/", "/Market", "/Market/Explorer", "/Rankings", "/TCGs/Pokemon/Sets", "/Articles"];
 const baseUrl = "http://127.0.0.1:3000";
 
 test("global navigation has one atomic mode and non-overlapping flow layout", async ({ page }) => {
@@ -26,6 +26,9 @@ test("global navigation has one atomic mode and non-overlapping flow layout", as
         desktop: isVisible(nav), hamburger: isVisible(hamburger), bottom: isVisible(bottom),
         logo: rect(logo), nav: rect(nav), search: rect(search), account: rect(account),
         scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth,
+        centerError: isVisible(search) ? Math.round(Math.abs((search.getBoundingClientRect().left + search.getBoundingClientRect().right) / 2 - window.innerWidth / 2) * 10) / 10 : null,
+        navSearchGap: isVisible(nav) ? Math.round((search.getBoundingClientRect().left - nav.getBoundingClientRect().right) * 10) / 10 : null,
+        accountRightGap: isVisible(account) ? Math.round((window.innerWidth - account.getBoundingClientRect().right) * 10) / 10 : null,
         overflowers: [...document.querySelectorAll("body *")].filter((element) => element.getBoundingClientRect().right > window.innerWidth + 0.5).slice(0, 8).map((element) => `${element.tagName}.${element.className}`),
       };
     }, width);
@@ -40,6 +43,11 @@ test("global navigation has one atomic mode and non-overlapping flow layout", as
       expect(sample.search.right).toBeLessThanOrEqual(sample.account.left);
       expect(sample.search.width).toBeGreaterThanOrEqual(240);
       expect(sample.search.width).toBeLessThanOrEqual(420);
+      expect(sample.centerError).toBeLessThanOrEqual(2);
+      expect(sample.navSearchGap).toBeGreaterThanOrEqual(8);
+      expect(sample.navSearchGap).toBeLessThanOrEqual(12);
+      expect(sample.accountRightGap).toBeGreaterThanOrEqual(23);
+      expect(sample.accountRightGap).toBeLessThanOrEqual(25);
     }
     sweep.push(sample);
   }

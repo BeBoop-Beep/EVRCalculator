@@ -826,8 +826,10 @@ def freeze_final(reviewer_id: str) -> dict[str, Any]:
     }
     manifest["final_human_freeze"] = {
         "label_fingerprint": final_label_fingerprint, "freeze_timestamp": now, "reviewer_id": reviewer_id,
+        "review_session_id": frozen_session,
     }
     manifest["final_label_fingerprint"] = final_label_fingerprint
+    manifest["finally_frozen"] = True
     manifest["reviewer_protocol"] = REVIEWER_PROTOCOL
     manifest["matcher_predictions_consulted"] = False
     manifest["certification_not_yet_run"] = True
@@ -838,7 +840,7 @@ def freeze_final(reviewer_id: str) -> dict[str, Any]:
         "stage": "final_human_freeze", "rows_materialized": len(materialized_rows),
         "final_label_fingerprint": final_label_fingerprint, "cohort_fingerprint": recorded_fingerprint,
         "correction_history_fingerprint": correction_history_fingerprint, "corrected_row_count": len(corrections),
-        "reviewer_protocol": REVIEWER_PROTOCOL, "reviewer_id": reviewer_id,
+        "reviewer_protocol": REVIEWER_PROTOCOL, "reviewer_id": reviewer_id, "review_session_id": frozen_session,
     }
 
 

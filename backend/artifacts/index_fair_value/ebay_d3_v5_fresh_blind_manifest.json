@@ -94,8 +94,8 @@
     "ebay_d3_v4_fresh_blind_queue.csv"
   ],
   "relist_dedup_method": "sha256(normalized_title|seller|canonical_card_id|price_bucket_of_5); heuristic only, same limitations as documented for the V4 capture.",
-  "labels_exist": false,
-  "labels_frozen": false,
+  "labels_exist": true,
+  "labels_frozen": true,
   "reviewer_b_exists": false,
   "protocol": "SINGLE_REVIEWER_BLIND",
   "review_sessions": {
@@ -119,5 +119,33 @@
       "matcher_predictions_consulted": false
     }
   },
-  "active_review_session_id": "v5_session_2"
+  "active_review_session_id": "v5_session_2",
+  "reviewer_protocol": "SINGLE_REVIEWER_BLIND",
+  "reviewer_id": "Donny",
+  "freeze_timestamp": "2026-09-14T03:08:04.056672+00:00",
+  "label_fingerprint": "27ff7b9e8033bc3993b6e995c38b3a8beb5200896f8dd0ab004360fa82a2dfba",
+  "initial_human_freeze": {
+    "label_fingerprint": "27ff7b9e8033bc3993b6e995c38b3a8beb5200896f8dd0ab004360fa82a2dfba",
+    "freeze_timestamp": "2026-09-14T03:08:04.056672+00:00",
+    "reviewer_id": "Donny",
+    "review_session_id": "v5_session_2"
+  },
+  "correction_audit": {
+    "performed": true,
+    "corrected_row_count": 252,
+    "yes_row_count": 252,
+    "correction_order_seed": 1337,
+    "correction_history_fingerprint": "9d7a234f9636e48529b6589ff9eec75a7a2d608267bf3e6679e2723fe3cc7d02",
+    "decision_counts": {
+      "KEEP_YES": 252
+    }
+  },
+  "final_human_freeze": {
+    "label_fingerprint": "c0b2f18a025d81bacbb7c136a912e167e72105d362adfb8cabfe73dc6189591f",
+    "freeze_timestamp": "2026-09-14T03:20:25.038291+00:00",
+    "reviewer_id": "Donny"
+  },
+  "final_label_fingerprint": "c0b2f18a025d81bacbb7c136a912e167e72105d362adfb8cabfe73dc6189591f",
+  "matcher_predictions_consulted": false,
+  "certification_not_yet_run": true
 }

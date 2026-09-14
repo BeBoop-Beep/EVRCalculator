@@ -11,10 +11,14 @@ const bottomNav = read("GlobalMobileBottomNav.js");
 const layout = read("../app/layout.js");
 const tailwind = read("../tailwind.config.js");
 
-test("wide primary navigation and search participate in one normal-flow row", () => {
+test("wide header uses three normal-flow grid regions with equal side tracks", () => {
   assert.doesNotMatch(header, /right-\[calc\(|absolute left-1\/2/);
-  assert.match(header, /hidden xl:flex shrink-0 items-center/);
-  assert.match(header, /flex flex-1 min-w-0 xl:min-w-\[240px\] xl:max-w-\[420px\]/);
+  assert.match(header, /data-header-layout[^>]+xl:grid/);
+  assert.match(header, /xl:grid-cols-\[minmax\(0,1fr\)_clamp\(280px,calc\(100vw-1000px\),420px\)_minmax\(0,1fr\)\]/);
+  assert.match(header, /data-header-left-wing[^>]+xl:justify-between xl:pr-2/);
+  assert.match(header, /data-header-logo[\s\S]+data-desktop-primary-nav[\s\S]+data-header-search[\s\S]+data-header-account/);
+  assert.match(header, /hidden xl:flex shrink-0 items-center xl:ml-auto/);
+  assert.match(header, /data-header-account[^>]+xl:justify-end/);
 });
 
 test("one mounted search preserves query state across the CSS breakpoint", () => {
