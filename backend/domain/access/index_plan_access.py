@@ -34,6 +34,7 @@ FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency"
 FEATURE_CARD_COLLECTOR_APPEAL = "card_collector_appeal"
 FEATURE_MARKET_BREADTH = "market_breadth"
 FEATURE_PRODUCT_RIP = "product_rip"
+FEATURE_BEST_OPEN_PRICE = "best_open_price"
 FEATURE_PACK_ECONOMICS = "pack_economics"
 FEATURE_ACQUISITION_MILESTONES = "acquisition_milestones"
 FEATURE_SET_RIP_ANALYTICS = "set_rip_analytics"
@@ -60,6 +61,7 @@ _PLUS_FEATURES = frozenset({
     FEATURE_MARKET_EXPLORER_ADVANCED_RANKING,
     FEATURE_MARKET_BREADTH,
     FEATURE_PRODUCT_RIP,
+    FEATURE_BEST_OPEN_PRICE,
     FEATURE_PACK_ECONOMICS,
     FEATURE_ACQUISITION_MILESTONES,
     FEATURE_SET_RIP_ANALYTICS,
@@ -338,12 +340,21 @@ _PLUS_PRODUCT_RANKING_FIELDS = _BASE_PRODUCT_RANKING_FIELDS | frozenset({
     # no Premium Product Chase field (no `oBudget`, no `ECE`).
     "chaseAccessibility",
 })
+_BEST_OPEN_PRICE_PRODUCT_RANKING_FIELDS = frozenset({
+    "bestOpenPrice", "bestOpenPriceStatus", "bestOpenPriceGapDollars", "bestOpenPriceGapPercent",
+})
+_BEST_OPEN_PRICE_META_FIELDS = frozenset({
+    "available", "reason", "snapshotId", "methodVersion", "sourceMarketDate", "sourceBudgetSnapshotId",
+})
 
 
 def project_product_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
     plus = has_index_feature_access(plan, FEATURE_PRODUCT_RIP)
+    best_open = has_index_feature_access(plan, FEATURE_BEST_OPEN_PRICE)
     fields = _PLUS_PRODUCT_RANKING_FIELDS if plus else _BASE_PRODUCT_RANKING_FIELDS
-    return {
+    if best_open:
+        fields = fields | _BEST_OPEN_PRICE_PRODUCT_RANKING_FIELDS
+    result = {
         "available": bool(payload.get("available")),
         "reason": payload.get("reason"),
         "selectedBudget": payload.get("selectedBudget"),
@@ -352,6 +363,10 @@ def project_product_rankings_response(payload: Mapping[str, Any], plan: Any) -> 
         "rows": [_pick(row, fields) for row in payload.get("rows", []) if isinstance(row, Mapping)],
         **({"authority": payload.get("authority") or {}} if plus else {}),
     }
+    best_open_meta = payload.get("bestOpenPrice")
+    if best_open and isinstance(best_open_meta, Mapping):
+        result["bestOpenPrice"] = _pick(best_open_meta, _BEST_OPEN_PRICE_META_FIELDS)
+    return result
 
 
 def project_product_family_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
