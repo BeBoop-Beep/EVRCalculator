@@ -34,11 +34,19 @@ def backfill_current_component_rankings(client):
             break
     if not card_rows or any(str(row["model_run_id"]) != model_run_id for row in card_rows):
         raise RuntimeError("current Collector card rows are missing or mixed across runs")
-    prepared = build_component_ranking_rows(card_rows, model_run_id)
-    for start in range(0, len(prepared), 100):
-        client.table("pokemon_set_collector_component_rankings").upsert(
-            prepared[start:start + 100], on_conflict="model_run_id,set_id"
-        ).execute()
+    scored_sets = (client.table("pokemon_set_collector_appeal_scores")
+                   .select("set_id").eq("model_run_id", model_run_id)
+                   .eq("score_status", "scored").not_.is_("collector_appeal_score", "null")
+                   .order("set_id").execute().data or [])
+    eligible_set_ids = [str(row["set_id"]) for row in scored_sets]
+    prepared = build_component_ranking_rows(
+        card_rows, model_run_id, eligible_set_ids=eligible_set_ids
+    )
+    if {str(row["set_id"]) for row in prepared} != set(eligible_set_ids):
+        raise RuntimeError("prepared Set diagnostic cohort does not match current scored Set authority")
+    client.rpc("replace_pokemon_set_collector_component_rankings", {
+        "p_model_run_id": model_run_id, "p_rows": prepared,
+    }).execute()
     current = (client.table("pokemon_set_collector_component_rankings_current_v")
                .select("model_run_id,set_id,drivers_json")
                .eq("model_run_id", model_run_id).execute().data or [])
@@ -50,7 +58,8 @@ def backfill_current_component_rankings(client):
         raise RuntimeError("prepared Set diagnostic persistence count mismatch")
     return {"modelRunId": model_run_id, "modelVersion": pointer["model_version"],
             "asOfDate": pointer["as_of_date"], "cardRows": len(card_rows),
-            "setRows": len(current), "coverage": coverage}
+            "setRows": len(current), "rankingCohort": "current_scored_opening_supported_sets",
+            "coverage": coverage}
 
 
 def main():

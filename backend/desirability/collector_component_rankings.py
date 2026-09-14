@@ -11,7 +11,7 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
 from backend.scripts.build_pokemon_collector_appeal_v6_corrected_successor import pokemon_d, trainer_d
 
-METHODOLOGY_VERSION = "collector_component_diagnostics_v1_exact_v7_ablation"
+METHODOLOGY_VERSION = "collector_component_diagnostics_v2_current_scored_opening_supported_sets"
 
 
 def _bounded(value: Any) -> Optional[float]:
@@ -79,8 +79,20 @@ def build_raw_component_diagnostics(card_rows: Iterable[Mapping[str, Any]]) -> D
     return result
 
 
-def build_component_ranking_rows(card_rows: Iterable[Mapping[str, Any]], model_run_id: str) -> list[dict[str, Any]]:
-    raw = build_raw_component_diagnostics(card_rows)
+def build_component_ranking_rows(
+    card_rows: Iterable[Mapping[str, Any]], model_run_id: str, *, eligible_set_ids: Iterable[str]
+) -> list[dict[str, Any]]:
+    """Rank only the explicit Set Rankings cohort, never the broad card universe."""
+    eligible = {str(set_id) for set_id in eligible_set_ids}
+    if not eligible:
+        raise ValueError("eligible Set Collector ranking cohort must not be empty")
+    raw = {
+        set_id: parts for set_id, parts in build_raw_component_diagnostics(card_rows).items()
+        if set_id in eligible
+    }
+    missing = eligible.difference(raw)
+    if missing:
+        raise ValueError(f"eligible Set Collector rows lack card diagnostics: {sorted(missing)}")
     keys = ("pokemonAppeal", "trainerAppeal", "artistImpact", "playabilityImpact")
     ranked: Dict[str, Dict[str, tuple[int, float, int]]] = {}
     for key in keys:
