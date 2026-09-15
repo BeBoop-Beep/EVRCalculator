@@ -339,6 +339,16 @@ _PLUS_PRODUCT_RANKING_FIELDS = _BASE_PRODUCT_RANKING_FIELDS | frozenset({
     # at the same Plus tier as Financial RIP/Collector Appeal above; contains
     # no Premium Product Chase field (no `oBudget`, no `ECE`).
     "chaseAccessibility",
+    # Opening Profile Bucket 1 (compact explanatory opening metrics): Average
+    # Return (modeledReturnRatio/modeledReturnPercent), Typical Opening
+    # (medianValue), Covers Cost (chanceToRecoverCost, already above) and Top
+    # 1% Value Share (topOneOutcomeValueShare, sourced ONLY from
+    # financial_rip_v3_payload.distributionDisclosures.jackpotValueShare —
+    # never the card-attribution top1EvShare metric). Budget-strategy rows
+    # additionally carry averageReturn (expected_value / actual committed
+    # capital, never target budget or one-unit price).
+    "modeledReturnRatio", "modeledReturnPercent", "medianValue",
+    "topOneOutcomeValueShare", "averageReturn",
 })
 _BEST_OPEN_PRICE_PRODUCT_RANKING_FIELDS = frozenset({
     "bestOpenPrice", "bestOpenPriceStatus", "bestOpenPriceGapDollars", "bestOpenPriceGapPercent",

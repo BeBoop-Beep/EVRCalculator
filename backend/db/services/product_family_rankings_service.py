@@ -30,6 +30,7 @@ RESULT_FIELDS = (
     "random_pack_count,guaranteed_component_count,product_market_cost,price_as_of,"
     "expected_value,median_value,p05_value,p95_value,p99_value,chance_to_recover_cost,"
     "total_value_to_cost_ratio,financial_rip_v3_score,financial_rip_v3_version,"
+    "financial_rip_v3_payload,"
     "financial_rip_v4_score,financial_rip_v4_version,"
     "collector_appeal_score,collector_appeal_version,overall_rip_score,overall_rip_version,"
     "overall_rip_rankable,overall_rip_v10_score,overall_rip_v10_version,overall_rip_v10_rankable,"
@@ -226,6 +227,12 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         "p95Value": row.get("p95_value"),
         "p99Value": row.get("p99_value"),
         "chanceToRecoverCost": row.get("chance_to_recover_cost"),
+        # Top 1% Value Share — ONLY from the outcome-distribution disclosure
+        # of THIS SAME product's calculation run. Never the card-attribution
+        # `depthAndRobustness.top1EvShare` metric.
+        "topOneOutcomeValueShare": (
+            (row.get("financial_rip_v3_payload") or {}).get("distributionDisclosures") or {}
+        ).get("jackpotValueShare"),
         "totalValueToCostRatio": row.get("total_value_to_cost_ratio"),
         "modelBreakEven": row.get("expected_value"),
         "modeledReturnRatio": ratio,

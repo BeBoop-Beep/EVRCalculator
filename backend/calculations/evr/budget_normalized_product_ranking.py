@@ -279,6 +279,12 @@ def score_budget_strategy(
     later, explicit cutover (matching how V10 itself was promoted)."""
     v3_kwargs = {} if not min_simulation_count else {"min_simulation_count": min_simulation_count}
     v3_payload = build_financial_rip_v3(values, actual_committed_capital, **v3_kwargs)
+    # Top 1% Value Share MUST come from the outcome-distribution disclosure
+    # (`distributionDisclosures.jackpotValueShare`) of THIS SAME q-unit
+    # strategy's simulated values — never the unrelated card-attribution
+    # metric `depthAndRobustness.top1EvShare`, which shares only the "top1"
+    # naming pattern and answers a different question.
+    top1_outcome_value_share = (v3_payload.get("distributionDisclosures") or {}).get("jackpotValueShare")
     v4_payload = project_financial_rip_v4_from_v3_payload(v3_payload)
     # `chance_to_recover_capital` is the canonical `true_win_probability` raw
     # input. It MUST be read from the V3 payload: the V4 projection carries an
@@ -322,6 +328,14 @@ def score_budget_strategy(
         "overallRipV12Payload": overall_v12,
         "expectedValue": float(np.mean(values)),
         "medianValue": float(np.median(values)),
+        "topOneOutcomeValueShare": top1_outcome_value_share,
+        # Average Return for a budget strategy is ALWAYS expected value over
+        # the actual committed capital for this exact q-unit allocation —
+        # never the cohort's target budget band, never a single-unit price.
+        "averageReturn": (
+            float(np.mean(values)) / actual_committed_capital
+            if actual_committed_capital else None
+        ),
         "chanceToRecoverCapital": chance_to_recover_capital,
         "typicalRetentionRatio": typical_retention_ratio,
         "lossResilience": (v4_payload.get("components") or {}).get("loss_resilience", {}).get("score"),

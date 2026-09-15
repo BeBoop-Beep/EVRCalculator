@@ -76,6 +76,10 @@ def fixture_data(modeled=True, image="large.png", p1_set_ev_representativeness=N
             "pack_count": 36, "random_pack_count": 36, "guaranteed_component_count": 1,
             "guaranteed_component_market_value": 20, "accessory_value_included": False,
             "composition_version": "stage2", "composition_id": "composition", "distribution_model_version": "model",
+            "financial_rip_v3_payload": {
+                "distributionDisclosures": {"jackpotValueShare": 0.0555},
+                "depthAndRobustness": {"top1EvShare": 0.999},
+            },
         }, {"sealed_product_id": "p1", "calculation_run_id": "run-stale", "expected_value": 999}] if modeled else []),
     }
 
@@ -129,6 +133,28 @@ def test_published_run_is_exact_and_canonical_v10_v4_fields_win():
     assert rip["collectorAppealTier"] == "A"
     assert rip["entertainmentCost"]["expectedValue"] == 80
     assert rip["entertainmentCost"]["entertainmentCost"] == 40  # guaranteed value was not added twice
+
+
+def test_rip_contract_exposes_top1_outcome_value_share_from_same_focal_row():
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(fixture_data()))
+    rip = payload["rip"]
+    # Must come from distributionDisclosures.jackpotValueShare, NEVER the
+    # card-attribution depthAndRobustness.top1EvShare on the same payload.
+    assert rip["topOneOutcomeValueShare"] == 0.0555
+
+
+def test_detail_fields_selects_financial_rip_v3_payload():
+    assert "financial_rip_v3_payload" in service.DETAIL_FIELDS
+
+
+def test_detail_payload_does_not_issue_extra_query_per_comparison_row():
+    """Same-set comparison rows come from the cached rankings snapshot, never
+    a per-row simulation_sealed_product_results query. The focal-product
+    query is issued exactly once regardless of comparison cohort size."""
+    client = Client(fixture_data())
+    service.get_pokemon_sealed_product_detail_payload("p1", client)
+    detail_query_count = sum(1 for name in client.queries if name == "simulation_sealed_product_results")
+    assert detail_query_count == 1
 
 
 def test_set_ev_representativeness_inherits_from_the_same_run_published_ranking_row():

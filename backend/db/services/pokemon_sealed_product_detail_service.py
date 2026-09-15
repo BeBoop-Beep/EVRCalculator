@@ -31,6 +31,7 @@ SAME_SET_LIMIT = 10
 DETAIL_FIELDS = (
     "calculation_run_id,sealed_product_id,product_family,product_market_cost,price_as_of,"
     "expected_value,median_value,p05_value,p95_value,p99_value,chance_to_recover_cost,"
+    "financial_rip_v3_payload,"
     "expected_loss_when_losing,median_loss_when_losing,total_value_to_cost_ratio,pack_count,"
     "random_pack_count,guaranteed_component_count,guaranteed_component_market_value,"
     "accessory_value_included,composition_version,composition_id,distribution_model_version"
@@ -369,6 +370,7 @@ def _rip_contract(
         "overallRipVersion": None, "financialRipVersion": None, "collectorAppealVersion": None,
         "expectedValue": None, "medianValue": None, "p05Value": None,
         "p95Value": None, "p99Value": None, "chanceToRecoverCost": None,
+        "topOneOutcomeValueShare": None,
         "expectedLossWhenLosing": None, "medianLossWhenLosing": None,
         "totalValueToCostRatio": None,
         "entertainmentCost": None, "composition": None,
@@ -429,6 +431,11 @@ def _rip_contract(
         "p95Value": detail.get("p95_value"),
         "p99Value": detail.get("p99_value"),
         "chanceToRecoverCost": detail.get("chance_to_recover_cost"),
+        # Top 1% Value Share — from the SAME focal product's own calculation
+        # run (this `detail` row), never the card-attribution top1EvShare.
+        "topOneOutcomeValueShare": (
+            (detail.get("financial_rip_v3_payload") or {}).get("distributionDisclosures") or {}
+        ).get("jackpotValueShare"),
         "expectedLossWhenLosing": detail.get("expected_loss_when_losing"),
         "medianLossWhenLosing": detail.get("median_loss_when_losing"),
         "totalValueToCostRatio": detail.get("total_value_to_cost_ratio"),

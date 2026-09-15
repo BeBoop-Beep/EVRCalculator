@@ -1029,3 +1029,30 @@ def test_the_large_chase_table_is_not_in_the_decision_contract():
     contract = build_sealed_product_decision_contract([_scored_row()])
     assert "chaseEconomics" not in contract
     assert "chaseEconomics" not in contract["products"][0]
+
+
+def test_product_decision_row_exposes_top1_outcome_value_share_bound_to_its_own_run():
+    row = _product_row(
+        financial_rip_v3_payload={"distributionDisclosures": {"jackpotValueShare": 0.0623}},
+    )
+    decision_row = service._product_decision_row(row)
+    assert decision_row["topOneOutcomeValueShare"] == 0.0623
+    assert decision_row["sourceCalculationRunId"] == RUN_A
+
+
+def test_product_decision_row_top1_outcome_value_share_none_when_payload_absent():
+    row = _product_row()
+    row.pop("financial_rip_v3_payload", None)
+    decision_row = service._product_decision_row(row)
+    assert decision_row["topOneOutcomeValueShare"] is None
+
+
+def test_product_decision_row_never_reads_card_attribution_top1_ev_share():
+    row = _product_row(
+        financial_rip_v3_payload={
+            "distributionDisclosures": {"jackpotValueShare": 0.01},
+            "depthAndRobustness": {"top1EvShare": 0.99},
+        },
+    )
+    decision_row = service._product_decision_row(row)
+    assert decision_row["topOneOutcomeValueShare"] == 0.01

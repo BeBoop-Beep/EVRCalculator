@@ -440,6 +440,32 @@ def test_overall_product_rankings_projection_carries_chase_accessibility_at_plus
     assert plus["rows"][0]["chaseAccessibility"]["value"] == 0.002
 
 
+def test_plus_product_ranking_fields_include_opening_profile_bucket1_metrics():
+    row = {
+        "sealedProductId": "sp-1", "modeledReturnRatio": 1.4, "modeledReturnPercent": 140.0,
+        "medianValue": 12.5, "chanceToRecoverCost": 0.6, "topOneOutcomeValueShare": 0.03,
+        "averageReturn": 1.2,
+    }
+    payload = {"available": True, "reason": None, "selectedBudget": None, "availableBudgets": [], "cohortSize": 1, "rows": [row]}
+    result = project_product_rankings_response(payload, plan=INDEX_PLAN_PLUS)
+    projected_row = result["rows"][0]
+    for field in ("modeledReturnRatio", "medianValue", "chanceToRecoverCost", "topOneOutcomeValueShare", "averageReturn"):
+        assert field in projected_row, field
+
+
+def test_basic_plan_strips_opening_profile_bucket1_metrics():
+    row = {
+        "sealedProductId": "sp-1", "modeledReturnRatio": 1.4, "medianValue": 12.5,
+        "chanceToRecoverCost": 0.6, "topOneOutcomeValueShare": 0.03, "averageReturn": 1.2,
+    }
+    payload = {"available": True, "reason": None, "selectedBudget": None, "availableBudgets": [], "cohortSize": 1, "rows": [row]}
+    result = project_product_rankings_response(payload, plan=None)
+    projected_row = result["rows"][0]
+    for field in ("modeledReturnRatio", "medianValue", "chanceToRecoverCost", "topOneOutcomeValueShare", "averageReturn"):
+        assert field not in projected_row, field
+    assert "sealedProductId" in projected_row
+
+
 def test_base_set_page_projection_cannot_see_v12_or_v10_intelligence():
     payload = {"target": {}, "set": {}, "meta": {}, **_rankings_target()}
     result = project_set_page_response(payload, plan=None)

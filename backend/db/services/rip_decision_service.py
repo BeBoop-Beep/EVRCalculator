@@ -242,6 +242,14 @@ def _product_decision_row(row: Mapping[str, Any]) -> Dict[str, Any]:
         "marketPrice": market_price,
         **metrics,
         "typicalOpening": _optional_float(row.get("median_value")),
+        # Top 1% Value Share — bound to THIS row's own calculation_run_id via
+        # its own financial_rip_v3_payload column. Never the card-attribution
+        # depthAndRobustness.top1EvShare metric.
+        "topOneOutcomeValueShare": _optional_float(
+            ((row.get("financial_rip_v3_payload") or {}).get("distributionDisclosures") or {}).get(
+                "jackpotValueShare"
+            )
+        ),
         "chanceToRecoverCost": _optional_float(row.get("chance_to_recover_cost")),
         "expectedLossWhenLosing": _optional_float(row.get("expected_loss_when_losing")),
         "financialRipScore": _optional_float(row.get("financial_rip_v4_score")),

@@ -311,6 +311,36 @@ def test_budget_tier_is_a_score_tier_not_a_rank_percentile():
     assert top["budgetTier"] != "S"
 
 
+def test_score_budget_strategy_exposes_top1_outcome_value_share_from_v3_distribution_disclosures():
+    from backend.calculations.evr.financial_rip_v3 import build_financial_rip_v3
+
+    values = np.array([0.0] * 970 + [50.0] * 20 + [5000.0] * 10, dtype=float)
+    result = bnpr.score_budget_strategy(values, 100.0, 50.0, min_simulation_count=1)
+    v3_payload = build_financial_rip_v3(values, 100.0, min_simulation_count=1)
+    assert result["topOneOutcomeValueShare"] == v3_payload["distributionDisclosures"]["jackpotValueShare"]
+    assert result["topOneOutcomeValueShare"] is not None
+
+
+def test_score_budget_strategy_top1_outcome_value_share_is_not_the_card_attribution_metric():
+    from backend.calculations.evr.financial_rip_v3 import build_financial_rip_v3
+
+    values = np.array([0.0] * 970 + [50.0] * 20 + [5000.0] * 10, dtype=float)
+    result = bnpr.score_budget_strategy(values, 100.0, 50.0, min_simulation_count=1)
+    v3_payload = build_financial_rip_v3(values, 100.0, min_simulation_count=1)
+    depth_top1_ev_share = (v3_payload.get("depthAndRobustness") or {}).get("top1EvShare")
+    assert "topOneOutcomeValueShare" in result
+    assert result["topOneOutcomeValueShare"] == v3_payload["distributionDisclosures"]["jackpotValueShare"]
+    if depth_top1_ev_share is not None:
+        assert result["topOneOutcomeValueShare"] != depth_top1_ev_share
+
+
+def test_score_budget_strategy_average_return_uses_committed_capital_not_target_budget():
+    values = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0])
+    result = bnpr.score_budget_strategy(values, 48.0, 60.0, min_simulation_count=1)
+    assert result["averageReturn"] == result["expectedValue"] / 48.0
+    assert result["averageReturn"] != result["expectedValue"] / 50.0
+
+
 def test_score_budget_strategy_omits_v12_by_default_with_zero_behavior_change():
     """Existing callers that never pass `chase_accessibility_raw` must see
     byte-identical V10/V4 output - the V12 shadow addition is purely additive."""
