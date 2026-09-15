@@ -10,8 +10,8 @@
 0 6 * * * cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/publish_post_scrape_if_needed.py >> /home/ubuntu/repos/EVRCalculator/backend/logs/rebuild_snapshots_after_scrape.cron.log 2>&1
 
 # Pokemon set onboarding
-*/5 22-23,0 * * * /usr/bin/flock -n /tmp/pokemon-set-onboarding.lock /home/ubuntu/bin/run_pokemon_onboarding_worker.sh commit >> /home/ubuntu/logs/pokemon_set_onboarding.log 2>&1
-0-30/5 1 * * * /usr/bin/flock -n /tmp/pokemon-set-onboarding.lock /home/ubuntu/bin/run_pokemon_onboarding_worker.sh commit >> /home/ubuntu/logs/pokemon_set_onboarding.log 2>&1
+*/5 5-7 * * * /usr/bin/flock -n /tmp/pokemon-set-onboarding.lock /home/ubuntu/bin/run_pokemon_onboarding_worker.sh commit >> /home/ubuntu/logs/pokemon_set_onboarding.log 2>&1
+0-30/5 8 * * * /usr/bin/flock -n /tmp/pokemon-set-onboarding.lock /home/ubuntu/bin/run_pokemon_onboarding_worker.sh commit >> /home/ubuntu/logs/pokemon_set_onboarding.log 2>&1
 
 # Market Explorer maintained caches
 5-59/15 * * * * /usr/bin/flock -n /tmp/market-explorer-prewarm.lock sh -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.run_market_explorer_maintained_cache_prewarm --commit' >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_explorer_prewarm.log 2>&1
