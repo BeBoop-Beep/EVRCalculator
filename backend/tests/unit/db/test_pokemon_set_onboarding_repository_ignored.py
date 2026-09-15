@@ -25,6 +25,14 @@ class _FakeQuery:
         self._recorder[column] = list(values)
         return self
 
+    def or_(self, expression):
+        self._recorder["or_"] = expression
+        return self
+
+    def update(self, payload):
+        self._recorder["update_payload"] = payload
+        return self
+
     def execute(self):
         return type("R", (), {"data": self._rows})()
 
@@ -46,6 +54,41 @@ def test_worker_queue_read_never_requests_ignored_status(monkeypatch):
 
     assert BASELINE_STATUS not in recorder["status"]
     assert recorder["status"] == ["detected", "ready", "retry", "waiting", "manual_review"]
+
+
+def test_due_only_filters_on_next_attempt_at(monkeypatch):
+    recorder: dict = {}
+    monkeypatch.setattr(repo, "supabase", _FakeSupabase(recorder, []))
+
+    repo.list_jobs(include_waiting=True, due_only=True)
+
+    assert "or_" in recorder
+    assert "next_attempt_at.is.null" in recorder["or_"]
+    assert "next_attempt_at.lte." in recorder["or_"]
+
+
+def test_due_only_false_does_not_filter(monkeypatch):
+    recorder: dict = {}
+    monkeypatch.setattr(repo, "supabase", _FakeSupabase(recorder, []))
+
+    repo.list_jobs(include_waiting=True)
+
+    assert "or_" not in recorder
+
+
+def test_update_claimed_strict_raises_on_zero_rows(monkeypatch):
+    monkeypatch.setattr(repo, "supabase", _FakeSupabase({}, []))
+    try:
+        repo.update_claimed("job-1", "worker-1", {"status": "ready"}, strict=True)
+    except repo.LeaseFencingError:
+        pass
+    else:
+        raise AssertionError("expected LeaseFencingError on a zero-row fenced update")
+
+
+def test_update_claimed_non_strict_returns_none_on_zero_rows(monkeypatch):
+    monkeypatch.setattr(repo, "supabase", _FakeSupabase({}, []))
+    assert repo.update_claimed("job-1", "worker-1", {"status": "ready"}) is None
 
 
 def test_identity_statuses_expose_baseline_rows_to_discovery(monkeypatch):

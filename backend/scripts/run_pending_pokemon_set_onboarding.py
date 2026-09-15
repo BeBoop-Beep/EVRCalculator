@@ -82,6 +82,7 @@ def main() -> int:
         candidate_ids = [
             str(row["id"]) for row in repository.list_jobs(
                 include_waiting=True, include_manual_review=args.force_retry, limit=max_jobs,
+                due_only=True,
             )
         ]
     else:
@@ -90,7 +91,7 @@ def main() -> int:
     for candidate_id in candidate_ids[:max_jobs]:
         job = repository.claim_next(
             args.worker_id, max(60, args.lease_seconds), job_id=candidate_id,
-            force_retry=args.force_retry or args.resume_all,
+            force_retry=args.force_retry,
         )
         if not job:
             continue
@@ -150,7 +151,7 @@ def main() -> int:
                 fields = None
                 exit_code = 2
             if fields is not None:
-                repository.update_claimed(str(job["id"]), args.worker_id, fields)
+                repository.update_claimed(str(job["id"]), args.worker_id, fields, strict=True)
             results.append({"job_id": job["id"], "step": original_step, "outcome": outcome.__dict__})
             if args.through_step == original_step:
                 break

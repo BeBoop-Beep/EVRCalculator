@@ -8,6 +8,10 @@ from ..clients.supabase_client import supabase
 TABLE = "pokemon_set_onboarding_jobs"
 
 
+class LeaseFencingError(RuntimeError):
+    """Raised when a worker-fenced update affected zero rows: the lease was lost or stolen."""
+
+
 def list_source_identities(source_system: str = "tcgplayer") -> set[str]:
     response = supabase.table(TABLE).select("source_set_id").eq("source_system", source_system).execute()
     return {str(row["source_set_id"]) for row in (response.data or []) if row.get("source_set_id")}
@@ -84,13 +88,27 @@ def heartbeat(job_id: str, worker_id: str, lease_seconds: int = 1800) -> Optiona
     return (response.data or [None])[0]
 
 
-def update_claimed(job_id: str, worker_id: str, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def update_claimed(
+    job_id: str, worker_id: str, fields: Dict[str, Any], *, strict: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """Fenced update: only succeeds while this worker still owns the running lease.
+
+    A zero-row result means the lease was lost, stolen, or already released. With
+    strict=True (the primary state-transition write) that is treated as a hard
+    failure rather than silently accepted as success.
+    """
     payload = {**fields, "updated_at": datetime.now(timezone.utc).isoformat()}
     response = (
         supabase.table(TABLE).update(payload).eq("id", job_id)
         .eq("status", "running").eq("worker_id", worker_id).execute()
     )
-    return (response.data or [None])[0]
+    result = (response.data or [None])[0]
+    if strict and result is None:
+        raise LeaseFencingError(
+            f"update_claimed affected 0 rows for job {job_id} (worker {worker_id}); "
+            "lease was lost, stolen, or already released"
+        )
+    return result
 
 
 def get_job(job_id: str) -> Optional[Dict[str, Any]]:
@@ -100,16 +118,25 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
 
 def list_jobs(
     *, include_waiting: bool = False, include_manual_review: bool = False, limit: int = 25,
+    due_only: bool = False,
 ) -> list[Dict[str, Any]]:
+    """List candidate jobs.
+
+    due_only=True restricts to rows whose next_attempt_at has passed (or is unset,
+    e.g. a freshly detected job). Use it for unattended/scheduled resumption so a
+    scheduled sweep cannot fire a job's next_attempt_at backoff early; leave it
+    False for an operator's explicit --job-id lookup.
+    """
     statuses = ["detected", "ready", "retry"]
     if include_waiting:
         statuses.append("waiting")
     if include_manual_review:
         statuses.append("manual_review")
-    response = (
-        supabase.table(TABLE).select("*").in_("status", statuses)
-        .order("next_attempt_at").limit(max(1, limit)).execute()
-    )
+    query = supabase.table(TABLE).select("*").in_("status", statuses)
+    if due_only:
+        now = datetime.now(timezone.utc).isoformat()
+        query = query.or_(f"next_attempt_at.is.null,next_attempt_at.lte.{now}")
+    response = query.order("next_attempt_at").limit(max(1, limit)).execute()
     return response.data or []
 
 

@@ -1,4 +1,5 @@
 from backend.scripts import run_pending_pokemon_set_onboarding as script
+from backend.db.repositories.pokemon_set_onboarding_repository import LeaseFencingError
 from types import SimpleNamespace
 
 
@@ -27,6 +28,68 @@ def test_lost_ownership_prevents_success_update(monkeypatch):
     )())
     monkeypatch.setattr("sys.argv", ["worker", "--commit"])
     assert script.main() == 2
+
+
+def test_zero_row_update_during_persist_is_treated_as_failure(monkeypatch):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    monkeypatch.setattr(script.repository, "claim_next", lambda *a, **k: job())
+
+    def strict_update_claimed(_job_id, _worker_id, _fields, *, strict=False):
+        if strict:
+            raise LeaseFencingError("simulated lease loss during persist")
+        return None
+
+    monkeypatch.setattr(script.repository, "update_claimed", strict_update_claimed)
+    released = []
+    monkeypatch.setattr(
+        script.repository, "release_for_retry",
+        lambda job_id, worker_id, **k: released.append((job_id, k.get("code"))),
+    )
+    monkeypatch.setattr(script, "queue_alert", lambda *a, **k: None)
+
+    class Healthy:
+        def __init__(self, *a, **k):
+            self.lost_ownership, self.failure, self.count = False, None, 1
+        def __enter__(self): return self
+        def __exit__(self, *a): return None
+
+    monkeypatch.setattr(script, "LeaseHeartbeat", Healthy)
+    monkeypatch.setattr(script.OnboardingEngine, "run_step", lambda self, job: type(
+        "O", (), {"kind": "advance", "step": "market_snapshots", "evidence": {}, "error_code": None}
+    )())
+    monkeypatch.setattr("sys.argv", ["worker", "--commit"])
+    assert script.main() == 2
+    assert released and released[0][1] == "unhandled_worker_error"
+
+
+def test_resume_all_alone_does_not_force_retry_manual_review_jobs(monkeypatch):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    seen_list_jobs_kwargs = {}
+
+    def list_jobs(**kwargs):
+        seen_list_jobs_kwargs.update(kwargs)
+        return []
+
+    monkeypatch.setattr(script.repository, "list_jobs", list_jobs)
+    monkeypatch.setattr("sys.argv", ["worker", "--commit", "--resume-all"])
+    assert script.main() == 0
+    assert seen_list_jobs_kwargs["include_manual_review"] is False
+    assert seen_list_jobs_kwargs["due_only"] is True
+
+
+def test_resume_all_does_not_force_retry_claim(monkeypatch):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    monkeypatch.setattr(script.repository, "list_jobs", lambda **k: [job()])
+    seen_claim_kwargs = {}
+
+    def claim_next(_worker_id, _lease_seconds, **kwargs):
+        seen_claim_kwargs.update(kwargs)
+        return None
+
+    monkeypatch.setattr(script.repository, "claim_next", claim_next)
+    monkeypatch.setattr("sys.argv", ["worker", "--commit", "--resume-all"])
+    assert script.main() == 0
+    assert seen_claim_kwargs["force_retry"] is False
 
 
 def test_dry_run_never_heartbeats(monkeypatch):
@@ -60,7 +123,7 @@ def test_more_than_eight_successful_real_runner_claims_complete_without_attempt_
         state["worker_id"] = worker_id
         return dict(state)
 
-    def update_claimed(_job_id, _worker_id, fields):
+    def update_claimed(_job_id, _worker_id, fields, **_kwargs):
         state.update(fields)
         return dict(state)
 
