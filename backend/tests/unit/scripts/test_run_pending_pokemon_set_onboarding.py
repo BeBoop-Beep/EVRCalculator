@@ -1,3 +1,5 @@
+import json
+
 from backend.scripts import run_pending_pokemon_set_onboarding as script
 from backend.db.repositories.pokemon_set_onboarding_repository import LeaseFencingError
 from types import SimpleNamespace
@@ -90,6 +92,83 @@ def test_resume_all_does_not_force_retry_claim(monkeypatch):
     monkeypatch.setattr("sys.argv", ["worker", "--commit", "--resume-all"])
     assert script.main() == 0
     assert seen_claim_kwargs["force_retry"] is False
+
+
+def test_max_jobs_is_clamped_to_ceiling(monkeypatch, capsys):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    monkeypatch.setattr(script.repository, "list_jobs", lambda **k: [])
+    monkeypatch.setattr(
+        "sys.argv", ["worker", "--dry-run", "--max-jobs", str(script.MAX_JOBS_CEILING * 10)],
+    )
+    assert script.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["bounds"]["max_jobs"] == script.MAX_JOBS_CEILING
+
+
+def test_dry_run_bounds_are_visible_in_json_output(monkeypatch, capsys):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    monkeypatch.setattr(script.repository, "list_jobs", lambda **k: [job()])
+    monkeypatch.setattr(script.OnboardingEngine, "run_step", lambda self, job: type(
+        "O", (), {"__dict__": {"kind": "wait"}}
+    )())
+    monkeypatch.setattr("sys.argv", ["worker", "--dry-run", "--max-jobs", "1"])
+    assert script.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["bounds"] == {
+        "max_jobs": 1, "max_jobs_ceiling": script.MAX_JOBS_CEILING,
+        "jobs_processed": 1, "bound_reached": True,
+    }
+
+
+def test_commit_bounds_report_reached_when_max_jobs_hit(monkeypatch, capsys):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    monkeypatch.setattr(script.repository, "claim_next", lambda *a, **k: job())
+    monkeypatch.setattr(script.repository, "update_claimed", lambda *a, **k: dict(job()))
+    monkeypatch.setattr(script.OnboardingEngine, "run_step", lambda self, job: type(
+        "O", (), {"kind": "advance", "step": "market_snapshots", "evidence": {}, "error_code": None}
+    )())
+
+    class Healthy:
+        def __init__(self, *a, **k):
+            self.lost_ownership, self.failure, self.count = False, None, 1
+        def __enter__(self): return self
+        def __exit__(self, *a): return None
+
+    monkeypatch.setattr(script, "LeaseHeartbeat", Healthy)
+    monkeypatch.setattr("sys.argv", ["worker", "--commit", "--max-jobs", "1"])
+    assert script.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["bounds"]["jobs_claimed"] == 1
+    assert payload["bounds"]["bound_reached"] is True
+    assert payload["bounds"]["max_jobs"] == 1
+
+
+def test_commit_bounds_report_not_reached_when_queue_smaller_than_max_jobs(monkeypatch, capsys):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    calls = {"count": 0}
+
+    def claim_next(*_a, **_k):
+        calls["count"] += 1
+        return job() if calls["count"] == 1 else None
+
+    monkeypatch.setattr(script.repository, "claim_next", claim_next)
+    monkeypatch.setattr(script.repository, "update_claimed", lambda *a, **k: dict(job()))
+    monkeypatch.setattr(script.OnboardingEngine, "run_step", lambda self, job: type(
+        "O", (), {"kind": "advance", "step": "market_snapshots", "evidence": {}, "error_code": None}
+    )())
+
+    class Healthy:
+        def __init__(self, *a, **k):
+            self.lost_ownership, self.failure, self.count = False, None, 1
+        def __enter__(self): return self
+        def __exit__(self, *a): return None
+
+    monkeypatch.setattr(script, "LeaseHeartbeat", Healthy)
+    monkeypatch.setattr("sys.argv", ["worker", "--commit", "--max-jobs", "5"])
+    assert script.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["bounds"]["jobs_claimed"] == 1
+    assert payload["bounds"]["bound_reached"] is False
 
 
 def test_dry_run_never_heartbeats(monkeypatch):

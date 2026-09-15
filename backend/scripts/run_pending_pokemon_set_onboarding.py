@@ -21,6 +21,13 @@ from backend.scripts.run_pokemon_set_scrape import _load_backend_env
 from backend.services.pokemon_set_onboarding_service import OnboardingEngine, STEP_ORDER
 from backend.services.pokemon_onboarding_heartbeat import LeaseHeartbeat
 
+# Hard ceiling on --max-jobs: this runner claims and advances at most one step per job
+# per invocation (no internal retry/advance loop), so distinct-jobs-per-invocation is
+# the only knob that controls how long a single run can take. Keep it small enough that
+# a mistaken or malicious --max-jobs value can't turn one invocation into an unbounded
+# drain of the whole queue.
+MAX_JOBS_CEILING = 25
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
@@ -60,7 +67,7 @@ def main() -> int:
     engine = OnboardingEngine(
         execute=args.commit, no_git=args.no_git, pull_rates_file=args.pull_rates_file,
     )
-    max_jobs = max(1, args.max_jobs)
+    max_jobs = min(MAX_JOBS_CEILING, max(1, args.max_jobs))
     if args.dry_run:
         # Read-only by contract: do not claim, heartbeat, requeue, or update anything.
         jobs = [repository.get_job(args.job_id)] if args.job_id else repository.list_jobs(
@@ -70,7 +77,11 @@ def main() -> int:
         for job in [row for row in jobs if row]:
             outcome = engine.run_step(job)
             results.append({"job_id": job["id"], "current_step": job["current_step"], "outcome": outcome.__dict__})
-        print(json.dumps({"mode": "dry_run", "jobs": results}, indent=2, default=str))
+        bounds = {
+            "max_jobs": max_jobs, "max_jobs_ceiling": MAX_JOBS_CEILING,
+            "jobs_processed": len(results), "bound_reached": len(results) >= max_jobs,
+        }
+        print(json.dumps({"mode": "dry_run", "bounds": bounds, "jobs": results}, indent=2, default=str))
         return 0
 
     results = []
@@ -88,6 +99,7 @@ def main() -> int:
     else:
         candidate_ids = [None] * max_jobs
 
+    claimed_count = 0
     for candidate_id in candidate_ids[:max_jobs]:
         job = repository.claim_next(
             args.worker_id, max(60, args.lease_seconds), job_id=candidate_id,
@@ -95,6 +107,7 @@ def main() -> int:
         )
         if not job:
             continue
+        claimed_count += 1
         original_step = str(job["current_step"])
         try:
             with LeaseHeartbeat(
@@ -166,7 +179,15 @@ def main() -> int:
             )
             results.append({"job_id": job["id"], "error": str(exc)})
             exit_code = 2
-    print(json.dumps({"mode": "commit", "jobs": results}, indent=2, default=str))
+    bounds = {
+        "max_jobs": max_jobs, "max_jobs_ceiling": MAX_JOBS_CEILING,
+        "candidates_considered": len(candidate_ids[:max_jobs]), "jobs_claimed": claimed_count,
+        # bound_reached=True means this invocation stopped because it hit its own
+        # distinct-job cap, not because the queue is drained; a caller must not read a
+        # clean exit_code here as "onboarding pipeline complete."
+        "bound_reached": claimed_count >= max_jobs,
+    }
+    print(json.dumps({"mode": "commit", "bounds": bounds, "jobs": results}, indent=2, default=str))
     return exit_code
 
 

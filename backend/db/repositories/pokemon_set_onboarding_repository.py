@@ -116,18 +116,39 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
     return (response.data or [None])[0]
 
 
+# Statuses runnable without an explicit resume sweep. Ordered ahead of waiting/manual_review
+# so an old waiting row can never repeatedly out-rank newer runnable work.
+_RUNNABLE_STATUSES = ("detected", "ready", "retry")
+
+# Internal fetch cap for the priority sort below: large enough that a realistic backlog of
+# waiting/manual_review rows can never push a runnable row off the page before Python gets
+# to re-rank it, but still bounded so a pathological backlog can't turn this into a full
+# table scan.
+_LIST_JOBS_FETCH_CAP = 500
+
+
+def _priority_class(status: Any) -> int:
+    return 0 if status in _RUNNABLE_STATUSES else 1
+
+
 def list_jobs(
     *, include_waiting: bool = False, include_manual_review: bool = False, limit: int = 25,
     due_only: bool = False,
 ) -> list[Dict[str, Any]]:
-    """List candidate jobs.
+    """List candidate jobs, ranked so runnable work is never starved by older waiting rows.
 
     due_only=True restricts to rows whose next_attempt_at has passed (or is unset,
     e.g. a freshly detected job). Use it for unattended/scheduled resumption so a
     scheduled sweep cannot fire a job's next_attempt_at backoff early; leave it
     False for an operator's explicit --job-id lookup.
+
+    Ranking is (priority_class, next_attempt_at, id): detected/ready/retry always sort
+    ahead of waiting/manual_review regardless of how old the waiting row's
+    next_attempt_at is, so a stale waiting job can never repeatedly win selection over
+    newer runnable work. This is a read-side re-rank only; next_attempt_at itself is
+    never rewritten here.
     """
-    statuses = ["detected", "ready", "retry"]
+    statuses = list(_RUNNABLE_STATUSES)
     if include_waiting:
         statuses.append("waiting")
     if include_manual_review:
@@ -136,8 +157,12 @@ def list_jobs(
     if due_only:
         now = datetime.now(timezone.utc).isoformat()
         query = query.or_(f"next_attempt_at.is.null,next_attempt_at.lte.{now}")
-    response = query.order("next_attempt_at").limit(max(1, limit)).execute()
-    return response.data or []
+    response = query.order("next_attempt_at").limit(_LIST_JOBS_FETCH_CAP).execute()
+    rows = response.data or []
+    rows.sort(key=lambda row: (
+        _priority_class(row.get("status")), row.get("next_attempt_at") or "", str(row.get("id") or ""),
+    ))
+    return rows[:max(1, limit)]
 
 
 def release_for_retry(
