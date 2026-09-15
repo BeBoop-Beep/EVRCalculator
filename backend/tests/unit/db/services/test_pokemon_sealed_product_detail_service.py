@@ -374,6 +374,39 @@ def test_comparisons_are_bounded_exclude_current_and_same_family_never_crosses_f
     assert payload["comparisons"]["sameSet"][0]["href"] == "/sealed-products/p2"
 
 
+def test_comparison_row_carries_bucket2_surface4_metrics_from_the_same_ranking_row():
+    """Bucket 2 Surface 4: This Set / Same Format comparison rows must expose
+    Average Return, Typical Opening, Covers Cost and Top 1% Value Share
+    sourced from the SAME already-fetched published ranking row every other
+    comparison field already reads - no second query, never top1EvShare."""
+    candidate_ranking = {
+        **ranking("p2"),
+        "modeledReturnPercent": 62.5,
+        "medianValue": 70,
+        "chanceToRecoverCost": 0.25,
+        "topOneOutcomeValueShare": 0.0555,
+    }
+    row = service._comparison_row(
+        {"id": "p2", "name": "Alpha Elite Trainer Box", "product_type": "box"},
+        "booster_box", {"currentPrice": 50, "marketDate": "2026-08-28"}, candidate_ranking,
+    )
+    assert row["modeledReturnPercent"] == 62.5
+    assert row["typicalOpening"] == 70
+    assert row["chanceToRecoverCost"] == 0.25
+    assert row["topOneOutcomeValueShare"] == 0.0555
+
+
+def test_comparison_row_without_a_published_ranking_stays_unavailable_not_zero():
+    row = service._comparison_row(
+        {"id": "p2", "name": "Alpha Elite Trainer Box", "product_type": "box"},
+        "booster_box", {"currentPrice": 50, "marketDate": "2026-08-28"}, None,
+    )
+    assert row["modeledReturnPercent"] is None
+    assert row["typicalOpening"] is None
+    assert row["chanceToRecoverCost"] is None
+    assert row["topOneOutcomeValueShare"] is None
+
+
 def test_unknown_product_is_404():
     with pytest.raises(service.PokemonSealedProductDetailError) as caught:
         service.get_pokemon_sealed_product_detail_payload("missing", Client(fixture_data()))

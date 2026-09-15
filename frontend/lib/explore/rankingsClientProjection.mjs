@@ -132,7 +132,16 @@ const BLOCK_LEAVES = Object.freeze({
   overallRipV12Composition: ["version", "inputs", "weights", "effectiveWeights"],
   chaseAccessibility: ["value", "percent", "status", "statusReason", "version", "chaseDepth", "mappedHcMass", "publicScore", "modelScore", "setRank", "setCohortSize", "cohortId", "publicQuestion", "technicalTooltip"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],
-  financialRipV4: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
+  // `distributionDisclosures` is added ONLY so `topOneOutcomeValueShare` (Set
+  // Financial Rankings' Top 1% Value Share column) can read
+  // `financialRipV4.distributionDisclosures.jackpotValueShare` — the SAME
+  // per-row object `_build_financial_rip_v4` already computes server-side for
+  // every target's financialRipV4 block (backend/db/services/
+  // explore_rip_statistics_service.py). This is a client-boundary projection
+  // widening only: no new backend query, no per-row fetch. Never project
+  // `depthAndRobustness` here (that block carries `top1EvShare`, the decoy
+  // field Bucket 1 explicitly forbids).
+  financialRipV4: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason", "distributionDisclosures"],
   universalSetDesirability: ["score", "rank", "rankedSetCount"],
   rankingsChase: ["cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"],
   topChase: ["cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"],

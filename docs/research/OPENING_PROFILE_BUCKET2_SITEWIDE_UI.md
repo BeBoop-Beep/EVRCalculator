@@ -1,6 +1,165 @@
-# Opening Profile Bucket 2 — Sitewide UI Pass — STATUS: PARTIAL (1 of 4 surfaces implemented)
+# Opening Profile Bucket 2 — Sitewide UI Pass — STATUS: COMPLETE (4 of 4 non-budget surfaces implemented)
 
-## Honest summary
+## Update (this pass)
+
+Surfaces 1, 2 and 4 — previously deferred/not-attempted — are now
+implemented and tested. See
+`docs/research/OPENING_PROFILE_BUCKET1_PART_A_SET_RANKINGS_REPAIR.md` for
+the Part A backend/data-source correction that unblocked Surface 1: the
+prior pass's claim that `jackpotValueShare` was never selected into the bulk
+cohort was wrong — it was already computed server-side into every row's
+`financialRipV4.distributionDisclosures`, just never projected across the
+RSC client boundary. Surface 3 was re-run this pass (unmodified) and its
+existing 52 tests plus the file's full-directory 55 all still pass.
+
+Product Rankings' budget-strategy leg remains untouched and
+**BLOCKED_ON_PREPARED_BUDGET_DB**, exactly as before.
+
+## Surface 1 — Set Financial Rankings — IMPLEMENTED
+
+Files: `frontend/lib/explore/rankingsClientProjection.mjs`,
+`frontend/components/explore/setMetricRankingSelectors.mjs`,
+`frontend/components/explore/SetMetricRankingsTable.jsx`.
+
+Added a "Top 1% Value Share" column to the Financial rankings table
+(desktop + mobile), sourced via `readFinancialSetRanking(target)` ->
+`target.financialRipV4.distributionDisclosures.jackpotValueShare`. Full
+detail in the Part A doc. Existing columns (Expected Value, Typical Opening,
+Modeled Return, Chance to Beat Cost) and rank order are unchanged.
+
+Tests: `SetMetricRankings.contract.test.mjs` (12 tests, was 8) and
+`rankingsClientProjection.test.mjs` (21 tests, was 20) — see Part A doc for
+the specific new assertions. Both files: 100% pass.
+
+## Surface 2 — Set RIP Product Comparison — IMPLEMENTED
+
+File: `frontend/components/explore/RipDecisionPage.jsx`
+(`ComparisonTableRow`, `ComparisonMobileRow`, and the `compare-products`
+desktop `<thead>`), data already present on `rip_decision_service.py`'s
+`_product_decision_row()` (`modeledReturnPercent`, `topOneOutcomeValueShare`,
+`typicalOpening`, `chanceToRecoverCost` — all wired in Bucket 1, confirmed
+unchanged this pass).
+
+### Before -> after desktop columns (9 columns, both versions)
+
+Before: Product Rank | Product | RIP Score | Tier | Market Price | $ / Pack |
+Typical Back | Entertainment Cost | Recover Cost
+
+After: Product Rank | Product | RIP Score **+ Tier (combined cell)** |
+Price **+ $/Pack (combined cell)** | Average Return | Typical Opening |
+Covers Cost | Top 1% Value Share | Entertainment Cost
+
+RIP Score + Tier now render together (`RipScoreBadge` stacked above
+`RipTierMark`) in one `<td>`; Market Price + $/Pack render together (price,
+with per-pack price as a `<small>` sub-line) in one `<td>`. This keeps the
+table at exactly 9 `<th>`/`<td>` columns while adding Average Return and Top
+1% Value Share, per the task's column budget. "Recover Cost" was relabeled
+"Covers Cost" to match the canonical Bucket 2 vocabulary (same field,
+`product.chanceToRecoverCost`, unchanged).
+
+Mobile (`ComparisonMobileRow`): unchanged structural pattern (identity card
++ locked-value `dl` rows) with two new rows — "Average Return" and "Top 1%
+Value Share" — inserted, and "Recover Cost" relabeled "Covers Cost". Market
+Price / $ / Pack remain in their own unlocked `dl` rows exactly as before
+(still public, never behind `LockedValue`, matching the pre-existing
+entitlement contract).
+
+Entitlement: unchanged. All four newly-added/relabeled analytical cells
+(`RIP Score/Tier`, `Average Return`, `Typical Opening`, `Covers Cost`, `Top
+1% Value Share`, `Entertainment Cost`) stay wrapped in the same
+`LockedValue canView={canView}` used before; `Product`, `Product Rank`
+identity link, and `Price` (Market Price + $/Pack) remain public, matching
+the pre-existing "mobile keeps public identity and market price while
+locking all analytical rows" contract, which still passes unmodified.
+
+Test: `RipDecisionPage.productComparison.contract.test.mjs`, rewritten to
+lock the new 9-column contract and to assert the combined cells and the two
+new fields' exact source expressions (`product.modeledReturnPercent`,
+`product.topOneOutcomeValueShare`, never `product.top1EvShare`). 6/6 pass.
+Also re-ran `RipDecisionPage.contract.test.mjs` + `ripDecisionContract.test.mjs`
+(40/40 pass, no regression).
+
+## Surface 3 — Product Detail — Opening Outcome Profile — RE-VERIFIED, unchanged
+
+No code changes this pass (a test proving a defect was the only condition
+that would have justified touching it; none was found).
+
+```
+cd frontend && node --test components/pokemon/sealed-product-detail/*.test.mjs
+# tests 55
+# pass 55
+# fail 0
+```
+(52 from the original implementation pass + 3 new from this pass's Surface 4
+test file in the same directory.)
+
+## Surface 4 — Product Detail This Set / Same Format comparisons — IMPLEMENTED
+
+Files: `backend/db/services/pokemon_sealed_product_detail_service.py`
+(`_comparison_row`), `frontend/components/pokemon/sealed-product-detail/ProductComparisonSection.jsx`.
+
+### Data flow trace (no new fetch, confirmed)
+
+`comparisonRows(detail, mode)` in `productDetailModel.mjs` already reads
+`detail.comparisons.sameFamily` / `detail.comparisons.sameSet` off the
+single cached detail payload — unchanged, still zero client-side fetches.
+
+On the backend, `_comparison_row()` builds each same-set/same-family row
+from `ranking_by_id.get(candidate_id)`, which is itself sourced from
+`_published_rankings(client)` -> the ALREADY-FETCHED
+`pokemon_explore_rankings_snapshot_latest` row, parsed once per page load
+(`publication["payload"]`) via `_ranking_rows()`. That per-product ranking
+dict is the exact `product_family_rankings_service.py` row shape, which
+already carries `modeledReturnPercent`, `medianValue`, `chanceToRecoverCost`,
+and `topOneOutcomeValueShare` (Bucket 1) — `_comparison_row()` simply was
+not copying those four fields into its output dict. This pass adds four
+lines copying them through, verbatim, with no new table read, no new
+`client.table()` call. `test_detail_payload_does_not_issue_extra_query_per_comparison_row`
+(pre-existing, asserts the `simulation_sealed_product_results` query fires
+exactly once regardless of comparison cohort size) still passes unmodified,
+confirming no query-count regression.
+
+### Frontend
+
+`ProductComparisonSection.jsx` renders a new `<dl data-comparison-opening-profile>`
+inside the existing `entitled && row.rankable` gated block (same gate RIP
+Score/Tier already use) showing Average Return (`percentPoints(row.modeledReturnPercent)`),
+Typical Opening (`money(row.typicalOpening)`), Covers Cost
+(`percent(row.chanceToRecoverCost)`), Top 1% Value Share
+(`percent(row.topOneOutcomeValueShare)`). Price (`money(row.currentPrice)`),
+compact RIP Score/Tier badge line, and Format Rank line are all unchanged.
+No fetch/await was introduced in this component.
+
+### Tests
+
+Backend: `test_pokemon_sealed_product_detail_service.py` — two new unit
+tests directly against the pure `_comparison_row()` function: one proving
+population when a ranking row carries the four fields, one proving they
+stay `None` (not zero/garbage) when no ranking row exists. 32/32 pass in
+the file (30 pre-existing + 2 new).
+
+Frontend: new file `ProductComparisonSection.contract.test.mjs` — asserts
+the four canonical field-read expressions are present, asserts the decoy
+`row.top1EvShare` never appears, asserts no `fetch(`/`await` was
+introduced, asserts the canonical label vocabulary, and asserts the new
+block sits inside the existing entitled+rankable gate. 3/3 pass.
+
+## Explicitly out of scope (unchanged)
+
+Product Rankings' budget-strategy leg remains **BLOCKED_ON_PREPARED_BUDGET_DB**
+— `score_budget_strategy()` computes `topOneOutcomeValueShare`/`averageReturn`
+but `budget_product_ranking_rows` has no DB columns for them yet. This pass
+did not touch Supabase/migrations/SQL/Best-Open/production. The non-budget
+Product Rankings table itself was not attempted (out of this task's stated
+scope), so no claim is made about it either way.
+
+## Original pass narrative (for history)
+
+The section below is preserved from the prior pass for audit trail. It
+describes the STATE BEFORE this pass's Surface 1/2/4 work; it is retained
+rather than deleted so the "what was deferred and why" reasoning remains
+visible, even though the Surface 1 conclusion in particular was later found
+to be based on an incorrect field-location read (see Part A doc).
 
 Of the four surfaces in scope, **only Surface 3 (Product Detail — Opening Outcome
 Profile) was implemented and tested this pass.** Surfaces 1, 2, and 4 were

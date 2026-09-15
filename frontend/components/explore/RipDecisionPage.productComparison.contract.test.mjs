@@ -8,10 +8,10 @@ const parent = fs.readFileSync(path.resolve("components/explore/RipStatisticsPag
 const primitives = fs.readFileSync(path.resolve("components/explore/RankedProductTablePrimitives.jsx"), "utf8");
 const comparison = source.slice(source.indexOf('data-rip-section="compare-products"'), source.indexOf('data-rip-section="chase-summary"'));
 
-test("Set Product Comparison locks the approved nine-column contract", () => {
+test("Set Product Comparison locks the approved nine-column Bucket 2 contract (RIP Score+Tier and Price+$/Pack combined, Average Return and Top 1% Value Share added)", () => {
   const head = comparison.slice(comparison.indexOf("<thead"), comparison.indexOf("</thead>"));
   const compactHead = head.replace(/\s+/g, " ");
-  const labels = ["Product Rank", ">Product</th>", "RIP Score", "Tier", "Market Price", "$ / Pack", "Typical Back", "Entertainment Cost", "Recover Cost"];
+  const labels = ["Product Rank", ">Product</th>", "RIP Score", "Price", "Average Return", "Typical Opening", "Covers Cost", "Top 1% Value Share", "Entertainment Cost"];
   let previous = -1;
   for (const label of labels) { const current = compactHead.indexOf(label); assert.ok(current > previous, label); previous = current; }
   assert.equal((head.match(/<th scope="col"/g) || []).length, 9);
@@ -19,6 +19,15 @@ test("Set Product Comparison locks the approved nine-column contract", () => {
   assert.ok(!comparison.includes("Overall Rank"));
   assert.ok(!comparison.includes("Opening Budget"));
   assert.ok(!comparison.includes("comparisonFamilyRow"));
+  // Combined cells: RIP Score + Tier render together, Price + $/pack render together
+  // (both inside ComparisonTableRow, the desktop row renderer this table invokes).
+  assert.match(source, /RipScoreBadge[\s\S]{0,200}RipTierMark/);
+  assert.match(source, /money\(product\.marketPrice\)[\s\S]{0,150}pricePerPack/);
+});
+test("Average Return and Top 1% Value Share read the canonical Bucket 1 product-row fields", () => {
+  assert.match(source, /product\.modeledReturnPercent/);
+  assert.match(source, /product\.topOneOutcomeValueShare/);
+  assert.ok(!source.includes("product.top1EvShare"));
 });
 
 test("Set Product Comparison reuses canonical Rankings presentation and access primitives", () => {
@@ -32,12 +41,13 @@ test("Set Product Comparison reuses canonical Rankings presentation and access p
 });
 
 test("Set economics remain sourced from the existing normalized product contract", () => {
-  for (const token of ["product.marketPrice", "product.packCount", "product.typicalOpening", "product.entertainmentCost.perPack", "product.chanceToRecoverCost"]) assert.ok(source.includes(token), token);
-  assert.ok(comparison.includes("Market Price"));
-  assert.ok(comparison.includes("$ / Pack"));
-  assert.ok(comparison.includes("Typical Back"));
+  for (const token of ["product.marketPrice", "product.packCount", "product.typicalOpening", "product.entertainmentCost.perPack", "product.chanceToRecoverCost", "product.modeledReturnPercent", "product.topOneOutcomeValueShare"]) assert.ok(source.includes(token), token);
+  assert.ok(comparison.includes("Price"));
+  assert.ok(comparison.includes("Average Return"));
+  assert.ok(comparison.includes("Typical Opening"));
   assert.ok(comparison.includes("Entertainment Cost"));
-  assert.ok(comparison.includes("Recover Cost"));
+  assert.ok(comparison.includes("Covers Cost"));
+  assert.ok(comparison.includes("Top 1% Value Share"));
 });
 
 test("mobile keeps public identity and market price while locking all analytical rows", () => {

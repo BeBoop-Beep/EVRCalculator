@@ -481,6 +481,13 @@ def _comparison_row(
         "familySize": (ranking.get("familySize") or ranking.get("familyCohortSize")) if ranking else None,
         "overallRipLeaderScore": ranking.get("overallRipLeaderScore") if ranking else None,
         "publicTier": ranking.get("publicTier") if ranking else None,
+        # Bucket 2 Surface 4: already present on this SAME already-fetched
+        # published-rankings row (product_family_rankings_service.py); no new
+        # query. Never top1EvShare.
+        "modeledReturnPercent": ranking.get("modeledReturnPercent") if ranking else None,
+        "typicalOpening": ranking.get("medianValue") if ranking else None,
+        "chanceToRecoverCost": ranking.get("chanceToRecoverCost") if ranking else None,
+        "topOneOutcomeValueShare": ranking.get("topOneOutcomeValueShare") if ranking else None,
     }
 
 
