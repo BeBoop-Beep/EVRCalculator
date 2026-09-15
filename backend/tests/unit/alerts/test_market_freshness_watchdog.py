@@ -22,11 +22,27 @@ class _Result:
         self.data = data
 
 
+class _ContractNotFilter:
+    def __init__(self, query):
+        self.query = query
+
+    def is_(self, key, value):
+        self.query._assert_column(key)
+        assert value == "null"
+        self.query.client.not_null_filters.append((self.query.table, key))
+        self.query.rows = [row for row in self.query.rows if row.get(key) is not None]
+        return self.query
+
+
 class _ContractQuery:
     def __init__(self, client, table, rows):
         self.client = client
         self.table = table
         self.rows = list(rows)
+
+    @property
+    def not_(self):
+        return _ContractNotFilter(self)
 
     def _assert_column(self, column):
         assert column in self.client.columns[self.table], f"unknown column {self.table}.{column}"
@@ -70,6 +86,7 @@ class _ContractClient:
 
     def __init__(self):
         self.selections = {}
+        self.not_null_filters = []
         self.rows = {
             "pokemon_scrape_batches": [{
                 "id": 8,
@@ -80,11 +97,26 @@ class _ContractClient:
                 "updated_at": "2026-08-30T09:00:00Z",
                 "completed_at": "2026-08-30T09:00:00Z",
             }],
-            "pokemon_market_date_quality": [{"market_date": "2026-08-30", "status": "READY"}],
-            "pokemon_set_value_daily_history": [{"snapshot_date": "2026-08-30", "value_scope": "standard"}],
-            "pokemon_set_market_dashboard_snapshot_latest": [{"latest_market_date": "2026-08-30"}],
-            "pokemon_set_sealed_market_snapshot_latest": [{"market_date": "2026-08-30"}],
-            "pokemon_market_index_daily_history": [{"market_date": "2026-08-30", "tcg": "pokemon"}],
+            "pokemon_market_date_quality": [
+                {"market_date": None, "status": "READY"},
+                {"market_date": "2026-08-30", "status": "READY"},
+            ],
+            "pokemon_set_value_daily_history": [
+                {"snapshot_date": None, "value_scope": "standard"},
+                {"snapshot_date": "2026-08-30", "value_scope": "standard"},
+            ],
+            "pokemon_set_market_dashboard_snapshot_latest": [
+                {"latest_market_date": None},
+                {"latest_market_date": "2026-08-30"},
+            ],
+            "pokemon_set_sealed_market_snapshot_latest": [
+                {"market_date": None},
+                {"market_date": "2026-08-30"},
+            ],
+            "pokemon_market_index_daily_history": [
+                {"market_date": None, "tcg": "pokemon"},
+                {"market_date": "2026-08-30", "tcg": "pokemon"},
+            ],
         }
 
     def table(self, name):
@@ -114,6 +146,15 @@ def test_stale_public_date_and_snapshot_divergence_are_independent(monkeypatch):
     }
 
 
+def test_missing_required_authority_date_fails_closed_after_publication_deadline():
+    dates = dict(FRESH_DATES, sealed_snapshot=None)
+    failures = watchdog.evaluate_watchdog_state(_state({"status": "complete"}, dates), now=NOW)
+    missing = next(row for row in failures if row.get("failure_class") == "authority_date_missing")
+    assert missing["alert_type"] == "market_snapshot_date_divergence"
+    assert missing["missing_authorities"] == ["sealed_snapshot"]
+    assert missing["actual_dates"]["sealed_snapshot"] is None
+
+
 def test_fresh_healthy_state_has_no_failures():
     assert watchdog.evaluate_watchdog_state(_state({"status": "complete"}), now=NOW) == []
 
@@ -125,12 +166,19 @@ def test_phoenix_rollover_does_not_use_utc_date(monkeypatch):
     assert failures == []
 
 
-def test_loader_uses_canonical_dashboard_latest_market_date_column():
+def test_loader_uses_canonical_columns_and_ignores_null_authority_dates():
     client = _ContractClient()
     state = watchdog.load_watchdog_state(client, "2026-08-30")
     assert state["batch"]["id"] == 8
     assert state["authority_dates"] == FRESH_DATES
     assert client.selections["pokemon_set_market_dashboard_snapshot_latest"] == [("latest_market_date",)]
+    assert set(client.not_null_filters) == {
+        ("pokemon_market_date_quality", "market_date"),
+        ("pokemon_set_value_daily_history", "snapshot_date"),
+        ("pokemon_set_market_dashboard_snapshot_latest", "latest_market_date"),
+        ("pokemon_set_sealed_market_snapshot_latest", "market_date"),
+        ("pokemon_market_index_daily_history", "market_date"),
+    }
 
 
 def test_load_failure_is_structured_and_read_only_health_does_not_queue(monkeypatch):
