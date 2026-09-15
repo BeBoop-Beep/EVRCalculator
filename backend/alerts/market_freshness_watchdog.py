@@ -14,6 +14,13 @@ from backend.db.clients.supabase_client import supabase
 
 PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 TERMINAL_BATCH_STATES = {"complete", "failed", "incomplete"}
+REQUIRED_AUTHORITY_DATE_KEYS = (
+    "accepted_market_quality",
+    "set_value",
+    "set_market_dashboard",
+    "sealed_snapshot",
+    "global_market_index",
+)
 
 
 def _clock(value: str) -> time:
@@ -53,6 +60,17 @@ def evaluate_watchdog_state(state: Mapping[str, Any], *, now: datetime) -> List[
         if public_date != market_date:
             failures.append({"alert_type": "market_publication_stale", "failure_class": "accepted_date_stale",
                              "message": f"Latest accepted market date is {public_date or 'missing'}; expected {market_date}."})
+
+        missing_authorities = [key for key in REQUIRED_AUTHORITY_DATE_KEYS if not dates.get(key)]
+        if missing_authorities:
+            failures.append({
+                "alert_type": "market_snapshot_date_divergence",
+                "failure_class": "authority_date_missing",
+                "message": f"Public market authorities are missing dates: {', '.join(missing_authorities)}.",
+                "actual_dates": {key: dates.get(key) for key in REQUIRED_AUTHORITY_DATE_KEYS},
+                "missing_authorities": missing_authorities,
+            })
+
         present = {key: value for key, value in dates.items() if value}
         if present and len(set(present.values())) > 1:
             failures.append({"alert_type": "market_snapshot_date_divergence", "failure_class": "authority_date_mismatch",
@@ -67,6 +85,10 @@ def _latest_date(client: Any, table: str, column: str, **filters: Any) -> Option
     query = client.table(table).select(column)
     for key, value in filters.items():
         query = query.eq(key, value)
+    # Postgres sorts NULL values first for DESC unless NULLS LAST is requested.
+    # Excluding NULL authority dates before ordering prevents one legacy/partial
+    # row from hiding an otherwise-current publication surface.
+    query = query.not_.is_(column, "null")
     rows = list(query.order(column, desc=True).limit(1).execute().data or [])
     return str(rows[0].get(column))[:10] if rows and rows[0].get(column) else None
 
