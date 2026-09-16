@@ -42,6 +42,7 @@ class PreparedCanonicalCandidate:
     chase_accessibility_raw: float
     target_budget: float
     min_simulation_count: int = 0
+    _last_comparator_seconds: float = field(default=0.0, init=False)
 
     def score_candidate(self, price_cents: int) -> Dict[str, Any]:
         """Pure candidate-price scoring. No comparison, no winner determination."""
@@ -82,18 +83,31 @@ class PreparedCanonicalCandidate:
         comparator_started = time.perf_counter()
         if authority == COMPARISON_AUTHORITY_OVERALL_V12:
             ranked = rank_budget_cohort([score_record, dict(benchmark)], sort_authority=SORT_AUTHORITY_V12)
+            wins = bool(ranked and ranked[0]["sealedProductId"] == self.product_id)
         elif authority == COMPARISON_AUTHORITY_FINANCIAL_V4:
-            ranked = rank_by_financial_only([score_record, dict(benchmark)])
+            # Guard: rank_by_financial_only() deliberately applies no
+            # rankability filter (callers control cohort membership), but a
+            # pairwise candidate-vs-benchmark winner check must never report
+            # a win for a candidate with no Financial RIP V4 evidence of its
+            # own -- otherwise, when BOTH sides are unscored, the sort falls
+            # through financial_only_comparator_key()'s -inf fallback entirely
+            # to the sealedProductId string tie-break and a candidate can
+            # "win" purely by alphabetical accident.
+            if score_record.get("financialRipV4Score") is None:
+                wins = False
+            else:
+                ranked = rank_by_financial_only([score_record, dict(benchmark)])
+                wins = bool(ranked and ranked[0]["sealedProductId"] == self.product_id)
         else:
             raise ValueError(f"unknown comparison authority {authority!r}")
         self._last_comparator_seconds = time.perf_counter() - comparator_started
-        return bool(ranked and ranked[0]["sealedProductId"] == self.product_id)
+        return wins
 
     def evaluate(self, price_cents: int, benchmark: Mapping[str, Any], *,
                  comparison_authority: str = COMPARISON_AUTHORITY_OVERALL_V12) -> Dict[str, Any]:
         score_record = self.score_candidate(price_cents)
         wins = self.compare(score_record, benchmark, authority=comparison_authority)
-        comparator_seconds = getattr(self, "_last_comparator_seconds", 0.0)
+        comparator_seconds = self._last_comparator_seconds
         return {
             "wins": wins,
             "priceCents": score_record["priceCents"],
@@ -127,30 +141,39 @@ class SharedScoreCache:
     financial_comparator_evaluations: int = field(default=0, init=False)
     rip_comparator_evaluations: int = field(default=0, init=False)
 
-    def get_or_score(self, candidate: "PreparedCanonicalCandidate", price_cents: int) -> Dict[str, Any]:
+    def get_or_score(self, candidate: "PreparedCanonicalCandidate", price_cents: int) -> tuple[Dict[str, Any], bool]:
+        """Returns (score_record, was_hit). ``score_record`` is a shallow copy
+        of the live cached entry -- a caller mutating it can never corrupt the
+        cache for the other comparison authority sharing this record."""
         key = (candidate.quantity, price_cents)
         if key in self._scores:
             self.hits += 1
             self._scores.move_to_end(key)
-            return self._scores[key]
+            return dict(self._scores[key]), True
         self.misses += 1
         record = candidate.score_candidate(price_cents)
         self._scores[key] = record
         while len(self._scores) > self.max_entries:
             self._scores.popitem(last=False)
-        return record
+        return dict(record), False
 
     def evaluate(self, candidate: "PreparedCanonicalCandidate", price_cents: int,
                  benchmark: Mapping[str, Any], *, authority: str) -> Dict[str, Any]:
-        score_record = self.get_or_score(candidate, price_cents)
-        wins = candidate.compare(score_record, benchmark, authority=authority)
         if authority == COMPARISON_AUTHORITY_FINANCIAL_V4:
             self.financial_comparator_evaluations += 1
         elif authority == COMPARISON_AUTHORITY_OVERALL_V12:
             self.rip_comparator_evaluations += 1
         else:
             raise ValueError(f"unknown comparison authority {authority!r}")
-        return {**score_record, "wins": wins}
+        score_record, was_hit = self.get_or_score(candidate, price_cents)
+        wins = candidate.compare(score_record, benchmark, authority=authority)
+        return {
+            **score_record,
+            "wins": wins,
+            "comparatorSeconds": candidate._last_comparator_seconds,
+            "comparisonAuthority": authority,
+            "scoreCacheHit": was_hit,
+        }
 
     def diagnostics(self) -> Dict[str, Any]:
         return {

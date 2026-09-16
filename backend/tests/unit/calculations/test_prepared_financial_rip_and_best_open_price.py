@@ -6,8 +6,11 @@ import pytest
 from backend.calculations.evr import best_open_price as best_open_module
 from backend.calculations.evr.best_open_price import (
     BestOpenPriceSearchError,
+    COMPARISON_AUTHORITY_FINANCIAL_V4,
+    COMPARISON_AUTHORITY_OVERALL_V12,
     ExactBestOpenPriceSearch,
     PreparedCanonicalCandidate,
+    SharedScoreCache,
     quantity_price_interval_cents,
 )
 from backend.calculations.evr.budget_normalized_product_ranking import (
@@ -210,12 +213,6 @@ def test_candidate_committed_capital_matches_canonical_allocation_float_order(mo
     )
 
 
-from backend.calculations.evr.best_open_price import (
-    COMPARISON_AUTHORITY_FINANCIAL_V4,
-    COMPARISON_AUTHORITY_OVERALL_V12,
-)
-
-
 def _prepared_candidate(product_id, quantity, *, collector_appeal=60.0, chase_accessibility=0.002,
                          budget=1300.0, seed=20260916):
     values = np.random.default_rng(seed).lognormal(2.0, 1.2, 20_000)
@@ -285,13 +282,25 @@ def test_evaluate_under_financial_v4_authority_can_disagree_with_overall_v12():
     assert wins_overall is False
 
 
+def test_compare_financial_v4_does_not_win_on_alphabetical_tiebreak_when_unscored():
+    """Important #2 regression: rank_by_financial_only() applies no
+    rankability filter by design (callers control cohort membership), but
+    when BOTH the candidate and the benchmark have no Financial RIP V4
+    score, financial_only_comparator_key() maps both to -inf and the sort
+    falls entirely to the sealedProductId string tie-break. A candidate
+    whose id sorts first alphabetically must NOT be reported as a win --
+    it has zero financial evidence behind it.
+    """
+    candidate = _prepared_candidate("aaa-sorts-first", 9)
+    score_record = {"sealedProductId": "aaa-sorts-first", "financialRipV4Score": None}
+    benchmark = {"sealedProductId": "zzz-sorts-last"}  # missing key entirely
+    assert candidate.compare(score_record, benchmark, authority=COMPARISON_AUTHORITY_FINANCIAL_V4) is False
+
+
 def test_compare_rejects_unknown_authority():
     candidate = _prepared_candidate("candidate", 9)
     with pytest.raises(ValueError, match="comparison authority"):
         candidate.compare({"sealedProductId": "candidate"}, {"sealedProductId": "benchmark"}, authority="not_a_real_authority")
-
-
-from backend.calculations.evr.best_open_price import SharedScoreCache
 
 
 def test_shared_score_cache_scores_once_across_both_authorities():
@@ -318,6 +327,46 @@ def test_shared_score_cache_scores_once_across_both_authorities():
     assert diagnostics["financialComparatorEvaluations"] == 1
 
 
+def test_shared_score_cache_evaluate_reports_comparator_seconds_and_cache_hit_flag():
+    """Important #1 regression: evaluate() must expose comparatorSeconds for
+    THIS call and a scoreCacheHit flag without a caller reaching into the
+    private candidate._last_comparator_seconds attribute -- and a cache HIT
+    must be distinguishable from a MISS so an aggregator does not double-count
+    scoringSeconds across authority calls sharing one cached score.
+    """
+    candidate = _prepared_candidate("candidate", 9)
+    cache = SharedScoreCache()
+    benchmark = {"sealedProductId": "benchmark", "financialRipV4Score": -1e9,
+                 "overallRipV12Rankable": True, "overallRipV12Score": -1e9}
+
+    first = cache.evaluate(candidate, 14068, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+    assert first["scoreCacheHit"] is False
+    assert first["comparisonAuthority"] == COMPARISON_AUTHORITY_OVERALL_V12
+    assert isinstance(first["comparatorSeconds"], float) and first["comparatorSeconds"] >= 0.0
+
+    second = cache.evaluate(candidate, 14068, benchmark, authority=COMPARISON_AUTHORITY_FINANCIAL_V4)
+    assert second["scoreCacheHit"] is True
+    assert second["comparisonAuthority"] == COMPARISON_AUTHORITY_FINANCIAL_V4
+    assert isinstance(second["comparatorSeconds"], float) and second["comparatorSeconds"] >= 0.0
+    # Same underlying scoringSeconds value is reused (not recomputed) on a hit --
+    # a caller that only adds scoringSeconds when scoreCacheHit is False avoids
+    # double counting.
+    assert first["scoringSeconds"] == second["scoringSeconds"]
+
+
+def test_shared_score_cache_get_or_score_returns_a_copy_not_the_live_cache_entry():
+    """Minor #4: mutating a returned score record must not corrupt the cache
+    for the other comparison authority sharing the same underlying score."""
+    candidate = _prepared_candidate("candidate", 9)
+    cache = SharedScoreCache()
+    record, was_hit = cache.get_or_score(candidate, 14068)
+    assert was_hit is False
+    record["financialRipV4Score"] = "tampered"
+    record2, was_hit2 = cache.get_or_score(candidate, 14068)
+    assert was_hit2 is True
+    assert record2["financialRipV4Score"] != "tampered"
+
+
 def test_shared_score_cache_distinguishes_price_cents_within_same_quantity():
     candidate = _prepared_candidate("candidate", 9)
     cache = SharedScoreCache()
@@ -333,7 +382,7 @@ def test_shared_score_cache_distinguishes_price_cents_within_same_quantity():
 def test_shared_score_cache_get_or_score_matches_direct_score_candidate():
     candidate = _prepared_candidate("candidate", 9)
     cache = SharedScoreCache()
-    cached = cache.get_or_score(candidate, 14068)
+    cached, _was_hit = cache.get_or_score(candidate, 14068)
     direct = candidate.score_candidate(14068)
     assert cached["financialRipV4Score"] == direct["financialRipV4Score"]
     assert cached["actualCommittedCapital"] == direct["actualCommittedCapital"]
