@@ -3,10 +3,15 @@ import random
 import numpy as np
 import pytest
 
+from backend.calculations.evr import best_open_price as best_open_module
 from backend.calculations.evr.best_open_price import (
     BestOpenPriceSearchError,
     ExactBestOpenPriceSearch,
+    PreparedCanonicalCandidate,
     quantity_price_interval_cents,
+)
+from backend.calculations.evr.budget_normalized_product_ranking import (
+    whole_unit_allocation,
 )
 from backend.calculations.evr.financial_rip_v3 import (
     PreparedFinancialRipDistribution,
@@ -142,3 +147,64 @@ def test_observed_fixed_interval_monotonicity_inversion_uses_exact_fallback():
     engine = _engine(leader=False, budget=100, current=100, winning={74, 75})
     result = engine._solve_interval(1)
     assert result["priceCents"] == 75
+
+
+
+def test_candidate_committed_capital_matches_canonical_allocation_float_order(monkeypatch):
+    """Counterfactual scoring must reproduce Budget Ranking's float arithmetic.
+
+    9 * 140.68 and 9 * 14068 / 100 are mathematically equal but not the same
+    IEEE-754 operation sequence. Published-strategy reconstruction requires the
+    former because whole_unit_allocation() is the authority of record.
+    """
+    budget = 1300.0
+    market_price = 140.68
+    price_cents = 14068
+
+    allocation = whole_unit_allocation(budget, market_price)
+    assert allocation["quantity"] == 9
+    assert allocation["actualCommittedCapital"] == 1266.1200000000001
+
+    values = np.random.default_rng(20260916).lognormal(
+        2.0, 1.2, 20_000
+    )
+    prepared = PreparedFinancialRipDistribution.prepare(values)
+
+    candidate = PreparedCanonicalCandidate(
+        "candidate",
+        allocation["quantity"],
+        prepared,
+        60.0,
+        0.002,
+        budget,
+    )
+
+    # Comparator outcome is irrelevant to this regression; preserve evaluate()
+    # end-to-end while making candidate first deterministically.
+    monkeypatch.setattr(
+        best_open_module,
+        "rank_budget_cohort",
+        lambda strategies, **_kwargs: list(strategies),
+    )
+
+    result = candidate.evaluate(
+        price_cents,
+        {"sealedProductId": "benchmark"},
+    )
+
+    canonical_v3 = build_financial_rip_v3(
+        values,
+        allocation["actualCommittedCapital"],
+    )
+    canonical_v4 = project_financial_rip_v4_from_v3_payload(
+        canonical_v3
+    )
+
+    assert (
+        result["actualCommittedCapital"]
+        == allocation["actualCommittedCapital"]
+    )
+    assert (
+        result["financialRipV4Score"]
+        == canonical_v4["score"]
+    )

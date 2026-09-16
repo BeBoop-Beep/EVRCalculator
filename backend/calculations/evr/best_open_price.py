@@ -41,7 +41,13 @@ class PreparedCanonicalCandidate:
 
     def evaluate(self, price_cents: int, benchmark: Mapping[str, Any]) -> Dict[str, Any]:
         score_started = time.perf_counter()
-        capital = self.quantity * price_cents / 100.0
+        # Mirror whole_unit_allocation() exactly. The canonical Budget Ranking
+        # first converts the cent price to a float dollar price and THEN
+        # multiplies by quantity. Reordering these IEEE-754 operations
+        # (quantity * cents / 100) can change the stored float by ~1e-13 and,
+        # at a Financial RIP rounding boundary, change the published score.
+        unit_price = price_cents / 100.0
+        capital = self.quantity * unit_price
         kwargs = {} if not self.min_simulation_count else {"min_simulation_count": self.min_simulation_count}
         v3 = self.distribution.score(capital, **kwargs)
         v4 = project_financial_rip_v4_from_v3_payload(v3)

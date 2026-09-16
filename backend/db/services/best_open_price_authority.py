@@ -21,7 +21,7 @@ from backend.db.services.budget_product_ranking_authority import (
 )
 
 # Operational/checkpoint contract, not a change to Financial/V12 methodology.
-EXECUTION_CONTRACT_VERSION = 'best_open_exact_publication_review_v2'
+EXECUTION_CONTRACT_VERSION = 'best_open_exact_publication_review_v3'
 SOURCE_FIELDS = (
     'id', 'published_at', 'market_date', 'pinned_price_as_of',
     'cohort_fingerprint', 'full_market_budget', 'eligible_cohort_count',
