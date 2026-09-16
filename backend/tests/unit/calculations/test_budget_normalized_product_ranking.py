@@ -9,7 +9,9 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
     BUDGET_TYPE_FULL_MARKET,
     CANONICAL_BUDGET_BANDS,
     FULL_MARKET_ROUNDING_INCREMENT,
+    SORT_AUTHORITY_V12,
     rank_budget_cohort,
+    rank_by_financial_only,
     resolve_full_market_budget,
     whole_unit_allocation,
 )
@@ -299,6 +301,59 @@ def test_financial_only_rank_is_deterministic():
     first = {r["sealedProductId"]: r["financialOnlyRank"] for r in bnpr.rank_budget_cohort(strategies)}
     second = {r["sealedProductId"]: r["financialOnlyRank"] for r in bnpr.rank_budget_cohort(list(reversed(strategies)))}
     assert first == second
+
+
+def test_rank_by_financial_only_extraction_matches_rank_budget_cohort_output():
+    """Task 1 pinning test: the extracted rank_by_financial_only() helper must
+    reproduce rank_budget_cohort()'s existing financialOnlyRank output exactly,
+    when called on the SAME rankable cohort rank_budget_cohort itself sorts on.
+    This is a refactor, not a behavior change -- both computations must agree
+    for every entry, in both directions.
+    """
+    strategies = [
+        {"sealedProductId": "efficient", "overallRipV12Rankable": True, "overallRipV12Score": 40.0,
+         "financialRipV4Score": 95.0, "actualCommittedCapital": 100.0, "targetBudget": 100.0},
+        {"sealedProductId": "appealing", "overallRipV12Rankable": True, "overallRipV12Score": 90.0,
+         "financialRipV4Score": 60.0, "actualCommittedCapital": 100.0, "targetBudget": 100.0},
+        {"sealedProductId": "unrankable", "overallRipV12Rankable": False, "overallRipV12Score": None,
+         "financialRipV4Score": 99.0, "actualCommittedCapital": 100.0, "targetBudget": 100.0},
+    ]
+
+    ranked = rank_budget_cohort(strategies, sort_authority=SORT_AUTHORITY_V12)
+    by_id = {row["sealedProductId"]: row for row in ranked}
+
+    # rank_budget_cohort's own financialOnlyRank output is the ground truth
+    # this task must not change.
+    assert by_id["efficient"]["financialOnlyRank"] == 1
+    assert by_id["appealing"]["financialOnlyRank"] == 2
+    assert "unrankable" not in by_id  # excluded from the V12-rankable cohort entirely
+
+    # The SAME rankable cohort rank_budget_cohort sorts on (V12-rankable
+    # entries only) fed directly into the extracted helper must agree exactly.
+    v12_rankable = [s for s in strategies if s.get("overallRipV12Rankable") is True and s.get("overallRipV12Score") is not None]
+    extracted = rank_by_financial_only(v12_rankable)
+    extracted_by_id = {row["sealedProductId"]: row["financialOnlyRank"] for row in extracted}
+    assert extracted_by_id == {"efficient": 1, "appealing": 2}
+
+
+def test_rank_by_financial_only_orders_desc_by_score_then_id_tiebreak():
+    strategies = [
+        {"sealedProductId": "b", "financialRipV4Score": 50.0},
+        {"sealedProductId": "a", "financialRipV4Score": 50.0},
+        {"sealedProductId": "c", "financialRipV4Score": 70.0},
+    ]
+    ranked = rank_by_financial_only(strategies)
+    assert [row["sealedProductId"] for row in ranked] == ["c", "a", "b"]
+    assert [row["financialOnlyRank"] for row in ranked] == [1, 2, 3]
+
+
+def test_rank_by_financial_only_treats_missing_score_as_lowest():
+    strategies = [
+        {"sealedProductId": "scored", "financialRipV4Score": 1.0},
+        {"sealedProductId": "unscored", "financialRipV4Score": None},
+    ]
+    ranked = rank_by_financial_only(strategies)
+    assert [row["sealedProductId"] for row in ranked] == ["scored", "unscored"]
 
 
 def test_budget_tier_is_a_score_tier_not_a_rank_percentile():
