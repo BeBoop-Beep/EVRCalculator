@@ -72,6 +72,41 @@ class FinalizedClient:
         return RPC()
 
 
+class PublishedClient(FinalizedClient):
+    def __init__(self, *, top10_count=1):
+        super().__init__()
+        self.index_rows = [
+            {"index_key": "raw", "market_date": DAY, "set_count": 1},
+            {"index_key": "top10", "market_date": DAY, "set_count": top10_count},
+        ]
+
+    def table(self, name):
+        if name == prep.MARKET_INDEX_TABLE:
+            return Query(self.index_rows)
+        return Query(self.history)
+
+
+def test_published_full_authority_day_skips_candidate_rpc_entirely():
+    client = PublishedClient()
+    with patch.object(prep, "staged_rollout_root_ids", return_value=[ROOT_ID]):
+        result = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
+
+    assert result["status"] == "already_finalized"
+    assert result["rpcInvoked"] is False
+    assert result["candidatePreparationSkipped"] is True
+    assert result["finalizedMarket"]["ready"] is True
+    assert client.rpc_calls == []
+
+
+def test_partial_or_wrong_count_index_does_not_short_circuit_candidate_reconciliation():
+    client = PublishedClient(top10_count=0)
+    with patch.object(prep, "staged_rollout_root_ids", return_value=[ROOT_ID]):
+        result = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
+
+    assert result["rpcInvoked"] is True
+    assert len(client.rpc_calls) == 1
+
+
 def test_candidate_reconciliation_accepts_protected_final_rows_without_downgrade():
     client = FinalizedClient()
     with patch.object(prep, "staged_rollout_root_ids", return_value=[ROOT_ID]):
