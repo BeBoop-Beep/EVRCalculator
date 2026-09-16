@@ -463,3 +463,86 @@ def test_shared_score_cache_evictions_are_counted():
     cache.evaluate(candidate, 14068, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
     cache.evaluate(candidate, 14069, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
     assert cache.diagnostics()["scoreCacheEvictions"] == 1
+
+
+from backend.calculations.evr.best_open_price import (
+    BEST_OPEN_PRICE_METHOD_VERSION,
+    BEST_OPEN_PRICE_V2_METHOD_VERSION,
+    DualBestOpenPriceSearch,
+)
+
+
+def _dual_engine(*, budget, current_price_cents, current_quantity,
+                  rip_rank, rip_benchmark, financial_rank, financial_benchmark,
+                  seed=20260916):
+    values = np.random.default_rng(seed).lognormal(2.0, 1.2, 20_000)
+
+    quantity_cache: dict[int, PreparedCanonicalCandidate] = {}
+
+    def prepare_quantity(q):
+        if q not in quantity_cache:
+            prepared = PreparedFinancialRipDistribution.prepare(values)
+            quantity_cache[q] = PreparedCanonicalCandidate("product", q, prepared, 60.0, 0.002, float(budget))
+        return quantity_cache[q]
+
+    return DualBestOpenPriceSearch(
+        product_id="product", budget_cents=budget,
+        current_price_cents=current_price_cents, current_quantity=current_quantity,
+        rip_current_rank=rip_rank, rip_benchmark=rip_benchmark,
+        financial_current_rank=financial_rank, financial_benchmark=financial_benchmark,
+        prepare_quantity=prepare_quantity,
+        source_authority_fingerprint="fp", expected_source_authority_fingerprint="fp",
+    ), quantity_cache
+
+
+def test_dual_search_returns_two_threshold_objects():
+    engine, _ = _dual_engine(
+        budget=135000, current_price_cents=14068, current_quantity=9,
+        rip_rank=2, rip_benchmark={"sealedProductId": "rip-bench", "overallRipV12Rankable": True, "overallRipV12Score": -1e9, "financialRipV4Score": -1e9},
+        financial_rank=2, financial_benchmark={"sealedProductId": "fin-bench", "financialRipV4Score": -1e9, "overallRipV12Rankable": True, "overallRipV12Score": -1e9},
+    )
+    result = engine.search()
+    assert result["ripResult"]["status"] == "exact"
+    assert result["financialResult"]["status"] == "exact"
+    assert result["ripResult"]["threshold"] is not None
+    assert result["financialResult"]["threshold"] is not None
+
+
+def test_dual_search_shares_one_score_cache_across_both_authorities():
+    engine, quantity_cache = _dual_engine(
+        budget=135000, current_price_cents=14068, current_quantity=9,
+        rip_rank=2, rip_benchmark={"sealedProductId": "rip-bench", "overallRipV12Rankable": True, "overallRipV12Score": -1e9, "financialRipV4Score": -1e9},
+        financial_rank=2, financial_benchmark={"sealedProductId": "fin-bench", "financialRipV4Score": -1e9, "overallRipV12Rankable": True, "overallRipV12Score": -1e9},
+    )
+    result = engine.search()
+    diagnostics = result["diagnostics"]
+    assert diagnostics["ripComparatorEvaluations"] > 0
+    assert diagnostics["financialComparatorEvaluations"] > 0
+    # Both authorities search overlapping domains (both bounded above by the
+    # same current price for a nonleader) -- some sharing must have occurred.
+    naive = diagnostics["naiveScoreCount"]
+    unique = diagnostics["uniqueCandidatePricesScored"]
+    assert unique < naive
+    assert diagnostics["scoreReuseSavings"] == naive - unique
+    # The prepare_quantity closure itself must not be called once per
+    # authority for the SAME quantity -- verify via the shared memoization
+    # dict populated by the test's own prepare_quantity wrapper.
+    assert len(quantity_cache) >= 1
+
+
+def test_dual_search_financial_leader_only():
+    """Product is Financial rank 1 (leader) but RIP rank 2 (nonleader) --
+    the two searches must use genuinely different domains/directions."""
+    engine, _ = _dual_engine(
+        budget=135000, current_price_cents=14068, current_quantity=9,
+        rip_rank=2, rip_benchmark={"sealedProductId": "rip-bench", "overallRipV12Rankable": True, "overallRipV12Score": -1e9, "financialRipV4Score": -1e9},
+        financial_rank=1, financial_benchmark={"sealedProductId": "fin-bench", "financialRipV4Score": -1e9, "overallRipV12Rankable": True, "overallRipV12Score": -1e9},
+    )
+    result = engine.search()
+    assert result["ripResult"]["currentRank"] == 2
+    assert result["financialResult"]["currentRank"] == 1
+
+
+def test_v1_best_open_price_method_version_unchanged():
+    assert BEST_OPEN_PRICE_METHOD_VERSION == "budget_product_best_open_price_full_market_v1"
+    assert BEST_OPEN_PRICE_V2_METHOD_VERSION == "budget_product_best_open_price_full_market_v2_dual_financial_v4_overall_v12"

@@ -18,6 +18,7 @@ from backend.calculations.evr.financial_rip_v4 import project_financial_rip_v4_f
 from backend.desirability.weighted_rip import compute_overall_rip_v12
 
 BEST_OPEN_PRICE_METHOD_VERSION = "budget_product_best_open_price_full_market_v1"
+BEST_OPEN_PRICE_V2_METHOD_VERSION = "budget_product_best_open_price_full_market_v2_dual_financial_v4_overall_v12"
 
 COMPARISON_AUTHORITY_OVERALL_V12 = "overall_v12"
 COMPARISON_AUTHORITY_FINANCIAL_V4 = "financial_v4"
@@ -469,3 +470,107 @@ class ExactBestOpenPriceSearch:
         self._evaluations.clear()
         self._quantities.clear()
         self._constructed_quantities.clear()
+
+
+@dataclass
+class DualBestOpenPriceSearch:
+    """Runs the RIP (OVERALL_V12) and Financial (FINANCIAL_V4) exact searches
+    for one product, sharing one SharedScoreCache and one quantity-level
+    candidate cache so neither the expensive PreparedFinancialRipDistribution
+    construction nor an identical (quantity, price_cents) score is ever
+    duplicated between the two searches. Never runs the two V1 exact-search
+    mathematics differently -- it constructs two ordinary
+    ExactBestOpenPriceSearch instances and lets each run its own unmodified
+    search().
+    """
+    product_id: str
+    budget_cents: int
+    current_price_cents: int
+    current_quantity: int
+    rip_current_rank: int
+    rip_benchmark: Mapping[str, Any]
+    financial_current_rank: int
+    financial_benchmark: Mapping[str, Any]
+    prepare_quantity: Callable[[int], PreparedCanonicalCandidate]
+    source_authority_fingerprint: str
+    expected_source_authority_fingerprint: str
+    prepare_quantities: Optional[
+        Callable[[Sequence[int]], Mapping[int, PreparedCanonicalCandidate]]
+    ] = None
+    max_quantity_to_construct: int = 4096
+    max_cached_quantities: int = 4
+    quantity_batch_size: int = 8
+    max_score_cache_entries: int = 4096
+
+    def _shared_prepare_quantity(self, cache: Dict[int, PreparedCanonicalCandidate]) -> Callable[[int], PreparedCanonicalCandidate]:
+        def prepare(quantity: int) -> PreparedCanonicalCandidate:
+            if quantity not in cache:
+                cache[quantity] = self.prepare_quantity(quantity)
+            return cache[quantity]
+        return prepare
+
+    def _shared_prepare_quantities(
+        self, cache: Dict[int, PreparedCanonicalCandidate]
+    ) -> Optional[Callable[[Sequence[int]], Mapping[int, PreparedCanonicalCandidate]]]:
+        if self.prepare_quantities is None:
+            return None
+
+        def prepare_batch(quantities: Sequence[int]) -> Mapping[int, PreparedCanonicalCandidate]:
+            missing = [q for q in quantities if q not in cache]
+            if missing:
+                built = self.prepare_quantities(missing)
+                cache.update(built)
+            return {q: cache[q] for q in quantities}
+
+        return prepare_batch
+
+    def search(self) -> Dict[str, Any]:
+        # One quantity-level memo shared by BOTH engines: whichever search
+        # touches a given physical quantity first builds it; the other reuses
+        # the same PreparedCanonicalCandidate object.
+        quantity_cache: Dict[int, PreparedCanonicalCandidate] = {}
+        shared_prepare_quantity = self._shared_prepare_quantity(quantity_cache)
+        shared_prepare_quantities = self._shared_prepare_quantities(quantity_cache)
+        score_cache = SharedScoreCache(max_entries=self.max_score_cache_entries)
+
+        rip_engine = ExactBestOpenPriceSearch(
+            product_id=self.product_id, budget_cents=self.budget_cents,
+            current_price_cents=self.current_price_cents, current_quantity=self.current_quantity,
+            current_rank=self.rip_current_rank, benchmark=self.rip_benchmark,
+            prepare_quantity=shared_prepare_quantity,
+            source_authority_fingerprint=self.source_authority_fingerprint,
+            expected_source_authority_fingerprint=self.expected_source_authority_fingerprint,
+            prepare_quantities=shared_prepare_quantities,
+            max_quantity_to_construct=self.max_quantity_to_construct,
+            max_cached_quantities=self.max_cached_quantities,
+            quantity_batch_size=self.quantity_batch_size,
+            shared_score_cache=score_cache,
+            comparison_authority=COMPARISON_AUTHORITY_OVERALL_V12,
+        )
+        financial_engine = ExactBestOpenPriceSearch(
+            product_id=self.product_id, budget_cents=self.budget_cents,
+            current_price_cents=self.current_price_cents, current_quantity=self.current_quantity,
+            current_rank=self.financial_current_rank, benchmark=self.financial_benchmark,
+            prepare_quantity=shared_prepare_quantity,
+            source_authority_fingerprint=self.source_authority_fingerprint,
+            expected_source_authority_fingerprint=self.expected_source_authority_fingerprint,
+            prepare_quantities=shared_prepare_quantities,
+            max_quantity_to_construct=self.max_quantity_to_construct,
+            max_cached_quantities=self.max_cached_quantities,
+            quantity_batch_size=self.quantity_batch_size,
+            shared_score_cache=score_cache,
+            comparison_authority=COMPARISON_AUTHORITY_FINANCIAL_V4,
+        )
+
+        rip_result = rip_engine.search()
+        financial_result = financial_engine.search()
+
+        naive_score_count = rip_engine.evaluation_count + financial_engine.evaluation_count
+        cache_diagnostics = score_cache.diagnostics()
+        diagnostics = {
+            **cache_diagnostics,
+            "uniqueQuantitiesConstructed": len(quantity_cache),
+            "naiveScoreCount": naive_score_count,
+            "scoreReuseSavings": naive_score_count - cache_diagnostics["uniqueCandidatePricesScored"],
+        }
+        return {"ripResult": rip_result, "financialResult": financial_result, "diagnostics": diagnostics}
