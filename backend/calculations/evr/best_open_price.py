@@ -140,6 +140,7 @@ class SharedScoreCache:
     misses: int = field(default=0, init=False)
     financial_comparator_evaluations: int = field(default=0, init=False)
     rip_comparator_evaluations: int = field(default=0, init=False)
+    evictions: int = field(default=0, init=False)
 
     def get_or_score(self, candidate: "PreparedCanonicalCandidate", price_cents: int) -> tuple[Dict[str, Any], bool]:
         """Returns (score_record, was_hit). ``score_record`` is a shallow copy
@@ -155,6 +156,7 @@ class SharedScoreCache:
         self._scores[key] = record
         while len(self._scores) > self.max_entries:
             self._scores.popitem(last=False)
+            self.evictions += 1
         return dict(record), False
 
     def evaluate(self, candidate: "PreparedCanonicalCandidate", price_cents: int,
@@ -179,6 +181,9 @@ class SharedScoreCache:
         return {
             "uniqueCandidatePricesScored": self.misses,
             "sharedScoreCacheHits": self.hits,
+            "scoreCacheHits": self.hits,
+            "scoreCacheMisses": self.misses,
+            "scoreCacheEvictions": self.evictions,
             "financialComparatorEvaluations": self.financial_comparator_evaluations,
             "ripComparatorEvaluations": self.rip_comparator_evaluations,
         }
@@ -202,6 +207,8 @@ class ExactBestOpenPriceSearch:
         Callable[[Sequence[int]], Mapping[int, PreparedCanonicalCandidate]]
     ] = None
     quantity_batch_size: int = 8
+    shared_score_cache: Optional["SharedScoreCache"] = None
+    comparison_authority: str = COMPARISON_AUTHORITY_OVERALL_V12
     _quantities: Dict[int, PreparedCanonicalCandidate] = field(default_factory=OrderedDict, init=False)
     _constructed_quantities: set[int] = field(default_factory=set, init=False)
     _evaluations: Dict[tuple[int, int], Dict[str, Any]] = field(default_factory=OrderedDict, init=False)
@@ -317,7 +324,15 @@ class ExactBestOpenPriceSearch:
         quantity = self.budget_cents // price_cents
         key = (quantity, price_cents)
         if key not in self._evaluations:
-            evaluated = self._candidate(quantity).evaluate(price_cents, self.benchmark)
+            candidate = self._candidate(quantity)
+            if self.shared_score_cache is not None:
+                evaluated = self.shared_score_cache.evaluate(
+                    candidate, price_cents, self.benchmark, authority=self.comparison_authority,
+                )
+            else:
+                evaluated = candidate.evaluate(
+                    price_cents, self.benchmark, comparison_authority=self.comparison_authority,
+                )
             self.scoring_seconds += float(evaluated.get("scoringSeconds") or 0.0)
             self.comparator_seconds += float(evaluated.get("comparatorSeconds") or 0.0)
             self.evaluation_count += 1

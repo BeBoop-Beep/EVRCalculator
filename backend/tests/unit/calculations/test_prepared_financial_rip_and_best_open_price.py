@@ -62,7 +62,7 @@ class _SyntheticCandidate:
         self.product_id, self.quantity = product_id, quantity
         self.budget, self.winning_prices = budget, winning_prices
 
-    def evaluate(self, cents, benchmark):
+    def evaluate(self, cents, benchmark, *, comparison_authority=None):
         wins = cents in self.winning_prices
         return {"wins": wins, "priceCents": cents, "quantity": self.quantity,
                 "financialRipV3Score": float(self.budget - cents),
@@ -400,3 +400,66 @@ def test_shared_score_cache_evicts_beyond_max_entries():
     diagnostics_before = cache.diagnostics()["uniqueCandidatePricesScored"]
     cache.evaluate(candidate, 14068, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
     assert cache.diagnostics()["uniqueCandidatePricesScored"] == diagnostics_before + 1
+
+
+def test_exact_search_default_construction_is_unchanged_v1_behavior():
+    """Backward-compat pin: an ExactBestOpenPriceSearch built exactly as V1
+    callers build it today (no shared_score_cache, no comparison_authority)
+    must behave identically to before -- same threshold, same status.
+    """
+    engine = _engine(leader=False, budget=1000, current=100, winning=set(range(1, 38)))
+    result = engine.search()
+    assert result["threshold"]["priceCents"] == 37
+    assert result["threshold"]["quantity"] == 27
+
+
+def test_two_engines_sharing_one_cache_score_overlapping_candidate_once():
+    budget = 1300
+    budget_cents = budget * 100
+    candidate_a = _prepared_candidate("a", 9, budget=float(budget))
+    candidate_b = _prepared_candidate("b", 9, budget=float(budget))
+    cache = SharedScoreCache()
+
+    def prepare_a(_q):
+        return candidate_a
+
+    def prepare_b(_q):
+        return candidate_b
+
+    benchmark = {"sealedProductId": "benchmark", "financialRipV4Score": -1e9,
+                 "overallRipV12Rankable": True, "overallRipV12Score": -1e9}
+
+    engine_rip = ExactBestOpenPriceSearch(
+        product_id="a", budget_cents=budget_cents, current_price_cents=14068,
+        current_quantity=9, current_rank=2, benchmark=benchmark,
+        prepare_quantity=prepare_a, source_authority_fingerprint="fp",
+        expected_source_authority_fingerprint="fp",
+        shared_score_cache=cache, comparison_authority=COMPARISON_AUTHORITY_OVERALL_V12,
+    )
+    engine_financial = ExactBestOpenPriceSearch(
+        product_id="a", budget_cents=budget_cents, current_price_cents=14068,
+        current_quantity=9, current_rank=2, benchmark=benchmark,
+        prepare_quantity=prepare_a, source_authority_fingerprint="fp",
+        expected_source_authority_fingerprint="fp",
+        shared_score_cache=cache, comparison_authority=COMPARISON_AUTHORITY_FINANCIAL_V4,
+    )
+
+    rip_result = engine_rip.evaluate_price(14068)
+    financial_result = engine_financial.evaluate_price(14068)
+
+    assert rip_result["financialRipV4Score"] == financial_result["financialRipV4Score"]
+    diagnostics = cache.diagnostics()
+    assert diagnostics["uniqueCandidatePricesScored"] == 1
+    assert diagnostics["scoreCacheHits"] == 1
+    assert diagnostics["ripComparatorEvaluations"] == 1
+    assert diagnostics["financialComparatorEvaluations"] == 1
+
+
+def test_shared_score_cache_evictions_are_counted():
+    candidate = _prepared_candidate("candidate", 9)
+    cache = SharedScoreCache(max_entries=1)
+    benchmark = {"sealedProductId": "benchmark", "financialRipV4Score": -1e9,
+                 "overallRipV12Rankable": True, "overallRipV12Score": -1e9}
+    cache.evaluate(candidate, 14068, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+    cache.evaluate(candidate, 14069, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+    assert cache.diagnostics()["scoreCacheEvictions"] == 1
