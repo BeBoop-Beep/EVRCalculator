@@ -35,8 +35,9 @@ from backend.db.services.budget_product_ranking_readiness import (
 )
 from backend.scripts.build_budget_normalized_product_rankings import (
     FINANCIAL_DOMINANCE_WARN_RATE, UTILIZATION_CORRELATION_WARN,
-    build_rankings_for_cohort, build_v12_shadow_rankings_for_cohort, publish_rankings,
-    to_publication_payload,
+    build_rankings_for_cohort, build_v12_shadow_rankings_for_cohort,
+    merge_v12_publication_fields, publish_rankings, to_publication_payload,
+    validate_publication_payload_rows,
 )
 
 logger = logging.getLogger("budget-ranking-publication")
@@ -419,20 +420,63 @@ def run(*, commit: bool, force_price_as_of: Optional[str] = None, client: Any = 
     # - only this run's own reported metadata field lagged it.
     if is_canonical_v12:
         report["overall_rip_version"] = EXPECTED_OVERALL_RIP_V12_VERSION
+
+    # Materialize ONCE and use this exact final payload for both the RPC and
+    # post-publish read-back verification. When V12 is canonical this is the
+    # V12-merged snapshot/row shape, never the earlier V10 substrate.
+    v12_results_for_publish = (
+        v12["results"] if is_canonical_v12 and v12 else None
+    )
+    try:
+        if v12_results_for_publish is not None:
+            publication_snapshot, publication_rows = merge_v12_publication_fields(
+                snapshot, rows, v12_results_for_publish
+            )
+        else:
+            publication_snapshot, publication_rows = snapshot, rows
+
+        # Opening Profile evidence must be validated on the SAME final rows
+        # that will be sent to the RPC and later used for read-back verification.
+        validate_publication_payload_rows(publication_rows)
+    except Exception as exc:
+        report.update({
+            "failure_reason": str(exc),
+            "failed_gate": "final_publication_payload",
+        })
+        return _finish(report, BudgetRankingStatus.HEALTH_GATE_BLOCKED, started)
+
+    final_failures = validate_publication_payload(
+        publication_snapshot, publication_rows
+    )
+    if final_failures:
+        report.update({
+            "failure_reason": final_failures[0]["reason"],
+            "failed_gate": final_failures[0]["gate"],
+        })
+        return _finish(report, BudgetRankingStatus.HEALTH_GATE_BLOCKED, started)
+
     if not commit:
         # PUBLISHED means publish-eligible on dry-run; no write is attempted.
         return _finish(report, BudgetRankingStatus.PUBLISHED, started)
+
     publish_start = time.perf_counter()
     try:
         snapshot_id = publish_rankings(
-            client, results,
-            v12_results=(v12["results"] if is_canonical_v12 and v12 else None),
+            client,
+            results,
+            v12_results=v12_results_for_publish,
+            materialized_payload=(publication_snapshot, publication_rows),
         )
     except Exception as exc:
         report.update({"failure_reason": str(exc), "failed_gate": "publication_rpc", "publish_duration_ms": round((time.perf_counter() - publish_start) * 1000)})
         return _finish(report, BudgetRankingStatus.PUBLICATION_FAILED, started)
-    report["publish_duration_ms"] = round((time.perf_counter() - publish_start) * 1000); report["snapshot_id"] = snapshot_id
-    verify_start = time.perf_counter(); verify_failures = verify_persisted_snapshot(client, snapshot_id, snapshot, rows)
+
+    report["publish_duration_ms"] = round((time.perf_counter() - publish_start) * 1000)
+    report["snapshot_id"] = snapshot_id
+    verify_start = time.perf_counter()
+    verify_failures = verify_persisted_snapshot(
+        client, snapshot_id, publication_snapshot, publication_rows
+    )
     report["verification_duration_ms"] = round((time.perf_counter() - verify_start) * 1000)
     if verify_failures:
         report.update({"failure_reason": "; ".join(verify_failures), "failed_gate": "post_publish_verification"})
