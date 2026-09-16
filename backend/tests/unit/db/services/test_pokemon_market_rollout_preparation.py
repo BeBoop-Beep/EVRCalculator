@@ -114,22 +114,24 @@ class Client:
         return RPC()
 
 
-def _final_pair(root):
+def _generic_pair(root):
     return [
         {"set_id": root, "snapshot_date": DAY, "value_scope": "standard",
-         "source": "canonical_root_standard_backfill_v1"},
+         "source": "card_variant_price_observations_near_mint_latest_as_of_day:standard:canonical_checklist"},
         {"set_id": root, "snapshot_date": DAY, "value_scope": "top10",
-         "source": "canonical_root_top10_backfill_v1"},
+         "source": "card_variant_price_observations_near_mint_latest_as_of_day:top10:canonical_checklist"},
     ]
 
 
-def test_commit_prepares_and_validates_complete_candidate_pairs():
+def test_commit_prepares_and_reconciles_candidate_write_receipt():
     client = Client()
     result = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
     assert client.rpc_calls == [(prep.CANDIDATE_PREPARATION_RPC, {"p_market_date": DAY})]
     assert result["expectedRootCount"] == 1
+    assert result["candidateWrites"]["standardCandidateCount"] == 1
+    assert result["candidateWrites"]["top10CandidateCount"] == 1
+    assert result["candidateWrites"]["top10SubsetOfStandard"] is True
     assert result["materialization"]["ready"] is True
-    assert result["materialization"]["provenanceState"] == "candidate"
 
 
 def test_dry_run_is_read_only_and_reports_preparation_required():
@@ -154,32 +156,43 @@ def test_bad_candidate_response_fails_closed(change, match):
         prep.prepare_market_rollout_candidate(Client(response=response), DAY, commit=True)
 
 
-def test_partial_candidate_writes_are_allowed_when_full_authority_materialization_is_ready():
+def test_partial_candidate_writes_are_allowed_across_larger_authority_cohort():
     authority = [
         {"set_id": "root", "activated_market_date": "2026-09-10",
          "deactivated_market_date": None, "enabled": True},
         {"set_id": "root-2", "activated_market_date": "2026-09-10",
          "deactivated_market_date": None, "enabled": True},
     ]
-    client = Client(authority_rows=authority, history=_final_pair("root-2"))
+    client = Client(authority_rows=authority, history=_generic_pair("root-2"))
     result = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
 
     assert result["rolloutRootCount"] == 1
     assert result["expectedRootCount"] == 2
-    assert result["materialization"]["ready"] is True
+    assert result["candidateWrites"]["standardCandidateCount"] == 1
+    assert result["candidateWrites"]["top10CandidateCount"] == 1
+    # Generic current-day rows are intentionally not accepted by the stricter
+    # provenance diagnostic. The subsequent Market Date Quality gate owns full
+    # authority-cohort valuation completeness and may accept those rows there.
+    assert result["materialization"]["ready"] is False
     assert result["materialization"]["rootCount"] == 2
-    assert result["materialization"]["provenanceState"] == "mixed"
 
 
-def test_partial_candidate_writes_fail_closed_when_authority_pair_is_missing():
-    authority = [
-        {"set_id": "root", "activated_market_date": "2026-09-10",
-         "deactivated_market_date": None, "enabled": True},
-        {"set_id": "root-2", "activated_market_date": "2026-09-10",
-         "deactivated_market_date": None, "enabled": True},
-    ]
-    with pytest.raises(RuntimeError, match="incomplete public-rollout materialization"):
-        prep.prepare_market_rollout_candidate(Client(authority_rows=authority), DAY, commit=True)
+def test_candidate_top10_receipt_mismatch_fails_closed():
+    with pytest.raises(RuntimeError, match="Top10 write receipt mismatch"):
+        prep.prepare_market_rollout_candidate(
+            Client(incomplete_after_rpc=True), DAY, commit=True,
+        )
+
+
+def test_candidate_standard_receipt_mismatch_fails_closed():
+    response = dict(
+        Client().response,
+        rolloutRootCount=0,
+        standardRowsUpserted=0,
+        top10RowsUpserted=0,
+    )
+    with pytest.raises(RuntimeError, match="Standard write receipt mismatch"):
+        prep.prepare_market_rollout_candidate(Client(response=response), DAY, commit=True)
 
 
 def test_unprepared_historical_date_is_rejected_by_rpc_response():
@@ -190,19 +203,12 @@ def test_unprepared_historical_date_is_rejected_by_rpc_response():
         )
 
 
-def test_success_response_with_incomplete_materialization_fails_closed():
-    with pytest.raises(RuntimeError, match="incomplete public-rollout materialization"):
-        prep.prepare_market_rollout_candidate(
-            Client(incomplete_after_rpc=True), DAY, commit=True,
-        )
-
-
 def test_candidate_preparation_retry_is_idempotent():
     client = Client()
     first = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
     second = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
-    assert first["materialization"]["ready"] is True
-    assert second["materialization"]["ready"] is True
+    assert first["candidateWrites"]["standardCandidateCount"] == 1
+    assert second["candidateWrites"]["standardCandidateCount"] == 1
     assert len(client.history) == 2
     assert len(client.rpc_calls) == 2
 
