@@ -188,6 +188,7 @@ def candidate_write_materialization(
         "top10ProtectedFinalCount": len(finalized["top10"]),
         "standardAcceptedCount": len(accepted["standard"]),
         "top10AcceptedCount": len(accepted["top10"]),
+        "top10SubsetOfStandard": candidates["top10"].issubset(candidates["standard"]),
         "top10AcceptedSubsetOfStandardAccepted": accepted["top10"].issubset(accepted["standard"]),
     }
 
