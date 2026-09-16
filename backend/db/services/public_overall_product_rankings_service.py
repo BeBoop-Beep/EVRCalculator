@@ -126,6 +126,24 @@ def read_public_overall_product_rankings(
             "financialRipLeaderScore": public.get("financialRipLeaderScore"),
             "collectorAppealScore": raw.get("collector_appeal_score"), "unitPrice": raw.get("product_market_price"),
             "expectedValue": raw.get("expected_value"), "chanceToRecoverCost": raw.get("chance_to_recover_capital"),
+            # Exact q-unit strategy distribution values, persisted verbatim by
+            # the builder (never recomputed here). A legacy/historical
+            # snapshot row published before this contract has NULL
+            # `median_value`/`top1_outcome_value_share` — those rows must
+            # keep rendering with these three fields unavailable rather than
+            # crash or silently show a computed-looking zero. Average Return
+            # is simple presentation arithmetic over already-persisted
+            # authority values (expected_value / actual_committed_capital) —
+            # NOT request-time strategy scoring — and is likewise unavailable
+            # whenever either operand is missing/non-positive.
+            "medianValue": raw.get("median_value"),
+            "topOneOutcomeValueShare": raw.get("top1_outcome_value_share"),
+            "averageReturn": (
+                float(raw["expected_value"]) / float(raw["actual_committed_capital"])
+                if raw.get("expected_value") is not None
+                and raw.get("actual_committed_capital") not in (None, 0)
+                else None
+            ),
             "familyRank": identity.get("familyRank"), "familySize": identity.get("familySize"), "familyTier": identity.get("familyTier"),
             # SET-level authority, carried verbatim off the same in-memory
             # `product_family_rankings` identity index this function already

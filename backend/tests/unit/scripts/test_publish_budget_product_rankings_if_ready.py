@@ -326,6 +326,7 @@ def _commit_ready_setup(monkeypatch, *, v12_report, v12_results):
         "budget_rank": 1, "budget_cohort_size": 1, "financial_only_rank": 1,
         "financial_rip_v4_score": 55.0, "overall_rip_v10_score": 56.0, "collector_appeal_score": 60.0,
         "source_calculation_run_id": "r1", "price_as_of": "2026-09-03",
+        "median_value": 24.0, "top1_outcome_value_share": 0.12,
     }]
 
     import backend.scripts.build_budget_normalized_product_rankings as build_mod

@@ -19,6 +19,7 @@ from backend.db.services.budget_product_ranking_authority import (
 from backend.scripts.build_budget_normalized_product_rankings import (
     V12_ROW_PUBLICATION_FIELDS, V12_SNAPSHOT_PUBLICATION_FIELDS,
     materialize_publication_payload, merge_v12_publication_fields, publish_rankings,
+    to_publication_payload, validate_publication_payload_rows,
 )
 
 
@@ -72,6 +73,7 @@ def _v10_rows():
             "capital_utilization": 0.8, "budget_rank": 1, "budget_cohort_size": 2, "budget_tier": "B",
             "financial_only_rank": 1, "financial_rip_v4_score": 55.0, "overall_rip_v10_score": 56.0,
             "collector_appeal_score": 60.0, "chance_to_recover_capital": 0.3, "expected_value": 30.0,
+            "median_value": 28.0, "top1_outcome_value_share": 0.12,
             "product_market_price": 10.0, "price_as_of": "2026-09-03", "full_market_anchor": None,
             "max_eligible_sku_price": None, "full_market_rounding_rule": None,
             "full_market_rounding_increment": None, "full_market_rounding_rule_version": None,
@@ -84,6 +86,7 @@ def _v10_rows():
             "capital_utilization": 0.8, "budget_rank": 2, "budget_cohort_size": 2, "budget_tier": "C",
             "financial_only_rank": 2, "financial_rip_v4_score": 40.0, "overall_rip_v10_score": 45.0,
             "collector_appeal_score": 50.0, "chance_to_recover_capital": 0.25, "expected_value": 28.0,
+            "median_value": 26.0, "top1_outcome_value_share": 0.10,
             "product_market_price": 10.0, "price_as_of": "2026-09-03", "full_market_anchor": None,
             "max_eligible_sku_price": None, "full_market_rounding_rule": None,
             "full_market_rounding_increment": None, "full_market_rounding_rule_version": None,
@@ -279,3 +282,150 @@ def test_publish_rankings_v12_path_is_exactly_one_rpc_call_with_all_fields():
     for row in payload["p_rows"]:
         for field in V12_ROW_PUBLICATION_FIELDS:
             assert row.get(field) is not None
+
+
+# --- Prepared Budget Product Rankings DB contract: median_value /
+# top1_outcome_value_share (source-side bridge) --------------------------
+
+
+def _budget_result_row(**overrides):
+    row = {
+        "sealedProductId": "p1", "setId": "s1", "productFamily": "booster_box",
+        "productName": "Alpha Booster Box", "productMarketPrice": 10.0, "priceAsOf": "2026-09-15",
+        "collectorAppealScore": 60.0, "sourceCalculationRunId": "r1", "budgetType": "standard_band",
+        "targetBudget": 25.0, "quantity": 2, "actualCommittedCapital": 20.0, "unusedCapital": 5.0,
+        "unusedCapitalPercent": 0.2, "capitalUtilization": 0.8, "eligible": True,
+        "budgetRank": 1, "budgetCohortSize": 1, "budgetTier": "B", "financialOnlyRank": 1,
+        "financialRipV4Score": 55.0, "overallRipV10Score": 56.0,
+        "chanceToRecoverCapital": 0.3, "expectedValue": 30.0,
+        "medianValue": 28.0, "topOneOutcomeValueShare": 0.12,
+        "fullMarketAnchor": None, "maxEligibleSkuPrice": None, "fullMarketRoundingRule": None,
+        "fullMarketRoundingIncrement": None, "fullMarketRoundingRuleVersion": None,
+    }
+    row.update(overrides)
+    return row
+
+
+def _results_with_one_row(**row_overrides):
+    row = _budget_result_row(**row_overrides)
+    return {
+        "authority": {
+            "financialRipVersion": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+            "overallRipVersion": "overall_rip_v10_90_financial_v4_10_collector_appeal_v5",
+            "collectorAppealVersion": "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2",
+            "pinnedPriceAsOf": "2026-09-15",
+        },
+        "marketDate": "2026-09-15", "builtAt": "2026-09-15T00:00:00+00:00",
+        "rankingMethodVersion": "v1", "allocationMethodVersion": "v1", "comparisonScopeVersion": "v1",
+        "productCount": 1, "cohortFingerprint": "fp",
+        "fullMarket": {"budget": 150.0, "maxEligibleSkuPrice": 101.0, "roundingIncrement": 50.0},
+        "fullMarketRoundingRuleVersion": "v1",
+        "timings": {}, "health": {},
+        "budgets": {"standard_band:25": {"rows": [row]}},
+    }
+
+
+def test_to_publication_payload_threads_median_and_top1_outcome_value_share_through():
+    """score_budget_strategy's exact q-unit distribution median/share values
+    must survive unchanged into the flattened publication row."""
+    results = _results_with_one_row(medianValue=28.5, topOneOutcomeValueShare=0.137)
+    _, rows = to_publication_payload(results)
+    assert len(rows) == 1
+    assert rows[0]["median_value"] == 28.5
+    assert rows[0]["top1_outcome_value_share"] == 0.137
+
+
+def test_publication_payload_end_to_end_from_score_budget_strategy():
+    """Full path: score_budget_strategy's exact-distribution medianValue and
+    topOneOutcomeValueShare (jackpotValueShare) reach `to_publication_payload`
+    byte-identical, with no recomputation in between."""
+    import numpy as np
+
+    from backend.calculations.evr.budget_normalized_product_ranking import score_budget_strategy
+
+    values = np.array([0.0] * 970 + [50.0] * 20 + [5000.0] * 10, dtype=float)
+    scored = score_budget_strategy(values, 100.0, 50.0, min_simulation_count=1)
+
+    results = _results_with_one_row(
+        medianValue=scored["medianValue"], topOneOutcomeValueShare=scored["topOneOutcomeValueShare"],
+    )
+    _, rows = to_publication_payload(results)
+
+    assert rows[0]["median_value"] == scored["medianValue"]
+    assert rows[0]["top1_outcome_value_share"] == scored["topOneOutcomeValueShare"]
+    assert rows[0]["top1_outcome_value_share"] != None  # noqa: E711 - explicit "not accidentally missing"
+
+
+def test_to_publication_payload_does_not_change_existing_ranking_fields():
+    """Regression: adding the two new fields must not perturb any existing
+    rank/score field already produced by `to_publication_payload`."""
+    results = _results_with_one_row()
+    _, rows = to_publication_payload(results)
+    row = rows[0]
+    assert row["budget_rank"] == 1
+    assert row["overall_rip_v10_score"] == 56.0
+    assert row["expected_value"] == 30.0
+    assert row["financial_rip_v4_score"] == 55.0
+
+
+def test_validate_publication_payload_rejects_missing_median():
+    rows = [{"sealed_product_id": "p1", "target_budget": 25.0, "median_value": None, "top1_outcome_value_share": 0.1}]
+    with pytest.raises(ValueError, match="median_value"):
+        validate_publication_payload_rows(rows)
+
+
+def test_validate_publication_payload_rejects_negative_median():
+    rows = [{"sealed_product_id": "p1", "target_budget": 25.0, "median_value": -1.0, "top1_outcome_value_share": 0.1}]
+    with pytest.raises(ValueError, match="median_value"):
+        validate_publication_payload_rows(rows)
+
+
+def test_validate_publication_payload_rejects_non_finite_median():
+    rows = [{"sealed_product_id": "p1", "target_budget": 25.0, "median_value": float("nan"), "top1_outcome_value_share": 0.1}]
+    with pytest.raises(ValueError, match="median_value"):
+        validate_publication_payload_rows(rows)
+
+
+def test_validate_publication_payload_rejects_missing_share():
+    rows = [{"sealed_product_id": "p1", "target_budget": 25.0, "median_value": 10.0, "top1_outcome_value_share": None}]
+    with pytest.raises(ValueError, match="top1_outcome_value_share"):
+        validate_publication_payload_rows(rows)
+
+
+def test_validate_publication_payload_rejects_share_above_one():
+    rows = [{"sealed_product_id": "p1", "target_budget": 25.0, "median_value": 10.0, "top1_outcome_value_share": 1.5}]
+    with pytest.raises(ValueError, match="top1_outcome_value_share"):
+        validate_publication_payload_rows(rows)
+
+
+def test_validate_publication_payload_rejects_share_below_zero():
+    rows = [{"sealed_product_id": "p1", "target_budget": 25.0, "median_value": 10.0, "top1_outcome_value_share": -0.01}]
+    with pytest.raises(ValueError, match="top1_outcome_value_share"):
+        validate_publication_payload_rows(rows)
+
+
+def test_validate_publication_payload_rejects_non_finite_share():
+    rows = [{"sealed_product_id": "p1", "target_budget": 25.0, "median_value": 10.0, "top1_outcome_value_share": float("inf")}]
+    with pytest.raises(ValueError, match="top1_outcome_value_share"):
+        validate_publication_payload_rows(rows)
+
+
+def test_validate_publication_payload_accepts_valid_rows():
+    rows = [{"sealed_product_id": "p1", "target_budget": 25.0, "median_value": 10.0, "top1_outcome_value_share": 0.25}]
+    validate_publication_payload_rows(rows)  # must not raise
+
+
+def test_materialize_publication_payload_refuses_before_rpc_when_median_missing():
+    """The gate must trip in `materialize_publication_payload`, i.e. strictly
+    before `publish_rankings` ever calls `client.rpc(...)`."""
+    results = _results_with_one_row(medianValue=None)
+    with pytest.raises(ValueError, match="median_value"):
+        materialize_publication_payload(results)
+
+
+def test_publish_rankings_never_calls_rpc_when_share_out_of_range():
+    client = _FakeClient()
+    results = _results_with_one_row(topOneOutcomeValueShare=1.2)
+    with pytest.raises(ValueError, match="top1_outcome_value_share"):
+        publish_rankings(client, results)
+    assert client.calls == []
