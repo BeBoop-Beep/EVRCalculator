@@ -93,7 +93,7 @@ def engine_result():
     }
 
 
-def source_rows():
+def source_rows_for(rows):
     return [{
         'sealed_product_id': row['sealedProductId'], 'set_id': row['setId'],
         'product_family': row['productFamily'], 'source_calculation_run_id': row['sourceCalculationRunId'],
@@ -102,7 +102,11 @@ def source_rows():
         'financial_rip_v4_score': row['currentFinancialRipV4Score'], 'collector_appeal_score': row['currentCollectorAppealScore'],
         'chase_accessibility_raw': row['currentChaseAccessibilityRaw'], 'chance_to_recover_capital': row['currentChanceToRecoverCapital'],
         'actual_committed_capital': row['currentActualCommittedCapital'],
-    } for row in [engine_row('p1', 1), engine_row('p2', 2, 'resolved_below_market')]]
+    } for row in rows]
+
+
+def source_rows():
+    return source_rows_for([engine_row('p1', 1), engine_row('p2', 2, 'resolved_below_market')])
 
 
 class Lock:
@@ -302,3 +306,39 @@ def test_second_concurrent_run_is_refused_without_source_or_engine_work(tmp_path
     )
     assert code == 3
     assert report["status"] == "ALREADY_RUNNING"
+
+
+def test_validate_engine_result_accepts_canonical_ieee754_committed_capital_tail():
+    """Regression for the 140.68 x 9 case: quantity * float(price) leaves a
+    ~1e-13 IEEE-754 tail (9 * 140.68 -> 1266.1200000000001). The validator
+    must reconcile against backend.calculations.evr.budget_normalized_product_ranking.
+    whole_unit_allocation() -- the same operation order the canonical Budget
+    Ranking allocator uses -- not an independently reimplemented Decimal
+    computation, or it rejects 26/138 real Full Market rows as unresolved.
+    """
+    # Create an IEEE-754 tail value that will fail the committed capital reconciliation
+    # Use 140.68 * 9 which produces 1266.1200000000001 (float tail)
+    canonical_tail = 140.68 * 9
+    # Sanity check: verify we have the IEEE-754 tail
+    assert str(canonical_tail) == "1266.1200000000001"
+
+    # Use default SOURCE which will be adjusted below
+    source = SOURCE
+
+    # Create row1 with the committed capital that has an IEEE-754 tail
+    row1 = engine_row("p1", 1)
+    row1["currentActualCommittedCapital"] = canonical_tail  # Float with tail
+
+    # Row2 uses defaults
+    row2 = engine_row("p2", 2, "resolved_below_market")
+
+    rows = [row1, row2]
+    for r in rows:
+        r["bestOpenPriceCents"] = round(r["bestOpenPrice"] * 100)
+        r["exactness"]["nextPriceCents"] = r["bestOpenPriceCents"] + 1
+
+    engine = engine_result()
+    engine["products"] = rows
+
+    errors = publisher.validate_engine_result(engine, source, None)
+    assert errors == []
