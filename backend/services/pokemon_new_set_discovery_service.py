@@ -12,11 +12,21 @@ import requests
 from backend.alerts.scrape_alerts import queue_alert
 from backend.db.repositories import pokemon_set_onboarding_repository as jobs
 from backend.services.tcgplayer_set_catalog_service import (
+    PRODUCT_TYPE_CARDS,
+    PRODUCT_TYPE_SEALED,
     ThrottledRequester,
     build_priceguide_urls,
     fetch_global_set_aggregations,
     normalize_name,
     validate_candidate_set_id,
+)
+
+# (provider_name field key, product_type_names) per evidence source. A set whose sealed
+# products list before its singles (preorder/sealed-only) will not appear under "cards" at
+# all, so both sources must be aggregated and stable-ID validated with the matching filter.
+EVIDENCE_SOURCES = (
+    ("cards", (PRODUCT_TYPE_CARDS,)),
+    ("sealed", (PRODUCT_TYPE_SEALED,)),
 )
 
 SOURCE_SYSTEM = "tcgplayer"
@@ -46,6 +56,7 @@ class DiscoverySummary:
     unchanged: int = 0
     dry_run: bool = True
     error: Optional[str] = None
+    sealed_aggregation_error: Optional[str] = None
 
 
 @dataclass
@@ -139,39 +150,59 @@ def discover_new_sets(
         session or requests.Session(), timeout_seconds=max(0.1, provider_timeout_seconds)
     )
     cache: Dict[str, Any] = {}
+
+    # Cards aggregation is the primary, required source: its failure/emptiness fails the run
+    # exactly as before. Sealed aggregation is additive; its failure degrades to card-only
+    # discovery rather than blocking it, since sealed-only new sets are a broadening, not the
+    # baseline guarantee.
     try:
-        aggregations = fetch_global_set_aggregations(requester, cache)
+        card_aggregations = fetch_global_set_aggregations(requester, cache, product_type_names=[PRODUCT_TYPE_CARDS])
     except Exception as exc:
         return {**asdict(summary), "status": "retryable_provider_error", "error": str(exc)}
-    if not aggregations:
+    if not card_aggregations:
         return {**asdict(summary), "status": "retryable_provider_error", "error": "empty setName aggregation"}
 
-    summary.provider_candidates = len(aggregations)
-    named = [item for item in aggregations if item.get("value")]
-    tier_1 = [
-        item for item in named
-        if normalize_name(str(item["value"])) not in local_names
-    ]
-    tier_2 = [
-        item for item in named
-        if normalize_name(str(item["value"])) in local_names
-    ]
-    # Unknown names receive the main budget regardless of their provider order.
-    # Same-name/new-ID detection remains available through a separate bounded audit.
-    candidates = tier_1[:max_candidates] + tier_2[:max(0, max_same_name_audits)]
+    try:
+        sealed_aggregations = fetch_global_set_aggregations(
+            requester, cache, product_type_names=[PRODUCT_TYPE_SEALED]
+        )
+    except Exception as exc:
+        sealed_aggregations = []
+        summary.sealed_aggregation_error = str(exc)
+
+    aggregations_by_source = {"cards": card_aggregations, "sealed": sealed_aggregations}
+    summary.provider_candidates = len(card_aggregations) + len(sealed_aggregations)
+
+    # Unknown names receive the main budget regardless of their provider order or evidence
+    # source. Same-name/new-ID detection remains available through a separate bounded audit,
+    # per source, so a sealed-only re-release under a known name is still auditable.
+    candidates: list[tuple[Dict[str, Any], str, tuple]] = []
+    for evidence_source, product_type_names in EVIDENCE_SOURCES:
+        named = [item for item in aggregations_by_source[evidence_source] if item.get("value")]
+        tier_1 = [item for item in named if normalize_name(str(item["value"])) not in local_names]
+        candidates.extend((item, evidence_source, product_type_names) for item in tier_1[:max_candidates])
+    for evidence_source, product_type_names in EVIDENCE_SOURCES:
+        named = [item for item in aggregations_by_source[evidence_source] if item.get("value")]
+        tier_2 = [item for item in named if normalize_name(str(item["value"])) in local_names]
+        candidates.extend(
+            (item, evidence_source, product_type_names) for item in tier_2[:max(0, max_same_name_audits)]
+        )
+
     evidence: list[Dict[str, Any]] = []
-    for aggregation in candidates:
+    for aggregation, evidence_source, product_type_names in candidates:
         if summary.detected + summary.manual_review >= max_new:
             break
         provider_name = str(aggregation["value"])
         summary.candidates_checked += 1
         set_id, confidence, note = validate_candidate_set_id(
-            requester, cache, provider_name, provider_name, provider_name
+            requester, cache, provider_name, provider_name, provider_name,
+            product_type_names=product_type_names,
         )
         item_evidence = {
             "aggregation": aggregation, "source_set_name": provider_name,
             "resolved_set_id": set_id, "confidence": confidence,
             "confidence_threshold": min_confidence, "diagnostic": note,
+            "evidence_source": evidence_source,
         }
         evidence.append(item_evidence)
         if set_id is None:
@@ -192,7 +223,12 @@ def discover_new_sets(
                 "metadata_json": {"discovery_evidence": item_evidence, "provisional_identity": True},
             }
             if commit:
-                jobs.upsert_discovery(row)
+                reconciled = jobs.reconcile_discovery_v2(
+                    source_system=SOURCE_SYSTEM, source_set_id=provisional,
+                    source_set_name=provider_name, candidate_status="manual_review",
+                    discovery_json=row["metadata_json"],
+                )
+                item_evidence["reconcile_disposition"] = (reconciled or {}).get("disposition")
                 queue_alert(
                     "pokemon_set_onboarding_manual_review",
                     f"Pokemon provider candidate {provider_name} needs stable-ID review",
@@ -227,7 +263,12 @@ def discover_new_sets(
             },
         }
         if commit:
-            jobs.upsert_discovery(row)
+            reconciled = jobs.reconcile_discovery_v2(
+                source_system=SOURCE_SYSTEM, source_set_id=source_id,
+                source_set_name=provider_name, candidate_status=status,
+                discovery_json=row["metadata_json"],
+            )
+            item_evidence["reconcile_disposition"] = (reconciled or {}).get("disposition")
             queue_alert(
                 "new_pokemon_set_detected" if status == "detected" else "pokemon_set_onboarding_manual_review",
                 f"Pokemon set {provider_name} {'detected' if status == 'detected' else 'needs review'}",

@@ -116,6 +116,103 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
     return (response.data or [None])[0]
 
 
+# ---------------------------------------------------------------------------
+# v2 RPCs (service-role, token-fenced). Kept alongside the v1 functions above
+# as a temporary compatibility fallback; do not drop the v1 functions in this
+# pass. The v2 lease is fenced by an opaque `lease_token` returned by
+# claim_next_v2, threaded through heartbeat_v2 and transition_v2, rather than
+# by (worker_id, status='running') alone.
+# ---------------------------------------------------------------------------
+
+
+def claim_next_v2(
+    worker_id: str, lease_seconds: int = 1800, *,
+    job_id: Optional[str] = None, include_waiting: bool = False, force_retry: bool = False,
+) -> Optional[Dict[str, Any]]:
+    response = supabase.rpc("claim_next_pokemon_set_onboarding_job_v2", {
+        "p_worker_id": worker_id, "p_lease_seconds": lease_seconds,
+        "p_job_id": job_id, "p_include_waiting": include_waiting, "p_force_retry": force_retry,
+    }).execute()
+    return (response.data or [None])[0]
+
+
+def heartbeat_v2(
+    job_id: str, worker_id: str, lease_token: str, lease_seconds: int = 1800,
+) -> Optional[Dict[str, Any]]:
+    """A zero-row response means ownership/token/lease is no longer valid; treat as lease loss."""
+    response = supabase.rpc("heartbeat_pokemon_set_onboarding_job_v2", {
+        "p_job_id": job_id, "p_worker_id": worker_id, "p_lease_token": lease_token,
+        "p_lease_seconds": lease_seconds,
+    }).execute()
+    return (response.data or [None])[0]
+
+
+def transition_v2(
+    job_id: str, worker_id: str, lease_token: str, expected_step: str, fields: Dict[str, Any],
+    *, strict: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """Fenced normal/successful state transition via RPC, replacing an unfenced direct UPDATE.
+
+    A zero-row response means the lease token/ownership/expected_step no longer
+    matches. With strict=True that is a hard failure, matching update_claimed's
+    strict behavior.
+    """
+    response = supabase.rpc("transition_pokemon_set_onboarding_job_v2", {
+        "p_job_id": job_id, "p_worker_id": worker_id, "p_lease_token": lease_token,
+        "p_expected_step": expected_step, "p_fields": fields,
+    }).execute()
+    result = (response.data or [None])[0]
+    if strict and result is None:
+        raise LeaseFencingError(
+            f"transition_v2 affected 0 rows for job {job_id} (worker {worker_id}, "
+            f"expected_step {expected_step}); lease token/ownership/step no longer matches"
+        )
+    return result
+
+
+def reconcile_discovery_v2(
+    *, source_system: str, source_set_id: str, source_set_name: str, candidate_status: str,
+    discovery_json: Dict[str, Any], observed_at: Optional[str] = None,
+    next_check_at: Optional[str] = None, card_listing_count: Optional[int] = None,
+    sealed_listing_count: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
+    """Non-destructive discovery upsert. Never restarts or overwrites an existing
+    identity's workflow metadata merely because discovery observed it again; the
+    response's disposition is one of inserted / observed_existing / stale_observation_ignored.
+    """
+    response = supabase.rpc("reconcile_pokemon_set_onboarding_discovery_v2", {
+        "p_source_system": source_system, "p_source_set_id": source_set_id,
+        "p_source_set_name": source_set_name, "p_candidate_status": candidate_status,
+        "p_discovery_json": discovery_json,
+        "p_observed_at": observed_at or datetime.now(timezone.utc).isoformat(),
+        "p_next_check_at": next_check_at, "p_card_listing_count": card_listing_count,
+        "p_sealed_listing_count": sealed_listing_count,
+    }).execute()
+    return (response.data or [None])[0]
+
+
+def release_for_retry_v2(
+    job_id: str, worker_id: str, lease_token: str, expected_step: str, *,
+    code: str, message: str, delay_seconds: int = 3600,
+) -> Optional[Dict[str, Any]]:
+    return transition_v2(job_id, worker_id, lease_token, expected_step, {
+        "status": "retry",
+        "next_attempt_at": (datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)).isoformat(),
+        "last_error_code": code, "last_error_message": message[:2000],
+    })
+
+
+def list_rechecks_v2(
+    *, source_system: str = "tcgplayer", limit: int = 25, as_of: Optional[str] = None,
+) -> list[Dict[str, Any]]:
+    """Bounded source of explicitly scheduled catalog rechecks (next_check_at due)."""
+    response = supabase.rpc("list_pokemon_set_onboarding_rechecks_v2", {
+        "p_source_system": source_system, "p_limit": limit,
+        "p_as_of": as_of or datetime.now(timezone.utc).isoformat(),
+    }).execute()
+    return response.data or []
+
+
 # Statuses runnable without an explicit resume sweep. Ordered ahead of waiting/manual_review
 # so an old waiting row can never repeatedly out-rank newer runnable work.
 _RUNNABLE_STATUSES = ("detected", "ready", "retry")

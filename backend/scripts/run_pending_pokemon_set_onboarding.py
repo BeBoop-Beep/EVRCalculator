@@ -7,7 +7,7 @@ import json
 import os
 import socket
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict
 
@@ -101,18 +101,19 @@ def main() -> int:
 
     claimed_count = 0
     for candidate_id in candidate_ids[:max_jobs]:
-        job = repository.claim_next(
+        job = repository.claim_next_v2(
             args.worker_id, max(60, args.lease_seconds), job_id=candidate_id,
-            force_retry=args.force_retry,
+            include_waiting=args.resume_all, force_retry=args.force_retry,
         )
         if not job:
             continue
         claimed_count += 1
         original_step = str(job["current_step"])
+        lease_token = job["lease_token"]
         try:
             with LeaseHeartbeat(
-                lambda: repository.heartbeat(
-                    str(job["id"]), args.worker_id, max(60, args.lease_seconds),
+                lambda: repository.heartbeat_v2(
+                    str(job["id"]), args.worker_id, lease_token, max(60, args.lease_seconds),
                 ),
                 lease_seconds=max(60, args.lease_seconds),
             ) as supervisor:
@@ -125,9 +126,9 @@ def main() -> int:
                 exit_code = 2
                 continue
             if supervisor.failure:
-                repository.release_for_retry(
-                    str(job["id"]), args.worker_id, code="heartbeat_failed",
-                    message=str(supervisor.failure),
+                repository.release_for_retry_v2(
+                    str(job["id"]), args.worker_id, lease_token, original_step,
+                    code="heartbeat_failed", message=str(supervisor.failure),
                 )
                 results.append({
                     "job_id": job["id"], "step": original_step,
@@ -139,8 +140,8 @@ def main() -> int:
             common = {
                 "metadata_json": metadata, "last_error_code": outcome.error_code,
                 "last_error_message": outcome.evidence.get("error"),
-                "worker_id": None, "lease_expires_at": None, "heartbeat_at": None,
             }
+            # Waiting transitions require an explicit future next_attempt_at.
             source_fields = {
                 key: outcome.evidence[key] for key in (
                     "canonical_key", "era_folder", "source_branch", "source_commit_sha",
@@ -151,26 +152,31 @@ def main() -> int:
                 fields = {**common, **source_fields, "status": "ready", "current_step": outcome.step,
                           "next_attempt_at": datetime.now(timezone.utc).isoformat()}
             elif outcome.kind == "wait":
-                fields = {**common, **source_fields, "status": "waiting", "current_step": outcome.step}
+                fields = {**common, **source_fields, "status": "waiting", "current_step": outcome.step,
+                          "next_attempt_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()}
             elif outcome.kind == "manual_review":
                 fields = {**common, "status": "manual_review", "current_step": outcome.step}
             elif outcome.kind == "complete":
                 fields = {**common, "status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}
             else:
-                repository.release_for_retry(
-                    str(job["id"]), args.worker_id, code=outcome.error_code or "step_failed",
+                repository.release_for_retry_v2(
+                    str(job["id"]), args.worker_id, lease_token, original_step,
+                    code=outcome.error_code or "step_failed",
                     message=outcome.evidence.get("error", outcome.error_code or "step failed"),
                 )
                 fields = None
                 exit_code = 2
             if fields is not None:
-                repository.update_claimed(str(job["id"]), args.worker_id, fields, strict=True)
+                repository.transition_v2(
+                    str(job["id"]), args.worker_id, lease_token, original_step, fields, strict=True,
+                )
             results.append({"job_id": job["id"], "step": original_step, "outcome": outcome.__dict__})
             if args.through_step == original_step:
                 break
         except Exception as exc:
-            repository.release_for_retry(
-                str(job["id"]), args.worker_id, code="unhandled_worker_error", message=str(exc),
+            repository.release_for_retry_v2(
+                str(job["id"]), args.worker_id, lease_token, original_step,
+                code="unhandled_worker_error", message=str(exc),
             )
             queue_alert(
                 "pokemon_set_onboarding_failed", "Pokemon set onboarding worker failed", str(exc),

@@ -73,6 +73,12 @@ EXCEPTION_SEARCH_LABELS: Dict[str, str] = {
 
 TCGPLAYER_SEARCH_URL = "https://mp-search-api.tcgplayer.com/v1/search/request"
 
+# TCGplayer's mp-search-api productTypeName facet values for the Pokemon category.
+# Discovery must query both: a set whose sealed products list before singles (a
+# preorder/sealed-only set) will not appear under CARDS at all.
+PRODUCT_TYPE_CARDS = "Cards"
+PRODUCT_TYPE_SEALED = "Sealed Products"
+
 MAX_REQUESTS_PER_SECOND = 1
 MAX_REQUESTS_PER_MINUTE = 30
 MAX_RETRIES = 3
@@ -342,10 +348,13 @@ def search_cache_key(query: str, body: Dict[str, Any]) -> str:
     return f"q={query}|body={body_hash}"
 
 
-def build_search_body(query_set_name: Optional[str] = None, size: int = 24) -> Dict[str, Any]:
+def build_search_body(
+    query_set_name: Optional[str] = None, size: int = 24,
+    product_type_names: Optional[List[str]] = None,
+) -> Dict[str, Any]:
     term_filters: Dict[str, Any] = {
         "productLineName": ["Pokemon"],
-        "productTypeName": ["Cards"],
+        "productTypeName": list(product_type_names) if product_type_names else [PRODUCT_TYPE_CARDS],
     }
     if query_set_name:
         term_filters["setName"] = [query_set_name]
@@ -370,8 +379,11 @@ def build_search_body(query_set_name: Optional[str] = None, size: int = 24) -> D
     }
 
 
-def fetch_global_set_aggregations(requester: ThrottledRequester, query_cache: Dict[str, Any]) -> List[Dict[str, Any]]:
-    body = build_search_body(size=0)
+def fetch_global_set_aggregations(
+    requester: ThrottledRequester, query_cache: Dict[str, Any],
+    product_type_names: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    body = build_search_body(size=0, product_type_names=product_type_names)
     payload = safe_post_search(requester=requester, query="", body=body, cache=query_cache)
     results = (payload.get("results") or [{}])[0]
     return (results.get("aggregations") or {}).get("setName") or []
@@ -438,8 +450,9 @@ def validate_candidate_set_id(
     set_name_filter: str,
     expected_set_name: str,
     exception_label: Optional[str] = None,
+    product_type_names: Optional[List[str]] = None,
 ) -> Tuple[Optional[int], float, str]:
-    body = build_search_body(query_set_name=set_name_filter, size=24)
+    body = build_search_body(query_set_name=set_name_filter, size=24, product_type_names=product_type_names)
     candidate_queries = [
         search_query,
         normalize_name(search_query),
