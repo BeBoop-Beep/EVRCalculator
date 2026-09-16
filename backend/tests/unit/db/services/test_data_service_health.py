@@ -73,6 +73,26 @@ def test_cloudflare_html_api_error_code_502_is_retryable():
     assert result.status_code == 502
 
 
+def test_cloudflare_1018_wrapped_as_409_is_retryable():
+    """Observed Sep 15 failure: postgrest-py rewrote Cloudflare 1018 as code=409."""
+    error = APIError({
+        "message": "JSON could not be generated",
+        "code": 409,
+        "hint": "Refer to full message for details",
+        "details": (
+            "<!DOCTYPE html><html><head><title>Could not find host | "
+            "project.supabase.co | Cloudflare</title></head><body>"
+            "<h1>Error 1018</h1><h2>Could not find host</h2></body></html>"
+        ),
+    })
+
+    result = classify_data_service_error(error)
+
+    assert result.transient is True
+    assert result.code == "409"
+    assert result.status_code == 409
+
+
 def test_statement_timeout_is_transient():
     """57014 cancels the statement, not the connection.
 
@@ -92,10 +112,9 @@ def test_statement_timeout_is_transient():
     )
 
 
-def test_http_520_is_transient_like_its_neighbours():
-    """520 sat outside the set while 521/522 were inside it."""
+def test_cloudflare_gateway_statuses_are_transient():
     request = httpx.Request("GET", "https://example.test/rest/v1/table")
-    for status in (502, 503, 504, 520, 521, 522):
+    for status in (502, 503, 504, 520, 521, 522, 530):
         response = httpx.Response(status, request=request)
         assert is_transient_data_service_error(
             httpx.HTTPStatusError("gateway", request=request, response=response)
@@ -129,6 +148,40 @@ def test_offline_snapshot_retry_uses_a_fresh_client_for_pgrst002():
     assert len(clients) == 3
     assert len({id(client) for client in clients}) == 3
     assert sleeps == [0.25, 0.5]
+
+
+def test_offline_snapshot_retry_retries_cloudflare_1018_with_fresh_client():
+    clients = []
+    sleeps = []
+
+    def client_factory():
+        client = object()
+        clients.append(client)
+        return client
+
+    def operation(client):
+        if len(clients) == 1:
+            raise APIError({
+                "message": "JSON could not be generated",
+                "code": 409,
+                "hint": "Refer to full message for details",
+                "details": "<html><title>Could not find host | project.supabase.co | Cloudflare</title><h1>Error 1018</h1></html>",
+            })
+        return client
+
+    result = run_snapshot_operation_with_retry(
+        operation,
+        operation_name="fixture",
+        set_id="set-1018",
+        client_factory=client_factory,
+        sleep=sleeps.append,
+        jitter=lambda _start, _end: 0,
+    )
+
+    assert result is clients[-1]
+    assert len(clients) == 2
+    assert len({id(client) for client in clients}) == 2
+    assert sleeps == [0.25]
 
 
 def test_offline_snapshot_retry_does_not_retry_semantic_errors():
