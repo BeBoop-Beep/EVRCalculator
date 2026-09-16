@@ -103,3 +103,52 @@ def test_dynamic_population_is_not_hard_coded(monkeypatch):
     products = [_product(f"p{i}", f"s{i}", f"r{i}") for i in range(3)]
     result = service.resolve_budget_ranking_readiness(Client(products), latest_snapshot=None, promoted_market_date="2026-08-22")
     assert result.authority["productCount"] == 3
+
+
+def _latest_v12_snapshot(date="2026-08-21", **changes):
+    snapshot = {
+        "pinned_price_as_of": date,
+        "ranking_method_version": service.BUDGET_NORMALIZED_RANKING_METHOD_VERSION,
+        "allocation_method_version": service.ALLOCATION_METHOD_VERSION,
+        "comparison_scope_version": service.BUDGET_COMPARISON_SCOPE_VERSION,
+        "full_market_rounding_rule_version": service.FULL_MARKET_ROUNDING_RULE_VERSION,
+        "financial_rip_version": service.EXPECTED_FINANCIAL_RIP_VERSION,
+        "overall_rip_version": service.EXPECTED_OVERALL_RIP_V12_VERSION,
+        "overall_rip_v12_version": service.EXPECTED_OVERALL_RIP_V12_VERSION,
+        "collector_appeal_version": service.EXPECTED_COLLECTOR_APPEAL_VERSION,
+        "chase_accessibility_version": service.EXPECTED_CHASE_ACCESSIBILITY_VERSION,
+        "chase_accessibility_transform_version": service.EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
+        "ranked_under_v12_authority": True,
+    }
+    snapshot.update(changes)
+    return snapshot
+
+
+def test_latest_v12_authority_snapshot_passes_method_gate(monkeypatch):
+    _gate(monkeypatch)
+    result = service.resolve_budget_ranking_readiness(
+        Client([_product()]),
+        latest_snapshot=_latest_v12_snapshot(),
+        promoted_market_date="2026-08-22",
+    )
+    assert result.status == service.BudgetRankingStatus.PUBLISHED
+
+
+@pytest.mark.parametrize("change", [
+    {"overall_rip_v12_version": "future"},
+    {"chase_accessibility_version": "future"},
+    {"chase_accessibility_transform_version": "future"},
+    {
+        "ranked_under_v12_authority": False,
+        "overall_rip_version": service.EXPECTED_OVERALL_RIP_V12_VERSION,
+    },
+])
+def test_latest_v12_authority_snapshot_drift_still_fails_closed(monkeypatch, change):
+    _gate(monkeypatch)
+    result = service.resolve_budget_ranking_readiness(
+        Client([_product()]),
+        latest_snapshot=_latest_v12_snapshot(**change),
+        promoted_market_date="2026-08-22",
+    )
+    assert result.status == service.BudgetRankingStatus.METHOD_VERSION_MISMATCH
+    assert result.failed_gate == "latest_method_versions"
