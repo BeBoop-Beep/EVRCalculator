@@ -22,6 +22,8 @@ ROLLOUT_VIEW = "pokemon_market_public_rollout_root_sets_v1"
 ERA_ROLLOUT_VIEW = "pokemon_market_public_era_rollout_v1"
 SETS_TABLE = "sets"
 HISTORY_TABLE = "pokemon_set_value_daily_history"
+MARKET_INDEX_TABLE = "pokemon_market_index_daily_history"
+FINALIZED_INDEX_KEYS = frozenset({"raw", "top10"})
 CANDIDATE_SOURCES = {
     "standard": "canonical_root_set_public_rollout_candidate_v1",
     "top10": "canonical_root_top10_public_rollout_candidate_v1",
@@ -101,6 +103,36 @@ def staged_rollout_root_ids(client: Any, market_date: str) -> list[str]:
             raise RuntimeError(f"public rollout root cohort is empty for {day}")
         return roots
     return _legacy_staged_rollout_root_ids(client, day)
+
+
+def finalized_market_index_materialization(
+    client: Any, market_date: str, *, root_ids: list[str],
+) -> dict[str, Any]:
+    """Return whether both public index families already froze this authority day."""
+    day = str(market_date)[:10]
+    rows = _rows(
+        client.table(MARKET_INDEX_TABLE)
+        .select("index_key,market_date,set_count")
+        .eq("market_date", day)
+        .in_("index_key", sorted(FINALIZED_INDEX_KEYS))
+        .execute()
+    )
+    by_key = {str(row.get("index_key")): row for row in rows if row.get("index_key")}
+    expected = len(root_ids)
+    ready = set(by_key) == FINALIZED_INDEX_KEYS and all(
+        int(by_key[key].get("set_count") or -1) == expected
+        for key in FINALIZED_INDEX_KEYS
+    )
+    return {
+        "ready": ready,
+        "marketDate": day,
+        "expectedRootCount": expected,
+        "observedIndexKeys": sorted(by_key),
+        "observedSetCounts": {
+            key: int(row.get("set_count") or 0)
+            for key, row in sorted(by_key.items())
+        },
+    }
 
 
 def _history_rows(
@@ -211,6 +243,20 @@ def prepare_market_rollout_candidate(
             "rolloutRootCount": len(root_ids),
             "rpcInvoked": False,
             "materialization": materialization,
+        }
+
+    finalized = finalized_market_index_materialization(client, day, root_ids=root_ids)
+    if finalized["ready"]:
+        return {
+            "status": "already_finalized",
+            "marketDate": day,
+            "candidateDate": day,
+            "rolloutRootCount": len(root_ids),
+            "expectedRootCount": len(root_ids),
+            "rpcInvoked": False,
+            "candidatePreparationSkipped": True,
+            "finalizedMarket": finalized,
+            "reason": "Raw and Top-10 Market indexes already froze the full authority cohort",
         }
 
     response = client.rpc(
