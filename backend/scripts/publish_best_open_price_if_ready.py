@@ -36,6 +36,7 @@ from backend.calculations.evr.best_open_price import BEST_OPEN_PRICE_METHOD_VERS
 from backend.calculations.evr.budget_normalized_product_ranking import (
     ALLOCATION_METHOD_VERSION,
     BUDGET_NORMALIZED_RANKING_METHOD_VERSION,
+    whole_unit_allocation,
 )
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.db.services.best_open_price_authority import (
@@ -269,7 +270,13 @@ def validate_engine_result(engine: Mapping[str, Any], source: Mapping[str, Any],
                     raise ValueError("price gap does not reconcile")
                 if abs(finite_decimal(row.get("priceGapPercent")) - Decimal(current - price) / Decimal(current)) > Decimal("1e-12"):
                     raise ValueError("price gap percent does not reconcile")
-                if finite_decimal(row.get("currentActualCommittedCapital")) != current_q * Decimal(current) / 100:
+                allocation = whole_unit_allocation(
+                    target_budget=budget_cents / 100.0,
+                    product_market_price=float(row.get("currentMarketPrice")),
+                )
+                if int(current_q) != allocation["quantity"]:
+                    raise ValueError("current quantity does not match canonical whole-unit allocation")
+                if finite_decimal(row.get("currentActualCommittedCapital")) != finite_decimal(allocation["actualCommittedCapital"]):
                     raise ValueError("current committed capital does not reconcile")
                 exactness = row.get("exactness") or {}
                 if exactness.get("thresholdWins") is not True:
