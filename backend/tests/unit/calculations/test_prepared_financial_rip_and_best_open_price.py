@@ -289,3 +289,65 @@ def test_compare_rejects_unknown_authority():
     candidate = _prepared_candidate("candidate", 9)
     with pytest.raises(ValueError, match="comparison authority"):
         candidate.compare({"sealedProductId": "candidate"}, {"sealedProductId": "benchmark"}, authority="not_a_real_authority")
+
+
+from backend.calculations.evr.best_open_price import SharedScoreCache
+
+
+def test_shared_score_cache_scores_once_across_both_authorities():
+    """The core Phase 3 promise: a (quantity, price_cents) candidate scored
+    once must serve BOTH comparison authorities without rescoring -- the
+    Financial RIP V3 Monte Carlo simulation is the expensive part, and the
+    comparator dispatch itself is cheap.
+    """
+    candidate = _prepared_candidate("candidate", 9)
+    cache = SharedScoreCache()
+    benchmark = {"sealedProductId": "benchmark", "financialRipV4Score": -1e9,
+                 "overallRipV12Rankable": True, "overallRipV12Score": -1e9}
+
+    first = cache.evaluate(candidate, 14068, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+    second = cache.evaluate(candidate, 14068, benchmark, authority=COMPARISON_AUTHORITY_FINANCIAL_V4)
+
+    assert first["wins"] is True and second["wins"] is True
+    # Same underlying score for the same (quantity, price_cents) -- proves no rescoring happened.
+    assert first["financialRipV4Score"] == second["financialRipV4Score"]
+    diagnostics = cache.diagnostics()
+    assert diagnostics["uniqueCandidatePricesScored"] == 1
+    assert diagnostics["sharedScoreCacheHits"] == 1  # the second evaluate() call hit the cache
+    assert diagnostics["ripComparatorEvaluations"] == 1
+    assert diagnostics["financialComparatorEvaluations"] == 1
+
+
+def test_shared_score_cache_distinguishes_price_cents_within_same_quantity():
+    candidate = _prepared_candidate("candidate", 9)
+    cache = SharedScoreCache()
+    benchmark = {"sealedProductId": "benchmark", "financialRipV4Score": -1e9,
+                 "overallRipV12Rankable": True, "overallRipV12Score": -1e9}
+    cache.evaluate(candidate, 14068, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+    cache.evaluate(candidate, 14069, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+    diagnostics = cache.diagnostics()
+    assert diagnostics["uniqueCandidatePricesScored"] == 2
+    assert diagnostics["sharedScoreCacheHits"] == 0
+
+
+def test_shared_score_cache_get_or_score_matches_direct_score_candidate():
+    candidate = _prepared_candidate("candidate", 9)
+    cache = SharedScoreCache()
+    cached = cache.get_or_score(candidate, 14068)
+    direct = candidate.score_candidate(14068)
+    assert cached["financialRipV4Score"] == direct["financialRipV4Score"]
+    assert cached["actualCommittedCapital"] == direct["actualCommittedCapital"]
+
+
+def test_shared_score_cache_evicts_beyond_max_entries():
+    candidate = _prepared_candidate("candidate", 9)
+    cache = SharedScoreCache(max_entries=2)
+    benchmark = {"sealedProductId": "benchmark", "financialRipV4Score": -1e9,
+                 "overallRipV12Rankable": True, "overallRipV12Score": -1e9}
+    for price in (14068, 14069, 14070):
+        cache.evaluate(candidate, price, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+    assert len(cache._scores) == 2
+    # Oldest entry (14068) evicted; re-requesting it must score again, not hit.
+    diagnostics_before = cache.diagnostics()["uniqueCandidatePricesScored"]
+    cache.evaluate(candidate, 14068, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+    assert cache.diagnostics()["uniqueCandidatePricesScored"] == diagnostics_before + 1

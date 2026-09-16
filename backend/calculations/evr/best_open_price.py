@@ -110,6 +110,58 @@ class PreparedCanonicalCandidate:
 
 
 @dataclass
+class SharedScoreCache:
+    """Scores a (quantity, price_cents) candidate once, serves every
+    comparison authority against it from the same score record.
+
+    The Financial RIP V3 Monte Carlo simulation inside
+    PreparedCanonicalCandidate.score_candidate() is the expensive step; the
+    comparator dispatch inside .compare() is cheap. A dual-threshold engine
+    (RIP + FINANCIAL_V4 searches over the same product) shares this cache so
+    neither search rescoring a price the other already scored.
+    """
+    max_entries: int = 4096
+    _scores: "OrderedDict[tuple[int, int], Dict[str, Any]]" = field(default_factory=OrderedDict, init=False)
+    hits: int = field(default=0, init=False)
+    misses: int = field(default=0, init=False)
+    financial_comparator_evaluations: int = field(default=0, init=False)
+    rip_comparator_evaluations: int = field(default=0, init=False)
+
+    def get_or_score(self, candidate: "PreparedCanonicalCandidate", price_cents: int) -> Dict[str, Any]:
+        key = (candidate.quantity, price_cents)
+        if key in self._scores:
+            self.hits += 1
+            self._scores.move_to_end(key)
+            return self._scores[key]
+        self.misses += 1
+        record = candidate.score_candidate(price_cents)
+        self._scores[key] = record
+        while len(self._scores) > self.max_entries:
+            self._scores.popitem(last=False)
+        return record
+
+    def evaluate(self, candidate: "PreparedCanonicalCandidate", price_cents: int,
+                 benchmark: Mapping[str, Any], *, authority: str) -> Dict[str, Any]:
+        score_record = self.get_or_score(candidate, price_cents)
+        wins = candidate.compare(score_record, benchmark, authority=authority)
+        if authority == COMPARISON_AUTHORITY_FINANCIAL_V4:
+            self.financial_comparator_evaluations += 1
+        elif authority == COMPARISON_AUTHORITY_OVERALL_V12:
+            self.rip_comparator_evaluations += 1
+        else:
+            raise ValueError(f"unknown comparison authority {authority!r}")
+        return {**score_record, "wins": wins}
+
+    def diagnostics(self) -> Dict[str, Any]:
+        return {
+            "uniqueCandidatePricesScored": self.misses,
+            "sharedScoreCacheHits": self.hits,
+            "financialComparatorEvaluations": self.financial_comparator_evaluations,
+            "ripComparatorEvaluations": self.rip_comparator_evaluations,
+        }
+
+
+@dataclass
 class ExactBestOpenPriceSearch:
     product_id: str
     budget_cents: int
