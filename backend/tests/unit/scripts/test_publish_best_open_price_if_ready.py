@@ -318,19 +318,33 @@ def test_validate_engine_result_accepts_canonical_ieee754_committed_capital_tail
     """
     # Create an IEEE-754 tail value that will fail the committed capital reconciliation
     # Use 140.68 * 9 which produces 1266.1200000000001 (float tail)
-    canonical_tail = 140.68 * 9
+    price = 140.68
+    quantity = 9
+    canonical_tail = price * quantity
     # Sanity check: verify we have the IEEE-754 tail
     assert str(canonical_tail) == "1266.1200000000001"
 
-    # Use default SOURCE which will be adjusted below
-    source = SOURCE
+    # Use a copy of SOURCE to avoid mutating shared state
+    source = dict(SOURCE)
 
-    # Create row1 with the committed capital that has an IEEE-754 tail
+    # Create row1 with price/quantity/capital matching the 140.68 × 9 canonical case
     row1 = engine_row("p1", 1)
-    row1["currentActualCommittedCapital"] = canonical_tail  # Float with tail
+    row1.update({
+        "currentMarketPrice": price,
+        "currentQuantity": quantity,
+        "thresholdQuantity": quantity,  # Must match for whole-unit allocation check
+        "currentActualCommittedCapital": canonical_tail,  # Float with IEEE-754 tail
+        "bestOpenPrice": price,  # Rank 1 with price == current (resolved_at_market)
+        "priceGapDollars": 0.0,  # Price gap = current - best = 140.68 - 140.68 = 0
+        "priceGapPercent": 0.0,  # Percent gap = 0%
+        "status": "resolved_at_market",
+    })
 
-    # Row2 uses defaults
+    # Row2 uses defaults but updates benchmark to match row1's modified values
     row2 = engine_row("p2", 2, "resolved_below_market")
+    row2.update({
+        "benchmarkActualCommittedCapital": canonical_tail,  # Match row1's canonical tail
+    })
 
     rows = [row1, row2]
     for r in rows:
@@ -339,6 +353,10 @@ def test_validate_engine_result_accepts_canonical_ieee754_committed_capital_tail
 
     engine = engine_result()
     engine["products"] = rows
+    engine["source"]["sourceContentFingerprint"] = publisher.source_content_fingerprint(
+        source, source_rows_for(rows),
+    )
+    source["_source_content_fingerprint"] = engine["source"]["sourceContentFingerprint"]
 
-    errors = publisher.validate_engine_result(engine, source, None)
+    errors = publisher.validate_engine_result(engine, source, source_rows_for(rows))
     assert errors == []
