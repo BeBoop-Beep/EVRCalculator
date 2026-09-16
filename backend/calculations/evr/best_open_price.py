@@ -11,12 +11,16 @@ from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 from backend.calculations.evr.budget_normalized_product_ranking import (
     SORT_AUTHORITY_V12,
     rank_budget_cohort,
+    rank_by_financial_only,
 )
 from backend.calculations.evr.financial_rip_v3 import PreparedFinancialRipDistribution
 from backend.calculations.evr.financial_rip_v4 import project_financial_rip_v4_from_v3_payload
 from backend.desirability.weighted_rip import compute_overall_rip_v12
 
 BEST_OPEN_PRICE_METHOD_VERSION = "budget_product_best_open_price_full_market_v1"
+
+COMPARISON_AUTHORITY_OVERALL_V12 = "overall_v12"
+COMPARISON_AUTHORITY_FINANCIAL_V4 = "financial_v4"
 
 
 class BestOpenPriceSearchError(RuntimeError):
@@ -39,7 +43,8 @@ class PreparedCanonicalCandidate:
     target_budget: float
     min_simulation_count: int = 0
 
-    def evaluate(self, price_cents: int, benchmark: Mapping[str, Any]) -> Dict[str, Any]:
+    def score_candidate(self, price_cents: int) -> Dict[str, Any]:
+        """Pure candidate-price scoring. No comparison, no winner determination."""
         score_started = time.perf_counter()
         # Mirror whole_unit_allocation() exactly. The canonical Budget Ranking
         # first converts the cent price to a float dollar price and THEN
@@ -56,26 +61,52 @@ class PreparedCanonicalCandidate:
         )
         raw = {key: record.get("raw") for key, record in
                ((v3.get("audit") or {}).get("normalizedInputs") or {}).items()}
-        candidate = {
+        scoring_seconds = time.perf_counter() - score_started
+        return {
             "sealedProductId": self.product_id,
+            "priceCents": price_cents,
+            "quantity": self.quantity,
             "targetBudget": self.target_budget,
             "actualCommittedCapital": capital,
+            "financialRipV3Score": v3.get("score"),
             "financialRipV4Score": v4.get("score"),
             "overallRipV12Score": v12.get("score"),
             "overallRipV12Rankable": bool(v12.get("rankable")),
             "chanceToRecoverCapital": raw.get("true_win_probability"),
+            "scoringSeconds": scoring_seconds,
         }
-        scoring_seconds = time.perf_counter() - score_started
+
+    def compare(self, score_record: Mapping[str, Any], benchmark: Mapping[str, Any], *,
+                authority: str = COMPARISON_AUTHORITY_OVERALL_V12) -> bool:
+        """Winner determination only. Never rescoring -- score_record is already computed."""
         comparator_started = time.perf_counter()
-        ranked = rank_budget_cohort([candidate, dict(benchmark)], sort_authority=SORT_AUTHORITY_V12)
-        comparator_seconds = time.perf_counter() - comparator_started
-        wins = bool(ranked and ranked[0]["sealedProductId"] == self.product_id)
-        return {"wins": wins, "priceCents": price_cents, "quantity": self.quantity,
-                "financialRipV3Score": v3.get("score"), "financialRipV4Score": v4.get("score"),
-                "overallRipV12Score": v12.get("score"),
-                "chanceToRecoverCapital": raw.get("true_win_probability"),
-                "actualCommittedCapital": capital,
-                "scoringSeconds": scoring_seconds, "comparatorSeconds": comparator_seconds}
+        if authority == COMPARISON_AUTHORITY_OVERALL_V12:
+            ranked = rank_budget_cohort([score_record, dict(benchmark)], sort_authority=SORT_AUTHORITY_V12)
+        elif authority == COMPARISON_AUTHORITY_FINANCIAL_V4:
+            ranked = rank_by_financial_only([score_record, dict(benchmark)])
+        else:
+            raise ValueError(f"unknown comparison authority {authority!r}")
+        self._last_comparator_seconds = time.perf_counter() - comparator_started
+        return bool(ranked and ranked[0]["sealedProductId"] == self.product_id)
+
+    def evaluate(self, price_cents: int, benchmark: Mapping[str, Any], *,
+                 comparison_authority: str = COMPARISON_AUTHORITY_OVERALL_V12) -> Dict[str, Any]:
+        score_record = self.score_candidate(price_cents)
+        wins = self.compare(score_record, benchmark, authority=comparison_authority)
+        comparator_seconds = getattr(self, "_last_comparator_seconds", 0.0)
+        return {
+            "wins": wins,
+            "priceCents": score_record["priceCents"],
+            "quantity": score_record["quantity"],
+            "financialRipV3Score": score_record["financialRipV3Score"],
+            "financialRipV4Score": score_record["financialRipV4Score"],
+            "overallRipV12Score": score_record["overallRipV12Score"],
+            "chanceToRecoverCapital": score_record["chanceToRecoverCapital"],
+            "actualCommittedCapital": score_record["actualCommittedCapital"],
+            "scoringSeconds": score_record["scoringSeconds"],
+            "comparatorSeconds": comparator_seconds,
+            "comparisonAuthority": comparison_authority,
+        }
 
 
 @dataclass

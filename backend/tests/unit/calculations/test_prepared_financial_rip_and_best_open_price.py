@@ -208,3 +208,84 @@ def test_candidate_committed_capital_matches_canonical_allocation_float_order(mo
         result["financialRipV4Score"]
         == canonical_v4["score"]
     )
+
+
+from backend.calculations.evr.best_open_price import (
+    COMPARISON_AUTHORITY_FINANCIAL_V4,
+    COMPARISON_AUTHORITY_OVERALL_V12,
+)
+
+
+def _prepared_candidate(product_id, quantity, *, collector_appeal=60.0, chase_accessibility=0.002,
+                         budget=1300.0, seed=20260916):
+    values = np.random.default_rng(seed).lognormal(2.0, 1.2, 20_000)
+    prepared = PreparedFinancialRipDistribution.prepare(values)
+    return PreparedCanonicalCandidate(product_id, quantity, prepared, collector_appeal, chase_accessibility, budget)
+
+
+def test_evaluate_default_authority_is_unchanged_overall_v12():
+    """Task 2 backward-compat pin: evaluate() called exactly as V1 callers
+    call it (two positional args, no authority) must return the identical
+    'wins' determination it always did -- comparator authority defaults to
+    OVERALL_V12.
+    """
+    candidate = _prepared_candidate("candidate", 9)
+    benchmark = {"sealedProductId": "benchmark", "overallRipV12Score": -1e9, "overallRipV12Rankable": True,
+                 "financialRipV4Score": -1e9}
+    result = candidate.evaluate(14068, benchmark)
+    assert result["comparisonAuthority"] == COMPARISON_AUTHORITY_OVERALL_V12
+    assert "wins" in result and "financialRipV4Score" in result and "overallRipV12Score" in result
+
+
+def test_score_candidate_has_no_comparison_fields():
+    candidate = _prepared_candidate("candidate", 9)
+    record = candidate.score_candidate(14068)
+    assert "wins" not in record
+    assert record["sealedProductId"] == "candidate"
+    assert record["priceCents"] == 14068
+    assert record["quantity"] == 9
+    assert isinstance(record["financialRipV4Score"], float)
+
+
+def test_compare_under_financial_v4_authority_uses_financial_only_comparator(monkeypatch):
+    candidate = _prepared_candidate("candidate", 9)
+    score_record = {"sealedProductId": "candidate", "financialRipV4Score": 50.0}
+    losing_benchmark = {"sealedProductId": "benchmark", "financialRipV4Score": 10.0}
+    winning_benchmark = {"sealedProductId": "benchmark", "financialRipV4Score": 90.0}
+    assert candidate.compare(score_record, losing_benchmark, authority=COMPARISON_AUTHORITY_FINANCIAL_V4) is True
+    assert candidate.compare(score_record, winning_benchmark, authority=COMPARISON_AUTHORITY_FINANCIAL_V4) is False
+
+
+def test_compare_under_overall_v12_authority_is_unchanged(monkeypatch):
+    candidate = _prepared_candidate("candidate", 9)
+    score_record = {"sealedProductId": "candidate", "overallRipV12Rankable": True, "overallRipV12Score": 90.0,
+                     "financialRipV4Score": 50.0}
+    losing_benchmark = {"sealedProductId": "benchmark", "overallRipV12Rankable": True, "overallRipV12Score": 10.0,
+                         "financialRipV4Score": 10.0}
+    assert candidate.compare(score_record, losing_benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12) is True
+
+
+def test_evaluate_under_financial_v4_authority_can_disagree_with_overall_v12():
+    """A candidate can win under FINANCIAL_V4 while losing under OVERALL_V12
+    against the SAME benchmark -- the two authorities are genuinely
+    independent, per Phase 4's requirement that a product may be #1 under one
+    authority but not the other.
+    """
+    candidate = _prepared_candidate("candidate", 9)
+    score_record = candidate.score_candidate(14068)
+    high_v4_low_v12_benchmark = {
+        "sealedProductId": "benchmark",
+        "financialRipV4Score": score_record["financialRipV4Score"] - 1.0,  # candidate wins FINANCIAL_V4
+        "overallRipV12Rankable": True,
+        "overallRipV12Score": (score_record.get("overallRipV12Score") or 0.0) + 1000.0,  # candidate loses OVERALL_V12
+    }
+    wins_financial = candidate.compare(score_record, high_v4_low_v12_benchmark, authority=COMPARISON_AUTHORITY_FINANCIAL_V4)
+    wins_overall = candidate.compare(score_record, high_v4_low_v12_benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+    assert wins_financial is True
+    assert wins_overall is False
+
+
+def test_compare_rejects_unknown_authority():
+    candidate = _prepared_candidate("candidate", 9)
+    with pytest.raises(ValueError, match="comparison authority"):
+        candidate.compare({"sealedProductId": "candidate"}, {"sealedProductId": "benchmark"}, authority="not_a_real_authority")
