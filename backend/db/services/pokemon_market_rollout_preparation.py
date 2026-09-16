@@ -5,16 +5,19 @@ from __future__ import annotations
 from typing import Any
 
 from backend.db.services.price_storage_v2_integration import public_root_materialization
+from backend.db.services.pokemon_market_rollout_cohort import (
+    MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE,
+    resolve_market_root_ids,
+)
 
 CANDIDATE_PREPARATION_RPC = "prepare_pokemon_market_candidate_rollout_set_values_v1"
 # Deliberately NOT queried on the current-day candidate/materialization path:
 # this valuation-backed view scans get_pokemon_market_root_set_card_prices_latest_v1(NULL)
 # over the global root universe and measured ~7.86s in production, leaving no
-# PostgREST budget for the (already cheap, ~356ms) candidate RPC itself.
-# Membership must come from structural rollout authority instead -- see
-# staged_rollout_root_ids() below. This constant is retained only because
-# pokemon_market_rollout_cohort.py legitimately still reads this view for
-# immutable pre-cutover historical cohort reconstruction.
+# PostgREST budget for the candidate RPC itself. Post-cutover membership comes
+# from pokemon_market_root_authority through resolve_market_root_ids(); the
+# structural era-rollout resolver below is retained only for frozen pre-cutover
+# history.
 ROLLOUT_VIEW = "pokemon_market_public_rollout_root_sets_v1"
 ERA_ROLLOUT_VIEW = "pokemon_market_public_era_rollout_v1"
 SETS_TABLE = "sets"
@@ -25,17 +28,8 @@ def _rows(result: Any) -> list[dict[str, Any]]:
     return [dict(row) for row in ((getattr(result, "data", None) if result else None) or [])]
 
 
-def staged_rollout_root_ids(client: Any, market_date: str) -> list[str]:
-    """Resolve the expected current-day rollout root cohort structurally.
-
-    Mirrors the membership predicate baked into the optimized SQL RPCs
-    (``sets`` JOIN ``pokemon_market_public_era_rollout_v1``): it never reads
-    the valuation-backed ``pokemon_market_public_rollout_root_sets_v1`` view,
-    so it never pays for pricing the global root universe just to find out
-    which roots are expected. Membership is structural; whether a root is
-    actually priced is decided separately by materialization checks.
-    """
-    day = str(market_date)[:10]
+def _legacy_staged_rollout_root_ids(client: Any, day: str) -> list[str]:
+    """Resolve the frozen pre-Sep-10 rollout cohort structurally."""
     era_rows = _rows(
         client.table(ERA_ROLLOUT_VIEW)
         .select("era_id,activated_market_date,enabled")
@@ -72,6 +66,23 @@ def staged_rollout_root_ids(client: Any, market_date: str) -> list[str]:
     if not roots:
         raise RuntimeError(f"public rollout root cohort is empty for {day}")
     return sorted(roots)
+
+
+def staged_rollout_root_ids(client: Any, market_date: str) -> list[str]:
+    """Resolve the expected rollout root cohort from the correct date authority.
+
+    Sep 10+ Market membership is frozen in ``pokemon_market_root_authority`` and
+    must never be recomputed from the legacy era-rollout surface. Earlier dates
+    retain the historical structural resolver so already-published history is
+    not reinterpreted.
+    """
+    day = str(market_date)[:10]
+    if day >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE:
+        roots = resolve_market_root_ids(client, market_date=day)
+        if not roots:
+            raise RuntimeError(f"public rollout root cohort is empty for {day}")
+        return roots
+    return _legacy_staged_rollout_root_ids(client, day)
 
 
 def rollout_candidate_materialization(
@@ -124,12 +135,22 @@ def prepare_market_rollout_candidate(
     for key in ("marketDate", "candidateDate"):
         if str(payload.get(key) or "")[:10] != day:
             raise RuntimeError(f"candidate preparation returned wrong {key}")
+
+    # After the Sep-10 canonical root-authority cutover, the SQL materializer
+    # intentionally writes only roots that meet its live coverage predicates.
+    # The authority cohort itself is larger: unqualified roots can already have
+    # accepted FINAL/backfill rows for this date. Therefore RPC write counts are
+    # bounded diagnostics, not the membership contract. The authoritative
+    # completeness check is the full-root materialization verification below.
     expected = len(root_ids)
-    if int(payload.get("rolloutRootCount") or -1) != expected:
+    rollout_count = int(payload.get("rolloutRootCount") if payload.get("rolloutRootCount") is not None else -1)
+    standard_count = int(payload.get("standardRowsUpserted") if payload.get("standardRowsUpserted") is not None else -1)
+    top10_count = int(payload.get("top10RowsUpserted") if payload.get("top10RowsUpserted") is not None else -1)
+    if rollout_count < 0 or rollout_count > expected:
         raise RuntimeError("candidate preparation rollout root count mismatch")
-    if int(payload.get("standardRowsUpserted") or -1) != expected:
+    if standard_count != rollout_count:
         raise RuntimeError("candidate preparation Standard row count mismatch")
-    if int(payload.get("top10RowsUpserted") or -1) != expected:
+    if top10_count < 0 or top10_count > standard_count:
         raise RuntimeError("candidate preparation Top10 row count mismatch")
 
     materialization = rollout_candidate_materialization(client, day, root_ids=root_ids)
@@ -137,8 +158,13 @@ def prepare_market_rollout_candidate(
         raise RuntimeError(
             "candidate preparation left incomplete public-rollout materialization"
         )
-    if materialization["provenanceState"] != "candidate":
+    if materialization["provenanceState"] not in {"candidate", "mixed", "final"}:
         raise RuntimeError(
-            "candidate preparation did not leave candidate provenance"
+            "candidate preparation left unsupported public-root provenance"
         )
-    return {**payload, "rpcInvoked": True, "materialization": materialization}
+    return {
+        **payload,
+        "expectedRootCount": expected,
+        "rpcInvoked": True,
+        "materialization": materialization,
+    }
