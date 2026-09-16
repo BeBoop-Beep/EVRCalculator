@@ -1,15 +1,53 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
+import sys
+import types
 from types import SimpleNamespace
 from unittest.mock import patch
-
-from backend.db.services import pokemon_market_rollout_preparation as prep
 
 ROOT = Path(__file__).resolve().parents[2]
 PROPOSAL = ROOT / "backend/db/proposals/finalized_market_day_immutability.sql"
 DAY = "2026-09-15"
 ROOT_ID = "root"
+
+
+def _package(name: str, path: Path) -> None:
+    if name in sys.modules:
+        return
+    module = types.ModuleType(name)
+    module.__path__ = [str(path)]
+    sys.modules[name] = module
+
+
+def _load(name: str, relative: str):
+    spec = importlib.util.spec_from_file_location(name, ROOT / relative)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load test target {relative}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+# Mirror run_price_storage_v2_unit.py: load exact target files without executing
+# backend.db.services.__init__, which imports unrelated app dependencies.
+_package("backend", ROOT / "backend")
+_package("backend.db", ROOT / "backend/db")
+_package("backend.db.services", ROOT / "backend/db/services")
+_load(
+    "backend.db.services.price_storage_v2_integration",
+    "backend/db/services/price_storage_v2_integration.py",
+)
+cohort = types.ModuleType("backend.db.services.pokemon_market_rollout_cohort")
+cohort.MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE = "2026-09-10"
+cohort.resolve_market_root_ids = lambda *_args, **_kwargs: [ROOT_ID]
+sys.modules["backend.db.services.pokemon_market_rollout_cohort"] = cohort
+prep = _load(
+    "backend.db.services.pokemon_market_rollout_preparation",
+    "backend/db/services/pokemon_market_rollout_preparation.py",
+)
 
 
 class Query:
