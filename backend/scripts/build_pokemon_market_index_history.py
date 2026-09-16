@@ -24,12 +24,19 @@ from backend.db.services.pokemon_market_index_service import (
     build_market_index_history,
     persist_index_rows,
 )
-from backend.db.services.pokemon_market_rollout_cohort import resolve_market_root_cohort
+from backend.db.services.pokemon_market_rollout_cohort import (
+    MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE,
+    resolve_market_root_cohort,
+)
 from backend.db.services.pokemon_market_rollout_index import (
     build_rollout_market_index_rows,
     persist_rollout_market_index_rows,
 )
-from backend.db.services.price_storage_v2_integration import public_root_materialization
+from backend.db.services.price_storage_v2_integration import (
+    PUBLIC_ROOT_CANDIDATE_SOURCES,
+    PUBLIC_ROOT_SOURCES,
+    public_root_materialization,
+)
 from backend.domain.pokemon.market_index import (
     CHASE_INDEX_KEY,
     INDEX_KEYS,
@@ -39,9 +46,9 @@ from backend.domain.pokemon.market_index import (
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
 
-# This RPC uses the public-era rollout authority only. The older generic
-# rollout RPC intentionally remains available for Price Storage V2 workflows,
-# but must not expand the global Market cohort.
+# This RPC finalizes the current canonical Market-root materialization. Price
+# Storage V2 remains a separate, operator-gated workflow and is not attached to
+# this publisher.
 ROLLOUT_REFRESH_RPC = "refresh_pokemon_market_public_rollout_daily_snapshots_v1"
 PUBLIC_ROLLOUT_TABLE = "pokemon_market_public_era_rollout_v1"
 SOURCE_TABLE = "pokemon_set_value_daily_history"
@@ -64,33 +71,145 @@ def parser():
     return p
 
 
+def _canonical_checklist_source(scope: str) -> str:
+    return (
+        "card_variant_price_observations_near_mint_latest_as_of_day:"
+        f"{scope}:canonical_checklist"
+    )
+
+
+def _postcutover_authority_value_materialization(
+    root_ids: list[str], source_rows: list[dict], day: str, *, allow_candidate: bool,
+) -> dict:
+    """Validate the exact Sep-10+ Market authority value inputs.
+
+    After the canonical root-authority cutover, membership is no longer defined
+    by rollout certification. The public rollout finalizer intentionally writes
+    FINAL provenance only for roots that satisfy its live coverage/publishable
+    predicates; other authority roots retain the canonical-checklist Standard /
+    Top-10 value rows that Market Date Quality evaluates. Requiring every one of
+    those roots to carry rollout FINAL provenance therefore shrinks the source
+    contract below the frozen Market authority.
+
+    This helper does NOT broadly accept generic Price Storage/member rows. For
+    an authority root/scope pair it accepts only:
+      * canonical public-root FINAL/backfill provenance,
+      * the established canonical-checklist value source, or
+      * canonical public-root candidate provenance in preview mode only.
+
+    Every accepted pair must have a positive value and priced-card count. The
+    downstream rollout index builder independently rechecks the same full root
+    cohort and positive-value invariant before persistence.
+    """
+    roots = {str(value) for value in root_ids if value}
+    expected = {(root, scope) for root in roots for scope in PUBLIC_ROOT_SOURCES}
+    materialized: set[tuple[str, str]] = set()
+    duplicates: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str]] = set()
+    unsupported: list[list[str]] = []
+
+    for row in source_rows:
+        root = str(row.get("set_id") or "")
+        scope = str(row.get("value_scope") or "")
+        key = (root, scope)
+        if root not in roots or scope not in PUBLIC_ROOT_SOURCES:
+            continue
+        if str(row.get("snapshot_date") or "")[:10] != day:
+            continue
+        if key in seen:
+            duplicates.add(key)
+        seen.add(key)
+
+        source = str(row.get("source") or "")
+        accepted_sources = set(PUBLIC_ROOT_SOURCES[scope])
+        accepted_sources.add(_canonical_checklist_source(scope))
+        if allow_candidate:
+            accepted_sources.update(PUBLIC_ROOT_CANDIDATE_SOURCES[scope])
+        if source not in accepted_sources:
+            unsupported.append([root, scope, source])
+            continue
+
+        try:
+            value = float(row.get("set_value") or 0)
+            priced_count = int(row.get("priced_card_count") or 0)
+        except (TypeError, ValueError):
+            continue
+        if value > 0 and priced_count > 0:
+            materialized.add(key)
+
+    missing = sorted(expected - materialized)
+    return {
+        "ready": not missing and not duplicates,
+        "rootCount": len(roots),
+        "materializedPairCount": len(materialized),
+        "missingRootScopePairs": [list(pair) for pair in missing],
+        "duplicatePairs": [list(pair) for pair in sorted(duplicates)],
+        "unsupportedSourcePairs": unsupported,
+        "allowCandidate": allow_candidate,
+        "sourceContract": "canonical_market_root_authority_values_v1",
+    }
+
+
 def _rollout_source_materialization(client, market_date: str, *, allow_candidate: bool = False) -> dict:
-    """Use exactly the public rollout universe, never generic/Price Storage rollout.
+    """Validate the source rows used by the current-day Market index.
 
-    ``allow_candidate`` must be True only for dry-run/preview evaluation --
-    see ``public_root_materialization`` for the FINAL-vs-candidate provenance
-    contract. A --commit publish must always call this with
-    ``allow_candidate=False`` (the default).
+    Before the Sep-10 root-authority cutover, preserve the historical rollout
+    provenance contract exactly: preview may accept candidate provenance and a
+    commit requires FINAL/backfill provenance for every staged rollout pair.
 
-    Root membership is resolved via the same structural rollout-root resolver
-    used by candidate preparation (``staged_rollout_root_ids``), never via the
-    valuation-backed ``pokemon_market_public_rollout_root_sets_v1`` view --
-    reading that view here priced the global root universe on every
-    final-provenance check and left no request budget for anything else.
+    Sep 10+ membership comes from ``pokemon_market_root_authority``. The rollout
+    finalizer can legitimately finalize fewer roots than that authority (for
+    example 137 Standard / 124 Top-10 on Sep 15 while authority held 155). For
+    those dates, source readiness therefore follows the exact authority value
+    contract above rather than incorrectly treating FINAL provenance coverage as
+    membership. The stricter rollout-provenance result remains attached as
+    diagnostics and generic/member-only Price Storage sources remain rejected.
+
+    Root membership is resolved through ``staged_rollout_root_ids`` and never
+    through the valuation-backed ``pokemon_market_public_rollout_root_sets_v1``
+    view.
     """
     day = str(market_date)[:10]
     root_ids = staged_rollout_root_ids(client, day)
-    source_rows = []
+    source_rows: list[dict] = []
     for offset in range(0, len(root_ids), 100):
         source_rows.extend(
             client.table(SOURCE_TABLE)
-            .select("set_id,value_scope,snapshot_date,source")
+            .select(
+                "set_id,value_scope,snapshot_date,source,set_value,priced_card_count"
+            )
             .in_("set_id", root_ids[offset:offset + 100])
             .eq("snapshot_date", day)
             .in_("value_scope", ["standard", "top10"])
             .execute().data or []
         )
-    return public_root_materialization(root_ids, source_rows, day, allow_candidate=allow_candidate)
+
+    provenance = public_root_materialization(
+        root_ids, source_rows, day, allow_candidate=allow_candidate,
+    )
+    if day < MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE:
+        return provenance
+
+    authority_values = _postcutover_authority_value_materialization(
+        root_ids, source_rows, day, allow_candidate=allow_candidate,
+    )
+    candidate_aware = public_root_materialization(
+        root_ids, source_rows, day, allow_candidate=True,
+    )
+    final_only = public_root_materialization(
+        root_ids, source_rows, day, allow_candidate=False,
+    )
+    return {
+        **authority_values,
+        # Keep provenance observable without letting its partial coverage
+        # redefine the frozen authority membership.
+        "provenanceState": candidate_aware["provenanceState"],
+        "provenanceReadyForRequestedMode": provenance["ready"],
+        "finalProvenanceComplete": final_only["ready"],
+        "provenanceMaterializedPairCount": candidate_aware["materializedPairCount"],
+        "provenanceMissingRootScopePairs": candidate_aware["missingRootScopePairs"],
+        "provenanceDuplicatePairs": candidate_aware["duplicatePairs"],
+    }
 
 
 def build(client, *, market_date=None, backfill=False, from_date=None, commit=False, accepted_dates=None):
@@ -117,9 +236,11 @@ def build(client, *, market_date=None, backfill=False, from_date=None, commit=Fa
                     "allowed); refusing member-only index inputs"
                 )
         else:
-            # Commit: FINAL provenance only. If only candidate rows exist,
-            # invoke the canonical finalizer and re-require FINAL before any
-            # persistence happens.
+            # Commit: candidate-only rows still trigger the canonical finalizer.
+            # Pre-cutover this remains strict FINAL provenance. Sep 10+ the
+            # helper additionally recognizes positive canonical-checklist rows
+            # for exact authority roots, which are the intentional fallback for
+            # roots the finalizer cannot promote under its live coverage rules.
             materialization = _rollout_source_materialization(client, day, allow_candidate=False)
             if not materialization["ready"]:
                 response = client.rpc(
@@ -127,8 +248,6 @@ def build(client, *, market_date=None, backfill=False, from_date=None, commit=Fa
                     {"p_market_date": day},
                 ).execute()
                 rollout_refresh = getattr(response, "data", None)
-                # Recheck strictly against FINAL provenance; an incomplete or
-                # still-candidate-only refresh is not success.
                 materialization = _rollout_source_materialization(client, day, allow_candidate=False)
                 if not materialization["ready"]:
                     raise RuntimeError(
