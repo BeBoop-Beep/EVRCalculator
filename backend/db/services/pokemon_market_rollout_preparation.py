@@ -26,6 +26,20 @@ CANDIDATE_SOURCES = {
     "standard": "canonical_root_set_public_rollout_candidate_v1",
     "top10": "canonical_root_top10_public_rollout_candidate_v1",
 }
+FINAL_SOURCES = {
+    "standard": frozenset({
+        "canonical_root_set_public_rollout_v1",
+        "canonical_root_standard_backfill_v1",
+        "price_storage_v2_transition_anchor_v1",
+        "price_storage_v2_serving_compatibility_v1",
+    }),
+    "top10": frozenset({
+        "canonical_root_top10_public_rollout_v1",
+        "canonical_root_top10_backfill_v1",
+        "price_storage_v2_transition_anchor_v1",
+        "price_storage_v2_serving_compatibility_v1",
+    }),
+}
 
 
 def _rows(result: Any) -> list[dict[str, Any]]:
@@ -132,29 +146,49 @@ def rollout_candidate_materialization(
 def candidate_write_materialization(
     client: Any, market_date: str, *, root_ids: list[str],
 ) -> dict[str, Any]:
-    """Reconcile the candidate rows the RPC claims it wrote inside authority.
+    """Reconcile candidate writes while recognizing already-finalized rows.
 
-    The SQL RPC intentionally writes only roots meeting its live coverage
-    predicates. Non-written authority roots are handled by the immediately
-    following Market Date Quality gate, which requires current Standard/Top-10
-    valuation rows for the full authority cohort regardless of provenance.
+    Candidate preparation may target a root that already owns FINAL provenance
+    for the same market date. A finalized row must satisfy the candidate
+    preparation contract without being downgraded back to candidate provenance.
+    This lets the database enforce FINAL > CANDIDATE source precedence while the
+    following Market Date Quality gate continues to own full-cohort valuation
+    completeness regardless of provenance.
     """
     rows = _history_rows(client, market_date, root_ids)
-    by_scope: dict[str, set[str]] = {"standard": set(), "top10": set()}
+    candidates: dict[str, set[str]] = {"standard": set(), "top10": set()}
+    finalized: dict[str, set[str]] = {"standard": set(), "top10": set()}
     for row in rows:
         scope = str(row.get("value_scope") or "")
         if scope not in CANDIDATE_SOURCES:
             continue
-        if row.get("source") != CANDIDATE_SOURCES[scope]:
+        set_id = str(row.get("set_id") or "")
+        if not set_id:
             continue
-        if row.get("set_id"):
-            by_scope[scope].add(str(row["set_id"]))
+        source = str(row.get("source") or "")
+        if source == CANDIDATE_SOURCES[scope]:
+            candidates[scope].add(set_id)
+        elif source in FINAL_SOURCES[scope]:
+            finalized[scope].add(set_id)
+
+    accepted = {
+        scope: candidates[scope] | finalized[scope]
+        for scope in CANDIDATE_SOURCES
+    }
     return {
-        "standardCandidateRootIds": sorted(by_scope["standard"]),
-        "top10CandidateRootIds": sorted(by_scope["top10"]),
-        "standardCandidateCount": len(by_scope["standard"]),
-        "top10CandidateCount": len(by_scope["top10"]),
-        "top10SubsetOfStandard": by_scope["top10"].issubset(by_scope["standard"]),
+        "standardCandidateRootIds": sorted(candidates["standard"]),
+        "top10CandidateRootIds": sorted(candidates["top10"]),
+        "standardProtectedFinalRootIds": sorted(finalized["standard"]),
+        "top10ProtectedFinalRootIds": sorted(finalized["top10"]),
+        "standardAcceptedRootIds": sorted(accepted["standard"]),
+        "top10AcceptedRootIds": sorted(accepted["top10"]),
+        "standardCandidateCount": len(candidates["standard"]),
+        "top10CandidateCount": len(candidates["top10"]),
+        "standardProtectedFinalCount": len(finalized["standard"]),
+        "top10ProtectedFinalCount": len(finalized["top10"]),
+        "standardAcceptedCount": len(accepted["standard"]),
+        "top10AcceptedCount": len(accepted["top10"]),
+        "top10AcceptedSubsetOfStandardAccepted": accepted["top10"].issubset(accepted["standard"]),
     }
 
 
@@ -191,11 +225,11 @@ def prepare_market_rollout_candidate(
             raise RuntimeError(f"candidate preparation returned wrong {key}")
 
     # The authority cohort is intentionally larger than the subset the SQL
-    # materializer can write on a given day. Validate the RPC's counts as a
-    # bounded write receipt, then verify those exact candidate rows exist.
-    # Full-cohort valuation completeness is enforced immediately afterward by
-    # Market Date Quality; duplicating that gate here with stricter provenance
-    # rules would incorrectly reject valid authority members.
+    # materializer can value on a given day. Once FINAL > CANDIDATE precedence
+    # is enforced in the database, an already-finalized root is intentionally
+    # not rewritten and therefore is not included in ROW_COUNT. Treat the SQL
+    # counters as actual candidate writes, then reconcile candidate + protected
+    # FINAL rows back to the materialized rollout count.
     expected = len(root_ids)
     rollout_count = int(
         payload.get("rolloutRootCount")
@@ -211,18 +245,22 @@ def prepare_market_rollout_candidate(
     )
     if rollout_count < 0 or rollout_count > expected:
         raise RuntimeError("candidate preparation rollout root count mismatch")
-    if standard_count != rollout_count:
+    if standard_count < 0 or standard_count > rollout_count:
         raise RuntimeError("candidate preparation Standard row count mismatch")
-    if top10_count < 0 or top10_count > standard_count:
+    if top10_count < 0 or top10_count > rollout_count:
         raise RuntimeError("candidate preparation Top10 row count mismatch")
 
     candidate_writes = candidate_write_materialization(client, day, root_ids=root_ids)
+    if standard_count != rollout_count and candidate_writes["standardProtectedFinalCount"] == 0:
+        raise RuntimeError("candidate preparation Standard row count mismatch")
     if candidate_writes["standardCandidateCount"] != standard_count:
         raise RuntimeError("candidate preparation Standard write receipt mismatch")
     if candidate_writes["top10CandidateCount"] != top10_count:
         raise RuntimeError("candidate preparation Top10 write receipt mismatch")
-    if not candidate_writes["top10SubsetOfStandard"]:
-        raise RuntimeError("candidate preparation Top10 roots are outside Standard candidates")
+    if candidate_writes["standardAcceptedCount"] != rollout_count:
+        raise RuntimeError("candidate preparation Standard accepted-root coverage mismatch")
+    if not candidate_writes["top10AcceptedSubsetOfStandardAccepted"]:
+        raise RuntimeError("candidate preparation Top10 accepted roots are outside Standard accepted roots")
 
     # Keep the stricter provenance report visible for diagnostics without using
     # it to redefine post-cutover Market membership. Generic current-day rows
