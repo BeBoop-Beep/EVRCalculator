@@ -74,6 +74,13 @@ _RPC_MAX_ROWS_PER_RESPONSE = 1000
 # and the read cannot silently truncate a chunk.
 _RPC_CHUNK_ROW_BUDGET = 900
 _RPC_MIN_CHUNK_DAYS = 1
+# Hard client-side cap on chunk width. A low-cards-per-day set (e.g. HGSS
+# Black Star Promos at ~29 rows/day) would otherwise size a ~31-day request
+# under the row budget alone; measured in production that request takes
+# ~18.7s even with the DB quiet and crosses the 30s statement timeout under
+# normal load. Capping width keeps each RPC call small regardless of how few
+# rows/day a set has -- the row budget still governs sets with more cards/day.
+_RPC_MAX_CHUNK_DAYS = 7
 # Safety stop so a runaway loop cannot spin forever.
 _RPC_MAX_ROWS = 1_000_000
 
@@ -123,7 +130,10 @@ def load_card_constituent_rows(
     # how many days fit in one capped response.
     probe = _call_constituent_rpc(client, set_id, last, last)
     cards_per_day = max(1, len(probe))
-    chunk_days = max(_RPC_MIN_CHUNK_DAYS, _RPC_CHUNK_ROW_BUDGET // cards_per_day)
+    chunk_days = min(
+        _RPC_MAX_CHUNK_DAYS,
+        max(_RPC_MIN_CHUNK_DAYS, _RPC_CHUNK_ROW_BUDGET // cards_per_day),
+    )
 
     rows: List[Dict[str, Any]] = list(probe)
     cursor = first
