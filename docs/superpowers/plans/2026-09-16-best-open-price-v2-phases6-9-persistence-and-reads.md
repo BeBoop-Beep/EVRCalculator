@@ -618,3 +618,39 @@ git push origin HEAD:develop
 - No placeholders: Task 1's RPC body is specified as "copy V1 verbatim into one branch, write the new V2 body per the ordered list in Step 4" — this is a concrete instruction to reuse already-quoted-elsewhere real code, not an unfilled gap. Task 2/3 give exact function bodies with an explicit, flagged instruction to verify field names against the real current code before finalizing (since two upstream files this plan depends on — `build_v2_row` and the private service's exact current signature — were described from research rather than pinned line-by-line in this document).
 - Type consistency: `build_v2_row_payload`'s snake_case output keys (Task 2) match Task 1's migration column names exactly (`current_financial_only_rank`, `financial_best_open_price`, `threshold_financial_rip_v4_score`, etc.) and are consumed identically by Task 4's integration test fixtures.
 - Environment honesty: this plan does not claim disposable-Postgres RPC tests will pass in this session — it authors them, verifies they collect and skip correctly (proving they're wired right), and defers real execution to CI, exactly matching this repo's own established pattern for the V1 RPC.
+
+---
+
+## Execution report (Tasks A-F, worktree `best-open-price-v2`)
+
+**Starting state:** the worktree was on a detached HEAD at `634c04b9` (an already-committed-but-unpushed Task A: `build_v2_row_payload` in `backend/db/services/budget_product_best_open_price_service.py`, plus its tests, built directly on `e992a23b`). `origin/develop` had meanwhile advanced to `74a33be6` via an unrelated merge (`8b3e3c0b` pokemon-onboarding work).
+
+### A. Python persistence service — DONE (pre-existing, verified not redone)
+`build_row_payload` (V1) untouched. `build_v2_row_payload` added, importing both `BEST_OPEN_PRICE_METHOD_VERSION` and `BEST_OPEN_PRICE_V2_METHOD_VERSION` from `backend/calculations/evr/best_open_price.py`. Pure projection, asserts `engine_row["methodVersion"] == BEST_OPEN_PRICE_V2_METHOD_VERSION`, no scoring.
+
+### B. Method-aware private readers — DONE
+`load_best_open_price_ranking` already used `select("*")` — proven version-agnostic-safe via new pinning tests, zero code change needed there. `load_best_open_price_product`'s column allowlist was V1-only; extended additively to select the six V2 Financial-axis columns (`current_financial_only_rank`, `financial_status`, `financial_best_open_price`, `financial_threshold_quantity`, `financial_price_gap_dollars`, `financial_price_gap_percent`). V1 rows have these NULL at the DB level (additive migration); nothing here fabricates a value.
+
+### C. Public Product Rankings projection — DONE
+`public_overall_product_rankings_service.py`'s per-row attachment now also sets `ripBestOpenPrice`/`ripBestOpenPriceStatus`/`ripBestOpenPriceGapDollars`/`ripBestOpenPriceGapPercent` (aliasing the same RIP values `bestOpenPrice*` already carries), and — guarded by `best_open.get("financial_best_open_price") is not None` — attaches `financialBestOpenPrice`/`financialBestOpenPriceStatus`/`financialBestOpenPriceGapDollars`/`financialBestOpenPriceGapPercent`. No change to the existing availability/staleness/completeness logic. Availability isolation (Best-Open failure never takes down the rest of Product Rankings) was already true via the pre-existing try/except + available guard; proven with a new test.
+
+### D. Product Detail prepared projection — DONE
+`pokemon_sealed_product_detail_service.py`'s `_best_open_price_contract` gains the same `ripBestOpenPrice*` aliases and guarded `financialBestOpenPrice*` fields. No request-time scoring. Confirmed by tracing the call site (`rip["bestOpenPrice"] = _best_open_price_contract(...)`, line ~574) that the entire `rip` dict rides inside the pre-existing Index Plus entitlement gate; no new gating logic was added, and a source-pin test guards that call-site string.
+
+### E. Phase 9 tests — DONE
+Added V1/V2-awareness tests to all three touched service test files, plus an AST-based no-engine-import/call test parametrized across the three read-path modules (mirrors this repo's `test_prepared_read_never_calls_score_budget_strategy` isolation pattern). Result: **119 passed, 0 failed** across the five touched/related unit test files (`python -m pytest backend/tests/unit/db/services/test_budget_product_best_open_price_service.py backend/tests/unit/db/services/test_public_overall_product_rankings_service.py backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py backend/tests/unit/db/test_best_open_price_v2_migration_sql.py backend/tests/unit/db/test_budget_product_best_open_price_migration_sql.py -q`). A broader `backend/tests/unit` run showed 339 pre-existing unrelated failures (missing `stripe`/`jwt` modules, Python-3.8-vs-3.13 typing syntax, a Windows cp1252-vs-UTF-8 `Path.read_text()` encoding issue) — none touch the files this task modified, and none are new.
+
+### F. Disposable-Postgres V2 RPC test matrix — AUTHORED, LOCAL EXECUTION PENDING
+No Docker/Postgres/pg_ctl/initdb in this environment (confirmed empty). Authored `backend/tests/integration/test_best_open_publication_v2_postgres.py` (23 tests), structurally parallel to `test_best_open_publication_postgres.py` (reuses its DSN/connection/fixture_payload via import), applying the V2 migration in its `database()` fixture. Covers Phase 9 items 8 (V1 still succeeds on V2-aware schema), 9 (V2 valid publish), 10-21 (required-field/benchmark omissions, parametrized), 22 (duplicates), 23 (incomplete cohort), 24 (source drift), 25 (idempotency), 26 (non-determinism rejection), 27 (V1+V2 coexistence), 28-30 (role execution). Verified it collects and skips cleanly: 23 skipped (`isolated PostgreSQL DSN required`), same outcome as the V1 file locally. Extended `.github/workflows/best-open-price-guardrails.yml`'s `postgres-integration` job additively with a new step running the V2 cmp+pytest invocation alongside the untouched V1 one. **Real Postgres execution has NOT happened in this session and is deferred to CI** — reported honestly, not faked.
+
+### V1 zero-diff confirmation
+`build_row_payload` source is byte-identical to before. `load_best_open_price_ranking` has zero code changes (only new pinning tests). `load_best_open_price_product` gained additive `select()` columns only — parameters, return shape, staleness/availability logic unchanged; existing V1 tests pass unmodified. `_best_open_price_projection`'s/`_best_open_price_contract`'s generic (RIP-named) fields and existing gating logic are byte-identical; only new keys were added downstream of the existing construction.
+
+### Commits and push
+- `dfe028c6` — `feat: add build_v2_row_payload pure V2 persistence projector` (Task A, authored before this session resumed; rebased onto `origin/develop` cleanly, unmodified).
+- `ae7ab282` — `feat: make Best-Open read services method-version-aware for V2 dual fields` (Tasks B-F, this session).
+- Both landed on `origin/develop` via plain `git push origin HEAD:develop` (no `--force`). Confirmed via `git fetch && git log origin/develop -1` → `ae7ab2824f3f81881008fb3a7a1cda146f7f3d09`.
+- `git diff --check` ran clean before pushing (only LF→CRLF notices, no conflict markers/trailing whitespace).
+- Two large unrelated JSON fixture files mutated as a side effect of the wider test run were reverted with `git checkout --` before staging.
+
+**Status: BEST_OPEN_PRICE_V2_PHASES_6_9_PERSISTENCE_AND_READS_VALIDATED** — A-E fully complete and verified; F is authored, CI-wired, and locally skip-verified with real-Postgres execution explicitly pending in CI (the acceptable terminal state per the task's STOP/token conditions).
