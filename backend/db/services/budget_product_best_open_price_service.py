@@ -350,11 +350,17 @@ def load_best_open_price_product(
         or int(snapshot.get("resolved_count") or 0) != int(snapshot.get("source_eligible_cohort_count") or 0)):
         return {"available": False, "reason": "incomplete_snapshot_rows", "row": None}
 
+    # Generic (V1) columns plus the V2 Financial-axis columns. V1 rows simply
+    # have every financial_* column NULL at the DB level (the additive V2
+    # migration only ever adds nullable columns) -- selecting them here never
+    # fabricates a value, it just passes through whatever the row already has.
     rows = _rows(
         client.table("budget_product_best_open_price_rows")
         .select(
             "sealed_product_id,current_market_price,current_budget_rank,status,best_open_price,"
-            "threshold_quantity,price_gap_dollars,price_gap_percent"
+            "threshold_quantity,price_gap_dollars,price_gap_percent,"
+            "current_financial_only_rank,financial_status,financial_best_open_price,"
+            "financial_threshold_quantity,financial_price_gap_dollars,financial_price_gap_percent"
         )
         .eq("snapshot_id", str(snapshot["id"]))
         .eq("sealed_product_id", str(sealed_product_id))

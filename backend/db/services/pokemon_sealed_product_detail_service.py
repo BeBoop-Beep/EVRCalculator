@@ -172,7 +172,7 @@ def _best_open_price_contract(client: Any, sealed_product_id: str) -> Dict[str, 
     if not prepared.get("available"):
         return {"available": False, "reason": prepared.get("reason") or "prepared_unavailable"}
     row = prepared.get("row") or {}
-    return {
+    contract = {
         "available": True,
         "reason": None,
         "bestOpenPrice": row.get("best_open_price"),
@@ -187,7 +187,23 @@ def _best_open_price_contract(client: Any, sealed_product_id: str) -> Dict[str, 
         "sourceCohortSize": prepared.get("sourceEligibleCohortCount"),
         "sourceBudgetSnapshotId": prepared.get("sourceBudgetSnapshotId"),
         "methodVersion": prepared.get("methodVersion"),
+        "ripBestOpenPrice": row.get("best_open_price"),
+        "ripBestOpenPriceStatus": row.get("status"),
+        "ripBestOpenPriceGapDollars": row.get("price_gap_dollars"),
+        "ripBestOpenPriceGapPercent": row.get("price_gap_percent"),
     }
+    # V2-only Financial axis, nested inside this same return value so it
+    # inherits the caller's existing `rip["bestOpenPrice"] = ...` Index Plus
+    # entitlement gating unchanged -- never fabricated for a V1 row, whose
+    # `financial_best_open_price` is always None.
+    if row.get("financial_best_open_price") is not None:
+        contract.update({
+            "financialBestOpenPrice": row.get("financial_best_open_price"),
+            "financialBestOpenPriceStatus": row.get("financial_status"),
+            "financialBestOpenPriceGapDollars": row.get("financial_price_gap_dollars"),
+            "financialBestOpenPriceGapPercent": row.get("financial_price_gap_percent"),
+        })
+    return contract
 
 
 def _chase_accessibility_contract(

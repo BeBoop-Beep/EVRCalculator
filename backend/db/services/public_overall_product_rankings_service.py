@@ -157,7 +157,22 @@ def read_public_overall_product_rankings(
                 "bestOpenPriceStatus": best_open.get("status"),
                 "bestOpenPriceGapDollars": best_open.get("price_gap_dollars"),
                 "bestOpenPriceGapPercent": best_open.get("price_gap_percent"),
+                "ripBestOpenPrice": best_open.get("best_open_price"),
+                "ripBestOpenPriceStatus": best_open.get("status"),
+                "ripBestOpenPriceGapDollars": best_open.get("price_gap_dollars"),
+                "ripBestOpenPriceGapPercent": best_open.get("price_gap_percent"),
             })
+            # V2-only Financial axis. V1 rows never carry
+            # `financial_best_open_price` (it is either absent from the
+            # selected columns or persisted NULL), so this guard is what
+            # prevents fabricating a Financial value for a V1 row.
+            if best_open.get("financial_best_open_price") is not None:
+                projected.update({
+                    "financialBestOpenPrice": best_open.get("financial_best_open_price"),
+                    "financialBestOpenPriceStatus": best_open.get("financial_status"),
+                    "financialBestOpenPriceGapDollars": best_open.get("financial_price_gap_dollars"),
+                    "financialBestOpenPriceGapPercent": best_open.get("financial_price_gap_percent"),
+                })
         rows.append(projected)
     required_generic_fields = ("overallRipScore", "budgetRank", "budgetCohortSize")
     if rows and any(

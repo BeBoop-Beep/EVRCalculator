@@ -119,3 +119,7 @@ jobs:
         run: |
           cmp supabase/migrations/20260914225000_harden_best_open_publication_review.sql backend/db/migrations/20260914225000_harden_best_open_publication_review.sql
           python -m pytest -q backend/tests/integration/test_best_open_publication_postgres.py
+      - name: Apply mirrored V2 migration and run V2 RPC tests
+        run: |
+          cmp supabase/migrations/20260916120000_add_best_open_price_v2_dual_threshold.sql backend/db/migrations/20260916120000_add_best_open_price_v2_dual_threshold.sql
+          python -m pytest -q backend/tests/integration/test_best_open_publication_v2_postgres.py

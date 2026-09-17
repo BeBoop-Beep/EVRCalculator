@@ -518,3 +518,57 @@ def test_H_bounded_query_count_one_additional_chase_read():
     service.get_pokemon_sealed_product_detail_payload("p1", client)
     chase_reads = [q for q in client.executed if q[0] == "pokemon_set_chase_accessibility_snapshot_latest"]
     assert len(chase_reads) == 1
+
+
+# --- Best-Open Price V2 dual-field contract, nested inside the existing
+# Plus-gated `rip["bestOpenPrice"]` envelope (no new gating added here) -----
+
+
+def test_best_open_price_contract_v2_exposes_rip_and_financial_fields(monkeypatch):
+    monkeypatch.setattr(service, "load_best_open_price_product", lambda *_a, **_k: {
+        "available": True, "reason": None,
+        "row": {
+            "best_open_price": 145.0, "status": "exact",
+            "price_gap_dollars": 5.0, "price_gap_percent": 0.03,
+            "threshold_quantity": 9, "current_market_price": 145.0, "current_budget_rank": 2,
+            "financial_best_open_price": 150.0, "financial_status": "exact",
+            "financial_price_gap_dollars": 10.0, "financial_price_gap_percent": 0.06,
+        },
+        "sourceMarketDate": "2026-08-28", "sourceFullMarketBudget": 1400,
+        "sourceEligibleCohortCount": 2, "sourceBudgetSnapshotId": "snap-1",
+        "methodVersion": "budget_product_best_open_price_full_market_v2_dual_financial_v4_overall_v12",
+    })
+    contract = service._best_open_price_contract(object(), "p1")
+    assert contract["bestOpenPrice"] == contract["ripBestOpenPrice"] == 145.0
+    assert contract["financialBestOpenPrice"] == 150.0
+    assert contract["financialBestOpenPriceStatus"] == "exact"
+    assert contract["financialBestOpenPriceGapDollars"] == 10.0
+    assert contract["financialBestOpenPriceGapPercent"] == 0.06
+
+
+def test_best_open_price_contract_v1_never_exposes_financial_fields(monkeypatch):
+    monkeypatch.setattr(service, "load_best_open_price_product", lambda *_a, **_k: {
+        "available": True, "reason": None,
+        "row": {
+            "best_open_price": 100.0, "status": "exact",
+            "price_gap_dollars": 1.0, "price_gap_percent": 0.01,
+            "threshold_quantity": 12, "current_market_price": 100.0, "current_budget_rank": 1,
+        },
+        "sourceMarketDate": "2026-08-28", "sourceFullMarketBudget": 1400,
+        "sourceEligibleCohortCount": 2, "sourceBudgetSnapshotId": "snap-1",
+        "methodVersion": "budget_product_best_open_price_full_market_v1",
+    })
+    contract = service._best_open_price_contract(object(), "p1")
+    assert contract["bestOpenPrice"] == 100.0
+    assert "financialBestOpenPrice" not in contract or contract["financialBestOpenPrice"] is None
+
+
+def test_best_open_price_contract_rides_inside_plus_gated_rip_envelope():
+    """The nesting site `rip["bestOpenPrice"] = _best_open_price_contract(...)`
+    is the ONLY place this contract is attached -- it inherits whatever
+    entitlement gating already wraps the `rip` envelope, with no separate
+    gating logic added for the V2 fields."""
+    import inspect
+
+    source = inspect.getsource(service)
+    assert 'rip["bestOpenPrice"] = _best_open_price_contract(' in source

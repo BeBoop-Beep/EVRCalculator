@@ -302,6 +302,82 @@ def test_load_best_open_price_ranking_unavailable_when_no_live_source():
     assert result == {"available": False, "reason": "no_live_budget_ranking_source", "rows": []}
 
 
+def test_load_best_open_price_ranking_v2_exposes_dual_fields():
+    """Generic select("*") reader: proves the existing implementation is
+    already a safe, version-agnostic passthrough for V2 columns -- pinning
+    test per the plan's Step 3, not new production code."""
+    v2_snapshot = dict(SNAPSHOT_ROW, best_open_price_method_version=svc.BEST_OPEN_PRICE_V2_METHOD_VERSION)
+    v2_latest = {"best_open_price_method_version": svc.BEST_OPEN_PRICE_V2_METHOD_VERSION, "snapshot_id": "snap-1"}
+    client = FakeClient({
+        "budget_product_best_open_price_latest": [v2_latest],
+        "budget_product_best_open_price_snapshots": [v2_snapshot],
+        "budget_product_ranking_latest": [{"ranking_method_version": SOURCE["ranking_method_version"], "allocation_method_version": SOURCE["allocation_method_version"], "snapshot_id": "src-1"}],
+        "budget_product_ranking_snapshots": [SOURCE],
+        "budget_product_best_open_price_rows": [{
+            "sealed_product_id": "p1", "snapshot_id": "snap-1", "status": "exact", "best_open_price": 145.0,
+            "current_financial_only_rank": 1, "financial_best_open_price": 150.0, "financial_status": "exact",
+        }, {
+            "sealed_product_id": "p2", "snapshot_id": "snap-1", "status": "exact", "best_open_price": 200.0,
+        }],
+    })
+    result = svc.load_best_open_price_ranking(client, best_open_price_method_version=svc.BEST_OPEN_PRICE_V2_METHOD_VERSION)
+    row = result["rows"][0]
+    assert row["best_open_price"] == 145.0  # RIP alias unchanged
+    assert row["financial_best_open_price"] == 150.0
+    assert row["current_financial_only_rank"] == 1
+
+
+def test_load_best_open_price_ranking_v1_never_carries_financial_fields():
+    client = FakeClient({
+        "budget_product_best_open_price_latest": [LATEST_ROW],
+        "budget_product_best_open_price_snapshots": [SNAPSHOT_ROW],
+        "budget_product_ranking_latest": [{"ranking_method_version": SOURCE["ranking_method_version"], "allocation_method_version": SOURCE["allocation_method_version"], "snapshot_id": "src-1"}],
+        "budget_product_ranking_snapshots": [SOURCE],
+        "budget_product_best_open_price_rows": [
+            {"sealed_product_id": "p1", "snapshot_id": "snap-1", "status": "exact", "best_open_price": 100.0},
+            {"sealed_product_id": "p2", "snapshot_id": "snap-1", "status": "exact", "best_open_price": 200.0},
+        ],
+    })
+    result = svc.load_best_open_price_ranking(client)
+    row = result["rows"][0]
+    assert "financial_best_open_price" not in row or row.get("financial_best_open_price") is None
+
+
+def test_load_best_open_price_product_v2_selects_financial_columns():
+    v2_snapshot = dict(SNAPSHOT_ROW, best_open_price_method_version=svc.BEST_OPEN_PRICE_V2_METHOD_VERSION)
+    v2_latest = {"best_open_price_method_version": svc.BEST_OPEN_PRICE_V2_METHOD_VERSION, "snapshot_id": "snap-1"}
+    client = FakeClient({
+        "budget_product_best_open_price_latest": [v2_latest],
+        "budget_product_best_open_price_snapshots": [v2_snapshot],
+        "budget_product_ranking_latest": [{"ranking_method_version": SOURCE["ranking_method_version"], "allocation_method_version": SOURCE["allocation_method_version"], "snapshot_id": "src-1"}],
+        "budget_product_ranking_snapshots": [SOURCE],
+        "budget_product_best_open_price_rows": [{
+            "sealed_product_id": "p1", "snapshot_id": "snap-1", "status": "exact", "best_open_price": 145.0,
+            "current_financial_only_rank": 1, "financial_best_open_price": 150.0, "financial_status": "exact",
+            "financial_threshold_quantity": 9, "financial_price_gap_dollars": 10.0, "financial_price_gap_percent": 0.06,
+        }],
+    })
+    result = svc.load_best_open_price_product(
+        client, "p1", best_open_price_method_version=svc.BEST_OPEN_PRICE_V2_METHOD_VERSION,
+    )
+    assert result["available"] is True
+    assert result["row"]["financial_best_open_price"] == 150.0
+    assert result["row"]["current_financial_only_rank"] == 1
+
+
+def test_load_best_open_price_product_v1_never_carries_financial_fields():
+    client = FakeClient({
+        "budget_product_best_open_price_latest": [LATEST_ROW],
+        "budget_product_best_open_price_snapshots": [SNAPSHOT_ROW],
+        "budget_product_ranking_latest": [{"ranking_method_version": SOURCE["ranking_method_version"], "allocation_method_version": SOURCE["allocation_method_version"], "snapshot_id": "src-1"}],
+        "budget_product_ranking_snapshots": [SOURCE],
+        "budget_product_best_open_price_rows": [{"sealed_product_id": "p1", "snapshot_id": "snap-1", "status": "exact", "best_open_price": 100.0}],
+    })
+    result = svc.load_best_open_price_product(client, "p1")
+    assert result["available"] is True
+    assert result["row"].get("financial_best_open_price") is None
+
+
 def test_load_best_open_price_ranking_unavailable_when_rows_incomplete():
     client = FakeClient({
         "budget_product_best_open_price_latest": [LATEST_ROW],
@@ -312,3 +388,79 @@ def test_load_best_open_price_ranking_unavailable_when_rows_incomplete():
     })
     result = svc.load_best_open_price_ranking(client)
     assert result == {"available": False, "reason": "incomplete_snapshot_rows", "rows": []}
+
+
+# --- No request-time engine execution on the read path ----------------------
+#
+# Mirrors the isolation-test pattern used elsewhere in this repo (e.g.
+# backend/tests/unit/research/test_financial_isolation.py,
+# test_prepared_read_never_calls_score_budget_strategy in the public rankings
+# test file): a static/source check that the read/service layer never
+# imports or invokes the actual Best-Open Price search/scoring engine
+# orchestration (the research_best_open_price_* scripts, or the
+# Exact/DualBestOpenPriceSearch classes). The service DOES import
+# BEST_OPEN_PRICE_METHOD_VERSION/BEST_OPEN_PRICE_V2_METHOD_VERSION from
+# backend.calculations.evr.best_open_price (where the search engine also
+# lives) -- that's an unavoidable shared-module constant import, not an
+# engine invocation, so this test checks for actual construction/execution
+# of the search machinery, not the presence of that import line.
+
+import inspect
+
+_READ_PATH_MODULES = (
+    "backend.db.services.budget_product_best_open_price_service",
+    "backend.db.services.public_overall_product_rankings_service",
+    "backend.db.services.pokemon_sealed_product_detail_service",
+)
+
+_FORBIDDEN_ENGINE_IMPORTS = (
+    "research_best_open_price_v2",
+    "research_best_open_price_bucket0",
+    "research_best_open_price_bucket1",
+    "research_best_open_price_bucket2",
+)
+
+_FORBIDDEN_ENGINE_CALL_NAMES = (
+    "ExactBestOpenPriceSearch",
+    "DualBestOpenPriceSearch",
+    "SharedScoreCache",
+    "build_v2_row",
+    "build_row",
+)
+
+
+@pytest.mark.parametrize("module_name", _READ_PATH_MODULES)
+def test_read_path_never_imports_or_invokes_best_open_price_search_engine(module_name):
+    """Static/import-graph check, not a substring-of-docstring check: an
+    actual `import ...` node naming the engine orchestration scripts, or an
+    actual call/construction of the search engine's classes/functions, is
+    forbidden. Mentioning a script's path in a docstring (as
+    build_v2_row_payload's docstring does, to document which real function
+    it mirrors) is fine and must not false-positive here."""
+    import ast
+    import importlib
+
+    module = importlib.import_module(module_name)
+    tree = ast.parse(inspect.getsource(module))
+    imported_names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported_names.add(node.module)
+            imported_names.update(f"{node.module}.{alias.name}" for alias in node.names)
+    for forbidden in _FORBIDDEN_ENGINE_IMPORTS:
+        assert not any(forbidden in name for name in imported_names), (
+            f"read path {module_name} must not import engine module {forbidden!r}"
+        )
+
+    called_names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name):
+                called_names.add(func.id)
+            elif isinstance(func, ast.Attribute):
+                called_names.add(func.attr)
+    for forbidden in _FORBIDDEN_ENGINE_CALL_NAMES:
+        assert forbidden not in called_names, f"read path {module_name} must not call engine symbol {forbidden!r}"
