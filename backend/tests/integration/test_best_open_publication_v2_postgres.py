@@ -92,12 +92,19 @@ def fixture_payload_v2():
         n = int(row['current_budget_rank'])
         financial_bench = 2 if n == 1 else 1
         financial_threshold = 12.5 if n == 1 else 8.0
+        # Threshold evidence belongs to the candidate strategy AT P*, not to
+        # the current-market strategy. Keep the fixture internally coherent
+        # with the RPC's economic reconciliation: q(P*) * P* for each axis.
+        rip_threshold_quantity = int(row['threshold_quantity'])
+        rip_threshold_capital = rip_threshold_quantity * row['best_open_price']
+        financial_threshold_quantity = int(100 // financial_threshold)
+        financial_threshold_capital = financial_threshold_quantity * financial_threshold
         out_rows.append(dict(
             row,
             current_financial_only_rank=n,
             financial_status='current_number_one_with_headroom' if n == 1 else 'resolved_below_market',
             financial_best_open_price=financial_threshold,
-            financial_threshold_quantity=int(100 // financial_threshold),
+            financial_threshold_quantity=financial_threshold_quantity,
             financial_price_gap_dollars=10 - financial_threshold,
             financial_price_gap_percent=(10 - financial_threshold) / 10,
             financial_benchmark_sealed_product_id=str(UUID(int=financial_bench)),
@@ -106,11 +113,11 @@ def fixture_payload_v2():
             threshold_financial_rip_v4_score=row['current_financial_rip_v4_score'],
             threshold_overall_rip_v12_score=row['current_overall_rip_v12_score'],
             threshold_chance_to_recover_capital=row['current_chance_to_recover_capital'],
-            threshold_actual_committed_capital=row['current_actual_committed_capital'],
+            threshold_actual_committed_capital=rip_threshold_capital,
             financial_threshold_financial_rip_v4_score=row['current_financial_rip_v4_score'],
             financial_threshold_overall_rip_v12_score=row['current_overall_rip_v12_score'],
             financial_threshold_chance_to_recover_capital=row['current_chance_to_recover_capital'],
-            financial_threshold_actual_committed_capital=row['current_actual_committed_capital'],
+            financial_threshold_actual_committed_capital=financial_threshold_capital,
         ))
     return snap, out_rows
 
