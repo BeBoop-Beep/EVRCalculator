@@ -242,3 +242,23 @@ def test_run_fails_closed_on_financial_score_parity_failure():
     ]
     with pytest.raises(RuntimeError, match="does not reconstruct"):
         validate_financial_only_rank_reconstructs(rows)
+
+
+def test_run_fails_closed_on_current_v12_score_parity_failure():
+    """Matrix item 29: the RIP-axis analogue of
+    test_run_fails_closed_on_financial_score_parity_failure -- a persisted
+    overall_rip_v12_score that does not reconstruct from its own inputs via
+    compute_overall_rip_v12() must fail closed, exactly as
+    validate_financial_only_rank_reconstructs() does for the Financial axis.
+    _verify_v12_parity is the same RIP-axis guard run() calls (per
+    test_run_calls_rip_axis_v12_parity_verification_before_per_product_loop
+    above) against the whole source snapshot before any per-product search."""
+    rows = [{
+        "sealed_product_id": "a",
+        "financial_rip_v4_score": 50.0,
+        "collector_appeal_score": 60.0,
+        "chase_accessibility_raw": 0.002,
+        "overall_rip_v12_score": 999999.0,  # deliberately does not reconstruct
+    }]
+    with pytest.raises(RuntimeError, match="V12 parity failed"):
+        _verify_v12_parity(rows, label="rip")

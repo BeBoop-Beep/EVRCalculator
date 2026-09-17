@@ -546,3 +546,257 @@ def test_dual_search_financial_leader_only():
 def test_v1_best_open_price_method_version_unchanged():
     assert BEST_OPEN_PRICE_METHOD_VERSION == "budget_product_best_open_price_full_market_v1"
     assert BEST_OPEN_PRICE_V2_METHOD_VERSION == "budget_product_best_open_price_full_market_v2_dual_financial_v4_overall_v12"
+
+
+# ---------------------------------------------------------------------------
+# Task 5: remaining 32-item test-matrix coverage + diagnostics report.
+#
+# _DualSyntheticCandidate mirrors _SyntheticCandidate's shape (a fixed,
+# pre-declared winning-price set drives `wins`, exactly like the V1 synthetic
+# fixture above) but exposes independently controllable winning-price sets
+# per comparison authority, plus the score_candidate()/compare() interface
+# ExactBestOpenPriceSearch/SharedScoreCache actually call (see
+# best_open_price.py evaluate_price() -> shared_score_cache.evaluate() ->
+# candidate.score_candidate()/candidate.compare()). This is the minimal
+# extension needed to make the RIP and Financial searches disagree
+# deterministically in the NEW dual-engine matrix items below; it is not a
+# parallel fixture system.
+# ---------------------------------------------------------------------------
+class _DualSyntheticCandidate:
+    def __init__(self, product_id, quantity, rip_winning_prices, financial_winning_prices):
+        self.product_id, self.quantity = product_id, quantity
+        self.rip_winning_prices = rip_winning_prices
+        self.financial_winning_prices = financial_winning_prices
+        self._last_comparator_seconds = 0.0
+
+    def score_candidate(self, price_cents):
+        return {
+            "sealedProductId": self.product_id, "priceCents": price_cents, "quantity": self.quantity,
+            "financialRipV4Score": float(price_cents), "overallRipV12Score": float(price_cents),
+            "chanceToRecoverCapital": 0.5, "actualCommittedCapital": price_cents / 100.0,
+            "scoringSeconds": 0.0,
+        }
+
+    def compare(self, score_record, benchmark, *, authority=COMPARISON_AUTHORITY_OVERALL_V12):
+        price = score_record["priceCents"]
+        winning = (self.financial_winning_prices if authority == COMPARISON_AUTHORITY_FINANCIAL_V4
+                   else self.rip_winning_prices)
+        self._last_comparator_seconds = 0.0
+        return price in winning
+
+    def evaluate(self, price_cents, benchmark, *, comparison_authority=COMPARISON_AUTHORITY_OVERALL_V12):
+        score_record = self.score_candidate(price_cents)
+        wins = self.compare(score_record, benchmark, authority=comparison_authority)
+        return {**score_record, "wins": wins, "comparatorSeconds": self._last_comparator_seconds,
+                "comparisonAuthority": comparison_authority}
+
+
+def _dual_synthetic_engine(*, budget, current, rip_rank, rip_winning, financial_rank, financial_winning, max_q=4096):
+    pid = "candidate"
+    quantity_cache = {}
+
+    def prepare_quantity(q):
+        if q not in quantity_cache:
+            quantity_cache[q] = _DualSyntheticCandidate(pid, q, rip_winning, financial_winning)
+        return quantity_cache[q]
+
+    return DualBestOpenPriceSearch(
+        product_id=pid, budget_cents=budget, current_price_cents=current,
+        current_quantity=budget // current,
+        rip_current_rank=rip_rank, rip_benchmark={"sealedProductId": "rip-bench"},
+        financial_current_rank=financial_rank, financial_benchmark={"sealedProductId": "fin-bench"},
+        prepare_quantity=prepare_quantity,
+        source_authority_fingerprint="fp", expected_source_authority_fingerprint="fp",
+        max_quantity_to_construct=max_q,
+    )
+
+
+def test_dual_search_financial_and_rip_thresholds_can_be_equal():
+    """Matrix item 5."""
+    winning = set(range(1, 38))
+    engine = _dual_synthetic_engine(
+        budget=1000, current=100, rip_rank=2, rip_winning=winning,
+        financial_rank=2, financial_winning=winning,
+    )
+    result = engine.search()
+    assert result["ripResult"]["threshold"]["priceCents"] == result["financialResult"]["threshold"]["priceCents"] == 37
+
+
+def test_dual_search_financial_threshold_below_rip_threshold():
+    """Matrix item 6."""
+    engine = _dual_synthetic_engine(
+        budget=1000, current=100, rip_rank=2, rip_winning=set(range(1, 38)),
+        financial_rank=2, financial_winning=set(range(1, 21)),
+    )
+    result = engine.search()
+    assert result["financialResult"]["threshold"]["priceCents"] < result["ripResult"]["threshold"]["priceCents"]
+
+
+def test_dual_search_financial_threshold_above_rip_threshold():
+    """Matrix item 7."""
+    engine = _dual_synthetic_engine(
+        budget=1000, current=100, rip_rank=2, rip_winning=set(range(1, 21)),
+        financial_rank=2, financial_winning=set(range(1, 38)),
+    )
+    result = engine.search()
+    assert result["financialResult"]["threshold"]["priceCents"] > result["ripResult"]["threshold"]["priceCents"]
+
+
+def test_dual_search_candidate_leader_under_both_authorities():
+    """Matrix item 8."""
+    winning = set(range(100, 251))
+    engine = _dual_synthetic_engine(
+        budget=1000, current=100, rip_rank=1, rip_winning=winning,
+        financial_rank=1, financial_winning=winning,
+    )
+    result = engine.search()
+    assert result["ripResult"]["currentRank"] == result["financialResult"]["currentRank"] == 1
+    assert result["ripResult"]["threshold"]["wins"] is True
+    assert result["financialResult"]["threshold"]["wins"] is True
+
+
+def test_dual_search_rip_leader_only():
+    """Matrix item 10: mirror of Task 3's test_dual_search_financial_leader_only
+    with ranks swapped -- product is RIP rank 1 (leader) but Financial rank 2
+    (nonleader)."""
+    engine = _dual_synthetic_engine(
+        budget=1000, current=100, rip_rank=1, rip_winning=set(range(100, 251)),
+        financial_rank=2, financial_winning=set(range(1, 38)),
+    )
+    result = engine.search()
+    assert result["ripResult"]["currentRank"] == 1
+    assert result["financialResult"]["currentRank"] == 2
+
+
+def test_dual_search_candidate_leader_under_neither_reports_currentrank_two_for_both():
+    """Matrix item 11: explicit currentRank assertion for both authorities
+    when the candidate is a nonleader under both (extends the coverage of
+    Task 3's test_dual_search_returns_two_threshold_objects, which does not
+    assert currentRank)."""
+    engine, _ = _dual_engine(
+        budget=135000, current_price_cents=14068, current_quantity=9,
+        rip_rank=2, rip_benchmark={"sealedProductId": "rip-bench", "overallRipV12Rankable": True,
+                                    "overallRipV12Score": -1e9, "financialRipV4Score": -1e9},
+        financial_rank=2, financial_benchmark={"sealedProductId": "fin-bench", "financialRipV4Score": -1e9,
+                                                "overallRipV12Rankable": True, "overallRipV12Score": -1e9},
+    )
+    result = engine.search()
+    assert result["ripResult"]["currentRank"] == 2
+    assert result["financialResult"]["currentRank"] == 2
+
+
+def test_dual_search_financial_threshold_wins_and_is_one_cent_maximal():
+    """Matrix items 13 and 14."""
+    engine, _ = _dual_engine(
+        budget=135000, current_price_cents=14068, current_quantity=9,
+        rip_rank=2, rip_benchmark={"sealedProductId": "rip-bench", "overallRipV12Rankable": True,
+                                    "overallRipV12Score": -1e9, "financialRipV4Score": -1e9},
+        financial_rank=2, financial_benchmark={"sealedProductId": "fin-bench", "financialRipV4Score": -1e9,
+                                                "overallRipV12Rankable": True, "overallRipV12Score": -1e9},
+    )
+    result = engine.search()["financialResult"]
+    assert result["threshold"]["wins"] is True
+    assert result["exactness"]["oneCentMaximal"] is True
+
+
+def test_dual_search_rip_threshold_wins_and_is_one_cent_maximal():
+    """Matrix items 15 and 16."""
+    engine, _ = _dual_engine(
+        budget=135000, current_price_cents=14068, current_quantity=9,
+        rip_rank=2, rip_benchmark={"sealedProductId": "rip-bench", "overallRipV12Rankable": True,
+                                    "overallRipV12Score": -1e9, "financialRipV4Score": -1e9},
+        financial_rank=2, financial_benchmark={"sealedProductId": "fin-bench", "financialRipV4Score": -1e9,
+                                                "overallRipV12Rankable": True, "overallRipV12Score": -1e9},
+    )
+    result = engine.search()["ripResult"]
+    assert result["threshold"]["wins"] is True
+    assert result["exactness"]["oneCentMaximal"] is True
+
+
+def test_dual_search_next_cent_crosses_quantity_boundary_both_authorities():
+    """Matrix items 17 and 18: the threshold sits at the top of the quantity-27
+    price interval for budget=1000 (see test_nonleader_exact_search_never_above_market_and_transitions_quantity,
+    which already establishes threshold=37/quantity=27/next-price-38-loses for
+    this exact winning set); price+1=38 resolves to quantity 26, a different
+    physical quantity than the threshold's 27 -- a boundary crossing regardless
+    of authority."""
+    winning = set(range(1, 38))
+    engine = _dual_synthetic_engine(
+        budget=1000, current=100, rip_rank=2, rip_winning=winning,
+        financial_rank=2, financial_winning=winning,
+    )
+    result = engine.search()
+    assert result["financialResult"]["exactness"]["nextCentCrossesQuantityBoundary"] is True
+    assert result["ripResult"]["exactness"]["nextCentCrossesQuantityBoundary"] is True
+
+
+def test_observed_fixed_interval_monotonicity_inversion_financial_v4_authority():
+    """Matrix item 19: adapt the V1 monotonicity-inversion pattern (see
+    test_observed_fixed_interval_monotonicity_inversion_uses_exact_fallback
+    above, which exercises the default OVERALL_V12 authority -- matrix item 20)
+    to the FINANCIAL_V4 authority explicitly."""
+    def prepare_quantity(q):
+        return _DualSyntheticCandidate("candidate", q, rip_winning_prices=set(), financial_winning_prices={74, 75})
+
+    engine = ExactBestOpenPriceSearch(
+        product_id="candidate", budget_cents=100, current_price_cents=100, current_quantity=1,
+        current_rank=2, benchmark={"sealedProductId": "benchmark"},
+        prepare_quantity=prepare_quantity,
+        source_authority_fingerprint="fp", expected_source_authority_fingerprint="fp",
+        comparison_authority=COMPARISON_AUTHORITY_FINANCIAL_V4,
+    )
+    result = engine._solve_interval(1)
+    assert result["priceCents"] == 75
+
+
+def test_shared_score_cache_bounded_under_large_synthetic_search():
+    """Matrix item 32: drives many distinct (quantity, price_cents) keys
+    through a bounded SharedScoreCache and asserts the live cache never
+    exceeds max_entries at any point, plus that evictions were actually
+    counted."""
+    cache = SharedScoreCache(max_entries=10)
+    candidate = _prepared_candidate("candidate", 9)
+    benchmark = {"sealedProductId": "benchmark", "financialRipV4Score": -1e9,
+                 "overallRipV12Rankable": True, "overallRipV12Score": -1e9}
+    for price in range(14000, 14100):
+        cache.evaluate(candidate, price, benchmark, authority=COMPARISON_AUTHORITY_OVERALL_V12)
+        assert len(cache._scores) <= 10
+    diagnostics = cache.diagnostics()
+    assert diagnostics["scoreCacheEvictions"] > 0
+
+
+def test_dual_search_diagnostics_report(capsys):
+    """Step 4: diagnostics/performance report over a representative synthetic
+    fixture (the same fixture as Task 3's
+    test_dual_search_shares_one_score_cache_across_both_authorities). Reports
+    the synthetic reuse-savings/cache-hit-rate numbers only -- per the task's
+    explicit instruction, this does NOT claim a full-cohort speed improvement."""
+    engine, _ = _dual_engine(
+        budget=135000, current_price_cents=14068, current_quantity=9,
+        rip_rank=2, rip_benchmark={"sealedProductId": "rip-bench", "overallRipV12Rankable": True,
+                                    "overallRipV12Score": -1e9, "financialRipV4Score": -1e9},
+        financial_rank=2, financial_benchmark={"sealedProductId": "fin-bench", "financialRipV4Score": -1e9,
+                                                "overallRipV12Rankable": True, "overallRipV12Score": -1e9},
+    )
+    diagnostics = engine.search()["diagnostics"]
+    rip_evals = diagnostics["ripComparatorEvaluations"]
+    financial_evals = diagnostics["financialComparatorEvaluations"]
+    unique = diagnostics["uniqueCandidatePricesScored"]
+    naive = diagnostics["naiveScoreCount"]
+    savings = diagnostics["scoreReuseSavings"]
+
+    assert naive == rip_evals + financial_evals
+    assert savings == naive - unique
+    assert unique > 0 and naive > 0
+
+    cache_hit_rate = savings / naive
+    assert 0.0 <= cache_hit_rate < 1.0
+    print(
+        "\n[Best-Open V2 dual-search diagnostics report] "
+        f"ripComparatorEvaluations={rip_evals} financialComparatorEvaluations={financial_evals} "
+        f"uniqueCandidatePricesScored={unique} naiveScoreCount={naive} "
+        f"scoreReuseSavings={savings} cacheHitRate={cache_hit_rate:.4f} "
+        "(synthetic single-product fixture only -- NOT a full-cohort speed claim)"
+    )
+    captured = capsys.readouterr()
+    assert "dual-search diagnostics report" in captured.out
