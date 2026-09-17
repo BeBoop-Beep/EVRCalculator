@@ -1,7 +1,8 @@
 """Resilient runtime wrapper for the canonical Pokemon market publication audit.
 
-The canonical audit owns all business rules and verdict semantics. This module
-only hardens its I/O path for scheduled/offline execution:
+The canonical audit owns the per-surface truth checks. This runtime layer keeps
+those checks production-safe and adapts two post-cutover authority contracts that
+must match the publishers themselves:
 
 * every PostgREST execute is retried only when the shared data-service classifier
   says the failure is transient, with a fresh service-role client per attempt;
@@ -10,10 +11,15 @@ only hardens its I/O path for scheduled/offline execution:
   their own market date;
 * the Set Page snapshot is projected down to only the metadata/summary fields the
   audit actually consumes, instead of fetching the full page payload for the
-  entire daily cohort.
+  entire daily cohort;
+* global Market Set Value membership is resolved from the same frozen Market-root
+  authority as its publisher, never from opening-simulation eligibility;
+* a set-page row's generic ``as_of`` timestamp is never treated as an advertised
+  market date. Only explicit market-date fields can participate in the header
+  market-freshness check.
 
-No verdict is weakened. If a surface is stale, malformed, or missing, the
-canonical audit still fails closed exactly as before.
+No stale/missing market value is relabelled or waived. The adapters remove audit
+contract drift while preserving fail-closed behavior for actual public surfaces.
 """
 
 from __future__ import annotations
@@ -23,6 +29,7 @@ import logging
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.pokemon_market_rollout_cohort import resolve_market_root_ids
 from backend.scripts import audit_pokemon_market_publication as core
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 
@@ -79,6 +86,12 @@ class _RetryingQuery:
 
     def gte(self, *args: Any, **kwargs: Any) -> "_RetryingQuery":
         return self._record("gte", *args, **kwargs)
+
+    def lte(self, *args: Any, **kwargs: Any) -> "_RetryingQuery":
+        return self._record("lte", *args, **kwargs)
+
+    def lt(self, *args: Any, **kwargs: Any) -> "_RetryingQuery":
+        return self._record("lt", *args, **kwargs)
 
     def order(self, *args: Any, **kwargs: Any) -> "_RetryingQuery":
         return self._record("order", *args, **kwargs)
@@ -208,17 +221,100 @@ def _runtime_load_rows(
     return rows
 
 
+def _explicit_page_market_date(page_row: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Only a market date the page explicitly publishes can vouch for freshness."""
+
+    if not page_row:
+        return None
+    return core._first_date_at(
+        {
+            "meta": core._dig(page_row.get("payload_json"), "meta") or {},
+            "marketSummary": core._as_obj(page_row.get("market_summary_json")),
+            "titleCard": core._as_obj(page_row.get("title_card_json")),
+        },
+        core.PAGE_SNAPSHOT_DATE_PATHS,
+    )
+
+
+def _runtime_audit_header_summary(
+    market_date: str,
+    page_row: Optional[Dict[str, Any]],
+    sections: Sequence[core.SectionVerdict],
+) -> core.SectionVerdict:
+    """Audit only an EXPLICIT market date advertised by the Set Page header.
+
+    ``pokemon_set_page_snapshot_latest.as_of`` is not a market-date authority.
+    The builder legitimately falls it back to ``built_at`` when no simulation run
+    or payload ``meta.asOfDate`` exists. Treating that operational timestamp as a
+    market date makes a freshly rebuilt page look two days ahead of the promoted
+    market day even though the UI obtains Set Value freshness from its dedicated
+    market contract.
+    """
+
+    verdict = core.SectionVerdict(section=core.SECTION_HEADER_SUMMARY)
+    if not page_row:
+        verdict.passed = False
+        verdict.detail = "no published set page snapshot row"
+        return verdict
+
+    header_date = _explicit_page_market_date(page_row)
+    verdict.observed_date = header_date
+    if header_date is None:
+        verdict.applicable = False
+        verdict.detail = (
+            "set page publishes no explicit market date; row as_of is build/simulation "
+            "metadata and is not used as market-date authority"
+        )
+        return verdict
+
+    if header_date > market_date:
+        verdict.passed = False
+        verdict.detail = (
+            f"header advertises {header_date}, ahead of the promoted market date {market_date}"
+        )
+        return verdict
+
+    behind = [
+        f"{v.section}@{v.observed_date}"
+        for v in sections
+        if v.applicable and v.observed_date and v.observed_date < header_date
+    ]
+    if behind:
+        verdict.passed = False
+        verdict.detail = (
+            f"header advertises {header_date} but these sections are older: {', '.join(behind)}"
+        )
+    return verdict
+
+
+def _runtime_global_set_value_cohort_ids(client: Any, market_date: str) -> List[str]:
+    """Use the same root-membership authority as the global Set Value publisher."""
+
+    return list(resolve_market_root_ids(client, market_date=market_date))
+
+
 def run_market_publication_audit(
     *,
     market_date: Optional[str] = None,
     canonical_keys: Optional[Sequence[str]] = None,
     phase: str = core.PHASE_FULL,
 ) -> core.MarketAuditReport:
-    """Run the canonical audit with resilient reads and identical verdict rules."""
+    """Run the canonical audit with resilient reads and current authority contracts."""
 
     client = RetryingServiceRoleClient()
+    resolved_market_date = market_date
+    if resolved_market_date is None:
+        resolved_market_date, _ = core.resolve_promoted_market_date(client)
+
     previous_loader = core._load_rows
+    previous_global_cohort = core.global_set_value_cohort_ids
+    previous_header_audit = core._audit_header_summary
     core._load_rows = _runtime_load_rows
+    if resolved_market_date:
+        core.global_set_value_cohort_ids = lambda _sets: _runtime_global_set_value_cohort_ids(
+            client, resolved_market_date
+        )
+    core._audit_header_summary = _runtime_audit_header_summary
     try:
         return core.run_market_publication_audit(
             client,
@@ -228,6 +324,8 @@ def run_market_publication_audit(
         )
     finally:
         core._load_rows = previous_loader
+        core.global_set_value_cohort_ids = previous_global_cohort
+        core._audit_header_summary = previous_header_audit
 
 
 def _queue_alerts(report: core.MarketAuditReport, args: Any) -> None:
