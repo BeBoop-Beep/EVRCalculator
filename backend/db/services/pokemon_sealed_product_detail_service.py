@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 from urllib.parse import quote
 
+from backend.calculations.evr.best_open_price import (
+    BEST_OPEN_PRICE_METHOD_VERSION, BEST_OPEN_PRICE_V2_METHOD_VERSION,
+)
 from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.budget_product_best_open_price_service import load_best_open_price_product
 from backend.db.services.pokemon_public_snapshot_service import (
@@ -165,8 +168,19 @@ def _best_open_price_contract(client: Any, sealed_product_id: str) -> Dict[str, 
     price beside them but must not silently re-score the threshold against a
     newer cohort.
     """
+    # CURRENT-authority selection: a current, complete, source-matched V2
+    # publication is always attempted first; V1 is used only when it
+    # independently passes the exact same currentness/completeness rule
+    # `load_best_open_price_product` enforces for either method version. A
+    # stale V1 publication must never mask a valid current V2 one.
     try:
-        prepared = load_best_open_price_product(client, sealed_product_id)
+        prepared = load_best_open_price_product(
+            client, sealed_product_id, best_open_price_method_version=BEST_OPEN_PRICE_V2_METHOD_VERSION,
+        )
+        if not prepared.get("available"):
+            prepared = load_best_open_price_product(
+                client, sealed_product_id, best_open_price_method_version=BEST_OPEN_PRICE_METHOD_VERSION,
+            )
     except Exception:
         return {"available": False, "reason": "prepared_read_failed"}
     if not prepared.get("available"):
@@ -187,22 +201,29 @@ def _best_open_price_contract(client: Any, sealed_product_id: str) -> Dict[str, 
         "sourceCohortSize": prepared.get("sourceEligibleCohortCount"),
         "sourceBudgetSnapshotId": prepared.get("sourceBudgetSnapshotId"),
         "methodVersion": prepared.get("methodVersion"),
-        "ripBestOpenPrice": row.get("best_open_price"),
-        "ripBestOpenPriceStatus": row.get("status"),
-        "ripBestOpenPriceGapDollars": row.get("price_gap_dollars"),
-        "ripBestOpenPriceGapPercent": row.get("price_gap_percent"),
     }
-    # V2-only Financial axis, nested inside this same return value so it
-    # inherits the caller's existing `rip["bestOpenPrice"] = ...` Index Plus
-    # entitlement gating unchanged -- never fabricated for a V1 row, whose
-    # `financial_best_open_price` is always None.
-    if row.get("financial_best_open_price") is not None:
+    # `ripBestOpenPrice*`/`financialBestOpenPrice*` are V2-only response-shape
+    # additions (Finding 2). Attaching them unconditionally broke the V1
+    # historical exact-shape contract (see
+    # test_best_open_price_product_detail.py::
+    # test_product_detail_best_open_contract_preserves_dated_ranking_source),
+    # so they are gated on the selected publication's `methodVersion`, not
+    # merely on field presence -- a V1 row's shape stays byte-identical to
+    # the historical contract, and Financial fields are never fabricated.
+    if prepared.get("methodVersion") == BEST_OPEN_PRICE_V2_METHOD_VERSION:
         contract.update({
-            "financialBestOpenPrice": row.get("financial_best_open_price"),
-            "financialBestOpenPriceStatus": row.get("financial_status"),
-            "financialBestOpenPriceGapDollars": row.get("financial_price_gap_dollars"),
-            "financialBestOpenPriceGapPercent": row.get("financial_price_gap_percent"),
+            "ripBestOpenPrice": row.get("best_open_price"),
+            "ripBestOpenPriceStatus": row.get("status"),
+            "ripBestOpenPriceGapDollars": row.get("price_gap_dollars"),
+            "ripBestOpenPriceGapPercent": row.get("price_gap_percent"),
         })
+        if row.get("financial_best_open_price") is not None:
+            contract.update({
+                "financialBestOpenPrice": row.get("financial_best_open_price"),
+                "financialBestOpenPriceStatus": row.get("financial_status"),
+                "financialBestOpenPriceGapDollars": row.get("financial_price_gap_dollars"),
+                "financialBestOpenPriceGapPercent": row.get("financial_price_gap_percent"),
+            })
     return contract
 
 

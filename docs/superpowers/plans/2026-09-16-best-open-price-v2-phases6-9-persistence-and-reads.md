@@ -653,4 +653,40 @@ No Docker/Postgres/pg_ctl/initdb in this environment (confirmed empty). Authored
 - `git diff --check` ran clean before pushing (only LF→CRLF notices, no conflict markers/trailing whitespace).
 - Two large unrelated JSON fixture files mutated as a side effect of the wider test run were reverted with `git checkout --` before staging.
 
-**Status: BEST_OPEN_PRICE_V2_PHASES_6_9_PERSISTENCE_AND_READS_VALIDATED** — A-E fully complete and verified; F is authored, CI-wired, and locally skip-verified with real-Postgres execution explicitly pending in CI (the acceptable terminal state per the task's STOP/token conditions).
+**Status (superseded by the follow-up remediation section below):** A-E fully complete and verified; F was authored, CI-wired, and locally skip-verified, but real-Postgres CI execution subsequently surfaced three real defects (see "Remediation: three independent-review findings" below) that this status line's token was premature about. Do not treat the token on this line as valid; see the final status at the end of this document.
+
+---
+
+## Remediation: three independent-review findings (2026-09-17)
+
+Independent manual review plus a real GitHub Actions run against `postgres:17.11` surfaced three concrete defects in the Tasks A-F work above. All three are now fixed in this worktree.
+
+### Finding 1 — CURRENT method selection was missing
+`load_best_open_price_ranking`/`load_best_open_price_product` are method-aware but default to V1, and the two current/live-serving call sites (`_best_open_price_projection` in `public_overall_product_rankings_service.py`, `_best_open_price_contract` in `pokemon_sealed_product_detail_service.py`) called them with no explicit method version, so a future current V2 publication would never actually be served — V1 (stale or absent) would keep masking it forever.
+
+Fix: both call sites now attempt `BEST_OPEN_PRICE_V2_METHOD_VERSION` explicitly first; only when that attempt reports `available: False` do they fall back to an explicit `BEST_OPEN_PRICE_METHOD_VERSION` attempt. Both attempts reuse the exact same `load_best_open_price_ranking`/`load_best_open_price_product` currentness/completeness checks (source-binding match, resolved/unresolved-count reconciliation), so V1 only serves when it independently earns "current" the same way V2 must. The low-level loaders' own default parameter (V1) and signature are completely unchanged — this is a selection layer added above them, not a default flip, so every existing explicit-V1 caller (the private-service unit tests calling `load_best_open_price_ranking(client)` directly, `publish_best_open_price_if_ready.py`) is unaffected.
+
+Tests added (spies capturing the actual `best_open_price_method_version` argument(s) passed to the real loader, not just final shape):
+- `test_public_overall_product_rankings_service.py::test_current_rankings_requests_v2_first` (A)
+- `test_best_open_price_product_detail.py::test_current_product_detail_requests_v2_first` (B)
+- `test_best_open_price_product_detail.py::test_current_v2_is_selected_when_available` (C)
+- `test_best_open_price_product_detail.py::test_product_detail_best_open_contract_preserves_dated_ranking_source` (rewritten to assert the exact `[V2, V1]` call sequence) + `test_public_overall_product_rankings_service.py::test_missing_v2_falls_back_to_current_v1_rankings` (D)
+- `test_public_overall_product_rankings_service.py::test_stale_v1_cannot_mask_current_v2_rankings` + `test_best_open_price_product_detail.py::test_stale_v1_cannot_mask_current_v2` (E)
+- `test_best_open_price_product_detail.py::test_explicit_v1_read_remains_possible` (F)
+
+### Finding 2 — V1 response-shape compatibility was broken
+Both `_best_open_price_contract` (Product Detail) and `_best_open_price_projection`'s per-row attachment (Product Rankings) unconditionally attached `ripBestOpenPrice`/`ripBestOpenPriceStatus`/`ripBestOpenPriceGapDollars`/`ripBestOpenPriceGapPercent` whenever a row existed, regardless of method version — this is exactly what broke real CI's `test_product_detail_best_open_contract_preserves_dated_ranking_source` (it asserts the historical exact V1 shape with zero new fields).
+
+Fix: both call sites now gate `ripBestOpenPrice*` (and, unchanged in spirit, `financialBestOpenPrice*`) behind `prepared.get("methodVersion") == BEST_OPEN_PRICE_V2_METHOD_VERSION` (verified constant: `budget_product_best_open_price_full_market_v2_dual_financial_v4_overall_v12`, from `backend/calculations/evr/best_open_price.py`). A V1-served row's contract is now byte-identical to the historical shape again. The V1 exact-shape test's expected dict was NOT expanded — it still asserts the historical shape with no V2 fields; the fix was in the implementation, and the test was restructured only to spy on the CURRENT-selection call sequence (Finding 1), not to weaken its shape assertion. A new positive test (`test_current_v2_is_selected_when_available` / `test_v2_full_market_projection_attaches_both_rip_and_financial_fields`) asserts the V2 fields DO appear when serving a V2 result.
+
+### Finding 3 — the real Postgres V2 fixture was broken
+`backend/tests/integration/test_best_open_publication_v2_postgres.py`'s disposable-Postgres fixture created `budget_product_ranking_rows` without a `financial_only_rank` column, even though the V2 RPC branch (migration `20260916120000_add_best_open_price_v2_dual_threshold.sql`, ~line 651/704) validates `live.financial_only_rank` against the row payload's `current_financial_only_rank`. Real CI (`postgres:17.11`) hit `column live.financial_only_rank does not exist` on all 5 V2 success-path tests.
+
+Fix: added `financial_only_rank int` to the fixture's `CREATE TABLE budget_product_ranking_rows` DDL, and the `seed` fixture now inserts each row's `current_budget_rank` value into it — this exactly mirrors `fixture_payload_v2()`'s own derivation of `current_financial_only_rank=n` (where `n == current_budget_rank` for this fixture's 3-row cohort), so the live cross-check and the row payload's declared value always agree for a valid V2 publish, and still correctly diverge for the mutation-rejection tests that explicitly perturb `current_financial_only_rank`. The RPC's live validation itself was not touched — only the fixture was fixed.
+
+### Validation
+- Focused local service tests: `python -m pytest backend/tests/unit/db/services/test_budget_product_best_open_price_service.py backend/tests/unit/db/services/test_public_overall_product_rankings_service.py backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py backend/tests/unit/db/services/test_best_open_price_product_detail.py backend/tests/unit/db/services/test_best_open_price_public_projection.py backend/tests/unit/db/services/test_budget_product_best_open_price_product_reader.py backend/tests/unit/db/test_best_open_price_v2_migration_sql.py backend/tests/unit/db/test_budget_product_best_open_price_migration_sql.py -q` → **140 passed, 0 failed**.
+- `backend/tests/integration/test_best_open_publication_v2_postgres.py` + the V1 file: **73 skipped** locally (no Docker/Postgres in this worktree, same honest-skip convention as before) — real execution deferred to CI's `postgres-integration` job.
+- `git diff --check`: clean.
+- Real GitHub Actions verification: see the final status line below for whether this could be confirmed via `gh` in this session, and the exact job-by-job / run results if so.
+

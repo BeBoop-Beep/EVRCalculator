@@ -72,6 +72,7 @@ def database():
             product_market_price numeric, quantity int, budget_rank_v12 int,
             overall_rip_v12_score numeric, financial_rip_v4_score numeric, collector_appeal_score numeric,
             chase_accessibility_raw numeric, chance_to_recover_capital numeric, actual_committed_capital numeric,
+            financial_only_rank int,
             PRIMARY KEY(snapshot_id, sealed_product_id, budget_type))''')
         # V1 schema/RPC first, exactly like the V1 file's own fixture, then
         # the additive V2 migration on top -- this is the real migration
@@ -126,12 +127,18 @@ def seed(database):
         c.execute('INSERT INTO budget_product_ranking_snapshots (' + ','.join(cols) + ') VALUES (' + ','.join(['%s'] * len(cols)) + ')', vals)
         c.execute('INSERT INTO budget_product_ranking_latest VALUES (%s,%s,%s)', (VERSIONS['ranking_method_version'], VERSIONS['allocation_method_version'], SID))
         for row in rows:
+            # financial_only_rank mirrors fixture_payload_v2()'s
+            # current_financial_only_rank=n derivation (n == current_budget_rank
+            # for this fixture's 3-row cohort), so the V2 RPC's live cross-check
+            # of budget_product_ranking_rows.financial_only_rank matches the
+            # V2 row payload's declared current_financial_only_rank exactly.
             c.execute('''INSERT INTO budget_product_ranking_rows VALUES
-                (%s,%s,%s,%s,%s,'full_market',100,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                (%s,%s,%s,%s,%s,'full_market',100,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
                 (SID, row['sealed_product_id'], row['set_id'], row['product_family'], row['source_calculation_run_id'],
                  row['current_market_price'], row['current_quantity'], row['current_budget_rank'],
                  row['current_overall_rip_v12_score'], row['current_financial_rip_v4_score'], row['current_collector_appeal_score'],
-                 row['current_chase_accessibility_raw'], row['current_chance_to_recover_capital'], row['current_actual_committed_capital']))
+                 row['current_chase_accessibility_raw'], row['current_chance_to_recover_capital'], row['current_actual_committed_capital'],
+                 row['current_budget_rank']))
 
 
 def publish(c, snap=None, rows=None):

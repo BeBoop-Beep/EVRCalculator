@@ -224,7 +224,7 @@ def test_prepared_read_legacy_row_missing_new_fields_degrades_soft(monkeypatch):
 # --- Best-Open Price V2 dual-field attachment (RIP + Financial axes) ----
 
 
-def _best_open_read(monkeypatch, row, *, budget="full_market"):
+def _best_open_read(monkeypatch, row, *, budget="full_market", method_version=None):
     monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: {
         "id": "snap-1", "full_market_budget": 150.0, "published_at": "t",
         "market_date": "2026-09-01", "cohort_fingerprint": "fp-1",
@@ -248,6 +248,7 @@ def _best_open_read(monkeypatch, row, *, budget="full_market"):
         "available": True, "reason": None,
         "id": "snap-1", "sourceBudgetSnapshotId": "snap-1", "sourceBudgetPublishedAt": "t",
         "sourceMarketDate": "2026-09-01", "sourceCohortFingerprint": "fp-1",
+        "methodVersion": method_version,
         "resolvedCount": 1, "unresolvedCount": 0,
         "rows": [row],
     })
@@ -269,7 +270,7 @@ def test_v2_full_market_projection_attaches_both_rip_and_financial_fields(monkey
         "financial_best_open_price": 150.0, "financial_status": "exact",
         "financial_price_gap_dollars": 10.0, "financial_price_gap_percent": 0.06,
     }
-    projected = _best_open_read(monkeypatch, row)
+    projected = _best_open_read(monkeypatch, row, method_version=service.BEST_OPEN_PRICE_V2_METHOD_VERSION)
     assert projected["bestOpenPrice"] == projected["ripBestOpenPrice"] == 145.0
     assert projected["financialBestOpenPrice"] == 150.0
     assert projected["financialBestOpenPriceStatus"] == "exact"
@@ -282,9 +283,103 @@ def test_v1_full_market_projection_never_exposes_financial_fields(monkeypatch):
         "sealed_product_id": "p1", "status": "exact", "best_open_price": 100.0,
         "price_gap_dollars": 1.0, "price_gap_percent": 0.01,
     }
-    projected = _best_open_read(monkeypatch, row)
+    projected = _best_open_read(monkeypatch, row, method_version=service.BEST_OPEN_PRICE_METHOD_VERSION)
     assert projected["bestOpenPrice"] == 100.0
     assert "financialBestOpenPrice" not in projected or projected["financialBestOpenPrice"] is None
+    # Finding 2: a V1 publication must not carry the new rip* aliases either
+    # -- those are new response-shape additions gated to V2 exactly like the
+    # financial_* fields.
+    assert "ripBestOpenPrice" not in projected
+
+
+def test_current_rankings_requests_v2_first(monkeypatch):
+    """Finding 1 test A: the current/live-serving Product Rankings call site
+    must attempt the V2 method version before ever falling back to V1."""
+    monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: {
+        "id": "snap-1", "full_market_budget": 150.0, "published_at": "t",
+        "market_date": "2026-09-01", "cohort_fingerprint": "fp-1",
+    })
+    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client, **_kwargs: {"rows": [], "authority": {}})
+    monkeypatch.setattr(service, "public_budget_cohort_presentation", lambda _rows, _snapshot: {})
+
+    calls = []
+
+    def fake_load(_client, *, best_open_price_method_version):
+        calls.append(best_open_price_method_version)
+        return {"available": False, "reason": "no_published_snapshot", "rows": []}
+
+    monkeypatch.setattr(service, "load_best_open_price_ranking", fake_load)
+    service.read_public_overall_product_rankings(
+        budget="full_market", product_family_rankings={}, client=object(),
+    )
+    assert calls[0] == service.BEST_OPEN_PRICE_V2_METHOD_VERSION
+
+
+def test_stale_v1_cannot_mask_current_v2_rankings(monkeypatch):
+    """Finding 1 test E: a current V2 publication wins even though a V1
+    publication also exists -- V1 must never be consulted once V2 succeeds."""
+    v1_consulted = []
+    v2_available = {
+        "available": True, "reason": None,
+        "id": "snap-1", "sourceBudgetSnapshotId": "snap-1", "sourceBudgetPublishedAt": "t",
+        "sourceMarketDate": "2026-09-01", "sourceCohortFingerprint": "fp-1",
+        "methodVersion": service.BEST_OPEN_PRICE_V2_METHOD_VERSION,
+        "resolvedCount": 0, "unresolvedCount": 0, "rows": [],
+    }
+
+    def fake_load(_client, *, best_open_price_method_version):
+        if best_open_price_method_version == service.BEST_OPEN_PRICE_V2_METHOD_VERSION:
+            return dict(v2_available)
+        v1_consulted.append(True)
+        return {"available": False, "reason": "stale_source_publication", "rows": []}
+
+    monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: {
+        "id": "snap-1", "full_market_budget": 150.0, "published_at": "t",
+        "market_date": "2026-09-01", "cohort_fingerprint": "fp-1",
+    })
+    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client, **_kwargs: {"rows": [], "authority": {}})
+    monkeypatch.setattr(service, "public_budget_cohort_presentation", lambda _rows, _snapshot: {})
+    monkeypatch.setattr(service, "load_best_open_price_ranking", fake_load)
+
+    result = service.read_public_overall_product_rankings(
+        budget="full_market", product_family_rankings={}, client=object(),
+    )
+    assert result["bestOpenPrice"]["methodVersion"] == service.BEST_OPEN_PRICE_V2_METHOD_VERSION
+    assert v1_consulted == []
+
+
+def test_missing_v2_falls_back_to_current_v1_rankings(monkeypatch):
+    """Finding 1 test D: when no V2 publication exists, a current, complete
+    V1 publication is served (it independently passes the same currentness
+    rule, since the same loader/checks are reused for either method)."""
+    calls = []
+    v1_available = {
+        "available": True, "reason": None,
+        "id": "snap-1", "sourceBudgetSnapshotId": "snap-1", "sourceBudgetPublishedAt": "t",
+        "sourceMarketDate": "2026-09-01", "sourceCohortFingerprint": "fp-1",
+        "methodVersion": service.BEST_OPEN_PRICE_METHOD_VERSION,
+        "resolvedCount": 0, "unresolvedCount": 0, "rows": [],
+    }
+
+    def fake_load(_client, *, best_open_price_method_version):
+        calls.append(best_open_price_method_version)
+        if best_open_price_method_version == service.BEST_OPEN_PRICE_V2_METHOD_VERSION:
+            return {"available": False, "reason": "no_published_snapshot", "rows": []}
+        return dict(v1_available)
+
+    monkeypatch.setattr(service, "load_latest_snapshot", lambda _client: {
+        "id": "snap-1", "full_market_budget": 150.0, "published_at": "t",
+        "market_date": "2026-09-01", "cohort_fingerprint": "fp-1",
+    })
+    monkeypatch.setattr(service, "load_full_market_ranking", lambda _client, **_kwargs: {"rows": [], "authority": {}})
+    monkeypatch.setattr(service, "public_budget_cohort_presentation", lambda _rows, _snapshot: {})
+    monkeypatch.setattr(service, "load_best_open_price_ranking", fake_load)
+
+    result = service.read_public_overall_product_rankings(
+        budget="full_market", product_family_rankings={}, client=object(),
+    )
+    assert calls == [service.BEST_OPEN_PRICE_V2_METHOD_VERSION, service.BEST_OPEN_PRICE_METHOD_VERSION]
+    assert result["bestOpenPrice"]["methodVersion"] == service.BEST_OPEN_PRICE_METHOD_VERSION
 
 
 def test_rankings_stay_available_when_best_open_is_unavailable(monkeypatch):
