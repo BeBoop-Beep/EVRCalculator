@@ -447,6 +447,14 @@ _RPC_MAX_ROWS_PER_RESPONSE = 1000
 #: rather than from the caller's date range.
 COHORT_CHUNK_DAYS = 30
 DAILY_PROJECTION_SET_BATCH_SIZE = 5
+#: Sets per V2_INTERVAL_FALLBACK_RPC statement once an unranked (top_n is
+#: None) request exceeds this width. Interval fallback derives eligibility
+#: from raw price intervals rather than a pre-materialized row, so it does
+#: far more per-row work than DAILY_PROJECTION_RPC at the same set count --
+#: the same disjoint-set batching mechanism applies here for the same
+#: reason (see the note at its call site), reusing the daily-projection
+#: batch width as the narrowest safe starting point.
+V2_INTERVAL_FALLBACK_SET_BATCH_SIZE = 5
 V2_MATERIALIZED_CHUNK_DAYS = 3
 
 
@@ -483,6 +491,67 @@ def resolve_materialized_history_route(
         return "interval_fallback", boundary
     except Exception:
         return "interval_fallback", None
+
+
+def _merge_v2_interval_fallback_batches(
+    batch_pages: list[list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    """Exact combine for disjoint-set V2_INTERVAL_FALLBACK_RPC batches.
+
+    ADDITIVE FIELDS SUM EXACTLY. The batches are disjoint set-id partitions of
+    the same unranked (top_n is None) query, so constituent_count,
+    eligible_universe_count, basket_value, common_count, common_current_value
+    and common_previous_value from each batch are disjoint contributions to
+    the same date -- summing them is exact, never an approximation.
+
+    CONSTITUENTS ARE UNIONED, NOT CONCATENATED. Every other field on a
+    constituent row is preserved unchanged; only membership is combined here,
+    keyed by card_variant_id so a card cannot appear twice even though the
+    batches are already set-disjoint by construction.
+
+    RANK MUST BE RECOMPUTED, NEVER CONCATENATED. Each batch's `rank` is local
+    to its own narrow set-id scope (e.g. two different batches can both report
+    "rank 1"), so after unioning the constituents this restores the single
+    canonical ordering the unbatched RPC would have produced: market_price
+    DESC, card_variant_id as a deterministic tie-break.
+    """
+    combined: dict[str, dict[str, Any]] = {}
+    for batch_page in batch_pages:
+        for batch_row in batch_page:
+            market_date = str(batch_row.get("market_date"))[:10]
+            row = combined.setdefault(market_date, {
+                "market_date": market_date,
+                "constituent_count": 0,
+                "eligible_universe_count": 0,
+                "basket_value": 0,
+                "common_count": 0,
+                "common_current_value": 0,
+                "common_previous_value": 0,
+                "current_constituents": {},
+            })
+            for field in ("constituent_count", "eligible_universe_count",
+                          "basket_value", "common_count",
+                          "common_current_value", "common_previous_value"):
+                row[field] += batch_row.get(field) or 0
+            for constituent in batch_row.get("current_constituents") or []:
+                variant_id = str(constituent.get("card_variant_id"))
+                row["current_constituents"][variant_id] = constituent
+
+    def _rank_sort_key(entry: Mapping[str, Any]) -> tuple[float, str]:
+        price = _numeric(entry.get("market_price"))
+        return (-(price if price is not None else float("-inf")),
+                str(entry.get("card_variant_id")))
+
+    merged: list[dict[str, Any]] = []
+    for market_date in sorted(combined):
+        row = combined[market_date]
+        ordered = sorted(row["current_constituents"].values(), key=_rank_sort_key)
+        row["current_constituents"] = [
+            {**entry, "rank": position}
+            for position, entry in enumerate(ordered, start=1)
+        ]
+        merged.append(row)
+    return merged
 
 
 def load_filtered_daily_cohort_rows(
@@ -581,6 +650,12 @@ def load_filtered_daily_cohort_rows(
                 list(set_ids[index:index + DAILY_PROJECTION_SET_BATCH_SIZE])
                 for index in range(0, len(set_ids), DAILY_PROJECTION_SET_BATCH_SIZE)
             ]
+        elif (rpc_name == V2_INTERVAL_FALLBACK_RPC and top_n is None
+                and len(set_ids) > V2_INTERVAL_FALLBACK_SET_BATCH_SIZE):
+            set_batches = [
+                list(set_ids[index:index + V2_INTERVAL_FALLBACK_SET_BATCH_SIZE])
+                for index in range(0, len(set_ids), V2_INTERVAL_FALLBACK_SET_BATCH_SIZE)
+            ]
         batch_pages: list[list[dict[str, Any]]] = []
         for set_batch in set_batches:
             batch_payload = {**payload, "p_set_ids": [str(value) for value in set_batch]}
@@ -594,6 +669,10 @@ def load_filtered_daily_cohort_rows(
             ) or []))
         if len(batch_pages) == 1:
             page = batch_pages[0]
+        elif rpc_name == V2_INTERVAL_FALLBACK_RPC:
+            # Rank is RPC-local to each batch's own narrow set scope and
+            # cannot simply be concatenated -- see _merge_v2_interval_fallback_batches.
+            page = _merge_v2_interval_fallback_batches(batch_pages)
         else:
             combined: dict[str, dict[str, Any]] = {}
             for batch_page in batch_pages:
