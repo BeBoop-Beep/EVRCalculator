@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, Mapping, Tuple
 
+from backend.calculations.evr.best_open_price import (
+    BEST_OPEN_PRICE_METHOD_VERSION, BEST_OPEN_PRICE_V2_METHOD_VERSION,
+)
 from backend.calculations.evr.budget_normalized_product_ranking import (
     BUDGET_TYPE_FULL_MARKET, CANONICAL_BUDGET_BANDS,
 )
@@ -34,8 +37,20 @@ def _best_open_price_projection(
     if budget != "full_market":
         return {"available": False, "reason": "full_market_only"}, {}
 
+    # CURRENT-authority selection: a current, complete, source-matched V2
+    # publication is always attempted first. V1 is only used when it
+    # independently passes the exact same currentness/completeness rule
+    # (`load_best_open_price_ranking` enforces this identically for either
+    # method version) -- a stale V1 publication must never mask a valid
+    # current V2 one, and an incomplete/stale V1 must not be served either.
     try:
-        prepared = load_best_open_price_ranking(client)
+        prepared = load_best_open_price_ranking(
+            client, best_open_price_method_version=BEST_OPEN_PRICE_V2_METHOD_VERSION,
+        )
+        if not prepared.get("available"):
+            prepared = load_best_open_price_ranking(
+                client, best_open_price_method_version=BEST_OPEN_PRICE_METHOD_VERSION,
+            )
     except Exception:
         return {"available": False, "reason": "prepared_read_failed"}, {}
     if not prepared.get("available"):
@@ -101,6 +116,7 @@ def read_public_overall_product_rankings(
     raw_rows = result.get("rows") or []
     presentation = public_budget_cohort_presentation(raw_rows, snapshot)
     best_open_price, best_open_by_id = _best_open_price_projection(client, snapshot, raw_rows, budget)
+    best_open_is_v2 = best_open_price.get("methodVersion") == BEST_OPEN_PRICE_V2_METHOD_VERSION
     rows = []
     for raw in raw_rows:
         identity = identities.get(str(raw.get("sealed_product_id")), {})
@@ -158,6 +174,26 @@ def read_public_overall_product_rankings(
                 "bestOpenPriceGapDollars": best_open.get("price_gap_dollars"),
                 "bestOpenPriceGapPercent": best_open.get("price_gap_percent"),
             })
+            # `ripBestOpenPrice*`/`financialBestOpenPrice*` are V2-only
+            # response-shape additions (Finding 2). They must never appear
+            # for a row served from a V1 publication -- gated on the
+            # publication-level `methodVersion` selected above, not merely on
+            # field presence, so a V1 row's shape stays byte-identical to the
+            # historical contract.
+            if best_open_is_v2:
+                projected.update({
+                    "ripBestOpenPrice": best_open.get("best_open_price"),
+                    "ripBestOpenPriceStatus": best_open.get("status"),
+                    "ripBestOpenPriceGapDollars": best_open.get("price_gap_dollars"),
+                    "ripBestOpenPriceGapPercent": best_open.get("price_gap_percent"),
+                })
+                if best_open.get("financial_best_open_price") is not None:
+                    projected.update({
+                        "financialBestOpenPrice": best_open.get("financial_best_open_price"),
+                        "financialBestOpenPriceStatus": best_open.get("financial_status"),
+                        "financialBestOpenPriceGapDollars": best_open.get("financial_price_gap_dollars"),
+                        "financialBestOpenPriceGapPercent": best_open.get("financial_price_gap_percent"),
+                    })
         rows.append(projected)
     required_generic_fields = ("overallRipScore", "budgetRank", "budgetCohortSize")
     if rows and any(

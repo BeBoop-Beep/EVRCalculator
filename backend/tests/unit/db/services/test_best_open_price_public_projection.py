@@ -76,7 +76,7 @@ def _install_common(monkeypatch):
 
 def test_full_market_joins_only_narrow_best_open_presentation_fields(monkeypatch):
     _install_common(monkeypatch)
-    monkeypatch.setattr(service, "load_best_open_price_ranking", lambda _client: dict(PREPARED))
+    monkeypatch.setattr(service, "load_best_open_price_ranking", lambda _client, **_kwargs: dict(PREPARED))
 
     result = service.read_public_overall_product_rankings(
         "full_market", product_family_rankings=IDENTITIES, client=object(),
@@ -103,7 +103,7 @@ def test_full_market_joins_only_narrow_best_open_presentation_fields(monkeypatch
 def test_source_mismatch_hides_best_open_without_taking_down_rankings(monkeypatch):
     _install_common(monkeypatch)
     stale = dict(PREPARED, sourceBudgetPublishedAt="2026-09-07T00:00:00+00:00")
-    monkeypatch.setattr(service, "load_best_open_price_ranking", lambda _client: stale)
+    monkeypatch.setattr(service, "load_best_open_price_ranking", lambda _client, **_kwargs: stale)
 
     result = service.read_public_overall_product_rankings(
         "full_market", product_family_rankings=IDENTITIES, client=object(),
@@ -117,7 +117,7 @@ def test_source_mismatch_hides_best_open_without_taking_down_rankings(monkeypatc
 def test_incomplete_best_open_cohort_hides_only_optional_layer(monkeypatch):
     _install_common(monkeypatch)
     incomplete = dict(PREPARED, resolvedCount=0, rows=[])
-    monkeypatch.setattr(service, "load_best_open_price_ranking", lambda _client: incomplete)
+    monkeypatch.setattr(service, "load_best_open_price_ranking", lambda _client, **_kwargs: incomplete)
 
     result = service.read_public_overall_product_rankings(
         "full_market", product_family_rankings=IDENTITIES, client=object(),
@@ -131,7 +131,7 @@ def test_incomplete_best_open_cohort_hides_only_optional_layer(monkeypatch):
 def test_best_open_read_error_fails_soft(monkeypatch):
     _install_common(monkeypatch)
 
-    def fail(_client):
+    def fail(_client, **_kwargs):
         raise RuntimeError("prepared store unavailable")
 
     monkeypatch.setattr(service, "load_best_open_price_ranking", fail)
@@ -149,7 +149,7 @@ def test_standard_budget_never_reads_best_open(monkeypatch):
     })
     monkeypatch.setattr(service, "public_budget_cohort_presentation", lambda _rows, _snapshot: dict(PRESENTATION))
 
-    def should_not_run(_client):
+    def should_not_run(_client, **_kwargs):
         raise AssertionError("Best-Open store must not be queried for standard budget bands")
 
     monkeypatch.setattr(service, "load_best_open_price_ranking", should_not_run)
