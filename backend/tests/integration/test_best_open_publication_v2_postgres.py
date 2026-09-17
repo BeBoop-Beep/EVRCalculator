@@ -185,14 +185,15 @@ def test_item9_v2_full_valid_publish_succeeds():
         assert latest_count_for_method(c, METHOD_V2) == 1
 
 
-# --- Items 10-21: each required V2 field/benchmark/score individually ------
-# rejected. One case per required Financial-axis / dual-threshold-evidence
-# field, parametrized like the V1 file's own rejection matrix.
+# --- Items 10-21: required V2 publication evidence --------------------------
+# Fields the RPC contract requires on every V2 row are parametrized below.
+# financial_benchmark_overall_rip_v12_score is intentionally optional: the
+# RPC validates it against the live source WHEN supplied, matching the V2
+# contract's "also validate ... when supplied" requirement.
 
 _V2_REQUIRED_FIELD_CASES = [
     'financial_status', 'financial_best_open_price', 'financial_threshold_quantity',
     'financial_benchmark_sealed_product_id', 'financial_benchmark_financial_rip_v4_score',
-    'financial_benchmark_overall_rip_v12_score',
     'threshold_overall_rip_v12_score', 'threshold_actual_committed_capital',
     'financial_threshold_overall_rip_v12_score', 'financial_threshold_actual_committed_capital',
     'current_financial_only_rank',
@@ -214,6 +215,16 @@ def test_items10_21_v2_financial_benchmark_must_differ_from_row_product():
     import psycopg
     snap, rows = fixture_payload_v2()
     rows[1]['financial_benchmark_sealed_product_id'] = rows[1]['sealed_product_id']
+    with connection(autocommit=True) as c:
+        with pytest.raises(psycopg.Error):
+            publish(c, snap, rows)
+        assert counts(c) == (0, 0, 0)
+
+
+def test_items10_21_financial_benchmark_overall_score_rejected_when_supplied_wrong():
+    import psycopg
+    snap, rows = fixture_payload_v2()
+    rows[1]['financial_benchmark_overall_rip_v12_score'] += 0.01
     with connection(autocommit=True) as c:
         with pytest.raises(psycopg.Error):
             publish(c, snap, rows)
@@ -267,14 +278,17 @@ def test_item25_same_source_and_content_is_idempotent():
         assert counts(c) == (1, 3, 1)
 
 
-# --- Item 26: same source + changed V2 content fails non-determinism -------
+# --- Item 26: same source + changed valid V2 content fails non-determinism --
 
 def test_item26_same_source_changed_content_rejected_non_deterministic():
     import psycopg
     with connection(autocommit=True) as c:
         publish(c)
         snap, rows = fixture_payload_v2()
-        rows[0]['financial_best_open_price'] = float(rows[0]['financial_best_open_price']) + 1
+        # Change a persisted diagnostic that remains otherwise valid, so this
+        # specifically reaches the same-source/same-method content fingerprint
+        # gate instead of tripping an earlier threshold arithmetic validator.
+        rows[0]['search_wall_seconds'] = 0.6
         with pytest.raises(psycopg.Error, match='non-deterministic'):
             publish(c, snap, rows)
         assert counts(c) == (1, 3, 1)
