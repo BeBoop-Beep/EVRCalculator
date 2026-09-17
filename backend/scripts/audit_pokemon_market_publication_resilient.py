@@ -318,18 +318,39 @@ def _runtime_audit_global_set_value(
     windows = target.get("windows")
     start_date = core._date_key(target.get("historyStartDate"))
     end_date = core._date_key(target.get("historyEndDate"))
-    if (
+    if not (
         history_point_count == 1
         and isinstance(windows, dict)
         and not windows
         and start_date == market_date
         and end_date == market_date
     ):
-        verdict.passed = True
+        return verdict
+
+    # The canonical implementation checks value parity *after* window metadata.
+    # Because the one-point adapter is deliberately overriding only that window
+    # failure, perform the downstream canonical checks here before allowing the
+    # insufficient-history state to pass. Otherwise a mismatched one-point value
+    # could be accidentally waived along with its legitimately-empty windows.
+    value = core._finite(target.get("currentSetValue") or target.get("current_set_value"))
+    if canonical_set_value is None:
         verdict.detail = (
-            "single-point current Set Value history; movement windows are "
-            "legitimately unavailable until a second observation exists"
+            f"global Set Value advertises a value for {market_date} but no canonical "
+            f"standard set-value row exists for that date"
         )
+        return verdict
+    if value is None or round(value, 2) != round(canonical_set_value, 2):
+        verdict.detail = (
+            f"global Set Value {round(value, 2) if value is not None else value!r} disagrees with "
+            f"the canonical standard set value {round(canonical_set_value, 2)} for {market_date}"
+        )
+        return verdict
+
+    verdict.passed = True
+    verdict.detail = (
+        "single-point current Set Value history; movement windows are "
+        "legitimately unavailable until a second observation exists"
+    )
     return verdict
 
 
