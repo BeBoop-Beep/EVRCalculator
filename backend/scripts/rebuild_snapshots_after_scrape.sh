@@ -131,9 +131,9 @@ fi
 # checks. The resilient runner below wraps these exact verdict semantics and only
 # hardens read transport + the oversized Cards projection.
 CANONICAL_AUDIT_PATH="backend/scripts/audit_pokemon_market_publication.py"
-RESILIENT_AUDIT_PATH="backend/scripts/audit_pokemon_market_publication_resilient.py"
+RESILIENT_AUDIT_MODULE="backend.scripts.audit_pokemon_market_publication_resilient"
 AUDIT_CMD=(
-  "${PYTHON_BIN}" "${RESILIENT_AUDIT_PATH}"
+  "${PYTHON_BIN}" -m "${RESILIENT_AUDIT_MODULE}"
   --phase post-scrape
   --market-date "${MARKET_DATE}"
 )
