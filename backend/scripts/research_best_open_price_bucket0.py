@@ -35,6 +35,7 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
     SORT_AUTHORITY_V12,
     build_budget_strategy_values,
     rank_budget_cohort,
+    rank_by_financial_only,
     score_budget_strategy,
 )
 from backend.db.services.budget_product_ranking_authority import (
@@ -193,6 +194,55 @@ def _verify_v12_parity(rows: Sequence[Mapping[str, Any]], *, label: str) -> dict
 def _competitor(row: Mapping[str, Any], source_rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
     ordered = sorted(source_rows, key=lambda r: int(r["budget_rank_v12"]))
     return ordered[1] if str(row["sealed_product_id"]) == str(ordered[0]["sealed_product_id"]) else ordered[0]
+
+
+def _financial_competitor(row: Mapping[str, Any], source_rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
+    """Financial-only analogue of _competitor(): benchmark by financial_only_rank,
+    not budget_rank_v12. The Financial and RIP benchmarks may be different products."""
+    ordered = sorted(source_rows, key=lambda r: int(r["financial_only_rank"]))
+    return ordered[1] if str(row["sealed_product_id"]) == str(ordered[0]["sealed_product_id"]) else ordered[0]
+
+
+def validate_rank_column_contiguous(rows: Sequence[Mapping[str, Any]], column: str) -> None:
+    """Fail closed unless `column` is an exact 1..N permutation over `rows`.
+
+    Used for both budget_rank_v12 (V1's existing implicit assumption, now made
+    explicit) and financial_only_rank (new for the dual engine) -- a missing,
+    duplicate, or non-contiguous rank column must abort before any expensive
+    search runs, not silently produce a wrong benchmark or cohort-size count.
+    """
+    values = []
+    for row in rows:
+        value = row.get(column)
+        if value is None:
+            raise RuntimeError(f"{column} is missing for sealed_product_id={row.get('sealed_product_id')!r}")
+        values.append(int(value))
+    n = len(values)
+    if sorted(values) != list(range(1, n + 1)):
+        raise RuntimeError(f"{column} is not a contiguous 1..N permutation over {n} rows")
+
+
+def validate_financial_only_rank_reconstructs(source_rows: Sequence[Mapping[str, Any]]) -> None:
+    """Fail closed unless every row's persisted financial_only_rank matches a
+    fresh reconstruction via the canonical rank_by_financial_only() comparator
+    over this exact cohort's financial_rip_v4_score values."""
+    strategies = [
+        {"sealedProductId": str(row["sealed_product_id"]), "financialRipV4Score": row.get("financial_rip_v4_score")}
+        for row in source_rows
+    ]
+    reconstructed = {
+        str(entry["sealedProductId"]): entry["financialOnlyRank"]
+        for entry in rank_by_financial_only(strategies)
+    }
+    for row in source_rows:
+        pid = str(row["sealed_product_id"])
+        persisted = int(row["financial_only_rank"])
+        expected = reconstructed.get(pid)
+        if expected != persisted:
+            raise RuntimeError(
+                f"financial_only_rank does not reconstruct for {pid}: "
+                f"persisted={persisted} reconstructed={expected}"
+            )
 
 
 def _load_exact_source_products(client: Any, source_rows: Sequence[Mapping[str, Any]], price_as_of: str) -> list[dict[str, Any]]:

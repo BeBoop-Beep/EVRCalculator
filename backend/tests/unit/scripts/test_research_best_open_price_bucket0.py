@@ -2,10 +2,13 @@ import pytest
 
 from backend.desirability.weighted_rip import compute_overall_rip_v12
 from backend.scripts.research_best_open_price_bucket0 import (
+    _financial_competitor,
     _historical_authority,
     _verify_v12_parity,
     interval_probe_cents,
     quantity_price_interval_cents,
+    validate_financial_only_rank_reconstructs,
+    validate_rank_column_contiguous,
 )
 
 
@@ -82,3 +85,63 @@ def test_v12_parity_uses_canonical_computation_and_fails_on_any_delta():
     bad["overall_rip_v12_score"] = "0"
     with pytest.raises(RuntimeError, match="parity failed"):
         _verify_v12_parity([bad], label="test")
+
+
+def _financial_row(pid, *, budget_rank_v12=None, financial_only_rank=None, financial_rip_v4_score=None):
+    return {
+        "sealed_product_id": pid,
+        "budget_rank_v12": budget_rank_v12,
+        "financial_only_rank": financial_only_rank,
+        "financial_rip_v4_score": financial_rip_v4_score,
+    }
+
+
+def test_financial_competitor_picks_rank_two_for_the_financial_leader():
+    rows = [_financial_row("a", financial_only_rank=1), _financial_row("b", financial_only_rank=2), _financial_row("c", financial_only_rank=3)]
+    assert _financial_competitor(rows[0], rows)["sealed_product_id"] == "b"
+
+
+def test_financial_competitor_picks_rank_one_for_a_financial_nonleader():
+    rows = [_financial_row("a", financial_only_rank=1), _financial_row("b", financial_only_rank=2), _financial_row("c", financial_only_rank=3)]
+    assert _financial_competitor(rows[1], rows)["sealed_product_id"] == "a"
+    assert _financial_competitor(rows[2], rows)["sealed_product_id"] == "a"
+
+
+def test_validate_rank_column_contiguous_accepts_valid_permutation():
+    rows = [_financial_row("a", budget_rank_v12=2), _financial_row("b", budget_rank_v12=1), _financial_row("c", budget_rank_v12=3)]
+    validate_rank_column_contiguous(rows, "budget_rank_v12")  # must not raise
+
+
+def test_validate_rank_column_contiguous_rejects_missing_value():
+    rows = [_financial_row("a", budget_rank_v12=1), _financial_row("b", budget_rank_v12=None)]
+    with pytest.raises(RuntimeError, match="missing"):
+        validate_rank_column_contiguous(rows, "budget_rank_v12")
+
+
+def test_validate_rank_column_contiguous_rejects_duplicate():
+    rows = [_financial_row("a", budget_rank_v12=1), _financial_row("b", budget_rank_v12=1)]
+    with pytest.raises(RuntimeError, match="contiguous"):
+        validate_rank_column_contiguous(rows, "budget_rank_v12")
+
+
+def test_validate_rank_column_contiguous_rejects_non_contiguous_gap():
+    rows = [_financial_row("a", budget_rank_v12=1), _financial_row("b", budget_rank_v12=3)]
+    with pytest.raises(RuntimeError, match="contiguous"):
+        validate_rank_column_contiguous(rows, "budget_rank_v12")
+
+
+def test_validate_financial_only_rank_reconstructs_accepts_correct_ranks():
+    rows = [
+        _financial_row("high", financial_only_rank=1, financial_rip_v4_score=90.0),
+        _financial_row("low", financial_only_rank=2, financial_rip_v4_score=10.0),
+    ]
+    validate_financial_only_rank_reconstructs(rows)  # must not raise
+
+
+def test_validate_financial_only_rank_reconstructs_rejects_mismatched_rank():
+    rows = [
+        _financial_row("high", financial_only_rank=2, financial_rip_v4_score=90.0),  # wrong: should be 1
+        _financial_row("low", financial_only_rank=1, financial_rip_v4_score=10.0),
+    ]
+    with pytest.raises(RuntimeError, match="does not reconstruct"):
+        validate_financial_only_rank_reconstructs(rows)

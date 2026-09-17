@@ -424,6 +424,39 @@ def _tier_sort_key_v12(entry: Mapping[str, Any]) -> tuple:
     )
 
 
+def financial_only_comparator_key(entry: Mapping[str, Any]) -> tuple:
+    """Financial RIP V4 (desc) -> sealed_product_id (deterministic tie-break).
+
+    The comparator behind rank_by_financial_only(): the same sort key
+    rank_budget_cohort() has always used for its internal financialOnlyRank
+    audit lens, extracted so Best-Open Price V2's FINANCIAL_V4 comparison
+    authority can reuse it directly instead of reimplementing the sort.
+    """
+    financial = entry.get("financialRipV4Score")
+    return (
+        -(financial if financial is not None else float("-inf")),
+        str(entry.get("sealedProductId") or ""),
+    )
+
+
+def rank_by_financial_only(strategies: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Canonical Financial-only comparator.
+
+    Orders the GIVEN strategies by financial_only_comparator_key and assigns
+    1-based ranks. Callers control cohort membership -- this function applies
+    no rankability filter of its own, matching how rank_budget_cohort() has
+    always called this ordering only on its own pre-filtered `rankable` list.
+    Used both by rank_budget_cohort() (for its internal financialOnlyRank
+    audit lens) and by Best-Open Price V2's FINANCIAL_V4 comparison authority
+    for pairwise candidate-vs-benchmark winner determination.
+    """
+    ordered = sorted(strategies, key=financial_only_comparator_key)
+    return [
+        {**entry, "financialOnlyRank": index}
+        for index, entry in enumerate(ordered, start=1)
+    ]
+
+
 def rank_budget_cohort(
     strategies: Sequence[Mapping[str, Any]],
     *,
@@ -470,16 +503,9 @@ def rank_budget_cohort(
     # they need an ordering with appeal removed — validation measured 1.06%
     # inversions under V10 versus 0.044% under this financial-only lens, and
     # confirmed ~98-100% of the V10 inversions are Collector Appeal by design.
-    financial_only = sorted(
-        rankable,
-        key=lambda e: (
-            -(e["financialRipV4Score"] if e.get("financialRipV4Score") is not None else float("-inf")),
-            str(e.get("sealedProductId") or ""),
-        ),
-    )
     financial_only_rank = {
-        str(entry.get("sealedProductId")): index
-        for index, entry in enumerate(financial_only, start=1)
+        str(entry.get("sealedProductId")): entry["financialOnlyRank"]
+        for entry in rank_by_financial_only(rankable)
     }
 
     out = []
