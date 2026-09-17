@@ -128,7 +128,7 @@ if [[ "${REFRESH_STATUS}" -ne 0 ]]; then
 fi
 
 AUDIT_CMD=(
-  "${PYTHON_BIN}" backend/scripts/audit_pokemon_market_publication.py
+  "${PYTHON_BIN}" backend/scripts/audit_pokemon_market_publication_resilient.py
   --phase post-scrape
   --market-date "${MARKET_DATE}"
 )
@@ -138,7 +138,7 @@ AUDIT_STATUS=0
 log "audit exit_status=${AUDIT_STATUS}"
 
 if [[ "${AUDIT_STATUS}" -ne 0 ]]; then
-  log "post-scrape market audit FAILED: a market surface is not on ${MARKET_DATE}"
+  log "post-scrape market audit FAILED or could not complete for ${MARKET_DATE}"
   log "final exit_status=${AUDIT_STATUS}"
   exit "${AUDIT_STATUS}"
 fi
